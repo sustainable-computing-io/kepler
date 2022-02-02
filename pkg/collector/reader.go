@@ -20,11 +20,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
 	"github.com/sustainable-computing-io/kepler/pkg/rapl"
@@ -55,12 +54,10 @@ type PodEnergy struct {
 	LastCPUInstr    uint64
 	LastCacheMisses uint64
 
-	EnergyInCore     int
-	EnergyInDram     int
-	LastEnergyInCore int
-	LastEnergyInDram int
-
-	desc *prometheus.Desc
+	EnergyInCore     uint64
+	EnergyInDram     uint64
+	LastEnergyInCore uint64
+	LastEnergyInDram uint64
 }
 
 const (
@@ -85,8 +82,8 @@ func (c *Collector) reader() {
 			case <-ticker.C:
 				energyCore, _ := rapl.GetEnergyFromCore()
 				energyDram, _ := rapl.GetEnergyFromDram()
-				coreDiff := energyCore - lastEnergyCore
-				dramDiff := energyDram - lastEnergyDram
+				coreDiff := uint64(energyCore - lastEnergyCore)
+				dramDiff := uint64(energyDram - lastEnergyDram)
 				lastEnergyCore = energyCore
 				lastEnergyDram = energyDram
 				cpuTime = 0
@@ -112,10 +109,12 @@ func (c *Collector) reader() {
 						comm := (*C.char)(unsafe.Pointer(&ct.Command))
 
 						meta, err := pod_lister.CgroupToPod(path)
-						podName := "system processes"
+						podName := "system_processes"
 						if meta != nil && err == nil {
-							podName = meta.Namespace + "/" + meta.Name
+							podName = meta.Namespace + "_" + meta.Name
 						}
+						// podName is used as Prometheus desc name, normalize it
+						podName = strings.Replace(podName, "-", "_", -1)
 						if _, ok := podEnergy[podName]; !ok {
 							podEnergy[podName] = &PodEnergy{}
 							if meta != nil && err == nil {
@@ -151,19 +150,21 @@ func (c *Collector) reader() {
 				lastCPUCycles = cpuCycles
 				lastCPUTime = cpuTime
 				lastCacheMisses = cacheMisses
-				energyPerCycle := coreDiff / int(cpuCyclesDiff)
-				energyPerCacheMiss := 0
-				if cacheMissesDiff > 0 {
-					energyPerCacheMiss = dramDiff / int(cacheMissesDiff)
+				cyclesPerMW := (cpuCyclesDiff) / coreDiff
+				cacheMissPerMW := uint64(0)
+				if cacheMissesDiff > 0 && dramDiff > 0 {
+					cacheMissPerMW = cacheMissesDiff / dramDiff
 				}
 
 				log.Printf("energy from: core %d dram: %d time %d cycles %d misses %d\n", coreDiff, dramDiff, cpuTimeDiff, cpuCyclesDiff, cacheMissesDiff)
 
 				for _, v := range podEnergy {
-					v.LastEnergyInCore = v.EnergyInCore
-					v.EnergyInCore = int(v.CPUCycles) * energyPerCycle
-					v.LastEnergyInDram = v.EnergyInDram
-					v.EnergyInDram = int(v.CacheMisses) * energyPerCacheMiss
+					v.EnergyInCore = (v.CPUCycles) / cyclesPerMW
+					v.LastEnergyInCore += v.EnergyInCore
+					if cacheMissPerMW > 0 {
+						v.EnergyInDram = (v.CacheMisses) / cacheMissPerMW
+					}
+					v.LastEnergyInDram += v.EnergyInDram
 				}
 				lock.Unlock()
 			}

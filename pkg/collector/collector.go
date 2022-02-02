@@ -18,6 +18,7 @@ package collector
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 
@@ -45,7 +46,7 @@ func (c *Collector) Attach() error {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
 	defer lock.Unlock()
-	for k, v := range podEnergy {
+	for k, _ := range podEnergy {
 		desc := prometheus.NewDesc(
 			"pod_stat_"+k,
 			"Pod energy consumption status",
@@ -68,7 +69,6 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 			},
 			nil,
 		)
-		v.desc = desc
 		ch <- desc
 	}
 }
@@ -76,18 +76,40 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	lock.Lock()
 	defer lock.Unlock()
-	for _, v := range podEnergy {
+	for k, v := range podEnergy {
+		de := prometheus.NewDesc(
+			"pod_stat_"+k,
+			"Pod energy consumption status",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+				"last_cpu_time",
+				"curr_cpu_time",
+				"last_cpu_cycles",
+				"curr_cpu_cycles",
+				"last_cpu_instructions",
+				"curr_cpu_instructions",
+				"last_cache_misses",
+				"curr_cache_misses",
+				"last_energy_in_core",
+				"curr_energy_in_core",
+				"last_energy_in_dram",
+				"curr_energy_in_dram",
+			},
+			nil,
+		)
 		desc := prometheus.MustNewConstMetric(
-			v.desc,
+			de,
 			prometheus.CounterValue,
-			float64(v.EnergyInCore+v.EnergyInDram),
+			float64(v.LastEnergyInCore+v.LastEnergyInDram),
 			v.Pod, v.Namespace, v.Command,
-			string(v.LastCPUTime), string(v.CPUTime),
-			string(v.LastCPUCycles), string(v.CPUCycles),
-			string(v.LastCPUInstr), string(v.CPUInstr),
-			string(v.LastCacheMisses), string(v.CacheMisses),
-			string(v.LastEnergyInCore), string(v.EnergyInCore),
-			string(v.LastEnergyInDram), string(v.EnergyInDram),
+			strconv.FormatUint(v.LastCPUTime, 10), strconv.FormatUint(v.CPUTime, 10),
+			strconv.FormatUint(v.LastCPUCycles, 10), strconv.FormatUint(v.CPUCycles, 10),
+			strconv.FormatUint(v.LastCPUInstr, 10), strconv.FormatUint(v.CPUInstr, 10),
+			strconv.FormatUint(v.LastCacheMisses, 10), strconv.FormatUint(v.CacheMisses, 10),
+			strconv.FormatUint(v.LastEnergyInCore, 10), strconv.FormatUint(v.EnergyInCore, 10),
+			strconv.FormatUint(v.LastEnergyInDram, 10), strconv.FormatUint(v.EnergyInDram, 10),
 		)
 		ch <- desc
 	}
