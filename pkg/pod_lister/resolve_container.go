@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strings"
 
+	bpf "github.com/iovisor/gobpf/bcc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,12 +34,14 @@ var (
 	cgroupMaps = map[string]*metav1.ObjectMeta{}
 	re         = regexp.MustCompile(`crio-(.*?)\.scope`)
 	cgroupPath = "/sys/fs/cgroup/unified"
+	byteOrder  binary.ByteOrder
 )
 
 func init() {
 	if _, err := os.Stat(cgroupPath); os.IsNotExist(err) {
 		cgroupPath = "/sys/fs/cgroup"
 	}
+	byteOrder = bpf.GetHostByteOrder()
 }
 
 func CgroupToPod(path string) (*metav1.ObjectMeta, error) {
@@ -99,15 +102,16 @@ func CgroupIdToName(cgroupId uint64) (string, error) {
 		if err != nil {
 			return fmt.Errorf("Error resolving handle: %v", err)
 		}
-		cache[binary.LittleEndian.Uint64(handle.Bytes())] = path
+		cache[byteOrder.Uint64(handle.Bytes())] = path
 		return nil
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("cannot find cgroup id: %v", err)
+		return "", fmt.Errorf("failed to find cgroup id: %v", err)
 	}
 	if p, ok := cache[cgroupId]; ok {
 		return p, nil
 	}
-	return "", fmt.Errorf("cannot find cgroup id")
+	cache[cgroupId] = "unknown"
+	return cache[cgroupId], nil
 }
