@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"golang.org/x/sys/unix"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -33,14 +33,11 @@ var (
 	cache      = map[uint64]string{}
 	cgroupMaps = map[string]*metav1.ObjectMeta{}
 	re         = regexp.MustCompile(`crio-(.*?)\.scope`)
-	cgroupPath = "/sys/fs/cgroup/unified"
+	cgroupPath = "/sys/fs/cgroup"
 	byteOrder  binary.ByteOrder
 )
 
 func init() {
-	if _, err := os.Stat(cgroupPath); os.IsNotExist(err) {
-		cgroupPath = "/sys/fs/cgroup"
-	}
 	byteOrder = bpf.GetHostByteOrder()
 }
 
@@ -84,20 +81,22 @@ func CgroupToPod(path string) (*metav1.ObjectMeta, error) {
 	}
 	return nil, nil
 }
+
+// CgroupIdToName uses cgroupfs to get cgroup path from id
+// it needs cgroup v2 (per https://github.com/iovisor/bpftrace/issues/950) and kernel 4.18+ (https://github.com/torvalds/linux/commit/bf6fa2c893c5237b48569a13fa3c673041430b6c)
 func CgroupIdToName(cgroupId uint64) (string, error) {
 	if p, ok := cache[cgroupId]; ok {
 		return p, nil
 	}
 
-	err := filepath.Walk(cgroupPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(cgroupPath, func(path string, dentry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if !info.IsDir() {
+		if !dentry.IsDir() {
 			return nil
 		}
-
 		handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
 		if err != nil {
 			return fmt.Errorf("Error resolving handle: %v", err)
