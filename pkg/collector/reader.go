@@ -84,6 +84,9 @@ func (c *Collector) reader() {
 				energyDram, _ := rapl.GetEnergyFromDram()
 				coreDiff := uint64(energyCore - lastEnergyCore)
 				dramDiff := uint64(energyDram - lastEnergyDram)
+				if coreDiff == 0 {
+					coreDiff = 1
+				}
 				lastEnergyCore = energyCore
 				lastEnergyDram = energyDram
 				cpuTime = 0
@@ -150,19 +153,19 @@ func (c *Collector) reader() {
 				lastCPUCycles = cpuCycles
 				lastCPUTime = cpuTime
 				lastCacheMisses = cacheMisses
-				cyclesPerMW := (cpuCyclesDiff) / coreDiff
-				cacheMissPerMW := uint64(0)
+				cyclesPerMW := float64(cpuCyclesDiff / coreDiff)
+				cacheMissPerMW := float64(0)
 				if cacheMissesDiff > 0 && dramDiff > 0 {
-					cacheMissPerMW = cacheMissesDiff / dramDiff
+					cacheMissPerMW = float64(cacheMissesDiff / dramDiff)
 				}
 
 				log.Printf("energy from: core %d dram: %d time %d cycles %d misses %d\n", coreDiff, dramDiff, cpuTimeDiff, cpuCyclesDiff, cacheMissesDiff)
 
 				for _, v := range podEnergy {
-					v.EnergyInCore = (v.CPUCycles) / cyclesPerMW
+					v.EnergyInCore = uint64(float64(v.CPUCycles) / cyclesPerMW)
 					v.LastEnergyInCore += v.EnergyInCore
 					if cacheMissPerMW > 0 {
-						v.EnergyInDram = (v.CacheMisses) / cacheMissPerMW
+						v.EnergyInDram = uint64(float64(v.CacheMisses) / cacheMissPerMW)
 					}
 					v.LastEnergyInDram += v.EnergyInDram
 				}

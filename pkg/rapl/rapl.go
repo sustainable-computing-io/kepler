@@ -34,17 +34,16 @@ var (
 	maxSockets = 4
 )
 
-func getEnergy(base string) (int, error) {
-	energy := 0
+func getEnergy(base string) (uint64, error) {
+	energy := uint64(0)
 	i := 0
 	for i = 0; i < maxSockets; i++ {
 		path := fmt.Sprintf(base, i, i)
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			maxSockets = i
 			break
 		}
-		count, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
 			energy += count
 		}
@@ -52,20 +51,20 @@ func getEnergy(base string) (int, error) {
 	return energy, nil
 }
 
-func GetEnergyFromDram() (int, error) {
+func GetEnergyFromDram() (uint64, error) {
 	return getEnergy(dramPath)
 }
 
-func GetEnergyFromCore() (int, error) {
+func GetEnergyFromCore() (uint64, error) {
 	return getEnergy(corePath)
 }
 
-func GetEnergyFromUncore() (int, error) {
+func GetEnergyFromUncore() (uint64, error) {
 	return getEnergy(uncorePath)
 }
 
-func GetEnergyFromPackage() (int, error) {
-	energy := 0
+func GetEnergyFromPackage() (uint64, error) {
+	energy := uint64(0)
 	i := 0
 	for i = 0; i < maxSockets; i++ {
 		path := fmt.Sprintf(packagePath, i)
@@ -74,7 +73,7 @@ func GetEnergyFromPackage() (int, error) {
 			maxSockets = i
 			break
 		}
-		count, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
 			energy += count
 		}
