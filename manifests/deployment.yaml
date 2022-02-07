@@ -1,8 +1,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kepler-node-clusterrole
-  namespace: default
+  name: kepler-clusterrole
+  namespace: monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -17,44 +17,43 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kepler-node-clusterrole-binding
-  namespace: default
+  name: kepler-clusterrole-binding
+  namespace: monitoring
 roleRef:
   kind: ClusterRole
-  name: kepler-node-clusterrole
+  name: kepler-clusterrole
   apiGroup: "rbac.authorization.k8s.io"
 subjects:
 - kind: ServiceAccount
-  name: kepler-node-sa
-  namespace: default
+  name: kepler-sa
+  namespace: monitoring
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kepler-node-sa
-  namespace: default
+  name: kepler-sa
+  namespace: monitoring
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kepler-node-daemon
-  namespace: default
+  name: kepler-exporter
+  namespace: monitoring
 spec:
   selector:
     matchLabels:
-      name: kepler-node-daemon
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: kepler-exporter
   template:
     metadata:
       labels:
-        name: kepler-node-daemon
-      annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '9102'        
+        app.kubernetes.io/component: exporter
+        app.kubernetes.io/name: kepler-exporter
     spec:
       hostNetwork: true
-      serviceAccountName: kepler-node-sa
+      serviceAccountName: kepler-sa
       containers:
-      - name: kepler-node-daemon
+      - name: kepler-exporter
         image: quay.io/sustainable_computing_io/kepler:latest
         imagePullPolicy: Always
         securityContext:
@@ -65,6 +64,8 @@ spec:
         - 0.0.0.0:9102
         ports:
         - containerPort: 9102
+          hostPort: 9102
+          name: http
         volumeMounts:
         - mountPath: /lib/modules
           name: lib-modules
@@ -84,3 +85,21 @@ spec:
         hostPath:
           path: /sys
           type: Directory
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: kepler-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kepler-exporter
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kepler-exporter
+  ports:
+  - name: http
+    port: 9102
+    targetPort: http
