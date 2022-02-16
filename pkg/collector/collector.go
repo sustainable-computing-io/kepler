@@ -76,9 +76,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	lock.Lock()
 	defer lock.Unlock()
-	for k, v := range podEnergy {
+	for _, v := range podEnergy {
 		de := prometheus.NewDesc(
-			"pod_stat_"+k,
+			"pod_energy_stat",
 			"Pod energy consumption status",
 			[]string{
 				"pod_name",
