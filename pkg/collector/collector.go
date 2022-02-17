@@ -76,10 +76,10 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	lock.Lock()
 	defer lock.Unlock()
-	for k, v := range podEnergy {
+	for _, v := range podEnergy {
 		de := prometheus.NewDesc(
-			"pod_stat_"+k,
-			"Pod energy consumption status",
+			"pod_energy_total",
+			"Pod total energy consumption",
 			[]string{
 				"pod_name",
 				"pod_namespace",
@@ -112,6 +112,24 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.LastEnergyInDram, 10), strconv.FormatUint(v.EnergyInDram, 10),
 		)
 		ch <- desc
+
+		de_current := prometheus.NewDesc(
+			"pod_energy_current",
+			"Pod current energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_current := prometheus.MustNewConstMetric(
+			de_current,
+			prometheus.CounterValue,
+			float64(v.EnergyInCore+v.EnergyInDram),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_current
 	}
 }
 
