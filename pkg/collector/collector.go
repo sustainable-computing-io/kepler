@@ -78,8 +78,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	defer lock.Unlock()
 	for _, v := range podEnergy {
 		de := prometheus.NewDesc(
-			"pod_energy_total",
-			"Pod total energy consumption",
+			"pod_energy_stat",
+			"Pod energy consumption stats",
 			[]string{
 				"pod_name",
 				"pod_namespace",
@@ -113,6 +113,26 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		ch <- desc
 
+		// de_total and desc_total give indexable values for total energy consumptions for all pods
+		de_total := prometheus.NewDesc(
+			"pod_energy_total",
+			"Pod current energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_total := prometheus.MustNewConstMetric(
+			de_total,
+			prometheus.CounterValue,
+			float64(v.EnergyInCore+v.EnergyInDram),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_total
+
+		// de_current and desc_current give indexable values for current energy consumptions (in 3 seconds) for all pods
 		de_current := prometheus.NewDesc(
 			"pod_energy_current",
 			"Pod current energy consumption",
@@ -130,6 +150,82 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			v.Pod, v.Namespace, v.Command,
 		)
 		ch <- desc_current
+
+		// de_cpu_current and desc_cpu_current give indexable values for current CPU energy consumptions (in 3 seconds) for all pods
+		de_cpu_current := prometheus.NewDesc(
+			"pod_cpu_energy_current",
+			"Pod CPU energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_cpu_current := prometheus.MustNewConstMetric(
+			de_cpu_current,
+			prometheus.CounterValue,
+			float64(v.EnergyInCore),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_cpu_current
+
+		// de_cpu_total and desc_cpu_total give indexable values for total CPU energy consumptions for all pods
+		de_cpu_total := prometheus.NewDesc(
+			"pod_cpu_energy_total",
+			"Pod CPU total energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_cpu_total := prometheus.MustNewConstMetric(
+			de_cpu_total,
+			prometheus.CounterValue,
+			float64(v.LastEnergyInCore),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_cpu_total
+
+		// de_dram_current and desc_dram_current give indexable values for current DRAM energy consumptions (in 3 seconds) for all pods
+		de_dram_current := prometheus.NewDesc(
+			"pod_dram_energy_current",
+			"Pod DRAM energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_dram_current := prometheus.MustNewConstMetric(
+			de_dram_current,
+			prometheus.CounterValue,
+			float64(v.EnergyInDram),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_dram_current
+
+		// de_dram_total and desc_dram_total give indexable values for total DRAM energy consumptions for all pods
+		de_dram_total := prometheus.NewDesc(
+			"pod_dram_energy_total",
+			"Pod DRAM total energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+				"command",
+			},
+			nil,
+		)
+		desc_dram_total := prometheus.MustNewConstMetric(
+			de_dram_total,
+			prometheus.CounterValue,
+			float64(v.LastEnergyInDram),
+			v.Pod, v.Namespace, v.Command,
+		)
+		ch <- desc_dram_total
 	}
 }
 
