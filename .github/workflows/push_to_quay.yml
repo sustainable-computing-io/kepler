@@ -25,4 +25,4 @@ jobs:
           password: ${{ secrets.BOT_TOKEN }}      
 
     - name: push to quay
-      run: docker push quay.io/sustainable_computing_io/kepler:latest
+      run: podman push quay.io/sustainable_computing_io/kepler:latest
