@@ -13,9 +13,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    
-    - name: configure
-      run: ./configure
       
     - name: Install dependencies
       run: make
