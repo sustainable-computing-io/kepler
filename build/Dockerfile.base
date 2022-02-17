@@ -1,0 +1,5 @@
+FROM fedora:35
+
+ARG ARCH=amd64
+
+RUN yum update -y && yum install -y bcc bcc-devel kmod xz && yum clean all -y 

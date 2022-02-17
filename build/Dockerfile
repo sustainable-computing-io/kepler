@@ -18,13 +18,9 @@ COPY . .
 RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 
 # build image
-FROM fedora:35
+FROM quay.io/sustainable_computing_io/kepler_base:latest
 
 ARG ARCH=amd64
-
-RUN yum update -y && yum install -y bcc bcc-devel && yum clean all -y 
-
-RUN yum install -y kmod xz
 
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/linux_$ARCH/kepler /usr/bin/kepler
 
