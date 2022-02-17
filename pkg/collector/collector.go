@@ -120,7 +120,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -128,7 +127,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_total,
 			prometheus.CounterValue,
 			float64(v.EnergyInCore+v.EnergyInDram),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_total
 
@@ -139,7 +138,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -147,7 +145,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_current,
 			prometheus.CounterValue,
 			float64(v.EnergyInCore+v.EnergyInDram),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_current
 
@@ -158,7 +156,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -166,7 +163,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_cpu_current,
 			prometheus.CounterValue,
 			float64(v.EnergyInCore),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_cpu_current
 
@@ -177,7 +174,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -185,7 +181,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_cpu_total,
 			prometheus.CounterValue,
 			float64(v.LastEnergyInCore),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_cpu_total
 
@@ -196,7 +192,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -204,7 +199,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_dram_current,
 			prometheus.CounterValue,
 			float64(v.EnergyInDram),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_dram_current
 
@@ -215,7 +210,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			[]string{
 				"pod_name",
 				"pod_namespace",
-				"command",
 			},
 			nil,
 		)
@@ -223,7 +217,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			de_dram_total,
 			prometheus.CounterValue,
 			float64(v.LastEnergyInDram),
-			v.Pod, v.Namespace, v.Command,
+			v.Pod, v.Namespace,
 		)
 		ch <- desc_dram_total
 	}
