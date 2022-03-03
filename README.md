@@ -1,6 +1,8 @@
 # kepler
 Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy related system stats and exports as Prometheus metrics
 
+# Architecture
+![Architecture](doc/kepler-arch.png)
 # Requirement
 Kernel 4.18+, Cgroup V2
 
@@ -35,3 +37,7 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 # cd ../kepler
 # kubectl create -f manifests/keplerExporter-serviceMonitor.yaml
 ```
+
+## Sample Grafana dashboard
+
+ ![Sample Grafana dashboard](doc/dashboard.png)
