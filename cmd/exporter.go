@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/rapl"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -50,6 +51,7 @@ func main() {
 		log.Fatalf("failed to attach : %v", err)
 	}
 	defer collector.Destroy()
+	defer rapl.StopRAPL()
 	err = prometheus.Register(collector)
 	if err != nil {
 		log.Fatalf("failed to register collector: %v", err)
