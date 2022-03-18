@@ -46,7 +46,7 @@ func getEnergy(base string) (uint64, error) {
 		}
 		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			energy += count
+			energy += count / 1000 /*mJ*/
 		}
 	}
 	return energy, nil
@@ -56,10 +56,7 @@ type raplSysfs struct{}
 
 func (r *raplSysfs) IsSupported() bool {
 	_, err := GetEnergyFromCore()
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (r *raplSysfs) GetEnergyFromDram() (uint64, error) {
@@ -86,7 +83,7 @@ func (r *raplSysfs) GetEnergyFromPackage() (uint64, error) {
 		}
 		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			energy += count
+			energy += count / 1000 /*mJ*/
 		}
 	}
 	return energy, nil

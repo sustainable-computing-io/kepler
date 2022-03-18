@@ -159,7 +159,7 @@ func InitUnits() error {
 		}
 		powerUnits = math.Pow(0.5, float64((result & 0xf)))
 		timeUnits = math.Pow(0.5, float64(((result >> 16) & 0xf)))
-		cpuEnergyUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
+		cpuEnergyUnits[i] = 1 / math.Pow(2, float64((result&0x1f00)>>8))
 		dramEnergyUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
 		i = i + 1
 	}
@@ -179,7 +179,7 @@ func ReadCorePower(packageId int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp0 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageId] * float64(result)), nil
+	return uint64(cpuEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadUncorePower(packageId int) (uint64, error) {
@@ -187,7 +187,7 @@ func ReadUncorePower(packageId int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp1 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageId] * float64(result)), nil
+	return uint64(cpuEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadDramPower(packageId int) (uint64, error) {
@@ -195,7 +195,7 @@ func ReadDramPower(packageId int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read dram energy: %v", err)
 	}
-	return uint64(dramEnergyUnits[packageId] * float64(result)), nil
+	return uint64(dramEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
@@ -208,6 +208,5 @@ func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 		energy += result
 		i = i + 1
 	}
-	//fmt.Printf("energy %v\n", energy)
 	return energy, nil
 }
