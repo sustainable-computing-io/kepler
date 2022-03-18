@@ -18,65 +18,55 @@ package rapl
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strconv"
-	"strings"
 )
 
-const (
-	corePath    = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:0/energy_uj"
-	dramPath    = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:1/energy_uj"
-	uncorePath  = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:2/energy_uj"
-	packagePath = "/sys/class/powercap/intel-rapl/intel-rapl:%d/energy_uj"
-)
+type raplInterface interface {
+	GetEnergyFromDram() (uint64, error)
+	GetEnergyFromCore() (uint64, error)
+	GetEnergyFromUncore() (uint64, error)
+	GetEnergyFromPackage() (uint64, error)
+	StopRAPL()
+	IsSupported() bool
+}
 
 var (
-	maxSockets = 4
+	dummyImpl               = &raplDummy{}
+	sysfsImpl               = &raplSysfs{}
+	msrImpl                 = &raplMSR{}
+	raplImpl  raplInterface = sysfsImpl
 )
 
-func getEnergy(base string) (uint64, error) {
-	energy := uint64(0)
-	i := 0
-	for i = 0; i < maxSockets; i++ {
-		path := fmt.Sprintf(base, i, i)
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			break
-		}
-		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
-		if err == nil {
-			energy += count
+func init() {
+	if sysfsImpl.IsSupported() /*&& false*/ {
+		fmt.Println("use syfs to obtain RAPL")
+		raplImpl = sysfsImpl
+	} else {
+		if msrImpl.IsSupported() {
+			fmt.Println("use MSR to obtain RAPL")
+			raplImpl = msrImpl
+		} else {
+			fmt.Println("RAPL not supported")
+			raplImpl = dummyImpl
 		}
 	}
-	return energy, nil
 }
 
 func GetEnergyFromDram() (uint64, error) {
-	return getEnergy(dramPath)
+	return raplImpl.GetEnergyFromDram()
 }
 
 func GetEnergyFromCore() (uint64, error) {
-	return getEnergy(corePath)
+	return raplImpl.GetEnergyFromCore()
 }
 
 func GetEnergyFromUncore() (uint64, error) {
-	return getEnergy(uncorePath)
+	return raplImpl.GetEnergyFromUncore()
 }
 
 func GetEnergyFromPackage() (uint64, error) {
-	energy := uint64(0)
-	i := 0
-	for i = 0; i < maxSockets; i++ {
-		path := fmt.Sprintf(packagePath, i)
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			maxSockets = i
-			break
-		}
-		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
-		if err == nil {
-			energy += count
-		}
-	}
-	return energy, nil
+	return raplImpl.GetEnergyFromPackage()
+}
+
+func StopRAPL() {
+	raplImpl.StopRAPL()
 }
