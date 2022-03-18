@@ -55,7 +55,8 @@ func getEnergy(base string) (uint64, error) {
 type raplSysfs struct{}
 
 func (r *raplSysfs) IsSupported() bool {
-	_, err := GetEnergyFromCore()
+	path := fmt.Sprintf(corePath, 0, 0)
+	_, err := ioutil.ReadFile(path)
 	return err == nil
 }
 

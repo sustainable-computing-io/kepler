@@ -38,7 +38,7 @@ var (
 
 func init() {
 	if sysfsImpl.IsSupported() /*&& false*/ {
-		fmt.Println("use syfs to obtain RAPL")
+		fmt.Println("use sysfs to obtain RAPL")
 		raplImpl = sysfsImpl
 	} else {
 		if msrImpl.IsSupported() {
