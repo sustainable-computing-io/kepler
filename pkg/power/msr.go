@@ -14,29 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rapl
+package power
 
-type raplDummy struct{}
+type raplMSR struct{}
 
-func (r *raplDummy) IsSupported() bool {
-	return true
+func (r *raplMSR) IsSupported() bool {
+	return InitUnits() == nil
 }
 
-func (r *raplDummy) StopRAPL() {
+func (r *raplMSR) GetEnergyFromDram() (uint64, error) {
+	return ReadAllPower(ReadDramPower)
 }
 
-func (r *raplDummy) GetEnergyFromDram() (uint64, error) {
-	return 0, nil
+func (r *raplMSR) GetEnergyFromCore() (uint64, error) {
+	return ReadAllPower(ReadCorePower)
 }
 
-func (r *raplDummy) GetEnergyFromCore() (uint64, error) {
-	return 0, nil
+func (r *raplMSR) GetEnergyFromUncore() (uint64, error) {
+	return ReadAllPower(ReadUncorePower)
 }
 
-func (r *raplDummy) GetEnergyFromUncore() (uint64, error) {
-	return 0, nil
+func (r *raplMSR) GetEnergyFromPackage() (uint64, error) {
+	return ReadAllPower(ReadPkgPower)
 }
 
-func (r *raplDummy) GetEnergyFromPackage() (uint64, error) {
-	return 0, nil
+func (r *raplMSR) StopPower() {
+	CloseAllMSR()
 }

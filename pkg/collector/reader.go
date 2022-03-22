@@ -26,7 +26,7 @@ import (
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
-	"github.com/sustainable-computing-io/kepler/pkg/rapl"
+	"github.com/sustainable-computing-io/kepler/pkg/power"
 )
 
 import "C"
@@ -73,15 +73,15 @@ func (c *Collector) reader() {
 	ticker := time.NewTicker(samplePeriod)
 	go func() {
 		var ct CgroupTime
-		lastEnergyCore, _ := rapl.GetEnergyFromCore()
-		lastEnergyDram, _ := rapl.GetEnergyFromDram()
+		lastEnergyCore, _ := power.GetEnergyFromCore()
+		lastEnergyDram, _ := power.GetEnergyFromDram()
 		var lastCPUTime, lastCPUCycles, lastCacheMisses, cpuTime, cpuCycles, cacheMisses uint64
 
 		for {
 			select {
 			case <-ticker.C:
-				energyCore, _ := rapl.GetEnergyFromCore()
-				energyDram, _ := rapl.GetEnergyFromDram()
+				energyCore, _ := power.GetEnergyFromCore()
+				energyDram, _ := power.GetEnergyFromDram()
 				coreDiff := uint64(energyCore - lastEnergyCore)
 				dramDiff := uint64(energyDram - lastEnergyDram)
 				if coreDiff == 0 {
