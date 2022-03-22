@@ -14,59 +14,59 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rapl
+package power
 
 import (
 	"fmt"
 )
 
-type raplInterface interface {
+type powerInterface interface {
 	GetEnergyFromDram() (uint64, error)
 	GetEnergyFromCore() (uint64, error)
 	GetEnergyFromUncore() (uint64, error)
 	GetEnergyFromPackage() (uint64, error)
-	StopRAPL()
+	StopPower()
 	IsSupported() bool
 }
 
 var (
-	dummyImpl               = &raplDummy{}
-	sysfsImpl               = &raplSysfs{}
-	msrImpl                 = &raplMSR{}
-	raplImpl  raplInterface = sysfsImpl
+	dummyImpl                = &powerDummy{}
+	sysfsImpl                = &raplSysfs{}
+	msrImpl                  = &raplMSR{}
+	powerImpl powerInterface = sysfsImpl
 )
 
 func init() {
-	if sysfsImpl.IsSupported() /*&& false*/ {
-		fmt.Println("use sysfs to obtain RAPL")
-		raplImpl = sysfsImpl
+	if sysfsImpl.IsSupported() /*&& false */ {
+		fmt.Println("use sysfs to obtain power")
+		powerImpl = sysfsImpl
 	} else {
 		if msrImpl.IsSupported() {
-			fmt.Println("use MSR to obtain RAPL")
-			raplImpl = msrImpl
+			fmt.Println("use MSR to obtain power")
+			powerImpl = msrImpl
 		} else {
-			fmt.Println("RAPL not supported")
-			raplImpl = dummyImpl
+			fmt.Println("power not supported")
+			powerImpl = dummyImpl
 		}
 	}
 }
 
 func GetEnergyFromDram() (uint64, error) {
-	return raplImpl.GetEnergyFromDram()
+	return powerImpl.GetEnergyFromDram()
 }
 
 func GetEnergyFromCore() (uint64, error) {
-	return raplImpl.GetEnergyFromCore()
+	return powerImpl.GetEnergyFromCore()
 }
 
 func GetEnergyFromUncore() (uint64, error) {
-	return raplImpl.GetEnergyFromUncore()
+	return powerImpl.GetEnergyFromUncore()
 }
 
 func GetEnergyFromPackage() (uint64, error) {
-	return raplImpl.GetEnergyFromPackage()
+	return powerImpl.GetEnergyFromPackage()
 }
 
-func StopRAPL() {
-	raplImpl.StopRAPL()
+func StopPower() {
+	powerImpl.StopPower()
 }

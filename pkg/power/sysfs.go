@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rapl
+package power
 
 import (
 	"fmt"
@@ -90,5 +90,5 @@ func (r *raplSysfs) GetEnergyFromPackage() (uint64, error) {
 	return energy, nil
 }
 
-func (r *raplSysfs) StopRAPL() {
+func (r *raplSysfs) StopPower() {
 }
