@@ -21,32 +21,42 @@ import (
 )
 
 type powerInterface interface {
+	// GetEnergyFromDram returns mJ in DRAM
 	GetEnergyFromDram() (uint64, error)
+	// GetEnergyFromDram returns mJ in CPU cores
 	GetEnergyFromCore() (uint64, error)
+	// GetEnergyFromDram returns mJ in uncore (i.e. iGPU)
 	GetEnergyFromUncore() (uint64, error)
+	// GetEnergyFromDram returns mJ in package
 	GetEnergyFromPackage() (uint64, error)
 	StopPower()
 	IsSupported() bool
 }
 
 var (
-	dummyImpl                = &powerDummy{}
-	sysfsImpl                = &raplSysfs{}
-	msrImpl                  = &raplMSR{}
-	powerImpl powerInterface = sysfsImpl
+	dummyImpl                   = &powerDummy{}
+	sysfsImpl                   = &raplSysfs{}
+	msrImpl                     = &raplMSR{}
+	estimateImpl                = &powerEstimate{}
+	powerImpl    powerInterface = sysfsImpl
 )
 
 func init() {
-	if sysfsImpl.IsSupported() /*&& false */ {
+	if sysfsImpl.IsSupported() /*&& false*/ {
 		fmt.Println("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
-		if msrImpl.IsSupported() {
+		if msrImpl.IsSupported() /*&& false*/ {
 			fmt.Println("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
-			fmt.Println("power not supported")
-			powerImpl = dummyImpl
+			if estimateImpl.IsSupported() {
+				fmt.Println("use power estimate to obtain power")
+				powerImpl = estimateImpl
+			} else {
+				fmt.Println("power not supported")
+				powerImpl = dummyImpl
+			}
 		}
 	}
 }
