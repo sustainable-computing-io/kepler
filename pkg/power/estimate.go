@@ -44,7 +44,7 @@ var (
 	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64
 
 	cpuModelRegex = []string{
-		"( i[-a-zA-Z0-9]+ )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz"
+		"( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz"
 	}
 	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
 )
