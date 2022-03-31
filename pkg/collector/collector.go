@@ -126,7 +126,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_total := prometheus.MustNewConstMetric(
 			de_total,
 			prometheus.CounterValue,
-			float64(v.EnergyInCore+v.EnergyInDram),
+			float64(v.LastEnergyInCore+v.LastEnergyInDram),
 			v.Pod, v.Namespace,
 		)
 		ch <- desc_total
