@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	maxSockets = 128
+	maxSockets = 4
 )
 
 func getEnergy(base string) (uint64, error) {
@@ -40,13 +40,11 @@ func getEnergy(base string) (uint64, error) {
 	for i = 0; i < maxSockets; i++ {
 		path := fmt.Sprintf(base, i, i)
 		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			maxSockets = i
-			break
-		}
-		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			energy += count / 1000 /*mJ*/
+			count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+			if err == nil {
+				energy += count / 1000 /*mJ*/
+			}
 		}
 	}
 	return energy, nil
@@ -78,13 +76,11 @@ func (r *raplSysfs) GetEnergyFromPackage() (uint64, error) {
 	for i = 0; i < maxSockets; i++ {
 		path := fmt.Sprintf(packagePath, i)
 		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			maxSockets = i
-			break
-		}
-		count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			energy += count / 1000 /*mJ*/
+			count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+			if err == nil {
+				energy += count / 1000 /*mJ*/
+			}
 		}
 	}
 	return energy, nil
