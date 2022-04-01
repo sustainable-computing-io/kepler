@@ -125,10 +125,10 @@ func ReadMSR(packageId int, msr int64) (uint64, error) {
 	}
 	buf := make([]byte, 8)
 	core := packageMap[packageId]
-	if core == -1 || fds[core] == 0 {
+	if core == -1 || fds[packageId] == 0 {
 		return 0, fmt.Errorf("no cpu core or msr found in package %d", packageId)
 	}
-	bytes, err := syscall.Pread(fds[core], buf, msr)
+	bytes, err := syscall.Pread(fds[packageId], buf, msr)
 
 	if err != nil {
 		return 0, err
