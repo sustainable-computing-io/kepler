@@ -147,30 +147,33 @@ int sched_switch(switch_args *ctx)
     u64 *prev;
 
     u64 val = cpu_cycles.perf_read(CUR_CPU_IDENTIFIER);
-    prev = prev_cpu_cycles.lookup(&cpu);
-    if (prev)
-    {
-        cpu_cycles_delta = val - *prev;
+    if (((s64)val > 0) || ((s64)val < -256)) {
+        prev = prev_cpu_cycles.lookup(&cpu);
+        if (prev)
+        {
+            cpu_cycles_delta = val - *prev;
+        }
+        else
+            prev_cpu_cycles.update(&cpu, &val);
     }
-    else
-        prev_cpu_cycles.update(&cpu, &val);
-
     val = cpu_instr.perf_read(CUR_CPU_IDENTIFIER);
-    prev = prev_cpu_instr.lookup(&cpu);
-    if (prev)
-    {
-        cpu_instr_delta = val - *prev;
+    if (((s64)val > 0) || ((s64)val < -256)) {
+        prev = prev_cpu_instr.lookup(&cpu);
+        if (prev)
+        {
+            cpu_instr_delta = val - *prev;
+        }
+        prev_cpu_instr.update(&cpu, &val);
     }
-    prev_cpu_instr.update(&cpu, &val);
-
     val = cache_miss.perf_read(CUR_CPU_IDENTIFIER);
-    prev = prev_cache_miss.lookup(&cpu);
-    if (prev)
-    {
-        cache_miss_delta = val - *prev;
+    if (((s64)val > 0) || ((s64)val < -256)) {
+        prev = prev_cache_miss.lookup(&cpu);
+        if (prev)
+        {
+            cache_miss_delta = val - *prev;
+        }
+        prev_cache_miss.update(&cpu, &val);
     }
-    prev_cache_miss.update(&cpu, &val);
-
     // update cgroup time
     cgroup_time_t new_cgroup;
     new_cgroup.cgroup_id = cgroup_id;
