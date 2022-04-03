@@ -81,7 +81,7 @@ func getEnergy(event string) (uint64, error) {
 		}
 	}
 
-	return energy, fmt.Errorf("cloud not read RAPL energy for %s", event)
+	return energy, fmt.Errorf("could not read RAPL energy for %s", event)
 }
 
 func readEventEnergy(eventName string) map[string]uint64 {
