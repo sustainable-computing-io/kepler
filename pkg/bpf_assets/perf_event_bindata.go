@@ -174,22 +174,28 @@ int sched_switch(switch_args *ctx)
         }
         prev_cache_miss.update(&cpu, &val);
     }
-    // update cgroup time
-    cgroup_time_t new_cgroup;
-    new_cgroup.cgroup_id = cgroup_id;
-    new_cgroup.time = delta;
-    new_cgroup.cpu_cycles = cpu_cycles_delta;
-    new_cgroup.cpu_instr = cpu_instr_delta;
-    new_cgroup.cache_misses = cache_miss_delta;
-    bpf_get_current_comm(&new_cgroup.comm, sizeof(new_cgroup.comm));
 
-    cgroup_time_t *cgroup_time = cgroups.lookup_or_init(&cgroup_id, &new_cgroup);
-    cgroup_time->time += delta;
-    cgroup_time->cpu_cycles += cpu_cycles_delta;
-    cgroup_time->cpu_instr += cpu_instr_delta;
-    cgroup_time->cache_misses += cache_miss_delta;
-    bpf_get_current_comm(&cgroup_time->comm, sizeof(cgroup_time->comm));
-    cgroups.update(&cgroup_id, cgroup_time);
+    // init cgroup time
+	struct cgroup_time_t *cgroup_time;
+	cgroup_time = cgroups.lookup(&cgroup_id);
+	if (cgroup_time == 0)
+	{
+		cgroup_time_t new_cgroup = {};
+		new_cgroup.cgroup_id = cgroup_id;
+		new_cgroup.time = delta;
+		new_cgroup.cpu_cycles = cpu_cycles_delta;
+		new_cgroup.cpu_instr = cpu_instr_delta;
+		new_cgroup.cache_misses = cache_miss_delta;
+    	bpf_get_current_comm(&new_cgroup.comm, sizeof(new_cgroup.comm));
+		cgroups.update(&cgroup_id, &new_cgroup);
+	} 
+	else {
+		// update cgroup time
+		cgroup_time->time += delta;
+		cgroup_time->cpu_cycles += cpu_cycles_delta;
+		cgroup_time->cpu_instr += cpu_instr_delta;
+		cgroup_time->cache_misses += cache_miss_delta;
+	}
 
     return 0;
 }`)
