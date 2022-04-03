@@ -19,71 +19,117 @@ package power
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"strconv"
 	"strings"
 )
 
 const (
-	corePath    = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:0/energy_uj"
-	dramPath    = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:1/energy_uj"
-	uncorePath  = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:2/energy_uj"
-	packagePath = "/sys/class/powercap/intel-rapl/intel-rapl:%d/energy_uj"
+	// sysfs path templates
+	numPkgPathTemplate      = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
+	packageNamePathTemplate = "/sys/class/powercap/intel-rapl/intel-rapl:%d/"
+	eventNamePathTemplate   = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:%d/"
+	cpuInfoPath             = "/proc/cpuinfo"
+	energyFile              = "energy_uj"
+
+	// RAPL number of events (core, dram and uncore)
+	numRAPLEvents = 3
+
+	// RAPL events
+	dramEvent    = "dram"
+	coreEvent    = "core"
+	uncoreEvent  = "uncore"
+	packageEvent = "package"
 )
 
 var (
-	maxSockets = 4
+	eventPaths map[string]map[string]string
 )
 
-func getEnergy(base string) (uint64, error) {
+func init() {
+	eventPaths = map[string]map[string]string{}
+	detectEventPaths()
+}
+
+// getEnergy returns the sum of the energy consumption of all sockets for a given event
+func getEnergy(event string) (uint64, error) {
 	energy := uint64(0)
-	i := 0
-	for i = 0; i < maxSockets; i++ {
-		path := fmt.Sprintf(base, i, i)
-		data, err := ioutil.ReadFile(path)
-		if err == nil {
-			count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
-			if err == nil {
-				energy += count / 1000 /*mJ*/
+	if hasEvent(event) {
+		energyMap := readEventEnergy(event)
+		for _, e := range energyMap {
+			energy += e
+		}
+		return energy, nil
+
+	} else {
+		switch event {
+		case coreEvent:
+			packageEnergy := readEventEnergy(packageEvent)
+			dramEnergy := readEventEnergy(dramEvent)
+			for id, e := range packageEnergy {
+				energy += e - dramEnergy[id]
+			}
+			return energy, nil
+
+		case dramEvent:
+			packageEnergy := readEventEnergy(packageEvent)
+			coreEnergy := readEventEnergy(coreEvent)
+			for id, e := range packageEnergy {
+				energy += e - coreEnergy[id]
+			}
+			return energy, nil
+		}
+	}
+
+	return energy, fmt.Errorf("cloud not read RAPL energy for %s", event)
+}
+
+func readEventEnergy(eventName string) map[string]uint64 {
+	energy := map[string]uint64{}
+	for pkId, subTree := range eventPaths {
+		for event, path := range subTree {
+			if strings.Contains(event, eventName) {
+				var e uint64
+				var err error
+				var data []byte
+				if data, err = ioutil.ReadFile(path + energyFile); err != nil {
+					log.Println(err)
+					continue
+				}
+				if e, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err != nil {
+					log.Println(err)
+					continue
+				}
+				e /= 1000 /*mJ*/
+				energy[pkId] = e
 			}
 		}
 	}
-	return energy, nil
+	return energy
 }
 
 type raplSysfs struct{}
 
 func (r *raplSysfs) IsSupported() bool {
-	path := fmt.Sprintf(corePath, 0, 0)
-	_, err := ioutil.ReadFile(path)
+	path := fmt.Sprintf(packageNamePathTemplate, 0)
+	_, err := ioutil.ReadFile(path + energyFile)
 	return err == nil
 }
 
 func (r *raplSysfs) GetEnergyFromDram() (uint64, error) {
-	return getEnergy(dramPath)
+	return getEnergy(dramEvent)
 }
 
 func (r *raplSysfs) GetEnergyFromCore() (uint64, error) {
-	return getEnergy(corePath)
+	return getEnergy(coreEvent)
 }
 
 func (r *raplSysfs) GetEnergyFromUncore() (uint64, error) {
-	return getEnergy(uncorePath)
+	return getEnergy(uncoreEvent)
 }
 
 func (r *raplSysfs) GetEnergyFromPackage() (uint64, error) {
-	energy := uint64(0)
-	i := 0
-	for i = 0; i < maxSockets; i++ {
-		path := fmt.Sprintf(packagePath, i)
-		data, err := ioutil.ReadFile(path)
-		if err == nil {
-			count, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
-			if err == nil {
-				energy += count / 1000 /*mJ*/
-			}
-		}
-	}
-	return energy, nil
+	return getEnergy(packageEvent)
 }
 
 func (r *raplSysfs) StopPower() {
