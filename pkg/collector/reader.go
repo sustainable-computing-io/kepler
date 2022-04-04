@@ -102,50 +102,48 @@ func (c *Collector) reader() {
 						log.Printf("failed to decode received data: %s", err)
 						continue
 					}
-					if ct.CgroupID != 0 {
-						path, err := pod_lister.CgroupIdToName(ct.CgroupID)
-						if err != nil {
-							log.Printf("failed to get cgroup path %v for %v", err, ct.CgroupID)
-							continue
-						}
-
-						comm := (*C.char)(unsafe.Pointer(&ct.Command))
-
-						meta, err := pod_lister.CgroupToPod(path)
-						podName := "system_processes"
-						if meta != nil && err == nil {
-							podName = meta.Namespace + "_" + meta.Name
-						}
-						// podName is used as Prometheus desc name, normalize it
-						podName = strings.Replace(podName, "-", "_", -1)
-						if _, ok := podEnergy[podName]; !ok {
-							podEnergy[podName] = &PodEnergy{}
-							if meta != nil && err == nil {
-								podEnergy[podName].Pod = meta.Name
-								podEnergy[podName].Namespace = meta.Namespace
-							} else {
-								podEnergy[podName].Pod = podName
-								podEnergy[podName].Namespace = "system"
-							}
-						}
-						podEnergy[podName].LastCPUTime = podEnergy[podName].CPUTime
-						podEnergy[podName].CPUTime = ct.Time - podEnergy[podName].CPUTime
-
-						podEnergy[podName].LastCPUCycles = podEnergy[podName].CPUCycles
-						podEnergy[podName].CPUCycles = ct.CPUCycles - podEnergy[podName].CPUCycles
-
-						podEnergy[podName].LastCPUInstr = podEnergy[podName].CPUInstr
-						podEnergy[podName].CPUInstr = ct.CPUInstr - podEnergy[podName].CPUInstr
-
-						podEnergy[podName].LastCacheMisses = podEnergy[podName].CacheMisses
-						podEnergy[podName].CacheMisses = ct.CacheMisses - podEnergy[podName].CacheMisses
-
-						podEnergy[podName].Command = C.GoString(comm)
-
-						cpuTime += ct.Time
-						cpuCycles += ct.CPUCycles
-						cacheMisses += ct.CacheMisses
+					path, err := pod_lister.CgroupIdToName(ct.CgroupID)
+					if err != nil {
+						log.Printf("failed to get cgroup path %v for %v", err, ct.CgroupID)
+						continue
 					}
+
+					comm := (*C.char)(unsafe.Pointer(&ct.Command))
+
+					meta, err := pod_lister.CgroupToPod(path)
+					podName := "system_processes"
+					if meta != nil && err == nil {
+						podName = meta.Namespace + "_" + meta.Name
+					}
+					// podName is used as Prometheus desc name, normalize it
+					podName = strings.Replace(podName, "-", "_", -1)
+					if _, ok := podEnergy[podName]; !ok {
+						podEnergy[podName] = &PodEnergy{}
+						if meta != nil && err == nil {
+							podEnergy[podName].Pod = meta.Name
+							podEnergy[podName].Namespace = meta.Namespace
+						} else {
+							podEnergy[podName].Pod = podName
+							podEnergy[podName].Namespace = "system"
+						}
+					}
+					podEnergy[podName].LastCPUTime = podEnergy[podName].CPUTime
+					podEnergy[podName].CPUTime = ct.Time - podEnergy[podName].CPUTime
+
+					podEnergy[podName].LastCPUCycles = podEnergy[podName].CPUCycles
+					podEnergy[podName].CPUCycles = ct.CPUCycles - podEnergy[podName].CPUCycles
+
+					podEnergy[podName].LastCPUInstr = podEnergy[podName].CPUInstr
+					podEnergy[podName].CPUInstr = ct.CPUInstr - podEnergy[podName].CPUInstr
+
+					podEnergy[podName].LastCacheMisses = podEnergy[podName].CacheMisses
+					podEnergy[podName].CacheMisses = ct.CacheMisses - podEnergy[podName].CacheMisses
+
+					podEnergy[podName].Command = C.GoString(comm)
+
+					cpuTime += ct.Time
+					cpuCycles += ct.CPUCycles
+					cacheMisses += ct.CacheMisses
 				}
 				cpuTimeDiff := cpuTime - lastCPUTime
 				cpuCyclesDiff := cpuCycles - lastCPUCycles
