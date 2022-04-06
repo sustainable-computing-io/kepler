@@ -132,5 +132,8 @@ func getContainerIDFromPID(pid uint64) (string, error) {
 			pidToContainerIDCache[pid] = containerID
 		}
 	}
-	return pidToContainerIDCache[pid], nil
+	if p, ok := pidToContainerIDCache[pid]; ok {
+		return p, nil
+	}
+	return "system_process", nil
 }
