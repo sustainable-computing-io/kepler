@@ -102,14 +102,14 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc := prometheus.MustNewConstMetric(
 			de,
 			prometheus.CounterValue,
-			float64(v.LastEnergyInCore+v.LastEnergyInDram),
-			v.Pod, v.Namespace, v.Command,
-			strconv.FormatUint(v.LastCPUTime, 10), strconv.FormatUint(v.CPUTime, 10),
-			strconv.FormatUint(v.LastCPUCycles, 10), strconv.FormatUint(v.CPUCycles, 10),
-			strconv.FormatUint(v.LastCPUInstr, 10), strconv.FormatUint(v.CPUInstr, 10),
-			strconv.FormatUint(v.LastCacheMisses, 10), strconv.FormatUint(v.CacheMisses, 10),
-			strconv.FormatUint(v.LastEnergyInCore, 10), strconv.FormatUint(v.EnergyInCore, 10),
-			strconv.FormatUint(v.LastEnergyInDram, 10), strconv.FormatUint(v.EnergyInDram, 10),
+			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
+			v.PodName, v.Namespace, v.Command,
+			strconv.FormatUint(v.CPUTime, 10), strconv.FormatUint(v.CPUTime, 10),
+			strconv.FormatUint(v.CPUCycles, 10), strconv.FormatUint(v.CPUCycles, 10),
+			strconv.FormatUint(v.CPUInstr, 10), strconv.FormatUint(v.CPUInstr, 10),
+			strconv.FormatUint(v.CacheMisses, 10), strconv.FormatUint(v.CacheMisses, 10),
+			strconv.FormatUint(v.CurrEnergyInCore, 10), strconv.FormatUint(v.AggEnergyInCore, 10),
+			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
 		)
 		ch <- desc
 
@@ -126,8 +126,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_total := prometheus.MustNewConstMetric(
 			de_total,
 			prometheus.CounterValue,
-			float64(v.LastEnergyInCore+v.LastEnergyInDram),
-			v.Pod, v.Namespace,
+			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_total
 
@@ -143,9 +143,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		desc_current := prometheus.MustNewConstMetric(
 			de_current,
-			prometheus.CounterValue,
-			float64(v.EnergyInCore+v.EnergyInDram),
-			v.Pod, v.Namespace,
+			prometheus.GaugeValue,
+			float64(v.CurrEnergyInCore+v.AggEnergyInDram),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_current
 
@@ -161,9 +161,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		desc_cpu_current := prometheus.MustNewConstMetric(
 			de_cpu_current,
-			prometheus.CounterValue,
-			float64(v.EnergyInCore),
-			v.Pod, v.Namespace,
+			prometheus.GaugeValue,
+			float64(v.CurrEnergyInCore),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_cpu_current
 
@@ -180,8 +180,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_cpu_total := prometheus.MustNewConstMetric(
 			de_cpu_total,
 			prometheus.CounterValue,
-			float64(v.LastEnergyInCore),
-			v.Pod, v.Namespace,
+			float64(v.CurrEnergyInCore),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_cpu_total
 
@@ -197,9 +197,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		desc_dram_current := prometheus.MustNewConstMetric(
 			de_dram_current,
-			prometheus.CounterValue,
-			float64(v.EnergyInDram),
-			v.Pod, v.Namespace,
+			prometheus.GaugeValue,
+			float64(v.AggEnergyInDram),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_current
 
@@ -216,8 +216,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_dram_total := prometheus.MustNewConstMetric(
 			de_dram_total,
 			prometheus.CounterValue,
-			float64(v.LastEnergyInDram),
-			v.Pod, v.Namespace,
+			float64(v.CurrEnergyInDram),
+			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_total
 	}
