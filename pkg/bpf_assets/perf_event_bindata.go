@@ -78,7 +78,7 @@ typedef struct switch_args
 
 typedef struct cgroup_time_t
 {
-    u64 cgroup_id;
+    u64 pid;
     u64 time;
     u64 cpu_cycles;
     u64 cpu_instr;
@@ -113,11 +113,7 @@ BPF_ARRAY(prev_cache_miss, u64, NUM_CPUS);
 
 int sched_switch(switch_args *ctx)
 {
-    u64 cgroup_id = bpf_get_current_cgroup_id();
-    if (cgroup_id == 0)
-    {
-        return 0;
-    }
+    u64 pid = bpf_get_current_pid_tgid() >> 32;
 
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
@@ -129,7 +125,12 @@ int sched_switch(switch_args *ctx)
     u64 *last_time = pid_time.lookup(&old_pid);
     if (last_time != 0)
     {
-        delta = (time - *last_time) / 1000;
+        delta = (time - *last_time) / 1000; /*microsecond*/
+        // return if the process did not use any cpu time yet
+        if (delta == 0)
+        {
+            return 0;
+        }
         pid_time.delete(&old_pid);
     }
 
@@ -175,17 +176,17 @@ int sched_switch(switch_args *ctx)
 
     // init cgroup time
     struct cgroup_time_t *cgroup_time;
-    cgroup_time = cgroups.lookup(&cgroup_id);
+    cgroup_time = cgroups.lookup(&pid);
     if (cgroup_time == 0)
     {
         cgroup_time_t new_cgroup = {};
-        new_cgroup.cgroup_id = cgroup_id;
+        new_cgroup.pid = pid;
         new_cgroup.time = delta;
         new_cgroup.cpu_cycles = cpu_cycles_delta;
         new_cgroup.cpu_instr = cpu_instr_delta;
         new_cgroup.cache_misses = cache_miss_delta;
         bpf_get_current_comm(&new_cgroup.comm, sizeof(new_cgroup.comm));
-        cgroups.update(&cgroup_id, &new_cgroup);
+        cgroups.update(&pid, &new_cgroup);
     }
     else
     {
