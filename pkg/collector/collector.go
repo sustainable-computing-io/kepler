@@ -121,7 +121,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		// de_total and desc_total give indexable values for total energy consumptions for all pods
 		de_total := prometheus.NewDesc(
 			"pod_energy_total",
-			"Pod current energy consumption",
+			"Pod total energy consumption",
 			[]string{
 				"pod_name",
 				"pod_namespace",
@@ -131,7 +131,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_total := prometheus.MustNewConstMetric(
 			de_total,
 			prometheus.CounterValue,
-			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
+			float64(v.AggEnergyInCore+v.AggEnergyInDram),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_total
@@ -149,7 +149,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_current := prometheus.MustNewConstMetric(
 			de_current,
 			prometheus.GaugeValue,
-			float64(v.CurrEnergyInCore+v.AggEnergyInDram),
+			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_current
@@ -157,7 +157,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		// de_cpu_current and desc_cpu_current give indexable values for current CPU energy consumptions (in 3 seconds) for all pods
 		de_cpu_current := prometheus.NewDesc(
 			"pod_cpu_energy_current",
-			"Pod CPU energy consumption",
+			"Pod CPU current energy consumption",
 			[]string{
 				"pod_name",
 				"pod_namespace",
@@ -185,7 +185,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_cpu_total := prometheus.MustNewConstMetric(
 			de_cpu_total,
 			prometheus.CounterValue,
-			float64(v.CurrEnergyInCore),
+			float64(v.AggEnergyInCore),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_cpu_total
@@ -193,7 +193,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		// de_dram_current and desc_dram_current give indexable values for current DRAM energy consumptions (in 3 seconds) for all pods
 		de_dram_current := prometheus.NewDesc(
 			"pod_dram_energy_current",
-			"Pod DRAM energy consumption",
+			"Pod DRAM current energy consumption",
 			[]string{
 				"pod_name",
 				"pod_namespace",
@@ -203,7 +203,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_dram_current := prometheus.MustNewConstMetric(
 			de_dram_current,
 			prometheus.GaugeValue,
-			float64(v.AggEnergyInDram),
+			float64(v.CurrEnergyInDram),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_current
@@ -221,7 +221,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_dram_total := prometheus.MustNewConstMetric(
 			de_dram_total,
 			prometheus.CounterValue,
-			float64(v.CurrEnergyInDram),
+			float64(v.AggEnergyInDram),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_total

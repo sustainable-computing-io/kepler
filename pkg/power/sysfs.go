@@ -88,7 +88,7 @@ func readEventEnergy(eventName string) map[string]uint64 {
 	energy := map[string]uint64{}
 	for pkId, subTree := range eventPaths {
 		for event, path := range subTree {
-			if event == eventName {
+			if strings.Index(event, eventName) == 0 {
 				var e uint64
 				var err error
 				var data []byte
