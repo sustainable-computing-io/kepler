@@ -46,9 +46,9 @@ func (c *Collector) Attach() error {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
 	defer lock.Unlock()
-	for k, _ := range podEnergy {
+	for _, _ = range podEnergy {
 		desc := prometheus.NewDesc(
-			"pod_stat_"+k,
+			"pod_energy_stat",
 			"Pod energy consumption status",
 			[]string{
 				"pod_name",
@@ -66,6 +66,8 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 				"curr_energy_in_core",
 				"last_energy_in_dram",
 				"curr_energy_in_dram",
+				"last_cpu_frequency",
+				"curr_cpu_frequency",
 			},
 			nil,
 		)
@@ -96,6 +98,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				"curr_energy_in_core",
 				"last_energy_in_dram",
 				"curr_energy_in_dram",
+				"last_cpu_frequency",
+				"curr_cpu_frequency",
 			},
 			nil,
 		)
@@ -110,6 +114,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.CacheMisses, 10), strconv.FormatUint(v.CacheMisses, 10),
 			strconv.FormatUint(v.CurrEnergyInCore, 10), strconv.FormatUint(v.AggEnergyInCore, 10),
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
+			strconv.FormatUint(uint64(v.AvgCPUFreq), 10), strconv.FormatUint(uint64(v.LastCPUFreq), 10),
 		)
 		ch <- desc
 
@@ -220,6 +225,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_total
+
 	}
 }
 
