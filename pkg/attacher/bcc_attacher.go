@@ -18,9 +18,10 @@ package attacher
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"runtime"
 	"strconv"
+
+	"golang.org/x/sys/unix"
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpf_assets"
 
@@ -57,25 +58,34 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	//TODO make all entrypoints yaml-declarable
 	sched_switch, err := m.LoadTracepoint("sched_switch")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to load sched_switch: %s", err)
+		return nil, fmt.Errorf("failed to load sched_switch: %s", err)
 	}
-
 	err = m.AttachTracepoint("sched:sched_switch", sched_switch)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to attach sched_switch: %s", err)
+		return nil, fmt.Errorf("failed to attach sched_switch: %s", err)
 	}
+
+	cpu_freq, err := m.LoadTracepoint("cpu_freq")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load cpu_freq: %s", err)
+	}
+	err = m.AttachTracepoint("power:cpu_frequency", cpu_freq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach cpu_frequency: %s", err)
+	}
+
 	for _, counter := range counters {
 		t := bpf.NewTable(m.TableId(counter.arrayName), m)
 		if t == nil {
-			return nil, fmt.Errorf("Failed to find perf array: %s", counter.arrayName)
+			return nil, fmt.Errorf("failed to find perf array: %s", counter.arrayName)
 		}
 		err = openPerfEvent(t, counter.evType, counter.evConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to attach perf event: %s", err)
+			return nil, fmt.Errorf("failed to attach perf event: %s", err)
 		}
 	}
 
-	table := bpf.NewTable(m.TableId("cgroups"), m)
+	table := bpf.NewTable(m.TableId("processes"), m)
 
 	bpfModules.Module = m
 	bpfModules.Table = table
