@@ -38,7 +38,7 @@ typedef struct cpu_freq_args
 
 typedef struct process_time_t
 {
-    u64 pid;
+    u64 cgrou_id;
     u64 time;
     u64 cpu_cycles;
     u64 cpu_instr;
@@ -80,7 +80,7 @@ BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
 
 int sched_switch(switch_args *ctx)
 {
-    u64 pid = bpf_get_current_pid_tgid() >> 32;
+    u64 cgrou_id = bpf_get_current_cgroup_id();
 
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
@@ -152,11 +152,11 @@ int sched_switch(switch_args *ctx)
  
     // init process time
     struct process_time_t *process_time;
-    process_time = processes.lookup(&pid);
+    process_time = processes.lookup(&cgrou_id);
     if (process_time == 0)
     {
         process_time_t new_process = {};
-        new_process.pid = pid;
+        new_process.cgrou_id = cgrou_id;
         new_process.time = delta;
         new_process.cpu_cycles = cpu_cycles_delta;
         new_process.cpu_instr = cpu_instr_delta;
@@ -166,7 +166,7 @@ int sched_switch(switch_args *ctx)
         new_process.last_freq = last_freq;
         new_process.last_avg_freq_update_time = time;
         new_process.avg_freq = last_freq;
-        processes.update(&pid, &new_process);
+        processes.update(&cgrou_id, &new_process);
     }
     else
     {

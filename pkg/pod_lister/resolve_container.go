@@ -17,10 +17,17 @@ limitations under the License.
 package pod_lister
 
 import (
-	"bufio"
+	"encoding/binary"
 	"fmt"
-	"os"
+	"io/fs"
+	"log"
+	"path/filepath"
+	"regexp"
 	"strings"
+
+	"golang.org/x/sys/unix"
+
+	bpf "github.com/iovisor/gobpf/bcc"
 )
 
 type ContainerInfo struct {
@@ -32,108 +39,166 @@ type ContainerInfo struct {
 const (
 	systemProcessName      string = "system_processes"
 	systemProcessNamespace string = "system"
-	procPath               string = "/proc/%d/cgroup"
+	containerIDPredix      string = "cri-o://"
+	unknownPath            string = "unknown"
 )
 
 var (
-	pidToContainerIDCache      = map[uint64]string{}
-	ContainerIDToContainerInfo = map[string]*ContainerInfo{}
-	podLister                  = KubeletPodLister{}
+	podLister                  KubeletPodLister
+	cGroupIDToContainerIDCache = map[uint64]string{}
+	containerIDToContainerInfo = map[string]*ContainerInfo{}
+	cGroupIDToPath             = map[uint64]string{}
+	re                         = regexp.MustCompile(`crio-(.*?)\.scope`)
+	cgroupPath                 = "/sys/fs/cgroup"
+	byteOrder                  binary.ByteOrder
 )
 
-func GetPodNameFromPID(pid uint64) (string, error) {
-	info, err := getContainerInfoFromPID(pid)
+func init() {
+	byteOrder = bpf.GetHostByteOrder()
+	podLister = KubeletPodLister{}
+	updateListPodCache("", false)
+}
+
+func GetPodNameFromcGgroupID(cGroupID uint64) (string, error) {
+	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.PodName, err
 }
 
-func GetPodNameSpaceFromPID(pid uint64) (string, error) {
-	info, err := getContainerInfoFromPID(pid)
+func GetPodNameSpaceFromcGgroupID(cGroupID uint64) (string, error) {
+	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.Namespace, err
 }
 
-func GetPodContainerNameFromPID(pid uint64) (string, error) {
-	info, err := getContainerInfoFromPID(pid)
+func GetPodContainerNameFromcGgroupID(cGroupID uint64) (string, error) {
+	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.ContainerName, err
 }
 
-func getContainerInfoFromPID(pid uint64) (*ContainerInfo, error) {
+func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
+	var err error
+	var containerID string
 	info := &ContainerInfo{
 		PodName:   systemProcessName,
 		Namespace: systemProcessNamespace,
 	}
 
-	containerID, err := getContainerIDFromPID(pid)
-	if err != nil {
-		return info, err
-	}
-
-	if info, ok := ContainerIDToContainerInfo[containerID]; ok {
+	if containerID, err = getContainerIDFromcGroupID(cGroupID); err != nil {
+		//TODO: print a warn with high verbosity
 		return info, nil
 	}
 
-	pods, err := podLister.ListPods()
-	if err != nil {
-		return info, err
+	if i, ok := containerIDToContainerInfo[containerID]; ok {
+		return i, nil
 	}
 
+	// update cache info and stop loop if container id found
+	updateListPodCache(containerID, true)
+	if i, ok := containerIDToContainerInfo[containerID]; ok {
+		return i, nil
+	}
+
+	containerIDToContainerInfo[containerID] = info
+	return containerIDToContainerInfo[containerID], nil
+}
+
+// updateListPodCache updates cache info with all pods and optionally
+// stops the loop when a given container ID is found
+func updateListPodCache(containerID string, stopWhenFound bool) {
+	pods, err := podLister.ListPods()
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, pod := range *pods {
-		info.PodName = pod.Name
-		info.Namespace = pod.Namespace
 		statuses := pod.Status.ContainerStatuses
 		for _, status := range statuses {
-			if status.ContainerID == containerID {
-				info.ContainerName = status.Name
-				return info, nil
+			info := &ContainerInfo{
+				PodName:       pod.Name,
+				Namespace:     pod.Namespace,
+				ContainerName: status.Name,
+			}
+			containerID := strings.Trim(status.ContainerID, containerIDPredix)
+			containerIDToContainerInfo[containerID] = info
+			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+				return
 			}
 		}
 		statuses = pod.Status.InitContainerStatuses
 		for _, status := range statuses {
-			if status.ContainerID == containerID {
-				info.ContainerName = status.Name
-				fmt.Println(pod.Name, status.Name)
-				return info, nil
+			info := &ContainerInfo{
+				PodName:       pod.Name,
+				Namespace:     pod.Namespace,
+				ContainerName: status.Name,
+			}
+			containerID := strings.Trim(status.ContainerID, containerIDPredix)
+			containerIDToContainerInfo[containerID] = info
+			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+				return
 			}
 		}
 	}
 
-	return info, fmt.Errorf("could not match containerID: %s to any running pod", containerID)
 }
 
-//TODO: test this function in kubernetes, not only openshift
-func getContainerIDFromPID(pid uint64) (string, error) {
-	if p, ok := pidToContainerIDCache[pid]; ok {
-		return p, nil
+func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
+	if id, ok := cGroupIDToContainerIDCache[cGroupID]; ok {
+		return id, nil
 	}
 
-	path := fmt.Sprintf(procPath, pid)
-	file, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to open cgroup description file for pid %d: %v", pid, err)
+	var err error
+	var path string
+	if path, err = getPathFromcGroupID(cGroupID); err != nil {
+		return systemProcessName, err
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, "-conmon-") || strings.Contains(line, ".service") {
-			return "", fmt.Errorf("process pid %d is not in a kubernetes pod", pid)
+	if re.MatchString(path) {
+		sub := re.FindAllString(path, -1)
+		for _, element := range sub {
+			if strings.Contains(element, "-conmon-") || strings.Contains(element, ".service") {
+				return "", fmt.Errorf("process cGroupID %d is not in a kubernetes pod", cGroupID)
 
-		} else if strings.Contains(line, "pod-") {
-			cgroup := strings.Split(line, "/")
-			containerID := cgroup[len(cgroup)-1]
-			pidToContainerIDCache[pid] = containerID
-
-		} else if strings.Contains(line, "crio") {
-			cgroup := strings.Split(line, "/")
-			containerID := cgroup[len(cgroup)-1]
-			containerID = strings.Trim(containerID, "crio-")
-			containerID = strings.Trim(containerID, ".scope")
-			containerID = "cri-o://" + containerID
-			pidToContainerIDCache[pid] = containerID
+			} else if strings.Contains(element, "crio") {
+				containerID := strings.Trim(element, "crio-")
+				containerID = strings.Trim(containerID, ".scope")
+				cGroupIDToContainerIDCache[cGroupID] = containerID
+				return cGroupIDToContainerIDCache[cGroupID], nil
+			}
 		}
 	}
-	if p, ok := pidToContainerIDCache[pid]; ok {
+
+	cGroupIDToContainerIDCache[cGroupID] = systemProcessName
+	return cGroupIDToContainerIDCache[cGroupID], fmt.Errorf("failed to find container with cGroup id: %v", cGroupID)
+}
+
+// getPathFromcGroupID uses cgroupfs to get cgroup path from id
+// it needs cgroup v2 (per https://github.com/iovisor/bpftrace/issues/950) and kernel 4.18+ (https://github.com/torvalds/linux/commit/bf6fa2c893c5237b48569a13fa3c673041430b6c)
+func getPathFromcGroupID(cgroupId uint64) (string, error) {
+	if p, ok := cGroupIDToPath[cgroupId]; ok {
 		return p, nil
 	}
-	return "system_process", nil
+
+	err := filepath.WalkDir(cgroupPath, func(path string, dentry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !dentry.IsDir() {
+			return nil
+		}
+		handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
+		if err != nil {
+			return fmt.Errorf("Error resolving handle: %v", err)
+		}
+		cGroupIDToPath[byteOrder.Uint64(handle.Bytes())] = path
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to find cgroup id: %v", err)
+	}
+	if p, ok := cGroupIDToPath[cgroupId]; ok {
+		return p, nil
+	}
+
+	cGroupIDToPath[cgroupId] = unknownPath
+	return cGroupIDToPath[cgroupId], nil
 }
