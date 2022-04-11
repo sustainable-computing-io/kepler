@@ -65,7 +65,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 		return nil, fmt.Errorf("failed to attach sched_switch: %s", err)
 	}
 
-	cpu_freq, err := m.LoadTracepoint("cpu_freq")
+	cpu_freq, err := m.LoadTracepoint("tracepoint__power__cpu_frequency") //cpu_freq, err := m.LoadTracepoint("cpu_freq")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load cpu_freq: %s", err)
 	}

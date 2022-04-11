@@ -166,7 +166,9 @@ int sched_switch(switch_args *ctx)
         new_process.cache_misses = cache_miss_delta;
         bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
         new_process.start_time = time;
-        new_process.last_freq = last_freq;
+        if (last_freq > init_freq) {
+            new_process.last_freq = last_freq;
+        }
         new_process.last_avg_freq_update_time = time;
         new_process.avg_freq = last_freq;
         processes.update(&pid, &new_process);
@@ -180,7 +182,9 @@ int sched_switch(switch_args *ctx)
         process_time->cache_misses += cache_miss_delta;
 
         // calculate runtime cpu frequency average
-        process_time->last_freq = last_freq;        
+        if (last_freq > init_freq) {
+            process_time->last_freq = last_freq;
+        }
         u64 last_freq_total_weight = (process_time->last_avg_freq_update_time - process_time->start_time)* process_time->avg_freq;
         u64 freq_time_delta = time - process_time->last_avg_freq_update_time;
         u64 last_freq_weight = process_time->last_freq * freq_time_delta;
@@ -191,11 +195,11 @@ int sched_switch(switch_args *ctx)
     return 0;
 }
 
-int cpu_freq(cpu_freq_args *ctx)
+TRACEPOINT_PROBE(power, cpu_frequency) //int cpu_freq(cpu_freq_args *ctx)
 {
-    u32 cpu = ctx->cpu_id;
-    u32 state = ctx->state;
-
+    u32 cpu = args->cpu_id;
+    u32 state = args->state;
+    
     cpu_freq_array.update(&cpu, &state);
     return 0;
 }
