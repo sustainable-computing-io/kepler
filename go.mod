@@ -10,4 +10,5 @@ require (
 	github.com/prometheus/common v0.32.1
 	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2
 	k8s.io/api v0.22.4
+	k8s.io/apimachinery v0.22.4 // indirect
 )
