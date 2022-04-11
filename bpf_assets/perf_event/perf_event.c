@@ -38,6 +38,7 @@ typedef struct cpu_freq_args
 
 typedef struct process_time_t
 {
+    u64 cgroup_id;
     u64 pid;
     u64 time;
     u64 cpu_cycles;
@@ -85,6 +86,7 @@ int sched_switch(switch_args *ctx)
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
     u32 cpu = bpf_get_smp_processor_id();
+    u64 cgroup_id = bpf_get_current_cgroup_id();
     pid_time_t new_pid, old_pid;
 
     // get pid time
@@ -166,6 +168,7 @@ int sched_switch(switch_args *ctx)
         new_process.last_freq = last_freq;
         new_process.last_avg_freq_update_time = time;
         new_process.avg_freq = last_freq;
+        new_process.cgroup_id = cgroup_id;
         processes.update(&pid, &new_process);
     }
     else

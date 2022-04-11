@@ -33,6 +33,7 @@ import "C"
 
 //TODO in sync with bpf program
 type CgroupTime struct {
+	CgroupID              uint64
 	PID                   uint64
 	Time                  uint64
 	CPUCycles             uint64
@@ -46,6 +47,7 @@ type CgroupTime struct {
 }
 
 type PodEnergy struct {
+	CgroupID  uint64
 	PID       uint64
 	PodName   string
 	Namespace string
@@ -118,76 +120,85 @@ func (c *Collector) reader() {
 						continue
 					}
 
-					podName, err := pod_lister.GetPodNameFromPID(ct.PID)
-					if err != nil {
-						//log.Printf("failed to resolve pod for pid %v: %v", ct.PID, err)
-						continue
-					}
-					// podName is used as Prometheus desc name, normalize it
-					podName = strings.Replace(podName, "-", "_", -1)
-					if _, ok := podEnergy[podName]; !ok {
-						podEnergy[podName] = &PodEnergy{}
-						podEnergy[podName].PodName = podName
-						podNamespace, err := pod_lister.GetPodNameSpaceFromPID(ct.PID)
+					if ct.CgroupID != 0 {
+						path, err := pod_lister.CgroupIdToName(ct.CgroupID)
 						if err != nil {
-							log.Printf("failed to find namespace for pid %v: %v", ct.PID, err)
-							podNamespace = "unknown"
+							log.Printf("failed to get cgroup path %v for %v", err, ct.CgroupID)
+							continue
 						}
-						podEnergy[podName].Namespace = podNamespace
+						meta, err := pod_lister.CgroupToPod(path)
+						podName := "system_processes"
+						if meta != nil && err == nil {
+							podName = meta.Namespace + "_" + meta.Name
+						}
+						// podName is used as Prometheus desc name, normalize it
+						podName = strings.Replace(podName, "-", "_", -1)
+						if _, ok := podEnergy[podName]; !ok {
+							podEnergy[podName] = &PodEnergy{}
+							if meta != nil && err == nil {
+								podEnergy[podName].PodName = meta.Name
+								podEnergy[podName].Namespace = meta.Namespace
+							} else {
+								podEnergy[podName].PodName = podName
+								podEnergy[podName].Namespace = "system"
+							}
+						}
 						comm := (*C.char)(unsafe.Pointer(&ct.Command))
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
-					}
-					// to prevent overflow of the counts we change the unit to have smaller numbers
-					val := ct.Time / 1000 /*miliseconds*/
-					podEnergy[podName].CurrCPUTime = val
-					podEnergy[podName].AggCPUTime += val
-					val = ct.CPUCycles / 1000
-					podEnergy[podName].CurrCPUCycles = val
-					podEnergy[podName].AggCPUCycles += val
-					val = ct.CPUInstr / 1000
-					podEnergy[podName].CurrCPUInstr = val
-					podEnergy[podName].AggCPUInstr += val
-					val = ct.CacheMisses / 1000
-					podEnergy[podName].CurrCacheMisses = val
-					podEnergy[podName].AggCacheMisses += val
-					podEnergy[podName].AvgCPUFreq = ct.AvgFreq
-					podEnergy[podName].LastCPUFreq = ct.LastFreq
 
-					aggCPUTime += podEnergy[podName].CurrCPUTime
-					aggCPUCycles += podEnergy[podName].CurrCPUCycles
-					aggCacheMisses += podEnergy[podName].CurrCacheMisses
+						// to prevent overflow of the counts we change the unit to have smaller numbers
+						val := ct.Time / 1000 /*miliseconds*/
+						podEnergy[podName].CurrCPUTime = val
+						podEnergy[podName].AggCPUTime += val
+						val = ct.CPUCycles / 1000
+						podEnergy[podName].CurrCPUCycles = val
+						podEnergy[podName].AggCPUCycles += val
+						val = ct.CPUInstr / 1000
+						podEnergy[podName].CurrCPUInstr = val
+						podEnergy[podName].AggCPUInstr += val
+						val = ct.CacheMisses / 1000
+						podEnergy[podName].CurrCacheMisses = val
+						podEnergy[podName].AggCacheMisses += val
+						podEnergy[podName].AvgCPUFreq = ct.AvgFreq
+						podEnergy[podName].LastCPUFreq = ct.LastFreq
+
+						aggCPUTime += podEnergy[podName].CurrCPUTime
+						aggCPUCycles += podEnergy[podName].CurrCPUCycles
+						aggCacheMisses += podEnergy[podName].CurrCacheMisses
+
+						var cyclesPerMW, cacheMissPerMW float64
+						if aggCPUCycles > 0 && coreDelta > 0 {
+							cyclesPerMW = float64(aggCPUCycles / coreDelta)
+						}
+						if aggCacheMisses > 0 && dramDelta > 0 {
+							cacheMissPerMW = float64(aggCacheMisses / dramDelta)
+						}
+
+						log.Printf("energy from: core %v dram: %v time %v cycles %v misses %v\n",
+							coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCacheMisses)
+
+						for _, v := range podEnergy {
+							v.CurrEnergyInCore = uint64(float64(v.CurrCPUCycles) / cyclesPerMW)
+							v.AggEnergyInCore += v.CurrEnergyInCore
+							if cacheMissPerMW > 0 {
+								v.CurrEnergyInDram = uint64(float64(v.CurrCacheMisses) / cacheMissPerMW)
+							}
+							v.AggEnergyInDram += v.CurrEnergyInDram
+							if podEnergy[podName].CurrCPUTime > 0 {
+								log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d eDram: %d \n\tCPUTime: %d (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %v LastCPUFreq %v\n\tpid: %v comm: %v\n",
+									podName, podEnergy[podName].Namespace, v.AggEnergyInCore, v.CurrEnergyInDram,
+									podEnergy[podName].CurrCPUTime, float64(podEnergy[podName].CurrCPUTime)/float64(aggCPUTime),
+									podEnergy[podName].CurrCPUCycles, float64(podEnergy[podName].CurrCPUCycles)/float64(aggCPUCycles),
+									podEnergy[podName].CurrCacheMisses, float64(podEnergy[podName].CurrCacheMisses)/float64(aggCacheMisses),
+									podEnergy[podName].AvgCPUFreq, podEnergy[podName].LastCPUFreq, podEnergy[podName].PID, podEnergy[podName].Command)
+							}
+
+						}
+					}
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
-
-				var cyclesPerMW, cacheMissPerMW float64
-				if aggCPUCycles > 0 && coreDelta > 0 {
-					cyclesPerMW = float64(aggCPUCycles / coreDelta)
-				}
-				if aggCacheMisses > 0 && dramDelta > 0 {
-					cacheMissPerMW = float64(aggCacheMisses / dramDelta)
-				}
-
-				log.Printf("energy from: core %v dram: %v time %v cycles %v misses %v\n",
-					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCacheMisses)
-
-				for podName, v := range podEnergy {
-					v.CurrEnergyInCore = uint64(float64(v.CurrCPUCycles) / cyclesPerMW)
-					v.AggEnergyInCore += v.CurrEnergyInCore
-					if cacheMissPerMW > 0 {
-						v.CurrEnergyInDram = uint64(float64(v.CurrCacheMisses) / cacheMissPerMW)
-					}
-					v.AggEnergyInDram += v.CurrEnergyInDram
-					if podEnergy[podName].CurrCPUTime > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d eDram: %d \n\tCPUTime: %d (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %v LastCPUFreq %v\n\tpid: %v comm: %v\n",
-							podName, podEnergy[podName].Namespace, v.AggEnergyInCore, v.CurrEnergyInDram,
-							podEnergy[podName].CurrCPUTime, float64(podEnergy[podName].CurrCPUTime)/float64(aggCPUTime),
-							podEnergy[podName].CurrCPUCycles, float64(podEnergy[podName].CurrCPUCycles)/float64(aggCPUCycles),
-							podEnergy[podName].CurrCacheMisses, float64(podEnergy[podName].CurrCacheMisses)/float64(aggCacheMisses),
-							podEnergy[podName].AvgCPUFreq, podEnergy[podName].LastCPUFreq, podEnergy[podName].PID, podEnergy[podName].Command)
-					}
-				}
 				lock.Unlock()
 			}
 		}
