@@ -1,5 +1,6 @@
-FROM fedora:35
+FROM registry.access.redhat.com/ubi8/ubi:8.4
 
 ARG ARCH=amd64
 
-RUN yum update -y && yum install -y bcc bcc-devel kmod xz && yum clean all -y 
+RUN yum update -y && yum install -y http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/bcc-devel-0.19.0-4.el8.x86_64.rpm && \
+    yum install -y kmod xz && yum clean all -y 
