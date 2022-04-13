@@ -1,12 +1,10 @@
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
-  name: openshift-kernel-devel
+  name: 50-openshift-cgroupv2-worker
   labels:
     machineconfiguration.openshift.io/role: worker
 spec:
-  config:
-    ignition:
-      version: 3.2.0
-  extensions:
-  - kernel-devel
+  kernelArguments:
+    - systemd.unified_cgroup_hierarchy=1
+    - cgroup_no_v1="all"
