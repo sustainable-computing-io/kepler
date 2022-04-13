@@ -1,0 +1,10 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: openshift-cgroupv2-workers
+  labels:
+    machineconfiguration.openshift.io/role: worker
+spec:
+  kernelArguments:
+    - systemd.unified_cgroup_hierarchy=1
+    - cgroup_no_v1="all"
