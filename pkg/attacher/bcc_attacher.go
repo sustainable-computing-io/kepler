@@ -29,9 +29,9 @@ import (
 )
 
 type perfCounter struct {
-	evType    int
-	evConfig  int
-	arrayName string
+	evType   int
+	evConfig int
+	enabled  bool
 }
 
 type BpfModuleTables struct {
@@ -40,10 +40,10 @@ type BpfModuleTables struct {
 }
 
 var (
-	counters = []perfCounter{
-		{unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, "cpu_cycles"},
-		{unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, "cpu_instr"},
-		{unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, "cache_miss"},
+	Counters = map[string]perfCounter{
+		"cpu_cycles": {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		"cpu_instr":  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		"cache_miss": {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 )
 
@@ -74,14 +74,16 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 		return nil, fmt.Errorf("failed to attach cpu_frequency: %s", err)
 	}
 
-	for _, counter := range counters {
-		t := bpf.NewTable(m.TableId(counter.arrayName), m)
+	for arrayName, counter := range Counters {
+		t := bpf.NewTable(m.TableId(arrayName), m)
 		if t == nil {
-			return nil, fmt.Errorf("failed to find perf array: %s", counter.arrayName)
+			return nil, fmt.Errorf("failed to find perf array: %s", arrayName)
 		}
 		err = openPerfEvent(t, counter.evType, counter.evConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to attach perf event: %s", err)
+			// some hypervisors don't expose perf counters
+			fmt.Printf("failed to attach perf event %s: %v\n", arrayName, err)
+			counter.enabled = false
 		}
 	}
 
