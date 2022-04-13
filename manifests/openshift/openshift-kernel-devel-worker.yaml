@@ -1,9 +1,9 @@
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
-  name: openshift-kernel-devel
+  name: 50-openshift-kernel-devel-worker
   labels:
-    machineconfiguration.openshift.io/role: master
+    machineconfiguration.openshift.io/role: worker
 spec:
   config:
     ignition:
