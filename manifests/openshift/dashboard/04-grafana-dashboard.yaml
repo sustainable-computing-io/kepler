@@ -1,0 +1,9 @@
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: kepler-dashboard
+  namespace: monitoring
+#  labels:
+#    app: kepler
+spec:
+  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/grafana-dashboards/Kepler-Exporter-Dashboard.json
