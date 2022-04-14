@@ -39,6 +39,7 @@ var (
 	msrImpl                     = &raplMSR{}
 	estimateImpl                = &powerEstimate{}
 	powerImpl    powerInterface = sysfsImpl
+	useMSR                      = false // it looks MSR on kvm or hyper-v is not working
 )
 
 func init() {
@@ -46,7 +47,7 @@ func init() {
 		fmt.Println("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
-		if msrImpl.IsSupported() /*&& false*/ {
+		if msrImpl.IsSupported() && useMSR {
 			fmt.Println("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
