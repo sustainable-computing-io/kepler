@@ -34,8 +34,8 @@ import (
 type powerEstimate struct{}
 
 var (
-	powerDataPath    = "data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
-	cpuModelDataPath = "data/cpu_model.csv"
+	powerDataPath    = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
+	cpuModelDataPath = "/var/lib/kepler/data/cpu_model.csv"
 	dramInGB         int
 	cpuCores         = runtime.NumCPU()
 
@@ -44,7 +44,8 @@ var (
 	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64
 
 	cpuModelRegex = []string{
-		"( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz"
+		"( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz". This is seen on KVM
+		"( [-a-zA-Z0-9]+[0-9]+[A-Z]*)",  // Intel, e.g. "model name      : 12th Gen Intel(R) Core(TM) i7-12700H". This is seen on Hyper-V
 	}
 	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
 )
@@ -102,7 +103,7 @@ func getCPUArchitecture() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no CPU architecture found")
+	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
 }
 
 func getDram() (int, error) {
