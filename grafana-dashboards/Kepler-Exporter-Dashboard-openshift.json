@@ -18,16 +18,17 @@
       }
     ]
   },
+  "description": "Dashboard for Kepler Exporter",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 2,
-  "iteration": 1649960388487,
+  "id": 4,
+  "iteration": 1650046383655,
   "links": [],
   "panels": [
     {
       "datasource": null,
-      "description": "The kW.s in 1 minute",
+      "description": "The mW per minute",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -99,7 +100,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*rate(pod_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/1000000000",
+          "expr": "rate(pod_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/20",
           "interval": "",
           "legendFormat": "Total",
           "refId": "A"
@@ -110,7 +111,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*rate(pod_cpu_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/1000000000",
+          "expr": "rate(pod_cpu_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/20",
           "hide": false,
           "interval": "",
           "legendFormat": "CPU",
@@ -122,19 +123,19 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*rate(pod_dram_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/1000000000",
+          "expr": "rate(pod_dram_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/20",
           "hide": false,
           "interval": "",
           "legendFormat": "DRAM",
           "refId": "C"
         }
       ],
-      "title": "Pod Current Energy Consumption (kW.s in 1 minute)",
+      "title": "Pod Current Energy Consumption (mW)",
       "type": "timeseries"
     },
     {
       "datasource": null,
-      "description": "Total kW.s Consumed",
+      "description": "Total kW Consumed",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -199,6 +200,7 @@
           "mode": "single"
         }
       },
+      "pluginVersion": "7.5.15",
       "targets": [
         {
           "datasource": {
@@ -206,9 +208,10 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(pod_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/1000000000",
+          "expr": "rate(pod_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/(20*60*24)/3600000000",
+          "instant": false,
           "interval": "",
-          "legendFormat": "Total",
+          "legendFormat": "TOTAL {{pod_name}}",
           "refId": "A"
         },
         {
@@ -217,10 +220,11 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(pod_cpu_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/1000000000",
+          "expr": "rate(pod_cpu_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/(20*60*24)/3600000000",
           "hide": false,
+          "instant": false,
           "interval": "",
-          "legendFormat": "CPU",
+          "legendFormat": "CPU {{pod_name}}",
           "refId": "B"
         },
         {
@@ -229,14 +233,16 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(pod_dram_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/1000000000",
+          "expr": "rate(pod_dram_energy_total{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])/(20*60*24)/3600000000",
           "hide": false,
+          "instant": false,
           "interval": "",
-          "legendFormat": "DRAM",
+          "legendFormat": "DRAM {{pod_name}}",
           "refId": "C"
         }
       ],
-      "title": "Total Pod Energy Consumption (kW.s)",
+      "title": "Total Pod Energy Consumption (kW) in 24hrs",
+      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -296,14 +302,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*rate(pod_energy_total{pod_namespace=\"$namespace\"}[24h])/1000000000",
+          "expr": "rate(pod_energy_total{pod_namespace=\"$namespace\"}[24h])/(20*60*24)/3600000000",
           "hide": false,
           "interval": "",
           "legendFormat": "{{pod_name}}",
           "refId": "A"
         }
       ],
-      "title": "Total Pod Energy Consumption (kW.s) in $namespace",
+      "title": "Total Pod Energy Consumption (kW) in $namespace in 24hrs",
       "type": "bargauge"
     },
     {
@@ -313,6 +319,11 @@
         "defaults": {
           "color": {
             "mode": "thresholds"
+          },
+          "custom": {
+            "align": null,
+            "displayMode": "color-text",
+            "filterable": false
           },
           "mappings": [],
           "thresholds": {
@@ -333,7 +344,46 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod_namespace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Namespace"
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "kW"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "lcd-gauge"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -342,20 +392,19 @@
         "y": 9
       },
       "id": 6,
+      "maxPerRow": 8,
       "options": {
-        "displayMode": "gradient",
-        "orientation": "vertical",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": true,
-        "text": {}
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "kW"
+          }
+        ]
       },
       "pluginVersion": "7.5.15",
+      "repeat": null,
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -363,99 +412,33 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"monitoring\"}[24h]))/1000000000",
-          "format": "time_series",
+          "expr": "sum by (pod_namespace) (\n    rate(pod_energy_total[24h])/(20*60*24)/3600000000\n) ",
+          "format": "table",
           "hide": false,
-          "instant": false,
+          "instant": true,
           "interval": "",
-          "legendFormat": "monitoring",
+          "intervalFactor": 1,
+          "legendFormat": "",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"openshift-dns\"}[24h]))/1000000000",
-          "format": "time_series",
-          "hide": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "openshift-dns",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"kube-system\"}[24h]))/1000000000",
-          "format": "time_series",
-          "hide": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "kube-system",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"openshift-ingress\"}[24h]))/1000000000",
-          "format": "time_series",
-          "hide": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "openshift-ingress",
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"openshift-service-ca\"}[24h]))/1000000000",
-          "format": "time_series",
-          "hide": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "openshift-service-ca",
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"system\"}[24h]))/1000000000",
-          "format": "time_series",
-          "hide": false,
-          "instant": false,
-          "interval": "",
-          "legendFormat": "system",
-          "refId": "F"
         }
       ],
-      "title": "Total Pod Energy Consumption (kW.s) in $namespace",
-      "type": "bargauge"
+      "title": "Total Energy Consumption (kW) by Namespace in 24hrs",
+      "type": "table"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 27,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "kepler",
+    "energy consumption"
+  ],
   "templating": {
     "list": [
       {
         "allValue": null,
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "monitoring",
           "value": "monitoring"
         },
@@ -487,8 +470,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "grafana_deployment_77857bf44_dr4kt",
-          "value": "grafana_deployment_77857bf44_dr4kt"
+          "text": "grafana_deployment_5d94b9d55f_8t6k2",
+          "value": "grafana_deployment_5d94b9d55f_8t6k2"
         },
         "datasource": null,
         "definition": "label_values(pod_energy_stat{pod_namespace=\"$namespace\"}, pod_name)",
@@ -524,5 +507,5 @@
   "timezone": "",
   "title": "Kepler Exporter Dashboard",
   "uid": "feedc0ffee",
-  "version": 1
+  "version": 7
 }
