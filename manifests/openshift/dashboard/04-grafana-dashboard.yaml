@@ -3,7 +3,7 @@ kind: GrafanaDashboard
 metadata:
   name: kepler-dashboard
   namespace: monitoring
-#  labels:
-#    app: kepler
+  labels:
+    app: grafana
 spec:
-  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/grafana-dashboards/Kepler-Exporter-Dashboard.json
+  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/grafana-dashboards/Kepler-Exporter-Dashboard-openshift.json
