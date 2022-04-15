@@ -84,7 +84,6 @@ var (
 func (c *Collector) reader() {
 	ticker := time.NewTicker(samplePeriod)
 	go func() {
-		var ct CgroupTime
 		lastEnergyCore, _ := power.GetEnergyFromCore()
 		lastEnergyDram, _ := power.GetEnergyFromDram()
 
@@ -105,13 +104,14 @@ func (c *Collector) reader() {
 				coreDelta := uint64(energyCore - lastEnergyCore)
 				dramDelta := uint64(energyDram - lastEnergyDram)
 				if coreDelta == 0 {
-					coreDelta = 1
+					log.Printf("power reading not changed, retry\n")
+					continue
 				}
 				lastEnergyCore = energyCore
 				lastEnergyDram = energyDram
 
 				lock.Lock()
-
+				var ct CgroupTime
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
 					err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
@@ -184,8 +184,8 @@ func (c *Collector) reader() {
 					}
 					v.AggEnergyInDram += v.CurrEnergyInDram
 					if podEnergy[podName].CurrCPUTime > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d eDram: %d \n\tCPUTime: %d (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %v LastCPUFreq %v\n\tpid: %v comm: %v\n",
-							podName, podEnergy[podName].Namespace, v.AggEnergyInCore, v.CurrEnergyInDram,
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%v) eDram: %d(%v) \n\tCPUTime: %d (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %v LastCPUFreq %v\n\tpid: %v comm: %v\n",
+							podName, podEnergy[podName].Namespace, v.CurrEnergyInCore, v.AggEnergyInCore, v.CurrEnergyInDram, v.AggEnergyInDram,
 							podEnergy[podName].CurrCPUTime, float64(podEnergy[podName].CurrCPUTime)/float64(aggCPUTime),
 							podEnergy[podName].CurrCPUCycles, float64(podEnergy[podName].CurrCPUCycles)/float64(aggCPUCycles),
 							podEnergy[podName].CurrCacheMisses, float64(podEnergy[podName].CurrCacheMisses)/float64(aggCacheMisses),
