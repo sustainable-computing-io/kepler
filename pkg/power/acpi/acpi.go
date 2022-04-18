@@ -1,0 +1,122 @@
+/*
+Copyright 2022.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package acpi
+
+import (
+	"fmt"
+	"io/ioutil"
+	"log"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	freqPathDir     = "/sys/devices/system/cpu/cpufreq/"
+	freqPath        = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
+	poolingInterval = 3000 * time.Millisecond // in seconds
+)
+
+// Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
+// information available to the operating system via hwmon in sysfs.
+type ACPI struct {
+	cpuCoreFrequency map[int32]uint64
+	stopChannel      chan bool
+
+	mu sync.Mutex
+}
+
+func NewACPIPowerMeter() *ACPI {
+	acpi := &ACPI{
+		cpuCoreFrequency: map[int32]uint64{},
+		stopChannel:      make(chan bool),
+	}
+	acpi.Run()
+	return acpi
+}
+
+func (a *ACPI) Run() {
+	go func() {
+		for {
+			select {
+			case <-a.stopChannel:
+				return
+			default:
+				cpuCoreFrequency := getCPUCoreFrequency()
+				a.mu.Lock()
+				for cpu, freq := range cpuCoreFrequency {
+					// average cpu frequency
+					a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
+				}
+				a.mu.Unlock()
+				time.Sleep(poolingInterval * time.Second)
+			}
+		}
+	}()
+}
+
+func (a *ACPI) Stop() {
+	close(a.stopChannel)
+}
+
+func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	shallowClone := make(map[int32]uint64)
+	for k, v := range a.cpuCoreFrequency {
+		shallowClone[k] = v
+	}
+	return shallowClone
+}
+
+func getCPUCoreFrequency() map[int32]uint64 {
+	files, err := ioutil.ReadDir(freqPathDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ch := make(chan []uint64)
+	for i := 0; i < len(files); i++ {
+		go func(i uint64) {
+			path := fmt.Sprintf(freqPath, i)
+			data, err := ioutil.ReadFile(path)
+			if err != nil {
+				return
+			}
+			if freq, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
+				ch <- []uint64{i, freq}
+				return
+			}
+			ch <- []uint64{i, 0}
+		}(uint64(i))
+	}
+
+	cpuCoreFrequency := map[int32]uint64{}
+	for i := 0; i < len(files); i++ {
+		select {
+		case val, ok := <-ch:
+			if ok {
+				cpuCoreFrequency[int32(val[0])] = val[1]
+			}
+		case <-time.After(1 * time.Minute):
+			log.Println("timeout reading cpu core frequency files")
+		}
+	}
+
+	return cpuCoreFrequency
+}

@@ -99,7 +99,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				"total_energy_in_dram",
 				"curr_energy_in_dram",
 				"avg_cpu_frequency",
-				"last_cpu_frequency",
 			},
 			nil,
 		)
@@ -108,13 +107,13 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			prometheus.CounterValue,
 			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
 			v.PodName, v.Namespace, v.Command,
-			strconv.FormatUint(v.AggCPUTime, 10), strconv.FormatUint(v.CurrCPUTime, 10),
+			fmt.Sprintf(".6f", v.AggCPUTime), fmt.Sprint(".6f", v.CurrCPUTime),
 			strconv.FormatUint(v.AggCPUCycles, 10), strconv.FormatUint(v.CurrCPUCycles, 10),
 			strconv.FormatUint(v.AggCPUInstr, 10), strconv.FormatUint(v.CurrCPUInstr, 10),
 			strconv.FormatUint(v.AggCacheMisses, 10), strconv.FormatUint(v.CurrCacheMisses, 10),
 			strconv.FormatUint(v.CurrEnergyInCore, 10), strconv.FormatUint(v.AggEnergyInCore, 10),
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
-			strconv.FormatUint(uint64(v.AvgCPUFreq), 10), strconv.FormatUint(uint64(v.LastCPUFreq), 10),
+			fmt.Sprint(".4f", v.AvgCPUFreq),
 		)
 		ch <- desc
 

@@ -20,30 +20,29 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
-	"github.com/sustainable-computing-io/kepler/pkg/power"
+	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 )
 
+// #define CPU_VECTOR_SIZE 128
 import "C"
 
 //TODO in sync with bpf program
 type CgroupTime struct {
-	CGroupPID             uint64
-	PID                   uint64
-	Time                  uint64
-	CPUCycles             uint64
-	CPUInstr              uint64
-	CacheMisses           uint64
-	StartTime             uint64
-	LastAvgFreqUpdateTime uint64
-	AvgFreq               uint32
-	LastFreq              uint32
-	Command               [16]byte
+	CGroupPID   uint64
+	PID         uint64
+	CPUCycles   uint64
+	CPUInstr    uint64
+	CacheMisses uint64
+	Command     [16]byte
+	CPUTime     [C.CPU_VECTOR_SIZE]uint16
 }
 
 type PodEnergy struct {
@@ -53,12 +52,12 @@ type PodEnergy struct {
 	Namespace string
 	Command   string
 
-	AggCPUTime     uint64
+	AggCPUTime     float64
 	AggCPUCycles   uint64
 	AggCPUInstr    uint64
 	AggCacheMisses uint64
 
-	CurrCPUTime     uint64
+	CurrCPUTime     float64
 	CurrCPUCycles   uint64
 	CurrCPUInstr    uint64
 	CurrCacheMisses uint64
@@ -68,8 +67,7 @@ type PodEnergy struct {
 	AggEnergyInCore  uint64
 	AggEnergyInDram  uint64
 
-	AvgCPUFreq  uint32
-	LastCPUFreq uint32
+	AvgCPUFreq float64
 }
 
 const (
@@ -77,26 +75,34 @@ const (
 )
 
 var (
-	podEnergy = map[string]*PodEnergy{}
-	lock      sync.Mutex
+	podEnergy      = map[string]*PodEnergy{}
+	lock           sync.Mutex
+	acpiPowerMeter *acpi.ACPI
+	numCPUs        int = runtime.NumCPU()
 )
+
+func init() {
+	acpiPowerMeter = acpi.NewACPIPowerMeter()
+	acpiPowerMeter.Run()
+}
 
 func (c *Collector) reader() {
 	ticker := time.NewTicker(samplePeriod)
 	go func() {
-		lastEnergyCore, _ := power.GetEnergyFromCore()
-		lastEnergyDram, _ := power.GetEnergyFromDram()
+		lastEnergyCore, _ := rapl.GetEnergyFromCore()
+		lastEnergyDram, _ := rapl.GetEnergyFromDram()
 
 		for {
 			select {
 			case <-ticker.C:
-				var aggCPUTime, aggCPUCycles, aggCacheMisses uint64
-				energyCore, err := power.GetEnergyFromCore()
+				apiCPUCoreFrequency := acpiPowerMeter.GetCPUCoreFrequency()
+				var aggCPUTime, aggCPUCycles, aggCacheMisses float64
+				energyCore, err := rapl.GetEnergyFromCore()
 				if err != nil {
 					log.Printf("failed to get core power: %v\n", err)
 					continue
 				}
-				energyDram, err := power.GetEnergyFromDram()
+				energyDram, err := rapl.GetEnergyFromDram()
 				if err != nil {
 					log.Printf("failed to get dram power: %v\n", err)
 					continue
@@ -142,11 +148,12 @@ func (c *Collector) reader() {
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
 					}
+					avgFreq, totalCPUTime := getAVGCPUFreqAndTotalCPUTime(apiCPUCoreFrequency, ct.CPUTime)
 					// to prevent overflow of the counts we change the unit to have smaller numbers
-					val := ct.Time / 1000 /*miliseconds*/
-					podEnergy[podName].CurrCPUTime = val
-					podEnergy[podName].AggCPUTime += val
-					val = ct.CPUCycles / 1000
+					totalCPUTime = totalCPUTime / 1000 /*seconds*/
+					podEnergy[podName].CurrCPUTime = totalCPUTime
+					podEnergy[podName].AggCPUTime += podEnergy[podName].CurrCPUTime
+					val := ct.CPUCycles / 1000
 					podEnergy[podName].CurrCPUCycles = val
 					podEnergy[podName].AggCPUCycles += val
 					val = ct.CPUInstr / 1000
@@ -155,22 +162,22 @@ func (c *Collector) reader() {
 					val = ct.CacheMisses / 1000
 					podEnergy[podName].CurrCacheMisses = val
 					podEnergy[podName].AggCacheMisses += val
-					podEnergy[podName].AvgCPUFreq = ct.AvgFreq
-					podEnergy[podName].LastCPUFreq = ct.LastFreq
+					avgFreq = avgFreq / 1000 /*MHZ*/
+					podEnergy[podName].AvgCPUFreq = avgFreq
 
 					aggCPUTime += podEnergy[podName].CurrCPUTime
-					aggCPUCycles += podEnergy[podName].CurrCPUCycles
-					aggCacheMisses += podEnergy[podName].CurrCacheMisses
+					aggCPUCycles += float64(podEnergy[podName].CurrCPUCycles)
+					aggCacheMisses += float64(podEnergy[podName].CurrCacheMisses)
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
 
 				var cyclesPerMW, cacheMissPerMW float64
 				if aggCPUCycles > 0 && coreDelta > 0 {
-					cyclesPerMW = float64(aggCPUCycles / coreDelta)
+					cyclesPerMW = aggCPUCycles / float64(coreDelta)
 				}
 				if aggCacheMisses > 0 && dramDelta > 0 {
-					cacheMissPerMW = float64(aggCacheMisses / dramDelta)
+					cacheMissPerMW = aggCacheMisses / float64(dramDelta)
 				}
 
 				log.Printf("energy from: core %v dram: %v time %v cycles %v misses %v\n",
@@ -184,16 +191,30 @@ func (c *Collector) reader() {
 					}
 					v.AggEnergyInDram += v.CurrEnergyInDram
 					if podEnergy[podName].CurrCPUTime > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%v) eDram: %d(%v) \n\tCPUTime: %d (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %v LastCPUFreq %v\n\tpid: %v comm: %v\n",
-							podName, podEnergy[podName].Namespace, v.CurrEnergyInCore, v.AggEnergyInCore, v.CurrEnergyInDram, v.AggEnergyInDram,
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d eDram: %d \n\tCPUTime: %.6f (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+							podName, podEnergy[podName].Namespace, v.AggEnergyInCore, v.CurrEnergyInDram,
 							podEnergy[podName].CurrCPUTime, float64(podEnergy[podName].CurrCPUTime)/float64(aggCPUTime),
 							podEnergy[podName].CurrCPUCycles, float64(podEnergy[podName].CurrCPUCycles)/float64(aggCPUCycles),
 							podEnergy[podName].CurrCacheMisses, float64(podEnergy[podName].CurrCacheMisses)/float64(aggCacheMisses),
-							podEnergy[podName].AvgCPUFreq, podEnergy[podName].LastCPUFreq, podEnergy[podName].PID, podEnergy[podName].Command)
+							podEnergy[podName].AvgCPUFreq, podEnergy[podName].PID, podEnergy[podName].Command)
 					}
 				}
 				lock.Unlock()
 			}
 		}
 	}()
+}
+
+// getAVGCPUFreqAndTotalCPUTime calculates the weighted cpu frequency average
+func getAVGCPUFreqAndTotalCPUTime(apiCPUCoreFrequency map[int32]uint64, cpuTime [C.CPU_VECTOR_SIZE]uint16) (float64, float64) {
+	totalFreq := float64(0)
+	totalCPUTime := float64(0)
+	for cpu, freq := range apiCPUCoreFrequency {
+		if cpuTime[cpu] != 0 {
+			totalFreq += float64(freq) * float64(cpuTime[cpu])
+			totalCPUTime += float64(cpuTime[cpu])
+		}
+	}
+	avgFreq := totalFreq / totalCPUTime
+	return avgFreq, totalCPUTime
 }
