@@ -17,6 +17,14 @@ limitations under the License.
 #include <uapi/linux/ptrace.h>
 #include <uapi/linux/bpf_perf_event.h>
 
+#ifndef NUM_CPUS
+#define NUM_CPUS 128
+#endif
+
+// we cannot define it dynamically as NUM_CPUS because the golang needs to know this
+// size at compiler time for decoding
+#define CPU_VECTOR_SIZE 128
+
 typedef struct switch_args
 {
     u64 pad;
@@ -40,15 +48,14 @@ typedef struct process_time_t
 {
     u64 cgrou_id;
     u64 pid;
-    u64 time;
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_misses;
-    u64 start_time;
-    u64 last_avg_freq_update_time;
-    u32 avg_freq;
-    u32 last_freq;
     char comm[16];
+    u64 pad;
+    // the max eBPF stack limit is 512 bytes, which is a vector of u16 with 128 elements
+    // the time is calculated in miliseconds, uint16 max size is 65K, ~1mim
+    u16 cpu_time[CPU_VECTOR_SIZE];
 } process_time_t;
 
 typedef struct pid_time_t
@@ -61,10 +68,6 @@ BPF_PERF_OUTPUT(events);
 // processes and pid time
 BPF_HASH(processes, u64, process_time_t);
 BPF_HASH(pid_time, pid_time_t);
-
-#ifndef NUM_CPUS
-#define NUM_CPUS 128
-#endif
 
 // perf counters
 BPF_PERF_ARRAY(cpu_cycles, NUM_CPUS);
@@ -79,6 +82,19 @@ BPF_ARRAY(prev_cache_miss, u64, NUM_CPUS);
 // cpu freq counters
 BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
 
+static void safe_array_add(u64 idx, u16 *array, u16 value)
+{
+#pragma clang loop unroll(full)
+    for (int array_index = 0; array_index < CPU_VECTOR_SIZE; array_index++)
+    {
+        if (array_index == idx)
+        {
+            array[array_index] = value;
+            break;
+        }
+    }
+}
+
 int sched_switch(switch_args *ctx)
 {
     u64 pid = bpf_get_current_pid_tgid() >> 32;
@@ -86,7 +102,7 @@ int sched_switch(switch_args *ctx)
 
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
-    u32 cpu = bpf_get_smp_processor_id();
+    u32 cpu_id = bpf_get_smp_processor_id();
     pid_time_t new_pid, old_pid;
 
     // get pid time
@@ -94,7 +110,7 @@ int sched_switch(switch_args *ctx)
     u64 *last_time = pid_time.lookup(&old_pid);
     if (last_time != 0)
     {
-        delta = (time - *last_time) / 1000; /*microsecond*/
+        delta = (time - *last_time) / 1000 / 1000; /*milisecond*/
         // return if the process did not use any cpu time yet
         if (delta == 0)
         {
@@ -114,44 +130,34 @@ int sched_switch(switch_args *ctx)
     u64 val = cpu_cycles.perf_read(CUR_CPU_IDENTIFIER);
     if (((s64)val > 0) || ((s64)val < -256))
     {
-        prev = prev_cpu_cycles.lookup(&cpu);
+        prev = prev_cpu_cycles.lookup(&cpu_id);
         if (prev)
         {
             cpu_cycles_delta = val - *prev;
         }
-        prev_cpu_cycles.update(&cpu, &val);
+        prev_cpu_cycles.update(&cpu_id, &val);
     }
     val = cpu_instr.perf_read(CUR_CPU_IDENTIFIER);
     if (((s64)val > 0) || ((s64)val < -256))
     {
-        prev = prev_cpu_instr.lookup(&cpu);
+        prev = prev_cpu_instr.lookup(&cpu_id);
         if (prev)
         {
             cpu_instr_delta = val - *prev;
         }
-        prev_cpu_instr.update(&cpu, &val);
+        prev_cpu_instr.update(&cpu_id, &val);
     }
     val = cache_miss.perf_read(CUR_CPU_IDENTIFIER);
     if (((s64)val > 0) || ((s64)val < -256))
     {
-        prev = prev_cache_miss.lookup(&cpu);
+        prev = prev_cache_miss.lookup(&cpu_id);
         if (prev)
         {
             cache_miss_delta = val - *prev;
         }
-        prev_cache_miss.update(&cpu, &val);
+        prev_cache_miss.update(&cpu_id, &val);
     }
 
-    // get cpu freq 
-    u32 last_freq = 0; // if no cpu frequency found, use this one
-    u32 init_freq = 10; //use a small init freq to start it off
-    u32 *freq = cpu_freq_array.lookup(&cpu);
-    if (freq && *freq > init_freq) {
-        last_freq = *freq;
-    }else{
-        cpu_freq_array.update(&cpu, &init_freq);
-    }
- 
     // init process time
     struct process_time_t *process_time;
     process_time = processes.lookup(&pid);
@@ -160,42 +166,21 @@ int sched_switch(switch_args *ctx)
         process_time_t new_process = {};
         new_process.pid = pid;
         new_process.cgrou_id = cgrou_id;
-        new_process.time = delta;
         new_process.cpu_cycles = cpu_cycles_delta;
         new_process.cpu_instr = cpu_instr_delta;
         new_process.cache_misses = cache_miss_delta;
         bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
-        new_process.start_time = time;
-        new_process.last_freq = last_freq;
-        new_process.last_avg_freq_update_time = time;
-        new_process.avg_freq = last_freq;
+        safe_array_add(cpu_id, new_process.cpu_time, delta);
         processes.update(&pid, &new_process);
     }
     else
     {
         // update process time
-        process_time->time += delta;
         process_time->cpu_cycles += cpu_cycles_delta;
         process_time->cpu_instr += cpu_instr_delta;
         process_time->cache_misses += cache_miss_delta;
-
-        // calculate runtime cpu frequency average
-        process_time->last_freq = last_freq;        
-        u64 last_freq_total_weight = (process_time->last_avg_freq_update_time - process_time->start_time)* process_time->avg_freq;
-        u64 freq_time_delta = time - process_time->last_avg_freq_update_time;
-        u64 last_freq_weight = process_time->last_freq * freq_time_delta;
-        process_time->avg_freq = (u32)((last_freq_total_weight + last_freq_weight)/(time - process_time->start_time));
-        process_time->last_avg_freq_update_time = time;        
+        safe_array_add(cpu_id, process_time->cpu_time, delta);
     }
 
-    return 0;
-}
-
-int cpu_freq(cpu_freq_args *ctx)
-{
-    u32 cpu = ctx->cpu_id;
-    u32 state = ctx->state;
-
-    cpu_freq_array.update(&cpu, &state);
     return 0;
 }
