@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package power
+package source
 
 import (
 	"fmt"
@@ -109,29 +109,29 @@ func readEventEnergy(eventName string) map[string]uint64 {
 	return energy
 }
 
-type raplSysfs struct{}
+type PowerSysfs struct{}
 
-func (r *raplSysfs) IsSupported() bool {
+func (r *PowerSysfs) IsSupported() bool {
 	path := fmt.Sprintf(packageNamePathTemplate, 0)
 	_, err := ioutil.ReadFile(path + energyFile)
 	return err == nil
 }
 
-func (r *raplSysfs) GetEnergyFromDram() (uint64, error) {
+func (r *PowerSysfs) GetEnergyFromDram() (uint64, error) {
 	return getEnergy(dramEvent)
 }
 
-func (r *raplSysfs) GetEnergyFromCore() (uint64, error) {
+func (r *PowerSysfs) GetEnergyFromCore() (uint64, error) {
 	return getEnergy(coreEvent)
 }
 
-func (r *raplSysfs) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerSysfs) GetEnergyFromUncore() (uint64, error) {
 	return getEnergy(uncoreEvent)
 }
 
-func (r *raplSysfs) GetEnergyFromPackage() (uint64, error) {
+func (r *PowerSysfs) GetEnergyFromPackage() (uint64, error) {
 	return getEnergy(packageEvent)
 }
 
-func (r *raplSysfs) StopPower() {
+func (r *PowerSysfs) StopPower() {
 }

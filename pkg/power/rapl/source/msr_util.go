@@ -19,7 +19,7 @@ limitations under the License.
  https://web.eece.maine.edu/~vweaver/projects/rapl/rapl-read.c
 */
 
-package power
+package source
 
 import (
 	"encoding/binary"

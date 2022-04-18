@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package power
+package source
 
 import (
 	"encoding/csv"
@@ -31,7 +31,7 @@ import (
 	"github.com/jszwec/csvutil"
 )
 
-type powerEstimate struct{}
+type PowerEstimate struct{}
 
 var (
 	powerDataPath    = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
@@ -144,7 +144,7 @@ func getCPUPowerEstimate(cpu string) (float64, float64, float64, error) {
 
 	return 0.0, 0.0, 0.0, fmt.Errorf("no CPU power info found")
 }
-func (r *powerEstimate) IsSupported() bool {
+func (r *PowerEstimate) IsSupported() bool {
 	cpu, err := getCPUArchitecture()
 	if err != nil {
 		fmt.Printf("no cpu info: %v\n", err)
@@ -161,18 +161,18 @@ func (r *powerEstimate) IsSupported() bool {
 	return err == nil
 }
 
-func (r *powerEstimate) StopPower() {
+func (r *PowerEstimate) StopPower() {
 	startTime = time.Now()
 }
 
-func (r *powerEstimate) GetEnergyFromDram() (uint64, error) {
+func (r *PowerEstimate) GetEnergyFromDram() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
 	return uint64(float64(dramInGB)*perGBPowerEstimate*seconds) * 1000, nil
 }
 
-func (r *powerEstimate) GetEnergyFromCore() (uint64, error) {
+func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
@@ -180,10 +180,10 @@ func (r *powerEstimate) GetEnergyFromCore() (uint64, error) {
 	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000, nil
 }
 
-func (r *powerEstimate) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerEstimate) GetEnergyFromUncore() (uint64, error) {
 	return 0, nil
 }
 
-func (r *powerEstimate) GetEnergyFromPackage() (uint64, error) {
+func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
 	return 0, nil
 }

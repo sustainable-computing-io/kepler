@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package power
+package rapl
 
 import (
 	"fmt"
+
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 type powerInterface interface {
@@ -34,10 +36,10 @@ type powerInterface interface {
 }
 
 var (
-	dummyImpl                   = &powerDummy{}
-	sysfsImpl                   = &raplSysfs{}
-	msrImpl                     = &raplMSR{}
-	estimateImpl                = &powerEstimate{}
+	dummyImpl                   = &source.PowerDummy{}
+	sysfsImpl                   = &source.PowerSysfs{}
+	msrImpl                     = &source.PowerMSR{}
+	estimateImpl                = &source.PowerEstimate{}
 	powerImpl    powerInterface = sysfsImpl
 	useMSR                      = false // it looks MSR on kvm or hyper-v is not working
 )
