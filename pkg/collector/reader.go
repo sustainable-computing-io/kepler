@@ -125,7 +125,10 @@ func (c *Collector) reader() {
 					nodeEnergyTotal += energy
 				}
 				// ccalculate the other energy consumed besides CPU and memory
-				otherDelta := nodeEnergyTotal - coreDelta - dramDelta
+				otherDelta := float64(0)
+				if nodeEnergyTotal > 0 {
+					otherDelta = nodeEnergyTotal - coreDelta - dramDelta
+				}
 
 				lock.Lock()
 				var ct CgroupTime
