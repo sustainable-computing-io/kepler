@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,13 +30,22 @@ import (
 const (
 	freqPathDir     = "/sys/devices/system/cpu/cpufreq/"
 	freqPath        = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
+	powerPath       = "/sys/class/hwmon/hwmon2/device/power%d_average"
 	poolingInterval = 3000 * time.Millisecond // in seconds
+	sensorIDPrefix  = "energy"
+)
+
+var (
+	numCPUS int32 = int32(runtime.NumCPU())
 )
 
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
 // information available to the operating system via hwmon in sysfs.
 type ACPI struct {
-	cpuCoreFrequency map[int32]uint64
+	// systemEnergy is the system accumulated energy consumption in Joule
+	systemEnergy     map[string]float64 /*sensorID:value*/
+	collectEnergy    bool
+	cpuCoreFrequency map[int32]uint64 /*cpuID:value*/
 	stopChannel      chan bool
 
 	mu sync.Mutex
@@ -43,10 +53,13 @@ type ACPI struct {
 
 func NewACPIPowerMeter() *ACPI {
 	acpi := &ACPI{
+		systemEnergy:     map[string]float64{},
 		cpuCoreFrequency: map[int32]uint64{},
 		stopChannel:      make(chan bool),
 	}
-	acpi.Run()
+	if acpi.IsPowerSupported() {
+		acpi.collectEnergy = true
+	}
 	return acpi
 }
 
@@ -64,7 +77,21 @@ func (a *ACPI) Run() {
 					a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
 				}
 				a.mu.Unlock()
-				time.Sleep(poolingInterval * time.Second)
+
+				if a.collectEnergy {
+					if sensorPower, err := getPowerFromSensor(); err == nil {
+						a.mu.Lock()
+						for sensorID, power := range sensorPower {
+							/* energy (mJ) = miliwatts*time(second) */
+							a.systemEnergy[sensorID] += power * float64(poolingInterval/time.Second)
+						}
+						a.mu.Unlock()
+					} else {
+						log.Fatal(err)
+					}
+				}
+
+				time.Sleep(poolingInterval)
 			}
 		}
 	}()
@@ -119,4 +146,44 @@ func getCPUCoreFrequency() map[int32]uint64 {
 	}
 
 	return cpuCoreFrequency
+}
+
+func (a *ACPI) IsPowerSupported() bool {
+	file := fmt.Sprintf(powerPath, 1)
+	_, err := ioutil.ReadFile(file)
+	return err == nil
+}
+
+// GetEnergyFromHost returns the accumulated energy consumption and reset the counter
+func (a *ACPI) GetEnergyFromHost() (map[string]float64, error) {
+	power := map[string]float64{}
+	a.mu.Lock()
+	// reset counter when readed to prevent overflow
+	for sensorID := range a.systemEnergy {
+		power[sensorID] = a.systemEnergy[sensorID]
+		a.systemEnergy[sensorID] = 0
+	}
+	a.mu.Unlock()
+	return power, nil
+}
+
+func getPowerFromSensor() (map[string]float64, error) {
+	power := map[string]float64{}
+
+	for i := int32(1); i <= numCPUS; i++ {
+		path := fmt.Sprintf(powerPath, i)
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			break
+		}
+		// currPower is in microWatt
+		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+		if err == nil {
+			power[fmt.Sprintf("%s%d", sensorIDPrefix, i)] = float64(currPower) / 1000 /*miliWatts*/
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	return power, nil
 }
