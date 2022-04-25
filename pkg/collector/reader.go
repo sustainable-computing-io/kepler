@@ -176,7 +176,6 @@ func (c *Collector) reader() {
 					val = ct.CacheMisses
 					podEnergy[podName].CurrCacheMisses = val
 					podEnergy[podName].AggCacheMisses += val
-					avgFreq = avgFreq
 					podEnergy[podName].AvgCPUFreq = avgFreq
 
 					aggCPUTime += podEnergy[podName].CurrCPUTime
@@ -208,13 +207,16 @@ func (c *Collector) reader() {
 					v.CurrEnergyInOther = uint64(perProcessOtherMJ)
 					v.AggEnergyInOther += uint64(perProcessOtherMJ)
 					if podEnergy[podName].CurrCPUTime > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d eDram: %d eOther: %d \n\tCPUTime: %.6f (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
-							podName, podEnergy[podName].Namespace, v.AggEnergyInCore, v.CurrEnergyInDram, v.CurrEnergyInOther,
-							podEnergy[podName].CurrCPUTime, float64(podEnergy[podName].CurrCPUTime)/float64(aggCPUTime),
-							podEnergy[podName].CurrCPUCycles, float64(podEnergy[podName].CurrCPUCycles)/float64(aggCPUCycles),
-							podEnergy[podName].CurrCacheMisses, float64(podEnergy[podName].CurrCacheMisses)/float64(aggCacheMisses),
-							podEnergy[podName].AvgCPUFreq/1000, /*MHZ*/
-							podEnergy[podName].PID, podEnergy[podName].Command)
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) \n\tCPUTime: %.6f (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+							podName, podEnergy[podName].Namespace,
+							v.CurrEnergyInCore, v.AggEnergyInCore,
+							v.CurrEnergyInDram, v.AggEnergyInDram,
+							v.CurrEnergyInOther, v.AggEnergyInOther,
+							v.CurrCPUTime, float64(v.CurrCPUTime)/(aggCPUTime),
+							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles),
+							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses),
+							v.AvgCPUFreq/1000, /*MHZ*/
+							v.PID, v.Command)
 					}
 				}
 				lock.Unlock()
