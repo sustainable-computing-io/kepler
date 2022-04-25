@@ -27,6 +27,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
@@ -37,13 +38,14 @@ import "C"
 
 //TODO in sync with bpf program
 type CgroupTime struct {
-	CGroupPID   uint64
-	PID         uint64
-	CPUCycles   uint64
-	CPUInstr    uint64
-	CacheMisses uint64
-	Command     [16]byte
-	CPUTime     [C.CPU_VECTOR_SIZE]uint16
+	CGroupPID      uint64
+	PID            uint64
+	ProcessRunTime uint64
+	CPUCycles      uint64
+	CPUInstr       uint64
+	CacheMisses    uint64
+	Command        [16]byte
+	CPUTime        [C.CPU_VECTOR_SIZE]uint16
 }
 
 type PodEnergy struct {
@@ -99,7 +101,10 @@ func (c *Collector) reader() {
 			case <-ticker.C:
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
-				var aggCPUTime, aggCPUCycles, aggCacheMisses float64
+				var aggCPUTime, avgFreq, totalCPUTime float64
+				var aggCPUCycles, aggCacheMisses uint64
+				avgFreq = 0
+				totalCPUTime = 0
 				energyCore, err := rapl.GetEnergyFromCore()
 				if err != nil {
 					log.Printf("failed to get core power: %v\n", err)
@@ -120,7 +125,7 @@ func (c *Collector) reader() {
 				lastEnergyDram = energyDram
 
 				// calculate the total energy consumed in node from all sensors
-				var nodeEnergyTotal float64
+				var nodeEnergyTotal float64 = 0
 				for _, energy := range nodeEnergy {
 					nodeEnergyTotal += energy
 				}
@@ -132,6 +137,9 @@ func (c *Collector) reader() {
 
 				lock.Lock()
 				var ct CgroupTime
+				aggCPUTime = 0
+				aggCPUCycles = 0
+				aggCacheMisses = 0
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
 					err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
@@ -162,11 +170,15 @@ func (c *Collector) reader() {
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
 					}
-					avgFreq, totalCPUTime := getAVGCPUFreqAndTotalCPUTime(cpuFrequency, ct.CPUTime)
+					if attacher.EnableCPUFreq {
+						avgFreq, totalCPUTime = getAVGCPUFreqAndTotalCPUTime(cpuFrequency, ct.CPUTime)
+					} else {
+						totalCPUTime = float64(ct.ProcessRunTime)
+					}
 					// to prevent overflow of the counts we change the unit to have smaller numbers
-					totalCPUTime = totalCPUTime / 1000 /*seconds*/
+					totalCPUTime = totalCPUTime / 1000
 					podEnergy[podName].CurrCPUTime = totalCPUTime
-					podEnergy[podName].AggCPUTime += podEnergy[podName].CurrCPUTime
+					podEnergy[podName].AggCPUTime = podEnergy[podName].AggCPUTime + podEnergy[podName].CurrCPUTime
 					val := ct.CPUCycles
 					podEnergy[podName].CurrCPUCycles = val
 					podEnergy[podName].AggCPUCycles += val
@@ -178,27 +190,35 @@ func (c *Collector) reader() {
 					podEnergy[podName].AggCacheMisses += val
 					podEnergy[podName].AvgCPUFreq = avgFreq
 
-					aggCPUTime += podEnergy[podName].CurrCPUTime
-					aggCPUCycles += float64(podEnergy[podName].CurrCPUCycles)
-					aggCacheMisses += float64(podEnergy[podName].CurrCacheMisses)
+					aggCPUTime = aggCPUTime + totalCPUTime
+					aggCPUCycles += podEnergy[podName].CurrCPUCycles
+					aggCacheMisses += podEnergy[podName].CurrCacheMisses
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
 
 				var cyclesPerMJ, cacheMissPerMJ, perProcessOtherMJ float64
+				cyclesPerMJ = 0
 				if aggCPUCycles > 0 && coreDelta > 0 {
-					cyclesPerMJ = aggCPUCycles / coreDelta
+					cyclesPerMJ = float64(aggCPUCycles) / coreDelta
 				}
+				cacheMissPerMJ = 0
 				if aggCacheMisses > 0 && dramDelta > 0 {
-					cacheMissPerMJ = aggCacheMisses / dramDelta
+					cacheMissPerMJ = float64(aggCacheMisses) / dramDelta
 				}
 				perProcessOtherMJ = otherDelta / float64(len(podEnergy))
 
-				log.Printf("energy from: core %v dram: %v time %v cycles %v misses %v\n",
+				log.Printf("energy from: core %.2f dram: %.2f time %.6f cycles %d misses %d\n",
 					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCacheMisses)
 
 				for podName, v := range podEnergy {
-					v.CurrEnergyInCore = uint64(float64(v.CurrCPUCycles) / cyclesPerMJ)
+					// attribte to both CPU time and CPU cycles to deal with cases where cpu cycles are not available
+					if v.CurrCPUTime > 0 {
+						v.CurrEnergyInCore = uint64(float64(v.CurrCPUTime) / aggCPUTime * coreDelta)
+					}
+					if v.CurrCPUCycles > 0 {
+						v.CurrEnergyInCore = (v.CurrEnergyInCore + uint64(float64(v.CurrCPUCycles)/cyclesPerMJ)) / 2
+					}
 					v.AggEnergyInCore += v.CurrEnergyInCore
 					if cacheMissPerMJ > 0 {
 						v.CurrEnergyInDram = uint64(float64(v.CurrCacheMisses) / cacheMissPerMJ)
@@ -206,15 +226,15 @@ func (c *Collector) reader() {
 					v.AggEnergyInDram += v.CurrEnergyInDram
 					v.CurrEnergyInOther = uint64(perProcessOtherMJ)
 					v.AggEnergyInOther += uint64(perProcessOtherMJ)
-					if podEnergy[podName].CurrCPUTime > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) \n\tCPUTime: %.6f (%f) \n\tcycles: %d (%f) \n\tmisses: %d (%f)\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+					if v.CurrEnergyInCore > 0 {
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) \n\tCPUTime: %.2f (%f) \n\tcycles: %d \n\tmisses: %d\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
 							podName, podEnergy[podName].Namespace,
 							v.CurrEnergyInCore, v.AggEnergyInCore,
 							v.CurrEnergyInDram, v.AggEnergyInDram,
 							v.CurrEnergyInOther, v.AggEnergyInOther,
-							v.CurrCPUTime, float64(v.CurrCPUTime)/(aggCPUTime),
-							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles),
-							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses),
+							v.CurrCPUTime, v.CurrCPUTime/aggCPUTime,
+							v.CurrCPUCycles,
+							v.CurrCacheMisses,
 							v.AvgCPUFreq/1000, /*MHZ*/
 							v.PID, v.Command)
 					}

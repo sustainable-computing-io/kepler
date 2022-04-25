@@ -45,16 +45,11 @@ var (
 		"cpu_instr":  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		"cache_miss": {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
+	EnableCPUFreq = true
 )
 
-func AttachBPFAssets() (*BpfModuleTables, error) {
-	bpfModules := &BpfModuleTables{}
-	program := assets.Program
-	objProg, err := assets.Asset(program)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get program %q: %v", program, err)
-	}
-	m := bpf.NewModule(string(objProg), []string{"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU())})
+func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
+	m := bpf.NewModule(string(objProg), options)
 	//TODO make all entrypoints yaml-declarable
 	sched_switch, err := m.LoadTracepoint("sched_switch")
 	if err != nil {
@@ -70,11 +65,37 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 		if t == nil {
 			return nil, fmt.Errorf("failed to find perf array: %s", arrayName)
 		}
-		err = openPerfEvent(t, counter.evType, counter.evConfig)
-		if err != nil {
+		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
+		if perfErr != nil {
 			// some hypervisors don't expose perf counters
 			fmt.Printf("failed to attach perf event %s: %v\n", arrayName, err)
 			counter.enabled = false
+		}
+	}
+	return m, err
+}
+
+func AttachBPFAssets() (*BpfModuleTables, error) {
+	bpfModules := &BpfModuleTables{}
+	program := assets.Program
+	objProg, err := assets.Asset(program)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get program %q: %v", program, err)
+	}
+	options := []string{
+		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
+		"-DCPU_FREQ",
+	}
+	m, err := loadModule(objProg, options)
+	if err != nil {
+		fmt.Printf("failed to attach perf module with options %v: %v\n", options, err)
+		options = []string{"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU())}
+		EnableCPUFreq = false
+		m, err = loadModule(objProg, options)
+		if err != nil {
+			fmt.Printf("failed to attach perf module with options %v: %v\n", options, err)
+			// at this time, there is not much we can do with the eBPF module
+			return nil, err
 		}
 	}
 
