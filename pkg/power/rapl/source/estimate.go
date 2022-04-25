@@ -44,8 +44,8 @@ var (
 	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64
 
 	cpuModelRegex = []string{
-		"( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz". This is seen on KVM
-		"( [-a-zA-Z0-9]+[0-9]+[A-Z]*)",  // Intel, e.g. "model name      : 12th Gen Intel(R) Core(TM) i7-12700H". This is seen on Hyper-V
+		"(.)*Intel(.)*( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz". This is seen on KVM
+		"(.)*Intel(.)*( [-a-zA-Z0-9]+[0-9]+[A-Z]*)",  // Intel, e.g. "model name      : 12th Gen Intel(R) Core(TM) i7-12700H". This is seen on Hyper-V
 	}
 	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
 )
@@ -69,9 +69,10 @@ func getCPUModel() (string, error) {
 	}
 	for _, r := range cpuModelRegex {
 		re := regexp.MustCompile(r)
-		matches := re.FindAllString(string(b), -1)
-		if len(matches) > 0 {
-			return strings.TrimSpace(matches[0]), nil
+		matches := re.FindStringSubmatch(string(b))
+		l := len(matches)
+		if l > 0 {
+			return strings.TrimSpace(matches[l-1]), nil
 		}
 	}
 	return "", fmt.Errorf("no CPU architecture found")
