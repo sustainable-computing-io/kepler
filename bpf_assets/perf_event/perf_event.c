@@ -101,7 +101,7 @@ int sched_switch(switch_args *ctx)
     u64 *last_time = pid_time.lookup(&old_pid);
     if (last_time != 0)
     {
-        delta = (time - *last_time) / 1000 / 1000; /*milisecond*/
+        delta = (time - *last_time) / 1000000; /*milisecond*/
         // return if the process did not use any cpu time yet
         if (delta == 0)
         {
@@ -111,7 +111,7 @@ int sched_switch(switch_args *ctx)
     }
 
     new_pid.pid = ctx->next_pid;
-    pid_time.update(&new_pid, &time);
+    pid_time.lookup_or_try_init(&new_pid, &time);
 
     u64 cpu_cycles_delta = 0;
     u64 cpu_instr_delta = 0;
@@ -160,12 +160,12 @@ int sched_switch(switch_args *ctx)
         new_process.cpu_cycles = cpu_cycles_delta;
         new_process.cpu_instr = cpu_instr_delta;
         new_process.cache_misses = cache_miss_delta;
-        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+        new_process.process_run_time += delta;
 #ifdef CPU_FREQ
         //FIXME: for certain reason, hyper-v seems to always get a cpu_id that is same as NUM_CPUS and cause stack overrun
         safe_array_add(cpu_id, new_process.cpu_time, delta);
 #endif        
-        new_process.process_run_time += delta;
+        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
         processes.update(&pid, &new_process);
     }
     else
