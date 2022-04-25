@@ -37,26 +37,20 @@ typedef struct switch_args
     int next_prio;
 } switch_args;
 
-typedef struct cpu_freq_args
-{
-    u64 pad;
-    u32 state;
-    u32 cpu_id;
-} cpu_freq_args;
-
 typedef struct process_time_t
 {
-    u64 cgrou_id;
+    u64 cgroup_id;
     u64 pid;
+    u64 process_run_time;
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_misses;
     char comm[16];
-    u64 pad;
+    //u64 pad;
     // the max eBPF stack limit is 512 bytes, which is a vector of u16 with 128 elements
     // the time is calculated in miliseconds, uint16 max size is 65K, ~1mim
     u16 cpu_time[CPU_VECTOR_SIZE];
-} process_time_t;
+}  process_time_t;
 
 typedef struct pid_time_t
 {
@@ -79,17 +73,14 @@ BPF_ARRAY(prev_cpu_cycles, u64, NUM_CPUS);
 BPF_ARRAY(prev_cpu_instr, u64, NUM_CPUS);
 BPF_ARRAY(prev_cache_miss, u64, NUM_CPUS);
 
-// cpu freq counters
-BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
-
-static void safe_array_add(u64 idx, u16 *array, u16 value)
+static void safe_array_add(u32 idx, u16 *array, u16 value)
 {
 #pragma clang loop unroll(full)
     for (int array_index = 0; array_index < CPU_VECTOR_SIZE; array_index++)
     {
         if (array_index == idx)
         {
-            array[array_index] = value;
+            array[array_index] += value;
             break;
         }
     }
@@ -98,7 +89,7 @@ static void safe_array_add(u64 idx, u16 *array, u16 value)
 int sched_switch(switch_args *ctx)
 {
     u64 pid = bpf_get_current_pid_tgid() >> 32;
-    u64 cgrou_id = bpf_get_current_cgroup_id();
+    u64 cgroup_id = bpf_get_current_cgroup_id();
 
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
@@ -165,12 +156,16 @@ int sched_switch(switch_args *ctx)
     {
         process_time_t new_process = {};
         new_process.pid = pid;
-        new_process.cgrou_id = cgrou_id;
+        new_process.cgroup_id = cgroup_id;
         new_process.cpu_cycles = cpu_cycles_delta;
         new_process.cpu_instr = cpu_instr_delta;
         new_process.cache_misses = cache_miss_delta;
         bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+#ifdef CPU_FREQ
+        //FIXME: for certain reason, hyper-v seems to always get a cpu_id that is same as NUM_CPUS and cause stack overrun
         safe_array_add(cpu_id, new_process.cpu_time, delta);
+#endif        
+        new_process.process_run_time += delta;
         processes.update(&pid, &new_process);
     }
     else
@@ -179,7 +174,10 @@ int sched_switch(switch_args *ctx)
         process_time->cpu_cycles += cpu_cycles_delta;
         process_time->cpu_instr += cpu_instr_delta;
         process_time->cache_misses += cache_miss_delta;
+        process_time->process_run_time += delta;
+#ifdef CPU_FREQ
         safe_array_add(cpu_id, process_time->cpu_time, delta);
+#endif        
     }
 
     return 0;
