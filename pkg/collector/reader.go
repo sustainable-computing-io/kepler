@@ -247,7 +247,7 @@ func (c *Collector) reader() {
 							v.CurrEnergyInCore, v.AggEnergyInCore,
 							v.CurrEnergyInDram, v.AggEnergyInDram,
 							v.CurrEnergyInOther, v.AggEnergyInOther,
-							v.AggEnergyInGPU, v.AggEnergyInGPU,
+							v.CurrEnergyInGPU, v.AggEnergyInGPU,
 							v.CurrCPUTime, v.CurrCPUTime/aggCPUTime,
 							v.CurrCPUCycles,
 							v.CurrCacheMisses,
