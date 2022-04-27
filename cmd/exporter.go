@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,6 +33,7 @@ import (
 var (
 	address     = flag.String("address", "0.0.0.0:8888", "bind address")
 	metricsPath = flag.String("metrics-path", "/metrics", "metrics path")
+	enableGPU   = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
 )
 
 func main() {
@@ -52,6 +54,13 @@ func main() {
 	}
 	defer collector.Destroy()
 	defer rapl.StopPower()
+	if *enableGPU {
+		err = gpu.Init()
+		if err == nil {
+			defer gpu.Shutdown()
+		}
+	}
+
 	err = prometheus.Register(collector)
 	if err != nil {
 		log.Fatalf("failed to register collector: %v", err)

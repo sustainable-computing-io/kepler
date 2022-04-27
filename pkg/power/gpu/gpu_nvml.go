@@ -58,7 +58,7 @@ func Shutdown() bool {
 func GetEnergyPerPid() (map[uint32]float64, error) {
 	m := make(map[uint32]float64)
 
-	for device := range devices {
+	for _, device := range devices {
 		power, ret := device.GetPowerUsage()
 		if ret != nvml.SUCCESS {
 			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
@@ -74,12 +74,12 @@ func GetEnergyPerPid() (map[uint32]float64, error) {
 		// get used memory of each pid
 		for i, pid := range pids {
 			pm[i].pid = pid.Pid
-			pm[i].mem = pid.UsagedGpuMemory
+			pm[i].mem = pid.UsedGpuMemory
 			totalMem += pm[i].mem
 		}
 		// use per pid used memory/total used memory to estimate per pid energy
 		for _, p := range pm {
-			m[p.pid] = float64(power * p.mem / totalMem)
+			m[p.pid] = float64(uint64(power) * p.mem / totalMem)
 		}
 	}
 	return m, nil
