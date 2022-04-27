@@ -30,6 +30,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
+	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 )
 
@@ -68,9 +69,11 @@ type PodEnergy struct {
 	CurrEnergyInCore  uint64
 	CurrEnergyInDram  uint64
 	CurrEnergyInOther uint64
+	CurrEnergyInGPU   uint64
 	AggEnergyInCore   uint64
 	AggEnergyInDram   uint64
 	AggEnergyInOther  uint64
+	AggEnergyInGPU    uint64
 
 	AvgCPUFreq float64
 }
@@ -82,6 +85,7 @@ const (
 var (
 	podEnergy      = map[string]*PodEnergy{}
 	nodeEnergy     = map[string]float64{}
+	gpuEnergy      = map[uint32]float64{}
 	cpuFrequency   = map[int32]uint64{}
 	nodeName, _    = os.Hostname()
 	acpiPowerMeter = acpi.NewACPIPowerMeter()
@@ -94,13 +98,16 @@ func (c *Collector) reader() {
 	go func() {
 		lastEnergyCore, _ := rapl.GetEnergyFromCore()
 		lastEnergyDram, _ := rapl.GetEnergyFromDram()
-
+		lastGpuEnergy := gpu.GetGpuEnergy()
 		acpiPowerMeter.Run()
 		for {
 			select {
 			case <-ticker.C:
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
+				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid(lastGpuEnergy)
+				lastGpuEnergy = gpu.GetGpuEnergy()
+
 				var aggCPUTime, avgFreq, totalCPUTime float64
 				var aggCPUCycles, aggCacheMisses uint64
 				avgFreq = 0
@@ -121,6 +128,10 @@ func (c *Collector) reader() {
 					log.Printf("power reading not changed, retry\n")
 					continue
 				}
+				gpuDelta := float64(0)
+				for _, e := range gpuEnergy {
+					gpuDelta += e
+				}
 				lastEnergyCore = energyCore
 				lastEnergyDram = energyDram
 
@@ -129,10 +140,10 @@ func (c *Collector) reader() {
 				for _, energy := range nodeEnergy {
 					nodeEnergyTotal += energy
 				}
-				// ccalculate the other energy consumed besides CPU and memory
+				// ccalculate the other energy consumed besides CPU/GPU and memory
 				otherDelta := float64(0)
 				if nodeEnergyTotal > 0 {
-					otherDelta = nodeEnergyTotal - coreDelta - dramDelta
+					otherDelta = nodeEnergyTotal - coreDelta - dramDelta - gpuDelta
 				}
 
 				lock.Lock()
@@ -190,6 +201,10 @@ func (c *Collector) reader() {
 					podEnergy[podName].AggCacheMisses += val
 					podEnergy[podName].AvgCPUFreq = avgFreq
 
+					if e, ok := gpuEnergy[uint32(ct.PID)]; ok {
+						podEnergy[podName].CurrEnergyInGPU = uint64(e)
+						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
+					}
 					aggCPUTime = aggCPUTime + totalCPUTime
 					aggCPUCycles += podEnergy[podName].CurrCPUCycles
 					aggCacheMisses += podEnergy[podName].CurrCacheMisses
@@ -227,11 +242,12 @@ func (c *Collector) reader() {
 					v.CurrEnergyInOther = uint64(perProcessOtherMJ)
 					v.AggEnergyInOther += uint64(perProcessOtherMJ)
 					if v.CurrEnergyInCore > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) \n\tCPUTime: %.2f (%f) \n\tcycles: %d \n\tmisses: %d\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) eGPU: %d(%d) \n\tCPUTime: %.2f (%f) \n\tcycles: %d \n\tmisses: %d\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
 							podName, podEnergy[podName].Namespace,
 							v.CurrEnergyInCore, v.AggEnergyInCore,
 							v.CurrEnergyInDram, v.AggEnergyInDram,
 							v.CurrEnergyInOther, v.AggEnergyInOther,
+							v.AggEnergyInGPU, v.AggEnergyInGPU,
 							v.CurrCPUTime, v.CurrCPUTime/aggCPUTime,
 							v.CurrCPUCycles,
 							v.CurrCacheMisses,

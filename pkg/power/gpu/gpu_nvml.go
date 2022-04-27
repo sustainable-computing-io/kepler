@@ -55,15 +55,29 @@ func Shutdown() bool {
 	return nvml.Shutdown() == nvml.SUCCESS
 }
 
-func GetEnergyPerPid() (map[uint32]float64, error) {
-	m := make(map[uint32]float64)
-
-	for _, device := range devices {
+func GetGpuEnergy() []uint32 {
+	e := make([]uint32, len(devices))
+	for i, device := range devices {
 		power, ret := device.GetPowerUsage()
 		if ret != nvml.SUCCESS {
 			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
+		e[i] = power
+	}
+	return e
+}
+
+func GetCurrGpuEnergyPerPid(lastEnergy []uint32) (map[uint32]float64, error) {
+	m := make(map[uint32]float64)
+
+	for i, device := range devices {
+		thisEnergy, ret := device.GetPowerUsage()
+		if ret != nvml.SUCCESS {
+			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			continue
+		}
+		power := thisEnergy - lastEnergy[i]
 		pids, ret := device.GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
 			fmt.Printf("failed to get compute processes on device %v: %v", device, nvml.ErrorString(ret))
