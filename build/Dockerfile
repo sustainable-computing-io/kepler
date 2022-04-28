@@ -30,5 +30,4 @@ RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/cpu_model.csv /var/lib/kepler/data/cpu_model.csv
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/power_data.csv /var/lib/kepler/data/power_data.csv
 
-
 ENTRYPOINT ["/usr/bin/kepler"]
