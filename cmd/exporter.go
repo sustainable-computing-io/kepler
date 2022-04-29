@@ -44,6 +44,13 @@ func main() {
 		log.Fatalf("failed to register : %v", err)
 	}
 
+	if *enableGPU {
+		err = gpu.Init()
+		if err == nil {
+			defer gpu.Shutdown()
+		}
+	}
+
 	collector, err := collector.New()
 	if err != nil {
 		log.Fatalf("failed to create collector: %v", err)
@@ -54,12 +61,6 @@ func main() {
 	}
 	defer collector.Destroy()
 	defer rapl.StopPower()
-	if *enableGPU {
-		err = gpu.Init()
-		if err == nil {
-			defer gpu.Shutdown()
-		}
-	}
 
 	err = prometheus.Register(collector)
 	if err != nil {

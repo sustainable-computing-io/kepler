@@ -39,6 +39,7 @@ func Init() error {
 		nvml.Shutdown()
 		return fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 	}
+	fmt.Printf("found %d gpu devices\n", count)
 	devices = make([]nvml.Device, count)
 	for i := 0; i < count; i++ {
 		device, ret := nvml.DeviceGetHandleByIndex(i)
