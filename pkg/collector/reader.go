@@ -152,7 +152,11 @@ func (c *Collector) reader() {
 				aggCPUCycles = 0
 				aggCacheMisses = 0
 				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid()
-
+				for _, v := range podEnergy {
+					v.CurrCPUCycles = 0
+					v.CurrCPUTime = 0
+					v.CurrCacheMisses = 0
+				}
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
 					err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
@@ -190,17 +194,21 @@ func (c *Collector) reader() {
 					}
 					// to prevent overflow of the counts we change the unit to have smaller numbers
 					totalCPUTime = totalCPUTime / 1000
-					podEnergy[podName].CurrCPUTime = totalCPUTime
-					podEnergy[podName].AggCPUTime = podEnergy[podName].AggCPUTime + podEnergy[podName].CurrCPUTime
+					podEnergy[podName].CurrCPUTime += totalCPUTime
+					podEnergy[podName].AggCPUTime += totalCPUTime
+					aggCPUTime += totalCPUTime
 					val := ct.CPUCycles
-					podEnergy[podName].CurrCPUCycles = val
+					podEnergy[podName].CurrCPUCycles += val
 					podEnergy[podName].AggCPUCycles += val
+					aggCPUCycles += val
 					val = ct.CPUInstr
-					podEnergy[podName].CurrCPUInstr = val
+					podEnergy[podName].CurrCPUInstr += val
 					podEnergy[podName].AggCPUInstr += val
 					val = ct.CacheMisses
-					podEnergy[podName].CurrCacheMisses = val
+					podEnergy[podName].CurrCacheMisses += val
 					podEnergy[podName].AggCacheMisses += val
+					aggCacheMisses += val
+
 					podEnergy[podName].AvgCPUFreq = avgFreq
 					if e, ok := gpuEnergy[uint32(ct.PID)]; ok {
 						// fmt.Printf("gpu energy pod %v comm %v pid %v: %v\n", podName, C.GoString(comm), ct.PID, e)
@@ -208,9 +216,6 @@ func (c *Collector) reader() {
 						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
 					}
 
-					aggCPUTime = aggCPUTime + totalCPUTime
-					aggCPUCycles += podEnergy[podName].CurrCPUCycles
-					aggCacheMisses += podEnergy[podName].CurrCacheMisses
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
@@ -226,7 +231,7 @@ func (c *Collector) reader() {
 				}
 				perProcessOtherMJ = otherDelta / float64(len(podEnergy))
 
-				log.Printf("energy from: core %.2f dram: %.2f time %.6f cycles %d misses %d\n",
+				log.Printf("energy count: core %.2f dram: %.2f time %.6f cycles %d misses %d\n",
 					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCacheMisses)
 
 				for podName, v := range podEnergy {
