@@ -103,7 +103,7 @@ func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 
 // updateListPodCache updates cache info with all pods and optionally
 // stops the loop when a given container ID is found
-func updateListPodCache(containerID string, stopWhenFound bool) {
+func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 	pods, err := podLister.ListPods()
 	if err != nil {
 		log.Fatal(err)
@@ -118,7 +118,7 @@ func updateListPodCache(containerID string, stopWhenFound bool) {
 			}
 			containerID := strings.Trim(status.ContainerID, containerIDPredix)
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+			if stopWhenFound && status.ContainerID == targetContainerID {
 				return
 			}
 		}
@@ -131,7 +131,7 @@ func updateListPodCache(containerID string, stopWhenFound bool) {
 			}
 			containerID := strings.Trim(status.ContainerID, containerIDPredix)
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+			if stopWhenFound && status.ContainerID == targetContainerID {
 				return
 			}
 		}
