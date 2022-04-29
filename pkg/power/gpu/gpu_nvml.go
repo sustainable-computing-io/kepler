@@ -69,7 +69,7 @@ func GetGpuEnergy() []uint32 {
 	return e
 }
 
-func GetCurrGpuEnergyPerPid(lastEnergy []uint32) (map[uint32]float64, error) {
+func GetCurrGpuEnergyPerPid(lastEnergy []uint32) (map[uint32]float64, []uint32, error) {
 	m := make(map[uint32]float64)
 
 	for i, device := range devices {
@@ -78,7 +78,15 @@ func GetCurrGpuEnergyPerPid(lastEnergy []uint32) (map[uint32]float64, error) {
 			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
+		// sanity check
+		if thisEnergy < lastEnergy[i] {
+			fmt.Printf("failed to get power: this power %v last power %v\n", thisEnergy, lastEnergy[i])
+			// reset it
+			lastEnergy[i] = thisEnergy
+			continue
+		}
 		power := thisEnergy - lastEnergy[i]
+		lastEnergy[i] = thisEnergy
 		pids, ret := device.GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
 			fmt.Printf("failed to get compute processes on device %v: %v", device, nvml.ErrorString(ret))
@@ -94,8 +102,9 @@ func GetCurrGpuEnergyPerPid(lastEnergy []uint32) (map[uint32]float64, error) {
 		}
 		// use per pid used memory/total used memory to estimate per pid energy
 		for _, p := range pm {
+			// fmt.Printf("energy %v power %v total mem %v mem %v\n", thisEnergy, power, totalMem, p.mem)
 			m[p.pid] = float64(uint64(power) * p.mem / totalMem)
 		}
 	}
-	return m, nil
+	return m, lastEnergy, nil
 }

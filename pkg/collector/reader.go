@@ -105,8 +105,7 @@ func (c *Collector) reader() {
 			case <-ticker.C:
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
-				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid(lastGpuEnergy)
-				lastGpuEnergy = gpu.GetGpuEnergy()
+				gpuEnergy, lastGpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid(lastGpuEnergy)
 
 				var aggCPUTime, avgFreq, totalCPUTime float64
 				var aggCPUCycles, aggCacheMisses uint64
