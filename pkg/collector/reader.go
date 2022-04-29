@@ -200,17 +200,18 @@ func (c *Collector) reader() {
 					podEnergy[podName].AggCacheMisses += val
 					podEnergy[podName].AvgCPUFreq = avgFreq
 
-					if e, ok := gpuEnergy[uint32(ct.PID)]; ok {
-						podEnergy[podName].CurrEnergyInGPU = uint64(e)
-						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
-					}
 					aggCPUTime = aggCPUTime + totalCPUTime
 					aggCPUCycles += podEnergy[podName].CurrCPUCycles
 					aggCacheMisses += podEnergy[podName].CurrCacheMisses
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
-
+				for podName, v := range podEnergy {
+					if e, ok := gpuEnergy[uint32(v.PID)]; ok {
+						podEnergy[podName].CurrEnergyInGPU = uint64(e)
+						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
+					}
+				}
 				var cyclesPerMJ, cacheMissPerMJ, perProcessOtherMJ float64
 				cyclesPerMJ = 0
 				if aggCPUCycles > 0 && coreDelta > 0 {
