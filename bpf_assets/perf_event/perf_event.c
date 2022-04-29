@@ -88,7 +88,7 @@ static void safe_array_add(u32 idx, u16 *array, u16 value)
 
 int sched_switch(switch_args *ctx)
 {
-    u64 pid = bpf_get_current_pid_tgid()& 0xffffffff;
+    u64 pid = bpf_get_current_pid_tgid() & 0xffffffff;
     u64 cgroup_id = bpf_get_current_cgroup_id();
 
     u64 time = bpf_ktime_get_ns();

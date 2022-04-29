@@ -98,14 +98,14 @@ func (c *Collector) reader() {
 	go func() {
 		lastEnergyCore, _ := rapl.GetEnergyFromCore()
 		lastEnergyDram, _ := rapl.GetEnergyFromDram()
-		lastGpuEnergy := gpu.GetGpuEnergy()
+		_ = gpu.GetGpuEnergy() // reset power usage counter
+
 		acpiPowerMeter.Run()
 		for {
 			select {
 			case <-ticker.C:
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
-				gpuEnergy, lastGpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid(lastGpuEnergy)
 
 				var aggCPUTime, avgFreq, totalCPUTime float64
 				var aggCPUCycles, aggCacheMisses uint64
@@ -146,10 +146,13 @@ func (c *Collector) reader() {
 				}
 
 				lock.Lock()
+
 				var ct CgroupTime
 				aggCPUTime = 0
 				aggCPUCycles = 0
 				aggCacheMisses = 0
+				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid()
+
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
 					err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
@@ -157,7 +160,8 @@ func (c *Collector) reader() {
 						log.Printf("failed to decode received data: %v", err)
 						continue
 					}
-
+					comm := (*C.char)(unsafe.Pointer(&ct.Command))
+					// fmt.Printf("pid %v cgroup %v cmd %v\n", ct.PID, ct.CGroupPID, C.GoString(comm))
 					podName, err := pod_lister.GetPodNameFromcGgroupID(ct.CGroupPID)
 					if err != nil {
 						log.Printf("failed to resolve pod for cGroup ID %v: %v", ct.CGroupPID, err)
@@ -175,7 +179,6 @@ func (c *Collector) reader() {
 							podNamespace = "unknown"
 						}
 						podEnergy[podName].Namespace = podNamespace
-						comm := (*C.char)(unsafe.Pointer(&ct.Command))
 						podEnergy[podName].CGroupPID = ct.CGroupPID
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
@@ -199,6 +202,11 @@ func (c *Collector) reader() {
 					podEnergy[podName].CurrCacheMisses = val
 					podEnergy[podName].AggCacheMisses += val
 					podEnergy[podName].AvgCPUFreq = avgFreq
+					if e, ok := gpuEnergy[uint32(ct.PID)]; ok {
+						// fmt.Printf("gpu energy pod %v comm %v pid %v: %v\n", podName, C.GoString(comm), ct.PID, e)
+						podEnergy[podName].CurrEnergyInGPU += uint64(e)
+						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
+					}
 
 					aggCPUTime = aggCPUTime + totalCPUTime
 					aggCPUCycles += podEnergy[podName].CurrCPUCycles
@@ -206,12 +214,7 @@ func (c *Collector) reader() {
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
-				for podName, v := range podEnergy {
-					if e, ok := gpuEnergy[uint32(v.PID)]; ok {
-						podEnergy[podName].CurrEnergyInGPU = uint64(e)
-						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
-					}
-				}
+
 				var cyclesPerMJ, cacheMissPerMJ, perProcessOtherMJ float64
 				cyclesPerMJ = 0
 				if aggCPUCycles > 0 && coreDelta > 0 {
