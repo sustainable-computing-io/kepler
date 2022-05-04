@@ -19,11 +19,14 @@ package pod_lister
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,7 +39,17 @@ const (
 )
 
 var (
-	url string
+	podUrl, metricsUrl string
+
+	nodeCpuUsageMetricName       = "node_cpu_usage_seconds_total"
+	nodeMemUsageMetricName       = "node_memory_working_set_bytes"
+	containerCpuUsageMetricName  = "container_cpu_usage_seconds_total"
+	containerMemUsageMetricName  = "container_memory_working_set_bytes"
+	containerStartTimeMetricName = "container_start_time_seconds"
+
+	containerNameTag = "container"
+	podNameTag       = "pod"
+	namespaceTag     = "namespace"
 )
 
 func init() {
@@ -48,11 +61,11 @@ func init() {
 	if len(port) == 0 {
 		port = "10250"
 	}
-	url = "https://" + nodeName + ":" + port + "/pods"
+	podUrl = "https://" + nodeName + ":" + port + "/pods"
+	metricsUrl = "https://" + nodeName + ":" + port + "/metrics/resource"
 }
 
-// ListPods accesses Kubelet's metrics and obtain PodList
-func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
+func httpGet(url string) (*http.Response, error) {
 	objToken, err := ioutil.ReadFile(saPath)
 	if err != nil {
 		log.Fatalf("failed to read from %q: %v", saPath, err)
@@ -69,12 +82,21 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("failed to get response from %q: %v", url, err)
+		return nil, fmt.Errorf("failed to get response from %q: %v", url, err)
+	}
+	return resp, err
+}
+
+// ListPods accesses Kubelet's metrics and obtain PodList
+func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
+	resp, err := httpGet(podUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get response: %v", err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("failed to read response body: %v", err)
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 	podList := corev1.PodList{}
 	err = json.Unmarshal(body, &podList)
@@ -85,4 +107,69 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	pods := &podList.Items
 
 	return pods, nil
+}
+
+// ListMetrics accesses Kubelet's metrics and obtain pods and node metrics
+func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
+	resp, err := httpGet(metricsUrl)
+	if err != nil {
+		retErr = fmt.Errorf("failed to get response: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	var parser expfmt.TextParser
+	mf, err := parser.TextToMetricFamilies(resp.Body)
+	if err != nil {
+		retErr = fmt.Errorf("failed to parse: %v", err)
+		return
+	}
+	containerCPU = make(map[string]float64)
+	containerMem = make(map[string]float64)
+	totalContainerMem := float64(0)
+	totalContainerCPU := float64(0)
+	for k, family := range mf {
+		for _, v := range family.Metric {
+			value := float64(0)
+			switch family.GetType() {
+			case dto.MetricType_COUNTER:
+				value = float64(v.GetCounter().GetValue())
+			case dto.MetricType_GAUGE:
+				value = float64(v.GetGauge().GetValue())
+			}
+			switch k {
+			case nodeCpuUsageMetricName:
+				nodeCPU = value
+			case nodeMemUsageMetricName:
+				nodeMem = value
+			case containerCpuUsageMetricName:
+				namespace, pod := parseLabels(v.GetLabel())
+				containerCPU[namespace+"/"+pod] = value
+				totalContainerCPU += value
+			case containerMemUsageMetricName:
+				namespace, pod := parseLabels(v.GetLabel())
+				containerMem[namespace+"/"+pod] = value
+				totalContainerMem += value
+			default:
+				continue
+			}
+		}
+	}
+	systemContainerMem := nodeMem - totalContainerMem
+	systemContainerCPU := nodeCPU - totalContainerCPU
+	systemContainerName := systemProcessNamespace + "/" + systemProcessName
+	containerCPU[systemContainerName] = systemContainerCPU
+	containerMem[systemContainerName] = systemContainerMem
+	return
+}
+
+func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {
+	for _, v := range labels {
+		if v.GetName() == podNameTag {
+			pod = v.GetValue()
+		}
+		if v.GetName() == namespaceTag {
+			namespace = v.GetValue()
+		}
+	}
+	return
 }

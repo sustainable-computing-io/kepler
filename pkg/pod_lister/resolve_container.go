@@ -74,6 +74,10 @@ func GetPodContainerNameFromcGgroupID(cGroupID uint64) (string, error) {
 	return info.ContainerName, err
 }
 
+func GetPodMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
+	return podLister.ListMetrics()
+}
+
 func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 	var err error
 	var containerID string

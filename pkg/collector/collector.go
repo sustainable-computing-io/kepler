@@ -66,6 +66,8 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 				"curr_energy_in_core",
 				"total_energy_in_dram",
 				"curr_energy_in_dram",
+				"total_energy_in_gpu",
+				"curr_energy_in_gpu",
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
@@ -109,6 +111,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				"curr_energy_in_core",
 				"total_energy_in_dram",
 				"curr_energy_in_dram",
+				"total_energy_in_gpu",
+				"curr_energy_in_gpu",
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
@@ -118,7 +122,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc := prometheus.MustNewConstMetric(
 			de,
 			prometheus.CounterValue,
-			float64(v.CurrEnergyInCore+v.CurrEnergyInDram),
+			float64(v.CurrEnergyInCore+v.CurrEnergyInDram+v.CurrEnergyInGPU+v.CurrEnergyInOther),
 			v.PodName, v.Namespace, v.Command,
 			fmt.Sprintf("%f", v.AggCPUTime), fmt.Sprint("%f", v.CurrCPUTime),
 			strconv.FormatUint(v.AggCPUCycles, 10), strconv.FormatUint(v.CurrCPUCycles, 10),
@@ -126,6 +130,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.AggCacheMisses, 10), strconv.FormatUint(v.CurrCacheMisses, 10),
 			strconv.FormatUint(v.CurrEnergyInCore, 10), strconv.FormatUint(v.AggEnergyInCore, 10),
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
+			strconv.FormatUint(v.CurrEnergyInGPU, 10), strconv.FormatUint(v.AggEnergyInGPU, 10),
 			strconv.FormatUint(v.CurrEnergyInOther, 10), strconv.FormatUint(v.AggEnergyInOther, 10),
 			fmt.Sprint("%f", float64(v.AvgCPUFreq)),
 		)
@@ -162,7 +167,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		desc_current := prometheus.MustNewConstMetric(
 			de_current,
 			prometheus.GaugeValue,
-			float64(v.CurrEnergyInCore+v.CurrEnergyInDram+v.CurrEnergyInOther),
+			float64(v.CurrEnergyInCore+v.CurrEnergyInDram+v.CurrEnergyInGPU+v.CurrEnergyInOther),
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_current
@@ -238,6 +243,42 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			v.PodName, v.Namespace,
 		)
 		ch <- desc_dram_total
+
+		// de_gpu_current and desc_gpu_current give indexable values for current GPU energy consumptions (in 3 seconds) for all pods
+		de_gpu_current := prometheus.NewDesc(
+			"pod_gpu_energy_current",
+			"Pod GPU current energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+			},
+			nil,
+		)
+		desc_gpu_current := prometheus.MustNewConstMetric(
+			de_gpu_current,
+			prometheus.GaugeValue,
+			float64(v.CurrEnergyInGPU),
+			v.PodName, v.Namespace,
+		)
+		ch <- desc_gpu_current
+
+		// de_gpu_total and desc_gpu_total give indexable values for total GPU energy consumptions for all pods
+		de_gpu_total := prometheus.NewDesc(
+			"pod_gpu_energy_total",
+			"Pod GPU total energy consumption",
+			[]string{
+				"pod_name",
+				"pod_namespace",
+			},
+			nil,
+		)
+		desc_gpu_total := prometheus.MustNewConstMetric(
+			de_gpu_total,
+			prometheus.CounterValue,
+			float64(v.AggEnergyInGPU),
+			v.PodName, v.Namespace,
+		)
+		ch <- desc_gpu_total
 
 		// de_other_current and desc_other_current give indexable values for current DRAM energy consumptions (in 3 seconds) for all pods
 		de_other_current := prometheus.NewDesc(
