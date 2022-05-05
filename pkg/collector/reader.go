@@ -19,15 +19,16 @@ package collector
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
@@ -65,6 +66,7 @@ type PodEnergy struct {
 	CurrCPUCycles   uint64
 	CurrCPUInstr    uint64
 	CurrCacheMisses uint64
+	CurrResidentMem uint64
 
 	CurrEnergyInCore  uint64
 	CurrEnergyInDram  uint64
@@ -108,7 +110,7 @@ func (c *Collector) reader() {
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
 
 				var aggCPUTime, avgFreq, totalCPUTime float64
-				var aggCPUCycles, aggCacheMisses uint64
+				var aggCPUCycles, aggCPUInstr, aggCacheMisses uint64
 				avgFreq = 0
 				totalCPUTime = 0
 				energyCore, err := rapl.GetEnergyFromCore()
@@ -151,11 +153,14 @@ func (c *Collector) reader() {
 				aggCPUTime = 0
 				aggCPUCycles = 0
 				aggCacheMisses = 0
+				aggCPUCycles = 0
+				aggCPUInstr = 0
 				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid()
 				for _, v := range podEnergy {
 					v.CurrCPUCycles = 0
 					v.CurrCPUTime = 0
 					v.CurrCacheMisses = 0
+					v.CurrCPUInstr = 0
 				}
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
@@ -172,8 +177,6 @@ func (c *Collector) reader() {
 						continue
 					}
 
-					// podName is used as Prometheus desc name, normalize it
-					podName = strings.Replace(podName, "-", "_", -1)
 					if _, ok := podEnergy[podName]; !ok {
 						podEnergy[podName] = &PodEnergy{}
 						podEnergy[podName].PodName = podName
@@ -204,6 +207,7 @@ func (c *Collector) reader() {
 					val = ct.CPUInstr
 					podEnergy[podName].CurrCPUInstr += val
 					podEnergy[podName].AggCPUInstr += val
+					aggCPUInstr += val
 					val = ct.CacheMisses
 					podEnergy[podName].CurrCacheMisses += val
 					podEnergy[podName].AggCacheMisses += val
@@ -220,45 +224,65 @@ func (c *Collector) reader() {
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
 
-				var cyclesPerMJ, cacheMissPerMJ, perProcessOtherMJ float64
-				cyclesPerMJ = 0
-				if aggCPUCycles > 0 && coreDelta > 0 {
-					cyclesPerMJ = float64(aggCPUCycles) / coreDelta
-				}
-				cacheMissPerMJ = 0
-				if aggCacheMisses > 0 && dramDelta > 0 {
-					cacheMissPerMJ = float64(aggCacheMisses) / dramDelta
-				}
-				perProcessOtherMJ = otherDelta / float64(len(podEnergy))
+				//evenly attribute other energy among all pods
+				perProcessOtherMJ := float64(otherDelta / float64(len(podEnergy)))
 
-				log.Printf("energy count: core %.2f dram: %.2f time %.6f cycles %d misses %d\n",
-					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCacheMisses)
+				_, podMem, _, nodeMem, err := pod_lister.GetPodMetrics()
+				if err != nil {
+					fmt.Printf("failed to get kubelet metrics: %v", err)
+				}
+
+				log.Printf("energy count: core %.2f dram: %.2f time %.6f cycles %d instructions %d misses %d node memory %f\n",
+					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCPUInstr, aggCacheMisses, nodeMem)
 
 				for podName, v := range podEnergy {
-					// attribte to both CPU time and CPU cycles to deal with cases where cpu cycles are not available
+					cpuTimeRatio := float64(0.0)
+					cpuCycleRatio := float64(0.0)
+					cpuInstrRatio := float64(0.0)
+					dyMemRatio := float64(0.0)
+					bgMemRatio := float64(0.0)
+
 					if v.CurrCPUTime > 0 {
-						v.CurrEnergyInCore = uint64(float64(v.CurrCPUTime) / aggCPUTime * coreDelta)
+						cpuTimeRatio = float64(float64(v.CurrCPUTime)/aggCPUTime) * coreDelta * model.RunTimeCoeff.CPUTime
 					}
 					if v.CurrCPUCycles > 0 {
-						v.CurrEnergyInCore = (v.CurrEnergyInCore + uint64(float64(v.CurrCPUCycles)/cyclesPerMJ)) / 2
+						cpuCycleRatio = float64(v.CurrCPUCycles) / float64(aggCPUCycles) * coreDelta * model.RunTimeCoeff.CPUCycle
 					}
+					if v.CurrCPUInstr > 0 {
+						cpuInstrRatio = float64(v.CurrCPUInstr) / float64(aggCPUInstr) * coreDelta * model.RunTimeCoeff.CPUInstr
+					}
+
+					v.CurrEnergyInCore = uint64(cpuTimeRatio + cpuCycleRatio + cpuInstrRatio)
 					v.AggEnergyInCore += v.CurrEnergyInCore
-					if cacheMissPerMJ > 0 {
-						v.CurrEnergyInDram = uint64(float64(v.CurrCacheMisses) / cacheMissPerMJ)
+
+					if v.CurrCacheMisses > 0 {
+						dyMemRatio = float64(v.CurrCacheMisses) / float64(aggCacheMisses) * dramDelta * model.RunTimeCoeff.MemDynamic
 					}
+					k := v.Namespace + "/" + podName
+					if mem, ok := podMem[k]; ok {
+						v.CurrResidentMem = uint64(mem)
+						bgMemRatio = float64(mem/nodeMem) * dramDelta * model.RunTimeCoeff.MemBackground
+					}
+					v.CurrEnergyInDram = uint64(dyMemRatio + bgMemRatio)
 					v.AggEnergyInDram += v.CurrEnergyInDram
 					v.CurrEnergyInOther = uint64(perProcessOtherMJ)
 					v.AggEnergyInOther += uint64(perProcessOtherMJ)
+
 					if v.CurrEnergyInCore > 0 {
-						log.Printf("\tenergy from pod: name: %s namespace: %s \n\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) eGPU: %d(%d) \n\tCPUTime: %.2f (%f) \n\tcycles: %d \n\tmisses: %d\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
-							podName, podEnergy[podName].Namespace,
+						log.Printf("\tenergy from pod: name: %s namespace: %s \n"+
+							"\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) eGPU: %d(%d) \n"+
+							"\tCPUTime: %.2f (%.4f) \n\tcycles: %d (%.4f) \n\tinstructions: %d (%.4f) \n"+
+							"\tmisses: %d (%.4f)\tResidentMemRatio: %.4f\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+							podName, v.Namespace,
 							v.CurrEnergyInCore, v.AggEnergyInCore,
 							v.CurrEnergyInDram, v.AggEnergyInDram,
 							v.CurrEnergyInOther, v.AggEnergyInOther,
 							v.CurrEnergyInGPU, v.AggEnergyInGPU,
-							v.CurrCPUTime, v.CurrCPUTime/aggCPUTime,
-							v.CurrCPUCycles,
-							v.CurrCacheMisses,
+							v.CurrCPUTime, float64(v.CurrCPUTime)/float64(aggCPUTime),
+							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles),
+							v.CurrCPUInstr, float64(v.CurrCPUInstr)/float64(aggCPUInstr),
+							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses),
+							float64(v.CurrResidentMem)/nodeMem,
 							v.AvgCPUFreq/1000, /*MHZ*/
 							v.PID, v.Command)
 					}
