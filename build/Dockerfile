@@ -1,4 +1,4 @@
-FROM quay.io/sustainable_computing_io/kepler_builder:latest as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
 
 ARG ARCH=amd64
 ARG MAKE_TARGET=cross-build-linux-$ARCH
@@ -9,7 +9,9 @@ USER root
 
 LABEL name=kepler-builder
 
-ENV GOPATH=/opt/app-root GOCACHE=/mnt/cache GO111MODULE=on
+ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go 
+
+ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
 WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
 
