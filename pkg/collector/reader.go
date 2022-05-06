@@ -123,6 +123,10 @@ func (c *Collector) reader() {
 					log.Printf("failed to get dram power: %v\n", err)
 					continue
 				}
+				if energyCore < lastEnergyCore || energyDram < lastEnergyDram {
+					log.Printf("failed to get latest core or dram energy. Core energy %v should be more than %v; Dram energy %v should be more than %v\n",
+						energyCore, lastEnergyCore, energyDram, lastEnergyDram)
+				}
 				coreDelta := float64(energyCore - lastEnergyCore)
 				dramDelta := float64(energyDram - lastEnergyDram)
 				if coreDelta == 0 && dramDelta == 0 {
