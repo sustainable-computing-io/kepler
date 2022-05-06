@@ -16,12 +16,29 @@ limitations under the License.
 
 package model
 
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
 type Coeff struct {
 	CPUTime       float64
 	CPUCycle      float64
 	CPUInstr      float64
 	MemBackground float64
 	MemDynamic    float64
+}
+
+type RegressionModel struct {
+	Core        float64 `json:"core"`
+	Dram        float64 `json:"dram"`
+	CPUTime     float64 `json:"cpu_time"`
+	CPUCycle    float64 `json:"cpu_cycles"`
+	CPUInstr    float64 `json:"cpu_instructions"`
+	MemoryUsage float64 `json:"memory_usage"`
+	CacheMisses float64 `json:"cache_misses"`
 }
 
 var (
@@ -42,6 +59,8 @@ var (
 		MemDynamic:    0,
 	}
 	RunTimeCoeff Coeff = BareMetalCoeff
+
+	modelServerEndpoint string
 )
 
 func SetVMCoeff() {
@@ -50,4 +69,36 @@ func SetVMCoeff() {
 
 func SetBMCoeff() {
 	RunTimeCoeff = BareMetalCoeff
+}
+
+func SetModelServerEndpoint(ep string) {
+	modelServerEndpoint = ep
+}
+
+func GetCoeffFromModelServer() error {
+	return nil
+}
+
+func SendDataToModelServer(data *RegressionModel) {
+	if len(modelServerEndpoint) == 0 {
+		return
+	}
+
+	go func() {
+		buf := new(bytes.Buffer)
+		json.NewEncoder(buf).Encode(data)
+		req, _ := http.NewRequest("POST", modelServerEndpoint, buf)
+
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("failed to connect to %s: %v\n", modelServerEndpoint, err)
+			return
+		}
+
+		defer res.Body.Close()
+		fmt.Println("response Status:", res.Status)
+		return
+	}()
+	return
 }

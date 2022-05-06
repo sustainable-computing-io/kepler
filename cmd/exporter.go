@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
@@ -31,9 +32,10 @@ import (
 )
 
 var (
-	address     = flag.String("address", "0.0.0.0:8888", "bind address")
-	metricsPath = flag.String("metrics-path", "/metrics", "metrics path")
-	enableGPU   = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	address             = flag.String("address", "0.0.0.0:8888", "bind address")
+	metricsPath         = flag.String("metrics-path", "/metrics", "metrics path")
+	enableGPU           = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
 )
 
 func main() {
@@ -49,6 +51,9 @@ func main() {
 		if err == nil {
 			defer gpu.Shutdown()
 		}
+	}
+	if modelServerEndpoint != nil {
+		model.SetModelServerEndpoint(*modelServerEndpoint)
 	}
 
 	collector, err := collector.New()

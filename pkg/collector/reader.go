@@ -234,6 +234,17 @@ func (c *Collector) reader() {
 
 				log.Printf("energy count: core %.2f dram: %.2f time %.6f cycles %d instructions %d misses %d node memory %f\n",
 					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCPUInstr, aggCacheMisses, nodeMem)
+				data := &model.RegressionModel{
+					Core:        coreDelta,
+					Dram:        dramDelta,
+					CPUTime:     aggCPUTime,
+					CPUCycle:    float64(aggCPUCycles),
+					CPUInstr:    float64(aggCPUInstr),
+					MemoryUsage: nodeMem,
+					CacheMisses: float64(aggCacheMisses),
+				}
+
+				model.SendDataToModelServer(data)
 
 				for podName, v := range podEnergy {
 					cpuTimeRatio := float64(0.0)
