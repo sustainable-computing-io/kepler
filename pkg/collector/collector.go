@@ -46,7 +46,7 @@ func (c *Collector) Attach() error {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
 	defer lock.Unlock()
-	for _, _ = range podEnergy {
+	for range podEnergy {
 		desc := prometheus.NewDesc(
 			"pod_energy_stat",
 			"Pod energy consumption status",

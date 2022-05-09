@@ -271,12 +271,12 @@ func (c *Collector) reader() {
 					v.AggEnergyInCore += v.CurrEnergyInCore
 
 					if v.CurrCacheMisses > 0 {
-						dyMemRatio = float64(v.CurrCacheMisses) / float64(aggCacheMisses) * dramDelta * model.RunTimeCoeff.MemDynamic
+						dyMemRatio = float64(v.CurrCacheMisses) / float64(aggCacheMisses) * dramDelta * model.RunTimeCoeff.CacheMisses
 					}
 					k := v.Namespace + "/" + podName
 					if mem, ok := podMem[k]; ok {
 						v.CurrResidentMem = uint64(mem)
-						bgMemRatio = float64(mem/nodeMem) * dramDelta * model.RunTimeCoeff.MemBackground
+						bgMemRatio = float64(mem/nodeMem) * dramDelta * model.RunTimeCoeff.MemoryUsage
 					}
 					v.CurrEnergyInDram = uint64(dyMemRatio + bgMemRatio)
 					v.AggEnergyInDram += v.CurrEnergyInDram
