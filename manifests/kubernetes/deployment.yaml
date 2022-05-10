@@ -68,6 +68,8 @@ spec:
         - /usr/bin/kepler
         - -address
         - 0.0.0.0:9102
+        - -enable-gpu
+        - "true"
         ports:
         - containerPort: 9102
           hostPort: 9102
