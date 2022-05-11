@@ -17,3 +17,11 @@ Session.vim
 # compiled binary
 /_output
 /exporter
+
+# tensorflow-related build
+lib/tensorflow/include/*
+lib/tensorflow/lib/*
+tmp
+
+# test-bin
+test-bin

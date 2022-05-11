@@ -6,7 +6,10 @@ require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/iovisor/gobpf v0.2.0
 	github.com/jszwec/csvutil v1.6.0
+	github.com/mattn/go-tflite v1.0.2
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.19.0
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.34.0
