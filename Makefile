@@ -35,6 +35,11 @@ ARCH := $(shell go env GOARCH)
 kepler: build-containerized-cross-build-linux-amd64
 .PHONY: kepler
 
+tidy-vendor:
+	go mod tidy
+	go mod vendor
+
+
 _build_local:
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
@@ -84,18 +89,21 @@ build-containerized-cross-build:
 PWD=$(shell pwd)
 ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
-export GOPATH := $(HOME)/go
-export CGO_CXXFLAGS := "-I$(PWD)/lib/tensorflow/include"
+GOPATH ?= $(HOME)/go
 export CGO_CFLAGS := "-I$(PWD)/lib/tensorflow/include"
-export CGO_LDFLAGS := "-L$(PWD)/lib/tensorflow/lib"
+export LD_LIBRARY_PATH := /usr/local/lib
 
 ginkgo-set:
-	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || (go get github.com/onsi/ginkgo/ginkgo && go get github.com/onsi/gomega/... && cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
-
-test: ginkgo-set
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
+	 (go get -u github.com/onsi/ginkgo/ginkgo && go install github.com/onsi/ginkgo/ginkgo && \
+	  go get -u github.com/onsi/gomega/... && go install github.com/onsi/gomega/... && \
+	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	
+test: ginkgo-set tidy-vendor
 	@go test -v ./pkg/model
 
-clean-cross-build:
+clean-cross-build: ginkgo-set tidy-vendor
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
 	$(RM) -rf $(OUTPUT_DIR)/staging
 	if [ -d '$(OUTPUT_DIR)' ]; then rmdir --ignore-fail-on-non-empty '$(OUTPUT_DIR)'; fi

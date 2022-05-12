@@ -1,0 +1,35 @@
+FROM registry.access.redhat.com/ubi8/python-38 as builder
+
+USER root
+
+LABEL name=tflite-builder
+
+ARG ARCH=amd64
+
+RUN python3 -m pip --no-cache-dir install \
+    Pillow \
+    h5py \
+    keras_preprocessing \
+    tb-nightly \
+    matplotlib \
+    mock \
+    'numpy<1.19.0' \
+    scipy \
+    sklearn \
+    pandas \
+    future \
+    portpicker \
+    enum34
+
+# Installs bazelisk
+RUN mkdir /bazel && \
+    curl -fSsL -o /bazel/LICENSE.txt "https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE" && \
+    mkdir /bazelisk && \
+    curl -fSsL -o /bazelisk/LICENSE.txt "https://raw.githubusercontent.com/bazelbuild/bazelisk/master/LICENSE" && \
+    curl -fSsL -o /usr/bin/bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.11.0/bazelisk-linux-${ARCH}" && \
+    chmod +x /usr/bin/bazel
+
+RUN git clone --depth=1 https://github.com/tensorflow/tensorflow.git /tensorflow_src && \
+    cd /tensorflow_src && \
+    bazel build --config monolithic //tensorflow/lite:libtensorflowlite.so && \
+    bazel build --config monolithic //tensorflow/lite/c:libtensorflowlite_c.so

@@ -6,7 +6,7 @@ const (
 	RAPL_LABEL = "RAPL_POWER"
 	PAPI_LABEL = "POWER"
 
-	MODEL_DB_PATH = "../../modeldb"
+	MODEL_DB_PATH = "../../data/modeldb"
 )
 
 // GetPower return power from provided features
