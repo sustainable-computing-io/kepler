@@ -5,8 +5,7 @@ SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 
 SRC_ROOT :=$(shell pwd)
 
-# IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
-IMAGE_REPO :=docker.io/sustainable_computing_io/kepler
+IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
@@ -89,7 +88,6 @@ export GOPATH := $(HOME)/go
 export CGO_CXXFLAGS := "-I$(PWD)/lib/tensorflow/include"
 export CGO_CFLAGS := "-I$(PWD)/lib/tensorflow/include"
 export CGO_LDFLAGS := "-L$(PWD)/lib/tensorflow/lib"
-
 
 ginkgo-set:
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || (go get github.com/onsi/ginkgo/ginkgo && go get github.com/onsi/gomega/... && cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
