@@ -25,7 +25,7 @@ else
 	GC_FLAGS =
 endif
 
-GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)"
+GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 GO_BUILD_FLAGS :=-tags 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
 
@@ -34,6 +34,11 @@ ARCH := $(shell go env GOARCH)
 
 kepler: build-containerized-cross-build-linux-amd64
 .PHONY: kepler
+
+tidy-vendor:
+	go mod tidy
+	go mod vendor
+
 
 _build_local:
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
@@ -80,7 +85,23 @@ build-containerized-cross-build:
 	+$(MAKE) build-containerized-cross-build-linux-arm64
 .PHONY: build-containerized-cross-build
 
-clean-cross-build:
+# for testsuite
+PWD=$(shell pwd)
+ENVTEST_ASSETS_DIR=./test-bin
+export PATH := $(PATH):./test-bin
+GOPATH ?= $(HOME)/go
+
+ginkgo-set:
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
+	 (go get -u github.com/onsi/ginkgo/ginkgo && go install github.com/onsi/ginkgo/ginkgo && \
+	  go get -u github.com/onsi/gomega/... && go install github.com/onsi/gomega/... && \
+	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	
+test: ginkgo-set tidy-vendor
+	@go test -v ./...
+
+clean-cross-build: ginkgo-set tidy-vendor
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
 	$(RM) -rf $(OUTPUT_DIR)/staging
 	if [ -d '$(OUTPUT_DIR)' ]; then rmdir --ignore-fail-on-non-empty '$(OUTPUT_DIR)'; fi

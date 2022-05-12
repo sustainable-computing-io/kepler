@@ -17,3 +17,6 @@ Session.vim
 # compiled binary
 /_output
 /exporter
+
+# test-bin
+test-bin
