@@ -90,8 +90,6 @@ PWD=$(shell pwd)
 ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
 GOPATH ?= $(HOME)/go
-export CGO_CFLAGS := "-I$(PWD)/lib/tensorflow/include"
-export LD_LIBRARY_PATH := /usr/local/lib
 
 ginkgo-set:
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -101,7 +99,7 @@ ginkgo-set:
 	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
-	@go test -v ./pkg/model
+	@go test -v ./...
 
 clean-cross-build: ginkgo-set tidy-vendor
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'

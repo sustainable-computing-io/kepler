@@ -1,1 +1,0 @@
-{"ntrain": 1949, "features": ["CPU_TIME", "CPU_TIME_mean", "CPU_TIME_max", "CPU_TIME_std"], "mae": 3.1151492595672607, "mse": 25.46493911743164}

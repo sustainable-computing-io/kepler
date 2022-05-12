@@ -1,7 +1,5 @@
 ARG ARCH=amd64
 
-FROM quay.io/sustainable_computing_io/tflite_builder:${ARCH} as tflite_builder
-
 FROM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
 
 
@@ -28,18 +26,10 @@ COPY Makefile Makefile
 COPY .git .git
 RUN mkdir -p data
 
-# Copy tflite-related dependencies from tflite builder
-COPY --from=tflite_builder /tensorflow_src/bazel-bin/tensorflow/lite/libtensorflowlite.so /usr/local/lib/libtensorflowlite.so
-COPY --from=tflite_builder /tensorflow_src/bazel-bin/tensorflow/lite/c/libtensorflowlite_c.so /usr/local/lib/libtensorflowlite_c.so
-
-RUN mkdir -p lib/tensorflow/include/tensorflow/lite
-COPY --from=tflite_builder /tensorflow_src/tensorflow/lite lib/tensorflow/include/tensorflow/lite
-
 # Build kepler
 RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 
 # Copy model data and test (TO-DO: move to CI)
-COPY data/modeldb data/modeldb
 COPY data/cpu_model.csv data/cpu_model.csv
 COPY data/power_data.csv data/power_data.csv
 RUN make test
