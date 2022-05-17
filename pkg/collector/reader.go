@@ -77,6 +77,12 @@ type PodEnergy struct {
 	AggEnergyInOther  uint64
 	AggEnergyInGPU    uint64
 
+	Disks          int
+	CurrBytesRead  uint64
+	CurrBytesWrite uint64
+	AggBytesRead   uint64
+	AggBytesWrite  uint64
+
 	AvgCPUFreq float64
 }
 
@@ -110,7 +116,7 @@ func (c *Collector) reader() {
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
 
 				var aggCPUTime, avgFreq, totalCPUTime float64
-				var aggCPUCycles, aggCPUInstr, aggCacheMisses uint64
+				var aggCPUCycles, aggCPUInstr, aggCacheMisses, aggBytesRead, aggBytesWrite uint64
 				avgFreq = 0
 				totalCPUTime = 0
 				energyCore, err := rapl.GetEnergyFromCore()
@@ -159,6 +165,8 @@ func (c *Collector) reader() {
 				aggCacheMisses = 0
 				aggCPUCycles = 0
 				aggCPUInstr = 0
+				aggBytesRead = 0
+				aggBytesWrite = 0
 				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid()
 				for _, v := range podEnergy {
 					v.CurrCPUCycles = 0
@@ -180,7 +188,6 @@ func (c *Collector) reader() {
 						log.Printf("failed to resolve pod for cGroup ID %v: %v", ct.CGroupPID, err)
 						continue
 					}
-
 					if _, ok := podEnergy[podName]; !ok {
 						podEnergy[podName] = &PodEnergy{}
 						podEnergy[podName].PodName = podName
@@ -223,11 +230,45 @@ func (c *Collector) reader() {
 						podEnergy[podName].CurrEnergyInGPU += uint64(e)
 						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
 					}
+					rBytes, wBytes, disks, err := pod_lister.ReadCgroupIOStat(ct.CGroupPID)
+					// fmt.Printf("read %d write %d. Agg read %d write %d, err %v\n", rBytes, wBytes, aggBytesRead, aggBytesWrite, err)
+					if err == nil {
+						aggBytesRead += rBytes
+						aggBytesWrite += wBytes
+
+						podEnergy[podName].Disks = disks
+						if podEnergy[podName].AggBytesRead < rBytes {
+							podEnergy[podName].CurrBytesRead = rBytes - podEnergy[podName].AggBytesRead
+							podEnergy[podName].AggBytesRead += podEnergy[podName].CurrBytesRead
+						}
+						if podEnergy[podName].AggBytesWrite < wBytes {
+							podEnergy[podName].CurrBytesWrite = wBytes - podEnergy[podName].AggBytesWrite
+							podEnergy[podName].AggBytesWrite += podEnergy[podName].CurrBytesWrite
+						}
+
+					}
 
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
+				/*
+					totalReadBytes, totalWriteBytes, disks, err := pod_lister.ReadAllCgroupIOStat()
 
+					if err == nil {
+						rBytes := totalReadBytes - aggBytesRead
+						wBytes := totalWriteBytes - aggBytesWrite
+						podName := pod_lister.GetSystemProcessName()
+						podEnergy[podName].Disks = disks
+						if podEnergy[podName].AggBytesRead < rBytes {
+							podEnergy[podName].CurrBytesRead = rBytes - podEnergy[podName].AggBytesRead
+							podEnergy[podName].AggBytesRead += podEnergy[podName].CurrBytesRead
+						}
+						if podEnergy[podName].AggBytesWrite < wBytes {
+							podEnergy[podName].CurrBytesWrite = wBytes - podEnergy[podName].AggBytesWrite
+							podEnergy[podName].AggBytesWrite += podEnergy[podName].CurrBytesWrite
+						}
+					}
+				*/
 				//evenly attribute other energy among all pods
 				perProcessOtherMJ := float64(otherDelta / float64(len(podEnergy)))
 
@@ -287,6 +328,7 @@ func (c *Collector) reader() {
 						log.Printf("\tenergy from pod: name: %s namespace: %s \n"+
 							"\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) eGPU: %d(%d) \n"+
 							"\tCPUTime: %.2f (%.4f) \n\tcycles: %d (%.4f) \n\tinstructions: %d (%.4f) \n"+
+							"\tDiskReadBytes: %d (%d) \n\tDiskWriteBytes: %d (%d)\n"+
 							"\tmisses: %d (%.4f)\tResidentMemRatio: %.4f\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
 							podName, v.Namespace,
 							v.CurrEnergyInCore, v.AggEnergyInCore,
@@ -296,6 +338,8 @@ func (c *Collector) reader() {
 							v.CurrCPUTime, float64(v.CurrCPUTime)/float64(aggCPUTime),
 							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles),
 							v.CurrCPUInstr, float64(v.CurrCPUInstr)/float64(aggCPUInstr),
+							v.CurrBytesRead, v.AggBytesRead,
+							v.CurrBytesRead, v.AggBytesWrite,
 							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses),
 							float64(v.CurrResidentMem)/nodeMem,
 							v.AvgCPUFreq/1000, /*MHZ*/
