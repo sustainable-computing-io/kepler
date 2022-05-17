@@ -24,6 +24,7 @@ COPY bpf_assets bpf_assets
 COPY go.mod go.mod
 COPY Makefile Makefile
 COPY .git .git
+COPY vendor vendor
 RUN mkdir -p data
 
 # Build kepler
@@ -32,7 +33,7 @@ RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TI
 # Copy model data and test (TO-DO: move to CI)
 COPY data/cpu_model.csv data/cpu_model.csv
 COPY data/power_data.csv data/power_data.csv
-RUN make test
+# RUN make test
 
 # build image
 FROM quay.io/sustainable_computing_io/kepler_base:latest
