@@ -71,7 +71,7 @@ spec:
         - -enable-gpu
         - "true"
         - -model-server-endpoint
-        - http://127.0.0.1:9100/data
+        - http://127.0.0.1:8100/data
         ports:
         - containerPort: 9102
           hostPort: 9102
