@@ -119,12 +119,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			},
 			nil,
 		)
+		aggCPU := fmt.Sprintf("%f", v.AggCPUTime)
+		currCPU := fmt.Sprintf("%f", v.CurrCPUTime)
+		avgFreq := fmt.Sprintf("%f", float64(v.AvgCPUFreq))
 		desc := prometheus.MustNewConstMetric(
 			de,
 			prometheus.CounterValue,
 			float64(v.CurrEnergyInCore+v.CurrEnergyInDram+v.CurrEnergyInGPU+v.CurrEnergyInOther),
 			v.PodName, v.Namespace, v.Command,
-			fmt.Sprintf("%f", v.AggCPUTime), fmt.Sprint("%f", v.CurrCPUTime),
+			aggCPU, currCPU,
 			strconv.FormatUint(v.AggCPUCycles, 10), strconv.FormatUint(v.CurrCPUCycles, 10),
 			strconv.FormatUint(v.AggCPUInstr, 10), strconv.FormatUint(v.CurrCPUInstr, 10),
 			strconv.FormatUint(v.AggCacheMisses, 10), strconv.FormatUint(v.CurrCacheMisses, 10),
@@ -132,7 +135,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
 			strconv.FormatUint(v.CurrEnergyInGPU, 10), strconv.FormatUint(v.AggEnergyInGPU, 10),
 			strconv.FormatUint(v.CurrEnergyInOther, 10), strconv.FormatUint(v.AggEnergyInOther, 10),
-			fmt.Sprint("%f", float64(v.AvgCPUFreq)),
+			avgFreq,
 		)
 		ch <- desc
 
