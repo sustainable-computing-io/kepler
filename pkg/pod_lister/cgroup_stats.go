@@ -32,16 +32,11 @@ const (
 )
 
 var (
-	reIO         = regexp.MustCompile(reIOStat)
-	cgroupFSPath = "" // once set, it is used to find root of cgroup path
+	reIO = regexp.MustCompile(reIOStat)
 )
 
 func ReadAllCgroupIOStat() (uint64, uint64, int, error) {
-	if len(cgroupFSPath) == 0 {
-		return 0, 0, 0, fmt.Errorf("no cgroup path set yet")
-	}
-	path := filepath.Join(cgroupFSPath, "..", "..")
-	return readIOStat(path)
+	return readIOStat(cgroupPath)
 }
 
 func ReadCgroupIOStat(cGroupID uint64) (uint64, uint64, int, error) {
@@ -50,7 +45,6 @@ func ReadCgroupIOStat(cGroupID uint64) (uint64, uint64, int, error) {
 		return 0, 0, 0, err
 	}
 	if strings.Contains(path, "crio-") {
-		cgroupFSPath = path
 		return readIOStat(path)
 	}
 	return 0, 0, 0, fmt.Errorf("no cgroup path found")
@@ -68,9 +62,6 @@ func readIOStat(cgroupPath string) (uint64, uint64, int, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	rBytes = 0
-	wBytes = 0
-	disks = 0
 	for scanner.Scan() {
 		line := scanner.Text()
 		matches := reIO.FindStringSubmatch(line)

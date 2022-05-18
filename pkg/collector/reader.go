@@ -167,12 +167,15 @@ func (c *Collector) reader() {
 				aggCPUInstr = 0
 				aggBytesRead = 0
 				aggBytesWrite = 0
+				cgroupIO := make(map[uint64]bool)
 				gpuEnergy, _ = gpu.GetCurrGpuEnergyPerPid()
 				for _, v := range podEnergy {
 					v.CurrCPUCycles = 0
 					v.CurrCPUTime = 0
 					v.CurrCacheMisses = 0
 					v.CurrCPUInstr = 0
+					v.CurrBytesRead = 0
+					v.CurrBytesWrite = 0
 				}
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
@@ -233,42 +236,36 @@ func (c *Collector) reader() {
 					rBytes, wBytes, disks, err := pod_lister.ReadCgroupIOStat(ct.CGroupPID)
 					// fmt.Printf("read %d write %d. Agg read %d write %d, err %v\n", rBytes, wBytes, aggBytesRead, aggBytesWrite, err)
 					if err == nil {
-						aggBytesRead += rBytes
-						aggBytesWrite += wBytes
-
-						podEnergy[podName].Disks = disks
-						if podEnergy[podName].AggBytesRead < rBytes {
-							podEnergy[podName].CurrBytesRead = rBytes - podEnergy[podName].AggBytesRead
-							podEnergy[podName].AggBytesRead += podEnergy[podName].CurrBytesRead
+						// if this is the first time the cgroup's I/O is accounted, add it to the pod
+						if _, ok := cgroupIO[ct.CGroupPID]; !ok {
+							cgroupIO[ct.CGroupPID] = true
+							if disks > podEnergy[podName].Disks {
+								podEnergy[podName].Disks = disks
+							}
+							// save the current I/O in CurrByteRead and adjust it later
+							podEnergy[podName].CurrBytesRead += rBytes
+							aggBytesRead += rBytes
+							podEnergy[podName].CurrBytesWrite += wBytes
+							aggBytesWrite += wBytes
 						}
-						if podEnergy[podName].AggBytesWrite < wBytes {
-							podEnergy[podName].CurrBytesWrite = wBytes - podEnergy[podName].AggBytesWrite
-							podEnergy[podName].AggBytesWrite += podEnergy[podName].CurrBytesWrite
-						}
-
 					}
-
 				}
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
-				/*
-					totalReadBytes, totalWriteBytes, disks, err := pod_lister.ReadAllCgroupIOStat()
-
-					if err == nil {
+				totalReadBytes, totalWriteBytes, disks, err := pod_lister.ReadAllCgroupIOStat()
+				if err == nil {
+					if totalReadBytes > aggBytesRead && totalWriteBytes > aggBytesWrite {
 						rBytes := totalReadBytes - aggBytesRead
 						wBytes := totalWriteBytes - aggBytesWrite
 						podName := pod_lister.GetSystemProcessName()
 						podEnergy[podName].Disks = disks
-						if podEnergy[podName].AggBytesRead < rBytes {
-							podEnergy[podName].CurrBytesRead = rBytes - podEnergy[podName].AggBytesRead
-							podEnergy[podName].AggBytesRead += podEnergy[podName].CurrBytesRead
-						}
-						if podEnergy[podName].AggBytesWrite < wBytes {
-							podEnergy[podName].CurrBytesWrite = wBytes - podEnergy[podName].AggBytesWrite
-							podEnergy[podName].AggBytesWrite += podEnergy[podName].CurrBytesWrite
-						}
+						podEnergy[podName].CurrBytesRead = rBytes
+						podEnergy[podName].CurrBytesWrite = wBytes
+					} else {
+						fmt.Printf("total read %d write %d should be greater than agg read %d agg write %d\n", totalReadBytes, totalWriteBytes, aggBytesRead, aggBytesWrite)
 					}
-				*/
+				}
+
 				//evenly attribute other energy among all pods
 				perProcessOtherMJ := float64(otherDelta / float64(len(podEnergy)))
 
@@ -323,6 +320,18 @@ func (c *Collector) reader() {
 					v.AggEnergyInDram += v.CurrEnergyInDram
 					v.CurrEnergyInOther = uint64(perProcessOtherMJ)
 					v.AggEnergyInOther += uint64(perProcessOtherMJ)
+
+					val := uint64(0)
+					if v.CurrBytesRead >= v.AggBytesRead {
+						val = v.CurrBytesRead - v.AggBytesRead
+						v.AggBytesRead = v.CurrBytesRead
+						v.CurrBytesRead = val
+					}
+					if v.CurrBytesWrite >= v.AggBytesWrite {
+						val = v.CurrBytesWrite - v.AggBytesWrite
+						v.AggBytesWrite = v.CurrBytesWrite
+						v.CurrBytesWrite = val
+					}
 
 					if v.CurrEnergyInCore > 0 {
 						log.Printf("\tenergy from pod: name: %s namespace: %s \n"+
