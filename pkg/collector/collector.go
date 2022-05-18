@@ -71,6 +71,11 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
+				"block_devices_used",
+				"curr_bytes_read",
+				"total_bytes_read",
+				"curr_bytes_writes",
+				"total_bytes_writes",
 			},
 			nil,
 		)
@@ -116,12 +121,18 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
+				"block_devices_used",
+				"curr_bytes_read",
+				"total_bytes_read",
+				"curr_bytes_writes",
+				"total_bytes_writes",
 			},
 			nil,
 		)
 		aggCPU := fmt.Sprintf("%f", v.AggCPUTime)
 		currCPU := fmt.Sprintf("%f", v.CurrCPUTime)
 		avgFreq := fmt.Sprintf("%f", float64(v.AvgCPUFreq))
+		disks := fmt.Sprintf("%d", v.Disks)
 		desc := prometheus.MustNewConstMetric(
 			de,
 			prometheus.CounterValue,
@@ -135,7 +146,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
 			strconv.FormatUint(v.CurrEnergyInGPU, 10), strconv.FormatUint(v.AggEnergyInGPU, 10),
 			strconv.FormatUint(v.CurrEnergyInOther, 10), strconv.FormatUint(v.AggEnergyInOther, 10),
-			avgFreq,
+			avgFreq, disks,
+			strconv.FormatUint(v.CurrBytesRead, 10), strconv.FormatUint(v.AggBytesRead, 10),
+			strconv.FormatUint(v.CurrBytesWrite, 10), strconv.FormatUint(v.AggBytesWrite, 10),
 		)
 		ch <- desc
 
