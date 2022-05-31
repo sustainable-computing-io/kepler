@@ -33,6 +33,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 // #define CPU_VECTOR_SIZE 128
@@ -86,6 +87,19 @@ type PodEnergy struct {
 	AvgCPUFreq float64
 }
 
+type CurrNodeEnergy struct {
+	CPUTime     float64
+	CPUCycles   uint64
+	CPUInstr    uint64
+	CacheMisses uint64
+	NodeMem     float64
+
+	EnergyInCore  float64
+	EnergyInDram  float64
+	EnergyInOther float64
+	EnergyInGPU   float64
+}
+
 const (
 	samplePeriod = 3000 * time.Millisecond
 )
@@ -94,12 +108,21 @@ var (
 	podEnergy      = map[string]*PodEnergy{}
 	nodeEnergy     = map[string]float64{}
 	gpuEnergy      = map[uint32]float64{}
+	currNodeEnergy = &CurrNodeEnergy{}
 	cpuFrequency   = map[int32]uint64{}
 	nodeName, _    = os.Hostname()
+	cpuArch        = "unknown"
 	acpiPowerMeter = acpi.NewACPIPowerMeter()
 	numCPUs        = runtime.NumCPU()
 	lock           sync.Mutex
 )
+
+func init() {
+	arch, err := source.GetCPUArchitecture()
+	if err == nil {
+		cpuArch = arch
+	}
+}
 
 func (c *Collector) reader() {
 	ticker := time.NewTicker(samplePeriod)
@@ -276,18 +299,17 @@ func (c *Collector) reader() {
 
 				log.Printf("energy count: core %.2f dram: %.2f time %.6f cycles %d instructions %d misses %d node memory %f\n",
 					coreDelta, dramDelta, aggCPUTime, aggCPUCycles, aggCPUInstr, aggCacheMisses, nodeMem)
-				data := &model.RegressionModel{
-					Core:        coreDelta,
-					Dram:        dramDelta,
-					CPUTime:     aggCPUTime,
-					CPUCycle:    float64(aggCPUCycles),
-					CPUInstr:    float64(aggCPUInstr),
-					MemoryUsage: nodeMem,
-					CacheMisses: float64(aggCacheMisses),
+				currNodeEnergy = &CurrNodeEnergy{
+					CPUTime:       aggCPUTime,
+					CPUCycles:     aggCPUCycles,
+					CPUInstr:      aggCPUInstr,
+					CacheMisses:   aggCacheMisses,
+					NodeMem:       nodeMem,
+					EnergyInCore:  coreDelta,
+					EnergyInDram:  dramDelta,
+					EnergyInOther: otherDelta,
+					EnergyInGPU:   gpuDelta,
 				}
-
-				model.SendDataToModelServer(data)
-
 				for podName, v := range podEnergy {
 					cpuTimeRatio := float64(0.0)
 					cpuCycleRatio := float64(0.0)

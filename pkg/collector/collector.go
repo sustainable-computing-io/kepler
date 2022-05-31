@@ -96,6 +96,44 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	lock.Lock()
 	defer lock.Unlock()
+	de := prometheus.NewDesc(
+		"node_energy_stat",
+		"Node energy consumption stats",
+		[]string{
+			"node_name",
+			"cpu_architecture",
+			"curr_cpu_time",
+			"curr_cpu_cycles",
+			"curr_cpu_instructions",
+			"curr_resident_memory",
+			"curr_cache_misses",
+			"curr_energy_in_core",
+			"curr_energy_in_dram",
+			"curr_energy_in_gpu",
+			"curr_energy_in_other",
+		},
+		nil,
+	)
+	cpuTime := fmt.Sprintf("%f", currNodeEnergy.CPUTime)
+	energyInCore := fmt.Sprintf("%f", currNodeEnergy.EnergyInCore)
+	energyInDram := fmt.Sprintf("%f", currNodeEnergy.EnergyInDram)
+	energyInOther := fmt.Sprintf("%f", currNodeEnergy.EnergyInOther)
+	energyInGpu := fmt.Sprintf("%f", currNodeEnergy.EnergyInGPU)
+	resMem := fmt.Sprintf("%f", currNodeEnergy.NodeMem)
+	desc := prometheus.MustNewConstMetric(
+		de,
+		prometheus.CounterValue,
+		currNodeEnergy.EnergyInCore+currNodeEnergy.EnergyInDram+currNodeEnergy.EnergyInOther+currNodeEnergy.EnergyInGPU,
+		nodeName, cpuArch,
+		cpuTime,
+		strconv.FormatUint(currNodeEnergy.CPUCycles, 10),
+		strconv.FormatUint(currNodeEnergy.CPUInstr, 10),
+		resMem,
+		strconv.FormatUint(currNodeEnergy.CacheMisses, 10),
+		energyInCore, energyInDram, energyInGpu, energyInOther,
+	)
+	ch <- desc
+
 	for _, v := range podEnergy {
 		de := prometheus.NewDesc(
 			"pod_energy_stat",
@@ -366,6 +404,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		},
 		nil,
 	)
+
 	for cpuID, freq := range cpuFrequency {
 		desc_total := prometheus.MustNewConstMetric(
 			de_core_freq,
