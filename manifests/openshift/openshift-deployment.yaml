@@ -14,6 +14,7 @@ rules:
   - nodes/metrics
   - nodes/proxy #access /pods
   - nodes/stats
+  - nodes/metrics # access /metrics/resource
   verbs:
   - 'get'
   - 'watch'
@@ -67,6 +68,10 @@ spec:
         - /usr/bin/kepler
         - -address
         - 0.0.0.0:9102
+        - -enable-gpu
+        - "true"
+        - -model-server-endpoint
+        - http://127.0.0.1:8100/data
         ports:
         - containerPort: 9102
           hostPort: 9102
@@ -85,6 +90,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+      - name: kepler-model-server
+        image: quay.io/sustainable_computing_io/kepler_model_server:latest
+        imagePullPolicy: Always
       volumes:
       - name: lib-modules
         hostPath:

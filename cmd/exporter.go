@@ -22,7 +22,9 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
-	"github.com/sustainable-computing-io/kepler/pkg/power"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
+	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,8 +32,10 @@ import (
 )
 
 var (
-	address     = flag.String("address", "0.0.0.0:8888", "bind address")
-	metricsPath = flag.String("metrics-path", "/metrics", "metrics path")
+	address             = flag.String("address", "0.0.0.0:8888", "bind address")
+	metricsPath         = flag.String("metrics-path", "/metrics", "metrics path")
+	enableGPU           = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
 )
 
 func main() {
@@ -40,6 +44,16 @@ func main() {
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
 		log.Fatalf("failed to register : %v", err)
+	}
+
+	if *enableGPU {
+		err = gpu.Init()
+		if err == nil {
+			defer gpu.Shutdown()
+		}
+	}
+	if modelServerEndpoint != nil {
+		model.SetModelServerEndpoint(*modelServerEndpoint)
 	}
 
 	collector, err := collector.New()
@@ -51,7 +65,8 @@ func main() {
 		log.Fatalf("failed to attach : %v", err)
 	}
 	defer collector.Destroy()
-	defer power.StopPower()
+	defer rapl.StopPower()
+
 	err = prometheus.Register(collector)
 	if err != nil {
 		log.Fatalf("failed to register collector: %v", err)

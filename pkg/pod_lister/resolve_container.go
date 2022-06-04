@@ -59,6 +59,10 @@ func init() {
 	updateListPodCache("", false)
 }
 
+func GetSystemProcessName() string {
+	return systemProcessName
+}
+
 func GetPodNameFromcGgroupID(cGroupID uint64) (string, error) {
 	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.PodName, err
@@ -72,6 +76,10 @@ func GetPodNameSpaceFromcGgroupID(cGroupID uint64) (string, error) {
 func GetPodContainerNameFromcGgroupID(cGroupID uint64) (string, error) {
 	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.ContainerName, err
+}
+
+func GetPodMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
+	return podLister.ListMetrics()
 }
 
 func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
@@ -103,7 +111,7 @@ func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 
 // updateListPodCache updates cache info with all pods and optionally
 // stops the loop when a given container ID is found
-func updateListPodCache(containerID string, stopWhenFound bool) {
+func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 	pods, err := podLister.ListPods()
 	if err != nil {
 		log.Fatal(err)
@@ -118,7 +126,7 @@ func updateListPodCache(containerID string, stopWhenFound bool) {
 			}
 			containerID := strings.Trim(status.ContainerID, containerIDPredix)
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+			if stopWhenFound && status.ContainerID == targetContainerID {
 				return
 			}
 		}
@@ -131,7 +139,7 @@ func updateListPodCache(containerID string, stopWhenFound bool) {
 			}
 			containerID := strings.Trim(status.ContainerID, containerIDPredix)
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && strings.Contains(status.ContainerID, containerID) {
+			if stopWhenFound && status.ContainerID == targetContainerID {
 				return
 			}
 		}
@@ -155,7 +163,6 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 		for _, element := range sub {
 			if strings.Contains(element, "-conmon-") || strings.Contains(element, ".service") {
 				return "", fmt.Errorf("process cGroupID %d is not in a kubernetes pod", cGroupID)
-
 			} else if strings.Contains(element, "crio") {
 				containerID := strings.Trim(element, "crio-")
 				containerID = strings.Trim(containerID, ".scope")
@@ -186,7 +193,7 @@ func getPathFromcGroupID(cgroupId uint64) (string, error) {
 		}
 		handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
 		if err != nil {
-			return fmt.Errorf("Error resolving handle: %v", err)
+			return fmt.Errorf("error resolving handle: %v", err)
 		}
 		cGroupIDToPath[byteOrder.Uint64(handle.Bytes())] = path
 		return nil
