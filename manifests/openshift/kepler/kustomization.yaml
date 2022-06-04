@@ -1,0 +1,6 @@
+commonLabels:
+  sustainable-computing.io/app: kepler
+
+resources:
+- 00-kepler-scc.yaml
+- 01-kepler-install.yaml
