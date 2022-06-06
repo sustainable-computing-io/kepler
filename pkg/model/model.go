@@ -17,7 +17,6 @@ limitations under the License.
 package model
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -105,28 +104,4 @@ func GetCoeffFromModelServer() (*Coeff, error) {
 	}
 
 	return &coeff, nil
-}
-
-func SendDataToModelServer(data *RegressionModel) {
-	if len(modelServerEndpoint) == 0 {
-		return
-	}
-
-	go func() {
-		buf := new(bytes.Buffer)
-		json.NewEncoder(buf).Encode(data)
-		req, _ := http.NewRequest("POST", modelServerEndpoint, buf)
-
-		client := &http.Client{}
-		res, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("failed to connect to %s: %v\n", modelServerEndpoint, err)
-			return
-		}
-
-		defer res.Body.Close()
-		fmt.Println("response Status:", res.Status)
-		return
-	}()
-	return
 }
