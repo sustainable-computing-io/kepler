@@ -15,10 +15,9 @@ metadata:
 rules:
 - apiGroups: [""]
   resources:
-  - nodes/metrics
-  - nodes/proxy #access /pods
-  - nodes/stats
   - nodes/metrics # access /metrics/resource
+  - nodes/proxy # access /pods
+  - nodes/stats # access /pods
   verbs:
   - 'get'
   - 'watch'
@@ -74,14 +73,10 @@ spec:
         - -address
         - 0.0.0.0:9102
         - -enable-gpu
-        - "true"
-        - -model-server-endpoint
-        - http://127.0.0.1:8100/data
+        - "false"
         ports:
         - containerPort: 9102
           name: kepler-exporter
-        - containerPort: 8100
-          name: model-server
         volumeMounts:
         - mountPath: /lib/modules
           name: lib-modules
@@ -96,9 +91,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-      - name: kepler-model-server
-        image: quay.io/sustainable_computing_io/kepler_model_server:latest
-        imagePullPolicy: Always
       volumes:
       - name: lib-modules
         hostPath:
