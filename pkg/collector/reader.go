@@ -137,6 +137,7 @@ func (c *Collector) reader() {
 		for {
 			select {
 			case <-ticker.C:
+				lock.Lock()
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
 
@@ -157,6 +158,7 @@ func (c *Collector) reader() {
 				if energyCore < lastEnergyCore || energyDram < lastEnergyDram {
 					log.Printf("failed to get latest core or dram energy. Core energy %v should be more than %v; Dram energy %v should be more than %v\n",
 						energyCore, lastEnergyCore, energyDram, lastEnergyDram)
+					continue
 				}
 				coreDelta := float64(energyCore - lastEnergyCore)
 				dramDelta := float64(energyDram - lastEnergyDram)
@@ -185,8 +187,6 @@ func (c *Collector) reader() {
 				if nodeEnergyTotal > 0 {
 					otherDelta = nodeEnergyTotal - coreDelta - dramDelta - gpuDelta
 				}
-
-				lock.Lock()
 
 				var ct CgroupTime
 				aggCPUTime = 0
