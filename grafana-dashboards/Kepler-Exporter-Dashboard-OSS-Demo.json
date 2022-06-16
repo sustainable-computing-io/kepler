@@ -96,7 +96,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1655345501295,
+  "iteration": 1655361413094,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -233,7 +233,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "The mW per minute",
+      "description": "The mW per second",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -350,9 +350,21 @@
           "legendFormat": "DRAM",
           "range": true,
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "rate(pod_other_energy_joule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
+          "hide": false,
+          "legendFormat": "Other",
+          "range": true,
+          "refId": "E"
         }
       ],
-      "title": "Pod Current Energy Consumption (mW)",
+      "title": "Pod Current Energy Consumption (mW*s)",
       "type": "timeseries"
     },
     {
@@ -360,7 +372,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Total kW Consumed",
+      "description": "Total W*s Consumed",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -439,7 +451,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(pod_energy_total{pod_namespace=\"monitoring\", pod_name=\"node-exporter-r6rlc\"}[24h])",
+          "expr": "sum_over_time(pod_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1h])/3/3600000000",
           "instant": false,
           "legendFormat": "Total",
           "range": true,
@@ -451,7 +463,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(pod_cpu_energy_total{pod_namespace=\"monitoring\", pod_name=\"node-exporter-r6rlc\"}[24h])",
+          "expr": "sum_over_time(pod_cpu_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1h])/3/3600000000",
           "hide": false,
           "legendFormat": "CPU",
           "range": true,
@@ -463,7 +475,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(pod_dram_energy_total{pod_namespace=\"monitoring\", pod_name=\"node-exporter-r6rlc\"}[24h])",
+          "expr": "sum_over_time(pod_dram_energy_current{pod_namespace=\"monitoring\", pod_name=\"$pod\"}[1h])/3/3600000000",
           "hide": false,
           "legendFormat": "DRAM",
           "range": true,
@@ -475,7 +487,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(pod_gpu_energy_total{pod_namespace=\"monitoring\", pod_name=\"node-exporter-r6rlc\"}[24h])",
+          "expr": "sum_over_time(pod_gpu_energy_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1h])/3/3600000000",
           "hide": false,
           "legendFormat": "GPU",
           "range": true,
@@ -487,14 +499,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(pod_other_energy_joule_total{pod_namespace=\"monitoring\", pod_name=\"node-exporter-r6rlc\"}[24h])",
+          "expr": "sum_over_time(pod_other_energy_joule_current{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1h])/3/3600000000",
           "hide": false,
           "legendFormat": "Other",
           "range": true,
           "refId": "E"
         }
       ],
-      "title": "Total Pod Energy Consumption (mW)",
+      "title": "Total Pod Energy Consumption (kW*h)",
       "transformations": [],
       "type": "timeseries"
     },
@@ -519,11 +531,11 @@
               },
               {
                 "color": "#EAB839",
-                "value": 100
+                "value": 0.1
               },
               {
                 "color": "red",
-                "value": 1000
+                "value": 1
               }
             ]
           }
@@ -560,13 +572,13 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(pod_energy_total{pod_namespace=\"$namespace\"}[24h])",
+          "expr": "sum_over_time(pod_energy_current{pod_namespace=\"$namespace\"}[1h])/3/3600000000",
           "legendFormat": "{{pod_name}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total Pod Energy Consumption (mW) in $namespace in 24hrs",
+      "title": "Total Pod Energy Consumption (kW*h) in $namespace",
       "type": "bargauge"
     },
     {
@@ -596,11 +608,11 @@
               },
               {
                 "color": "#EAB839",
-                "value": 100
+                "value": 0.01
               },
               {
                 "color": "red",
-                "value": 1000
+                "value": 0.1
               }
             ]
           }
@@ -630,7 +642,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "mW"
+                "value": "kW*h"
               },
               {
                 "id": "custom.displayMode",
@@ -662,7 +674,7 @@
           ],
           "show": false
         },
-        "frameIndex": 2,
+        "frameIndex": 0,
         "showHeader": true,
         "sortBy": []
       },
@@ -675,13 +687,13 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (pod_namespace) (rate(pod_energy_total[24h]))",
+          "expr": "sum by (pod_namespace) (sum_over_time(pod_energy_current[1h])/3/3600000000)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total Energy Consumption (mW) by Namespace in 24 hrs",
+      "title": "Total Energy Consumption (kW*h) by Namespace in 1 hour",
       "type": "table"
     }
   ],
@@ -807,13 +819,13 @@
     ]
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Kepler Exporter Dashboard",
   "uid": "feedc0ffee",
-  "version": 12,
+  "version": 22,
   "weekStart": ""
 }
