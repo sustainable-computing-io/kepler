@@ -101,7 +101,9 @@ type CurrNodeEnergy struct {
 }
 
 const (
-	samplePeriod = 3000 * time.Millisecond
+	samplePeriodSec = 3
+	samplePeriod = samplePeriodSec * 1000 * time.Millisecond
+	maxEnergyDelta = 1000000 * samplePeriodSec // for sanity check, max energy delta shouldn't be more than 1000 Watts * samplePeriod
 )
 
 var (
@@ -160,6 +162,10 @@ func (c *Collector) reader() {
 				dramDelta := float64(energyDram - lastEnergyDram)
 				if coreDelta == 0 && dramDelta == 0 {
 					log.Printf("power reading not changed, retry\n")
+					continue
+				}
+				if coreDelta > maxEnergyDelta || dramDelta > maxEnergyDelta {
+					log.Printf("power reading off limit: core: %f, dram %f retry\n", coreDelta, dramDelta)
 					continue
 				}
 				gpuDelta := float64(0)
