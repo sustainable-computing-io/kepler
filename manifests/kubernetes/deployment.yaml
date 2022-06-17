@@ -68,7 +68,7 @@ spec:
         - -address
         - 0.0.0.0:9102
         - -enable-gpu
-        - "false"
+        - "true"
         ports:
         - containerPort: 9102
           hostPort: 9102
