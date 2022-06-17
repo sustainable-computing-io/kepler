@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+	"math"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -127,12 +128,14 @@ func (c *Collector) reader() {
 					log.Printf("failed to get latest core or dram energy. Core energy %v should be more than %v; Dram energy %v should be more than %v\n",
 						energyCore, lastEnergyCore, energyDram, lastEnergyDram)
 				}
+
 				coreDelta := float64(energyCore - lastEnergyCore)
 				dramDelta := float64(energyDram - lastEnergyDram)
 				if coreDelta == 0 && dramDelta == 0 {
 					log.Printf("power reading not changed, retry\n")
 					continue
 				}
+
 				gpuDelta := float64(0)
 				for _, e := range gpuEnergy {
 					gpuDelta += e
@@ -312,12 +315,17 @@ func (c *Collector) reader() {
 func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_VECTOR_SIZE]uint16) (float64, float64) {
 	totalFreq := float64(0)
 	totalCPUTime := float64(0)
+	totalFreqWithoutWeight := float64(0)
 	for cpu, freq := range cpuFrequency {
 		if cpuTime[cpu] != 0 {
 			totalFreq += float64(freq) * float64(cpuTime[cpu])
 			totalCPUTime += float64(cpuTime[cpu])
 		}
+		totalFreqWithoutWeight += float64(freq)
 	}
-	avgFreq := totalFreq / totalCPUTime
+	avgFreq := float64(totalFreq / totalCPUTime)
+	if totalCPUTime == 0 {
+		avgFreq = totalFreqWithoutWeight/float64(len(cpuFrequency))
+	}
 	return avgFreq, totalCPUTime
 }
