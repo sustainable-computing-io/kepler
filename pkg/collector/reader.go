@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 	"unsafe"
-	"math"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
