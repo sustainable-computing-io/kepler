@@ -71,6 +71,11 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
+				"block_devices_used",
+				"curr_bytes_read",
+				"total_bytes_read",
+				"curr_bytes_writes",
+				"total_bytes_writes",
 			},
 			nil,
 		)
@@ -91,6 +96,44 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	lock.Lock()
 	defer lock.Unlock()
+	de := prometheus.NewDesc(
+		"node_energy_stat",
+		"Node energy consumption stats",
+		[]string{
+			"node_name",
+			"cpu_architecture",
+			"curr_cpu_time",
+			"curr_cpu_cycles",
+			"curr_cpu_instructions",
+			"curr_resident_memory",
+			"curr_cache_misses",
+			"curr_energy_in_core",
+			"curr_energy_in_dram",
+			"curr_energy_in_gpu",
+			"curr_energy_in_other",
+		},
+		nil,
+	)
+	cpuTime := fmt.Sprintf("%f", currNodeEnergy.CPUTime)
+	energyInCore := fmt.Sprintf("%f", currNodeEnergy.EnergyInCore)
+	energyInDram := fmt.Sprintf("%f", currNodeEnergy.EnergyInDram)
+	energyInOther := fmt.Sprintf("%f", currNodeEnergy.EnergyInOther)
+	energyInGpu := fmt.Sprintf("%f", currNodeEnergy.EnergyInGPU)
+	resMem := fmt.Sprintf("%f", currNodeEnergy.NodeMem)
+	desc := prometheus.MustNewConstMetric(
+		de,
+		prometheus.CounterValue,
+		currNodeEnergy.EnergyInCore+currNodeEnergy.EnergyInDram+currNodeEnergy.EnergyInOther+currNodeEnergy.EnergyInGPU,
+		nodeName, cpuArch,
+		cpuTime,
+		strconv.FormatUint(currNodeEnergy.CPUCycles, 10),
+		strconv.FormatUint(currNodeEnergy.CPUInstr, 10),
+		resMem,
+		strconv.FormatUint(currNodeEnergy.CacheMisses, 10),
+		energyInCore, energyInDram, energyInGpu, energyInOther,
+	)
+	ch <- desc
+
 	for _, v := range podEnergy {
 		de := prometheus.NewDesc(
 			"pod_energy_stat",
@@ -116,15 +159,24 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				"total_energy_in_other",
 				"curr_energy_in_other",
 				"avg_cpu_frequency",
+				"block_devices_used",
+				"curr_bytes_read",
+				"total_bytes_read",
+				"curr_bytes_writes",
+				"total_bytes_writes",
 			},
 			nil,
 		)
+		aggCPU := fmt.Sprintf("%f", v.AggCPUTime)
+		currCPU := fmt.Sprintf("%f", v.CurrCPUTime)
+		avgFreq := fmt.Sprintf("%f", float64(v.AvgCPUFreq))
+		disks := fmt.Sprintf("%d", v.Disks)
 		desc := prometheus.MustNewConstMetric(
 			de,
 			prometheus.CounterValue,
 			float64(v.CurrEnergyInCore+v.CurrEnergyInDram+v.CurrEnergyInGPU+v.CurrEnergyInOther),
 			v.PodName, v.Namespace, v.Command,
-			strconv.FormatFloat(v.AggCPUTime, 'e', -1, 64), strconv.FormatFloat(v.CurrCPUTime, 'e', -1, 64),
+			aggCPU, currCPU,
 			strconv.FormatUint(v.AggCPUCycles, 10), strconv.FormatUint(v.CurrCPUCycles, 10),
 			strconv.FormatUint(v.AggCPUInstr, 10), strconv.FormatUint(v.CurrCPUInstr, 10),
 			strconv.FormatUint(v.AggCacheMisses, 10), strconv.FormatUint(v.CurrCacheMisses, 10),
@@ -132,7 +184,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			strconv.FormatUint(v.CurrEnergyInDram, 10), strconv.FormatUint(v.AggEnergyInDram, 10),
 			strconv.FormatUint(v.CurrEnergyInGPU, 10), strconv.FormatUint(v.AggEnergyInGPU, 10),
 			strconv.FormatUint(v.CurrEnergyInOther, 10), strconv.FormatUint(v.AggEnergyInOther, 10),
-			strconv.FormatFloat(v.AvgCPUFreq, 'e', -1, 64),
+			avgFreq, disks,
+			strconv.FormatUint(v.CurrBytesRead, 10), strconv.FormatUint(v.AggBytesRead, 10),
+			strconv.FormatUint(v.CurrBytesWrite, 10), strconv.FormatUint(v.AggBytesWrite, 10),
 		)
 		ch <- desc
 
@@ -350,6 +404,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		},
 		nil,
 	)
+
 	for cpuID, freq := range cpuFrequency {
 		desc_total := prometheus.MustNewConstMetric(
 			de_core_freq,

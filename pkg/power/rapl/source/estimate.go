@@ -78,7 +78,7 @@ func getCPUModel() (string, error) {
 	return "", fmt.Errorf("no CPU architecture found")
 }
 
-func getCPUArchitecture() (string, error) {
+func GetCPUArchitecture() (string, error) {
 	myCPUModel, err := getCPUModel()
 	if err != nil {
 		return "", err
@@ -146,7 +146,7 @@ func getCPUPowerEstimate(cpu string) (float64, float64, float64, error) {
 	return 0.0, 0.0, 0.0, fmt.Errorf("no CPU power info found")
 }
 func (r *PowerEstimate) IsSupported() bool {
-	cpu, err := getCPUArchitecture()
+	cpu, err := GetCPUArchitecture()
 	if err != nil {
 		fmt.Printf("no cpu info: %v\n", err)
 		return false
