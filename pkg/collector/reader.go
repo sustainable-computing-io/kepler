@@ -135,6 +135,7 @@ func (c *Collector) reader() {
 
 		acpiPowerMeter.Run()
 		for {
+			samples := float64(1)
 			select {
 			case <-ticker.C:
 				lock.Lock()
@@ -148,28 +149,54 @@ func (c *Collector) reader() {
 				energyCore, err := rapl.GetEnergyFromCore()
 				if err != nil {
 					log.Printf("failed to get core power: %v\n", err)
+					samples += 1
+					lock.Unlock()
 					continue
 				}
 				energyDram, err := rapl.GetEnergyFromDram()
 				if err != nil {
 					log.Printf("failed to get dram power: %v\n", err)
+					samples += 1
+					lock.Unlock()
 					continue
 				}
 				if energyCore < lastEnergyCore || energyDram < lastEnergyDram {
 					log.Printf("failed to get latest core or dram energy. Core energy %v should be more than %v; Dram energy %v should be more than %v\n",
 						energyCore, lastEnergyCore, energyDram, lastEnergyDram)
+					// reset last value
+					log.Println("reset last energy")
+					if energyCore < lastEnergyCore {
+						lastEnergyCore = energyCore
+					}
+					if energyDram < lastEnergyDram {
+						lastEnergyDram = energyDram
+					}
+					samples = 1
+					lock.Unlock()
 					continue
 				}
 
-				coreDelta := float64(energyCore - lastEnergyCore)
-				dramDelta := float64(energyDram - lastEnergyDram)
+				coreDelta := float64(energyCore - lastEnergyCore) / samples
+				dramDelta := float64(energyDram - lastEnergyDram) / samples
 				if coreDelta == 0 && dramDelta == 0 {
 					log.Printf("power reading not changed, retry\n")
+					samples += 1
+					lock.Unlock()
 					continue
 				}
 
 				if coreDelta > maxEnergyDelta || dramDelta > maxEnergyDelta {
 					log.Printf("power reading off limit: core: %f, dram %f retry\n", coreDelta, dramDelta)
+					// reset last value
+					log.Println("reset last energy")
+					if coreDelta > maxEnergyDelta {
+						lastEnergyCore = energyCore
+					}
+					if dramDelta > maxEnergyDelta {
+						lastEnergyDram = energyDram
+					}
+					samples = 1
+					lock.Unlock()
 					continue
 				}
 
@@ -386,6 +413,7 @@ func (c *Collector) reader() {
 							v.PID, v.Command)
 					}
 				}
+				samples = 1
 				lock.Unlock()
 			}
 		}

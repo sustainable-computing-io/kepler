@@ -6,6 +6,7 @@ SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 SRC_ROOT :=$(shell pwd)
 
 IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
+IMAGE_VERSION := "latest"
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
@@ -68,7 +69,7 @@ _build_containerized:
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):latest
+	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_VERSION)
 
 .PHONY: _build_containerized
 
