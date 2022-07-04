@@ -18,7 +18,7 @@ package pod_lister
 
 import (
 	"crypto/tls"
-	"encoding/json"
+//	"encoding/json" // REPLACE WITH PodCacheKeeper
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -27,7 +27,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	corev1 "k8s.io/api/core/v1"
+//	corev1 "k8s.io/api/core/v1" // REPLACE WITH PodCacheKeeper
 )
 
 type KubeletPodLister struct{}
@@ -87,6 +87,9 @@ func httpGet(url string) (*http.Response, error) {
 	return resp, err
 }
 
+/*
+REPLACE WITH PodCacheKeeper
+
 // ListPods accesses Kubelet's metrics and obtain PodList
 func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	resp, err := httpGet(podUrl)
@@ -108,6 +111,7 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 
 	return pods, nil
 }
+*/
 
 // ListMetrics accesses Kubelet's metrics and obtain pods and node metrics
 func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
