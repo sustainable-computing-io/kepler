@@ -30,6 +30,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
@@ -85,6 +86,17 @@ type PodEnergy struct {
 	AggBytesWrite  uint64
 
 	AvgCPUFreq float64
+	
+	CgroupFSStats map[string]*UInt64Stat
+}
+
+type UInt64Stat struct {
+	Curr uint64
+	Aggr uint64
+}
+
+func (s UInt64Stat) String() string {
+    return fmt.Sprintf("%d (%d)", s.Curr, s.Aggr)
 }
 
 type CurrNodeEnergy struct {
@@ -262,12 +274,16 @@ func (c *Collector) reader() {
 						podEnergy[podName].CGroupPID = ct.CGroupPID
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
+						podEnergy[podName].CgroupFSStats = make(map[string]*UInt64Stat)
 					}
 					if attacher.EnableCPUFreq {
 						avgFreq, totalCPUTime = getAVGCPUFreqAndTotalCPUTime(cpuFrequency, ct.CPUTime)
-					} else {
+					} 
+					if totalCPUTime == 0 {
+						// cannot get CPUTime divided by Frequency, set to total process runtime
 						totalCPUTime = float64(ct.ProcessRunTime)
 					}
+					
 					// to prevent overflow of the counts we change the unit to have smaller numbers
 					totalCPUTime = totalCPUTime / 1000
 					podEnergy[podName].CurrCPUTime += totalCPUTime
@@ -293,6 +309,22 @@ func (c *Collector) reader() {
 						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
 					}
 					rBytes, wBytes, disks, err := pod_lister.ReadCgroupIOStat(ct.CGroupPID)
+
+					// TO-DO: 
+					// Use PID instead of CGroupPID and get ContainerID from PID
+					containerID, err := pod_lister.GetContainerIDFromcGroupID(ct.CGroupPID)
+
+					cgroup.TryInitStatReaders(containerID)
+					cgroupFSStandardStats := cgroup.GetStandardStat(containerID)
+					for cgroupFSKey, cgroupFSValue := range cgroupFSStandardStats {
+						if _, ok := podEnergy[podName].CgroupFSStats[cgroupFSKey]; !ok {
+							podEnergy[podName].CgroupFSStats[cgroupFSKey] = &UInt64Stat {
+								Curr: cgroupFSValue.(uint64),
+							}
+						} else {
+							podEnergy[podName].CgroupFSStats[cgroupFSKey].Curr += cgroupFSValue.(uint64)
+						}
+					}
 					// fmt.Printf("read %d write %d. Agg read %d write %d, err %v\n", rBytes, wBytes, aggBytesRead, aggBytesWrite, err)
 					if err == nil {
 						// if this is the first time the cgroup's I/O is accounted, add it to the pod
@@ -312,6 +344,7 @@ func (c *Collector) reader() {
 				// reset all counters in the eBPF table
 				c.modules.Table.DeleteAll()
 				totalReadBytes, totalWriteBytes, disks, err := pod_lister.ReadAllCgroupIOStat()
+				
 				if err == nil {
 					if totalReadBytes > aggBytesRead && totalWriteBytes > aggBytesWrite {
 						rBytes := totalReadBytes - aggBytesRead
@@ -390,27 +423,37 @@ func (c *Collector) reader() {
 						v.AggBytesWrite = v.CurrBytesWrite
 						v.CurrBytesWrite = val
 					}
+					for cgroupFSKey, FSStat := range v.CgroupFSStats {
+						if FSStat.Curr >= FSStat.Aggr {
+							val = FSStat.Curr - FSStat.Aggr
+							v.CgroupFSStats[cgroupFSKey].Aggr = FSStat.Curr
+							v.CgroupFSStats[cgroupFSKey].Curr = val
+						}
+					}
 
 					if v.CurrEnergyInCore > 0 {
 						log.Printf("\tenergy from pod: name: %s namespace: %s \n"+
 							"\teCore: %d(%d) eDram: %d(%d) eOther: %d(%d) eGPU: %d(%d) \n"+
-							"\tCPUTime: %.2f (%.4f) \n\tcycles: %d (%.4f) \n\tinstructions: %d (%.4f) \n"+
-							"\tDiskReadBytes: %d (%d) \n\tDiskWriteBytes: %d (%d)\n"+
-							"\tmisses: %d (%.4f)\tResidentMemRatio: %.4f\n\tavgCPUFreq: %.4f MHZ\n\tpid: %v comm: %v\n",
+							"\tCPUTime: %.2f (%.4f) \n" + 
+							"\tcycles: %d (%.4f) \n" +
+							"\tinstructions: %d (%.4f) \n"+
+							"\tDiskReadBytes: %d (%d) \n" +
+							"\tDiskWriteBytes: %d (%d) \n" +
+							"\tmisses: %d (%.4f)\tResidentMemRatio: %.4f\n" +
+							"\tavgCPUFreq: %.4f MHZ\n" +
+							"\tpid: %v comm: %v\n" +
+							"\tcgroupfs: %v\n",
 							podName, v.Namespace,
-							v.CurrEnergyInCore, v.AggEnergyInCore,
-							v.CurrEnergyInDram, v.AggEnergyInDram,
-							v.CurrEnergyInOther, v.AggEnergyInOther,
-							v.CurrEnergyInGPU, v.AggEnergyInGPU,
-							v.CurrCPUTime, float64(v.CurrCPUTime)/float64(aggCPUTime),
-							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles),
+							v.CurrEnergyInCore, v.AggEnergyInCore, v.CurrEnergyInDram, v.AggEnergyInDram, v.CurrEnergyInOther, v.AggEnergyInOther, v.CurrEnergyInGPU, v.AggEnergyInGPU,
+							v.CurrCPUTime, float64(v.CurrCPUTime)/float64(aggCPUTime), 
+							v.CurrCPUCycles, float64(v.CurrCPUCycles)/float64(aggCPUCycles), 
 							v.CurrCPUInstr, float64(v.CurrCPUInstr)/float64(aggCPUInstr),
-							v.CurrBytesRead, v.AggBytesRead,
+							v.CurrBytesRead, v.AggBytesRead, 
 							v.CurrBytesRead, v.AggBytesWrite,
-							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses),
-							float64(v.CurrResidentMem)/nodeMem,
+							v.CurrCacheMisses, float64(v.CurrCacheMisses)/float64(aggCacheMisses), float64(v.CurrResidentMem)/nodeMem,
 							v.AvgCPUFreq/1000, /*MHZ*/
-							v.PID, v.Command)
+							v.PID, v.Command, 
+							v.CgroupFSStats)
 					}
 				}
 				samples = 1
