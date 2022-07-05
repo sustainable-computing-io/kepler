@@ -90,7 +90,7 @@ func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 		Namespace: systemProcessNamespace,
 	}
 
-	if containerID, err = getContainerIDFromcGroupID(cGroupID); err != nil {
+	if containerID, err = GetContainerIDFromcGroupID(cGroupID); err != nil {
 		//TODO: print a warn with high verbosity
 		return info, nil
 	}
@@ -147,7 +147,7 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 
 }
 
-func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
+func GetContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 	if id, ok := cGroupIDToContainerIDCache[cGroupID]; ok {
 		return id, nil
 	}
