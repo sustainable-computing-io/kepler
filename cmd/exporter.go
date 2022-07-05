@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
@@ -64,8 +65,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to attach : %v", err)
 	}
+
 	defer collector.Destroy()
 	defer rapl.StopPower()
+	defer pod_lister.Destroy()
+	pod_lister.InitKeeper()
+	go pod_lister.Keeper.Run()
 
 	err = prometheus.Register(collector)
 	if err != nil {
