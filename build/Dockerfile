@@ -31,7 +31,7 @@ RUN mkdir -p data
 RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 
 # Copy model data and test (TO-DO: move to CI)
-COPY data/cpu_model.csv data/cpu_model.csv
+COPY data/normalized_cpu_arch.csv data/normalized_cpu_arch.csv
 COPY data/power_data.csv data/power_data.csv
 # RUN make test
 
@@ -45,7 +45,7 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 RUN mkdir -p /var/lib/kepler/data
 #ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/data/cpu_model.csv /var/lib/kepler/data/cpu_model.csv
 #ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/data/power_data.csv /var/lib/kepler/data/power_data.csv
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/cpu_model.csv /var/lib/kepler/data/cpu_model.csv
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/power_data.csv /var/lib/kepler/data/power_data.csv
 
 ENTRYPOINT ["/usr/bin/kepler"]
