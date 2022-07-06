@@ -150,7 +150,7 @@ func (r *PowerEstimate) GetEnergyFromDram() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
-	return uint64(float64(dramInGB)*perGBPowerEstimate*seconds) * 1000, nil
+	return uint64(float64(dramInGB)*perGBPowerEstimate*seconds) * 1000 / 3600, nil
 }
 
 func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
@@ -158,7 +158,7 @@ func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
 	//TODO use utilization
-	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000, nil
+	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000 / 3600, nil
 }
 
 func (r *PowerEstimate) GetEnergyFromUncore() (uint64, error) {
