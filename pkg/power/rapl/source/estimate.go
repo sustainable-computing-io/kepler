@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -34,20 +35,14 @@ import (
 type PowerEstimate struct{}
 
 var (
+	cpuModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
 	powerDataPath    = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
-	cpuModelDataPath = "/var/lib/kepler/data/cpu_model.csv"
-	dramInGB         int
-	cpuCores         = runtime.NumCPU()
+	dramRegex        = "^MemTotal:[\\s]+([0-9]+)"
 
-	startTime = time.Now()
-
+	dramInGB                                                                 int
+	cpuCores                                                                 = runtime.NumCPU()
+	startTime                                                                = time.Now()
 	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64
-
-	cpuModelRegex = []string{
-		"(.)*Intel(.)*( [-a-zA-Z0-9]+[0-9]+[A-Z]* )", // Intel, e.g. "model name      : Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz". This is seen on KVM
-		"(.)*Intel(.)*( [-a-zA-Z0-9]+[0-9]+[A-Z]*)",  // Intel, e.g. "model name      : 12th Gen Intel(R) Core(TM) i7-12700H". This is seen on Hyper-V
-	}
-	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
 )
 
 type PowerEstimateData struct {
@@ -58,31 +53,16 @@ type PowerEstimateData struct {
 }
 
 type CPUModelData struct {
-	CPUModel     string `csv:"Model"`
+	Name     string `csv:"Name"`
 	Architecture string `csv:"Architecture"`
 }
 
-func getCPUModel() (string, error) {
-	b, err := ioutil.ReadFile("/proc/cpuinfo")
-	if err != nil {
-		return "", err
-	}
-	for _, r := range cpuModelRegex {
-		re := regexp.MustCompile(r)
-		matches := re.FindStringSubmatch(string(b))
-		l := len(matches)
-		if l > 0 {
-			return strings.TrimSpace(matches[l-1]), nil
-		}
-	}
-	return "", fmt.Errorf("no CPU architecture found")
-}
-
 func GetCPUArchitecture() (string, error) {
-	myCPUModel, err := getCPUModel()
+	output, err := exec.Command("archspec", "cpu").Output()
 	if err != nil {
 		return "", err
 	}
+	myCPUModel := strings.TrimSuffix(string(output),"\n") 
 	file, err := os.Open(cpuModelDataPath)
 	if err != nil {
 		return "", err
@@ -99,7 +79,7 @@ func GetCPUArchitecture() (string, error) {
 		if err := dec.Decode(&p); err == io.EOF {
 			break
 		}
-		if p.CPUModel == myCPUModel {
+		if p.Name == myCPUModel {
 			return p.Architecture, nil
 		}
 	}
