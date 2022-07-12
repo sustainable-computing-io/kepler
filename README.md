@@ -29,6 +29,7 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 # cd kube-prometheus
 # kubectl apply --server-side -f manifests/setup
 # until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+# cd ../kepler
 # kubectl apply -f manifests/kubernetes/
 ```
 
