@@ -3,6 +3,10 @@ Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy rel
 
 # Architecture
 ![Architecture](doc/kepler-arch.png)
+
+# Talk and Demo
+[Open Source Summit NA 2022 talk](doc/OSS-NA22.pdf) and [demo](https://www.youtube.com/watch?v=P5weULiBl60)
+
 # Requirement
 Kernel 4.18+, Cgroup V2
 
