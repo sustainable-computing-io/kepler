@@ -1,3 +1,13 @@
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: operatorgroup
+  namespace: monitoring
+spec:
+  targetNamespaces:
+  - monitoring
+---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -7,5 +17,6 @@ spec:
   channel: v4
   installPlanApproval: Automatic
   name: grafana-operator
-  source: operatorhubio-catalog
+  source: community-operators
   sourceNamespace: openshift-marketplace
+  startingCSV: grafana-operator.v4.4.1

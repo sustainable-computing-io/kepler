@@ -11,10 +11,9 @@ metadata:
 rules:
 - apiGroups: [""]
   resources:
-  - nodes/metrics
-  - nodes/proxy #access /pods
-  - nodes/stats
-  - nodes/metrics # access /metrics/resource  
+  - nodes/metrics # access /metrics/resource
+  - nodes/proxy # access /pods
+  - nodes/stats # access /pods
   verbs:
   - 'get'
   - 'watch'
@@ -68,6 +67,8 @@ spec:
         - /usr/bin/kepler
         - -address
         - 0.0.0.0:9102
+        - -enable-gpu
+        - "true"
         ports:
         - containerPort: 9102
           hostPort: 9102

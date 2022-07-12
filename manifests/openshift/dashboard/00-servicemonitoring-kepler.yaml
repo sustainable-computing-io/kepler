@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+  name: monitor-kepler-exporter
+  namespace: monitoring
+spec:
+  endpoints:
+  - interval: 15s
+    port: kepler-exporter
+    scheme: http
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter

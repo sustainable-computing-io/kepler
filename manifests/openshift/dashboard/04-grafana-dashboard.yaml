@@ -6,4 +6,4 @@ metadata:
   labels:
     app: grafana
 spec:
-  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/grafana-dashboards/Kepler-Exporter-Dashboard-openshift.json
+  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/grafana-dashboards/Kepler-Exporter-Dashboard-openshift-carbon-usa.json

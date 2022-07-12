@@ -59,6 +59,10 @@ func init() {
 	updateListPodCache("", false)
 }
 
+func GetSystemProcessName() string {
+	return systemProcessName
+}
+
 func GetPodNameFromcGgroupID(cGroupID uint64) (string, error) {
 	info, err := getContainerInfoFromcGgroupID(cGroupID)
 	return info.PodName, err
@@ -86,7 +90,7 @@ func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 		Namespace: systemProcessNamespace,
 	}
 
-	if containerID, err = getContainerIDFromcGroupID(cGroupID); err != nil {
+	if containerID, err = GetContainerIDFromcGroupID(cGroupID); err != nil {
 		//TODO: print a warn with high verbosity
 		return info, nil
 	}
@@ -143,7 +147,7 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 
 }
 
-func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
+func GetContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 	if id, ok := cGroupIDToContainerIDCache[cGroupID]; ok {
 		return id, nil
 	}
@@ -159,7 +163,6 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 		for _, element := range sub {
 			if strings.Contains(element, "-conmon-") || strings.Contains(element, ".service") {
 				return "", fmt.Errorf("process cGroupID %d is not in a kubernetes pod", cGroupID)
-
 			} else if strings.Contains(element, "crio") {
 				containerID := strings.Trim(element, "crio-")
 				containerID = strings.Trim(containerID, ".scope")
@@ -190,7 +193,7 @@ func getPathFromcGroupID(cgroupId uint64) (string, error) {
 		}
 		handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
 		if err != nil {
-			return fmt.Errorf("Error resolving handle: %v", err)
+			return fmt.Errorf("error resolving handle: %v", err)
 		}
 		cGroupIDToPath[byteOrder.Uint64(handle.Bytes())] = path
 		return nil

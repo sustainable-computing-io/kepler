@@ -6,6 +6,7 @@ SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 SRC_ROOT :=$(shell pwd)
 
 IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
+IMAGE_VERSION := "latest"
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
@@ -25,7 +26,7 @@ else
 	GC_FLAGS =
 endif
 
-GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)"
+GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 GO_BUILD_FLAGS :=-tags 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
 
@@ -34,6 +35,11 @@ ARCH := $(shell go env GOARCH)
 
 kepler: build-containerized-cross-build-linux-amd64
 .PHONY: kepler
+
+tidy-vendor:
+	go mod tidy
+	go mod vendor
+
 
 _build_local:
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
@@ -63,7 +69,7 @@ _build_containerized:
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):latest
+	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_VERSION)
 
 .PHONY: _build_containerized
 
@@ -79,6 +85,22 @@ build-containerized-cross-build:
 	+$(MAKE) build-containerized-cross-build-linux-amd64
 	+$(MAKE) build-containerized-cross-build-linux-arm64
 .PHONY: build-containerized-cross-build
+
+# for testsuite
+PWD=$(shell pwd)
+ENVTEST_ASSETS_DIR=./test-bin
+export PATH := $(PATH):./test-bin
+GOPATH ?= $(HOME)/go
+
+ginkgo-set:
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
+	 (go get -u github.com/onsi/ginkgo/ginkgo && go install github.com/onsi/ginkgo/ginkgo && \
+	  go get -u github.com/onsi/gomega/... && go install github.com/onsi/gomega/... && \
+	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	
+test: ginkgo-set tidy-vendor
+	@go test -v ./...
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
