@@ -3,6 +3,10 @@ Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy rel
 
 # Architecture
 ![Architecture](doc/kepler-arch.png)
+
+# Talk and Demo
+[Open Source Summit NA 2022 talk](doc/OSS-NA22.pdf) and [demo](https://www.youtube.com/watch?v=P5weULiBl60)
+
 # Requirement
 Kernel 4.18+, Cgroup V2
 
@@ -29,7 +33,6 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 # cd kube-prometheus
 # kubectl apply --server-side -f manifests/setup
 # until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
-# kubectl apply -f manifests/kubernetes/
 ```
 
 ## Configure Prometheus to scrape Kepler-exporter endpoints.
