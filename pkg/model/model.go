@@ -17,38 +17,38 @@ limitations under the License.
 package model
 
 import (
-	"encoding/json"
+	"encoding/csv"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"io"
+	"os"
+
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+
+	"github.com/jszwec/csvutil"
 )
 
 type Coeff struct {
-	CPUTime     float64 `json:"cpu_time"`
-	CPUCycle    float64 `json:"cpu_cycle"`
-	CPUInstr    float64 `json:"cpu_instruction"`
-	MemoryUsage float64 `json:"memory_usage"`
-	CacheMisses float64 `json:"cache_misses"`
-}
-
-type RegressionModel struct {
-	Core        float64 `json:"core"`
-	Dram        float64 `json:"dram"`
-	CPUTime     float64 `json:"cpu_time"`
-	CPUCycle    float64 `json:"cpu_cycles"`
-	CPUInstr    float64 `json:"cpu_instructions"`
-	MemoryUsage float64 `json:"memory_usage"`
-	CacheMisses float64 `json:"cache_misses"`
+	Architecture  string  `csv:"architecture"`
+	CPUTime       float64 `csv:"cpu_time"`
+	CPUCycle      float64 `csv:"cpu_cycle"`
+	CPUInstr      float64 `csv:"cpu_instruction"`
+	MemoryUsage   float64 `csv:"memory_usage"`
+	CacheMisses   float64 `csv:"cache_misses"`
+	InterceptCore float64 `csv:"intercept_core"`
+	InterceptDram float64 `csv:"intercept_dram"`
 }
 
 var (
-	//TODO obtain the coeff via regression
+	//obtained the coeff via regression
 	BareMetalCoeff = Coeff{
-		CPUTime:     0.6,
-		CPUCycle:    0.2,
-		CPUInstr:    0.2,
-		MemoryUsage: 0.5,
-		CacheMisses: 0.5,
+		CPUTime:       0.0,
+		CPUCycle:      0.0000005268224465,
+		CPUInstr:      0.0000005484982329,
+		InterceptCore: 152121.0472,
+
+		MemoryUsage:   0.0,
+		CacheMisses:   0.000004112383656,
+		InterceptDram: -23.70284983,
 	}
 	// if per counters are not avail on VMs, don't use them
 	VMCoeff = Coeff{
@@ -58,9 +58,11 @@ var (
 		MemoryUsage: 1.0,
 		CacheMisses: 0,
 	}
-	RunTimeCoeff Coeff = BareMetalCoeff
+	RunTimeCoeff Coeff
 
 	modelServerEndpoint string
+
+	powerModelPath = "/var/lib/kepler/data/power_model.csv"
 )
 
 func SetVMCoeff() {
@@ -68,17 +70,43 @@ func SetVMCoeff() {
 }
 
 func SetBMCoeff() {
+	// use the default one if no model found
 	RunTimeCoeff = BareMetalCoeff
+
+	arch, err := source.GetCPUArchitecture()
+	if err == nil {
+		cpuArch := arch
+		file, err := os.Open(powerModelPath)
+		if err == nil {
+			reader := csv.NewReader(file)
+
+			dec, err := csvutil.NewDecoder(reader)
+			if err == nil {
+				for {
+					var p Coeff
+					if err := dec.Decode(&p); err == io.EOF {
+						break
+					}
+					if p.Architecture == cpuArch {
+						fmt.Printf("use model %v\n", p)
+						RunTimeCoeff = p
+					}
+				}
+			}
+		}
+	}
 }
 
 func SetRuntimeCoeff(coeff Coeff) {
 	RunTimeCoeff = coeff
 
 }
+
 func SetModelServerEndpoint(ep string) {
 	modelServerEndpoint = ep
 }
 
+/*
 func GetCoeffFromModelServer() (*Coeff, error) {
 	if len(modelServerEndpoint) == 0 {
 		return &RunTimeCoeff, nil
@@ -105,3 +133,4 @@ func GetCoeffFromModelServer() (*Coeff, error) {
 
 	return &coeff, nil
 }
+*/
