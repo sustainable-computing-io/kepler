@@ -1,0 +1,2 @@
+Architecture,cpu_instruction,cpu_cycle,intercept_core,cache_misses,memory_usage,intercept_dram
+Cascade Lake,0.0000005268224465,0.0000005484982329,152121.0472,0.000004112383656,0,-23.70284983
