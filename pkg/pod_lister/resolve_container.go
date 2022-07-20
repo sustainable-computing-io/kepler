@@ -20,7 +20,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
-	"log"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -56,7 +55,7 @@ var (
 func init() {
 	byteOrder = bpf.GetHostByteOrder()
 	podLister = KubeletPodLister{}
-	updateListPodCache("", false)
+	// updateListPodCache("", false)
 }
 
 func GetSystemProcessName() string {
@@ -92,22 +91,31 @@ func getContainerInfoFromcGgroupID(cGroupID uint64) (*ContainerInfo, error) {
 
 	if containerID, err = GetContainerIDFromcGroupID(cGroupID); err != nil {
 		//TODO: print a warn with high verbosity
+		// systems (expect non-pod)
 		return info, nil
 	}
 
-	if i, ok := containerIDToContainerInfo[containerID]; ok {
+	if i, ok := Keeper.PodCgroupIDCache[containerID]; ok {
 		return i, nil
 	}
 
+	/* 
+	REPLACE WITH PodCacheKeeper
+	
 	// update cache info and stop loop if container id found
 	updateListPodCache(containerID, true)
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	}
 
-	containerIDToContainerInfo[containerID] = info
-	return containerIDToContainerInfo[containerID], nil
+	*/
+
+	// systems (expect non-pod)
+	return info, nil
 }
+
+/* 
+REPLACE WITH PodCacheKeeper
 
 // updateListPodCache updates cache info with all pods and optionally
 // stops the loop when a given container ID is found
@@ -144,8 +152,8 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 			}
 		}
 	}
-
 }
+*/
 
 func GetContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 	if id, ok := cGroupIDToContainerIDCache[cGroupID]; ok {
