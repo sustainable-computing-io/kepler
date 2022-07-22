@@ -24,10 +24,6 @@ import (
 	"fmt"
 )
 
-const (
-	SLICE_SUFFIX = ".slice"
-	SCOPE_SUFFIX = ".scope"
-)
 
 var testPaths []string = []string {
 	"./test/hierarchypath", "./test/toppath/kubepod", "./test/toppath/system",
@@ -46,27 +42,6 @@ func initSliceHandler(basePath string) *SliceHandler {
 	sliceHandler := InitSliceHandler()
 	return sliceHandler
 
-}
-
-func findContainerScope(path string) string {
-	if strings.Contains(path, SCOPE_SUFFIX) {
-		return path
-	}
-	slicePath := SearchByContainerID(path, SLICE_SUFFIX)
-	if slicePath == "" {
-		return ""
-	}
-	return findContainerScope(slicePath)
-}
-
-func findExampleContainerID(slice *SliceHandler) string {
-	topPath := slice.GetCPUTopPath()
-	containerScopePath := findContainerScope(topPath)
-	pathSplits := strings.Split(containerScopePath, "/")
-	fileName := pathSplits[len(pathSplits) - 1]
-	scopeSplit := strings.Split(fileName, ".scope")[0]
-	partSplits := strings.Split(scopeSplit, "-")
-	return partSplits[len(partSplits)-1]
 }
 
 
@@ -91,6 +66,15 @@ var _ = Describe("Test Read Stat", func() {
 			stats := SliceHandlerInstance.GetStats(containerID)
 			fmt.Println(stats)
 			Expect(len(stats)).Should(BeNumerically(">", 0))
+		}
+	})
+
+	It("Properly get avilable stats", func() {
+		for _, testPath := range testPaths {
+			SliceHandlerInstance = initSliceHandler(testPath)
+			availableMetrics := GetAvailableCgroupMetrics()
+			Expect(len(availableMetrics)).Should(BeNumerically(">", 0))
+			fmt.Println("Available Metrics:", availableMetrics)
 		}
 	})
 

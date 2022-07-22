@@ -32,6 +32,11 @@ import 	(
 	"strings"
 )
 
+const (
+	SLICE_SUFFIX = ".slice"
+	SCOPE_SUFFIX = ".scope"
+)
+
 var (
 	BASE_CGROUP_PATH string = "/sys/fs/cgroup"
 	KUBEPOD_CGROUP_PATH string = "/sys/fs/cgroup/kubepods.slice"
@@ -45,11 +50,7 @@ type SliceHandler struct {
 	IOTopPath string
 }
 
-var SliceHandlerInstance *SliceHandler
-
-func init() {
-	SliceHandlerInstance = InitSliceHandler()
-}
+var SliceHandlerInstance *SliceHandler = InitSliceHandler()
 
 func (s *SliceHandler) Init() {
 	s.statReaders = make(map[string][]StatReader)
@@ -135,4 +136,37 @@ func TryInitStatReaders(containerID string) {
 func GetStandardStat(containerID string) map[string]interface{} {
 	stats := SliceHandlerInstance.GetStats(containerID)
 	return convertToStandard(stats)
+}
+
+func findContainerScope(path string) string {
+	if strings.Contains(path, SCOPE_SUFFIX) {
+		return path
+	}
+	slicePath := SearchByContainerID(path, SLICE_SUFFIX)
+	if slicePath == "" {
+		return ""
+	}
+	return findContainerScope(slicePath)
+}
+
+func findExampleContainerID(slice *SliceHandler) string {
+	topPath := slice.GetCPUTopPath()
+	containerScopePath := findContainerScope(topPath)
+	pathSplits := strings.Split(containerScopePath, "/")
+	fileName := pathSplits[len(pathSplits) - 1]
+	scopeSplit := strings.Split(fileName, ".scope")[0]
+	partSplits := strings.Split(scopeSplit, "-")
+	return partSplits[len(partSplits)-1]
+}
+
+func GetAvailableCgroupMetrics() []string {
+	var availableMetrics []string
+	containerID := findExampleContainerID(SliceHandlerInstance)
+	TryInitStatReaders(containerID)
+	stats := GetStandardStat(containerID)
+	for metric, _ := range stats {
+		availableMetrics = append(availableMetrics, "curr_" + metric)
+		availableMetrics = append(availableMetrics, "total_" + metric)
+	}
+	return availableMetrics
 }
