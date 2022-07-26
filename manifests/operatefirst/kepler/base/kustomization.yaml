@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  sustainable-computing.io/app: kepler
+resources:
+- machineconfigs.yaml
+- serviceaccount.yaml
+- service.yaml
+- rolebinding.yaml
+- role.yaml
+- scc.yaml

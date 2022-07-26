@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sustainable-computing.io/app: kepler
+  name: kepler-leader-election
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kepler-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: kepler-sa
+    namespace: monitoring
