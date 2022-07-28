@@ -88,6 +88,7 @@ type PodEnergy struct {
 	AvgCPUFreq    float64
 	CurrProcesses int
 	CgroupFSStats map[string]*UInt64Stat
+	CurrCPUTimePerCPU map[uint32]uint64
 }
 
 type UInt64Stat struct {
@@ -123,6 +124,7 @@ var (
 	nodeEnergy     = map[string]float64{}
 	gpuEnergy      = map[uint32]float64{}
 	currNodeEnergy = &CurrNodeEnergy{}
+	currPackageEnergy = map[int]source.PackageEnergy{}
 	cpuFrequency   = map[int32]uint64{}
 	nodeName, _    = os.Hostname()
 	cpuArch        = "unknown"
@@ -153,6 +155,7 @@ func (c *Collector) reader() {
 				lock.Lock()
 				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 				nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
+				currPackageEnergy = rapl.GetPackageEnergy()
 
 				var aggCPUTime, avgFreq, totalCPUTime float64
 				var aggCPUCycles, aggCPUInstr, aggCacheMisses, aggBytesRead, aggBytesWrite uint64
@@ -252,7 +255,9 @@ func (c *Collector) reader() {
 					v.CurrBytesRead = 0
 					v.CurrBytesWrite = 0
 					v.CurrProcesses = 0
+					v.CurrCPUTimePerCPU = make(map[uint32]uint64)
 				}
+				
 				for it := c.modules.Table.Iter(); it.Next(); {
 					data := it.Leaf()
 					err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
@@ -280,10 +285,21 @@ func (c *Collector) reader() {
 						podEnergy[podName].PID = ct.PID
 						podEnergy[podName].Command = C.GoString(comm)
 						podEnergy[podName].CgroupFSStats = make(map[string]*UInt64Stat)
+						podEnergy[podName].CurrCPUTimePerCPU = make(map[uint32]uint64)
 					}
+					
+					var activeCPUs []int32
+					
 					if attacher.EnableCPUFreq {
-						avgFreq, totalCPUTime = getAVGCPUFreqAndTotalCPUTime(cpuFrequency, ct.CPUTime)
+						avgFreq, totalCPUTime, activeCPUs = getAVGCPUFreqAndTotalCPUTime(cpuFrequency, ct.CPUTime)
+					} else {
+						activeCPUs = getActiveCPUs(ct.CPUTime)
 					}
+
+					for _, cpu := range activeCPUs {
+						podEnergy[podName].CurrCPUTimePerCPU[uint32(cpu)] += uint64(ct.CPUTime[cpu])
+					}
+
 					if totalCPUTime == 0 {
 						// cannot get CPUTime divided by Frequency, set to total process runtime
 						totalCPUTime = float64(ct.ProcessRunTime)
@@ -459,7 +475,8 @@ func (c *Collector) reader() {
 }
 
 // getAVGCPUFreqAndTotalCPUTime calculates the weighted cpu frequency average
-func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_VECTOR_SIZE]uint16) (float64, float64) {
+func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_VECTOR_SIZE]uint16) (float64, float64, []int32) {
+	var activeCPUs []int32
 	totalFreq := float64(0)
 	totalCPUTime := float64(0)
 	totalFreqWithoutWeight := float64(0)
@@ -470,6 +487,7 @@ func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_
 		if cpuTime[cpu] != 0 {
 			totalFreq += float64(freq) * float64(cpuTime[cpu])
 			totalCPUTime += float64(cpuTime[cpu])
+			activeCPUs = append(activeCPUs, cpu)
 		}
 		totalFreqWithoutWeight += float64(freq)
 	}
@@ -477,5 +495,16 @@ func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_
 	if totalCPUTime == 0 {
 		avgFreq = totalFreqWithoutWeight / float64(len(cpuFrequency))
 	}
-	return avgFreq, totalCPUTime
+	return avgFreq, totalCPUTime, activeCPUs
+}
+
+// getActiveCPUs returns active cpu(vcpu) (in case that frequency is not active)
+func getActiveCPUs(cpuTime [C.CPU_VECTOR_SIZE]uint16) []int32 {
+	var activeCPUs []int32
+	for cpu, _ := range cpuTime {
+		if cpuTime[cpu] != 0 {
+			activeCPUs = append(activeCPUs, int32(cpu))
+		}
+	}
+	return activeCPUs
 }

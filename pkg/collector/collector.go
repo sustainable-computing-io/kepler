@@ -48,6 +48,8 @@ const (
 	POD_ENERGY_STAT_METRIC = "pod_energy_stat"
 	NODE_ENERGY_METRIC = "node_hwmon_energy_joule_total"
 	FREQ_METRIC = "node_cpu_scaling_frequency_hertz"
+	PACKAGE_ENERGY_METRIC = "node_package_energy_joule"
+	PER_CPU_STAT_METRIC = "pod_cpu_cpu_time_us"
 )
 
 type PodMetric struct {
@@ -233,11 +235,41 @@ func (c *Collector) getFreqDescription() *prometheus.Desc {
 		FREQ_METRIC,
 		"Current scaled cpu thread frequency in hertz.",
 		[]string{
+			"instance",
 			"cpu",
 		},
 		nil,
 	)
 }
+
+func (c *Collector) getPackageEnergyDescription() *prometheus.Desc {
+	return prometheus.NewDesc(
+		PACKAGE_ENERGY_METRIC,
+		"Current package energy by RAPL in joules.",
+		[]string{
+			"instance",
+			"pkg_id",
+			"core",
+			"dram",
+			"uncore",
+		},
+		nil,
+	)
+}
+
+func (c *Collector) getPodDetailedCPUTimeDescription() *prometheus.Desc {
+	return prometheus.NewDesc(
+		PER_CPU_STAT_METRIC,
+		"Current CPU time per CPU.",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"cpu",
+		},
+		nil,
+	)
+}
+
 
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
@@ -257,6 +289,8 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- podDesc.OtherAggr
 	ch <- c.getSensorDescription()
 	ch <- c.getFreqDescription()
+	ch <- c.getPackageEnergyDescription()
+	ch <- c.getPodDetailedCPUTimeDescription()
 }
 
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
@@ -424,6 +458,17 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		ch <- desc_other_total
 
+		// collect CPU time per CPU for finer granularity
+		for cpu, cpuTime := range v.CurrCPUTimePerCPU {
+			detailedDesc := c.getPodDetailedCPUTimeDescription()
+			metric := prometheus.MustNewConstMetric(
+				detailedDesc,
+				prometheus.GaugeValue,
+				float64(cpuTime),
+				v.PodName, v.Namespace, strconv.Itoa(int(cpu)),
+			)
+			ch <- metric
+		}
 	}
 
 	// de_node_energy and desc_node_energy give indexable values for total energy consumptions of a node
@@ -447,7 +492,28 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			desc,
 			prometheus.GaugeValue,
 			float64(freq),
+			nodeName,
 			fmt.Sprintf("%d", cpuID),
+		)
+		ch <- metric
+	}
+
+	// collect energy per package by RAPL
+	for pkgID, energy := range currPackageEnergy {
+		desc := c.getPackageEnergyDescription()
+		coreEnergy := fmt.Sprintf("%f", float64(energy.Core)/1000.0)
+		dramEnergy := fmt.Sprintf("%f", float64(energy.DRAM)/1000.0)
+		uncoreEnergy := fmt.Sprintf("%f", float64(energy.Uncore)/1000.0)
+
+		metric := prometheus.MustNewConstMetric(
+			desc,
+			prometheus.GaugeValue,
+			float64(energy.Pkg)/1000.0,
+			nodeName,
+			strconv.Itoa(pkgID),
+			coreEnergy,
+			dramEnergy,
+			uncoreEnergy,
 		)
 		ch <- metric
 	}
