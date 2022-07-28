@@ -44,11 +44,29 @@ func convertPromToValue(body []byte, metric string) (int, error) {
 	r := regexp.MustCompile(regStr)
 	match := r.FindString(string(body))
 	splits := strings.Split(match, " ")
+	fmt.Println(splits, regStr)
 	return strconv.Atoi(splits[1])
 }
 
 var _ = Describe("Test Collector Unit", func() {
 	It("Init and Run", func() {
+		newCollector, err := New()
+		Expect(err).NotTo(HaveOccurred())
+		err = prometheus.Register(newCollector)
+		Expect(err).NotTo(HaveOccurred())
+		req, _ := http.NewRequest("GET", "", nil)
+		res := httptest.NewRecorder()
+		handler := http.Handler(promhttp.Handler())
+		handler.ServeHTTP(res, req)
+		body, _ := ioutil.ReadAll(res.Body)
+		Expect(len(body)).Should(BeNumerically(">", 0))
+
+
+		regStr := fmt.Sprintf(`%s{[^{}]*}`, POD_ENERGY_STAT_METRIC)
+		r := regexp.MustCompile(regStr)
+		match := r.FindString(string(body))
+		Expect(match).To(Equal(""))
+
 		podEnergy = map[string]*PodEnergy{
 			"abcd": &PodEnergy{
 				PodName: "podA",
@@ -68,16 +86,11 @@ var _ = Describe("Test Collector Unit", func() {
 		cpuFrequency = map[int32]uint64{
 			0: SAMPLE_FREQ,
 		}
-
-		newCollector, err := New()
-		Expect(err).NotTo(HaveOccurred())
-		err = prometheus.Register(newCollector)
-		Expect(err).NotTo(HaveOccurred())
-		req, _ := http.NewRequest("GET", "", nil)
-		res := httptest.NewRecorder()
-		handler := http.Handler(promhttp.Handler())
+		
+		res = httptest.NewRecorder()
+		handler = http.Handler(promhttp.Handler())
 		handler.ServeHTTP(res, req)
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ = ioutil.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
 		fmt.Printf("Result:\n %s\n", body)
 
