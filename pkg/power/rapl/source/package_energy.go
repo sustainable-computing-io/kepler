@@ -16,31 +16,11 @@ limitations under the License.
 
 package source
 
-type PowerDummy struct{}
-
-func (r *PowerDummy) IsSupported() bool {
-	return true
+// PackageEnergy defines set of energy per package in mJ
+type PackageEnergy struct {
+	Core   uint64
+	DRAM   uint64
+	Uncore uint64
+	Pkg    uint64	
 }
 
-func (r *PowerDummy) StopPower() {
-}
-
-func (r *PowerDummy) GetEnergyFromDram() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerDummy) GetEnergyFromCore() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerDummy) GetEnergyFromUncore() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerDummy) GetEnergyFromPackage() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerDummy) GetPackageEnergy() map[int]PackageEnergy {
-	return map[int]PackageEnergy{}
-}
