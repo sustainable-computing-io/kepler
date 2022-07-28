@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"log"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
@@ -68,17 +67,10 @@ type PodMetric struct {
 
 type Collector struct {
 	NodeEnergyStatMetric *prometheus.Desc
-	PodEnergyStatMetricMap map[string]*PodMetric
-	SensorMetricMap map[string]*prometheus.Desc
-	CPUFreqMetricMap map[int32]*prometheus.Desc
 	modules *attacher.BpfModuleTables
 }
 
 func New() (*Collector, error) {
-	podEnergyStatMetricMap := make(map[string]*PodMetric)
-	sensorMetricMap := make(map[string]*prometheus.Desc)
-	cpuFreqMetricMap := make(map[int32]*prometheus.Desc)
-
 	return &Collector{
 		NodeEnergyStatMetric: prometheus.NewDesc(
 			NODE_ENERGY_STAT_METRRIC,
@@ -98,9 +90,6 @@ func New() (*Collector, error) {
 			},
 			nil,
 		),
-		PodEnergyStatMetricMap: podEnergyStatMetricMap,
-		SensorMetricMap: sensorMetricMap,
-		CPUFreqMetricMap: cpuFreqMetricMap,
 	}, nil
 }
 
@@ -114,162 +103,160 @@ func (c *Collector) Attach() error {
 	return nil
 }
 
+func (c *Collector) getPodDescription() *PodMetric {
+	fullStat := prometheus.NewDesc(
+		POD_ENERGY_STAT_METRIC,
+		"Pod energy consumption status",
+		append(basicStatLabels, cgroupStatLabels...),
+		nil,
+	)
+	allCurr := prometheus.NewDesc(
+		"pod_energy_current",
+		"Pod current energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	allAggr := prometheus.NewDesc(
+		"pod_energy_total",
+		"Pod total energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	cpuCurr := prometheus.NewDesc(
+		"pod_cpu_energy_current",
+		"Pod CPU current energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	cpuAggr := prometheus.NewDesc(
+		"pod_cpu_energy_total",
+		"Pod CPU total energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	dramCurr := prometheus.NewDesc(
+		"pod_dram_energy_current",
+		"Pod DRAM current energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	dramAggr := prometheus.NewDesc(
+		"pod_dram_energy_total",
+		"Pod DRAM total energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	gpuCurr := prometheus.NewDesc(
+		"pod_gpu_energy_current",
+		"Pod GPU current energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	gpuAggr := prometheus.NewDesc(
+		"pod_gpu_energy_total",
+		"Pod GPU total energy consumption",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	otherCurr := prometheus.NewDesc(
+		"pod_other_energy_joule",
+		"Pod OTHER current energy consumption besides CPU and memory",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	otherAggr := prometheus.NewDesc(
+		"pod_other_energy_joule_total",
+		"Pod OTHER total energy consumption besides CPU and memory",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+	return &PodMetric{
+		FullStat: fullStat,
+		AllCurr: allCurr,
+		AllAggr: allAggr,
+		CPUCurr: cpuCurr,
+		CPUAggr: cpuAggr,
+		DRAMCurr: dramCurr,
+		DRAMAggr: dramAggr,
+		GPUCurr: gpuCurr,
+		GPUAggr: gpuAggr,
+		OtherCurr: otherCurr,
+		OtherAggr: otherAggr,
+	}
+}
+
+func (c *Collector) getSensorDescription() *prometheus.Desc {
+	return prometheus.NewDesc(
+		NODE_ENERGY_METRIC,
+		"Hardware monitor for energy consumed in joules in the node.",
+		[]string{
+			"instance",
+			"chip",
+			"sensor",
+		},
+		nil,
+	)
+}
+
+func (c *Collector) getFreqDescription() *prometheus.Desc {
+	return prometheus.NewDesc(
+		FREQ_METRIC,
+		"Current scaled cpu thread frequency in hertz.",
+		[]string{
+			"cpu",
+		},
+		nil,
+	)
+}
+
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
 	defer lock.Unlock()
 	ch <- c.NodeEnergyStatMetric
-	log.Println(append(basicStatLabels, cgroupStatLabels...))
-	for podID, _ := range podEnergy {
-		fullStat := prometheus.NewDesc(
-			POD_ENERGY_STAT_METRIC,
-			"Pod energy consumption status",
-			append(basicStatLabels, cgroupStatLabels...),
-			nil,
-		)
-		allCurr := prometheus.NewDesc(
-			"pod_energy_current",
-			"Pod current energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		allAggr := prometheus.NewDesc(
-			"pod_energy_total",
-			"Pod total energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		cpuCurr := prometheus.NewDesc(
-			"pod_cpu_energy_current",
-			"Pod CPU current energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		cpuAggr := prometheus.NewDesc(
-			"pod_cpu_energy_total",
-			"Pod CPU total energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		dramCurr := prometheus.NewDesc(
-			"pod_dram_energy_current",
-			"Pod DRAM current energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		dramAggr := prometheus.NewDesc(
-			"pod_dram_energy_total",
-			"Pod DRAM total energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		gpuCurr := prometheus.NewDesc(
-			"pod_gpu_energy_current",
-			"Pod GPU current energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		gpuAggr := prometheus.NewDesc(
-			"pod_gpu_energy_total",
-			"Pod GPU total energy consumption",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		otherCurr := prometheus.NewDesc(
-			"pod_other_energy_joule",
-			"Pod OTHER current energy consumption besides CPU and memory",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		otherAggr := prometheus.NewDesc(
-			"pod_other_energy_joule_total",
-			"Pod OTHER total energy consumption besides CPU and memory",
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
-			nil,
-		)
-		c.PodEnergyStatMetricMap[podID] = &PodMetric{
-			FullStat: fullStat,
-			AllCurr: allCurr,
-			AllAggr: allAggr,
-			CPUCurr: cpuCurr,
-			CPUAggr: cpuAggr,
-			DRAMCurr: dramCurr,
-			DRAMAggr: dramAggr,
-			GPUCurr: gpuCurr,
-			GPUAggr: gpuAggr,
-			OtherCurr: otherCurr,
-			OtherAggr: otherAggr,
-		}
-		ch <- fullStat
-		ch <- allCurr
-		ch <- allAggr
-		ch <- cpuCurr
-		ch <- cpuAggr
-		ch <- dramCurr
-		ch <- dramAggr
-		ch <- gpuCurr
-		ch <- gpuAggr
-		ch <- otherCurr
-		ch <- otherAggr
-	}
-
-	for sensorID, _ := range nodeEnergy {
-		desc := prometheus.NewDesc(
-			NODE_ENERGY_METRIC,
-			"Hardware monitor for energy consumed in joules in the node.",
-			[]string{
-				"instance",
-				"chip",
-				"sensor",
-			},
-			nil,
-		)
-		c.SensorMetricMap[sensorID] = desc
-		ch <- desc
-	}
-
-
-	for cpuID, _ := range cpuFrequency {
-		desc :=  prometheus.NewDesc(
-			FREQ_METRIC,
-			"Current scaled cpu thread frequency in hertz.",
-			[]string{
-				"cpu",
-			},
-			nil,
-		)
-		c.CPUFreqMetricMap[cpuID] = desc
-		ch <- desc
-	}
+	podDesc := c.getPodDescription()
+	ch <- podDesc.FullStat
+	ch <- podDesc.AllCurr
+	ch <- podDesc.AllAggr
+	ch <- podDesc.CPUCurr
+	ch <- podDesc.CPUAggr
+	ch <- podDesc.DRAMCurr
+	ch <- podDesc.DRAMAggr
+	ch <- podDesc.GPUCurr
+	ch <- podDesc.GPUAggr
+	ch <- podDesc.OtherCurr
+	ch <- podDesc.OtherAggr
+	ch <- c.getSensorDescription()
+	ch <- c.getFreqDescription()
 }
 
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
@@ -296,13 +283,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- desc
 
-	for podID, v := range podEnergy {
-		var podDesc *PodMetric
-		var ok bool
-		if podDesc, ok = c.PodEnergyStatMetricMap[podID]; !ok {
-			continue
-		}
-
+	for _, v := range podEnergy {
+		podDesc := c.getPodDescription()
 		aggCPU := fmt.Sprintf("%f", v.AggCPUTime)
 		currCPU := fmt.Sprintf("%f", v.CurrCPUTime)
 		avgFreq := fmt.Sprintf("%f", float64(v.AvgCPUFreq))
@@ -446,11 +428,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 	// de_node_energy and desc_node_energy give indexable values for total energy consumptions of a node
 	for sensorID, energy := range nodeEnergy {
-		var desc *prometheus.Desc
-		var ok bool
-		if desc, ok = c.SensorMetricMap[sensorID]; !ok {
-			continue
-		}
+		desc := c.getSensorDescription()
 		metric := prometheus.MustNewConstMetric(
 			desc,
 			prometheus.CounterValue,
@@ -464,11 +442,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 	// de_core_freq and desc_core_freq give indexable values for each cpu core freq of a node
 	for cpuID, freq := range cpuFrequency {
-		var desc *prometheus.Desc
-		var ok bool
-		if desc, ok = c.CPUFreqMetricMap[cpuID]; !ok {
-			continue
-		}
+		desc := c.getFreqDescription()
 		metric := prometheus.MustNewConstMetric(
 			desc,
 			prometheus.GaugeValue,
