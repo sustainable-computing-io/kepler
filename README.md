@@ -45,3 +45,7 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 ## Sample Grafana dashboard
 
  ![Sample Grafana dashboard](doc/dashboard.png)
+
+
+## To start developing Kepler
+To set up a development environment please read our ![Getting Started Guide](dev/README.md)
