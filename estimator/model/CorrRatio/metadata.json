@@ -1,0 +1,1 @@
+{"model_name": "CorrRatio", "features": ["curr_cache_misses", "curr_cpu_cycles", "curr_cpu_instructions"], "abs_model": "", "model_class": "ratio", "model_file": "ratio.json", "fe_files": []}

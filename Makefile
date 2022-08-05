@@ -4,8 +4,10 @@ export TIMESTAMP ?=$(shell echo $(BIN_TIMESTAMP) | tr -d ':' | tr 'T' '-' | tr -
 SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 
 SRC_ROOT :=$(shell pwd)
+ESTIMATOR_SRC_ROOT :=$(shell pwd)/estimator
 
 IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
+ESTIMATOR_IMAGE_REPO :=quay.io/sustainable_computing_io/kepler-estimator
 IMAGE_VERSION := "latest"
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
@@ -85,6 +87,11 @@ build-containerized-cross-build:
 	+$(MAKE) build-containerized-cross-build-linux-amd64
 	+$(MAKE) build-containerized-cross-build-linux-arm64
 .PHONY: build-containerized-cross-build
+
+build-estimator:
+	$(CTR_CMD) build -t $(ESTIMATOR_IMAGE_REPO):$(SOURCE_GIT_TAG) \
+		-f "$(ESTIMATOR_SRC_ROOT)"/Dockerfile estimator
+	$(CTR_CMD) tag $(ESTIMATOR_IMAGE_REPO):$(SOURCE_GIT_TAG) $(ESTIMATOR_IMAGE_REPO):$(IMAGE_VERSION)
 
 # for testsuite
 PWD=$(shell pwd)

@@ -1,0 +1,22 @@
+{
+    "core_score": {
+        "curr_cache_misses": 0.260257,
+        "curr_cpu_cycles": 0.368648,
+        "curr_cpu_instructions": 0.371095
+    },
+    "dram_score": {
+        "curr_cache_misses": 0.319293,
+        "curr_cpu_cycles": 0.340407,
+        "curr_cpu_instructions": 0.340299
+    },
+    "gpu_score": {
+        "curr_cache_misses": 0,
+        "curr_cpu_cycles": 0,
+        "curr_cpu_instructions": 1
+    },
+    "other_score": {
+        "curr_cache_misses": 0,
+        "curr_cpu_cycles": 0,
+        "curr_cpu_instructions": 1
+    }
+}
