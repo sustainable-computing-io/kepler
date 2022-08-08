@@ -67,8 +67,8 @@ spec:
         - /usr/bin/kepler
         - -address
         - 0.0.0.0:9102
-        - -enable-gpu
-        - "true"
+        - -enable-gpu=true
+        - -enable-cgroup-id=true
         ports:
         - containerPort: 9102
           hostPort: 9102
@@ -78,6 +78,8 @@ spec:
           name: lib-modules
         - mountPath: /sys
           name: tracing
+        - mountPath: /proc
+          name: proc
         env:
         - name: NODE_NAME
           valueFrom:
@@ -91,6 +93,10 @@ spec:
       - name: tracing
         hostPath:
           path: /sys
+          type: Directory
+      - name: proc
+        hostPath:
+          path: /proc
           type: Directory
 ---
 kind: Service
