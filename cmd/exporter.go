@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
@@ -36,6 +37,7 @@ var (
 	metricsPath         = flag.String("metrics-path", "/metrics", "metrics path")
 	enableGPU           = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
 	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
+	enabledEBPFCgroupID = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 )
 
 func main() {
@@ -55,6 +57,8 @@ func main() {
 	if modelServerEndpoint != nil {
 		model.SetModelServerEndpoint(*modelServerEndpoint)
 	}
+
+	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
 
 	collector, err := collector.New()
 	if err != nil {
