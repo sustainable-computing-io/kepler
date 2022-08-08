@@ -96,6 +96,10 @@ github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
 # github.com/stretchr/testify v1.7.1
 ## explicit
+# github.com/zcalusic/sysinfo v0.9.5
+## explicit
+github.com/zcalusic/sysinfo
+github.com/zcalusic/sysinfo/cpuid
 # golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 golang.org/x/net/html
 golang.org/x/net/html/atom

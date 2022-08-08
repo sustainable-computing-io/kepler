@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 const (
@@ -39,12 +41,19 @@ func ReadAllCgroupIOStat() (uint64, uint64, int, error) {
 	return readIOStat(cgroupPath)
 }
 
-func ReadCgroupIOStat(cGroupID uint64) (uint64, uint64, int, error) {
-	path, err := getPathFromcGroupID(cGroupID)
+func ReadCgroupIOStat(cGroupID uint64, PID uint64) (uint64, uint64, int, error) {
+	var err error
+	var path string
+	if config.EnabledEBPFCgroupID {
+		path, err = getPathFromcGroupID(cGroupID)
+	} else {
+		path, err = getPathFromPID(PID)
+	}
+
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	if strings.Contains(path, "crio-") {
+	if strings.Contains(path, "crio") || strings.Contains(path, "docker") || strings.Contains(path, "containerd") {
 		return readIOStat(path)
 	}
 	return 0, 0, 0, fmt.Errorf("no cgroup path found")

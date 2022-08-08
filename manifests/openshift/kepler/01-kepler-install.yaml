@@ -72,8 +72,7 @@ spec:
         - /usr/bin/kepler
         - -address
         - 0.0.0.0:9102
-        - -enable-gpu
-        - "false"
+        - -enable-gpu=true
         ports:
         - containerPort: 9102
           name: kepler-exporter
@@ -86,6 +85,8 @@ spec:
           mountPath: /usr/src/kernels
         - name: kernel-debug
           mountPath: /sys/kernel/debug
+        - mountPath: /proc
+          name: proc
         env:
         - name: NODE_NAME
           valueFrom:
@@ -107,6 +108,10 @@ spec:
       - name: kernel-src
         hostPath:
           path: /usr/src/kernels
+          type: Directory
+      - name: proc
+        hostPath:
+          path: /proc
           type: Directory
 ---
 kind: Service

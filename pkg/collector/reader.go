@@ -262,7 +262,7 @@ func (c *Collector) reader() {
 					}
 					comm := (*C.char)(unsafe.Pointer(&ct.Command))
 					// fmt.Printf("pid %v cgroup %v cmd %v\n", ct.PID, ct.CGroupPID, C.GoString(comm))
-					podName, err := pod_lister.GetPodNameFromcGgroupID(ct.CGroupPID)
+					podName, err := pod_lister.GetPodName(ct.CGroupPID, ct.PID)
 					if err != nil {
 						log.Printf("failed to resolve pod for cGroup ID %v: %v", ct.CGroupPID, err)
 						continue
@@ -270,7 +270,7 @@ func (c *Collector) reader() {
 					if _, ok := podEnergy[podName]; !ok {
 						podEnergy[podName] = &PodEnergy{}
 						podEnergy[podName].PodName = podName
-						podNamespace, err := pod_lister.GetPodNameSpaceFromcGgroupID(ct.CGroupPID)
+						podNamespace, err := pod_lister.GetPodNameSpace(ct.CGroupPID, ct.PID)
 						if err != nil {
 							log.Printf("failed to find namespace for cGroup ID %v: %v", ct.CGroupPID, err)
 							podNamespace = "unknown"
@@ -316,11 +316,9 @@ func (c *Collector) reader() {
 						podEnergy[podName].CurrEnergyInGPU += uint64(e)
 						podEnergy[podName].AggEnergyInGPU += podEnergy[podName].CurrEnergyInGPU
 					}
-					rBytes, wBytes, disks, err := pod_lister.ReadCgroupIOStat(ct.CGroupPID)
+					rBytes, wBytes, disks, err := pod_lister.ReadCgroupIOStat(ct.CGroupPID, ct.PID)
 
-					// TO-DO:
-					// Use PID instead of CGroupPID and get ContainerID from PID
-					containerID, err := pod_lister.GetContainerIDFromcGroupID(ct.CGroupPID)
+					containerID, err := pod_lister.GetContainerID(ct.CGroupPID, ct.PID)
 
 					cgroup.TryInitStatReaders(containerID)
 					cgroupFSStandardStats := cgroup.GetStandardStat(containerID)
@@ -466,6 +464,9 @@ func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime [C.CPU_
 	totalCPUTime := float64(0)
 	totalFreqWithoutWeight := float64(0)
 	for cpu, freq := range cpuFrequency {
+		if int(cpu) > len(cpuTime)-1 {
+			break
+		}
 		if cpuTime[cpu] != 0 {
 			totalFreq += float64(freq) * float64(cpuTime[cpu])
 			totalCPUTime += float64(cpuTime[cpu])

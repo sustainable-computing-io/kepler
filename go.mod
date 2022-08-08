@@ -13,6 +13,7 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.34.0
 	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/zcalusic/sysinfo v0.9.5
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
 	k8s.io/api v0.24.0
 )
