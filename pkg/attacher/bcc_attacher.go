@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpf_assets"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 
 	bpf "github.com/iovisor/gobpf/bcc"
@@ -88,7 +89,10 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	options := []string{
 		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
-		"-DCPU_FREQ",
+		// "-DCPU_FREQ",
+	}
+	if config.EnabledEBPFCgroupID {
+		options = append(options, "-DSET_GROUP_ID")
 	}
 	m, err := loadModule(objProg, options)
 	if err != nil {

@@ -76,7 +76,7 @@ BPF_ARRAY(prev_cache_miss, u64, NUM_CPUS);
 static void safe_array_add(u32 idx, u16 *array, u16 value)
 {
 #pragma clang loop unroll(full)
-    for (int array_index = 0; array_index < CPU_VECTOR_SIZE; array_index++)
+    for (int array_index = 0; array_index < CPU_VECTOR_SIZE-1; array_index++)
     {
         if (array_index == idx)
         {
@@ -88,8 +88,12 @@ static void safe_array_add(u32 idx, u16 *array, u16 value)
 
 int sched_switch(switch_args *ctx)
 {
-    u64 pid = bpf_get_current_pid_tgid() & 0xffffffff;
+    u64 pid = bpf_get_current_pid_tgid();
+#ifdef SET_GROUP_ID
     u64 cgroup_id = bpf_get_current_cgroup_id();
+#else
+    u64 cgroup_id = 0;
+#endif
 
     u64 time = bpf_ktime_get_ns();
     u64 delta = 0;
