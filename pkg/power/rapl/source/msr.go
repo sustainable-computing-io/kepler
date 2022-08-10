@@ -38,6 +38,10 @@ func (r *PowerMSR) GetEnergyFromPackage() (uint64, error) {
 	return ReadAllPower(ReadPkgPower)
 }
 
+func (r *PowerMSR) GetPackageEnergy() map[int]PackageEnergy {
+	return GetPackageEnergyByMSR(ReadCorePower, ReadDramPower, ReadUncorePower, ReadPkgPower)
+}
+
 func (r *PowerMSR) StopPower() {
 	CloseAllMSR()
 }

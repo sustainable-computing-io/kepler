@@ -60,7 +60,6 @@ func getEnergy(event string) (uint64, error) {
 			energy += e
 		}
 		return energy, nil
-
 	} else {
 		switch event {
 		case coreEvent:
@@ -131,6 +130,30 @@ func (r *PowerSysfs) GetEnergyFromUncore() (uint64, error) {
 
 func (r *PowerSysfs) GetEnergyFromPackage() (uint64, error) {
 	return getEnergy(packageEvent)
+}
+
+func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
+	packageEnergies := make(map[int]PackageEnergy)
+
+	pkgEnergies := readEventEnergy(packageEvent)
+	coreEnergies := readEventEnergy(coreEvent)
+	dramEnergies := readEventEnergy(dramEvent)
+	uncoreEnergies := readEventEnergy(uncoreEvent)
+	for pkgId, pkgEnergy := range pkgEnergies {
+		coreEnergy, _ := coreEnergies[pkgId]
+		dramEnergy, _ := dramEnergies[pkgId]
+		uncoreEnergy, _ := uncoreEnergies[pkgId]
+		splits := strings.Split(pkgId, "-")
+		i, _ := strconv.Atoi(splits[len(splits)-1])
+		packageEnergies[i] = PackageEnergy{
+			Core: coreEnergy,
+			DRAM: dramEnergy,
+			Uncore: uncoreEnergy,
+			Pkg: pkgEnergy,
+		}
+	}
+
+	return packageEnergies
 }
 
 func (r *PowerSysfs) StopPower() {

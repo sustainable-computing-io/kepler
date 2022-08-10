@@ -210,3 +210,21 @@ func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 	}
 	return energy, nil
 }
+
+func GetPackageEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uint64, error)) map[int]PackageEnergy {
+	packageEnergies := make(map[int]PackageEnergy)
+	for i := 0; i <= maxPackage; {
+		coreEnergy, _ := coreFunc(i)
+		dramEnergy, _ := dramFunc(i)
+		uncoreEnergy, _ := uncoreFunc(i)
+		pkgEnergy, _ := pkgFunc(i)
+		packageEnergies[i] = PackageEnergy{
+			Core: coreEnergy,
+			DRAM: dramEnergy,
+			Uncore: uncoreEnergy,
+			Pkg: pkgEnergy,
+		}
+		i = i + 1
+	}
+	return packageEnergies
+}

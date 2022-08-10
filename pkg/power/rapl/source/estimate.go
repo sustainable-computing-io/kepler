@@ -168,3 +168,7 @@ func (r *PowerEstimate) GetEnergyFromUncore() (uint64, error) {
 func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
 	return 0, nil
 }
+
+func (r *PowerEstimate) GetPackageEnergy() map[int]PackageEnergy {
+	return map[int]PackageEnergy{}
+}
