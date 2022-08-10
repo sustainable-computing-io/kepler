@@ -165,8 +165,7 @@ func GetAvailableCgroupMetrics() []string {
 	TryInitStatReaders(containerID)
 	stats := GetStandardStat(containerID)
 	for metric, _ := range stats {
-		availableMetrics = append(availableMetrics, "curr_" + metric)
-		availableMetrics = append(availableMetrics, "total_" + metric)
+		availableMetrics = append(availableMetrics, metric)
 	}
 	return availableMetrics
 }
