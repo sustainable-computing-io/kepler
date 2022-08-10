@@ -41,11 +41,17 @@ type BpfModuleTables struct {
 	Table  *bpf.Table
 }
 
+const (
+	CPU_CYCLE_LABEL = "cpu_cycles"
+	CPU_INSTRUCTION_LABEL = "cpu_instr"
+	CACHE_MISS_LABEL = "cache_miss"
+)
+
 var (
 	Counters = map[string]perfCounter{
-		"cpu_cycles": {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
-		"cpu_instr":  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
-		"cache_miss": {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
+		CPU_CYCLE_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		CPU_INSTRUCTION_LABEL:  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		CACHE_MISS_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	EnableCPUFreq = true
 )
@@ -118,4 +124,14 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 func DetachBPFModules(bpfModules *BpfModuleTables) {
 	closePerfEvent()
 	bpfModules.Module.Close()
+}
+
+func GetEnabledCounters() []string {
+	var metrics []string
+	for metric, counter := range Counters {
+		if counter.enabled {
+			metrics = append(metrics, metric)
+		}
+	}
+	return metrics
 }
