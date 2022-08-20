@@ -11,6 +11,7 @@ skylake="https://ark.intel.com/content/www/us/en/ark/products/codename/37572/pro
 cascade="https://ark.intel.com/content/www/us/en/ark/products/codename/124664/products-formerly-cascade-lake.html#@nofilter"
 coffee="https://ark.intel.com/content/www/us/en/ark/products/codename/97787/products-formerly-coffee-lake.html#@nofilter"
 alder="https://ark.intel.com/content/www/us/en/ark/products/codename/147470/products-formerly-alder-lake.html#@nofilter"
+icelake="https://ark.intel.com/content/www/us/en/ark/products/codename/74979/products-formerly-ice-lake.html#@nofilter"
 
 download_arch() {
    url=$1
@@ -19,18 +20,22 @@ download_arch() {
    for m in $models; do
 	   echo $m,$arch >> $file
    done
-}	
+}
+
+[[ "$(command -v pup)" ]] || { echo "Please install pup from github.com/ericchiang/pup first." 1>&2 ; exit 1; }
+
 file="cpu_model.csv"
 echo "Model,Architecture" > $file
-# go get github.com/ericchiang/pup
-download_arch $sandy "Sandy Bridge" 
-download_arch $sandy_ep "Sandy Bridge" 
-download_arch $sandy_en "Sandy Bridge" 
-download_arch $ivy "Ivy Bridge" 
-download_arch $ivy_ep "Ivy Bridge" 
-download_arch $haswell "Haswell" 
-download_arch $broadwell "Broadwell" 
-download_arch $skylake "Sky Lake" 
-download_arch $cascade "Cascade Lake" 
-download_arch $coffee "Coffee Lake" 
-download_arch $alder "Alder Lake" 
+
+download_arch $sandy "Sandy Bridge"
+download_arch $sandy_ep "Sandy Bridge"
+download_arch $sandy_en "Sandy Bridge"
+download_arch $ivy "Ivy Bridge"
+download_arch $ivy_ep "Ivy Bridge"
+download_arch $haswell "Haswell"
+download_arch $broadwell "Broadwell"
+download_arch $skylake "Sky Lake"
+download_arch $cascade "Cascade Lake"
+download_arch $coffee "Coffee Lake"
+download_arch $alder "Alder Lake"
+download_arch $icelake "Ice Lake"
