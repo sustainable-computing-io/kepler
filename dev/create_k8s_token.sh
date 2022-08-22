@@ -2,8 +2,7 @@
 kubectl apply -f role.yaml
 
 SERVICE_ACCOUNT=kubelet-visitor
-# Get the ServiceAccount's token Secret's name
-SECRET=$(kubectl get serviceaccount ${SERVICE_ACCOUNT} -o json | jq -Mr '.secrets[].name | select(contains("token"))')
+SECRET=kubelet-visitor-token
 # Extract the Bearer token from the Secret and decode
 TOKEN=$(kubectl get secret ${SECRET} -o json | jq -Mr '.data.token' | base64 -d)
 echo -n ${TOKEN} > /tmp/token
