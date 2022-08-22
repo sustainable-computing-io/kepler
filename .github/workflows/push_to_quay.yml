@@ -24,3 +24,6 @@ jobs:
 
     - name: push to quay
       run: podman push quay.io/sustainable_computing_io/kepler:latest
+
+    - name: push to operate-first quay
+      run: podman push quay.io/sustainable_computing_io/kepler:operate-first
