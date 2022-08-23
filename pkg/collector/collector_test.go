@@ -4,26 +4,27 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"encoding/json"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"io/ioutil"
-	"encoding/json"
 	"regexp"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 const (
 	CPU_USAGE_TOTAL_KEY = "cgroupfs_cpu_usage_us"
-	SAMPLE_CURR = 100
-	SAMPLE_AGGR = 1000
-	SAMPLE_NODE_ENERGY = 20000
-	SAMPLE_FREQ = 100000
+	SAMPLE_CURR         = 100
+	SAMPLE_AGGR         = 1000
+	SAMPLE_NODE_ENERGY  = 20000 //mJ
+	SAMPLE_PKG_ENERGY   = 1000  //mJ
+	SAMPLE_FREQ         = 100000
 )
- 
 
 func convertPromMetricToMap(body []byte, metric string) map[string]string {
 	regStr := fmt.Sprintf(`%s{[^{}]*}`, metric)
@@ -61,24 +62,28 @@ var _ = Describe("Test Collector Unit", func() {
 		body, _ := ioutil.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
 
-
 		regStr := fmt.Sprintf(`%s{[^{}]*}`, POD_ENERGY_STAT_METRIC)
 		r := regexp.MustCompile(regStr)
 		match := r.FindString(string(body))
 		Expect(match).To(Equal(""))
 
-		podEnergy = map[string]*PodEnergy{
-			"abcd": &PodEnergy{
-				PodName: "podA",
-				Namespace: "default",
-				AggEnergyInCore: 10,
-				CgroupFSStats: map[string]*UInt64Stat{
-					CPU_USAGE_TOTAL_KEY: &UInt64Stat{
+		v := NewPodEnergy("podA", "default")
+		v.EnergyInCore = &UInt64Stat{
+			Curr: 10,
+			Aggr: 10,
+		}
+		v.CgroupFSStats = map[string]*ContainerUInt64Stat{
+			CPU_USAGE_TOTAL_KEY: &ContainerUInt64Stat{
+				Stat: map[string]*UInt64Stat{
+					"cA": &UInt64Stat{
 						Curr: SAMPLE_CURR,
 						Aggr: SAMPLE_AGGR,
-					},	
+					},
 				},
 			},
+		}
+		podEnergy = map[string]*PodEnergy{
+			"a": v,
 		}
 		nodeEnergy = map[string]float64{
 			"sensor0": SAMPLE_NODE_ENERGY,
@@ -86,7 +91,17 @@ var _ = Describe("Test Collector Unit", func() {
 		cpuFrequency = map[int32]uint64{
 			0: SAMPLE_FREQ,
 		}
-		
+		pkgEnergy = map[int]source.PackageEnergy{
+			0: source.PackageEnergy{
+				Pkg: SAMPLE_PKG_ENERGY,
+			},
+		}
+		currNodeEnergy = &CurrNodeEnergy{
+			Usage:        make(map[string]float64),
+			EnergyInPkg:  SAMPLE_PKG_ENERGY,
+			SensorEnergy: uint64(SAMPLE_NODE_ENERGY),
+		}
+
 		res = httptest.NewRecorder()
 		handler = http.Handler(promhttp.Handler())
 		handler.ServeHTTP(res, req)
@@ -96,16 +111,26 @@ var _ = Describe("Test Collector Unit", func() {
 
 		// check sample pod energy stat
 		response := convertPromMetricToMap(body, POD_ENERGY_STAT_METRIC)
-		currSample, found := response["curr_" + CPU_USAGE_TOTAL_KEY]
+		currSample, found := response["curr_"+CPU_USAGE_TOTAL_KEY]
 		Expect(found).To(Equal(true))
 		Expect(currSample).To(Equal(fmt.Sprintf("%d", SAMPLE_CURR)))
-		aggrSample, found := response["total_" + CPU_USAGE_TOTAL_KEY]
+		aggrSample, found := response["total_"+CPU_USAGE_TOTAL_KEY]
 		Expect(found).To(Equal(true))
 		Expect(aggrSample).To(Equal(fmt.Sprintf("%d", SAMPLE_AGGR)))
 		// check sample node energy
 		val, err := convertPromToValue(body, NODE_ENERGY_METRIC)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(SAMPLE_NODE_ENERGY/1000)))
+		Expect(val).To(Equal(int(SAMPLE_NODE_ENERGY / 1000))) //J
+		val, err = convertPromToValue(body, NODE_ENERGY_STAT_METRRIC)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(val).Should(BeEquivalentTo(int(SAMPLE_NODE_ENERGY / 1000))) // J
+		val, err = convertPromToValue(body, NODE_LABEL_PREFIX+CURR_PREFIX+ENERGY_LABELS["pkg"]+J_SUFFIX)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(val).Should(BeEquivalentTo(int(SAMPLE_PKG_ENERGY / 1000))) // J
+		// check pkg energy
+		val, err = convertPromToValue(body, PACKAGE_ENERGY_METRIC)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(val).Should(BeEquivalentTo(int(SAMPLE_PKG_ENERGY))) // mJ
 		// check sample frequency
 		val, err = convertPromToValue(body, FREQ_METRIC)
 		Expect(err).NotTo(HaveOccurred())

@@ -1,33 +1,37 @@
 package collector
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"fmt"
 )
-
-
 
 var _ = Describe("Test Metric Unit", func() {
 	It("Check feature values", func() {
 		Expect(len(uintFeatures)).Should(BeNumerically(">", 0))
-		Expect(len(collectedLabel)).Should(BeNumerically(">", 0))
 		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
-		fmt.Printf("%v\n%v\n%v\n", uintFeatures, collectedLabel, podEnergyLabels)
+		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
+		fmt.Printf("%v\n%v\n%v\n", uintFeatures, podEnergyLabels, podEnergyLabels)
 	})
 
-
 	It("Check convert values", func() {
-
-		podEnergy := &PodEnergy{
-			PodName: "podA",
-			Namespace: "default",
-			AggEnergyInCore: 10,
-			CgroupFSStats: map[string]*UInt64Stat{},
+		v := NewPodEnergy("podA", "default")
+		v.EnergyInCore = &UInt64Stat{
+			Curr: 10,
+			Aggr: 10,
 		}
-
-		collectedValues := convertCollectedValues(FLOAT_FEATURES, uintFeatures, podEnergy)
-		Expect(len(collectedValues)).To(Equal(len(collectedLabel)))
+		v.CgroupFSStats = map[string]*ContainerUInt64Stat{
+			CPU_USAGE_TOTAL_KEY: &ContainerUInt64Stat{
+				Stat: map[string]*UInt64Stat{
+					"cA": &UInt64Stat{
+						Curr: SAMPLE_CURR,
+						Aggr: SAMPLE_AGGR,
+					},
+				},
+			},
+		}
+		collectedValues := v.ToPrometheusValues()
+		Expect(len(collectedValues)).To(Equal(len(podEnergyLabels)))
 		fmt.Printf("%v\n", collectedValues)
 	})
 

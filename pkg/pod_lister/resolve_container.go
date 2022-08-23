@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -49,8 +48,8 @@ const (
 )
 
 var (
-	podLister KubeletPodLister
-	byteOrder binary.ByteOrder
+	byteOrder binary.ByteOrder = bpf.GetHostByteOrder()
+	podLister KubeletPodLister = KubeletPodLister{}
 
 	//map to cache data to speedup lookups
 	containerIDCache           = map[uint64]string{}
@@ -65,13 +64,15 @@ var (
 )
 
 func init() {
-	byteOrder = bpf.GetHostByteOrder()
-	podLister = KubeletPodLister{}
 	updateListPodCache("", false)
 }
 
 func GetSystemProcessName() string {
 	return systemProcessName
+}
+
+func GetSystemProcessNamespace() string {
+	return systemProcessNamespace
 }
 
 func GetPodName(cGroupID uint64, PID uint64) (string, error) {
@@ -91,6 +92,10 @@ func GetPodContainerName(cGroupID uint64, PID uint64) (string, error) {
 
 func GetPodMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
 	return podLister.ListMetrics()
+}
+
+func GetAvailableKubeletMetrics() []string {
+	return podLister.GetAvailableMetrics()
 }
 
 func getContainerInfo(cGroupID uint64, PID uint64) (*ContainerInfo, error) {
@@ -124,7 +129,8 @@ func getContainerInfo(cGroupID uint64, PID uint64) (*ContainerInfo, error) {
 func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 	pods, err := podLister.ListPods()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("%v", err)
+		return
 	}
 	for _, pod := range *pods {
 		statuses := pod.Status.ContainerStatuses

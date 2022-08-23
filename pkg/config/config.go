@@ -19,7 +19,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -35,16 +34,23 @@ const (
 
 var (
 	EnabledEBPFCgroupID = false
+
+	EstimatorModel = "" // auto-select
+	EstimatorSelectFilter = "" // no filter
+	CoreUsageMetric = "curr_cpu_cycles"
+	DRAMUsageMetric = "curr_cache_miss"
+	UncoreUsageMetric = "" // no metric (evenly divided)
+	GeneralUsageMetric = "curr_cpu_cycles" // for uncategorized energy; pkg - core - dram - uncore
 )
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func EnableEBPFCgroupID(enabled bool) {
-	fmt.Println("config EnabledEBPFCgroupID ", EnabledEBPFCgroupID)
-	fmt.Println("config enabled ", enabled)
-	fmt.Println("config getKernelVersion ", getKernelVersion())
+	fmt.Println("config EnabledEBPFCgroupID enabled: ", enabled)
+	fmt.Println("config getKernelVersion: ", getKernelVersion())
 	if (enabled == true) && (getKernelVersion() >= CGROUP_ID_MIN_KERNEL_VERSION) && (isCGroupV2()) {
 		EnabledEBPFCgroupID = true
 	}
+	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
 func getKernelVersion() float32 {
@@ -53,18 +59,18 @@ func getKernelVersion() float32 {
 	si.GetSysInfo()
 
 	data, err := json.MarshalIndent(&si, "", "  ")
-	if err != nil {
-		log.Fatal(err)
-	}
+	if err == nil {
+		var result map[string]map[string]string
+		json.Unmarshal([]byte(data), &result)
 
-	var result map[string]map[string]string
-	json.Unmarshal([]byte(data), &result)
-	val, err := strconv.ParseFloat(result["kernel"]["release"][:3], 32)
-	if err != nil {
-		log.Fatal(err)
+		if release, ok := result["kernel"]["release"]; ok {
+			val, err := strconv.ParseFloat(release[:4], 32)
+			if err == nil {
+				return float32(val)
+			}
+		}
 	}
-
-	return float32(val)
+	return -1
 }
 
 func isCGroupV2() bool {
@@ -73,4 +79,9 @@ func isCGroupV2() bool {
 		return false
 	}
 	return true
+}
+
+func SetEstimatorConfig(modelName string, selectFilter string) {
+	EstimatorModel = modelName
+	EstimatorSelectFilter = selectFilter
 }

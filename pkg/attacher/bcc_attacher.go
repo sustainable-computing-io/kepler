@@ -37,21 +37,22 @@ type perfCounter struct {
 }
 
 type BpfModuleTables struct {
-	Module *bpf.Module
-	Table  *bpf.Table
+	Module    *bpf.Module
+	Table     *bpf.Table
+	TimeTable *bpf.Table
 }
 
 const (
-	CPU_CYCLE_LABEL = "cpu_cycles"
+	CPU_CYCLE_LABEL       = "cpu_cycles"
 	CPU_INSTRUCTION_LABEL = "cpu_instr"
-	CACHE_MISS_LABEL = "cache_miss"
+	CACHE_MISS_LABEL      = "cache_miss"
 )
 
 var (
 	Counters = map[string]perfCounter{
-		CPU_CYCLE_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
-		CPU_INSTRUCTION_LABEL:  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
-		CACHE_MISS_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
+		CPU_CYCLE_LABEL:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		CPU_INSTRUCTION_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		CACHE_MISS_LABEL:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	EnableCPUFreq = true
 )
@@ -95,7 +96,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	options := []string{
 		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
-		// "-DCPU_FREQ",
+		"-DCPU_FREQ",
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")
@@ -114,9 +115,11 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 
 	table := bpf.NewTable(m.TableId("processes"), m)
+	timeTable := bpf.NewTable(m.TableId("pid_time"), m)
 
 	bpfModules.Module = m
 	bpfModules.Table = table
+	bpfModules.TimeTable = timeTable
 
 	return bpfModules, nil
 }
