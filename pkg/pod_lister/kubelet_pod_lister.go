@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 
@@ -68,7 +67,7 @@ func init() {
 func httpGet(url string) (*http.Response, error) {
 	objToken, err := ioutil.ReadFile(saPath)
 	if err != nil {
-		log.Fatalf("failed to read from %q: %v", saPath, err)
+		return nil, fmt.Errorf("failed to read from %q: %v", saPath, err)
 	}
 	token := string(objToken)
 
@@ -101,7 +100,7 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	podList := corev1.PodList{}
 	err = json.Unmarshal(body, &podList)
 	if err != nil {
-		log.Fatalf("failed to parse response body: %v", err)
+		return nil, fmt.Errorf("failed to parse response body: %v", err)
 	}
 
 	pods := &podList.Items
@@ -162,6 +161,15 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, conta
 	return
 }
 
+// GetAvailableMetrics returns containerCpuUsageMetricName and containerMemUsageMetricName if kubelet is connected
+func (k *KubeletPodLister) GetAvailableMetrics() []string {
+	_, _, _, _, retErr := k.ListMetrics()
+	if retErr != nil {
+		return []string{}
+	}
+	return []string{containerCpuUsageMetricName, containerMemUsageMetricName}
+}
+
 func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {
 	for _, v := range labels {
 		if v.GetName() == podNameTag {
@@ -173,3 +181,4 @@ func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {
 	}
 	return
 }
+
