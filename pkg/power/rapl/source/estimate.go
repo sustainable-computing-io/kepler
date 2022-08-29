@@ -79,7 +79,8 @@ func GetCPUArchitecture() (string, error) {
 		if err := dec.Decode(&p); err == io.EOF {
 			break
 		}
-		if p.Name == myCPUModel {
+		if strings.HasPrefix(myCPUModel, p.Name)  {
+			//fmt.Printf("cpu %s, architecture %s\n", myCPUModel, p.Architecture)
 			return p.Architecture, nil
 		}
 	}
