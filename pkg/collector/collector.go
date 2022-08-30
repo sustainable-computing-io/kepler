@@ -51,6 +51,7 @@ var (
 		"gpu":    "energy_in_gpu_",
 		"other":  "energy_in_other_",
 	}
+	ALL_ENERGY_LABEL = "energy_"
 
 	basicPodLabels []string = []string{
 		"pod_name", "pod_namespace", "command",
@@ -63,9 +64,11 @@ var (
 )
 
 type DescriptionGroup struct {
-	Stat       *prometheus.Desc
-	CurrEnergy map[string]*prometheus.Desc
-	AggrEnergy map[string]*prometheus.Desc
+	Stat          *prometheus.Desc
+	CurrEnergy    map[string]*prometheus.Desc
+	AggrEnergy    map[string]*prometheus.Desc
+	AllCurrEnergy *prometheus.Desc
+	AllAggrEnergy *prometheus.Desc
 }
 
 type Collector struct {
@@ -116,9 +119,18 @@ func (c *Collector) setNodeDescriptionGroup() {
 			nil,
 		)
 	}
+	allCurrDesc := prometheus.NewDesc(
+		NODE_LABEL_PREFIX+CURR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
+		fmt.Sprintf("%s current energy consumption (%s)", NODE_LABEL_PREFIX, jsuffix),
+		[]string{
+			"instance",
+		},
+		nil,
+	)
 	c.NodeDesc = &DescriptionGroup{
-		Stat:       statDesc,
-		CurrEnergy: currEnergyDesc,
+		Stat:          statDesc,
+		CurrEnergy:    currEnergyDesc,
+		AllCurrEnergy: allCurrDesc,
 	}
 }
 
@@ -136,46 +148,48 @@ func (c *Collector) getPodDescriptionGroup() *DescriptionGroup {
 		currEnergyDesc[elabel] = prometheus.NewDesc(
 			POD_LABEL_PREFIX+CURR_PREFIX+elabel+jsuffix,
 			fmt.Sprintf("%s current energy consumption in %s (%s)", POD_LABEL_PREFIX, ekey, jsuffix),
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
+			basicPodLabels,
 			nil,
 		)
 	}
 	currEnergyDesc[DYN_ENERGY_LABEL] = prometheus.NewDesc(
 		POD_LABEL_PREFIX+CURR_PREFIX+DYN_ENERGY_LABEL+jsuffix,
 		fmt.Sprintf("%s current dynamic energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
-		[]string{
-			"pod_name",
-			"pod_namespace",
-		},
+		basicPodLabels,
 		nil,
 	)
 	for ekey, elabel := range ENERGY_LABELS {
 		aggrEnergyDesc[elabel] = prometheus.NewDesc(
 			POD_LABEL_PREFIX+AGGR_PREFIX+elabel+jsuffix,
 			fmt.Sprintf("%s total energy consumption in %s (%s)", POD_LABEL_PREFIX, ekey, jsuffix),
-			[]string{
-				"pod_name",
-				"pod_namespace",
-			},
+			basicPodLabels,
 			nil,
 		)
 	}
 	aggrEnergyDesc[DYN_ENERGY_LABEL] = prometheus.NewDesc(
 		POD_LABEL_PREFIX+AGGR_PREFIX+DYN_ENERGY_LABEL+jsuffix,
 		fmt.Sprintf("%s total dynamic energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
-		[]string{
-			"pod_name",
-			"pod_namespace",
-		},
+		basicPodLabels,
+		nil,
+	)
+	allCurrDesc := prometheus.NewDesc(
+		POD_LABEL_PREFIX+CURR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
+		fmt.Sprintf("%s current energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+		basicPodLabels,
+		nil,
+	)
+	allAggrDesc := prometheus.NewDesc(
+		POD_LABEL_PREFIX+AGGR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
+		fmt.Sprintf("%s total energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+		basicPodLabels,
 		nil,
 	)
 	return &DescriptionGroup{
-		Stat:       statDesc,
-		CurrEnergy: currEnergyDesc,
-		AggrEnergy: aggrEnergyDesc,
+		Stat:          statDesc,
+		CurrEnergy:    currEnergyDesc,
+		AggrEnergy:    aggrEnergyDesc,
+		AllCurrEnergy: allCurrDesc,
+		AllAggrEnergy: allAggrDesc,
 	}
 }
 
@@ -260,39 +274,47 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	// general node-level stat with current sensor value
 	desc := prometheus.MustNewConstMetric(
 		c.NodeDesc.Stat,
-		prometheus.CounterValue,
-		float64(currNodeEnergy.SensorEnergy)/1000.0, /*miliJoule to Joule*/
-		currNodeEnergy.ToPrometheusValues()...,
+		prometheus.GaugeValue,
+		float64(nodeEnergy.SensorEnergy.Curr())/1000.0, /*miliJoule to Joule*/
+		nodeEnergy.ToPrometheusValues()...,
 	)
 	ch <- desc
-	// node-level curr energy in J
+	// sum curr node energy in J (for each energy unit)
 	for ekey, elabel := range ENERGY_LABELS {
 		edesc := prometheus.MustNewConstMetric(
 			c.NodeDesc.CurrEnergy[elabel],
 			prometheus.GaugeValue,
-			float64(currNodeEnergy.GetPrometheusEnergyValue(ekey))/1000.0, /*miliJoule to Joule*/
+			float64(nodeEnergy.GetPrometheusEnergyValue(ekey))/1000.0, /*miliJoule to Joule*/
 			nodeName,
 		)
 		ch <- edesc
 	}
+	// all curr node energy in J
+	edesc := prometheus.MustNewConstMetric(
+		c.NodeDesc.AllCurrEnergy,
+		prometheus.GaugeValue,
+		float64(nodeEnergy.Curr())/1000.0, /*miliJoule to Joule*/
+		nodeName,
+	)
+	ch <- edesc
 
 	for _, v := range podEnergy {
 		// general pod-level stat with current sum value of pkg+gpu+other
 		podDesc := c.getPodDescriptionGroup()
 		desc := prometheus.MustNewConstMetric(
 			podDesc.Stat,
-			prometheus.CounterValue,
-			float64(v.EnergyInPkg.Aggr+v.EnergyInGPU.Aggr+v.EnergyInOther.Aggr),
+			prometheus.GaugeValue,
+			float64(v.Curr()),
 			v.ToPrometheusValues()...,
 		)
 		ch <- desc
-		// ratio curr pod energy in mJ
+		// ratio curr pod energy in mJ (for each energy unit)
 		for ekey, elabel := range ENERGY_LABELS {
 			edesc := prometheus.MustNewConstMetric(
 				podDesc.CurrEnergy[elabel],
 				prometheus.GaugeValue,
 				v.GetPrometheusEnergyValue(ekey, true),
-				v.PodName, v.Namespace,
+				v.GetBasicValues()...,
 			)
 			ch <- edesc
 		}
@@ -301,7 +323,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			podDesc.CurrEnergy[DYN_ENERGY_LABEL],
 			prometheus.GaugeValue,
 			float64(v.DynEnergy.Curr),
-			v.PodName, v.Namespace,
+			v.GetBasicValues()...,
+		)
+		ch <- edesc
+		// all curr pod energy in mJ
+		edesc = prometheus.MustNewConstMetric(
+			podDesc.AllCurrEnergy,
+			prometheus.GaugeValue,
+			float64(v.Curr()),
+			v.GetBasicValues()...,
 		)
 		ch <- edesc
 		// ratio aggr pod energy in mJ
@@ -310,7 +340,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				podDesc.AggrEnergy[elabel],
 				prometheus.CounterValue,
 				v.GetPrometheusEnergyValue(ekey, false),
-				v.PodName, v.Namespace,
+				v.GetBasicValues()...,
 			)
 			ch <- edesc
 		}
@@ -319,7 +349,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			podDesc.AggrEnergy[DYN_ENERGY_LABEL],
 			prometheus.CounterValue,
 			float64(v.DynEnergy.Aggr),
-			v.PodName, v.Namespace,
+			v.GetBasicValues()...,
+		)
+		ch <- edesc
+		// all curr pod energy in mJ
+		edesc = prometheus.MustNewConstMetric(
+			podDesc.AllAggrEnergy,
+			prometheus.CounterValue,
+			float64(v.Aggr()),
+			v.GetBasicValues()...,
 		)
 		ch <- edesc
 		// collect CPU time per CPU for finer granularity
@@ -336,7 +374,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	// de_node_energy and desc_node_energy give indexable values for total energy consumptions of a node
-	for sensorID, energy := range nodeEnergy {
+	for sensorID, energy := range sensorEnergy {
 		desc := c.getSensorDescription()
 		metric := prometheus.MustNewConstMetric(
 			desc,
