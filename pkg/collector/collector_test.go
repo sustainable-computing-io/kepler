@@ -72,8 +72,8 @@ var _ = Describe("Test Collector Unit", func() {
 			Curr: 10,
 			Aggr: 10,
 		}
-		v.CgroupFSStats = map[string]*ContainerUInt64Stat{
-			CPU_USAGE_TOTAL_KEY: &ContainerUInt64Stat{
+		v.CgroupFSStats = map[string]*UInt64StatCollection{
+			CPU_USAGE_TOTAL_KEY: &UInt64StatCollection{
 				Stat: map[string]*UInt64Stat{
 					"cA": &UInt64Stat{
 						Curr: SAMPLE_CURR,
@@ -82,25 +82,31 @@ var _ = Describe("Test Collector Unit", func() {
 				},
 			},
 		}
+		cpuFrequency = map[int32]uint64{
+			0: SAMPLE_FREQ,
+		}
 		podEnergy = map[string]*PodEnergy{
 			"a": v,
 		}
-		nodeEnergy = map[string]float64{
+		// initial
+		sensorEnergy = map[string]float64{
 			"sensor0": SAMPLE_NODE_ENERGY,
-		}
-		cpuFrequency = map[int32]uint64{
-			0: SAMPLE_FREQ,
 		}
 		pkgEnergy = map[int]source.PackageEnergy{
 			0: source.PackageEnergy{
 				Pkg: SAMPLE_PKG_ENERGY,
 			},
 		}
-		currNodeEnergy = &CurrNodeEnergy{
-			Usage:        make(map[string]float64),
-			EnergyInPkg:  SAMPLE_PKG_ENERGY,
-			SensorEnergy: uint64(SAMPLE_NODE_ENERGY),
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{})
+		sensorEnergy = map[string]float64{
+			"sensor0": SAMPLE_NODE_ENERGY * 2,
 		}
+		pkgEnergy = map[int]source.PackageEnergy{
+			0: source.PackageEnergy{
+				Pkg: SAMPLE_PKG_ENERGY * 2,
+			},
+		}
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{})
 
 		res = httptest.NewRecorder()
 		handler = http.Handler(promhttp.Handler())
@@ -120,7 +126,7 @@ var _ = Describe("Test Collector Unit", func() {
 		// check sample node energy
 		val, err := convertPromToValue(body, NODE_ENERGY_METRIC)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(SAMPLE_NODE_ENERGY / 1000))) //J
+		Expect(val).To(Equal(int(2 * SAMPLE_NODE_ENERGY / 1000))) //J
 		val, err = convertPromToValue(body, NODE_ENERGY_STAT_METRRIC)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).Should(BeEquivalentTo(int(SAMPLE_NODE_ENERGY / 1000))) // J
@@ -130,7 +136,7 @@ var _ = Describe("Test Collector Unit", func() {
 		// check pkg energy
 		val, err = convertPromToValue(body, PACKAGE_ENERGY_METRIC)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).Should(BeEquivalentTo(int(SAMPLE_PKG_ENERGY))) // mJ
+		Expect(val).Should(BeEquivalentTo(int(2 * SAMPLE_PKG_ENERGY))) // mJ
 		// check sample frequency
 		val, err = convertPromToValue(body, FREQ_METRIC)
 		Expect(err).NotTo(HaveOccurred())

@@ -18,86 +18,9 @@ package collector
 import (
 	"fmt"
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
-	"math"
+	"log"
 	"strconv"
 )
-
-type UInt64Stat struct {
-	Curr uint64
-	Aggr uint64
-}
-
-func (s UInt64Stat) String() string {
-	return fmt.Sprintf("%d (%d)", s.Curr, s.Aggr)
-}
-
-// AddNewCurr add new read current value (e.g., from bpf table that is reset, computed delta energy)
-func (s *UInt64Stat) AddNewCurr(newCurr uint64) error {
-	s.Curr += newCurr
-	if math.MaxUint64-newCurr < s.Aggr {
-		// overflow
-		s.Aggr = s.Curr
-		return fmt.Errorf("Aggr value overflow %d < %d, reset", s.Aggr+newCurr, s.Aggr)
-	}
-	s.Aggr += newCurr
-	return nil
-}
-
-// SetNewAggr set new read aggregated value (e.g., from cgroup, energy files)
-func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
-	oldAggr := s.Aggr
-	s.Aggr = newAggr
-	if newAggr < oldAggr {
-		// overflow
-		s.Curr = newAggr + (math.MaxUint64 - oldAggr)
-		return fmt.Errorf("Aggr value overflow %d < %d", newAggr, oldAggr)
-	}
-	if oldAggr == 0 {
-		// new value
-		s.Curr = 0
-	} else {
-		s.Curr = newAggr - oldAggr
-	}
-	return nil
-}
-
-// ContainerUInt64Stat keeps UInt64Stat for each container
-type ContainerUInt64Stat struct {
-	Stat map[string]*UInt64Stat
-}
-
-func (s *ContainerUInt64Stat) AddStat(containerID string, newAggr uint64) {
-	if _, found := s.Stat[containerID]; !found {
-		s.Stat[containerID] = &UInt64Stat{}
-	}
-	s.Stat[containerID].SetNewAggr(newAggr)
-}
-
-func (s *ContainerUInt64Stat) Curr() uint64 {
-	sum := uint64(0)
-	for _, stat := range s.Stat {
-		sum += stat.Curr
-	}
-	return sum
-}
-
-func (s *ContainerUInt64Stat) Aggr() uint64 {
-	sum := uint64(0)
-	for _, stat := range s.Stat {
-		sum += stat.Aggr
-	}
-	return sum
-}
-
-func (s *ContainerUInt64Stat) ResetCurr() {
-	for _, stat := range s.Stat {
-		stat.Curr = uint64(0)
-	}
-}
-
-func (s ContainerUInt64Stat) String() string {
-	return fmt.Sprintf("%d (%d)", s.Curr(), s.Aggr())
-}
 
 type PodEnergy struct {
 	CGroupPID uint64
@@ -113,11 +36,11 @@ type PodEnergy struct {
 	CPUTime *UInt64Stat
 
 	CounterStats  map[string]*UInt64Stat
-	CgroupFSStats map[string]*ContainerUInt64Stat
+	CgroupFSStats map[string]*UInt64StatCollection
 	KubeletStats  map[string]*UInt64Stat
 
-	BytesRead  *ContainerUInt64Stat
-	BytesWrite *ContainerUInt64Stat
+	BytesRead  *UInt64StatCollection
+	BytesWrite *UInt64StatCollection
 
 	CurrCPUTimePerCPU map[uint32]uint64
 
@@ -138,12 +61,12 @@ func NewPodEnergy(podName, podNamespace string) *PodEnergy {
 		Namespace:     podNamespace,
 		CPUTime:       &UInt64Stat{},
 		CounterStats:  make(map[string]*UInt64Stat),
-		CgroupFSStats: make(map[string]*ContainerUInt64Stat),
+		CgroupFSStats: make(map[string]*UInt64StatCollection),
 		KubeletStats:  make(map[string]*UInt64Stat),
-		BytesRead: &ContainerUInt64Stat{
+		BytesRead: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		BytesWrite: &ContainerUInt64Stat{
+		BytesWrite: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
 		CurrCPUTimePerCPU: make(map[uint32]uint64),
@@ -159,7 +82,7 @@ func NewPodEnergy(podName, podNamespace string) *PodEnergy {
 		v.CounterStats[metricName] = &UInt64Stat{}
 	}
 	for _, metricName := range availableCgroupMetrics {
-		v.CgroupFSStats[metricName] = &ContainerUInt64Stat{
+		v.CgroupFSStats[metricName] = &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		}
 	}
@@ -172,9 +95,9 @@ func NewPodEnergy(podName, podNamespace string) *PodEnergy {
 // ResetCurr reset all current value to 0
 func (v *PodEnergy) ResetCurr() {
 	v.CurrProcesses = 0
-	v.CPUTime.Curr = uint64(0)
+	v.CPUTime.ResetCurr()
 	for counterKey, _ := range v.CounterStats {
-		v.CounterStats[counterKey].Curr = uint64(0)
+		v.CounterStats[counterKey].ResetCurr()
 	}
 	for cgroupFSKey, _ := range v.CgroupFSStats {
 		v.CgroupFSStats[cgroupFSKey].ResetCurr()
@@ -182,16 +105,16 @@ func (v *PodEnergy) ResetCurr() {
 	v.BytesRead.ResetCurr()
 	v.BytesWrite.ResetCurr()
 	for kubeletKey, _ := range v.KubeletStats {
-		v.KubeletStats[kubeletKey].Curr = uint64(0)
+		v.KubeletStats[kubeletKey].ResetCurr()
 	}
 	v.CurrCPUTimePerCPU = make(map[uint32]uint64)
-	v.EnergyInCore.Curr = 0
-	v.EnergyInDRAM.Curr = 0
-	v.EnergyInUncore.Curr = 0
-	v.EnergyInPkg.Curr = 0
-	v.EnergyInOther.Curr = 0
-	v.EnergyInGPU.Curr = 0
-	v.DynEnergy.Curr = 0
+	v.EnergyInCore.ResetCurr()
+	v.EnergyInDRAM.ResetCurr()
+	v.EnergyInUncore.ResetCurr()
+	v.EnergyInPkg.ResetCurr()
+	v.EnergyInOther.ResetCurr()
+	v.EnergyInGPU.ResetCurr()
+	v.DynEnergy.ResetCurr()
 }
 
 // SetLatestProcess set cgroupPID, PID, and command to the latest captured process
@@ -230,31 +153,38 @@ func (v *PodEnergy) extractUIntCurrAggr(metric string) (uint64, uint64) {
 	case BYTE_WRITE_LABEL:
 		return v.BytesWrite.Curr(), v.BytesWrite.Aggr()
 	}
+
+	log.Printf("cannot extract: %s", metric)
 	return 0, 0
 }
 
 // ToEstimatorValues return values regarding metricNames
-func (v *PodEnergy) ToEstimatorValues() (values []float32) {
+func (v *PodEnergy) ToEstimatorValues() (values []float64) {
 	for _, metric := range FLOAT_FEATURES {
 		curr, _ := v.extractFloatCurrAggr(metric)
-		values = append(values, float32(curr))
+		values = append(values, float64(curr))
 	}
 	for _, metric := range uintFeatures {
 		curr, _ := v.extractUIntCurrAggr(metric)
-		values = append(values, float32(curr))
+		values = append(values, float64(curr))
 	}
 	// TO-DO: remove this hard code metric
-	values = append(values, float32(v.Disks))
+	values = append(values, float64(v.Disks))
 	return
 }
 
-// ToPrometheusValues return values regarding podEnergyLabels
-func (v *PodEnergy) ToPrometheusValues() []string {
+// GetBasicValues return basic label balues
+func (v *PodEnergy) GetBasicValues() []string {
 	command := fmt.Sprintf("%s", v.Command)
 	if len(command) > 10 {
 		command = command[:10]
 	}
-	valuesInStr := []string{v.PodName, v.Namespace, command}
+	return []string{v.PodName, v.Namespace, command}
+}
+
+// ToPrometheusValues return values regarding podEnergyLabels
+func (v *PodEnergy) ToPrometheusValues() []string {
+	valuesInStr := v.GetBasicValues()
 	for _, metric := range FLOAT_FEATURES {
 		curr, aggr := v.extractFloatCurrAggr(metric)
 		valuesInStr = append(valuesInStr, fmt.Sprintf("%f", curr))
@@ -295,6 +225,14 @@ func (v *PodEnergy) GetPrometheusEnergyValue(ekey string, curr bool) float64 {
 	return float64(val.Aggr)
 }
 
+func (v *PodEnergy) Curr() uint64 {
+	return v.EnergyInPkg.Curr + v.EnergyInGPU.Curr + v.EnergyInOther.Curr
+}
+
+func (v *PodEnergy) Aggr() uint64 {
+	return v.EnergyInPkg.Aggr + v.EnergyInGPU.Aggr + v.EnergyInOther.Aggr
+}
+
 func (v PodEnergy) String() string {
 	return fmt.Sprintf("energy from pod (%d processes): name: %s namespace: %s \n"+
 		"\tcgrouppid: %d pid: %d comm: %s\n"+
@@ -305,7 +243,7 @@ func (v PodEnergy) String() string {
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
-		v.CurrProcesses, v.PodName, v.Namespace, 
+		v.CurrProcesses, v.PodName, v.Namespace,
 		v.CGroupPID, v.PID, v.Command,
 		v.EnergyInPkg, v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInOther, v.EnergyInGPU,
 		v.DynEnergy,

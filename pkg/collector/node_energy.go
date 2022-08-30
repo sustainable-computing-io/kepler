@@ -22,17 +22,6 @@ import (
 	"strconv"
 )
 
-type CurrNodeEnergy struct {
-	Usage          map[string]float64
-	EnergyInCore   uint64
-	EnergyInDRAM   uint64
-	EnergyInUncore uint64
-	EnergyInPkg    uint64
-	EnergyInGPU    uint64
-	EnergyInOther  uint64
-	SensorEnergy   uint64
-}
-
 var (
 	nodeName, _ = os.Hostname()
 	cpuArch     = getCPUArch()
@@ -46,10 +35,74 @@ func getCPUArch() string {
 	return "unknown"
 }
 
-func (v CurrNodeEnergy) ToPrometheusValues() []string {
+type NodeEnergy struct {
+	Usage          map[string]float64
+	EnergyInCore   *UInt64StatCollection
+	EnergyInDRAM   *UInt64StatCollection
+	EnergyInUncore *UInt64StatCollection
+	EnergyInPkg    *UInt64StatCollection
+	EnergyInGPU    uint64
+	EnergyInOther  uint64
+	SensorEnergy   *UInt64StatCollection
+}
+
+func NewNodeEnergy() *NodeEnergy {
+	return &NodeEnergy{
+		EnergyInCore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		EnergyInDRAM: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		EnergyInUncore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		EnergyInPkg: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		SensorEnergy: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+	}
+}
+
+func (v *NodeEnergy) ResetCurr() {
+	v.Usage = make(map[string]float64)
+	v.EnergyInCore.ResetCurr()
+	v.EnergyInDRAM.ResetCurr()
+	v.EnergyInUncore.ResetCurr()
+	v.EnergyInPkg.ResetCurr()
+	v.EnergyInGPU = uint64(0)
+	v.EnergyInOther = uint64(0)
+	v.SensorEnergy.ResetCurr()
+}
+
+func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.PackageEnergy, totalGPUDelta uint64, usage map[string]float64) {
+	fmt.Printf("%v %v\n", sensorEnergy, pkgEnergy)
+	for sensorID, energy := range sensorEnergy {
+		v.SensorEnergy.AddStat(sensorID, uint64(energy))
+	}
+	for pkgID, energy := range pkgEnergy {
+		key := strconv.Itoa(pkgID)
+		v.EnergyInCore.AddStat(key, energy.Core)
+		v.EnergyInDRAM.AddStat(key, energy.DRAM)
+		v.EnergyInUncore.AddStat(key, energy.Uncore)
+		v.EnergyInPkg.AddStat(key, energy.Pkg)
+	}
+	fmt.Printf("%v %v\n", v.EnergyInPkg, v.SensorEnergy)
+	v.EnergyInGPU = totalGPUDelta
+	totalSensorDelta := v.SensorEnergy.Curr()
+	totalPkgDelta := v.EnergyInPkg.Curr()
+	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {
+		v.EnergyInOther = totalSensorDelta - (totalPkgDelta + totalGPUDelta)
+	}
+	v.Usage = usage
+}
+
+func (v *NodeEnergy) ToPrometheusValues() []string {
 	nodeValues := []string{nodeName, cpuArch}
 	for _, metric := range metricNames {
-		nodeValues = append(nodeValues, strconv.FormatUint(uint64(currNodeEnergy.Usage[metric]), 10))
+		nodeValues = append(nodeValues, strconv.FormatUint(uint64(v.Usage[metric]), 10))
 	}
 	for ekey, _ := range ENERGY_LABELS {
 		val := float64(v.GetPrometheusEnergyValue(ekey)) / 1000.0 // Joule
@@ -58,26 +111,30 @@ func (v CurrNodeEnergy) ToPrometheusValues() []string {
 	return nodeValues
 }
 
-func (v CurrNodeEnergy) String() string {
-	return fmt.Sprintf("node energy (mJ): \n"+
-		"\tePkg: %d (eCore: %d eDram: %d eUncore: %d) eGPU: %d eOther: %d \n",
-		v.EnergyInPkg, v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInGPU, v.EnergyInOther)
-}
-
-func (v CurrNodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
+func (v *NodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
 	switch ekey {
 	case "core":
-		val = v.EnergyInCore
+		val = v.EnergyInCore.Curr()
 	case "dram":
-		val = v.EnergyInDRAM
+		val = v.EnergyInDRAM.Curr()
 	case "uncore":
-		val = v.EnergyInUncore
+		val = v.EnergyInUncore.Curr()
 	case "pkg":
-		val = v.EnergyInPkg
+		val = v.EnergyInPkg.Curr()
 	case "gpu":
 		val = v.EnergyInGPU
 	case "other":
 		val = v.EnergyInOther
 	}
 	return
+}
+
+func (v *NodeEnergy) Curr() uint64 {
+	return v.EnergyInPkg.Curr() + v.EnergyInGPU + v.EnergyInOther
+}
+
+func (v NodeEnergy) String() string {
+	return fmt.Sprintf("node energy (mJ): \n"+
+		"\tePkg: %d (eCore: %d eDram: %d eUncore: %d) eGPU: %d eOther: %d \n",
+		v.EnergyInPkg.Curr(), v.EnergyInCore.Curr(), v.EnergyInDRAM.Curr(), v.EnergyInUncore.Curr(), v.EnergyInGPU, v.EnergyInOther)
 }

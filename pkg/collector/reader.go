@@ -60,12 +60,12 @@ const (
 
 var (
 	// latest read energy
-	nodeEnergy = map[string]float64{}
-	pkgEnergy  = map[int]source.PackageEnergy{}
-	gpuEnergy  = map[uint32]float64{}
+	sensorEnergy = map[string]float64{}
+	pkgEnergy    = map[int]source.PackageEnergy{}
+	gpuEnergy    = map[uint32]float64{}
 	// latest process energy
-	podEnergy      = map[string]*PodEnergy{}
-	currNodeEnergy = &CurrNodeEnergy{}
+	podEnergy  = map[string]*PodEnergy{}
+	nodeEnergy = NewNodeEnergy()
 
 	cpuFrequency = map[int32]uint64{}
 
@@ -77,11 +77,10 @@ var (
 	systemProcessNamespace = pod_lister.GetSystemProcessNamespace()
 )
 
-// readEnergy reads node/pkg/gpu energies in mJ
-func (c *Collector) readEnergy() (nodeEnergy map[string]float64, pkgEnergy map[int]source.PackageEnergy) {
-	nodeEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
+// readEnergy reads sensor/pkg energies in mJ
+func (c *Collector) readEnergy() {
+	sensorEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
 	pkgEnergy = rapl.GetPackageEnergy()
-	return
 }
 
 // resetCurrValue reset existing podEnergy previous curr value
@@ -89,6 +88,7 @@ func (c *Collector) resetCurrValue() {
 	for _, v := range podEnergy {
 		v.ResetCurr()
 	}
+	nodeEnergy.ResetCurr()
 }
 
 // resetBPFTables reset BPF module's tables
@@ -103,6 +103,7 @@ func (c *Collector) resetBPFTables() {
 func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPodName map[string]string) {
 	pidPodName = make(map[uint32]string)
 	containerIDPodName = make(map[string]string)
+	foundPod := make(map[string]bool)
 	var ct CgroupTime
 	for it := c.modules.Table.Iter(); it.Next(); {
 		data := it.Leaf()
@@ -133,6 +134,7 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 			}
 			podEnergy[podName] = NewPodEnergy(podName, podNamespace)
 		}
+		foundPod[podName] = true
 
 		podEnergy[podName].SetLatestProcess(ct.CGroupPID, ct.PID, C.GoString(comm))
 
@@ -190,6 +192,12 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 		}
 	}
 	c.resetBPFTables()
+	// clean podEnergy
+	for podName, _ := range podEnergy {
+		if _, found := foundPod[podName]; !found {
+			delete(podEnergy, podName)
+		}
+	}
 	return
 }
 
@@ -230,43 +238,23 @@ func (c *Collector) reader() {
 	go func() {
 		_ = gpu.GetGpuEnergy() // reset power usage counter
 		c.resetBPFTables()
-
-		lastNodeEnergy, lastPackageEnergy := c.readEnergy()
+		c.readEnergy()
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{}) // set initial energy
 		acpiPowerMeter.Run()
 		for {
 			select {
 			case <-ticker.C:
 				lock.Lock()
-				// read node-level data
-				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
-				nodeEnergy, pkgEnergy = c.readEnergy()
-				// compute energy delta within a sampling period (~power)
-				// node energy
-				nodeDelta := float64(0)
-				var coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta []float64
-				for sensorID, lastEnergy := range lastNodeEnergy {
-					nodeDelta += math.Max(0, float64(nodeEnergy[sensorID]-lastEnergy))
-				}
-				lastNodeEnergy = nodeEnergy
-				// package energy
-				for i := 0; i < len(pkgEnergy); i++ {
-					corePkgDelta := math.Max(0, float64(pkgEnergy[i].Core-lastPackageEnergy[i].Core))
-					dramPkgDelta := math.Max(0, float64(pkgEnergy[i].DRAM-lastPackageEnergy[i].DRAM))
-					uncorePkgDelta := math.Max(0, float64(pkgEnergy[i].Uncore-lastPackageEnergy[i].Uncore))
-					pkgDelta := math.Max(0, float64(pkgEnergy[i].Pkg-lastPackageEnergy[i].Pkg))
-					coreNDelta = append(coreNDelta, corePkgDelta)
-					dramNDelta = append(dramNDelta, dramPkgDelta)
-					uncoreNDelta = append(uncoreNDelta, uncorePkgDelta)
-					pkgNDelta = append(pkgNDelta, pkgDelta)
-				}
-				lastPackageEnergy = pkgEnergy
-				// read pod metrics
 				c.resetCurrValue()
+				var coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta []float64
+				// read node-level settings (frequency)
+				cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
+				// read pod metrics
 				pidPodName, containerIDPodName := c.readBPFEvent()
 				c.readCgroup(containerIDPodName)
 				c.readKubelet()
 				// convert to pod metrics to array
-				var podMetricValues [][]float32
+				var podMetricValues [][]float64
 				var podNameList []string
 				for podName, v := range podEnergy {
 					values := v.ToEstimatorValues()
@@ -288,32 +276,40 @@ func (c *Collector) reader() {
 				for _, podName := range podNameList {
 					gpuNDelta = append(gpuNDelta, podGPUDelta[podName])
 				}
+				// read and compute power (energy delta)
+				var totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower uint64
 
-				// get sum value for node-level power
+				for _, val := range gpuNDelta {
+					totalGPUPower += uint64(val)
+				}
+				c.readEnergy()
 				sumUsage := model.GetSumUsageMap(metricNames, podMetricValues)
-				totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower := model.GetSumDelta(coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta)
-				var otherDelta uint64
-				if nodeDelta > 0 {
-					otherDelta = uint64(nodeDelta) - totalPkgPower - totalGPUPower
-				} else {
-					otherDelta = 0
+				nodeEnergy.SetValues(sensorEnergy, pkgEnergy, totalGPUPower, sumUsage)
+				for pkgIDKey, pkgStat := range nodeEnergy.EnergyInPkg.Stat {
+					coreDelta := nodeEnergy.EnergyInCore.Stat[pkgIDKey].Curr
+					dramDelta := nodeEnergy.EnergyInDRAM.Stat[pkgIDKey].Curr
+					uncoreDelta := nodeEnergy.EnergyInUncore.Stat[pkgIDKey].Curr
+					pkgDelta := pkgStat.Curr
+					coreNDelta = append(coreNDelta, float64(coreDelta))
+					dramNDelta = append(dramNDelta, float64(dramDelta))
+					uncoreNDelta = append(uncoreNDelta, float64(uncoreDelta))
+					pkgNDelta = append(pkgNDelta, float64(pkgDelta))
+					totalCorePower += coreDelta
+					totalDRAMPower += dramDelta
+					totalUncorePower += uncoreDelta
+					totalPkgPower += pkgDelta
 				}
-
-				currNodeEnergy = &CurrNodeEnergy{
-					Usage:          sumUsage,
-					EnergyInCore:   totalCorePower,
-					EnergyInDRAM:   totalDRAMPower,
-					EnergyInUncore: totalUncorePower,
-					EnergyInPkg:    totalPkgPower,
-					EnergyInGPU:    totalGPUPower,
-					EnergyInOther:  otherDelta,
-					SensorEnergy:   uint64(nodeDelta),
-				}
-
 				// get power from usage ratio
 				podCore, podDRAM, podUncore, podPkg := model.GetPowerFromUsageRatio(podMetricValues, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, sumUsage)
 				// get dynamic power from usage metrics
 				podDynamicPower := model.GetDynamicPower(metricNames, podMetricValues, coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta)
+				// get other energy - divide equally
+				podOther := uint64(0)
+				podCount := len(podNameList)
+				if podCount > 0 {
+					podOther = nodeEnergy.EnergyInOther / uint64(podCount)
+				}
+
 				// set pod energy
 				for i, podName := range podNameList {
 					podEnergy[podName].EnergyInCore.AddNewCurr(podCore[i])
@@ -322,18 +318,19 @@ func (c *Collector) reader() {
 					podEnergy[podName].EnergyInPkg.AddNewCurr(podPkg[i])
 					podGPU := uint64(math.Ceil(podGPUDelta[podName]))
 					podEnergy[podName].EnergyInGPU.AddNewCurr(podGPU)
+					podEnergy[podName].EnergyInOther.AddNewCurr(podOther)
 				}
 				if len(podDynamicPower) != 0 {
 					for i, podName := range podNameList {
-						power := uint64(float64(podDynamicPower[i]))
+						power := uint64(podDynamicPower[i])
 						podEnergy[podName].DynEnergy.AddNewCurr(power)
 					}
-					fmt.Printf("Get pod powers: %v from %v (%d x %d)\n", podDynamicPower, metricNames, len(podMetricValues), len(podMetricValues[0]))
+					fmt.Printf("Get pod powers: %v \n %v from %v (%d x %d)\n", podMetricValues[0:2], podDynamicPower, metricNames, len(podMetricValues), len(podMetricValues[0]))
 				}
 				for _, v := range podEnergy {
 					fmt.Println(v)
 				}
-				fmt.Println(currNodeEnergy)
+				fmt.Println(nodeEnergy)
 				lock.Unlock()
 			}
 		}

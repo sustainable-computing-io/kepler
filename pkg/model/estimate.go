@@ -22,17 +22,17 @@ var (
 type PowerRequest struct {
 	ModelName       string      `json:"model_name"`
 	MetricNames     []string    `json:"metrics"`
-	PodMetricValues [][]float32 `json:"values"`
-	CorePower       []float32   `json:"core_power"`
-	DRAMPower       []float32   `json:"dram_power"`
-	UncorePower     []float32   `json:"uncore_power"`
-	PkgPower        []float32   `json:"pkg_power"`
-	GPUPower        []float32   `json:"gpu_power"`
+	PodMetricValues [][]float64 `json:"values"`
+	CorePower       []float64   `json:"core_power"`
+	DRAMPower       []float64   `json:"dram_power"`
+	UncorePower     []float64   `json:"uncore_power"`
+	PkgPower        []float64   `json:"pkg_power"`
+	GPUPower        []float64   `json:"gpu_power"`
 	SelectFilter    string      `json:"filter"`
 }
 
 type PowerResponse struct {
-	Powers  []float32 `json:"powers"`
+	Powers  []float64 `json:"powers"`
 	Message string    `json:"msg"`
 }
 
@@ -57,12 +57,12 @@ func InitMetricIndexes(metricNames []string) {
 	}
 }
 
-func GetSumUsageMap(metricNames []string, podMetricValues [][]float32) (sumUsage map[string]float64) {
+func GetSumUsageMap(metricNames []string, podMetricValues [][]float64) (sumUsage map[string]float64) {
 	sumUsage = make(map[string]float64)
 	for i, metricName := range metricNames {
 		sumUsage[metricName] = 0
 		for _, podMetricValue := range podMetricValues {
-			sumUsage[metricName] += float64(podMetricValue[i])
+			sumUsage[metricName] += podMetricValue[i]
 		}
 	}
 	return
@@ -81,17 +81,17 @@ func GetSumDelta(corePower, dramPower, uncorePower, pkgPower, gpuPower []float64
 	return
 }
 
-func getRatio(podMetricValue []float32, metricIndex int, totalUsage float64, totalPower uint64, podNumber float64) uint64 {
+func getRatio(podMetricValue []float64, metricIndex int, totalUsage float64, totalPower uint64, podNumber float64) uint64 {
 	var power float64
 	if metricIndex >= 0 && totalUsage > 0 {
-		power = float64(podMetricValue[metricIndex]) / totalUsage * float64(totalPower)
+		power = podMetricValue[metricIndex] / totalUsage * float64(totalPower)
 	} else {
 		power = float64(totalPower) / podNumber
 	}
 	return uint64(math.Ceil(power))
 }
 
-func GetPowerFromUsageRatio(podMetricValues [][]float32, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower uint64, sumUsage map[string]float64) (podCore, podDRAM, podUncore, podPkg []uint64) {
+func GetPowerFromUsageRatio(podMetricValues [][]float64, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower uint64, sumUsage map[string]float64) (podCore, podDRAM, podUncore, podPkg []uint64) {
 	podNumber := float64(len(podMetricValues))
 	totalCoreUsage := sumUsage[config.UncoreUsageMetric]
 	totalDRAMUsage := sumUsage[config.DRAMUsageMetric]
@@ -124,47 +124,47 @@ func f64Tof32(f64arr []float64) []float32 {
 	return f32arr
 }
 
-func GetDynamicPower(metricNames []string, podMetricValues [][]float32, corePower, dramPower, uncorePower, pkgPower, gpuPower []float64) []float32 {
+func GetDynamicPower(metricNames []string, podMetricValues [][]float64, corePower, dramPower, uncorePower, pkgPower, gpuPower []float64) []float64 {
 	powerRequest := PowerRequest{
 		ModelName:       config.EstimatorModel,
 		MetricNames:     metricNames,
 		PodMetricValues: podMetricValues,
-		CorePower:       f64Tof32(corePower),
-		DRAMPower:       f64Tof32(dramPower),
-		UncorePower:     f64Tof32(uncorePower),
-		PkgPower:        f64Tof32(pkgPower),
-		GPUPower:        f64Tof32(gpuPower),
+		CorePower:       corePower,
+		DRAMPower:       dramPower,
+		UncorePower:     uncorePower,
+		PkgPower:        pkgPower,
+		GPUPower:        gpuPower,
 		SelectFilter:    config.EstimatorSelectFilter,
 	}
 	powerRequestJson, err := json.Marshal(powerRequest)
+	if err != nil {
+		log.Printf("marshal error: %v (%v)", err, powerRequest)
+		return []float64{}
+	}
 
 	c, err := net.Dial("unix", SERVE_SOCKET)
 	if err != nil {
 		log.Printf("dial error: %v", err)
-		return []float32{}
+		return []float64{}
 	}
 	defer c.Close()
 
-	if err != nil {
-		log.Printf("marshal error: %v", err)
-		return []float32{}
-	}
 	_, err = c.Write(powerRequestJson)
 	if err != nil {
 		log.Printf("estimator write error: %v", err)
-		return []float32{}
+		return []float64{}
 	}
 	buf := make([]byte, 1024)
 	n, err := c.Read(buf[:])
 	if err != nil {
 		log.Printf("estimator read error: %v", err)
-		return []float32{}
+		return []float64{}
 	}
 	var powerResponse PowerResponse
 	err = json.Unmarshal(buf[0:n], &powerResponse)
 	if err != nil {
-		log.Printf("estimator unmarshal error: %v", err)
-		return []float32{}
+		log.Printf("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
+		return []float64{}
 	}
 	if len(powerResponse.Powers) != len(podMetricValues) {
 		log.Printf("fail to get pod power : %s", powerResponse.Message)
