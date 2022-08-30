@@ -18,7 +18,7 @@ jobs:
     - name: Login to Quay
       uses: docker/login-action@v1
       with:
-          registry: quay.io/sustainable_computing_io
+          registry: quay.io
           username: ${{ secrets.BOT_NAME }}
           password: ${{ secrets.BOT_TOKEN }}      
 
