@@ -89,8 +89,8 @@ func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[in
 		v.EnergyInUncore.AddStat(key, energy.Uncore)
 		v.EnergyInPkg.AddStat(key, energy.Pkg)
 	}
-	fmt.Printf("%v %v\n", v.EnergyInPkg, v.SensorEnergy)
 	v.EnergyInGPU = totalGPUDelta
+	fmt.Printf("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
 	totalSensorDelta := v.SensorEnergy.Curr()
 	totalPkgDelta := v.EnergyInPkg.Curr()
 	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {
