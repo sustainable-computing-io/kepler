@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
-          "uid": "grafana"
-        },
+        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -31,10 +28,7 @@
   "panels": [
     {
       "collapsed": false,
-      "datasource": {
-        "type": "datasource",
-        "uid": "grafana"
-      },
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -47,10 +41,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
+      "datasource": null,
       "description": "Using CO2 emissions  by power generation type as reported by US Energy Information Administration https://www.eia.gov/tools/faqs/faq.php?id=74&t=11",
       "fieldConfig": {
         "defaults": {
@@ -100,10 +91,6 @@
       "pluginVersion": "9.0.4",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$coal)",
           "legendFormat": "CO2 Coal",
@@ -111,10 +98,6 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$petroleum)",
           "hide": false,
@@ -123,10 +106,6 @@
           "refId": "B"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$natural_gas)",
           "hide": false,
@@ -141,10 +120,7 @@
     },
     {
       "collapsed": false,
-      "datasource": {
-        "type": "datasource",
-        "uid": "grafana"
-      },
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -157,10 +133,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
+      "datasource": null,
       "description": "The mW per second",
       "fieldConfig": {
         "defaults": {
@@ -234,7 +207,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
@@ -245,7 +218,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_core_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
@@ -257,7 +230,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_dram_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
@@ -269,7 +242,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_gpu_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
@@ -281,7 +254,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_other_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
@@ -295,10 +268,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
+      "datasource": null,
       "description": "Total W*s Consumed",
       "fieldConfig": {
         "defaults": {
@@ -373,7 +343,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -386,7 +356,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum_over_time(pod_curr_energy_in_cpu_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
@@ -398,7 +368,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum_over_time(pod_curr_energy_in_dram_millijoule{pod_namespace=\"monitoring\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
@@ -410,7 +380,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum_over_time(pod_curr_energy_in_gpu_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
@@ -422,7 +392,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum_over_time(pod_curr_energy_in_other_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
@@ -437,10 +407,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
+      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -494,7 +461,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum_over_time(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\"}[24h])*15/3/3600000000",
@@ -507,10 +474,7 @@
       "type": "bargauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
+      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -613,7 +577,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum by (pod_namespace) (sum_over_time(pod_curr_energy_in_pkg_millijoule[24h])*15/3/3600000000)",
@@ -638,11 +602,8 @@
           "text": "monitoring",
           "value": "monitoring"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "P1809F7CD0C75ACF3"
-        },
-        "definition": "label_values(pod_curr_energy_pkg_dram_millijoule, pod_namespace)",
+        "datasource": null,
+        "definition": "label_values(pod_curr_energy_in_pkg_millijoule, pod_namespace)",
         "description": "Namespace for pods to choose",
         "hide": 0,
         "includeAll": false,
@@ -669,10 +630,7 @@
           "text": "alertmanager-main-2",
           "value": "alertmanager-main-2"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "P1809F7CD0C75ACF3"
-        },
+        "datasource": null,
         "definition": "label_values(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\"}, pod_name)",
         "hide": 0,
         "includeAll": false,
@@ -722,7 +680,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Kepler Exporter Dashboard Copy",
+  "title": "Kepler Exporter Dashboard",
   "uid": "NhnADUW4z",
   "version": 2,
   "weekStart": ""
