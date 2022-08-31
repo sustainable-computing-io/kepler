@@ -85,3 +85,12 @@ func hasEvent(event string) bool {
 	}
 	return false
 }
+
+func getEnergyFromDelta(pkg, other map[string]uint64) map[string]uint64 {
+	result := make(map[string]uint64)
+	for pkgId, pkgEnergy := range pkg {
+		otherEnergy, _ := other[pkgId]
+		result[pkgId] = pkgEnergy - otherEnergy
+	}
+	return result
+}
