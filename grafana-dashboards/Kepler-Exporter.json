@@ -1,82 +1,9 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    },
-    {
-      "name": "VAR_COAL",
-      "type": "constant",
-      "label": "coal",
-      "value": "2.23",
-      "description": ""
-    },
-    {
-      "name": "VAR_NATURAL_GAS",
-      "type": "constant",
-      "label": "natural_gas",
-      "value": "0.91",
-      "description": ""
-    },
-    {
-      "name": "VAR_PETROLEUM",
-      "type": "constant",
-      "label": "petroleum",
-      "value": "2.13",
-      "description": ""
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "panel",
-      "id": "bargauge",
-      "name": "Bar gauge",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "gauge",
-      "name": "Gauge",
-      "version": ""
-    },
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "9.0.4"
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "table",
-      "name": "Table",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
-          "uid": "grafana"
-        },
+        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -95,16 +22,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 28,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "collapsed": false,
-      "datasource": {
-        "type": "datasource",
-        "uid": "grafana"
-      },
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -117,10 +41,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": null,
       "description": "Using CO2 emissions  by power generation type as reported by US Energy Information Administration https://www.eia.gov/tools/faqs/faq.php?id=74&t=11",
       "fieldConfig": {
         "defaults": {
@@ -132,8 +53,7 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "#EAB839",
@@ -171,10 +91,6 @@
       "pluginVersion": "9.0.4",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$coal)",
           "legendFormat": "CO2 Coal",
@@ -182,10 +98,6 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$petroleum)",
           "hide": false,
@@ -194,10 +106,6 @@
           "refId": "B"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
           "editorMode": "code",
           "expr": "sum(rate(pod_curr_energy_in_pkg_millijoule{pod_namespace='$namespace'}[24h])/3600000000*$natural_gas)",
           "hide": false,
@@ -212,10 +120,7 @@
     },
     {
       "collapsed": false,
-      "datasource": {
-        "type": "datasource",
-        "uid": "grafana"
-      },
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -228,10 +133,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": null,
       "description": "The mW per second",
       "fieldConfig": {
         "defaults": {
@@ -272,8 +174,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -367,10 +268,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": null,
       "description": "Total W*s Consumed",
       "fieldConfig": {
         "defaults": {
@@ -411,8 +309,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -510,10 +407,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -580,10 +474,7 @@
       "type": "bargauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -706,12 +597,13 @@
   "templating": {
     "list": [
       {
-        "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+        "current": {
+          "selected": false,
+          "text": "monitoring",
+          "value": "monitoring"
         },
-        "definition": "label_values(pod_curr_energy_pkg_dram_millijoule, pod_namespace)",
+        "datasource": null,
+        "definition": "label_values(pod_curr_energy_in_pkg_millijoule, pod_namespace)",
         "description": "Namespace for pods to choose",
         "hide": 0,
         "includeAll": false,
@@ -733,11 +625,12 @@
         "useTags": false
       },
       {
-        "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+        "current": {
+          "selected": false,
+          "text": "alertmanager-main-2",
+          "value": "alertmanager-main-2"
         },
+        "datasource": null,
         "definition": "label_values(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\"}, pod_name)",
         "hide": 0,
         "includeAll": false,
@@ -761,59 +654,23 @@
       {
         "hide": 2,
         "name": "coal",
-        "query": "${VAR_COAL}",
+        "query": "2.23",
         "skipUrlSync": false,
-        "type": "constant",
-        "current": {
-          "value": "${VAR_COAL}",
-          "text": "${VAR_COAL}",
-          "selected": false
-        },
-        "options": [
-          {
-            "value": "${VAR_COAL}",
-            "text": "${VAR_COAL}",
-            "selected": false
-          }
-        ]
+        "type": "constant"
       },
       {
         "hide": 2,
         "name": "natural_gas",
-        "query": "${VAR_NATURAL_GAS}",
+        "query": "0.91",
         "skipUrlSync": false,
-        "type": "constant",
-        "current": {
-          "value": "${VAR_NATURAL_GAS}",
-          "text": "${VAR_NATURAL_GAS}",
-          "selected": false
-        },
-        "options": [
-          {
-            "value": "${VAR_NATURAL_GAS}",
-            "text": "${VAR_NATURAL_GAS}",
-            "selected": false
-          }
-        ]
+        "type": "constant"
       },
       {
         "hide": 2,
         "name": "petroleum",
-        "query": "${VAR_PETROLEUM}",
+        "query": "2.13",
         "skipUrlSync": false,
-        "type": "constant",
-        "current": {
-          "value": "${VAR_PETROLEUM}",
-          "text": "${VAR_PETROLEUM}",
-          "selected": false
-        },
-        "options": [
-          {
-            "value": "${VAR_PETROLEUM}",
-            "text": "${VAR_PETROLEUM}",
-            "selected": false
-          }
-        ]
+        "type": "constant"
       }
     ]
   },
@@ -825,6 +682,6 @@
   "timezone": "browser",
   "title": "Kepler Exporter Dashboard",
   "uid": "NhnADUW4z",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
