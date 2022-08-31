@@ -104,7 +104,7 @@ func (v *NodeEnergy) ToPrometheusValues() []string {
 	for _, metric := range metricNames {
 		nodeValues = append(nodeValues, strconv.FormatUint(uint64(v.Usage[metric]), 10))
 	}
-	for ekey, _ := range ENERGY_LABELS {
+	for _, ekey := range ENERGY_LABEL_KEYS {
 		val := float64(v.GetPrometheusEnergyValue(ekey)) / 1000.0 // Joule
 		nodeValues = append(nodeValues, fmt.Sprintf("%f", val))
 	}
