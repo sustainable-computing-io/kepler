@@ -286,9 +286,7 @@ func (c *Collector) reader() {
 				sumUsage := model.GetSumUsageMap(metricNames, podMetricValues)
 				nodeEnergy.SetValues(sensorEnergy, pkgEnergy, totalGPUPower, sumUsage)
 				for pkgIDKey, pkgStat := range nodeEnergy.EnergyInPkg.Stat {
-					coreDelta := nodeEnergy.EnergyInCore.Stat[pkgIDKey].Curr
-					dramDelta := nodeEnergy.EnergyInDRAM.Stat[pkgIDKey].Curr
-					uncoreDelta := nodeEnergy.EnergyInUncore.Stat[pkgIDKey].Curr
+					coreDelta, dramDelta, uncoreDelta := nodeEnergy.GetCurrPerPkg(pkgIDKey)
 					pkgDelta := pkgStat.Curr
 					coreNDelta = append(coreNDelta, float64(coreDelta))
 					dramNDelta = append(dramNDelta, float64(dramDelta))

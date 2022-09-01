@@ -139,15 +139,7 @@ func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
 	coreEnergies := readEventEnergy(coreEvent)
 	dramEnergies := readEventEnergy(dramEvent)
 	uncoreEnergies := readEventEnergy(uncoreEvent)
-	// the core, dram, uncore domains may not always be present
-	// in this case, derive the missing values by using pkg and other domains
-	// note, this indirection ignores uncore domain
-	if len(coreEnergies) == 0 && len(dramEnergies) > 0 {
-		coreEnergies = getEnergyFromDelta(pkgEnergies, dramEnergies)
-	}
-	if len(dramEnergies) == 0 && len(coreEnergies) > 0 {
-		dramEnergies = getEnergyFromDelta(pkgEnergies, coreEnergies)
-	}
+
 	for pkgId, pkgEnergy := range pkgEnergies {
 		coreEnergy, _ := coreEnergies[pkgId]
 		dramEnergy, _ := dramEnergies[pkgId]
@@ -155,10 +147,10 @@ func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
 		splits := strings.Split(pkgId, "-")
 		i, _ := strconv.Atoi(splits[len(splits)-1])
 		packageEnergies[i] = PackageEnergy{
-			Core: coreEnergy,
-			DRAM: dramEnergy,
+			Core:   coreEnergy,
+			DRAM:   dramEnergy,
 			Uncore: uncoreEnergy,
-			Pkg: pkgEnergy,
+			Pkg:    pkgEnergy,
 		}
 	}
 
