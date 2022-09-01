@@ -359,7 +359,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum_over_time(pod_curr_energy_in_cpu_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
+          "expr": "sum_over_time(pod_curr_energy_in_core_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
           "hide": false,
           "legendFormat": "CPU",
           "range": true,
@@ -371,7 +371,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum_over_time(pod_curr_energy_in_dram_millijoule{pod_namespace=\"monitoring\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
+          "expr": "sum_over_time(pod_curr_energy_in_dram_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[24h])*15/3/3600000000",
           "hide": false,
           "legendFormat": "DRAM",
           "range": true,
