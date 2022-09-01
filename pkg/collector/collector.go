@@ -19,6 +19,7 @@ package collector
 import (
 	"fmt"
 	"strconv"
+	"sort"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
@@ -51,7 +52,8 @@ var (
 		"gpu":    "energy_in_gpu_",
 		"other":  "energy_in_other_",
 	}
-	ALL_ENERGY_LABEL = "energy_"
+	ENERGY_LABEL_KEYS = sortEnergyLabelKeys()
+	ALL_ENERGY_LABEL  = "energy_"
 
 	basicPodLabels []string = []string{
 		"pod_name", "pod_namespace", "command",
@@ -62,6 +64,14 @@ var (
 		"node_name", "cpu_architecture",
 	}
 )
+
+func sortEnergyLabelKeys() (ekeys []string) {
+	for ekey, _ := range ENERGY_LABELS {
+		ekeys = append(ekeys, ekey)
+	}
+	sort.Strings(ekeys)
+	return
+}
 
 type DescriptionGroup struct {
 	Stat          *prometheus.Desc
@@ -99,7 +109,8 @@ func (c *Collector) setNodeDescriptionGroup() {
 	for _, metric := range metricNames {
 		nodeEnergyLabels = append(nodeEnergyLabels, NODE_LABEL_PREFIX+metric)
 	}
-	for _, elabel := range ENERGY_LABELS {
+	for _, ekey := range ENERGY_LABEL_KEYS {
+		elabel := ENERGY_LABELS[ekey]
 		nodeEnergyLabels = append(nodeEnergyLabels, NODE_LABEL_PREFIX+CURR_PREFIX+elabel+jsuffix)
 	}
 	statDesc := prometheus.NewDesc(
