@@ -63,7 +63,9 @@ spec:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
       nodeSelector:
-        sustainable-computing.io/kepler: ""
+        #remove and add node annotation if running in non-development
+        #sustainable-computing.io/kepler: ""
+        kubernetes.io/os: linux
       serviceAccountName: kepler-sa
       containers:
       - name: kepler-exporter
@@ -133,4 +135,3 @@ spec:
   - name: kepler-exporter
     port: 9102
     targetPort: kepler-exporter
-  
