@@ -17,15 +17,13 @@ limitations under the License.
 package cgroup
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"strings"
-	"fmt"
 )
 
-
-var testPaths []string = []string {
+var testPaths []string = []string{
 	"./test/hierarchypath", "./test/toppath/kubepod", "./test/toppath/system",
 }
 
@@ -43,7 +41,6 @@ func initSliceHandler(basePath string) *SliceHandler {
 	return sliceHandler
 
 }
-
 
 var _ = Describe("Test Read Stat", func() {
 	It("Properly find container path", func() {

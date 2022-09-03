@@ -111,10 +111,10 @@ ginkgo-set: tidy-vendor
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
-	@go test $(GO_BUILD_FLAGS) ./...
+	@go test $(GO_BUILD_FLAGS) ./... --race --bench=. -cover --count=1
 
 test-verbose: ginkgo-set tidy-vendor
-	@go test $(GO_BUILD_FLAGS) -v ./...
+	@go test $(GO_BUILD_FLAGS) -v ./... --race --bench=. -cover --count=1
 
 
 clean-cross-build:
