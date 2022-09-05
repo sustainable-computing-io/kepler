@@ -117,12 +117,14 @@ var _ = Describe("Test Collector Unit", func() {
 
 		// check sample pod energy stat
 		response := convertPromMetricToMap(body, POD_ENERGY_STAT_METRIC)
-		currSample, found := response["curr_"+CPU_USAGE_TOTAL_KEY]
-		Expect(found).To(Equal(true))
-		Expect(currSample).To(Equal(fmt.Sprintf("%d", SAMPLE_CURR)))
-		aggrSample, found := response["total_"+CPU_USAGE_TOTAL_KEY]
-		Expect(found).To(Equal(true))
-		Expect(aggrSample).To(Equal(fmt.Sprintf("%d", SAMPLE_AGGR)))
+		if len(availableCgroupMetrics) > 0 {
+			currSample, found := response["curr_"+CPU_USAGE_TOTAL_KEY]
+			Expect(found).To(Equal(true))
+			Expect(currSample).To(Equal(fmt.Sprintf("%d", SAMPLE_CURR)))
+			aggrSample, found := response["total_"+CPU_USAGE_TOTAL_KEY]
+			Expect(found).To(Equal(true))
+			Expect(aggrSample).To(Equal(fmt.Sprintf("%d", SAMPLE_AGGR)))
+		}
 		// check sample node energy
 		val, err := convertPromToValue(body, NODE_ENERGY_METRIC)
 		Expect(err).NotTo(HaveOccurred())

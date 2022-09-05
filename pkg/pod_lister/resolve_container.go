@@ -28,7 +28,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	bpf "github.com/iovisor/gobpf/bcc"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -48,7 +47,7 @@ const (
 )
 
 var (
-	byteOrder binary.ByteOrder = bpf.GetHostByteOrder()
+	byteOrder binary.ByteOrder = determineHostByteOrder()
 	podLister KubeletPodLister = KubeletPodLister{}
 
 	//map to cache data to speedup lookups

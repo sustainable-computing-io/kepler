@@ -103,6 +103,9 @@ func (c *Collector) resetBPFTables() {
 func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPodName map[string]string) {
 	pidPodName = make(map[uint32]string)
 	containerIDPodName = make(map[string]string)
+	if c.modules == nil {
+		return
+	}
 	foundPod := make(map[string]bool)
 	var ct CgroupTime
 	for it := c.modules.Table.Iter(); it.Next(); {

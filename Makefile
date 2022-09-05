@@ -28,7 +28,14 @@ endif
 
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
-GO_BUILD_FLAGS :=-tags 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+ifneq ($(shell command -v ldconfig),)
+  ifneq ($(shell ldconfig -p|grep bcc),)
+     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
+  endif
+endif
+
+GO_BUILD_FLAGS :=-tags ${GO_BUILD_TAGS}
 
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
