@@ -430,7 +430,7 @@ func wrapDecodeError(r Reader, field string, fieldIndex int, err error) error {
 		FieldPos(fieldIndex int) (line, column int)
 	})
 	if !ok {
-		return &decodeError{
+		return &DecodeError{
 			Field: field,
 			Err:   err,
 		}
@@ -438,7 +438,7 @@ func wrapDecodeError(r Reader, field string, fieldIndex int, err error) error {
 
 	l, c := fp.FieldPos(fieldIndex)
 
-	return &decodeError{
+	return &DecodeError{
 		Field:  field,
 		Line:   l,
 		Column: c,
