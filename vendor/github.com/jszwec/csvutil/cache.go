@@ -121,7 +121,7 @@ func buildFields(k typeKey) fields {
 				continue
 			}
 			if f.tag.prefix != "" {
-				tag.prefix += f.tag.prefix
+				tag.prefix = f.tag.prefix + tag.prefix
 			}
 
 			ft := sf.Type

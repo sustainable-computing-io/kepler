@@ -90,17 +90,25 @@ build-containerized-cross-build:
 PWD=$(shell pwd)
 ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
-GOPATH ?= $(HOME)/go
 
-ginkgo-set:
+ifndef GOPATH
+  GOPATH := $(HOME)/go
+  GOBIN := $(GOPATH)/bin
+endif
+
+ginkgo-set: tidy-vendor
+	mkdir -p $(GOBIN)
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-	 (go get -u github.com/onsi/ginkgo/ginkgo && go install github.com/onsi/ginkgo/ginkgo && \
-	  go get -u github.com/onsi/gomega/... && go install github.com/onsi/gomega/... && \
-	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	 (go install github.com/onsi/ginkgo/ginkgo@v1.16.5  && \
+	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
-	@go test -v ./...
+	@go test $(GO_BUILD_FLAGS) ./...
+
+test-verbose: ginkgo-set tidy-vendor
+	@go test $(GO_BUILD_FLAGS) -v ./...
+
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
