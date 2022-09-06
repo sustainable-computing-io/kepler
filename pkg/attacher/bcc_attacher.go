@@ -1,3 +1,6 @@
+//go:build bcc
+// +build bcc
+
 /*
 Copyright 2021.
 
