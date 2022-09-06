@@ -8,6 +8,7 @@ import (
 
 var _ = Describe("Test Metric Unit", func() {
 	It("Check feature values", func() {
+		setPodStatProm()
 		Expect(len(uintFeatures)).Should(BeNumerically(">", 0))
 		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
 		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
@@ -15,6 +16,7 @@ var _ = Describe("Test Metric Unit", func() {
 	})
 
 	It("Check convert values", func() {
+		setPodStatProm()
 		v := NewPodEnergy("podA", "default")
 		v.EnergyInCore = &UInt64Stat{
 			Curr: 10,

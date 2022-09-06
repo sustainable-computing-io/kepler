@@ -52,6 +52,7 @@ func convertPromToValue(body []byte, metric string) (int, error) {
 var _ = Describe("Test Collector Unit", func() {
 	It("Init and Run", func() {
 		newCollector, err := New()
+		setPodStatProm()
 		Expect(err).NotTo(HaveOccurred())
 		err = prometheus.Register(newCollector)
 		Expect(err).NotTo(HaveOccurred())
