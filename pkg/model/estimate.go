@@ -93,7 +93,7 @@ func getRatio(podMetricValue []float64, metricIndex int, totalUsage float64, tot
 
 func GetPowerFromUsageRatio(podMetricValues [][]float64, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower uint64, sumUsage map[string]float64) (podCore, podDRAM, podUncore, podPkg []uint64) {
 	podNumber := float64(len(podMetricValues))
-	totalCoreUsage := sumUsage[config.UncoreUsageMetric]
+	totalCoreUsage := sumUsage[config.CoreUsageMetric]
 	totalDRAMUsage := sumUsage[config.DRAMUsageMetric]
 	totalUncoreUsage := sumUsage[config.UncoreUsageMetric]
 	totalUsage := sumUsage[config.GeneralUsageMetric]
