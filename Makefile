@@ -35,8 +35,6 @@ ifneq ($(shell command -v ldconfig),)
   endif
 endif
 
-GO_BUILD_FLAGS :=-tags ${GO_BUILD_TAGS}
-
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 
@@ -50,7 +48,7 @@ tidy-vendor:
 
 _build_local:
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler ./cmd/exporter.go
 
 cross-build-linux-amd64:
