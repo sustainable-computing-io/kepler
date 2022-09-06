@@ -56,8 +56,8 @@ var (
 	basicPodLabels []string = []string{
 		"pod_name", "pod_namespace", "command",
 	}
-	prometheusMetrics []string = getPrometheusMetrics()
-	podEnergyLabels   []string = append(basicPodLabels, prometheusMetrics...)
+	prometheusMetrics []string
+	podEnergyLabels   []string
 	basicNodeLabels   []string = []string{
 		"node_name", "cpu_architecture",
 	}
@@ -76,6 +76,11 @@ type Collector struct {
 	modules  *attacher.BpfModuleTables
 }
 
+func setPodStatProm() {
+	prometheusMetrics = getPrometheusMetrics()
+	podEnergyLabels = append(basicPodLabels, prometheusMetrics...)
+}
+
 func New() (*Collector, error) {
 	c := &Collector{}
 	c.setNodeDescriptionGroup()
@@ -84,6 +89,7 @@ func New() (*Collector, error) {
 
 func (c *Collector) Attach() error {
 	m, err := attacher.AttachBPFAssets()
+	setPodStatProm()
 	if err != nil {
 		return fmt.Errorf("failed to attach bpf assets: %v", err)
 	}
