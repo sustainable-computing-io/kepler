@@ -114,6 +114,9 @@ test: ginkgo-set tidy-vendor
 test-verbose: ginkgo-set tidy-vendor
 	@go test $(GO_BUILD_FLAGS) -v ./... --race --bench=. -cover --count=1
 
+format:
+	go fmt ./...
+
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'

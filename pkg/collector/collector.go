@@ -18,8 +18,8 @@ package collector
 
 import (
 	"fmt"
-	"strconv"
 	"sort"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"

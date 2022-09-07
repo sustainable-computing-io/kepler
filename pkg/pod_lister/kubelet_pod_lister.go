@@ -181,4 +181,3 @@ func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {
 	}
 	return
 }
-
