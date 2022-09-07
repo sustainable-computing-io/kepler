@@ -59,6 +59,9 @@ spec:
         app.kubernetes.io/component: exporter
         app.kubernetes.io/name: kepler-exporter
     spec:
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
       nodeSelector:
         sustainable-computing.io/kepler: ""
       serviceAccountName: kepler-sa
