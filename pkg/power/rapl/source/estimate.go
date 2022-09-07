@@ -53,7 +53,7 @@ type PowerEstimateData struct {
 }
 
 type CPUModelData struct {
-	Name     string `csv:"Name"`
+	Name         string `csv:"Name"`
 	Architecture string `csv:"Architecture"`
 }
 
@@ -62,7 +62,7 @@ func GetCPUArchitecture() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	myCPUModel := strings.TrimSuffix(string(output),"\n") 
+	myCPUModel := strings.TrimSuffix(string(output), "\n")
 	file, err := os.Open(cpuModelDataPath)
 	if err != nil {
 		return "", err
@@ -79,7 +79,7 @@ func GetCPUArchitecture() (string, error) {
 		if err := dec.Decode(&p); err == io.EOF {
 			break
 		}
-		if strings.HasPrefix(myCPUModel, p.Name)  {
+		if strings.HasPrefix(myCPUModel, p.Name) {
 			//fmt.Printf("cpu %s, architecture %s\n", myCPUModel, p.Architecture)
 			return p.Architecture, nil
 		}

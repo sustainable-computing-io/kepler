@@ -17,13 +17,13 @@ limitations under the License.
 package cgroup
 
 import (
-	"io/ioutil"
-	"path/filepath"
-	"strings"
-	"errors"
-	"os"
-	"strconv"
 	"bufio"
+	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 func SearchByContainerID(topFolder string, containerID string) string {

@@ -35,12 +35,12 @@ const (
 var (
 	EnabledEBPFCgroupID = false
 
-	EstimatorModel = "" // auto-select
+	EstimatorModel        = "" // auto-select
 	EstimatorSelectFilter = "" // no filter
-	CoreUsageMetric = "curr_cpu_cycles"
-	DRAMUsageMetric = "curr_cache_miss"
-	UncoreUsageMetric = "" // no metric (evenly divided)
-	GeneralUsageMetric = "curr_cpu_cycles" // for uncategorized energy; pkg - core - dram - uncore
+	CoreUsageMetric       = "curr_cpu_cycles"
+	DRAMUsageMetric       = "curr_cache_miss"
+	UncoreUsageMetric     = ""                // no metric (evenly divided)
+	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - dram - uncore
 )
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
