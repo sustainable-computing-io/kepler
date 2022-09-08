@@ -81,6 +81,15 @@ func isCGroupV2() bool {
 	return true
 }
 
+// Get cgroup version, return 1 or 2
+func GetCGroupVersion() int {
+	if isCGroupV2() {
+		return 2
+	} else{
+		return 1
+	}
+}
+
 func SetEstimatorConfig(modelName string, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter

@@ -55,9 +55,11 @@ var (
 	containerIDToContainerInfo = map[string]*ContainerInfo{}
 	cGroupIDToPath             = map[uint64]string{}
 
-	//regex to extract container ID from path
-	regexFindContainerIDPath          = regexp.MustCompile(`.*-(.*?)\.scope`)
+
+	//regex to extract container ID from path, default value is for cgroup v2
+	regexFindContainerIDPath = regexp.MustCompile(`.*-(.*?)\.scope`)
 	regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*-`)
+
 	regexReplaceContainerIDPathSufix  = regexp.MustCompile(`\..*`)
 	regexReplaceContainerIDPrefix     = regexp.MustCompile(`.*//`)
 )
@@ -254,11 +256,17 @@ func getPathFromcGroupID(cgroupId uint64) (string, error) {
 	return cGroupIDToPath[cgroupId], nil
 }
 
+// Get containerID from path. cgroup v1 and cgroup v2 will use different regex
 func extractPodContainerIDfromPath(path string) (string, error) {
+	cgroup := config.GetCGroupVersion()
+	if cgroup == 1 {
+		regexFindContainerIDPath = regexp.MustCompile(`[0-9]*:.+slice.+`)
+		regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*:`)
+	}
 	if regexFindContainerIDPath.MatchString(path) {
 		sub := regexFindContainerIDPath.FindAllString(path, -1)
 		for _, element := range sub {
-			if strings.Contains(element, "-conmon-") || strings.Contains(element, ".service") {
+			if cgroup == 2 && (strings.Contains(element, "-conmon-") || strings.Contains(element, ".service")) {
 				return "", fmt.Errorf("process is not in a kubernetes pod")
 				//TODO: we need to extend this to include other runtimes
 			} else if strings.Contains(element, "crio") || strings.Contains(element, "docker") || strings.Contains(element, "containerd") {
