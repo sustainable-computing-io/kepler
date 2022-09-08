@@ -5,13 +5,23 @@ SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 
 SRC_ROOT :=$(shell pwd)
 
-IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
-IMAGE_VERSION := "latest"
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
 CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
+
+ifdef IMAGE_REPO
+	IMAGE_REPO := $(IMAGE_REPO)
+else
+	IMAGE_REPO := quay.io/sustainable_computing_io/kepler
+endif
+
+ifdef IMAGE_TAG
+	IMAGE_TAG := $(IMAGE_TAG)
+else
+	IMAGE_TAG := latest
+endif
 
 # restrict included verify-* targets to only process project files
 GO_PACKAGES=$(go list ./cmd/... ./pkg/...)
@@ -74,7 +84,7 @@ _build_containerized:
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_VERSION)
+	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_TAG)
 
 .PHONY: _build_containerized
 
@@ -90,6 +100,10 @@ build-containerized-cross-build:
 	+$(MAKE) build-containerized-cross-build-linux-amd64
 	+$(MAKE) build-containerized-cross-build-linux-arm64
 .PHONY: build-containerized-cross-build
+
+push-image:
+	$(CTR_CMD) push $(IMAGE_REPO):$(IMAGE_TAG)
+.PHONY: push-image
 
 # for testsuite
 PWD=$(shell pwd)
@@ -126,3 +140,19 @@ clean-cross-build:
 
 clean: clean-cross-build
 .PHONY: clean
+
+build-manifest:
+	./hack/build-manifest.sh
+.PHONY: build-manifest
+
+cluster-clean: build-manifest
+	./hack/cluster-clean.sh
+.PHONY: cluster-clean
+
+cluster-deploy: cluster-clean
+	./hack/cluster-deploy.sh
+.PHONY: cluster-deploy
+
+cluster-sync:
+	./hack/cluster-sync.sh
+.PHONY: cluster-sync
