@@ -8,7 +8,6 @@ SRC_ROOT :=$(shell pwd)
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
-CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
 
 ifdef IMAGE_REPO
@@ -21,6 +20,12 @@ ifdef IMAGE_TAG
 	IMAGE_TAG := $(IMAGE_TAG)
 else
 	IMAGE_TAG := latest
+endif
+
+ifdef CTR_CMD
+	CTR_CMD := $(CTR_CMD)
+else 
+	CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 endif
 
 # restrict included verify-* targets to only process project files
