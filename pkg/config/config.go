@@ -40,7 +40,7 @@ var (
 	CoreUsageMetric       = "curr_cpu_cycles"
 	DRAMUsageMetric       = "curr_cache_miss"
 	UncoreUsageMetric     = ""                // no metric (evenly divided)
-	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - dram - uncore
+	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - uncore
 )
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
@@ -85,7 +85,7 @@ func isCGroupV2() bool {
 func GetCGroupVersion() int {
 	if isCGroupV2() {
 		return 2
-	} else{
+	} else {
 		return 1
 	}
 }

@@ -2,10 +2,11 @@ package model
 
 import (
 	"encoding/json"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"log"
 	"math"
 	"net"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 const (
@@ -98,7 +99,9 @@ func GetPowerFromUsageRatio(podMetricValues [][]float64, totalCorePower, totalDR
 	totalUncoreUsage := sumUsage[config.UncoreUsageMetric]
 	totalUsage := sumUsage[config.GeneralUsageMetric]
 
-	unknownValue := totalPkgPower - totalCorePower - totalDRAMPower - totalUncorePower
+	//Package (PKG) domain measures the energy consumption of the entire socket, including the consumption of all the cores, integrated graphics and
+	//also the "unknown" components such as last level caches and memory controllers
+	unknownValue := totalPkgPower - totalCorePower - totalUncorePower
 
 	// find ratio power
 	for _, podMetricValue := range podMetricValues {
@@ -106,7 +109,7 @@ func GetPowerFromUsageRatio(podMetricValues [][]float64, totalCorePower, totalDR
 		dramValue := getRatio(podMetricValue, dramMetricIndex, totalDRAMUsage, totalDRAMPower, podNumber)
 		uncoreValue := getRatio(podMetricValue, uncoreMetricIndex, totalUncoreUsage, totalUncorePower, podNumber)
 		unknownValue := getRatio(podMetricValue, generalMetricIndex, totalUsage, unknownValue, podNumber)
-		pkgValue := coreValue + dramValue + uncoreValue + unknownValue
+		pkgValue := coreValue + uncoreValue + unknownValue
 		podCore = append(podCore, coreValue)
 		podDRAM = append(podDRAM, dramValue)
 		podUncore = append(podUncore, uncoreValue)
