@@ -8,6 +8,14 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 )
 
+func clearPlatformDependentAvailability() {
+	availableCounters       = []string{}
+	availableCgroupMetrics  = []string{}
+	availableKubeletMetrics = []string{}
+	uintFeatures = getUIntFeatures()
+	features = append(FLOAT_FEATURES, uintFeatures...)
+}
+
 var _ = Describe("Test Metric Unit", func() {
 	It("Check feature values", func() {
 		setPodStatProm()
@@ -18,13 +26,17 @@ var _ = Describe("Test Metric Unit", func() {
 	})
 
 	It("Test getUIntFeatures", func() {
+		clearPlatformDependentAvailability()
+		
 		exp := []string{"cpu_time", "bytes_read", "bytes_writes"}
-		// attacher/bcc_attacher_stub.go is used
+
 		cur := getUIntFeatures()
 		Expect(exp).To(Equal(cur))
 	})
 
 	It("Test getPrometheusMetrics", func() {
+		clearPlatformDependentAvailability()
+
 		exp := []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "block_devices_used"}
 		cur := getPrometheusMetrics()
 		Expect(exp).To(Equal(cur))
@@ -36,6 +48,8 @@ var _ = Describe("Test Metric Unit", func() {
 	})
 
 	It("Test getEstimatorMetrics", func() {
+		clearPlatformDependentAvailability()
+
 		exp := []string{"curr_cpu_time", "curr_bytes_read", "curr_bytes_writes", "block_devices_used"}
 		cur := getEstimatorMetrics()
 		Expect(exp).To(Equal(cur))
