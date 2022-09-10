@@ -55,7 +55,7 @@ var STANDARD_METRIC_NAME_MAPS = map[string][]CgroupFSReadMetric{
 	},
 	"cgroupfs_user_cpu_usage_us": []CgroupFSReadMetric{
 		CgroupFSReadMetric{Name: "cpuacct.usage_user", Converter: NanoToMicroConverter},
-		CgroupFSReadMetric{Name: "usage_usec", Converter: DefaultConverter},
+		CgroupFSReadMetric{Name: "user_usec", Converter: DefaultConverter},
 	},
 	"cgroupfs_ioread_bytes": []CgroupFSReadMetric{
 		CgroupFSReadMetric{Name: "rbytes", Converter: DefaultConverter},
