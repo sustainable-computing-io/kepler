@@ -9,8 +9,8 @@ import (
 )
 
 func clearPlatformDependentAvailability() {
-	availableCounters       = []string{}
-	availableCgroupMetrics  = []string{}
+	availableCounters = []string{}
+	availableCgroupMetrics = []string{}
 	availableKubeletMetrics = []string{}
 	uintFeatures = getUIntFeatures()
 	features = append(FLOAT_FEATURES, uintFeatures...)
@@ -27,7 +27,7 @@ var _ = Describe("Test Metric Unit", func() {
 
 	It("Test getUIntFeatures", func() {
 		clearPlatformDependentAvailability()
-		
+
 		exp := []string{"cpu_time", "bytes_read", "bytes_writes"}
 
 		cur := getUIntFeatures()
