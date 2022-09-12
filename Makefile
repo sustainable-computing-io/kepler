@@ -61,7 +61,7 @@ tidy-vendor:
 	go mod vendor
 
 
-_build_local:
+_build_local: format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler ./cmd/exporter.go
@@ -78,7 +78,7 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64
 .PHONY: cross-build
 
 
-_build_containerized:
+_build_containerized: format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 	$(CTR_CMD) build -t $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) \
@@ -134,7 +134,7 @@ test-verbose: ginkgo-set tidy-vendor
 	@go test $(GO_BUILD_FLAGS) -v ./... --race --bench=. -cover --count=1
 
 format:
-	go fmt ./...
+	gofmt -l -w pkg/ cmd/
 
 
 clean-cross-build:
