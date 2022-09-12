@@ -179,7 +179,7 @@ func (r *PowerEstimate) GetPackageEnergy() map[int]PackageEnergy {
 		Core:   coreEnergy,
 		DRAM:   dramEnergy,
 		Uncore: 0,
-		Pkg:    coreEnergy + dramEnergy,
+		Pkg:    coreEnergy,
 	}
 	return packageEnergies
 }

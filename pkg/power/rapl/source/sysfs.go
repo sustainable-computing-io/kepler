@@ -60,26 +60,7 @@ func getEnergy(event string) (uint64, error) {
 			energy += e
 		}
 		return energy, nil
-	} else {
-		switch event {
-		case coreEvent:
-			packageEnergy := readEventEnergy(packageEvent)
-			dramEnergy := readEventEnergy(dramEvent)
-			for id, e := range packageEnergy {
-				energy += e - dramEnergy[id]
-			}
-			return energy, nil
-
-		case dramEvent:
-			packageEnergy := readEventEnergy(packageEvent)
-			coreEnergy := readEventEnergy(coreEvent)
-			for id, e := range packageEnergy {
-				energy += e - coreEnergy[id]
-			}
-			return energy, nil
-		}
 	}
-
 	return energy, fmt.Errorf("could not read RAPL energy for %s", event)
 }
 

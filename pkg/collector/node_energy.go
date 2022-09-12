@@ -17,9 +17,10 @@ package collector
 
 import (
 	"fmt"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 	"os"
 	"strconv"
+
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 var (
@@ -130,42 +131,17 @@ func (v *NodeEnergy) getEnergyValue(ekey string) (val uint64) {
 }
 
 func (v *NodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
-	val = v.getEnergyValue(ekey)
-
-	// the core, dram, uncore domains may not always be present
-	// in this case, derive the missing values by using pkg and other domains
-	// note, this indirection gives priority core > dram > uncore
-	//       if both core and dram does not exist, all delta energy is considered as core energy
-	if val == 0 {
-		uncoreVal := v.EnergyInUncore.Curr()
-		switch ekey {
-		case "core":
-			val = v.EnergyInPkg.Curr() - v.EnergyInDRAM.Curr() - uncoreVal
-		case "dram":
-			coreVal := v.EnergyInCore.Curr()
-			if coreVal > 0 {
-				val = v.EnergyInPkg.Curr() - coreVal - uncoreVal
-			}
-		}
-	}
-	return
+	return v.getEnergyValue(ekey)
 }
 
 func (v *NodeEnergy) Curr() uint64 {
 	return v.EnergyInPkg.Curr() + v.EnergyInGPU + v.EnergyInOther
 }
 
-func (v *NodeEnergy) GetCurrPerPkg(pkgIDKey string) (coreDelta, dramDelta, uncoreDelta uint64) {
-	pkgDelta := v.EnergyInPkg.Stat[pkgIDKey].Curr
+func (v *NodeEnergy) GetCurrEnergyPerPkgID(pkgIDKey string) (coreDelta, dramDelta, uncoreDelta uint64) {
 	coreDelta = v.EnergyInCore.Stat[pkgIDKey].Curr
 	dramDelta = v.EnergyInDRAM.Stat[pkgIDKey].Curr
 	uncoreDelta = v.EnergyInUncore.Stat[pkgIDKey].Curr
-	// handle missing domains giving priority core > dram > uncore
-	if coreDelta == 0 {
-		coreDelta = pkgDelta - dramDelta - uncoreDelta
-	} else if dramDelta == 0 {
-		dramDelta = pkgDelta - coreDelta - uncoreDelta
-	}
 	return
 }
 
