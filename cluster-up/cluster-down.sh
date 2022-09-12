@@ -17,27 +17,10 @@
 # Copyright 2022 The Kepler Contributors
 #
 
-set -e
+if [ -z "$CLUSTER_PROVIDER" ]; then
+    echo 'You must define a cluster provider (e.g. CLUSTER_PROVIDER="kind")'
+    exit 1
+fi
 
-source cluster-up/common.sh
-
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
-
-function main() {
-    echo "Cleaning up ..."
-
-    if [ ! -d "${MANIFESTS_OUT_DIR}" ]; then
-        echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
-        exit
-    fi
-
-    # Ignore errors because some clusters might not have prometheus operator
-    kubectl delete --ignore-not-found=true -f ${MANIFESTS_OUT_DIR} || true
-
-    sleep 2
-
-    echo "Done $0"
-}
-
-main "$@"
+source cluster-up/cluster/$CLUSTER_PROVIDER/common.sh
+down

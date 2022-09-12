@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2022 IBM, Inc.
+# Copyright 2022 The Kepler Contributors
 #
 
 set -ex
+
+source cluster-up/common.sh
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 IMAGE_TAG=${IMAGE_TAG:-devel}

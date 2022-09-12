@@ -161,3 +161,11 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 .PHONY: cluster-sync
+
+cluster-up:
+	./hack/cluster-up.sh
+.PHONY: cluster-up
+
+cluster-down:
+	./hack/cluster-down.sh
+.PHONY: cluster-down
