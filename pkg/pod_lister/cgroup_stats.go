@@ -47,7 +47,7 @@ func ReadCgroupIOStat(cGroupID uint64, PID uint64) (uint64, uint64, int, error) 
 	if config.EnabledEBPFCgroupID {
 		path, err = getPathFromcGroupID(cGroupID)
 	} else {
-		path, err = getPathFromPID(PID)
+		path, err = getPathFromPID(procPath, PID)
 	}
 
 	if err != nil {

@@ -182,7 +182,7 @@ func getContainerIDFromPID(pid uint64) (string, error) {
 
 	var err error
 	var path string
-	if path, err = getPathFromPID(pid); err != nil {
+	if path, err = getPathFromPID(procPath, pid); err != nil {
 		return systemProcessName, err
 	}
 
@@ -190,8 +190,8 @@ func getContainerIDFromPID(pid uint64) (string, error) {
 	return containerIDCache[pid], err
 }
 
-func getPathFromPID(pid uint64) (string, error) {
-	path := fmt.Sprintf(procPath, pid)
+func getPathFromPID(searchPath string, pid uint64) (string, error) {
+	path := fmt.Sprintf(searchPath, pid)
 	file, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to open cgroup description file for pid %d: %v", pid, err)
