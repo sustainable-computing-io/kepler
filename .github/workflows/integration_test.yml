@@ -1,0 +1,29 @@
+name: Integration test
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  integration_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        kube_provider: [kind]
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-go@main
+        with:
+          go-version: 1.18
+      - name: install kubectl
+        run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - name: start local k8s cluster
+        run: make cluster-up
+        env:
+            CLUSTER_PROVIDER: ${{matrix.kube_provider}}
+      - name: simple test - deploy kepler
+        run: make cluster-sync
+        env:
+            CLUSTER_PROVIDER: ${{matrix.kube_provider}}
+            CTR_CMD: docker

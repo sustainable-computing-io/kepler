@@ -31,7 +31,7 @@ REGISTRY_PORT=${REGISTRY_PORT:-5001}
 KIND_DEFAULT_NETWORK="kind"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001/kepler}
-IMAGE_TAG=${IMAGE_TAG:-$(git describe --tags | head -1)}
+IMAGE_TAG=${IMAGE_TAG:-devel}
 
 CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
 rm -rf ${CONFIG_OUT_DIR}
