@@ -14,14 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2022 IBM, Inc.
+# Copyright 2022 The Kepler Contributors
 #
 
 set -e
+export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
+source cluster-up/cluster/$CLUSTER_PROVIDER/common.sh
+# set the CLUSTER_PROVIDER to kubernetes or openshift kind
+source cluster-up/common.sh
 
 export IMAGE_TAG=${IMAGE_TAG:-devel}
 export IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io/kepler}
-export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 
 # we do not use `make cluster-clean` and `make cluster-deploy` because they trigger other actions
 function main() {
@@ -35,9 +38,7 @@ function main() {
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then
-        echo "cluster-clean failed, output was:"
-        cat $TEMP_FILE
-        exit 1
+        echo "cluster-clean failed"
     fi
 
     ./hack/cluster-deploy.sh
