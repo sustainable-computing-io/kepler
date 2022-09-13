@@ -6,6 +6,5 @@ The Kepler container is built on the local machine and is then pushed to a regis
 A kind cluster must specify:
 * CLUSTER_NAME representing the cluster name (default: `kind`)
 * IMAGE_REPO representing the image name with the local repository (default: `localhost:5001/kepler`)
-* IMAGE_TAG with the current git tag (`git describe --tags`)
 
 The provider is supposed to copy a valid `kind.yaml` file under `cluster-up/cluster/${CLUSTER_PROVIDER}/manifests/kind.yaml`

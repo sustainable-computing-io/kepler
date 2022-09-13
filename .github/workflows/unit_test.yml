@@ -66,25 +66,3 @@ jobs:
           go-version: 1.18
       - name: run gofmt test
         run: ./automation/presubmit-tests/gofmt.sh
-
-  integration_test:
-    runs-on: ubuntu-latest
-    needs: unit_test_without_bcc
-    strategy:
-      matrix:
-        kube_provider: [kind]
-    steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-go@main
-        with:
-          go-version: 1.18
-      - name: install kubectl
-        run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      - name: build image locally
-        run: export CTR_CMD=docker && make
-      - name: infra up
-        run: ./hack/integration_cluster.sh ${{matrix.kube_provider}}
-      - name: deploy test
-        run: kubectl create -f manifests/kubernetes/deployment.yaml 
-      - name: checking
-        run: until kubectl get svc --all-namespaces ; do date; sleep 1; echo ""; done  
