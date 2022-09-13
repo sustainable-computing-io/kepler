@@ -136,6 +136,9 @@ test-verbose: ginkgo-set tidy-vendor
 format:
 	gofmt -l -w pkg/ cmd/
 
+golint:
+	./hack/golint.sh
+
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
