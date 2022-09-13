@@ -417,12 +417,12 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"monitoring\"}[24h]))/1000000000",
+          "expr": "20*sum(rate(pod_energy_total{pod_namespace=\"kepler\"}[24h]))/1000000000",
           "format": "time_series",
           "hide": false,
           "instant": false,
           "interval": "",
-          "legendFormat": "monitoring",
+          "legendFormat": "kepler",
           "refId": "A"
         },
         {

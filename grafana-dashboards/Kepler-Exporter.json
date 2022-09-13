@@ -599,8 +599,8 @@
       {
         "current": {
           "selected": false,
-          "text": "monitoring",
-          "value": "monitoring"
+          "text": "kepler",
+          "value": "kepler"
         },
         "datasource": null,
         "definition": "label_values(pod_curr_energy_in_pkg_millijoule, pod_namespace)",
