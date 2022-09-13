@@ -201,11 +201,11 @@ func getPathFromPID(pid uint64) (string, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, "pod") || strings.Contains(line, "crio") {
+		if strings.Contains(line, "pod") || strings.Contains(line, "containerd") || strings.Contains(line, "crio") {
 			return line, nil
 		}
 	}
-	return "", fmt.Errorf("could not find cgroup description file for pid %d", pid)
+	return "", fmt.Errorf("could not find cgroup description entry for pid %d", pid)
 }
 
 func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
