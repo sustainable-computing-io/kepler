@@ -1,10 +1,9 @@
-name: Makefile and Test
+name: Unit test
 
 on:
   pull_request:
   push:
-    branches:
-      - "*"
+    branches: [ main ]
 
 jobs:
   unit_test_without_bcc:
@@ -56,13 +55,3 @@ jobs:
           GOBIN: /home/runner/go/bin
     - name: Run 
       run: make test-verbose
-
-  gofmt_test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-go@main
-        with:
-          go-version: 1.18
-      - name: run gofmt test
-        run: ./automation/presubmit-tests/gofmt.sh
