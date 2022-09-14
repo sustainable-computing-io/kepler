@@ -23,7 +23,7 @@ _registry_port="5001"
 _registry_name="kind-registry"
 
 CONFIG_PATH="cluster-up/cluster"
-KIND_VERSION=${KIND_VERSION:-0.12.0}
+KIND_VERSION=${KIND_VERSION:-0.15.0}
 KIND_MANIFESTS_DIR="$CONFIG_PATH/${CLUSTER_PROVIDER}/manifests"
 CLUSTER_NAME=${KIND_CLUSTER_NAME:-kind}
 REGISTRY_NAME=${REGISTRY_NAME:-kind-registry}
