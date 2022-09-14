@@ -3,16 +3,16 @@ apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: operatorgroup
-  namespace: monitoring
+  namespace: kepler
 spec:
   targetNamespaces:
-  - monitoring
+  - kepler
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: grafana-operator
-  namespace: monitoring
+  namespace: kepler
 spec:
   channel: v4
   installPlanApproval: Automatic
