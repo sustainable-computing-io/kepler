@@ -60,7 +60,7 @@ type CoreModelServerCoeff struct {
 			CPUTime  NormalizedNumericalFeature `json:"cpu_time"`
 			CPUInstr NormalizedNumericalFeature `json:"cpu_instr"`
 		} `json:"Numerical_Variables"`
-	} `json:"Core_All_Weights"`
+	} `json:"All_Weights"`
 }
 
 type DramModelServerCoeff struct {
@@ -73,7 +73,7 @@ type DramModelServerCoeff struct {
 			CacheMisses    NormalizedNumericalFeature `json:"cache_misses"`
 			ResidentMemory NormalizedNumericalFeature `json:"container_memory_working_set_bytes"`
 		} `json:"Numerical_Variables"`
-	} `json:"Dram_All_Weights"`
+	} `json:"All_Weights"`
 }
 
 type LinearEnergyModelServerCoeff struct {
