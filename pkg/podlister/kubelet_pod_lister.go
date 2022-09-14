@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pod_lister
+package podlister
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -38,41 +39,39 @@ const (
 )
 
 var (
-	podUrl, metricsUrl string
+	podURL, metricsURL string
 
-	nodeCpuUsageMetricName       = "node_cpu_usage_seconds_total"
-	nodeMemUsageMetricName       = "node_memory_working_set_bytes"
-	containerCpuUsageMetricName  = "container_cpu_usage_seconds_total"
-	containerMemUsageMetricName  = "container_memory_working_set_bytes"
-	containerStartTimeMetricName = "container_start_time_seconds"
+	nodeCPUUsageMetricName      = "node_cpu_usage_seconds_total"
+	nodeMemUsageMetricName      = "node_memory_working_set_bytes"
+	containerCPUUsageMetricName = "container_cpu_usage_seconds_total"
+	containerMemUsageMetricName = "container_memory_working_set_bytes"
 
-	containerNameTag = "container"
-	podNameTag       = "pod"
-	namespaceTag     = "namespace"
+	podNameTag   = "pod"
+	namespaceTag = "namespace"
 )
 
 func init() {
 	nodeName := os.Getenv(nodeEnv)
-	if len(nodeName) == 0 {
+	if nodeName == "" {
 		nodeName = "localhost"
 	}
 	port := os.Getenv(kubeletPortEnv)
-	if len(port) == 0 {
+	if port == "" {
 		port = "10250"
 	}
-	podUrl = "https://" + nodeName + ":" + port + "/pods"
-	metricsUrl = "https://" + nodeName + ":" + port + "/metrics/resource"
+	podURL = "https://" + nodeName + ":" + port + "/pods"
+	metricsURL = "https://" + nodeName + ":" + port + "/metrics/resource"
 }
 
 func httpGet(url string) (*http.Response, error) {
-	objToken, err := ioutil.ReadFile(saPath)
+	objToken, err := os.ReadFile(saPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from %q: %v", saPath, err)
 	}
 	token := string(objToken)
 
 	var bearer = "Bearer " + token
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +87,12 @@ func httpGet(url string) (*http.Response, error) {
 
 // ListPods accesses Kubelet's metrics and obtain PodList
 func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
-	resp, err := httpGet(podUrl)
+	resp, err := httpGet(podURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get response: %v", err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
@@ -109,18 +108,16 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 }
 
 // ListMetrics accesses Kubelet's metrics and obtain pods and node metrics
-func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
-	resp, err := httpGet(metricsUrl)
+func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
+	resp, err := httpGet(metricsURL)
 	if err != nil {
-		retErr = fmt.Errorf("failed to get response: %v", err)
-		return
+		return nil, nil, 0, 0, fmt.Errorf("failed to get response: %v", err)
 	}
 	defer resp.Body.Close()
 	var parser expfmt.TextParser
 	mf, err := parser.TextToMetricFamilies(resp.Body)
 	if err != nil {
-		retErr = fmt.Errorf("failed to parse: %v", err)
-		return
+		return nil, nil, 0, 0, fmt.Errorf("failed to parse: %v", err)
 	}
 	containerCPU = make(map[string]float64)
 	containerMem = make(map[string]float64)
@@ -131,16 +128,16 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, conta
 			value := float64(0)
 			switch family.GetType() {
 			case dto.MetricType_COUNTER:
-				value = float64(v.GetCounter().GetValue())
+				value = v.GetCounter().GetValue()
 			case dto.MetricType_GAUGE:
-				value = float64(v.GetGauge().GetValue())
+				value = v.GetGauge().GetValue()
 			}
 			switch k {
-			case nodeCpuUsageMetricName:
+			case nodeCPUUsageMetricName:
 				nodeCPU = value
 			case nodeMemUsageMetricName:
 				nodeMem = value
-			case containerCpuUsageMetricName:
+			case containerCPUUsageMetricName:
 				namespace, pod := parseLabels(v.GetLabel())
 				containerCPU[namespace+"/"+pod] = value
 				totalContainerCPU += value
@@ -158,16 +155,16 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU map[string]float64, conta
 	systemContainerName := systemProcessNamespace + "/" + systemProcessName
 	containerCPU[systemContainerName] = systemContainerCPU
 	containerMem[systemContainerName] = systemContainerMem
-	return
+	return containerCPU, containerMem, nodeCPU, nodeMem, retErr
 }
 
-// GetAvailableMetrics returns containerCpuUsageMetricName and containerMemUsageMetricName if kubelet is connected
+// GetAvailableMetrics returns containerCPUUsageMetricName and containerMemUsageMetricName if kubelet is connected
 func (k *KubeletPodLister) GetAvailableMetrics() []string {
 	_, _, _, _, retErr := k.ListMetrics()
 	if retErr != nil {
 		return []string{}
 	}
-	return []string{containerCpuUsageMetricName, containerMemUsageMetricName}
+	return []string{containerCPUUsageMetricName, containerMemUsageMetricName}
 }
 
 func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {

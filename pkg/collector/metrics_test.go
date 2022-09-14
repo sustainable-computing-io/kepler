@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -13,7 +14,8 @@ func clearPlatformDependentAvailability() {
 	availableCgroupMetrics = []string{}
 	availableKubeletMetrics = []string{}
 	uintFeatures = getUIntFeatures()
-	features = append(FLOAT_FEATURES, uintFeatures...)
+	features = []string{}
+	features = append(features, uintFeatures...)
 }
 
 var _ = Describe("Test Metric Unit", func() {
@@ -63,11 +65,11 @@ var _ = Describe("Test Metric Unit", func() {
 			Aggr: 10,
 		}
 		v.CgroupFSStats = map[string]*UInt64StatCollection{
-			CPU_USAGE_TOTAL_KEY: &UInt64StatCollection{
+			CPUUsageTotalKey: {
 				Stat: map[string]*UInt64Stat{
-					"cA": &UInt64Stat{
-						Curr: SAMPLE_CURR,
-						Aggr: SAMPLE_AGGR,
+					"cA": {
+						Curr: SampleCurr,
+						Aggr: SampleAggr,
 					},
 				},
 			},

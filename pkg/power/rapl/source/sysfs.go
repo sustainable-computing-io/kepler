@@ -18,8 +18,8 @@ package source
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -66,24 +66,25 @@ func getEnergy(event string) (uint64, error) {
 
 func readEventEnergy(eventName string) map[string]uint64 {
 	energy := map[string]uint64{}
-	for pkId, subTree := range eventPaths {
+	for pkID, subTree := range eventPaths {
 		for event, path := range subTree {
-			if strings.Index(event, eventName) == 0 {
-				var e uint64
-				var err error
-				var data []byte
-
-				if data, err = ioutil.ReadFile(path + energyFile); err != nil {
-					log.Println(err)
-					continue
-				}
-				if e, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err != nil {
-					log.Println(err)
-					continue
-				}
-				e /= 1000 /*mJ*/
-				energy[pkId] = e
+			if strings.Index(event, eventName) != 0 {
+				continue
 			}
+			var e uint64
+			var err error
+			var data []byte
+
+			if data, err = os.ReadFile(path + energyFile); err != nil {
+				log.Println(err)
+				continue
+			}
+			if e, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err != nil {
+				log.Println(err)
+				continue
+			}
+			e /= 1000 /*mJ*/
+			energy[pkID] = e
 		}
 	}
 	return energy
@@ -93,7 +94,7 @@ type PowerSysfs struct{}
 
 func (r *PowerSysfs) IsSupported() bool {
 	path := fmt.Sprintf(packageNamePathTemplate, 0)
-	_, err := ioutil.ReadFile(path + energyFile)
+	_, err := os.ReadFile(path + energyFile)
 	return err == nil
 }
 
@@ -121,11 +122,11 @@ func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
 	dramEnergies := readEventEnergy(dramEvent)
 	uncoreEnergies := readEventEnergy(uncoreEvent)
 
-	for pkgId, pkgEnergy := range pkgEnergies {
-		coreEnergy, _ := coreEnergies[pkgId]
-		dramEnergy, _ := dramEnergies[pkgId]
-		uncoreEnergy, _ := uncoreEnergies[pkgId]
-		splits := strings.Split(pkgId, "-")
+	for pkgID, pkgEnergy := range pkgEnergies {
+		coreEnergy := coreEnergies[pkgID]
+		dramEnergy := dramEnergies[pkgID]
+		uncoreEnergy := uncoreEnergies[pkgID]
+		splits := strings.Split(pkgID, "-")
 		i, _ := strconv.Atoi(splits[len(splits)-1])
 		packageEnergies[i] = PackageEnergy{
 			Core:   coreEnergy,

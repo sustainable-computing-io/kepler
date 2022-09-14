@@ -19,14 +19,13 @@ package cgroup
 import (
 	"bufio"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-func SearchByContainerID(topFolder string, containerID string) string {
+func SearchByContainerID(topFolder, containerID string) string {
 	found := filepath.Walk(topFolder,
 		func(path string, info os.FileInfo, err error) error {
 			if path == topFolder {
@@ -45,7 +44,7 @@ func SearchByContainerID(topFolder string, containerID string) string {
 
 func ReadUInt64(path, name string) (uint64, error) {
 	fileName := filepath.Join(path, name)
-	value, err := ioutil.ReadFile(fileName)
+	value, err := os.ReadFile(fileName)
 	if err != nil {
 		return 0, err
 	}
@@ -64,8 +63,7 @@ func ReadKV(path, name string) (map[string]interface{}, error) {
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		fields := strings.Fields(sc.Text())
-		switch len(fields) {
-		case 2:
+		if len(fields) == 2 {
 			v, err := strconv.ParseUint(fields[1], 10, 64)
 			if err == nil {
 				values[fields[0]] = v

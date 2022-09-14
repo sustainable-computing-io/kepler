@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	CGROUP_ID_MIN_KERNEL_VERSION = 4.18
+	cGroupIDMinKernelVersion = 4.18
 
 	// If this file is present, cgroups v2 is enabled on that node.
 	cGroupV2Path = "/sys/fs/cgroup/cgroup.controllers"
@@ -47,7 +47,7 @@ var (
 func EnableEBPFCgroupID(enabled bool) {
 	fmt.Println("config EnabledEBPFCgroupID enabled: ", enabled)
 	fmt.Println("config getKernelVersion: ", getKernelVersion())
-	if (enabled == true) && (getKernelVersion() >= CGROUP_ID_MIN_KERNEL_VERSION) && (isCGroupV2()) {
+	if (enabled) && (getKernelVersion() >= cGroupIDMinKernelVersion) && (isCGroupV2()) {
 		EnabledEBPFCgroupID = true
 	}
 	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
@@ -61,7 +61,9 @@ func getKernelVersion() float32 {
 	data, err := json.MarshalIndent(&si, "", "  ")
 	if err == nil {
 		var result map[string]map[string]string
-		json.Unmarshal([]byte(data), &result)
+		if err = json.Unmarshal(data, &result); err != nil {
+			return -1
+		}
 
 		if release, ok := result["kernel"]["release"]; ok {
 			val, err := strconv.ParseFloat(release[:4], 32)
@@ -75,10 +77,7 @@ func getKernelVersion() float32 {
 
 func isCGroupV2() bool {
 	_, err := os.Stat(cGroupV2Path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
+	return !os.IsNotExist(err)
 }
 
 // Get cgroup version, return 1 or 2
@@ -90,7 +89,7 @@ func GetCGroupVersion() int {
 	}
 }
 
-func SetEstimatorConfig(modelName string, selectFilter string) {
+func SetEstimatorConfig(modelName, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter
 }
