@@ -94,7 +94,7 @@ type LinearEnergyModelServerCoeff struct {
 }
 
 var (
-	//obtained the coeff via regression
+	// obtained the coeff via regression
 	BareMetalCoeff = Coeff{
 		CPUTime:       0.0,
 		CPUCycle:      0.0000005268224465,
@@ -127,7 +127,6 @@ func SetVMCoeff() {
 func SetBMCoeff() {
 	// use the default one if no model found
 	RunTimeCoeff = BareMetalCoeff
-
 	arch, err := source.GetCPUArchitecture()
 	if err == nil {
 		cpuArch := arch
@@ -154,7 +153,6 @@ func SetBMCoeff() {
 
 func SetRuntimeCoeff(coeff Coeff) {
 	RunTimeCoeff = coeff
-
 }
 
 func SetModelServerEndpoint(ep string) {
@@ -162,46 +160,41 @@ func SetModelServerEndpoint(ep string) {
 }
 
 func getRequest(endpoint string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", endpoint, nil)
+	req, err := http.NewRequest("GET", endpoint, http.NoBody)
 	if err != nil {
-		return nil, errors.New("Could not create request for Model Server Endpoint: " + endpoint)
+		return nil, errors.New("could not create request for Model Server Endpoint:" + endpoint)
 	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, errors.New("GET request for Model Server Endpoint failed: " + endpoint)
+		return nil, errors.New("request for Model Server Endpoint failed:" + endpoint)
 	}
 	return res, nil
-
 }
 
 func GetCoeffFromModelServer() (*LinearEnergyModelServerCoeff, error) {
-	if len(modelServerEndpoint) == 0 {
+	if modelServerEndpoint == "" {
 		return nil, nil
 	}
-
-	core_res, core_err := getRequest(modelServerEndpoint + "/model-weights/")
-	dram_res, dram_err := getRequest(modelServerEndpoint + "/model-weights/dram_model")
-
-	if core_err != nil {
-		return nil, core_err
+	coreRes, coreErr := getRequest(modelServerEndpoint + "/model-weights/")
+	dramRes, dramErr := getRequest(modelServerEndpoint + "/model-weights/dram_model")
+	if coreErr != nil {
+		return nil, coreErr
 	}
-	if dram_err != nil {
-		return nil, dram_err
+	if dramErr != nil {
+		return nil, dramErr
 	}
-
 	var coreModelServerCoeff CoreModelServerCoeff
 	var dramModelServerCoeff DramModelServerCoeff
-	coreBodyError := json.NewDecoder(core_res.Body).Decode(&coreModelServerCoeff)
-	dramBodyError := json.NewDecoder(dram_res.Body).Decode(&dramModelServerCoeff)
-	defer core_res.Body.Close()
-	defer dram_res.Body.Close()
+	coreBodyError := json.NewDecoder(coreRes.Body).Decode(&coreModelServerCoeff)
+	dramBodyError := json.NewDecoder(dramRes.Body).Decode(&dramModelServerCoeff)
+	defer coreRes.Body.Close()
+	defer dramRes.Body.Close()
 	if coreBodyError != nil || dramBodyError != nil {
-		return nil, errors.New("Failed to parse response body")
+		return nil, errors.New("failed to parse response body")
 	}
 	energyModelServerCoeff := LinearEnergyModelServerCoeff{coreModelServerCoeff, dramModelServerCoeff}
 	return &energyModelServerCoeff, nil
-
 }
 
 // Retrieve corresponding coefficient given Categorical Feature name
@@ -212,13 +205,14 @@ func retrieveCoeffForCategoricalVariable(categoricalPrediction string, allCatego
 			return architecture.Weight, nil
 		}
 	}
-	return -1, errors.New("Architecture feature does not exist.")
+	return -1, errors.New("architecture feature does not exist.")
 }
 
-// Using Direct Access instead of Dynamic lookup to retrieve Numerical Weights. Direct access is more efficient and easier
-// to implement, but it makes the code less flexible if more fields need to be added to DramModelServerCoeff or
-// CoreModelServerCoeff.
-
+/*
+ Using Direct Access instead of Dynamic lookup to retrieve Numerical Weights. Direct access is more efficient and easier
+ to implement, but it makes the code less flexible if more fields need to be added to DramModelServerCoeff or
+ CoreModelServerCoeff.
+*/
 func predictLinearDramEnergyConsumption(prediction *EnergyPrediction, dramModelServerCoeff *DramModelServerCoeff) (float64, error) {
 	var energyPrediction float64 = 0
 	dramCPUArchitectureWeights := dramModelServerCoeff.AllWeights.CategoricalVariables.CPUArchitecture
@@ -235,7 +229,6 @@ func predictLinearDramEnergyConsumption(prediction *EnergyPrediction, dramModelS
 	energyPrediction += numericalWeights.CacheMisses.Weight * normalizedCacheMissPredict
 	normalizedResidentMemoryPredict := (prediction.ResidentMemory - numericalWeights.ResidentMemory.Mean) / math.Sqrt(numericalWeights.ResidentMemory.Variance)
 	energyPrediction += numericalWeights.ResidentMemory.Weight * normalizedResidentMemoryPredict
-
 	return energyPrediction, nil
 }
 
@@ -257,6 +250,5 @@ func predictLinearCoreEnergyConsumption(prediction *EnergyPrediction, coreModelS
 	energyPrediction += numericalWeights.CPUCycle.Weight * normalizedCPUCyclePredict
 	normalizedCPUInstrPredict := (prediction.CPUInstr - numericalWeights.CPUInstr.Mean) / math.Sqrt(numericalWeights.CPUInstr.Variance)
 	energyPrediction += numericalWeights.CPUInstr.Weight * normalizedCPUInstrPredict
-
 	return energyPrediction, nil
 }
