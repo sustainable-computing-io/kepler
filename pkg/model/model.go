@@ -38,6 +38,49 @@ type Coeff struct {
 	InterceptDram float64 `csv:"intercept_dram"`
 }
 
+type CategoricalFeature struct {
+	Name   string  `json:"name"`
+	Weight float64 `json:"weight"`
+}
+
+type NormalizedNumericalFeature struct {
+	Mean     float64 `json:"mean"`
+	Variance float64 `json:"variance"`
+	Weight   float64 `json:"weight"`
+}
+
+type CoreModelServerCoeff struct {
+	AllCoreWeights struct {
+		BiasWeight           float64 `json:"Bias_Weight"`
+		CategoricalVariables struct {
+			CPUArchitecture []CategoricalFeature `json:"cpu_architecture"`
+		} `json:"Categorical_Variables"`
+		NumericalVariables struct {
+			CPUCycle NormalizedNumericalFeature `json:"cpu_cycles"`
+			CPUTime  NormalizedNumericalFeature `json:"cpu_time"`
+			CPUInstr NormalizedNumericalFeature `json:"cpu_instr"`
+		} `json:"Numerical_Variables"`
+	} `json:"All_Weights"`
+}
+
+type DramModelServerCoeff struct {
+	AllDramWeights struct {
+		BiasWeight           float64 `json:"Bias_Weight"`
+		CategoricalVariables struct {
+			CPUArchitecture []CategoricalFeature `json:"cpu_architecture"`
+		} `json:"Categorical_Variables"`
+		NumericalVariables struct {
+			CacheMisses    NormalizedNumericalFeature `json:"cache_misses"`
+			ResidentMemory NormalizedNumericalFeature `json:"container_memory_working_set_bytes"`
+		} `json:"Numerical_Variables"`
+	} `json:"All_Weights"`
+}
+
+type LinearEnergyModelServerCoeff struct {
+	CoreModelServerCoeff
+	DramModelServerCoeff
+}
+
 var (
 	// obtained the coeff via regression
 	BareMetalCoeff = Coeff{
