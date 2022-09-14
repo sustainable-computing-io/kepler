@@ -32,6 +32,16 @@ const (
 	cGroupV2Path = "/sys/fs/cgroup/cgroup.controllers"
 )
 
+type Client interface {
+	getSysInfo() ([]byte, error)
+	getCgroupV2File() string
+}
+
+type config struct {
+}
+
+var c config
+
 var (
 	EnabledEBPFCgroupID = false
 
@@ -46,19 +56,27 @@ var (
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func EnableEBPFCgroupID(enabled bool) {
 	fmt.Println("config EnabledEBPFCgroupID enabled: ", enabled)
-	fmt.Println("config getKernelVersion: ", getKernelVersion())
-	if (enabled) && (getKernelVersion() >= cGroupIDMinKernelVersion) && (isCGroupV2()) {
+	fmt.Println("config getKernelVersion: ", getKernelVersion(c))
+	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	}
 	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
-func getKernelVersion() float32 {
+func (c config) getSysInfo() ([]byte, error) {
 	var si sysinfo.SysInfo
 
 	si.GetSysInfo()
+	return json.MarshalIndent(&si, "", "  ")
+}
 
-	data, err := json.MarshalIndent(&si, "", "  ")
+func (c config) getCgroupV2File() string {
+	return cGroupV2Path
+}
+
+func getKernelVersion(c Client) float32 {
+	data, err := c.getSysInfo()
+
 	if err == nil {
 		var result map[string]map[string]string
 		if err = json.Unmarshal(data, &result); err != nil {
@@ -75,14 +93,14 @@ func getKernelVersion() float32 {
 	return -1
 }
 
-func isCGroupV2() bool {
-	_, err := os.Stat(cGroupV2Path)
+func isCGroupV2(c Client) bool {
+	_, err := os.Stat(c.getCgroupV2File())
 	return !os.IsNotExist(err)
 }
 
 // Get cgroup version, return 1 or 2
 func GetCGroupVersion() int {
-	if isCGroupV2() {
+	if isCGroupV2(c) {
 		return 2
 	} else {
 		return 1
