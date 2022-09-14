@@ -21,7 +21,7 @@ set -e
 
 echo "Checking go format"
 sources="pkg/ cmd/"
-unformatted=$(gofmt -l $sources)
+unformatted=$(gofmt -e -d -s -l $sources)
 if [ ! -z "$unformatted" ]; then
     # Some files are not gofmt.
     echo >&2 "The following Go files must be formatted with gofmt:"

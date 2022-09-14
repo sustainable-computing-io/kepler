@@ -134,7 +134,7 @@ test-verbose: ginkgo-set tidy-vendor
 	@go test $(GO_BUILD_FLAGS) -v ./... --race --bench=. -cover --count=1 --vet=all
 
 format:
-	gofmt -l -w pkg/ cmd/
+	gofmt -e -d -s -l -w pkg/ cmd/
 
 golint:
 	./hack/golint.sh
