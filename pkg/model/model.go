@@ -18,13 +18,16 @@ package model
 
 import (
 	"encoding/csv"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"math"
+	"net/http"
 	"os"
 
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
-
 	"github.com/jszwec/csvutil"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 type Coeff struct {
@@ -38,8 +41,60 @@ type Coeff struct {
 	InterceptDram float64 `csv:"intercept_dram"`
 }
 
+type EnergyPrediction struct {
+	Architecture   string
+	CPUTime        float64
+	CPUCycle       float64
+	CPUInstr       float64
+	ResidentMemory float64
+	CacheMisses    float64
+}
+
+type CategoricalFeature struct {
+	Name   string  `json:"name"`
+	Weight float64 `json:"weight"`
+}
+
+type NormalizedNumericalFeature struct {
+	Mean     float64 `json:"mean"`
+	Variance float64 `json:"variance"`
+	Weight   float64 `json:"weight"`
+}
+
+type CoreModelServerCoeff struct {
+	AllWeights struct {
+		BiasWeight           float64 `json:"Bias_Weight"`
+		CategoricalVariables struct {
+			CPUArchitecture []CategoricalFeature `json:"cpu_architecture"`
+		} `json:"Categorical_Variables"`
+		NumericalVariables struct {
+			CPUCycle NormalizedNumericalFeature `json:"cpu_cycles"`
+			CPUTime  NormalizedNumericalFeature `json:"cpu_time"`
+			CPUInstr NormalizedNumericalFeature `json:"cpu_instr"`
+		} `json:"Numerical_Variables"`
+	} `json:"All_Weights"`
+}
+
+type DramModelServerCoeff struct {
+	AllWeights struct {
+		BiasWeight           float64 `json:"Bias_Weight"`
+		CategoricalVariables struct {
+			CPUArchitecture []CategoricalFeature `json:"cpu_architecture"`
+		} `json:"Categorical_Variables"`
+		NumericalVariables struct {
+			CacheMisses    NormalizedNumericalFeature `json:"cache_misses"`
+			ResidentMemory NormalizedNumericalFeature `json:"container_memory_working_set_bytes"`
+		} `json:"Numerical_Variables"`
+	} `json:"All_Weights"`
+}
+
+type LinearEnergyModelServerCoeff struct {
+	CoreModelServerCoeff
+	DramModelServerCoeff
+}
+
 var (
-	// obtained the coeff via regression
+	//obtained the coeff via regression
 	BareMetalCoeff = Coeff{
 		CPUTime:       0.0,
 		CPUCycle:      0.0000005268224465,
@@ -99,37 +154,109 @@ func SetBMCoeff() {
 
 func SetRuntimeCoeff(coeff Coeff) {
 	RunTimeCoeff = coeff
+
 }
 
 func SetModelServerEndpoint(ep string) {
 	modelServerEndpoint = ep
 }
 
-/*
-func GetCoeffFromModelServer() (*Coeff, error) {
-	if len(modelServerEndpoint) == 0 {
-		return &RunTimeCoeff, nil
-	}
-	req, _ := http.NewRequest("GET", modelServerEndpoint, nil)
-
-	client := &http.Client{}
-	res, err := client.Do(req)
+func getRequest(endpoint string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		fmt.Printf("failed to connect to %s: %v\n", modelServerEndpoint, err)
-		return nil, err
+		return nil, errors.New("Could not create request for Model Server Endpoint: " + endpoint)
 	}
 
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+		return nil, errors.New("GET request for Model Server Endpoint failed: " + endpoint)
 	}
-	coeff := Coeff{}
-	err = json.Unmarshal(body, &coeff)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse response body: %v", err)
-	}
+	return res, nil
 
-	return &coeff, nil
 }
-*/
+
+func GetCoeffFromModelServer() (*LinearEnergyModelServerCoeff, error) {
+	if len(modelServerEndpoint) == 0 {
+		return nil, nil
+	}
+
+	core_res, core_err := getRequest(modelServerEndpoint + "/model-weights/")
+	dram_res, dram_err := getRequest(modelServerEndpoint + "/model-weights/dram_model")
+
+	if core_err != nil {
+		return nil, core_err
+	}
+	if dram_err != nil {
+		return nil, dram_err
+	}
+
+	var coreModelServerCoeff CoreModelServerCoeff
+	var dramModelServerCoeff DramModelServerCoeff
+	coreBodyError := json.NewDecoder(core_res.Body).Decode(&coreModelServerCoeff)
+	dramBodyError := json.NewDecoder(dram_res.Body).Decode(&dramModelServerCoeff)
+	defer core_res.Body.Close()
+	defer dram_res.Body.Close()
+	if coreBodyError != nil || dramBodyError != nil {
+		return nil, errors.New("Failed to parse response body")
+	}
+	energyModelServerCoeff := LinearEnergyModelServerCoeff{coreModelServerCoeff, dramModelServerCoeff}
+	return &energyModelServerCoeff, nil
+
+}
+
+// Retrieve corresponding coefficient given Categorical Feature name
+
+func retrieveCoeffForCategoricalVariable(categoricalPrediction string, allCategoricalFeatures []CategoricalFeature) (float64, error) {
+	for _, architecture := range allCategoricalFeatures {
+		if architecture.Name == categoricalPrediction {
+			return architecture.Weight, nil
+		}
+	}
+	return -1, errors.New("Architecture feature does not exist.")
+}
+
+// Using Direct Access instead of Dynamic lookup to retrieve Numerical Weights. Direct access is more efficient and easier
+// to implement, but it makes the code less flexible if more fields need to be added to DramModelServerCoeff or
+// CoreModelServerCoeff.
+
+func predictLinearDramEnergyConsumption(prediction *EnergyPrediction, dramModelServerCoeff *DramModelServerCoeff) (float64, error) {
+	var energyPrediction float64 = 0
+	dramCPUArchitectureWeights := dramModelServerCoeff.AllWeights.CategoricalVariables.CPUArchitecture
+	numericalWeights := dramModelServerCoeff.AllWeights.NumericalVariables
+	biasWeight := dramModelServerCoeff.AllWeights.BiasWeight
+	energyPrediction += biasWeight
+	weightRes, err := retrieveCoeffForCategoricalVariable(prediction.Architecture, dramCPUArchitectureWeights)
+	if err != nil {
+		return -1, err
+	}
+	energyPrediction += weightRes
+	// Normalize each Numerical Feature's prediction given Keras calculated Mean and Variance.
+	normalizedCacheMissPredict := (prediction.CacheMisses - numericalWeights.CacheMisses.Mean) / math.Sqrt(numericalWeights.CacheMisses.Variance)
+	energyPrediction += numericalWeights.CacheMisses.Weight * normalizedCacheMissPredict
+	normalizedResidentMemoryPredict := (prediction.ResidentMemory - numericalWeights.ResidentMemory.Mean) / math.Sqrt(numericalWeights.ResidentMemory.Variance)
+	energyPrediction += numericalWeights.ResidentMemory.Weight * normalizedResidentMemoryPredict
+
+	return energyPrediction, nil
+}
+
+func predictLinearCoreEnergyConsumption(prediction *EnergyPrediction, coreModelServerCoeff *CoreModelServerCoeff) (float64, error) {
+	var energyPrediction float64 = 0
+	coreCPUArchitectureWeights := coreModelServerCoeff.AllWeights.CategoricalVariables.CPUArchitecture
+	numericalWeights := coreModelServerCoeff.AllWeights.NumericalVariables
+	biasWeight := coreModelServerCoeff.AllWeights.BiasWeight
+	energyPrediction += biasWeight
+	weightRes, err := retrieveCoeffForCategoricalVariable(prediction.Architecture, coreCPUArchitectureWeights)
+	if err != nil {
+		return -1, err
+	}
+	energyPrediction += weightRes
+	// Normalize each Numerical Feature's prediction given Keras calculated Mean and Variance.
+	normalizedCPUTimePredict := (prediction.CPUTime - numericalWeights.CPUTime.Mean) / math.Sqrt(numericalWeights.CPUTime.Variance)
+	energyPrediction += numericalWeights.CPUTime.Weight * normalizedCPUTimePredict
+	normalizedCPUCyclePredict := (prediction.CPUCycle - numericalWeights.CPUCycle.Mean) / math.Sqrt(numericalWeights.CPUCycle.Variance)
+	energyPrediction += numericalWeights.CPUCycle.Weight * normalizedCPUCyclePredict
+	normalizedCPUInstrPredict := (prediction.CPUInstr - numericalWeights.CPUInstr.Mean) / math.Sqrt(numericalWeights.CPUInstr.Variance)
+	energyPrediction += numericalWeights.CPUInstr.Weight * normalizedCPUInstrPredict
+
+	return energyPrediction, nil
+}
