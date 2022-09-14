@@ -38,6 +38,15 @@ type Coeff struct {
 	InterceptDram float64 `csv:"intercept_dram"`
 }
 
+type EnergyPrediction struct {
+	Architecture   string
+	CPUTime        float64
+	CPUCycle       float64
+	CPUInstr       float64
+	ResidentMemory float64
+	CacheMisses    float64
+}
+
 type CategoricalFeature struct {
 	Name   string  `json:"name"`
 	Weight float64 `json:"weight"`
@@ -60,7 +69,7 @@ type CoreModelServerCoeff struct {
 			CPUTime  NormalizedNumericalFeature `json:"cpu_time"`
 			CPUInstr NormalizedNumericalFeature `json:"cpu_instr"`
 		} `json:"Numerical_Variables"`
-	} `json:"All_Weights"`
+	} `json:"core_All_Weights"`
 }
 
 type DramModelServerCoeff struct {
@@ -73,7 +82,7 @@ type DramModelServerCoeff struct {
 			CacheMisses    NormalizedNumericalFeature `json:"cache_misses"`
 			ResidentMemory NormalizedNumericalFeature `json:"container_memory_working_set_bytes"`
 		} `json:"Numerical_Variables"`
-	} `json:"All_Weights"`
+	} `json:"dram_All_Weights"`
 }
 
 type LinearEnergyModelServerCoeff struct {
@@ -147,32 +156,3 @@ func SetRuntimeCoeff(coeff Coeff) {
 func SetModelServerEndpoint(ep string) {
 	modelServerEndpoint = ep
 }
-
-/*
-func GetCoeffFromModelServer() (*Coeff, error) {
-	if len(modelServerEndpoint) == 0 {
-		return &RunTimeCoeff, nil
-	}
-	req, _ := http.NewRequest("GET", modelServerEndpoint, nil)
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("failed to connect to %s: %v\n", modelServerEndpoint, err)
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
-	}
-	coeff := Coeff{}
-	err = json.Unmarshal(body, &coeff)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse response body: %v", err)
-	}
-
-	return &coeff, nil
-}
-*/
