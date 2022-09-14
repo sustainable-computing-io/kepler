@@ -162,12 +162,12 @@ func SetModelServerEndpoint(ep string) {
 func getRequest(endpoint string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", endpoint, http.NoBody)
 	if err != nil {
-		return nil, errors.New("could not create request for Model Server Endpoint:" + endpoint)
+		return nil, errors.New("could not create request for Model Server Endpoint " + endpoint)
 	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, errors.New("request for Model Server Endpoint failed:" + endpoint)
+		return nil, errors.New("request for Model Server Endpoint failed " + endpoint)
 	}
 	return res, nil
 }
@@ -205,14 +205,13 @@ func retrieveCoeffForCategoricalVariable(categoricalPrediction string, allCatego
 			return architecture.Weight, nil
 		}
 	}
-	return -1, errors.New("architecture feature does not exist.")
+	return -1, errors.New("architecture feature does not exist")
 }
 
-/*
- Using Direct Access instead of Dynamic lookup to retrieve Numerical Weights. Direct access is more efficient and easier
- to implement, but it makes the code less flexible if more fields need to be added to DramModelServerCoeff or
- CoreModelServerCoeff.
-*/
+// Using Direct Access instead of Dynamic lookup to retrieve Numerical Weights. Direct access is more efficient and easier
+// to implement, but it makes the code less flexible if more fields need to be added to DramModelServerCoeff or
+// CoreModelServerCoeff.
+
 func predictLinearDramEnergyConsumption(prediction *EnergyPrediction, dramModelServerCoeff *DramModelServerCoeff) (float64, error) {
 	var energyPrediction float64 = 0
 	dramCPUArchitectureWeights := dramModelServerCoeff.AllWeights.CategoricalVariables.CPUArchitecture
