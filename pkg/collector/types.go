@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -60,7 +61,9 @@ func (s *UInt64StatCollection) AddStat(key string, newAggr uint64) {
 	if _, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{}
 	}
-	s.Stat[key].SetNewAggr(newAggr)
+	if err := s.Stat[key].SetNewAggr(newAggr); err != nil {
+		log.Println(err)
+	}
 }
 
 func (s *UInt64StatCollection) Curr() uint64 {

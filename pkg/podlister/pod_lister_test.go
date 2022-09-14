@@ -1,4 +1,4 @@
-package pod_lister
+package podlister
 
 import (
 	"os"
@@ -9,27 +9,27 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const rhel_containerd = `
+const rhelContainerd = `
 13:memory:/system.slice/containerd.service/kubepods-besteffort-pod0043435f_1854_4327_b76b_730f681a781d.slice:cri-containerd:01fd96f7ad292b02a8317cde4ecb8c7ef3cc06ffdd113f13410e0837eb2b2a20`
 
-const rhel_containerd_expected = `13:memory:/system.slice/containerd.service/kubepods-besteffort-pod0043435f_1854_4327_b76b_730f681a781d.slice:cri-containerd:01fd96f7ad292b02a8317cde4ecb8c7ef3cc06ffdd113f13410e0837eb2b2a20`
+const rhelContainerdExpected = `13:memory:/system.slice/containerd.service/kubepods-besteffort-pod0043435f_1854_4327_b76b_730f681a781d.slice:cri-containerd:01fd96f7ad292b02a8317cde4ecb8c7ef3cc06ffdd113f13410e0837eb2b2a20`
 
-const rhel_docker = `
+const rhelDocker = `
 11:blkio:/system.slice/docker-c27755f0fa91e81ababc85ef05cb227227a4228da2e5cb2f4999299c89d4ac69.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-podd8992f589d8dd12c4342376ccb459375.slice/cri-containerd-ecbcea5cd29afb25ba519715e827cda9e66cd0a914207f49ce0a292a6aa84d66.scope
 1:name=systemd:/system.slice/docker-c27755f0fa91e81ababc85ef05cb227227a4228da2e5cb2f4999299c89d4ac69.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-podd8992f589d8dd12c4342376ccb459375.slice/cri-containerd-ecbcea5cd29afb25ba519715e827cda9e66cd0a914207f49ce0a292a6aa84d66.scope`
 
-const rhel_docker_expected = `11:blkio:/system.slice/docker-c27755f0fa91e81ababc85ef05cb227227a4228da2e5cb2f4999299c89d4ac69.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-podd8992f589d8dd12c4342376ccb459375.slice/cri-containerd-ecbcea5cd29afb25ba519715e827cda9e66cd0a914207f49ce0a292a6aa84d66.scope`
+const rhelDockerExpected = `11:blkio:/system.slice/docker-c27755f0fa91e81ababc85ef05cb227227a4228da2e5cb2f4999299c89d4ac69.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-podd8992f589d8dd12c4342376ccb459375.slice/cri-containerd-ecbcea5cd29afb25ba519715e827cda9e66cd0a914207f49ce0a292a6aa84d66.scope`
 
-const ubuntu_containerd = `
+const ubuntuContainerd = `
 0::/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-pod36f20d9d_cbc1_4ebd_b111_536eaa6a332e.slice/cri-containerd-db90aabe3ba00bab92a9bd3f0b4a9face4601651c91d28c02a953a8c81ce2cc4.scope
 `
 
-const ubuntu_containerd_expected = `0::/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-pod36f20d9d_cbc1_4ebd_b111_536eaa6a332e.slice/cri-containerd-db90aabe3ba00bab92a9bd3f0b4a9face4601651c91d28c02a953a8c81ce2cc4.scope`
+const ubuntuContainerdExpected = `0::/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-pod36f20d9d_cbc1_4ebd_b111_536eaa6a332e.slice/cri-containerd-db90aabe3ba00bab92a9bd3f0b4a9face4601651c91d28c02a953a8c81ce2cc4.scope`
 
-const ubuntu_docker = `
+const ubuntuDocker = `
 11:blkio:/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod481c0ae9_7d40_46dd_b6ca_ba27cb64f87e.slice/docker-28a5e57257f81fcd6d592647dde27e06b53944d58af4fa546ad77a12ce8b41c2.scope`
 
-const ubuntu_docker_expected = `11:blkio:/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod481c0ae9_7d40_46dd_b6ca_ba27cb64f87e.slice/docker-28a5e57257f81fcd6d592647dde27e06b53944d58af4fa546ad77a12ce8b41c2.scope`
+const ubuntuDockerExpected = `11:blkio:/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod481c0ae9_7d40_46dd_b6ca_ba27cb64f87e.slice/docker-28a5e57257f81fcd6d592647dde27e06b53944d58af4fa546ad77a12ce8b41c2.scope`
 
 func createTempFile(contents string) (filename string, reterr error) {
 	f, err := os.CreateTemp("", "")
@@ -56,23 +56,23 @@ func TestParseClusterYaml(t *testing.T) {
 	}{
 		{
 			name:        "test rhel containerd",
-			contents:    rhel_containerd,
-			expectedRet: rhel_containerd_expected,
+			contents:    rhelContainerd,
+			expectedRet: rhelContainerdExpected,
 		},
 		{
 			name:        "test ubuntu containerd",
-			contents:    ubuntu_containerd,
-			expectedRet: ubuntu_containerd_expected,
+			contents:    ubuntuContainerd,
+			expectedRet: ubuntuContainerdExpected,
 		},
 		{
 			name:        "test rhel docker",
-			contents:    rhel_docker,
-			expectedRet: rhel_docker_expected,
+			contents:    rhelDocker,
+			expectedRet: rhelDockerExpected,
 		},
 		{
 			name:        "test ubuntu docker",
-			contents:    ubuntu_docker,
-			expectedRet: ubuntu_docker_expected,
+			contents:    ubuntuDocker,
+			expectedRet: ubuntuDockerExpected,
 		},
 	}
 	for _, testcase := range testcases {

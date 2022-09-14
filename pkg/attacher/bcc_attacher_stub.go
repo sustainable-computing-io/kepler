@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	CPU_CYCLE_LABEL       = "cpu_cycles"
-	CPU_INSTRUCTION_LABEL = "cpu_instr"
-	CACHE_MISS_LABEL      = "cache_miss"
+	CPUCycleLable       = "cpu_cycles"
+	CPUInstructionLable = "cpu_instr"
+	CacheMissLabel      = "cache_miss"
 )
 
 type perfCounter struct{}
@@ -52,7 +52,6 @@ func (it *TableIterator) Leaf() []byte {
 }
 
 func (table *Table) DeleteAll() {
-	return
 }
 
 type BpfModuleTables struct {

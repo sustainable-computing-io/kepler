@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pod_lister
+package podlister
 
 import (
 	"bufio"
@@ -30,24 +30,23 @@ import (
 
 const (
 	ioStatFile = "io.stat"
-	reIOStat   = "([0-9]+):([0-9]+).rbytes=([0-9]+).wbytes=([0-9]+)" // 8:16 rbytes=58032128 wbytes=0 rios=120 wios=0 dbytes=0 dios=0
+	reIOStat   = `(\d+):(\d+).rbytes=(\d+).wbytes=(\d+)` // 8:16 rbytes=58032128 wbytes=0 rios=120 wios=0 dbytes=0 dios=0
 )
 
 var (
 	reIO = regexp.MustCompile(reIOStat)
 )
 
-func ReadAllCgroupIOStat() (uint64, uint64, int, error) {
+func ReadAllCgroupIOStat() (rBytes, wBytes uint64, disks int, err error) {
 	return readIOStat(cgroupPath)
 }
 
-func ReadCgroupIOStat(cGroupID uint64, PID uint64) (uint64, uint64, int, error) {
-	var err error
+func ReadCgroupIOStat(cGroupID, pid uint64) (rBytes, wBytes uint64, disks int, err error) {
 	var path string
 	if config.EnabledEBPFCgroupID {
 		path, err = getPathFromcGroupID(cGroupID)
 	} else {
-		path, err = getPathFromPID(procPath, PID)
+		path, err = getPathFromPID(procPath, pid)
 	}
 
 	if err != nil {
@@ -59,10 +58,10 @@ func ReadCgroupIOStat(cGroupID uint64, PID uint64) (uint64, uint64, int, error) 
 	return 0, 0, 0, fmt.Errorf("no cgroup path found")
 }
 
-func readIOStat(cgroupPath string) (uint64, uint64, int, error) {
-	rBytes := uint64(0)
-	wBytes := uint64(0)
-	disks := 0
+func readIOStat(cgroupPath string) (rBytes, wBytes uint64, disks int, err error) {
+	rBytes = uint64(0)
+	wBytes = uint64(0)
+	disks = 0
 	path := filepath.Join(cgroupPath, ioStatFile)
 	file, err := os.Open(path)
 	if err != nil {
@@ -80,7 +79,6 @@ func readIOStat(cgroupPath string) (uint64, uint64, int, error) {
 			if isVirtualDisk(major) {
 				continue
 			}
-			//minor := strings.TrimSpace(matches[l-3])
 			r := strings.TrimSpace(matches[l-2])
 			w := strings.TrimSpace(matches[l-1])
 			disks++
@@ -92,14 +90,10 @@ func readIOStat(cgroupPath string) (uint64, uint64, int, error) {
 			}
 		}
 	}
-	//fmt.Printf("path %s read %d write %d ", cgroupPath, rBytes, wBytes)
 	return rBytes, wBytes, disks, err
 }
 
 func isVirtualDisk(major string) bool {
-	if major == "253" { // device-mapper
-		return true
-	}
-	//TODO add other virtual device
-	return false
+	// TODO add other virtual device
+	return major == "253"
 }

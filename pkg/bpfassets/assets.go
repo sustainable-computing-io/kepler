@@ -14,16 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pod_lister
+package bpfassets
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+const (
+	Program = "bpfassets/perf_event/perf_event.c"
 )
-
-func TestPodLoader(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "PodLister Suite")
-}

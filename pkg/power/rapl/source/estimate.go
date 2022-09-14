@@ -20,7 +20,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -80,7 +79,6 @@ func GetCPUArchitecture() (string, error) {
 			break
 		}
 		if strings.HasPrefix(myCPUModel, p.Name) {
-			//fmt.Printf("cpu %s, architecture %s\n", myCPUModel, p.Architecture)
 			return p.Architecture, nil
 		}
 	}
@@ -89,14 +87,14 @@ func GetCPUArchitecture() (string, error) {
 }
 
 func getDram() (int, error) {
-	b, err := ioutil.ReadFile("/proc/meminfo")
+	b, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, err
 	}
 	re := regexp.MustCompile(dramRegex)
 	matches := re.FindAllStringSubmatch(string(b), -1)
 	if len(matches) > 0 {
-		dram, err := strconv.Atoi(strings.TrimSpace(string(matches[0][1])))
+		dram, err := strconv.Atoi(strings.TrimSpace(matches[0][1]))
 		if err != nil {
 			return 0, err
 		}
@@ -105,7 +103,7 @@ func getDram() (int, error) {
 	return 0, fmt.Errorf("no memory info found")
 }
 
-func getCPUPowerEstimate(cpu string) (float64, float64, float64, error) {
+func getCPUPowerEstimate(cpu string) (perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64, err error) {
 	file, _ := os.Open(powerDataPath)
 	reader := csv.NewReader(file)
 
@@ -158,7 +156,7 @@ func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
-	//TODO use utilization
+	// TODO: use utilization
 	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000 / 3600, nil
 }
 

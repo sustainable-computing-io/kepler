@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package collector
 
 import (
@@ -105,7 +106,7 @@ func (v *NodeEnergy) ToPrometheusValues() []string {
 	for _, metric := range metricNames {
 		nodeValues = append(nodeValues, strconv.FormatUint(uint64(v.Usage[metric]), 10))
 	}
-	for _, ekey := range ENERGY_LABEL_KEYS {
+	for _, ekey := range EnergyLabelsKeys {
 		val := float64(v.GetPrometheusEnergyValue(ekey)) / 1000.0 // Joule
 		nodeValues = append(nodeValues, fmt.Sprintf("%f", val))
 	}
@@ -138,7 +139,7 @@ func (v *NodeEnergy) Curr() uint64 {
 	return v.EnergyInPkg.Curr() + v.EnergyInGPU + v.EnergyInOther
 }
 
-func (v *NodeEnergy) GetCurrEnergyPerPkgID(pkgIDKey string) (coreDelta, dramDelta, uncoreDelta uint64) {
+func (v *NodeEnergy) GetCurrEnergyPerpkgID(pkgIDKey string) (coreDelta, dramDelta, uncoreDelta uint64) {
 	coreDelta = v.EnergyInCore.Stat[pkgIDKey].Curr
 	dramDelta = v.EnergyInDRAM.Stat[pkgIDKey].Curr
 	uncoreDelta = v.EnergyInUncore.Stat[pkgIDKey].Curr

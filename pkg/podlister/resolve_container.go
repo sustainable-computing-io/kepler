@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pod_lister
+package podlister
 
 import (
 	"bufio"
@@ -50,15 +50,15 @@ var (
 	byteOrder binary.ByteOrder = determineHostByteOrder()
 	podLister KubeletPodLister = KubeletPodLister{}
 
-	//map to cache data to speedup lookups
+	// map to cache data to speedup lookups
 	containerIDCache           = map[uint64]string{}
 	containerIDToContainerInfo = map[string]*ContainerInfo{}
 	cGroupIDToPath             = map[uint64]string{}
 
-	//regex to extract container ID from path
+	// regex to extract container ID from path
 	regexFindContainerIDPath          = regexp.MustCompile(`.*-(.*?)\.scope`)
 	regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*-`)
-	//some platforms (e.g. RHEL) have different cgroup path
+	// some platforms (e.g. RHEL) have different cgroup path
 	regexFindContainerIDPath2 = regexp.MustCompile(`[^:]*$`)
 
 	regexReplaceContainerIDPathSufix = regexp.MustCompile(`\..*`)
@@ -77,22 +77,22 @@ func GetSystemProcessNamespace() string {
 	return systemProcessNamespace
 }
 
-func GetPodName(cGroupID uint64, PID uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, PID)
+func GetPodName(cGroupID, pid uint64) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid)
 	return info.PodName, err
 }
 
-func GetPodNameSpace(cGroupID uint64, PID uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, PID)
+func GetPodNameSpace(cGroupID, pid uint64) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid)
 	return info.Namespace, err
 }
 
-func GetPodContainerName(cGroupID uint64, PID uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, PID)
+func GetPodContainerName(cGroupID, pid uint64) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid)
 	return info.ContainerName, err
 }
 
-func GetPodMetrics() (containerCPU map[string]float64, containerMem map[string]float64, nodeCPU float64, nodeMem float64, retErr error) {
+func GetPodMetrics() (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
 	return podLister.ListMetrics()
 }
 
@@ -100,7 +100,7 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
-func getContainerInfo(cGroupID uint64, PID uint64) (*ContainerInfo, error) {
+func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{
@@ -108,8 +108,8 @@ func getContainerInfo(cGroupID uint64, PID uint64) (*ContainerInfo, error) {
 		Namespace: systemProcessNamespace,
 	}
 
-	if containerID, err = GetContainerID(cGroupID, PID); err != nil {
-		return info, nil
+	if containerID, err = GetContainerID(cGroupID, pid); err != nil {
+		return info, err
 	}
 
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
@@ -134,43 +134,43 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 		fmt.Printf("%v", err)
 		return
 	}
-	for _, pod := range *pods {
-		statuses := pod.Status.ContainerStatuses
-		for _, status := range statuses {
+	for i := 0; i < len(*pods); i++ {
+		statuses := (*pods)[i].Status.ContainerStatuses
+		for j := 0; j < len(statuses); j++ {
 			info := &ContainerInfo{
-				PodName:       pod.Name,
-				Namespace:     pod.Namespace,
-				ContainerName: status.Name,
+				PodName:       (*pods)[i].Name,
+				Namespace:     (*pods)[i].Namespace,
+				ContainerName: statuses[j].Name,
 			}
-			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(status.ContainerID, "")
+			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && status.ContainerID == targetContainerID {
+			if stopWhenFound && statuses[j].ContainerID == targetContainerID {
 				return
 			}
 		}
-		statuses = pod.Status.InitContainerStatuses
-		for _, status := range statuses {
+		statuses = (*pods)[i].Status.InitContainerStatuses
+		for j := 0; j < len(statuses); j++ {
 			info := &ContainerInfo{
-				PodName:       pod.Name,
-				Namespace:     pod.Namespace,
-				ContainerName: status.Name,
+				PodName:       (*pods)[i].Name,
+				Namespace:     (*pods)[i].Namespace,
+				ContainerName: statuses[j].Name,
 			}
-			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(status.ContainerID, "")
+			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
-			if stopWhenFound && status.ContainerID == targetContainerID {
+			if stopWhenFound && statuses[j].ContainerID == targetContainerID {
 				return
 			}
 		}
 	}
 }
 
-func GetContainerID(cGroupID uint64, PID uint64) (string, error) {
+func GetContainerID(cGroupID, pid uint64) (string, error) {
 	var err error
 	var containerID string
 	if config.EnabledEBPFCgroupID {
 		containerID, err = getContainerIDFromcGroupID(cGroupID)
 	} else {
-		containerID, err = getContainerIDFromPID(PID)
+		containerID, err = getContainerIDFromPID(pid)
 	}
 	return containerID, err
 }
@@ -225,8 +225,8 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 
 // getPathFromcGroupID uses cgroupfs to get cgroup path from id
 // it needs cgroup v2 (per https://github.com/iovisor/bpftrace/issues/950) and kernel 4.18+ (https://github.com/torvalds/linux/commit/bf6fa2c893c5237b48569a13fa3c673041430b6c)
-func getPathFromcGroupID(cgroupId uint64) (string, error) {
-	if p, ok := cGroupIDToPath[cgroupId]; ok {
+func getPathFromcGroupID(cgroupID uint64) (string, error) {
+	if p, ok := cGroupIDToPath[cgroupID]; ok {
 		return p, nil
 	}
 
@@ -249,12 +249,12 @@ func getPathFromcGroupID(cgroupId uint64) (string, error) {
 	if err != nil {
 		return unknownPath, fmt.Errorf("failed to find cgroup id: %v", err)
 	}
-	if p, ok := cGroupIDToPath[cgroupId]; ok {
+	if p, ok := cGroupIDToPath[cgroupID]; ok {
 		return p, nil
 	}
 
-	cGroupIDToPath[cgroupId] = unknownPath
-	return cGroupIDToPath[cgroupId], nil
+	cGroupIDToPath[cgroupID] = unknownPath
+	return cGroupIDToPath[cgroupID], nil
 }
 
 // Get containerID from path. cgroup v1 and cgroup v2 will use different regex
@@ -265,7 +265,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 		for _, element := range sub {
 			if cgroup == 2 && (strings.Contains(element, "-conmon-") || strings.Contains(element, ".service")) {
 				return "", fmt.Errorf("process is not in a kubernetes pod")
-				//TODO: we need to extend this to include other runtimes
+				// TODO: we need to extend this to include other runtimes
 			} else if strings.Contains(element, "crio") || strings.Contains(element, "docker") || strings.Contains(element, "containerd") {
 				containerID := regexReplaceContainerIDPathPrefix.ReplaceAllString(element, "")
 				containerID = regexReplaceContainerIDPathSufix.ReplaceAllString(containerID, "")

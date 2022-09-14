@@ -39,7 +39,7 @@ type Coeff struct {
 }
 
 var (
-	//obtained the coeff via regression
+	// obtained the coeff via regression
 	BareMetalCoeff = Coeff{
 		CPUTime:       0.0,
 		CPUCycle:      0.0000005268224465,
@@ -99,7 +99,6 @@ func SetBMCoeff() {
 
 func SetRuntimeCoeff(coeff Coeff) {
 	RunTimeCoeff = coeff
-
 }
 
 func SetModelServerEndpoint(ep string) {
@@ -121,7 +120,7 @@ func GetCoeffFromModelServer() (*Coeff, error) {
 	}
 
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}

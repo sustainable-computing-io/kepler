@@ -18,13 +18,13 @@ package source
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
 
 func getNumCPUs() int {
-	data, err := ioutil.ReadFile(cpuInfoPath)
+	data, err := os.ReadFile(cpuInfoPath)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -37,7 +37,7 @@ func getNumPackage() int {
 	numCPUs := getNumCPUs()
 	for i := 0; i < numCPUs; i++ {
 		path := fmt.Sprintf(numPkgPathTemplate, i)
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			break
 		}
@@ -56,28 +56,28 @@ func detectEventPaths() {
 	numPackage := getNumPackage()
 	for i := 0; i < numPackage; i++ {
 		packagePath := fmt.Sprintf(packageNamePathTemplate, i)
-		data, err := ioutil.ReadFile(packagePath + "name")
+		data, err := os.ReadFile(packagePath + "name")
 		packageName := strings.TrimSpace(string(data))
 		if err != nil {
 			continue
 		}
-		eventPaths[string(packageName)] = map[string]string{}
-		eventPaths[string(packageName)][string(packageName)] = packagePath
+		eventPaths[packageName] = map[string]string{}
+		eventPaths[packageName][packageName] = packagePath
 		for j := 0; j < numRAPLEvents; j++ {
 			eventNamePath := fmt.Sprintf(eventNamePathTemplate, i, i, j)
-			data, err := ioutil.ReadFile(eventNamePath + "name")
+			data, err := os.ReadFile(eventNamePath + "name")
 			eventName := strings.TrimSpace(string(data))
 			if err != nil {
 				continue
 			}
-			eventPaths[string(packageName)][string(eventName)] = eventNamePath
+			eventPaths[packageName][eventName] = eventNamePath
 		}
 	}
 }
 
 func hasEvent(event string) bool {
 	for _, subTree := range eventPaths {
-		for e, _ := range subTree {
+		for e := range subTree {
 			if e == event {
 				return true
 			}

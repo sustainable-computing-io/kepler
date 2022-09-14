@@ -13,13 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package collector
 
 import (
 	"fmt"
-	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"log"
 	"strconv"
+
+	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 )
 
 type PodEnergy struct {
@@ -96,15 +98,15 @@ func NewPodEnergy(podName, podNamespace string) *PodEnergy {
 func (v *PodEnergy) ResetCurr() {
 	v.CurrProcesses = 0
 	v.CPUTime.ResetCurr()
-	for counterKey, _ := range v.CounterStats {
+	for counterKey := range v.CounterStats {
 		v.CounterStats[counterKey].ResetCurr()
 	}
-	for cgroupFSKey, _ := range v.CgroupFSStats {
+	for cgroupFSKey := range v.CgroupFSStats {
 		v.CgroupFSStats[cgroupFSKey].ResetCurr()
 	}
 	v.BytesRead.ResetCurr()
 	v.BytesWrite.ResetCurr()
-	for kubeletKey, _ := range v.KubeletStats {
+	for kubeletKey := range v.KubeletStats {
 		v.KubeletStats[kubeletKey].ResetCurr()
 	}
 	v.CurrCPUTimePerCPU = make(map[uint32]uint64)
@@ -126,13 +128,13 @@ func (v *PodEnergy) SetLatestProcess(cgroupPID, pid uint64, comm string) {
 }
 
 // extractFloatCurrAggr return curr, aggr float64 values of specific uint metric
-func (v *PodEnergy) extractFloatCurrAggr(metric string) (float64, float64) {
+func (v *PodEnergy) extractFloatCurrAggr(metric string) (curr, aggr float64) {
 	// TO-ADD
 	return 0, 0
 }
 
 // extractUIntCurrAggr return curr, aggr uint64 values of specific uint metric
-func (v *PodEnergy) extractUIntCurrAggr(metric string) (uint64, uint64) {
+func (v *PodEnergy) extractUIntCurrAggr(metric string) (curr, aggr uint64) {
 	if val, exists := v.CounterStats[metric]; exists {
 		return val.Curr, val.Aggr
 	}
@@ -144,13 +146,13 @@ func (v *PodEnergy) extractUIntCurrAggr(metric string) (uint64, uint64) {
 	}
 
 	switch metric {
-	case CPU_TIME_LABEL:
+	case CPUTimeLabel:
 		return v.CPUTime.Curr, v.CPUTime.Aggr
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
-	case BYTE_READ_LABEL:
+	case ByteReadLabel:
 		return v.BytesRead.Curr(), v.BytesRead.Aggr()
-	case BYTE_WRITE_LABEL:
+	case ByteWriteLabel:
 		return v.BytesWrite.Curr(), v.BytesWrite.Aggr()
 	}
 
@@ -160,9 +162,9 @@ func (v *PodEnergy) extractUIntCurrAggr(metric string) (uint64, uint64) {
 
 // ToEstimatorValues return values regarding metricNames
 func (v *PodEnergy) ToEstimatorValues() (values []float64) {
-	for _, metric := range FLOAT_FEATURES {
+	for _, metric := range FloatFeatures {
 		curr, _ := v.extractFloatCurrAggr(metric)
-		values = append(values, float64(curr))
+		values = append(values, curr)
 	}
 	for _, metric := range uintFeatures {
 		curr, _ := v.extractUIntCurrAggr(metric)
@@ -175,7 +177,7 @@ func (v *PodEnergy) ToEstimatorValues() (values []float64) {
 
 // GetBasicValues return basic label balues
 func (v *PodEnergy) GetBasicValues() []string {
-	command := fmt.Sprintf("%s", v.Command)
+	command := v.Command
 	if len(command) > 10 {
 		command = command[:10]
 	}
@@ -185,15 +187,13 @@ func (v *PodEnergy) GetBasicValues() []string {
 // ToPrometheusValues return values regarding podEnergyLabels
 func (v *PodEnergy) ToPrometheusValues() []string {
 	valuesInStr := v.GetBasicValues()
-	for _, metric := range FLOAT_FEATURES {
+	for _, metric := range FloatFeatures {
 		curr, aggr := v.extractFloatCurrAggr(metric)
-		valuesInStr = append(valuesInStr, fmt.Sprintf("%f", curr))
-		valuesInStr = append(valuesInStr, fmt.Sprintf("%f", aggr))
+		valuesInStr = append(valuesInStr, fmt.Sprintf("%f", curr), fmt.Sprintf("%f", aggr))
 	}
 	for _, metric := range uintFeatures {
 		curr, aggr := v.extractUIntCurrAggr(metric)
-		valuesInStr = append(valuesInStr, strconv.FormatUint(curr, 10))
-		valuesInStr = append(valuesInStr, strconv.FormatUint(aggr, 10))
+		valuesInStr = append(valuesInStr, strconv.FormatUint(curr, 10), strconv.FormatUint(aggr, 10))
 	}
 	if attacher.EnableCPUFreq {
 		valuesInStr = append(valuesInStr, fmt.Sprintf("%f", v.AvgCPUFreq))
@@ -233,7 +233,7 @@ func (v *PodEnergy) Aggr() uint64 {
 	return v.EnergyInPkg.Aggr + v.EnergyInGPU.Aggr + v.EnergyInOther.Aggr
 }
 
-func (v PodEnergy) String() string {
+func (v *PodEnergy) String() string {
 	return fmt.Sprintf("energy from pod (%d processes): name: %s namespace: %s \n"+
 		"\tcgrouppid: %d pid: %d comm: %s\n"+
 		"\tePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+

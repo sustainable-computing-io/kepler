@@ -26,25 +26,25 @@ import (
 )
 
 const (
-	NODE_ENERGY_STAT_METRRIC = "node_energy_stat"
-	POD_ENERGY_STAT_METRIC   = "pod_energy_stat"
-	NODE_ENERGY_METRIC       = "node_hwmon_energy_joule_total"
-	FREQ_METRIC              = "node_cpu_scaling_frequency_hertz"
-	PACKAGE_ENERGY_METRIC    = "node_package_energy_millijoule"
-	PER_CPU_STAT_METRIC      = "pod_cpu_cpu_time_us"
+	nodeEnergyStatMetric = "node_energy_stat"
+	podEnergyStatMetric  = "pod_energy_stat"
+	nodeEnergyMetric     = "node_hwmon_energy_joule_total"
+	freqMetric           = "node_cpu_scaling_frequency_hertz"
+	pkgEnergyMetric      = "node_package_energy_millijoule"
+	perCPUStatMetric     = "pod_cpu_cpu_time_us"
 
-	POD_LABEL_PREFIX  = "pod_"
-	NODE_LABEL_PREFIX = "node_"
-	CURR_PREFIX       = "curr_"
-	AGGR_PREFIX       = "total_"
+	podLabelPrefix  = "pod_"
+	nodeLabelPrefix = "node_"
+	CurrPrefix      = "curr_"
+	AggrPrefix      = "total_"
 
-	mJ_SUFFIX = "millijoule"
-	J_SUFFIX  = "joule"
+	mJSuffix = "millijoule"
+	JSuffix  = "joule"
 )
 
 var (
-	DYN_ENERGY_LABEL = "dynamic_energy_"
-	ENERGY_LABELS    = map[string]string{
+	dynEnergyLabel = "dynamic_energy_"
+	EnergyLabels   = map[string]string{
 		"core":   "energy_in_core_",
 		"dram":   "energy_in_dram_",
 		"uncore": "energy_in_uncore_",
@@ -52,8 +52,8 @@ var (
 		"gpu":    "energy_in_gpu_",
 		"other":  "energy_in_other_",
 	}
-	ENERGY_LABEL_KEYS = sortEnergyLabelKeys()
-	ALL_ENERGY_LABEL  = "energy_"
+	EnergyLabelsKeys = sortEnergyLabelKeys()
+	allEnergyLabel   = "energy_"
 
 	basicPodLabels []string = []string{
 		"pod_name", "pod_namespace", "command",
@@ -66,7 +66,7 @@ var (
 )
 
 func sortEnergyLabelKeys() (ekeys []string) {
-	for ekey, _ := range ENERGY_LABELS {
+	for ekey := range EnergyLabels {
 		ekeys = append(ekeys, ekey)
 	}
 	sort.Strings(ekeys)
@@ -88,7 +88,9 @@ type Collector struct {
 
 func setPodStatProm() {
 	prometheusMetrics = getPrometheusMetrics()
-	podEnergyLabels = append(basicPodLabels, prometheusMetrics...)
+	podEnergyLabels = []string{}
+	podEnergyLabels = append(podEnergyLabels, basicPodLabels...)
+	podEnergyLabels = append(podEnergyLabels, prometheusMetrics...)
 }
 
 func New() (*Collector, error) {
@@ -109,27 +111,27 @@ func (c *Collector) Attach() error {
 }
 
 func (c *Collector) setNodeDescriptionGroup() {
-	jsuffix := J_SUFFIX
+	jsuffix := JSuffix
 	var nodeEnergyLabels []string
 	nodeEnergyLabels = append(nodeEnergyLabels, basicNodeLabels...)
 	for _, metric := range metricNames {
-		nodeEnergyLabels = append(nodeEnergyLabels, NODE_LABEL_PREFIX+metric)
+		nodeEnergyLabels = append(nodeEnergyLabels, nodeLabelPrefix+metric)
 	}
-	for _, ekey := range ENERGY_LABEL_KEYS {
-		elabel := ENERGY_LABELS[ekey]
-		nodeEnergyLabels = append(nodeEnergyLabels, NODE_LABEL_PREFIX+CURR_PREFIX+elabel+jsuffix)
+	for _, ekey := range EnergyLabelsKeys {
+		elabel := EnergyLabels[ekey]
+		nodeEnergyLabels = append(nodeEnergyLabels, nodeLabelPrefix+CurrPrefix+elabel+jsuffix)
 	}
 	statDesc := prometheus.NewDesc(
-		NODE_ENERGY_STAT_METRRIC,
+		nodeEnergyStatMetric,
 		"Node energy consumption latest stats",
 		nodeEnergyLabels,
 		nil,
 	)
 	currEnergyDesc := make(map[string]*prometheus.Desc)
-	for ekey, elabel := range ENERGY_LABELS {
+	for ekey, elabel := range EnergyLabels {
 		currEnergyDesc[elabel] = prometheus.NewDesc(
-			NODE_LABEL_PREFIX+CURR_PREFIX+elabel+jsuffix,
-			fmt.Sprintf("%s current energy consumption in %s (%s)", NODE_LABEL_PREFIX, ekey, jsuffix),
+			nodeLabelPrefix+CurrPrefix+elabel+jsuffix,
+			fmt.Sprintf("%s current energy consumption in %s (%s)", nodeLabelPrefix, ekey, jsuffix),
 			[]string{
 				"instance",
 			},
@@ -137,8 +139,8 @@ func (c *Collector) setNodeDescriptionGroup() {
 		)
 	}
 	allCurrDesc := prometheus.NewDesc(
-		NODE_LABEL_PREFIX+CURR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
-		fmt.Sprintf("%s current energy consumption (%s)", NODE_LABEL_PREFIX, jsuffix),
+		nodeLabelPrefix+CurrPrefix+allEnergyLabel+jsuffix,
+		fmt.Sprintf("%s current energy consumption (%s)", nodeLabelPrefix, jsuffix),
 		[]string{
 			"instance",
 		},
@@ -152,52 +154,52 @@ func (c *Collector) setNodeDescriptionGroup() {
 }
 
 func (c *Collector) getPodDescriptionGroup() *DescriptionGroup {
-	jsuffix := mJ_SUFFIX
+	jsuffix := mJSuffix
 	statDesc := prometheus.NewDesc(
-		POD_ENERGY_STAT_METRIC,
+		podEnergyStatMetric,
 		"Pod energy consumption status",
 		podEnergyLabels,
 		nil,
 	)
 	currEnergyDesc := make(map[string]*prometheus.Desc)
 	aggrEnergyDesc := make(map[string]*prometheus.Desc)
-	for ekey, elabel := range ENERGY_LABELS {
+	for ekey, elabel := range EnergyLabels {
 		currEnergyDesc[elabel] = prometheus.NewDesc(
-			POD_LABEL_PREFIX+CURR_PREFIX+elabel+jsuffix,
-			fmt.Sprintf("%s current energy consumption in %s (%s)", POD_LABEL_PREFIX, ekey, jsuffix),
+			podLabelPrefix+CurrPrefix+elabel+jsuffix,
+			fmt.Sprintf("%s current energy consumption in %s (%s)", podLabelPrefix, ekey, jsuffix),
 			basicPodLabels,
 			nil,
 		)
 	}
-	currEnergyDesc[DYN_ENERGY_LABEL] = prometheus.NewDesc(
-		POD_LABEL_PREFIX+CURR_PREFIX+DYN_ENERGY_LABEL+jsuffix,
-		fmt.Sprintf("%s current dynamic energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+	currEnergyDesc[dynEnergyLabel] = prometheus.NewDesc(
+		podLabelPrefix+CurrPrefix+dynEnergyLabel+jsuffix,
+		fmt.Sprintf("%s current dynamic energy consumption (%s)", podLabelPrefix, jsuffix),
 		basicPodLabels,
 		nil,
 	)
-	for ekey, elabel := range ENERGY_LABELS {
+	for ekey, elabel := range EnergyLabels {
 		aggrEnergyDesc[elabel] = prometheus.NewDesc(
-			POD_LABEL_PREFIX+AGGR_PREFIX+elabel+jsuffix,
-			fmt.Sprintf("%s total energy consumption in %s (%s)", POD_LABEL_PREFIX, ekey, jsuffix),
+			podLabelPrefix+AggrPrefix+elabel+jsuffix,
+			fmt.Sprintf("%s total energy consumption in %s (%s)", podLabelPrefix, ekey, jsuffix),
 			basicPodLabels,
 			nil,
 		)
 	}
-	aggrEnergyDesc[DYN_ENERGY_LABEL] = prometheus.NewDesc(
-		POD_LABEL_PREFIX+AGGR_PREFIX+DYN_ENERGY_LABEL+jsuffix,
-		fmt.Sprintf("%s total dynamic energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+	aggrEnergyDesc[dynEnergyLabel] = prometheus.NewDesc(
+		podLabelPrefix+AggrPrefix+dynEnergyLabel+jsuffix,
+		fmt.Sprintf("%s total dynamic energy consumption (%s)", podLabelPrefix, jsuffix),
 		basicPodLabels,
 		nil,
 	)
 	allCurrDesc := prometheus.NewDesc(
-		POD_LABEL_PREFIX+CURR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
-		fmt.Sprintf("%s current energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+		podLabelPrefix+CurrPrefix+allEnergyLabel+jsuffix,
+		fmt.Sprintf("%s current energy consumption (%s)", podLabelPrefix, jsuffix),
 		basicPodLabels,
 		nil,
 	)
 	allAggrDesc := prometheus.NewDesc(
-		POD_LABEL_PREFIX+AGGR_PREFIX+ALL_ENERGY_LABEL+jsuffix,
-		fmt.Sprintf("%s total energy consumption (%s)", POD_LABEL_PREFIX, jsuffix),
+		podLabelPrefix+AggrPrefix+allEnergyLabel+jsuffix,
+		fmt.Sprintf("%s total energy consumption (%s)", podLabelPrefix, jsuffix),
 		basicPodLabels,
 		nil,
 	)
@@ -212,7 +214,7 @@ func (c *Collector) getPodDescriptionGroup() *DescriptionGroup {
 
 func (c *Collector) getSensorDescription() *prometheus.Desc {
 	return prometheus.NewDesc(
-		NODE_ENERGY_METRIC,
+		nodeEnergyMetric,
 		"Hardware monitor for energy consumed in joules in the node.",
 		[]string{
 			"instance",
@@ -225,7 +227,7 @@ func (c *Collector) getSensorDescription() *prometheus.Desc {
 
 func (c *Collector) getFreqDescription() *prometheus.Desc {
 	return prometheus.NewDesc(
-		FREQ_METRIC,
+		freqMetric,
 		"Current scaled cpu thread frequency in hertz.",
 		[]string{
 			"instance",
@@ -237,7 +239,7 @@ func (c *Collector) getFreqDescription() *prometheus.Desc {
 
 func (c *Collector) getPackageEnergyDescription() *prometheus.Desc {
 	return prometheus.NewDesc(
-		PACKAGE_ENERGY_METRIC,
+		pkgEnergyMetric,
 		"Current package energy by RAPL in joules.",
 		[]string{
 			"instance",
@@ -252,7 +254,7 @@ func (c *Collector) getPackageEnergyDescription() *prometheus.Desc {
 
 func (c *Collector) getPodDetailedCPUTimeDescription() *prometheus.Desc {
 	return prometheus.NewDesc(
-		PER_CPU_STAT_METRIC,
+		perCPUStatMetric,
 		"Current CPU time per CPU.",
 		[]string{
 			"pod_name",
@@ -297,7 +299,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	)
 	ch <- desc
 	// sum curr node energy in J (for each energy unit)
-	for ekey, elabel := range ENERGY_LABELS {
+	for ekey, elabel := range EnergyLabels {
 		edesc := prometheus.MustNewConstMetric(
 			c.NodeDesc.CurrEnergy[elabel],
 			prometheus.GaugeValue,
@@ -326,8 +328,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		ch <- desc
 		// ratio curr pod energy in mJ (for each energy unit)
-		for ekey, elabel := range ENERGY_LABELS {
-			edesc := prometheus.MustNewConstMetric(
+		for ekey, elabel := range EnergyLabels {
+			edesc = prometheus.MustNewConstMetric(
 				podDesc.CurrEnergy[elabel],
 				prometheus.GaugeValue,
 				v.GetPrometheusEnergyValue(ekey, true),
@@ -336,8 +338,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			ch <- edesc
 		}
 		// dyn curr pod energy in mJ
-		edesc := prometheus.MustNewConstMetric(
-			podDesc.CurrEnergy[DYN_ENERGY_LABEL],
+		edesc = prometheus.MustNewConstMetric(
+			podDesc.CurrEnergy[dynEnergyLabel],
 			prometheus.GaugeValue,
 			float64(v.DynEnergy.Curr),
 			v.GetBasicValues()...,
@@ -352,8 +354,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		)
 		ch <- edesc
 		// ratio aggr pod energy in mJ
-		for ekey, elabel := range ENERGY_LABELS {
-			edesc := prometheus.MustNewConstMetric(
+		for ekey, elabel := range EnergyLabels {
+			edesc = prometheus.MustNewConstMetric(
 				podDesc.AggrEnergy[elabel],
 				prometheus.CounterValue,
 				v.GetPrometheusEnergyValue(ekey, false),
@@ -363,7 +365,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		}
 		// dyn aggr pod energy in mJ
 		edesc = prometheus.MustNewConstMetric(
-			podDesc.AggrEnergy[DYN_ENERGY_LABEL],
+			podDesc.AggrEnergy[dynEnergyLabel],
 			prometheus.CounterValue,
 			float64(v.DynEnergy.Aggr),
 			v.GetBasicValues()...,

@@ -1,4 +1,4 @@
-package pod_lister
+package podlister
 
 import (
 	"encoding/binary"
