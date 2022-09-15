@@ -17,12 +17,12 @@ limitations under the License.
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"bytes"
 
-	"github.com/zcalusic/sysinfo"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -74,21 +74,18 @@ func (c config) getCgroupV2File() string {
 	return cGroupV2Path
 }
 
-func getKernelVersion(c Client) float32 {
-	data, err := c.getSysInfo()
-
+func getKernelVersion() float32 {
+	var utsname unix.Utsname
+	err := unix.Uname(&utsname)
+	if err != nil {
+		fmt.Println("failed to parse unix name")
+		return -1
+	}
+	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
+	kv := utsname.Release[:bytes.IndexByte(utsname.Release[:], 0)]
+	val, err := strconv.ParseFloat(string(kv[:4]), 32)
 	if err == nil {
-		var result map[string]map[string]string
-		if err = json.Unmarshal(data, &result); err != nil {
-			return -1
-		}
-
-		if release, ok := result["kernel"]["release"]; ok {
-			val, err := strconv.ParseFloat(release[:4], 32)
-			if err == nil {
-				return float32(val)
-			}
-		}
+		return float32(val)
 	}
 	return -1
 }
