@@ -22,6 +22,14 @@ jobs:
         run: make cluster-up
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
+      - name: Checkout kube-operator repo
+        uses: actions/checkout@v3
+        with:
+          repository: prometheus-operator/kube-prometheus
+          path: kube-prometheus
+      - name: deploy kube operator
+        run:  ls && kubectl create -f manifests/setup && until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done && kubectl create -f manifests/
+        working-directory: kube-prometheus
       - name: simple test - deploy kepler
         run: make cluster-sync
         env:
