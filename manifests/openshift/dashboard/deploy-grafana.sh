@@ -19,7 +19,7 @@ oc apply -f $(pwd)/manifests/openshift/dashboard/03-grafana-sa-token-secret.yaml
 SERVICE_ACCOUNT=grafana-serviceaccount
 SECRET=grafana-sa-token
 
-while ! oc get serviceaccount $SERVICE_ACCOUNT -n monitoring
+while ! oc get serviceaccount $SERVICE_ACCOUNT -n kepler
 do
     sleep 2
 done
@@ -27,12 +27,12 @@ done
 oc adm policy add-cluster-role-to-user cluster-monitoring-view -z $SERVICE_ACCOUNT
 
 
-export BEARER_TOKEN=$(oc get secret ${SECRET} -o json -n monitoring | jq -Mr '.data.token' | base64 -d) || or true
+export BEARER_TOKEN=$(oc get secret ${SECRET} -o json -n kepler | jq -Mr '.data.token' | base64 -d) || or true
 # Get bearer token for `grafana-serviceaccount`
 while [ -z "$BEARER_TOKEN" ]
 do
     echo waiting for service account token
-    export BEARER_TOKEN=$(oc get secret ${SECRET} -o json -n monitoring | jq -Mr '.data.token' | base64 -d) || or true
+    export BEARER_TOKEN=$(oc get secret ${SECRET} -o json -n kepler | jq -Mr '.data.token' | base64 -d) || or true
     sleep 1
 done
 echo service account token is populated, will now create grafana datasource
