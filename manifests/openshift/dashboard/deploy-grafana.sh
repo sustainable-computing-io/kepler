@@ -24,7 +24,7 @@ do
     sleep 2
 done
 # Define Prometheus datasource
-oc adm policy add-cluster-role-to-user cluster-monitoring-view -z $SERVICE_ACCOUNT
+oc adm policy add-cluster-role-to-user cluster-monitoring-view -z $SERVICE_ACCOUNT -n kepler
 
 
 export BEARER_TOKEN=$(oc get secret ${SECRET} -o json -n kepler | jq -Mr '.data.token' | base64 -d) || or true
