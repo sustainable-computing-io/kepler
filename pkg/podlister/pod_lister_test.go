@@ -1,15 +1,12 @@
 package podlister
 
 import (
-	"bytes"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"golang.org/x/sys/unix"
 )
 
 const rhelContainerd = `
@@ -80,16 +77,6 @@ func TestParseClusterYaml(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-
-			var utsname unix.Utsname
-			err := unix.Uname(&utsname)
-			if err != nil {
-				log.Fatalf("failed to get uname: %v", err)
-			}
-			// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
-			kv := utsname.Release[:bytes.IndexByte(utsname.Release[:], 0)]
-			val, err := strconv.ParseFloat(string(kv[:4]), 32)
-			g.Expect(1).To(Equal(val))
 			p, err := createTempFile(testcase.contents)
 			_, file := filepath.Split(p)
 			g.Expect(err).NotTo(HaveOccurred())

@@ -17,10 +17,10 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
-	"bytes"
 
 	"golang.org/x/sys/unix"
 )
@@ -33,7 +33,7 @@ const (
 )
 
 type Client interface {
-	getSysInfo() ([]byte, error)
+	getUnixName() (unix.Utsname, error)
 	getCgroupV2File() string
 }
 
@@ -63,22 +63,21 @@ func EnableEBPFCgroupID(enabled bool) {
 	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
-func (c config) getSysInfo() ([]byte, error) {
-	var si sysinfo.SysInfo
-
-	si.GetSysInfo()
-	return json.MarshalIndent(&si, "", "  ")
+func (c config) getUnixName() (unix.Utsname, error) {
+	var utsname unix.Utsname
+	err := unix.Uname(&utsname)
+	return utsname, err
 }
 
 func (c config) getCgroupV2File() string {
 	return cGroupV2Path
 }
 
-func getKernelVersion() float32 {
-	var utsname unix.Utsname
-	err := unix.Uname(&utsname)
+func getKernelVersion(c Client) float32 {
+	utsname, err := c.getUnixName()
+
 	if err != nil {
-		fmt.Println("failed to parse unix name")
+		fmt.Println("Failed to parse unix name")
 		return -1
 	}
 	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
@@ -87,6 +86,7 @@ func getKernelVersion() float32 {
 	if err == nil {
 		return float32(val)
 	}
+	fmt.Println("Not able to parse kernel version, use -1 instead")
 	return -1
 }
 
