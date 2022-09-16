@@ -18,9 +18,11 @@ package config
 
 import (
 	"os"
+	"runtime"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sys/unix"
 )
 
 type mockconfig struct {
@@ -28,9 +30,12 @@ type mockconfig struct {
 
 var mockc mockconfig
 var tempfile string
+var tempUnixName string
 
-func (c mockconfig) getSysInfo() ([]byte, error) {
-	return []byte(""), nil
+func (c mockconfig) getUnixName() (unix.Utsname, error) {
+	var utsname unix.Utsname
+	copy(utsname.Release[:], tempUnixName)
+	return utsname, nil
 }
 
 func (c mockconfig) getCgroupV2File() string {
@@ -62,5 +67,28 @@ var _ = Describe("Test Configuration", func() {
 
 		tempfile = "/tmp/this_file_do_not_exist"
 		Expect(false).To(Equal(isCGroupV2(mockc)))
+	})
+	It("Test kernel version compare", func() {
+		tempUnixName = "5.10.0-20-generic"
+		valid := getKernelVersion(mockc) > cGroupIDMinKernelVersion
+		Expect(true).To(Equal(valid))
+
+		tempUnixName = "3.10"
+		valid = getKernelVersion(mockc) > cGroupIDMinKernelVersion
+		Expect(false).To(Equal(valid))
+	})
+	It("Test not able to detect kernel", func() {
+		tempUnixName = "dummy_test_result.not.found"
+		Expect(float32(-1)).To(Equal(getKernelVersion(mockc)))
+	})
+	It("Test real kernel version", func() {
+		// we assume running on Linux env should be bigger than 3.0
+		// env now, so make it 3.0 as minimum test:
+		switch runtime.GOOS {
+		case "linux":
+			Expect(true).To(Equal(getKernelVersion(c) > 3.0))
+		default:
+			// no test
+		}
 	})
 })

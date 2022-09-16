@@ -17,12 +17,12 @@ limitations under the License.
 package config
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
 
-	"github.com/zcalusic/sysinfo"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 )
 
 type Client interface {
-	getSysInfo() ([]byte, error)
+	getUnixName() (unix.Utsname, error)
 	getCgroupV2File() string
 }
 
@@ -63,11 +63,10 @@ func EnableEBPFCgroupID(enabled bool) {
 	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
-func (c config) getSysInfo() ([]byte, error) {
-	var si sysinfo.SysInfo
-
-	si.GetSysInfo()
-	return json.MarshalIndent(&si, "", "  ")
+func (c config) getUnixName() (unix.Utsname, error) {
+	var utsname unix.Utsname
+	err := unix.Uname(&utsname)
+	return utsname, err
 }
 
 func (c config) getCgroupV2File() string {
@@ -75,21 +74,19 @@ func (c config) getCgroupV2File() string {
 }
 
 func getKernelVersion(c Client) float32 {
-	data, err := c.getSysInfo()
+	utsname, err := c.getUnixName()
 
-	if err == nil {
-		var result map[string]map[string]string
-		if err = json.Unmarshal(data, &result); err != nil {
-			return -1
-		}
-
-		if release, ok := result["kernel"]["release"]; ok {
-			val, err := strconv.ParseFloat(release[:4], 32)
-			if err == nil {
-				return float32(val)
-			}
-		}
+	if err != nil {
+		fmt.Println("Failed to parse unix name")
+		return -1
 	}
+	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
+	kv := utsname.Release[:bytes.IndexByte(utsname.Release[:], 0)]
+	val, err := strconv.ParseFloat(string(kv[:4]), 32)
+	if err == nil {
+		return float32(val)
+	}
+	fmt.Println("Not able to parse kernel version, use -1 instead")
 	return -1
 }
 

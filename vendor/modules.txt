@@ -113,10 +113,6 @@ github.com/prometheus/common/version
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/zcalusic/sysinfo v0.9.5
-## explicit; go 1.17
-github.com/zcalusic/sysinfo
-github.com/zcalusic/sysinfo/cpuid
 # golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 ## explicit; go 1.17
 golang.org/x/net/html
