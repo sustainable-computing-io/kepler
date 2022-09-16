@@ -53,5 +53,34 @@ jobs:
       env:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
+          GO_BUILD_FLAGS: -covermode=count -coverprofile=coverage.out
     - name: Run 
-      run: make test-verbose
+      run: |
+        make test-verbose
+        go tool cover -func=coverage.out -o=coverage.out
+
+    - name: Go Coverage Badge  # Pass the `coverage.out` output to this action
+      uses: tj-actions/coverage-badge-go@v2
+      with:
+        filename: coverage.out
+
+    - name: Verify Changed files
+      uses: tj-actions/verify-changed-files@v11.1
+      id: verify-changed-files
+      with:
+        files: README.md
+
+    - name: Commit changes
+      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git commit -m "chore: Updated coverage badge."
+
+    - name: Push changes
+      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ github.token }}
+        branch: ${{ github.head_ref }}
