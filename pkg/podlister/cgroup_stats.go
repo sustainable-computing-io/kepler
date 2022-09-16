@@ -38,7 +38,8 @@ var (
 )
 
 func ReadAllCgroupIOStat() (rBytes, wBytes uint64, disks int, err error) {
-	return readIOStat(cgroupPath)
+	path := filepath.Join(cgroupPath, ioStatFile)
+	return readIOStat(path)
 }
 
 func ReadCgroupIOStat(cGroupID, pid uint64) (rBytes, wBytes uint64, disks int, err error) {
@@ -53,16 +54,16 @@ func ReadCgroupIOStat(cGroupID, pid uint64) (rBytes, wBytes uint64, disks int, e
 		return 0, 0, 0, err
 	}
 	if strings.Contains(path, "crio") || strings.Contains(path, "docker") || strings.Contains(path, "containerd") {
-		return readIOStat(path)
+		p := filepath.Join(path, ioStatFile)
+		return readIOStat(p)
 	}
 	return 0, 0, 0, fmt.Errorf("no cgroup path found")
 }
 
-func readIOStat(cgroupPath string) (rBytes, wBytes uint64, disks int, err error) {
+func readIOStat(path string) (rBytes, wBytes uint64, disks int, err error) {
 	rBytes = uint64(0)
 	wBytes = uint64(0)
 	disks = 0
-	path := filepath.Join(cgroupPath, ioStatFile)
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0, 0, err

@@ -45,7 +45,7 @@ func createTempFile(contents string) (filename string, reterr error) {
 	return f.Name(), nil
 }
 
-func TestParseClusterYaml(t *testing.T) {
+func TestGetPathFromPID(t *testing.T) {
 	g := NewWithT(t)
 
 	var testcases = []struct {
@@ -80,7 +80,7 @@ func TestParseClusterYaml(t *testing.T) {
 			p, err := createTempFile(testcase.contents)
 			_, file := filepath.Split(p)
 			g.Expect(err).NotTo(HaveOccurred())
-			defer os.Remove(file)
+			defer os.Remove(p)
 
 			s := "/tmp/%d"
 			d, err := strconv.Atoi(file)
