@@ -18,7 +18,7 @@ Need access to a Kubernetes cluster.
 Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
 port 9102.
 ```
-# kubectl create -f manifests/kubernetes/deployment.yaml 
+# kubectl create -f manifests/kubernetes/deployment.yaml
 ```
 
 ## Deploy the Prometheus operator and the whole monitoring stack
@@ -48,4 +48,4 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 
 
 ## To start developing Kepler
-To set up a development environment please read our ![Getting Started Guide](dev/README.md)
+To set up a development environment please read our [Getting Started Guide](dev/README.md)
