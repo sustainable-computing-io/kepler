@@ -25,29 +25,29 @@ This file is a main file of cgroup module containing
 
 package cgroup
 
-import 	(
-	"path/filepath"
-	"os"
+import (
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
 const (
-	SLICE_SUFFIX = ".slice"
-	SCOPE_SUFFIX = ".scope"
+	sliceSuffix = ".slice"
+	scopeSuffix = ".scope"
 )
 
 var (
-	BASE_CGROUP_PATH string = "/sys/fs/cgroup"
-	KUBEPOD_CGROUP_PATH string = "/sys/fs/cgroup/kubepods.slice"
-	SYSTEM_CGROUP_PATH string = "/sys/fs/cgroup/system.slice"
+	baseCGroupPath    string = "/sys/fs/cgroup"
+	KubePodCGroupPath string = "/sys/fs/cgroup/kubepods.slice"
+	SystemCGroupPath  string = "/sys/fs/cgroup/system.slice"
 )
 
 type SliceHandler struct {
-	statReaders map[string][]StatReader
-	CPUTopPath string
+	statReaders   map[string][]StatReader
+	CPUTopPath    string
 	MemoryTopPath string
-	IOTopPath string
+	IOTopPath     string
 }
 
 var SliceHandlerInstance *SliceHandler = InitSliceHandler()
@@ -92,23 +92,23 @@ func (s *SliceHandler) GetStats(containerID string) map[string]interface{} {
 
 func InitSliceHandler() *SliceHandler {
 	var handler *SliceHandler
-	if _, err := os.Stat(KUBEPOD_CGROUP_PATH); err == nil {
+	if _, err := os.Stat(KubePodCGroupPath); err == nil {
 		handler = &SliceHandler{
-			CPUTopPath: KUBEPOD_CGROUP_PATH,
-			MemoryTopPath: KUBEPOD_CGROUP_PATH,
-			IOTopPath: KUBEPOD_CGROUP_PATH,
+			CPUTopPath:    KubePodCGroupPath,
+			MemoryTopPath: KubePodCGroupPath,
+			IOTopPath:     KubePodCGroupPath,
 		}
-	} else if _, err := os.Stat(SYSTEM_CGROUP_PATH); err == nil {
+	} else if _, err := os.Stat(SystemCGroupPath); err == nil {
 		handler = &SliceHandler{
-			CPUTopPath: SYSTEM_CGROUP_PATH,
-			MemoryTopPath: SYSTEM_CGROUP_PATH,
-			IOTopPath: SYSTEM_CGROUP_PATH,
+			CPUTopPath:    SystemCGroupPath,
+			MemoryTopPath: SystemCGroupPath,
+			IOTopPath:     SystemCGroupPath,
 		}
 	} else {
 		handler = &SliceHandler{
-			CPUTopPath: filepath.Join(BASE_CGROUP_PATH, "cpu"),
-			MemoryTopPath: filepath.Join(BASE_CGROUP_PATH, "memory"),
-			IOTopPath: filepath.Join(BASE_CGROUP_PATH, "blkio"),
+			CPUTopPath:    filepath.Join(baseCGroupPath, "cpu"),
+			MemoryTopPath: filepath.Join(baseCGroupPath, "memory"),
+			IOTopPath:     filepath.Join(baseCGroupPath, "blkio"),
 		}
 	}
 	handler.Init()
@@ -126,9 +126,9 @@ func TryInitStatReaders(containerID string) {
 		containerMemoryPath := strings.Replace(containerCPUPath, cpuTopPath, memoryTopPath, 1)
 		containerIOPath := strings.Replace(containerCPUPath, cpuTopPath, ioTopPath, 1)
 		statReaders[containerID] = []StatReader{
-			CPUStatReader{ Path: containerCPUPath },
-			MemoryStatReader{ Path: containerMemoryPath },
-			IOStatReader { Path: containerIOPath },
+			CPUStatReader{Path: containerCPUPath},
+			MemoryStatReader{Path: containerMemoryPath},
+			IOStatReader{Path: containerIOPath},
 		}
 	}
 }
@@ -139,10 +139,10 @@ func GetStandardStat(containerID string) map[string]interface{} {
 }
 
 func findContainerScope(path string) string {
-	if strings.Contains(path, SCOPE_SUFFIX) {
+	if strings.Contains(path, scopeSuffix) {
 		return path
 	}
-	slicePath := SearchByContainerID(path, SLICE_SUFFIX)
+	slicePath := SearchByContainerID(path, sliceSuffix)
 	if slicePath == "" {
 		return ""
 	}
@@ -153,7 +153,7 @@ func findExampleContainerID(slice *SliceHandler) string {
 	topPath := slice.GetCPUTopPath()
 	containerScopePath := findContainerScope(topPath)
 	pathSplits := strings.Split(containerScopePath, "/")
-	fileName := pathSplits[len(pathSplits) - 1]
+	fileName := pathSplits[len(pathSplits)-1]
 	scopeSplit := strings.Split(fileName, ".scope")[0]
 	partSplits := strings.Split(scopeSplit, "-")
 	return partSplits[len(partSplits)-1]
@@ -164,7 +164,7 @@ func GetAvailableCgroupMetrics() []string {
 	containerID := findExampleContainerID(SliceHandlerInstance)
 	TryInitStatReaders(containerID)
 	stats := GetStandardStat(containerID)
-	for metric, _ := range stats {
+	for metric := range stats {
 		availableMetrics = append(availableMetrics, metric)
 	}
 	return availableMetrics

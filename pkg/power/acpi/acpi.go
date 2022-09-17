@@ -18,8 +18,8 @@ package acpi
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -82,7 +82,7 @@ func (a *ACPI) Run() {
 					if sensorPower, err := getPowerFromSensor(); err == nil {
 						a.mu.Lock()
 						for sensorID, power := range sensorPower {
-							/* energy (mJ) = miliwatts*time(second) */
+							// energy (mJ) is equal to miliwatts*time(second)
 							a.systemEnergy[sensorID] += power * float64(poolingInterval/time.Second)
 						}
 						a.mu.Unlock()
@@ -112,7 +112,7 @@ func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
 }
 
 func getCPUCoreFrequency() map[int32]uint64 {
-	files, err := ioutil.ReadDir(freqPathDir)
+	files, err := os.ReadDir(freqPathDir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func getCPUCoreFrequency() map[int32]uint64 {
 	for i := 0; i < len(files); i++ {
 		go func(i uint64) {
 			path := fmt.Sprintf(freqPath, i)
-			data, err := ioutil.ReadFile(path)
+			data, err := os.ReadFile(path)
 			if err != nil {
 				return
 			}
@@ -150,7 +150,7 @@ func getCPUCoreFrequency() map[int32]uint64 {
 
 func (a *ACPI) IsPowerSupported() bool {
 	file := fmt.Sprintf(powerPath, 1)
-	_, err := ioutil.ReadFile(file)
+	_, err := os.ReadFile(file)
 	return err == nil
 }
 
@@ -172,9 +172,9 @@ func getPowerFromSensor() (map[string]float64, error) {
 
 	for i := int32(1); i <= numCPUS; i++ {
 		path := fmt.Sprintf(powerPath, i)
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
-			break
+			return power, err
 		}
 		// currPower is in microWatt
 		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)

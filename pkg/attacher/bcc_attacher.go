@@ -1,3 +1,6 @@
+//go:build bcc
+// +build bcc
+
 /*
 Copyright 2021.
 
@@ -23,7 +26,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	assets "github.com/sustainable-computing-io/kepler/pkg/bpf_assets"
+	assets "github.com/sustainable-computing-io/kepler/pkg/bpfassets"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 
@@ -37,28 +40,29 @@ type perfCounter struct {
 }
 
 type BpfModuleTables struct {
-	Module *bpf.Module
-	Table  *bpf.Table
+	Module    *bpf.Module
+	Table     *bpf.Table
+	TimeTable *bpf.Table
 }
 
 const (
-	CPU_CYCLE_LABEL = "cpu_cycles"
-	CPU_INSTRUCTION_LABEL = "cpu_instr"
-	CACHE_MISS_LABEL = "cache_miss"
+	CPUCycleLable       = "cpu_cycles"
+	CPUInstructionLable = "cpu_instr"
+	CacheMissLabel      = "cache_miss"
 )
 
 var (
 	Counters = map[string]perfCounter{
-		CPU_CYCLE_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
-		CPU_INSTRUCTION_LABEL:  {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
-		CACHE_MISS_LABEL: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
+		CPUCycleLable:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		CPUInstructionLable: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	EnableCPUFreq = true
 )
 
 func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
 	m := bpf.NewModule(string(objProg), options)
-	//TODO make all entrypoints yaml-declarable
+	// TODO make all entrypoints yaml-declarable
 	sched_switch, err := m.LoadTracepoint("sched_switch")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load sched_switch: %s", err)
@@ -95,7 +99,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	options := []string{
 		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
-		// "-DCPU_FREQ",
+		"-DCPU_FREQ",
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")
@@ -114,9 +118,11 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 
 	table := bpf.NewTable(m.TableId("processes"), m)
+	timeTable := bpf.NewTable(m.TableId("pid_time"), m)
 
 	bpfModules.Module = m
 	bpfModules.Table = table
+	bpfModules.TimeTable = timeTable
 
 	return bpfModules, nil
 }

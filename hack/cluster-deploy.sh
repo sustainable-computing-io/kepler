@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2022 IBM, Inc.
+# Copyright 2022 The Kepler Contributors
 #
 
 set -ex pipefail
+
+source cluster-up/common.sh
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
@@ -25,11 +27,14 @@ MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/ge
 function main() {
     [ ! -d "${MANIFESTS_OUT_DIR}" ] && echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
     
-    kubectl apply -f ${MANIFESTS_OUT_DIR}
-    kubectl rollout status daemonset kepler-exporter -n monitoring --timeout 60s
+    echo "Deploying manifests..."
+
+    # Ignore errors because some clusters might not have prometheus operator
+    kubectl apply -f ${MANIFESTS_OUT_DIR} || true
+    kubectl rollout status daemonset kepler-exporter -n kepler --timeout 60s
 
     echo "Check the logs of the kepler-exporter with:"
-    echo "kubectl -n monitoring logs daemonset.apps/kepler-exporter"
+    echo "kubectl -n kepler logs daemonset.apps/kepler-exporter"
 }
 
 main "$@"

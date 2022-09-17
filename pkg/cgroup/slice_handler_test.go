@@ -17,15 +17,13 @@ limitations under the License.
 package cgroup
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"strings"
-	"fmt"
 )
 
-
-var testPaths []string = []string {
+var testPaths []string = []string{
 	"./test/hierarchypath", "./test/toppath/kubepod", "./test/toppath/system",
 }
 
@@ -36,14 +34,12 @@ var expectedStandardStats map[string]int = map[string]int{
 }
 
 func initSliceHandler(basePath string) *SliceHandler {
-	BASE_CGROUP_PATH = basePath
-	KUBEPOD_CGROUP_PATH = fmt.Sprintf("%s/kubepods.slice", basePath)
-	SYSTEM_CGROUP_PATH = fmt.Sprintf("%s/system.slice", basePath)
+	baseCGroupPath = basePath
+	KubePodCGroupPath = fmt.Sprintf("%s/kubepods.slice", basePath)
+	SystemCGroupPath = fmt.Sprintf("%s/system.slice", basePath)
 	sliceHandler := InitSliceHandler()
 	return sliceHandler
-
 }
-
 
 var _ = Describe("Test Read Stat", func() {
 	It("Properly find container path", func() {
@@ -69,7 +65,7 @@ var _ = Describe("Test Read Stat", func() {
 		}
 	})
 
-	It("Properly get avilable stats", func() {
+	It("Properly get available stats", func() {
 		for _, testPath := range testPaths {
 			SliceHandlerInstance = initSliceHandler(testPath)
 			availableMetrics := GetAvailableCgroupMetrics()

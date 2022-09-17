@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2022 IBM, Inc.
+# Copyright 2022 The Kepler Contributors
 #
 
 set -e
+
+source cluster-up/common.sh
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
@@ -30,7 +32,8 @@ function main() {
         exit
     fi
 
-    kubectl delete --ignore-not-found=true -f ${MANIFESTS_OUT_DIR}
+    # Ignore errors because some clusters might not have prometheus operator
+    kubectl delete --ignore-not-found=true -f ${MANIFESTS_OUT_DIR} || true
 
     sleep 2
 

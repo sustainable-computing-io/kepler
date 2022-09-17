@@ -24,3 +24,11 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubelet-visitor
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubelet-visitor-token
+  annotations:
+    kubernetes.io/service-account.name: kubelet-visitor
+type: kubernetes.io/service-account-token

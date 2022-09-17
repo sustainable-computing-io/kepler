@@ -20,7 +20,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -53,7 +52,7 @@ type PowerEstimateData struct {
 }
 
 type CPUModelData struct {
-	Name     string `csv:"Name"`
+	Name         string `csv:"Name"`
 	Architecture string `csv:"Architecture"`
 }
 
@@ -62,7 +61,7 @@ func GetCPUArchitecture() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	myCPUModel := strings.TrimSuffix(string(output),"\n") 
+	myCPUModel := strings.TrimSuffix(string(output), "\n")
 	file, err := os.Open(cpuModelDataPath)
 	if err != nil {
 		return "", err
@@ -79,7 +78,7 @@ func GetCPUArchitecture() (string, error) {
 		if err := dec.Decode(&p); err == io.EOF {
 			break
 		}
-		if p.Name == myCPUModel {
+		if strings.HasPrefix(myCPUModel, p.Name) {
 			return p.Architecture, nil
 		}
 	}
@@ -88,14 +87,14 @@ func GetCPUArchitecture() (string, error) {
 }
 
 func getDram() (int, error) {
-	b, err := ioutil.ReadFile("/proc/meminfo")
+	b, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, err
 	}
 	re := regexp.MustCompile(dramRegex)
 	matches := re.FindAllStringSubmatch(string(b), -1)
 	if len(matches) > 0 {
-		dram, err := strconv.Atoi(strings.TrimSpace(string(matches[0][1])))
+		dram, err := strconv.Atoi(strings.TrimSpace(matches[0][1]))
 		if err != nil {
 			return 0, err
 		}
@@ -104,7 +103,7 @@ func getDram() (int, error) {
 	return 0, fmt.Errorf("no memory info found")
 }
 
-func getCPUPowerEstimate(cpu string) (float64, float64, float64, error) {
+func getCPUPowerEstimate(cpu string) (perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64, err error) {
 	file, _ := os.Open(powerDataPath)
 	reader := csv.NewReader(file)
 
@@ -157,7 +156,7 @@ func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
-	//TODO use utilization
+	// TODO: use utilization
 	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000 / 3600, nil
 }
 
@@ -169,6 +168,16 @@ func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
 	return 0, nil
 }
 
+// No package information, consider as 1 package
 func (r *PowerEstimate) GetPackageEnergy() map[int]PackageEnergy {
-	return map[int]PackageEnergy{}
+	coreEnergy, _ := r.GetEnergyFromCore()
+	dramEnergy, _ := r.GetEnergyFromDram()
+	packageEnergies := make(map[int]PackageEnergy)
+	packageEnergies[0] = PackageEnergy{
+		Core:   coreEnergy,
+		DRAM:   dramEnergy,
+		Uncore: 0,
+		Pkg:    coreEnergy,
+	}
+	return packageEnergies
 }

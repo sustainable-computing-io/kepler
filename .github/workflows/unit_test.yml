@@ -1,0 +1,86 @@
+name: Unit test
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  unit_test_without_bcc:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@main
+      with:
+          go-version: 1.18
+    - name: Get ginkgo
+      run: make ginkgo-set
+      env:
+          GOPATH: /home/runner/go
+          GOBIN: /home/runner/go/bin
+    - name: Run 
+      run: make test-verbose
+
+  unit_test_with_bcc:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@main
+      with:
+          go-version: 1.18
+    - name: Build bcc
+      run: |
+          set -x
+          sudo apt-get update
+          # Use release 9 of llvm etc. - later versions have an unfixed
+          # bug on Ubuntu:
+          # https://github.com/iovisor/bcc/issues/2915
+          sudo apt-get -y install bison build-essential cmake flex git libelf-dev libfl-dev libedit-dev libllvm9 llvm-9-dev libclang-9-dev python zlib1g-dev
+          pushd /tmp
+          git clone --depth 1 --branch v0.20.0 https://github.com/iovisor/bcc.git
+          mkdir -p bcc/build; cd bcc/build
+          # Symlink /usr/lib/llvm to avoid "Unable to find clang libraries"
+          # The directory appears only to be created when installing the
+          # virtual llvm-dev package.
+          # https://github.com/iovisor/bcc/issues/492
+          sudo ln -s /usr/lib/llvm-9 /usr/local/llvm
+          cmake ..
+          make
+          sudo make install
+          popd
+    - name: Get ginkgo
+      run: make ginkgo-set
+      env:
+          GOPATH: /home/runner/go
+          GOBIN: /home/runner/go/bin
+          GO_BUILD_FLAGS: -covermode=count -coverprofile=coverage.out
+    - name: Run 
+      run: |
+        make test-verbose
+        go tool cover -func=coverage.out -o=coverage.out
+
+    - name: Go Coverage Badge  # Pass the `coverage.out` output to this action
+      uses: tj-actions/coverage-badge-go@v2
+      with:
+        filename: coverage.out
+
+    - name: Verify Changed files
+      uses: tj-actions/verify-changed-files@v11.1
+      id: verify-changed-files
+      with:
+        files: README.md
+
+    - name: Commit changes
+      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git commit -m "chore: Updated coverage badge."
+
+    - name: Push changes
+      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ github.token }}
+        branch: ${{ github.head_ref }}

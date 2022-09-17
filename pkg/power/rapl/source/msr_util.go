@@ -24,8 +24,8 @@ package source
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"math"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -37,11 +37,11 @@ const (
 	msrPath      = "/dev/cpu/%d/msr"
 	topologyPath = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
 
-	MSR_RAPL_POWER_UNIT   = 0x00000606
-	MSR_PKG_ENERY_STATUS  = 0x00000611
-	MSR_DRAM_ENERY_STATUS = 0x00000619
-	MSR_PP0_ENERY_STATUS  = 0x00000639
-	MSR_PP1_ENERY_STATUS  = 0x00000641
+	msrRaplPowerUnit    = 0x00000606
+	msrPkgEnergyStatus  = 0x00000611
+	msrDramEnergyStatus = 0x00000619
+	msrPP0EnergyStatus  = 0x00000639
+	msrPP1EnergyStatus  = 0x00000641
 )
 
 var (
@@ -72,12 +72,12 @@ func mapPackageAndCore() error {
 
 	for i := 0; i < cores; {
 		packageMap[i] = -1
-		i = i + 1
+		i++
 	}
 
 	for i := 0; i < cores; {
 		path := fmt.Sprintf(topologyPath, i)
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("failed to read topology %s: %v", path, err)
 		}
@@ -91,7 +91,7 @@ func mapPackageAndCore() error {
 		if maxPackage < id {
 			maxPackage = id
 		}
-		i = i + 1
+		i++
 	}
 	return nil
 }
@@ -106,7 +106,7 @@ func OpenAllMSR() error {
 			return fmt.Errorf("failed to open path %s: %v", path, err)
 		}
 		fds[i] = fd
-		i = i + 1
+		i++
 	}
 	return nil
 }
@@ -119,16 +119,16 @@ func CloseAllMSR() {
 	}
 }
 
-func ReadMSR(packageId int, msr int64) (uint64, error) {
-	if packageId > maxPackage {
-		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageId, maxPackage)
+func ReadMSR(packageID int, msr int64) (uint64, error) {
+	if packageID > maxPackage {
+		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageID, maxPackage)
 	}
 	buf := make([]byte, 8)
-	core := packageMap[packageId]
-	if core == -1 || fds[packageId] == 0 {
-		return 0, fmt.Errorf("no cpu core or msr found in package %d", packageId)
+	core := packageMap[packageID]
+	if core == -1 || fds[packageID] == 0 {
+		return 0, fmt.Errorf("no cpu core or msr found in package %d", packageID)
 	}
-	bytes, err := syscall.Pread(fds[packageId], buf, msr)
+	bytes, err := syscall.Pread(fds[packageID], buf, msr)
 
 	if err != nil {
 		return 0, err
@@ -153,7 +153,7 @@ func InitUnits() error {
 	cpuEnergyUnits = make([]float64, maxPackage+1)
 	dramEnergyUnits = make([]float64, maxPackage+1)
 	for i := 0; i <= maxPackage; {
-		result, err := ReadMSR(i, MSR_RAPL_POWER_UNIT)
+		result, err := ReadMSR(i, msrRaplPowerUnit)
 		if err != nil {
 			return fmt.Errorf("failed to read power unit: %v", err)
 		}
@@ -161,41 +161,41 @@ func InitUnits() error {
 		timeUnits = math.Pow(0.5, float64(((result >> 16) & 0xf)))
 		cpuEnergyUnits[i] = 1 / math.Pow(2, float64((result&0x1f00)>>8))
 		dramEnergyUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
-		i = i + 1
+		i++
 	}
 	return nil
 }
 
-func ReadPkgPower(packageId int) (uint64, error) {
-	result, err := ReadMSR(packageId, MSR_PKG_ENERY_STATUS)
+func ReadPkgPower(packageID int) (uint64, error) {
+	result, err := ReadMSR(packageID, msrPkgEnergyStatus)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pkg energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageId] * float64(result)), nil
+	return uint64(cpuEnergyUnits[packageID] * float64(result)), nil
 }
 
-func ReadCorePower(packageId int) (uint64, error) {
-	result, err := ReadMSR(packageId, MSR_PP0_ENERY_STATUS)
+func ReadCorePower(packageID int) (uint64, error) {
+	result, err := ReadMSR(packageID, msrPP0EnergyStatus)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp0 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(cpuEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
-func ReadUncorePower(packageId int) (uint64, error) {
-	result, err := ReadMSR(packageId, MSR_PP1_ENERY_STATUS)
+func ReadUncorePower(packageID int) (uint64, error) {
+	result, err := ReadMSR(packageID, msrPP1EnergyStatus)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp1 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(cpuEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
-func ReadDramPower(packageId int) (uint64, error) {
-	result, err := ReadMSR(packageId, MSR_DRAM_ENERY_STATUS)
+func ReadDramPower(packageID int) (uint64, error) {
+	result, err := ReadMSR(packageID, msrDramEnergyStatus)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read dram energy: %v", err)
 	}
-	return uint64(dramEnergyUnits[packageId] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(dramEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
@@ -206,7 +206,7 @@ func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 			return 0, err
 		}
 		energy += result
-		i = i + 1
+		i++
 	}
 	return energy, nil
 }
@@ -219,12 +219,12 @@ func GetPackageEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (
 		uncoreEnergy, _ := uncoreFunc(i)
 		pkgEnergy, _ := pkgFunc(i)
 		packageEnergies[i] = PackageEnergy{
-			Core: coreEnergy,
-			DRAM: dramEnergy,
+			Core:   coreEnergy,
+			DRAM:   dramEnergy,
 			Uncore: uncoreEnergy,
-			Pkg: pkgEnergy,
+			Pkg:    pkgEnergy,
 		}
-		i = i + 1
+		i++
 	}
 	return packageEnergies
 }

@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -60,20 +61,20 @@ func main() {
 
 	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
 
-	collector, err := collector.New()
-	if err != nil {
-		log.Fatalf("failed to create collector: %v", err)
-	}
-	err = collector.Attach()
-	if err != nil {
-		log.Fatalf("failed to attach : %v", err)
-	}
-	defer collector.Destroy()
+	newCollector, err := collector.New()
+	defer newCollector.Destroy()
 	defer rapl.StopPower()
-
-	err = prometheus.Register(collector)
 	if err != nil {
-		log.Fatalf("failed to register collector: %v", err)
+		log.Panicf("%s", fmt.Sprintf("failed to create collector: %v", err))
+	}
+	err = newCollector.Attach()
+	if err != nil {
+		log.Panicf("%s", fmt.Sprintf("failed to attach : %v", err))
+	}
+
+	err = prometheus.Register(newCollector)
+	if err != nil {
+		log.Panicf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
 	http.Handle(*metricsPath, promhttp.Handler())
@@ -86,12 +87,12 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
-			log.Fatalf("failed to write response: %v", err)
+			log.Panicf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
 
 	err = http.ListenAndServe(*address, nil)
 	if err != nil {
-		log.Fatalf("failed to bind on %s: %v", *address, err)
+		log.Panicf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
 	}
 }
