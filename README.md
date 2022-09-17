@@ -26,7 +26,7 @@ Need access to a Kubernetes cluster.
 Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
 port 9102.
 ```
-# kubectl create -f manifests/kubernetes/deployment.yaml 
+# kubectl create -f manifests/kubernetes/deployment.yaml
 ```
 
 ## Deploy the Prometheus operator and the whole monitoring stack
@@ -51,7 +51,7 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 ```
 
 ## Sample Grafana dashboard
-
+Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.json) into grafana
  ![Sample Grafana dashboard](doc/dashboard.png)
 
 
