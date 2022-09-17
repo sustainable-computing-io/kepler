@@ -56,4 +56,4 @@ Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.j
 
 
 ## To start developing Kepler
-To set up a development environment please read our ![Getting Started Guide](dev/README.md)
+To set up a development environment please read our [Getting Started Guide](dev/README.md)
