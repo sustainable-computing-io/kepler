@@ -5,11 +5,6 @@ on:
   push:
     branches: [ main ]
 
-permissions:
-  pull-requests: write
-  issues: write
-  repository-projects: write
-
 jobs:
   unit_test_without_bcc:
     runs-on: ubuntu-latest
@@ -58,7 +53,6 @@ jobs:
       env:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
-          GO_BUILD_FLAGS: -covermode=count -coverprofile=coverage.out
     - name: Run 
       run: |
         make test-verbose
@@ -84,7 +78,7 @@ jobs:
         git commit -m "chore: Updated coverage badge."
 
     - name: Push changes
-      if: steps.verify-changed-files.outputs.files_changed == 'true'
+      if: steps.verify-changed-files.outputs.files_changed == 'true' && ${{ github.ref == 'refs/heads/main' }}
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ github.token }}
