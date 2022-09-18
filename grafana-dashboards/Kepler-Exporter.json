@@ -28,7 +28,7 @@
   "panels": [
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -41,7 +41,7 @@
       "type": "row"
     },
     {
-      "datasource": null,
+      "datasource": "prometheus",
       "description": "Using CO2 emissions  by power generation type as reported by US Energy Information Administration https://www.eia.gov/tools/faqs/faq.php?id=74&t=11",
       "fieldConfig": {
         "defaults": {
@@ -120,7 +120,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -133,7 +133,7 @@
       "type": "row"
     },
     {
-      "datasource": null,
+      "datasource": "prometheus",
       "description": "The mW per second",
       "fieldConfig": {
         "defaults": {
@@ -205,10 +205,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "prometheus",
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
           "legendFormat": "Total",
@@ -216,10 +213,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "prometheus",
           "editorMode": "code",
           "expr": "rate(pod_curr_energy_in_core_millijoule{pod_namespace=\"$namespace\", pod_name=\"$pod\"}[1m])/3",
           "hide": false,
@@ -268,7 +262,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "prometheus",
       "description": "Total W*s Consumed",
       "fieldConfig": {
         "defaults": {
@@ -407,7 +401,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "prometheus",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -474,7 +468,7 @@
       "type": "bargauge"
     },
     {
-      "datasource": null,
+      "datasource": "prometheus",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -575,10 +569,7 @@
       "repeatDirection": "h",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "prometheus",
           "editorMode": "code",
           "expr": "sum by (pod_namespace) (sum_over_time(pod_curr_energy_in_pkg_millijoule[24h])*15/3/3600000000)",
           "legendFormat": "__auto",
@@ -602,7 +593,7 @@
           "text": "kepler",
           "value": "kepler"
         },
-        "datasource": null,
+        "datasource": "prometheus",
         "definition": "label_values(pod_curr_energy_in_pkg_millijoule, pod_namespace)",
         "description": "Namespace for pods to choose",
         "hide": 0,
@@ -630,7 +621,7 @@
           "text": "alertmanager-main-2",
           "value": "alertmanager-main-2"
         },
-        "datasource": null,
+        "datasource": "prometheus",
         "definition": "label_values(pod_curr_energy_in_pkg_millijoule{pod_namespace=\"$namespace\"}, pod_name)",
         "hide": 0,
         "includeAll": false,
