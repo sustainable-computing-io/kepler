@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
   name: kepler-exporter
-  namespace: monitoring
+  namespace: kepler
 spec:
   endpoints:
   - interval: 3s
@@ -23,3 +23,78 @@ spec:
     matchLabels:
       app.kubernetes.io/component: exporter
       app.kubernetes.io/name: kepler-exporter
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: prometheus-k8s
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+rules:
+  - verbs:
+      - get
+    apiGroups:
+      - ''
+    resources:
+      - nodes/metrics
+  - verbs:
+      - get
+    nonResourceURLs:
+      - /metrics
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: prometheus-k8s
+  namespace: kepler
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+rules:
+  - verbs:
+      - get
+      - list
+      - watch
+    apiGroups:
+      - ''
+    resources:
+      - services
+      - endpoints
+      - pods
+  - verbs:
+      - get
+      - list
+      - watch
+    apiGroups:
+      - extensions
+    resources:
+      - ingresses
+  - verbs:
+      - get
+      - list
+      - watch
+    apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: prometheus-k8s
+  namespace: kepler
+  labels:
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/instance: k8s
+    app.kubernetes.io/name: prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s

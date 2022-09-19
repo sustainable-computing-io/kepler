@@ -16,6 +16,10 @@ limitations under the License.
 
 package cgroup
 
+import (
+	"path/filepath"
+)
+
 var MemUsageFiles = []string{
 	"memory.usage_in_bytes",          // hierarchy: system + kernel
 	"memory.kmem.usage_in_bytes",     // hierarchy: kernel
@@ -76,7 +80,8 @@ type MemoryStatReader struct {
 func (s MemoryStatReader) Read() map[string]interface{} {
 	values := make(map[string]interface{})
 	for _, usageFile := range MemUsageFiles {
-		value, err := ReadUInt64(s.Path, usageFile)
+		fileName := filepath.Join(s.Path, usageFile)
+		value, err := ReadUInt64(fileName)
 		if err == nil {
 			values[usageFile] = value
 		}
@@ -98,7 +103,8 @@ func (s CPUStatReader) Read() map[string]interface{} {
 				return kv
 			}
 		default:
-			value, err := ReadUInt64(s.Path, usageFile)
+			fileName := filepath.Join(s.Path, usageFile)
+			value, err := ReadUInt64(fileName)
 			if err == nil {
 				values[usageFile] = value
 			}

@@ -42,8 +42,7 @@ func SearchByContainerID(topFolder, containerID string) string {
 	return ""
 }
 
-func ReadUInt64(path, name string) (uint64, error) {
-	fileName := filepath.Join(path, name)
+func ReadUInt64(fileName string) (uint64, error) {
 	value, err := os.ReadFile(fileName)
 	if err != nil {
 		return 0, err
