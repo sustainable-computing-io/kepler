@@ -2,7 +2,8 @@ name: base
 
 on:
   push:
-    branches: [ main ]
+    branches: 
+      - 'base'
 
 jobs:
   docker:
@@ -24,7 +25,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: {context}/build/Dockerfile.base
+          file: ./build/Dockerfile.base
           platforms: linux/amd64
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-amd64
@@ -32,7 +33,16 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: {context}/build/Dockerfile.base.s390x
+          file: ./build/Dockerfile.base.s390x
           platforms: linux/s390x
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-s390x
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./build/Dockerfile.base.arm64
+          platforms: linux/arm64
+          push: true
+          tags: quay.io/sustainable_computing_io/kepler_base:latest-arm64
+      - name: Create and upload multi-arch image
+        run: make multi-arch-image-base
