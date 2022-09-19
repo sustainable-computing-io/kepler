@@ -111,11 +111,11 @@ push-image:
 .PHONY: push-image
 
 multi-arch-image-base:	
-	docker pull --platform=linux/s390x quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
-	docker pull --platform=linux/amd64 quay.io/sustainable_computing_io/kepler_base:latest-amd64; \
-	docker manifest create quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x quay.io/sustainable_computing_io/kepler_base:latest-amd64 quay.io/sustainable_computing_io/kepler_base:latest-arm64; \
-	docker manifest annotate --arch s390x quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
-	docker push quay.io/sustainable_computing_io/kepler_base:latest
+	$(CTR_CMD) pull --platform=linux/s390x quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) pull --platform=linux/amd64 quay.io/sustainable_computing_io/kepler_base:latest-amd64; \
+	$(CTR_CMD) manifest create quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x quay.io/sustainable_computing_io/kepler_base:latest-amd64 quay.io/sustainable_computing_io/kepler_base:latest-arm64; \
+	$(CTR_CMD) manifest annotate --arch s390x quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) push quay.io/sustainable_computing_io/kepler_base:latest
 .PHONY: multi-arch-image-base
 
 # for testsuite
