@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: monitoring
+  name: kepler
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kepler-clusterrole
-  namespace: monitoring
+  namespace: kepler
 rules:
 - apiGroups: [""]
   resources:
@@ -23,7 +23,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kepler-clusterrole-binding
-  namespace: monitoring
+  namespace: kepler
 roleRef:
   kind: ClusterRole
   name: kepler-clusterrole
@@ -31,19 +31,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kepler-sa
-  namespace: monitoring
+  namespace: kepler
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kepler-sa
-  namespace: monitoring
+  namespace: kepler
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kepler-exporter
-  namespace: monitoring
+  namespace: kepler
 spec:
   selector:
     matchLabels:
@@ -103,7 +103,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: kepler-exporter
-  namespace: monitoring
+  namespace: kepler
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter

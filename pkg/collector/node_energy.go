@@ -13,13 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package collector
 
 import (
 	"fmt"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 	"os"
 	"strconv"
+
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 var (
@@ -89,8 +91,8 @@ func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[in
 		v.EnergyInUncore.AddStat(key, energy.Uncore)
 		v.EnergyInPkg.AddStat(key, energy.Pkg)
 	}
-	fmt.Printf("%v %v\n", v.EnergyInPkg, v.SensorEnergy)
 	v.EnergyInGPU = totalGPUDelta
+	fmt.Printf("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
 	totalSensorDelta := v.SensorEnergy.Curr()
 	totalPkgDelta := v.EnergyInPkg.Curr()
 	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {
@@ -104,14 +106,14 @@ func (v *NodeEnergy) ToPrometheusValues() []string {
 	for _, metric := range metricNames {
 		nodeValues = append(nodeValues, strconv.FormatUint(uint64(v.Usage[metric]), 10))
 	}
-	for ekey, _ := range ENERGY_LABELS {
+	for _, ekey := range EnergyLabelsKeys {
 		val := float64(v.GetPrometheusEnergyValue(ekey)) / 1000.0 // Joule
 		nodeValues = append(nodeValues, fmt.Sprintf("%f", val))
 	}
 	return nodeValues
 }
 
-func (v *NodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
+func (v *NodeEnergy) getEnergyValue(ekey string) (val uint64) {
 	switch ekey {
 	case "core":
 		val = v.EnergyInCore.Curr()
@@ -129,8 +131,19 @@ func (v *NodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
 	return
 }
 
+func (v *NodeEnergy) GetPrometheusEnergyValue(ekey string) (val uint64) {
+	return v.getEnergyValue(ekey)
+}
+
 func (v *NodeEnergy) Curr() uint64 {
 	return v.EnergyInPkg.Curr() + v.EnergyInGPU + v.EnergyInOther
+}
+
+func (v *NodeEnergy) GetCurrEnergyPerpkgID(pkgIDKey string) (coreDelta, dramDelta, uncoreDelta uint64) {
+	coreDelta = v.EnergyInCore.Stat[pkgIDKey].Curr
+	dramDelta = v.EnergyInDRAM.Stat[pkgIDKey].Curr
+	uncoreDelta = v.EnergyInUncore.Stat[pkgIDKey].Curr
+	return
 }
 
 func (v NodeEnergy) String() string {

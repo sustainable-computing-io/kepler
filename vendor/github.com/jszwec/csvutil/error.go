@@ -155,18 +155,32 @@ func (e *MissingColumnsError) Error() string {
 	return b.String()
 }
 
-// decodeError provides context to decoding errors if available.
+// DecodeError provides context to decoding errors if available.
 //
 // The caller should use errors.As in order to fetch the underlying error if
 // needed.
-type decodeError struct {
-	Field  string
-	Line   int
+//
+// Some of the DecodeError's fields are only populated if the Reader supports
+// PosField method. Specifically Line and Column. FieldPos is available in
+// csv.Reader since Go1.17.
+type DecodeError struct {
+	// Field describes the struct's tag or field name on which the error happened.
+	Field string
+
+	// Line is 1-indexed line number taken from FieldPost method. It is only
+	// available if the used Reader supports FieldPos method.
+	Line int
+
+	// Column is 1-indexed column index taken from FieldPost method. It is only
+	// available if the used Reader supports FieldPos method.
 	Column int
-	Err    error
+
+	// Error is the actual error that was returned while attempting to decode
+	// a field.
+	Err error
 }
 
-func (e *decodeError) Error() string {
+func (e *DecodeError) Error() string {
 	if e.Line > 0 && e.Column > 0 {
 		// Lines and Columns are 1-indexed so this check is fine.
 		return fmt.Sprintf("%s: field %q line %d column %d", e.Err, e.Field, e.Line, e.Column)
@@ -174,6 +188,6 @@ func (e *decodeError) Error() string {
 	return fmt.Sprintf("%s: field %q", e.Err, e.Field)
 }
 
-func (e *decodeError) Unwrap() error {
+func (e *DecodeError) Unwrap() error {
 	return e.Err
 }

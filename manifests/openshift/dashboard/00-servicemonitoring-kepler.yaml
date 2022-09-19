@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
   name: monitor-kepler-exporter
-  namespace: monitoring
+  namespace: kepler
 spec:
   endpoints:
   - interval: 15s

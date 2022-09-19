@@ -21,6 +21,5 @@ type PackageEnergy struct {
 	Core   uint64
 	DRAM   uint64
 	Uncore uint64
-	Pkg    uint64	
+	Pkg    uint64
 }
-

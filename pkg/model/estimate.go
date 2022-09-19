@@ -2,14 +2,15 @@ package model
 
 import (
 	"encoding/json"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"log"
 	"math"
 	"net"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 const (
-	SERVE_SOCKET = "/tmp/estimator.sock"
+	serveSocket = "/tmp/estimator.sock"
 )
 
 var (
@@ -93,35 +94,28 @@ func getRatio(podMetricValue []float64, metricIndex int, totalUsage float64, tot
 
 func GetPowerFromUsageRatio(podMetricValues [][]float64, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower uint64, sumUsage map[string]float64) (podCore, podDRAM, podUncore, podPkg []uint64) {
 	podNumber := float64(len(podMetricValues))
-	totalCoreUsage := sumUsage[config.UncoreUsageMetric]
+	totalCoreUsage := sumUsage[config.CoreUsageMetric]
 	totalDRAMUsage := sumUsage[config.DRAMUsageMetric]
 	totalUncoreUsage := sumUsage[config.UncoreUsageMetric]
 	totalUsage := sumUsage[config.GeneralUsageMetric]
 
-	unknownValue := totalPkgPower - totalCorePower - totalDRAMPower - totalUncorePower
+	// Package (PKG) domain measures the energy consumption of the entire socket, including the consumption of all the cores, integrated graphics and
+	// also the "unknown" components such as last level caches and memory controllers
+	pkgUnknownValue := totalPkgPower - totalCorePower - totalUncorePower
 
 	// find ratio power
 	for _, podMetricValue := range podMetricValues {
 		coreValue := getRatio(podMetricValue, coreMetricIndex, totalCoreUsage, totalCorePower, podNumber)
 		dramValue := getRatio(podMetricValue, dramMetricIndex, totalDRAMUsage, totalDRAMPower, podNumber)
 		uncoreValue := getRatio(podMetricValue, uncoreMetricIndex, totalUncoreUsage, totalUncorePower, podNumber)
-		unknownValue := getRatio(podMetricValue, generalMetricIndex, totalUsage, unknownValue, podNumber)
-		pkgValue := coreValue + dramValue + uncoreValue + unknownValue
+		unknownValue := getRatio(podMetricValue, generalMetricIndex, totalUsage, pkgUnknownValue, podNumber)
+		pkgValue := coreValue + uncoreValue + unknownValue
 		podCore = append(podCore, coreValue)
 		podDRAM = append(podDRAM, dramValue)
 		podUncore = append(podUncore, uncoreValue)
 		podPkg = append(podPkg, pkgValue)
 	}
 	return
-}
-
-// convert f64 to f32 for reducing communication cost
-func f64Tof32(f64arr []float64) []float32 {
-	var f32arr []float32
-	for _, val := range f64arr {
-		f32arr = append(f32arr, float32(val))
-	}
-	return f32arr
 }
 
 func GetDynamicPower(metricNames []string, podMetricValues [][]float64, corePower, dramPower, uncorePower, pkgPower, gpuPower []float64) []float64 {
@@ -136,26 +130,26 @@ func GetDynamicPower(metricNames []string, podMetricValues [][]float64, corePowe
 		GPUPower:        gpuPower,
 		SelectFilter:    config.EstimatorSelectFilter,
 	}
-	powerRequestJson, err := json.Marshal(powerRequest)
+	powerRequestJSON, err := json.Marshal(powerRequest)
 	if err != nil {
 		log.Printf("marshal error: %v (%v)", err, powerRequest)
 		return []float64{}
 	}
 
-	c, err := net.Dial("unix", SERVE_SOCKET)
+	c, err := net.Dial("unix", serveSocket)
 	if err != nil {
 		log.Printf("dial error: %v", err)
 		return []float64{}
 	}
 	defer c.Close()
 
-	_, err = c.Write(powerRequestJson)
+	_, err = c.Write(powerRequestJSON)
 	if err != nil {
 		log.Printf("estimator write error: %v", err)
 		return []float64{}
 	}
 	buf := make([]byte, 1024)
-	n, err := c.Read(buf[:])
+	n, err := c.Read(buf)
 	if err != nil {
 		log.Printf("estimator read error: %v", err)
 		return []float64{}

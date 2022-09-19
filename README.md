@@ -1,3 +1,11 @@
+<img align="right" width="250px" src="https://user-images.githubusercontent.com/17484350/138557170-d8079b94-a517-4366-ade8-8d473e3f3f1d.jpg">
+
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/sustainable-computing-io/kepler/Unit%20test?label=CI)
+![Coverage](https://img.shields.io/badge/Coverage-76.5%25-brightgreen)
+[![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)
+
+![GitHub](https://img.shields.io/github/license/sustainable-computing-io/kepler)
+
 # kepler
 Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy related system stats and exports as Prometheus metrics
 
@@ -18,7 +26,7 @@ Need access to a Kubernetes cluster.
 Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
 port 9102.
 ```
-# kubectl create -f manifests/kubernetes/deployment.yaml 
+# kubectl create -f manifests/kubernetes/deployment.yaml
 ```
 
 ## Deploy the Prometheus operator and the whole monitoring stack
@@ -43,9 +51,9 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 ```
 
 ## Sample Grafana dashboard
-
+Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.json) into grafana
  ![Sample Grafana dashboard](doc/dashboard.png)
 
 
 ## To start developing Kepler
-To set up a development environment please read our ![Getting Started Guide](dev/README.md)
+To set up a development environment please read our [Getting Started Guide](dev/README.md)

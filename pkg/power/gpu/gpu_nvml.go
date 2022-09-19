@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package gpu
 
 import (
@@ -93,7 +94,7 @@ func GetCurrGpuEnergyPerPid() (map[uint32]float64, error) {
 		}
 		// use per pid used memory/total used memory to estimate per pid energy
 		for _, p := range pm {
-			// fmt.Printf("pid %v power %v total mem %v mem %v\n", p.pid, power, totalMem, p.mem)
+			fmt.Printf("pid %v power %v total mem %v mem %v\n", p.pid, power, totalMem, p.mem)
 			m[p.pid] = float64(uint64(power) * p.mem / totalMem)
 		}
 	}

@@ -13,51 +13,52 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package collector
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/pod_lister"
+	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
 	"log"
 )
 
 const (
-	FREQ_METRIC_LABEL = "avg_cpu_frequency"
+	freqMetricLabel = "avg_cpu_frequency"
 
 	// TO-DO: merge to cgroup stat
-	BYTE_READ_LABEL    = "bytes_read"
-	BYTE_WRITE_LABEL   = "bytes_writes"
-	BLOCK_DEVICE_LABEL = "block_devices_used"
+	ByteReadLabel    = "bytes_read"
+	ByteWriteLabel   = "bytes_writes"
+	blockDeviceLabel = "block_devices_used"
 
-	CPU_TIME_LABEL = "cpu_time"
+	CPUTimeLabel = "cpu_time"
 )
 
 var (
-	FLOAT_FEATURES []string = []string{}
+	FloatFeatures []string = []string{}
 
 	availableCounters       []string = attacher.GetEnabledCounters()
 	availableCgroupMetrics  []string = cgroup.GetAvailableCgroupMetrics()
-	availableKubeletMetrics []string = pod_lister.GetAvailableKubeletMetrics()
+	availableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
 	// TO-DO: merge to cgroup stat and remove hard-code metric list
-	IOSTAT_METRICS []string = []string{BYTE_READ_LABEL, BYTE_WRITE_LABEL}
-	uintFeatures   []string = getUIntFeatures()
-	features       []string = append(FLOAT_FEATURES, uintFeatures...)
-	metricNames    []string = getEstimatorMetrics()
+	iostatMetrics []string = []string{ByteReadLabel, ByteWriteLabel}
+	uintFeatures  []string = getUIntFeatures()
+	features      []string = append(FloatFeatures, uintFeatures...)
+	metricNames   []string = getEstimatorMetrics()
 )
 
 func getUIntFeatures() []string {
 	var metrics []string
-	metrics = append(metrics, CPU_TIME_LABEL)
+	metrics = append(metrics, CPUTimeLabel)
 	// counter metric
 	metrics = append(metrics, availableCounters...)
 	// cgroup metric
 	metrics = append(metrics, availableCgroupMetrics...)
 	// kubelet metric
 	metrics = append(metrics, availableKubeletMetrics...)
-	metrics = append(metrics, IOSTAT_METRICS...)
+	metrics = append(metrics, iostatMetrics...)
 	log.Printf("Available counter metrics: %v", availableCounters)
 	log.Printf("Available cgroup metrics: %v", availableCgroupMetrics)
 	log.Printf("Available kubelet metrics: %v", availableKubeletMetrics)
@@ -67,24 +68,23 @@ func getUIntFeatures() []string {
 func getPrometheusMetrics() []string {
 	var labels []string
 	for _, feature := range features {
-		labels = append(labels, CURR_PREFIX+feature)
-		labels = append(labels, AGGR_PREFIX+feature)
+		labels = append(labels, CurrPrefix+feature, AggrPrefix+feature)
 	}
 	if attacher.EnableCPUFreq {
-		labels = append(labels, FREQ_METRIC_LABEL)
+		labels = append(labels, freqMetricLabel)
 	}
 	// TO-DO: remove this hard code metric
-	labels = append(labels, BLOCK_DEVICE_LABEL)
+	labels = append(labels, blockDeviceLabel)
 	return labels
 }
 
 func getEstimatorMetrics() []string {
-	var metricNames []string
+	var names []string
 	for _, feature := range features {
-		metricNames = append(metricNames, CURR_PREFIX+feature)
+		names = append(names, CurrPrefix+feature)
 	}
 	// TO-DO: remove this hard code metric
-	metricNames = append(metricNames, BLOCK_DEVICE_LABEL)
-	model.InitMetricIndexes(metricNames)
-	return metricNames
+	names = append(names, blockDeviceLabel)
+	model.InitMetricIndexes(names)
+	return names
 }

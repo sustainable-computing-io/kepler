@@ -17,71 +17,94 @@ limitations under the License.
 package config
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
 
-	"github.com/zcalusic/sysinfo"
+	"golang.org/x/sys/unix"
 )
 
 const (
-	CGROUP_ID_MIN_KERNEL_VERSION = 4.18
+	cGroupIDMinKernelVersion = 4.18
 
 	// If this file is present, cgroups v2 is enabled on that node.
 	cGroupV2Path = "/sys/fs/cgroup/cgroup.controllers"
 )
 
+type Client interface {
+	getUnixName() (unix.Utsname, error)
+	getCgroupV2File() string
+}
+
+type config struct {
+}
+
+var c config
+
 var (
 	EnabledEBPFCgroupID = false
 
-	EstimatorModel = "" // auto-select
+	EstimatorModel        = "" // auto-select
 	EstimatorSelectFilter = "" // no filter
-	CoreUsageMetric = "curr_cpu_cycles"
-	DRAMUsageMetric = "curr_cache_miss"
-	UncoreUsageMetric = "" // no metric (evenly divided)
-	GeneralUsageMetric = "curr_cpu_cycles" // for uncategorized energy; pkg - core - dram - uncore
+	CoreUsageMetric       = "curr_cpu_cycles"
+	DRAMUsageMetric       = "curr_cache_miss"
+	UncoreUsageMetric     = ""                // no metric (evenly divided)
+	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - uncore
 )
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func EnableEBPFCgroupID(enabled bool) {
 	fmt.Println("config EnabledEBPFCgroupID enabled: ", enabled)
-	fmt.Println("config getKernelVersion: ", getKernelVersion())
-	if (enabled == true) && (getKernelVersion() >= CGROUP_ID_MIN_KERNEL_VERSION) && (isCGroupV2()) {
+	fmt.Println("config getKernelVersion: ", getKernelVersion(c))
+	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	}
 	fmt.Println("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
-func getKernelVersion() float32 {
-	var si sysinfo.SysInfo
+func (c config) getUnixName() (unix.Utsname, error) {
+	var utsname unix.Utsname
+	err := unix.Uname(&utsname)
+	return utsname, err
+}
 
-	si.GetSysInfo()
+func (c config) getCgroupV2File() string {
+	return cGroupV2Path
+}
 
-	data, err := json.MarshalIndent(&si, "", "  ")
-	if err == nil {
-		var result map[string]map[string]string
-		json.Unmarshal([]byte(data), &result)
+func getKernelVersion(c Client) float32 {
+	utsname, err := c.getUnixName()
 
-		if release, ok := result["kernel"]["release"]; ok {
-			val, err := strconv.ParseFloat(release[:4], 32)
-			if err == nil {
-				return float32(val)
-			}
-		}
+	if err != nil {
+		fmt.Println("Failed to parse unix name")
+		return -1
 	}
+	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
+	kv := utsname.Release[:bytes.IndexByte(utsname.Release[:], 0)]
+	val, err := strconv.ParseFloat(string(kv[:4]), 32)
+	if err == nil {
+		return float32(val)
+	}
+	fmt.Println("Not able to parse kernel version, use -1 instead")
 	return -1
 }
 
-func isCGroupV2() bool {
-	_, err := os.Stat(cGroupV2Path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
+func isCGroupV2(c Client) bool {
+	_, err := os.Stat(c.getCgroupV2File())
+	return !os.IsNotExist(err)
 }
 
-func SetEstimatorConfig(modelName string, selectFilter string) {
+// Get cgroup version, return 1 or 2
+func GetCGroupVersion() int {
+	if isCGroupV2(c) {
+		return 2
+	} else {
+		return 1
+	}
+}
+
+func SetEstimatorConfig(modelName, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter
 }

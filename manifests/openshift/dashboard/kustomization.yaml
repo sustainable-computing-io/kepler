@@ -1,0 +1,8 @@
+# run this only from ./grafana-deploy.sh
+commonLabels:
+  sustainable-computing.io/app: kepler
+
+resources:
+- 00-openshift-monitoring-user-projects.yaml
+- 00-servicemonitoring-kepler.yaml
+- 01-grafana-operator.yaml

@@ -5,13 +5,28 @@ SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
 
 SRC_ROOT :=$(shell pwd)
 
-IMAGE_REPO :=quay.io/sustainable_computing_io/kepler
-IMAGE_VERSION := "latest"
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
-CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
+
+ifdef IMAGE_REPO
+	IMAGE_REPO := $(IMAGE_REPO)
+else
+	IMAGE_REPO := quay.io/sustainable_computing_io/kepler
+endif
+
+ifdef IMAGE_TAG
+	IMAGE_TAG := $(IMAGE_TAG)
+else
+	IMAGE_TAG := latest
+endif
+
+ifdef CTR_CMD
+	CTR_CMD := $(CTR_CMD)
+else 
+	CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
+endif
 
 # restrict included verify-* targets to only process project files
 GO_PACKAGES=$(go list ./cmd/... ./pkg/...)
@@ -28,7 +43,12 @@ endif
 
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
-GO_BUILD_FLAGS :=-tags 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+ifneq ($(shell command -v ldconfig),)
+  ifneq ($(shell ldconfig -p|grep bcc),)
+     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
+  endif
+endif
 
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
@@ -41,9 +61,9 @@ tidy-vendor:
 	go mod vendor
 
 
-_build_local:
+_build_local: format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler ./cmd/exporter.go
 
 cross-build-linux-amd64:
@@ -58,7 +78,7 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64
 .PHONY: cross-build
 
 
-_build_containerized:
+_build_containerized: format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 	$(CTR_CMD) build -t $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) \
@@ -69,7 +89,7 @@ _build_containerized:
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_VERSION)
+	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_TAG)
 
 .PHONY: _build_containerized
 
@@ -86,21 +106,47 @@ build-containerized-cross-build:
 	+$(MAKE) build-containerized-cross-build-linux-arm64
 .PHONY: build-containerized-cross-build
 
+push-image:
+	$(CTR_CMD) push $(IMAGE_REPO):$(IMAGE_TAG)
+.PHONY: push-image
+
+multi-arch-image-base:	
+	$(CTR_CMD) pull --platform=linux/s390x quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) pull --platform=linux/amd64 quay.io/sustainable_computing_io/kepler_base:latest-amd64; \
+	$(CTR_CMD) manifest create quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x quay.io/sustainable_computing_io/kepler_base:latest-amd64 quay.io/sustainable_computing_io/kepler_base:latest-arm64; \
+	$(CTR_CMD) manifest annotate --arch s390x quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) push quay.io/sustainable_computing_io/kepler_base:latest
+.PHONY: multi-arch-image-base
+
 # for testsuite
 PWD=$(shell pwd)
 ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
-GOPATH ?= $(HOME)/go
 
-ginkgo-set:
+ifndef GOPATH
+  GOPATH := $(HOME)/go
+  GOBIN := $(GOPATH)/bin
+endif
+
+ginkgo-set: tidy-vendor
+	mkdir -p $(GOBIN)
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-	 (go get -u github.com/onsi/ginkgo/ginkgo && go install github.com/onsi/ginkgo/ginkgo && \
-	  go get -u github.com/onsi/gomega/... && go install github.com/onsi/gomega/... && \
-	  cp $(GOPATH)/bin/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	 (go install github.com/onsi/ginkgo/ginkgo@v1.16.5  && \
+	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
-	@go test -v ./...
+	@go test $(GO_BUILD_FLAGS) ./... --race --bench=. -cover --count=1 --vet=all
+
+test-verbose: ginkgo-set tidy-vendor
+	@go test $(GO_BUILD_FLAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
+
+format:
+	gofmt -e -d -s -l -w pkg/ cmd/
+
+golint:
+	./hack/golint.sh
+
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
@@ -110,3 +156,27 @@ clean-cross-build:
 
 clean: clean-cross-build
 .PHONY: clean
+
+build-manifest:
+	./hack/build-manifest.sh
+.PHONY: build-manifest
+
+cluster-clean: build-manifest
+	./hack/cluster-clean.sh
+.PHONY: cluster-clean
+
+cluster-deploy: cluster-clean
+	./hack/cluster-deploy.sh
+.PHONY: cluster-deploy
+
+cluster-sync:
+	./hack/cluster-sync.sh
+.PHONY: cluster-sync
+
+cluster-up:
+	./hack/cluster-up.sh
+.PHONY: cluster-up
+
+cluster-down:
+	./hack/cluster-down.sh
+.PHONY: cluster-down

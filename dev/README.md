@@ -2,7 +2,16 @@
 
 A quick start guide to get Kepler up and running inside your container-based development cluster.
 
-## I just want it built and run it on my cluster
+## To create a new emphemeral local kubernetes cluster
+You can bring the cluster up with:
+```bash
+export CLUSTER_PROVIDER=`kind`
+make cluster-up
+```
+
+For more information please read our ![How to use cluster-up](cluster-up/README.md)
+
+## Then build and run kepler on your cluster
 
 First, point the `Makefile` to the container registry of your choice:
 
@@ -58,10 +67,11 @@ If successful, the binary is at `_output/bin/_/kepler`
 
 ### Test
 
-Create the k8s role and token, this is only needed once.
+Create the k8s role and token, copy data files, this is only needed once.
 ```bash
 cd dev/
 ./create_k8s_token.sh
+./prepare_dev_env.sh
 ```
 
 Then run the Kepler binary at `_output/bin/_/kepler`
