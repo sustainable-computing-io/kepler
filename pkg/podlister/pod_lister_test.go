@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 const rhelContainerd = `
@@ -30,20 +32,6 @@ const ubuntuDocker = `
 11:blkio:/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod481c0ae9_7d40_46dd_b6ca_ba27cb64f87e.slice/docker-28a5e57257f81fcd6d592647dde27e06b53944d58af4fa546ad77a12ce8b41c2.scope`
 
 const ubuntuDockerExpected = `11:blkio:/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod481c0ae9_7d40_46dd_b6ca_ba27cb64f87e.slice/docker-28a5e57257f81fcd6d592647dde27e06b53944d58af4fa546ad77a12ce8b41c2.scope`
-
-func createTempFile(contents string) (filename string, reterr error) {
-	f, err := os.CreateTemp("", "")
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			return
-		}
-	}()
-	_, _ = f.WriteString(contents)
-	return f.Name(), nil
-}
 
 func TestGetPathFromPID(t *testing.T) {
 	g := NewWithT(t)
@@ -77,7 +65,7 @@ func TestGetPathFromPID(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			p, err := createTempFile(testcase.contents)
+			p, err := utils.CreateTempFile(testcase.contents)
 			_, file := filepath.Split(p)
 			g.Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(p)

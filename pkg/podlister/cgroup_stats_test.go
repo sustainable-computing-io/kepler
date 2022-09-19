@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 const iostatContent1 = `
@@ -42,7 +44,7 @@ func TestReadIOStat(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			file, err := createTempFile(testcase.contents)
+			file, err := utils.CreateTempFile(testcase.contents)
 			g.Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(file)
 
