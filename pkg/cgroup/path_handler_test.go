@@ -18,6 +18,7 @@ package cgroup
 
 import (
 	"os"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -62,6 +63,81 @@ func TestReadUInt64(t *testing.T) {
 			}
 
 			g.Expect(d).To(Equal(testcase.expectR))
+		})
+	}
+}
+
+var testContents1 = `
+usage_usec 1
+user_usec 2
+system_usec 3`
+
+var testContents2 = `
+usage_usec 1
+dummy dummy   // not acceptable, ignore
+user_usec 2
+system_usec 3`
+
+var testResults = map[string]interface{}{
+	"usage_usec":  uint64(1),
+	"user_usec":   uint64(2),
+	"system_usec": uint64(3),
+}
+
+func TestReadKV(t *testing.T) {
+	g := NewWithT(t)
+
+	var testcases = []struct {
+		name          string
+		contents      string
+		expectErr     bool
+		fileName      string
+		expectResults map[string]interface{}
+	}{
+		{
+			name:          "test valid input",
+			contents:      testContents1,
+			expectErr:     false,
+			fileName:      "",
+			expectResults: testResults,
+		},
+		{
+			name:          "test valid input",
+			contents:      testContents2,
+			expectErr:     false,
+			fileName:      "",
+			expectResults: testResults,
+		},
+		{
+			name:      "test invalid data",
+			contents:  "not valid",
+			expectErr: true,
+			fileName:  "/tmp/this_file_do_not_exist_dummy",
+		},
+	}
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			var fileName string
+			var err error
+			if testcase.fileName == "" {
+				fileName, err = utils.CreateTempFile(testcase.contents)
+				g.Expect(err).NotTo(HaveOccurred())
+				defer os.Remove(fileName)
+			} else {
+				fileName = testcase.fileName
+			}
+
+			d, err := ReadKV(fileName)
+
+			if testcase.expectErr {
+				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(3).To(Equal(len(d)))
+				eq := reflect.DeepEqual(testcase.expectResults, d)
+				g.Expect(true).To(Equal(eq))
+			}
 		})
 	}
 }
