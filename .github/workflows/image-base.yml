@@ -3,9 +3,7 @@ name: base
 on:
   push:
     branches: 
-      - 'main'
-    tags:
-      - 'v*'
+      - 'base'
 
 jobs:
   docker:
@@ -47,9 +45,4 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-arm64
       - name: Create and upload multi-arch image
-        run: |
-            docker pull --platform=linux/s390x quay.io/sustainable_computing_io/kepler_base:latest-s390x
-            docker pull --platform=linux/amd64 quay.io/sustainable_computing_io/kepler_base:latest-amd64
-            docker manifest create quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x quay.io/sustainable_computing_io/kepler_base:latest-amd64 quay.io/sustainable_computing_io/kepler_base:latest-arm64
-            docker manifest annotate --arch s390x quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x
-            docker push quay.io/sustainable_computing_io/kepler_base:latest
+        run: make multi-arch-image-base
