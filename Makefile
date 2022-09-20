@@ -136,10 +136,10 @@ ginkgo-set: tidy-vendor
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
-	@go test $(GO_BUILD_FLAGS) ./... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
 test-verbose: ginkgo-set tidy-vendor
-	@go test $(GO_BUILD_FLAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
 
 format:
 	gofmt -e -d -s -l -w pkg/ cmd/
