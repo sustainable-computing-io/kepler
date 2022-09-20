@@ -58,34 +58,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-go@main
-      with:
-          go-version: 1.18
-    - name: Build bcc
-      run: |
-          set -x
-          sudo apt-get update
-          # Use release 9 of llvm etc. - later versions have an unfixed
-          # bug on Ubuntu:
-          # https://github.com/iovisor/bcc/issues/2915
-          sudo apt-get -y install bison build-essential cmake flex git libelf-dev libfl-dev libedit-dev libllvm9 llvm-9-dev libclang-9-dev python zlib1g-dev
-          pushd /tmp
-          git clone --depth 1 --branch v0.20.0 https://github.com/iovisor/bcc.git
-          mkdir -p bcc/build; cd bcc/build
-          # Symlink /usr/lib/llvm to avoid "Unable to find clang libraries"
-          # The directory appears only to be created when installing the
-          # virtual llvm-dev package.
-          # https://github.com/iovisor/bcc/issues/492
-          sudo ln -s /usr/lib/llvm-9 /usr/local/llvm
-          cmake ..
-          make
-          sudo make install
-          popd
-    - name: Get ginkgo
-      run: make ginkgo-set
-      env:
-          GOPATH: /home/runner/go
-          GOBIN: /home/runner/go/bin
-    - name: Run 
-      run: |
-        make test-verbose
+    - name: test bcc in docker container
+      run: podman run -v $(pwd):/home quay.io/sustainable_computing_io/kepler_builder:go1.18 bash -c "cd /home; export PATH=/usr/local/go/bin:$PATH; make test-verbose"

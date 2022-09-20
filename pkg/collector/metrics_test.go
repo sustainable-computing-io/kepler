@@ -40,12 +40,10 @@ var _ = Describe("Test Metric Unit", func() {
 		clearPlatformDependentAvailability()
 
 		exp := []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "block_devices_used"}
+		if attacher.EnableCPUFreq {
+			exp = []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "avg_cpu_frequency", "block_devices_used"}
+		}
 		cur := getPrometheusMetrics()
-		Expect(exp).To(Equal(cur))
-
-		attacher.EnableCPUFreq = true
-		exp = []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "avg_cpu_frequency", "block_devices_used"}
-		cur = getPrometheusMetrics()
 		Expect(exp).To(Equal(cur))
 	})
 
