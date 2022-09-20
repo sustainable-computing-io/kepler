@@ -65,7 +65,7 @@ jobs:
       run: |
           set -x
           sudo apt-get update
-          audo apt-get install -y libbpfcc-dev linux-headers-$(uname -r)
+          sudo apt-get install -y libbpfcc-dev linux-headers-$(uname -r)
     - name: Get ginkgo
       run: make ginkgo-set
       env:
