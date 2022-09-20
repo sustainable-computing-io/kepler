@@ -137,11 +137,11 @@ ginkgo-set: tidy-vendor
 	
 test: ginkgo-set tidy-vendor
 	@echo build tag will use $(GO_BUILD_TAGS)
-	@go test $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
 test-verbose: ginkgo-set tidy-vendor
 	@echo build tag will use $(GO_BUILD_TAGS)
-	@go test $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
 
 format:
 	gofmt -e -d -s -l -w pkg/ cmd/
