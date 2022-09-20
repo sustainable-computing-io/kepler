@@ -51,7 +51,7 @@ ifneq ($(shell command -v ldconfig),)
 endif
 
 ifneq ($(shell command -v dkpg),)
-  ifneq ($(shell dkpg -l|grep bcc),)
+  ifneq ($(shell dkpg -l|grep libbpfcc),)
      GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
   endif
 endif
