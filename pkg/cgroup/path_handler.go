@@ -50,9 +50,8 @@ func ReadUInt64(fileName string) (uint64, error) {
 	return strconv.ParseUint(strings.TrimSpace(string(value)), 10, 64)
 }
 
-func ReadKV(path, name string) (map[string]interface{}, error) {
+func ReadKV(fileName string) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
-	fileName := filepath.Join(path, name)
 	f, err := os.Open(fileName)
 	if err != nil {
 		return values, err

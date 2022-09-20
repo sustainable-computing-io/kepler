@@ -98,7 +98,8 @@ func (s CPUStatReader) Read() map[string]interface{} {
 	for _, usageFile := range cpuUsageFiles {
 		switch usageFile {
 		case "cpu.stat":
-			kv, err := ReadKV(s.Path, usageFile)
+			fileName := filepath.Join(s.Path, usageFile)
+			kv, err := ReadKV(fileName)
 			if err == nil {
 				return kv
 			}
