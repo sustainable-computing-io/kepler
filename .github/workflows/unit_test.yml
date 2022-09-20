@@ -42,7 +42,7 @@ jobs:
     - name: Commit changes
       if: github.event_name != 'pull_request' && steps.verify-changed-files.outputs.files_changed == 'true' 
       run: |
-        git config --local user.email "bot@sustainable-computing.io"
+        git config --local user.email "info@sustainable-computing.io"
         git config --local user.name ${{ secrets.GH_BOT }}
         git add README.md
         git commit -m "chore: Updated coverage badge."
