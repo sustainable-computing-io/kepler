@@ -2,7 +2,9 @@
 
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/sustainable-computing-io/kepler/Unit%20test?label=CI)
 ![Coverage](https://img.shields.io/badge/Coverage-76.5%25-brightgreen)
+<!--
 [![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)
+-->
 
 ![GitHub](https://img.shields.io/github/license/sustainable-computing-io/kepler)
 
