@@ -139,6 +139,7 @@ test: ginkgo-set tidy-vendor
 	@go test $(GO_BUILD_FLAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
 test-verbose: ginkgo-set tidy-vendor
+	@echo build tag will use $(GO_BUILD_FLAGS)
 	@go test $(GO_BUILD_FLAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
 
 format:
