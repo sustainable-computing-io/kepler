@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+        fetch-depth: 0
     - uses: actions/setup-go@main
       with:
-          persist-credentials: false
           go-version: 1.18
     - name: Get ginkgo
       run: make ginkgo-set
