@@ -50,6 +50,12 @@ ifneq ($(shell command -v ldconfig),)
   endif
 endif
 
+ifneq ($(shell command -v dkpg),)
+  ifneq ($(shell dkpg -l|grep bcc),)
+     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
+  endif
+endif
+
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 
