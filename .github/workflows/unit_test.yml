@@ -17,6 +17,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@main
       with:
+          persist-credentials: false
           go-version: 1.18
     - name: Get ginkgo
       run: make ginkgo-set
@@ -45,7 +46,7 @@ jobs:
         git config --local user.email "info@sustainable-computing.io"
         git config --local user.name ${{ secrets.GH_BOT }}
         git add README.md
-        git commit -m "chore: Updated coverage badge."
+        git commit -m "bot: Updated coverage badge."
 
     - name: Push changes
       if: github.event_name != 'pull_request' && steps.verify-changed-files.outputs.files_changed == 'true' 
