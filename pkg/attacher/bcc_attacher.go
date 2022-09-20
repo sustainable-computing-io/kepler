@@ -81,7 +81,7 @@ func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
 		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
 		if perfErr != nil {
 			// some hypervisors don't expose perf counters
-			fmt.Printf("failed to attach perf event %s: %v\n", arrayName, err)
+			fmt.Printf("failed to attach perf event %s: %v\n", arrayName, perfErr)
 			counter.enabled = false
 			// if perf counters are not available, it is likely running on a VM
 			model.SetVMCoeff()
