@@ -62,4 +62,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: test bcc in docker container
+      if: github.event_name != "push"
       run: podman run -v $(pwd):/home quay.io/sustainable_computing_io/kepler_builder:go1.18 bash -c "cd /home; export PATH=/usr/local/go/bin:$PATH; make test-verbose"

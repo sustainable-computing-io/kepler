@@ -2,8 +2,6 @@ name: gofmt
 
 on:
   pull_request:
-  push:
-    branches: [ main ]
 
 jobs:
   gofmt_test:

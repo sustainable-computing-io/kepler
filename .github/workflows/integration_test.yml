@@ -35,3 +35,14 @@ jobs:
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             CTR_CMD: docker
+      - name: Login to Quay
+        if: github.event_name == 'push'
+        uses: docker/login-action@v1
+        with:
+            registry: quay.io/sustainable_computing_io
+            username: ${{ secrets.BOT_NAME }}
+            password: ${{ secrets.BOT_TOKEN }}      
+
+      - name: push to quay
+        if: github.event_name == 'push'
+        run: podman push quay.io/sustainable_computing_io/kepler:latest
