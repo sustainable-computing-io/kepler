@@ -41,7 +41,11 @@ jobs:
         with:
             registry: quay.io/sustainable_computing_io
             username: ${{ secrets.BOT_NAME }}
-            password: ${{ secrets.BOT_TOKEN }}      
+            password: ${{ secrets.BOT_TOKEN }}
+
+      - name: make container
+        if: github.event_name == 'push'
+        run: make
 
       - name: push to quay
         if: github.event_name == 'push'
