@@ -11,7 +11,7 @@ permissions:
   repository-projects: write
 
 jobs:
-  unit_test_without_bcc:
+  unit_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -56,11 +56,3 @@ jobs:
       with:
         github_token: ${{ secrets.GH_BOT_SECRET }}
         branch: ${{ github.head_ref }}
-
-  unit_test_with_bcc:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: test bcc in docker container
-      if: github.event_name != 'push'
-      run: podman run -v $(pwd):/home quay.io/sustainable_computing_io/kepler_builder:go1.18 bash -c "cd /home; export PATH=/usr/local/go/bin:$PATH; make test-verbose"
