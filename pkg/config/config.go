@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 
 	"golang.org/x/sys/unix"
@@ -51,6 +52,8 @@ var (
 	DRAMUsageMetric       = "curr_cache_miss"
 	UncoreUsageMetric     = ""                // no metric (evenly divided)
 	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - uncore
+
+	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 )
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
@@ -82,12 +85,30 @@ func getKernelVersion(c Client) float32 {
 	}
 	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
 	kv := utsname.Release[:bytes.IndexByte(utsname.Release[:], 0)]
-	val, err := strconv.ParseFloat(string(kv[:4]), 32)
-	if err == nil {
-		return float32(val)
+
+	versionParts := versionRegex.FindStringSubmatch(string(kv))
+	if len(versionParts) < 2 {
+		fmt.Printf("got invalid release version %q (expected format '4.3-1 or 4.3.2-1')\n", kv)
+		return -1
 	}
-	fmt.Println("Not able to parse kernel version, use -1 instead")
-	return -1
+	major, err := strconv.Atoi(versionParts[1])
+	if err != nil {
+		fmt.Printf("got invalid release major version %q\n", major)
+		return -1
+	}
+
+	minor, err := strconv.Atoi(versionParts[2])
+	if err != nil {
+		fmt.Printf("got invalid release minor version %q\n", minor)
+		return -1
+	}
+
+	v, err := strconv.ParseFloat(fmt.Sprintf("%d.%d", major, minor), 32)
+	if err != nil {
+		fmt.Printf("parse %d.%d got issue: %v", major, minor, err)
+		return -1
+	}
+	return float32(v)
 }
 
 func isCGroupV2(c Client) bool {

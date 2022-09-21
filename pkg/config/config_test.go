@@ -70,15 +70,37 @@ var _ = Describe("Test Configuration", func() {
 	})
 	It("Test kernel version compare", func() {
 		tempUnixName = "5.10.0-20-generic"
-		valid := getKernelVersion(mockc) > cGroupIDMinKernelVersion
+		v := getKernelVersion(mockc)
+		valid := v > cGroupIDMinKernelVersion
+		Expect(-1).NotTo(Equal(v))
+		Expect(true).To(Equal(valid))
+
+		tempUnixName = "5.4.0-20-generic"
+		v = getKernelVersion(mockc)
+		valid = v > cGroupIDMinKernelVersion
+		Expect(-1).NotTo(Equal(v))
+		Expect(true).To(Equal(valid))
+
+		tempUnixName = "6.0-rc6"
+		v = getKernelVersion(mockc)
+		valid = v > cGroupIDMinKernelVersion
+		Expect(-1).NotTo(Equal(v))
 		Expect(true).To(Equal(valid))
 
 		tempUnixName = "3.10"
-		valid = getKernelVersion(mockc) > cGroupIDMinKernelVersion
+		v = getKernelVersion(mockc)
+		valid = v > cGroupIDMinKernelVersion
+		Expect(-1).NotTo(Equal(v))
+		Expect(false).To(Equal(valid))
+
+		tempUnixName = "3.1"
+		v = getKernelVersion(mockc)
+		valid = v > cGroupIDMinKernelVersion
+		Expect(-1).NotTo(Equal(v))
 		Expect(false).To(Equal(valid))
 	})
 	It("Test not able to detect kernel", func() {
-		tempUnixName = "dummy_test_result.not.found"
+		tempUnixName = "dummy_test_result_not.found"
 		Expect(float32(-1)).To(Equal(getKernelVersion(mockc)))
 	})
 	It("Test real kernel version", func() {
