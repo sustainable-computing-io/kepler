@@ -72,9 +72,8 @@ func ReadKV(fileName string) (map[string]interface{}, error) {
 	return values, sc.Err()
 }
 
-func ReadLineKEqualToV(path, name string) (map[string]interface{}, error) {
+func ReadLineKEqualToV(fileName string) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
-	fileName := filepath.Join(path, name)
 	f, err := os.Open(fileName)
 	if err != nil {
 		return values, err

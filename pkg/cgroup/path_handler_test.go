@@ -141,3 +141,98 @@ func TestReadKV(t *testing.T) {
 		})
 	}
 }
+
+const iostatContent1 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6`
+
+const iostatContent2 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
+34:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7`
+
+// 253:x is ignored
+const iostatContent3 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
+34:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7
+253:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7`
+
+var testKVResults1 = map[string]interface{}{
+	"rbytes": uint64(1),
+	"wbytes": uint64(2),
+	"rios":   uint64(3),
+	"wios":   uint64(4),
+	"dbytes": uint64(5),
+	"dios":   uint64(6),
+}
+
+var testKVResults2 = map[string]interface{}{
+	"rbytes": uint64(3),
+	"wbytes": uint64(5),
+	"rios":   uint64(7),
+	"wios":   uint64(9),
+	"dbytes": uint64(11),
+	"dios":   uint64(13),
+}
+
+func TestReadLineKEqualToV(t *testing.T) {
+	g := NewWithT(t)
+
+	var testcases = []struct {
+		name          string
+		contents      string
+		expectErr     bool
+		fileName      string
+		expectResults map[string]interface{}
+	}{
+		{
+			name:          "test valid input 1 line",
+			contents:      iostatContent1,
+			expectErr:     false,
+			fileName:      "",
+			expectResults: testKVResults1,
+		},
+		{
+			name:          "test valid input 2 lines",
+			contents:      iostatContent2,
+			expectErr:     false,
+			fileName:      "",
+			expectResults: testKVResults2,
+		},
+		{
+			name:          "test valid input 3 lines with 253:x",
+			contents:      iostatContent3,
+			expectErr:     false,
+			fileName:      "",
+			expectResults: testKVResults2,
+		},
+		{
+			name:      "test invalid data",
+			contents:  "not valid",
+			expectErr: true,
+			fileName:  "/tmp/this_file_do_not_exist_dummy",
+		},
+	}
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			var fileName string
+			var err error
+			if testcase.fileName == "" {
+				fileName, err = utils.CreateTempFile(testcase.contents)
+				g.Expect(err).NotTo(HaveOccurred())
+				defer os.Remove(fileName)
+			} else {
+				fileName = testcase.fileName
+			}
+
+			d, err := ReadLineKEqualToV(fileName)
+
+			// write this format to make golint happy
+			// or it complain duplicate to TestReadKV which is false alarm
+			if !testcase.expectErr {
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(6).To(Equal(len(d)))
+				eq := reflect.DeepEqual(testcase.expectResults, d)
+				g.Expect(true).To(Equal(eq))
+			} else {
+				g.Expect(err).To(HaveOccurred())
+			}
+		})
+	}
+}

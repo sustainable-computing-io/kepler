@@ -122,7 +122,8 @@ func (s IOStatReader) Read() map[string]interface{} {
 	values := make(map[string]interface{})
 	for _, usageFile := range ioUsageFiles {
 		if usageFile == "io.stat" {
-			kv, err := ReadLineKEqualToV(s.Path, usageFile)
+			fileName := filepath.Join(s.Path, usageFile)
+			kv, err := ReadLineKEqualToV(fileName)
 			if err == nil {
 				return kv
 			}
