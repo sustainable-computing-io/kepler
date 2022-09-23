@@ -22,6 +22,8 @@ set -ex pipefail
 _registry_port="5001"
 _registry_name="kind-registry"
 
+CTR_CMD=${CTR_CMD-docker}
+
 CONFIG_PATH="cluster-up/cluster"
 KIND_VERSION=${KIND_VERSION:-0.15.0}
 KIND_MANIFESTS_DIR="$CONFIG_PATH/${CLUSTER_PROVIDER}/manifests"
@@ -32,6 +34,11 @@ KIND_DEFAULT_NETWORK="kind"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001/kepler}
 IMAGE_TAG=${IMAGE_TAG:-devel}
+
+PROMETHEUS_OPERATOR_VERSION=${PROMETHEUS_OPERATOR_VERSION:-v0.11.0}
+PROMETHEUS_ENABLE=${PROMETHEUS_ENABLE:-false}
+PROMETHEUS_REPLICAS=${PROMETHEUS_REPLICAS:-1}
+GRAFANA_ENABLE=${GRAFANA_ENABLE:-false}
 
 CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
 rm -rf ${CONFIG_OUT_DIR}
@@ -55,10 +62,50 @@ aarch64* | arm64*)
     ;;
 esac
 
+function _get_prometheus_operator_images {
+    grep -R "image:" kube-prometheus/manifests/*prometheus-* | awk '{print $3}'
+    grep -R "image:" kube-prometheus/manifests/*prometheusOperator* | awk '{print $3}'
+    grep -R "prometheus-config-reloader=" kube-prometheus/manifests/ | sed 's/.*=//g'
+    if [ ${GRAFANA_ENABLE,,} == "true" ]; then
+        grep -R "image:" kube-prometheus/manifests/*grafana* | awk '{print $3}'
+    fi
+}
+
+function _load_prometheus_operator_images_to_local_registry {
+    for img in $(_get_prometheus_operator_images); do
+        $CTR_CMD pull $img
+        $KIND load docker-image $img
+    done
+} 
+
+function _deploy_prometheus_operator {
+    git clone -b ${PROMETHEUS_OPERATOR_VERSION} --depth 1 https://github.com/prometheus-operator/kube-prometheus.git
+    sed -i -e "s/replicas: 2/replicas: ${PROMETHEUS_REPLICAS}/g" kube-prometheus/manifests/prometheus-prometheus.yaml
+    _load_prometheus_operator_images_to_local_registry
+    kubectl create -f kube-prometheus/manifests/setup
+    kubectl wait \
+        --for condition=Established \
+        --all CustomResourceDefinition \
+        --namespace=monitoring
+    for file in $(ls kube-prometheus/manifests/prometheusOperator-*); do
+        kubectl create -f $file
+    done
+    for file in $(ls kube-prometheus/manifests/prometheus-*); do
+        kubectl create -f $file
+    done
+    if [ ${GRAFANA_ENABLE,,} == "true" ]; then
+        for file in $(ls kube-prometheus/manifests/grafana-*); do
+            kubectl create -f $file
+        done
+    fi
+    rm -rf kube-prometheus
+    _wait_containers_ready monitoring
+}
+
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."
     
-    while [ -z "$(docker exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
+    while [ -z "$($CTR_CMD exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
         echo "Waiting for kind to be ready ..."
         sleep 10
     done
@@ -68,7 +115,8 @@ function _wait_kind_up {
 
 function _wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
-    kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
+    namespace=$1
+    kubectl wait --for=condition=Ready pod --all -n $namespace --timeout 12m
 }
 
 function _fetch_kind() {
@@ -89,20 +137,20 @@ function _fetch_kind() {
 }
 
 function _run_registry() {
-    until [ -z "$(docker ps -a | grep ${REGISTRY_NAME})" ]; do
-        docker stop ${REGISTRY_NAME} || true
-        docker rm ${REGISTRY_NAME} || true
+    until [ -z "$($CTR_CMD ps -a | grep ${REGISTRY_NAME})" ]; do
+        $CTR_CMD stop ${REGISTRY_NAME} || true
+        $CTR_CMD rm ${REGISTRY_NAME} || true
         sleep 5
     done
 
-    docker run \
+    $CTR_CMD run \
         -d --restart=always \
         -p "127.0.0.1:${REGISTRY_PORT}:5000" \
         --name "${REGISTRY_NAME}" \
         registry:2
 
     # connect the registry to the cluster network if not already connected
-    docker network connect "${KIND_DEFAULT_NETWORK}" "${REGISTRY_NAME}" || true
+    $CTR_CMD network connect "${KIND_DEFAULT_NETWORK}" "${REGISTRY_NAME}" || true
 
     kubectl apply -f ${CONFIG_OUT_DIR}/local-registry.yml
 }
@@ -143,8 +191,12 @@ function _setup_kind() {
         sleep 10
     done
 
-    _wait_containers_ready
+    _wait_containers_ready kube-system
     _run_registry
+
+    if [ ${PROMETHEUS_ENABLE,,} == "true" ]; then
+        _deploy_prometheus_operator
+    fi
 }
 
 function _kind_up() {
@@ -166,6 +218,6 @@ function down() {
     fi
     # Avoid failing an entire test run just because of a deletion error
     $KIND delete cluster --name=${CLUSTER_NAME} || "true"
-    docker rm -f ${REGISTRY_NAME} >> /dev/null
+    $CTR_CMD rm -f ${REGISTRY_NAME} >> /dev/null
     rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/kind.yml
 }
