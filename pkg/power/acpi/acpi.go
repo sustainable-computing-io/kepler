@@ -174,14 +174,14 @@ func getPowerFromSensor() (map[string]float64, error) {
 		path := fmt.Sprintf(powerPath, i)
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return power, err
+			break
 		}
 		// currPower is in microWatt
 		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
 			power[fmt.Sprintf("%s%d", sensorIDPrefix, i)] = float64(currPower) / 1000 /*miliWatts*/
 		} else {
-			log.Fatal(err)
+			return power, err
 		}
 	}
 
