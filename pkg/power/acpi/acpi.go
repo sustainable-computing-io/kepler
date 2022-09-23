@@ -149,9 +149,14 @@ func getCPUCoreFrequency() map[int32]uint64 {
 }
 
 func (a *ACPI) IsPowerSupported() bool {
-	file := fmt.Sprintf(powerPath, 1)
-	_, err := os.ReadFile(file)
-	return err == nil
+	for i := int32(1); i <= numCPUS; i++ {
+		file := fmt.Sprintf(powerPath, i)
+		_, err := os.ReadFile(file)
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // GetEnergyFromHost returns the accumulated energy consumption and reset the counter
