@@ -17,7 +17,7 @@ limitations under the License.
 package rapl
 
 import (
-	"fmt"
+	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
@@ -48,18 +48,18 @@ var (
 
 func init() {
 	if sysfsImpl.IsSupported() /*&& false*/ {
-		fmt.Println("use sysfs to obtain power")
+		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
 		if msrImpl.IsSupported() && useMSR {
-			fmt.Println("use MSR to obtain power")
+			klog.V(1).Infoln("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
 			if estimateImpl.IsSupported() {
-				fmt.Println("use power estimate to obtain power")
+				klog.V(1).Infoln("use power estimate to obtain power")
 				powerImpl = estimateImpl
 			} else {
-				fmt.Println("power not supported")
+				klog.V(1).Infoln("power not supported")
 				powerImpl = dummyImpl
 			}
 		}

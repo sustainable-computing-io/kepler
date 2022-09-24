@@ -19,8 +19,6 @@ package collector
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -34,6 +32,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+
+	"k8s.io/klog/v2"
 )
 
 // #define CPU_VECTOR_SIZE 128
@@ -108,15 +108,14 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 		data := it.Leaf()
 		err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
 		if err != nil {
-			log.Printf("failed to decode received data: %v", err)
+			klog.V(5).Infof("failed to decode received data: %v", err)
 			continue
 		}
 		comm := (*C.char)(unsafe.Pointer(&ct.Command))
-		fmt.Printf("pid %v cgroup %v cmd %v\n", ct.PID, ct.CGroupPID, C.GoString(comm))
 		podName, err := podlister.GetPodName(ct.CGroupPID, ct.PID)
 
 		if err != nil {
-			log.Printf("failed to resolve pod for cGroup ID %v: %v, set podName=%s", ct.CGroupPID, err, systemProcessName)
+			klog.V(5).Infof("failed to resolve pod for cGroup ID %v: %v, set podName=%s", ct.CGroupPID, err, systemProcessName)
 			podName = systemProcessName
 		}
 		if _, ok := podEnergy[podName]; !ok {
@@ -127,7 +126,7 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 			} else {
 				podNamespace, err = podlister.GetPodNameSpace(ct.CGroupPID, ct.PID)
 				if err != nil {
-					log.Printf("failed to find namespace for cGroup ID %v: %v", ct.CGroupPID, err)
+					klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", ct.CGroupPID, err)
 					podNamespace = "unknown"
 				}
 			}
@@ -153,7 +152,7 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 		}
 
 		if err = podEnergy[podName].CPUTime.AddNewCurr(totalCPUTime); err != nil {
-			log.Println(err)
+			klog.V(5).Infoln(err)
 		}
 
 		for _, counterKey := range availableCounters {
@@ -169,14 +168,14 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 				val = 0
 			}
 			if err = podEnergy[podName].CounterStats[counterKey].AddNewCurr(val); err != nil {
-				log.Println(err)
+				klog.V(5).Infoln(err)
 			}
 		}
 
 		podEnergy[podName].CurrProcesses++
 		containerID, err := podlister.GetContainerID(ct.CGroupPID, ct.PID)
 		if err != nil {
-			log.Println(err)
+			klog.V(5).Infoln(err)
 		}
 		// first-time found container (should not include non-container event)
 		if _, found := containerIDPodName[containerID]; !found && podName != systemProcessName {
@@ -225,7 +224,7 @@ func (c *Collector) readCgroup(containerIDPodName map[string]string) {
 func (c *Collector) readKubelet() {
 	if len(availableKubeletMetrics) == 2 {
 		podCPU, podMem, _, _, _ := podlister.GetPodMetrics()
-		log.Printf("Kubelet Read: %v, %v\n", podCPU, podMem)
+		klog.V(5).Infof("Kubelet Read: %v, %v\n", podCPU, podMem)
 		for podName, v := range podEnergy {
 			k := v.Namespace + "/" + podName
 			readCPU := uint64(podCPU[k])
@@ -233,10 +232,10 @@ func (c *Collector) readKubelet() {
 			cpuMetricName := availableKubeletMetrics[0]
 			memMetricName := availableKubeletMetrics[1]
 			if err := v.KubeletStats[cpuMetricName].SetNewAggr(readCPU); err != nil {
-				log.Println(err)
+				klog.V(5).Infoln(err)
 			}
 			if err := v.KubeletStats[memMetricName].SetNewAggr(readMem); err != nil {
-				log.Println(err)
+				klog.V(5).Infoln(err)
 			}
 		}
 	}
@@ -321,38 +320,38 @@ func (c *Collector) reader() {
 			// set pod energy
 			for i, podName := range podNameList {
 				if err := podEnergy[podName].EnergyInCore.AddNewCurr(podCore[i]); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 				if err := podEnergy[podName].EnergyInDRAM.AddNewCurr(podDRAM[i]); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 				if err := podEnergy[podName].EnergyInUncore.AddNewCurr(podUncore[i]); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 				if err := podEnergy[podName].EnergyInPkg.AddNewCurr(podPkg[i]); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 				podGPU := uint64(math.Ceil(podGPUDelta[podName]))
 				if err := podEnergy[podName].EnergyInGPU.AddNewCurr(podGPU); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 				if err := podEnergy[podName].EnergyInOther.AddNewCurr(podOther); err != nil {
-					log.Println(err)
+					klog.V(5).Infoln(err)
 				}
 			}
 			if len(podDynamicPower) != 0 {
 				for i, podName := range podNameList {
 					power := uint64(podDynamicPower[i])
 					if err := podEnergy[podName].DynEnergy.AddNewCurr(power); err != nil {
-						log.Println(err)
+						klog.V(5).Infoln(err)
 					}
 				}
-				fmt.Printf("Get pod powers: %v \n %v from %v (%d x %d)\n", podMetricValues[0:2], podDynamicPower, metricNames, len(podMetricValues), len(podMetricValues[0]))
+				klog.V(3).Infof("Get pod powers: %v \n %v from %v (%d x %d)\n", podMetricValues[0:2], podDynamicPower, metricNames, len(podMetricValues), len(podMetricValues[0]))
 			}
 			for _, v := range podEnergy {
-				fmt.Println(v)
+				klog.V(3).Infoln(v)
 			}
-			fmt.Println(nodeEnergy)
+			klog.V(3).Infoln(nodeEnergy)
 			lock.Unlock()
 		}
 	}()

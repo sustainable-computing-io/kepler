@@ -26,10 +26,11 @@ This file is a main file of cgroup module containing
 package cgroup
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -112,7 +113,7 @@ func InitSliceHandler() *SliceHandler {
 		}
 	}
 	handler.Init()
-	log.Printf("InitSliceHandler: %v", handler)
+	klog.V(3).Infof("InitSliceHandler: %v", handler)
 	return handler
 }
 

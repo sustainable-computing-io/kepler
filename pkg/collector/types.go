@@ -2,8 +2,9 @@ package collector
 
 import (
 	"fmt"
-	"log"
 	"math"
+
+	"k8s.io/klog/v2"
 )
 
 type UInt64Stat struct {
@@ -62,7 +63,7 @@ func (s *UInt64StatCollection) AddStat(key string, newAggr uint64) {
 		s.Stat[key] = &UInt64Stat{}
 	}
 	if err := s.Stat[key].SetNewAggr(newAggr); err != nil {
-		log.Println(err)
+		klog.V(3).Infoln(err)
 	}
 }
 

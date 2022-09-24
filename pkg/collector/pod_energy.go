@@ -18,10 +18,10 @@ package collector
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"k8s.io/klog/v2"
 )
 
 type PodEnergy struct {
@@ -156,7 +156,7 @@ func (v *PodEnergy) extractUIntCurrAggr(metric string) (curr, aggr uint64) {
 		return v.BytesWrite.Curr(), v.BytesWrite.Aggr()
 	}
 
-	log.Printf("cannot extract: %s", metric)
+	klog.V(4).Infof("cannot extract: %s", metric)
 	return 0, 0
 }
 

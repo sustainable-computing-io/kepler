@@ -21,12 +21,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 func getNumCPUs() int {
 	data, err := os.ReadFile(cpuInfoPath)
 	if err != nil {
-		fmt.Println(err)
+		klog.V(2).Infoln(err)
 	}
 	return strings.Count(string(data), "processor")
 }
