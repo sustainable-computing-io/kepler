@@ -81,7 +81,7 @@ function _load_prometheus_operator_images_to_local_registry {
 function _deploy_prometheus_operator {
     git clone -b ${PROMETHEUS_OPERATOR_VERSION} --depth 1 https://github.com/prometheus-operator/kube-prometheus.git
     sed -i -e "s/replicas: 2/replicas: ${PROMETHEUS_REPLICAS}/g" kube-prometheus/manifests/prometheus-prometheus.yaml
-    _load_prometheus_operator_images_to_local_registry
+    # _load_prometheus_operator_images_to_local_registry
     kubectl create -f kube-prometheus/manifests/setup
     kubectl wait \
         --for condition=Established \
