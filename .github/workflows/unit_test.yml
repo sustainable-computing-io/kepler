@@ -48,7 +48,7 @@ jobs:
         git config --local user.email "info@sustainable-computing.io"
         git config --local user.name "sustainabile-computing-bot"
         git add README.md
-        git commit -m "bot: Updated coverage badge."
+        git commit -m "bot: Updated coverage badge." -s
 
     - name: Push changes
       if: github.event_name != 'pull_request' && steps.verify-changed-files.outputs.files_changed == 'true' 
