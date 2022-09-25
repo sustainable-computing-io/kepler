@@ -21,7 +21,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -29,6 +28,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"k8s.io/klog/v2"
 
 	"github.com/jszwec/csvutil"
 )
@@ -146,7 +146,7 @@ func SetBMCoeff() {
 						break
 					}
 					if p.Architecture == cpuArch {
-						fmt.Printf("use model %v\n", p)
+						klog.V(3).Infof("use model %v\n", p)
 						RunTimeCoeff = p
 					}
 				}

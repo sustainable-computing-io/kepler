@@ -18,10 +18,11 @@ package source
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -76,11 +77,11 @@ func readEventEnergy(eventName string) map[string]uint64 {
 			var data []byte
 
 			if data, err = os.ReadFile(path + energyFile); err != nil {
-				log.Println(err)
+				klog.V(3).Infoln(err)
 				continue
 			}
 			if e, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err != nil {
-				log.Println(err)
+				klog.V(3).Infoln(err)
 				continue
 			}
 			e /= 1000 /*mJ*/

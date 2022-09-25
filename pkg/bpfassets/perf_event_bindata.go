@@ -45,7 +45,7 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _bpf_assetsPerf_eventPerf_eventC = []byte(`/*
+var _bpfassetsPerf_eventPerf_eventC = []byte(`/*
 Copyright 2021.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -235,12 +235,12 @@ int sched_switch(switch_args *ctx)
 }
 `)
 
-func bpf_assetsPerf_eventPerf_eventCBytes() ([]byte, error) {
-	return _bpf_assetsPerf_eventPerf_eventC, nil
+func bpfassetsPerf_eventPerf_eventCBytes() ([]byte, error) {
+	return _bpfassetsPerf_eventPerf_eventC, nil
 }
 
-func bpf_assetsPerf_eventPerf_eventC() (*asset, error) {
-	bytes, err := bpf_assetsPerf_eventPerf_eventCBytes()
+func bpfassetsPerf_eventPerf_eventC() (*asset, error) {
+	bytes, err := bpfassetsPerf_eventPerf_eventCBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"bpfassets/perf_event/perf_event.c": bpf_assetsPerf_eventPerf_eventC,
+	"bpfassets/perf_event/perf_event.c": bpfassetsPerf_eventPerf_eventC,
 }
 
 // AssetDir returns the file names below a certain
@@ -348,7 +348,7 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"bpfassets": {nil, map[string]*bintree{
 		"perf_event": {nil, map[string]*bintree{
-			"perf_event.c": {bpf_assetsPerf_eventPerf_eventC, map[string]*bintree{}},
+			"perf_event.c": {bpfassetsPerf_eventPerf_eventC, map[string]*bintree{}},
 		}},
 	}},
 }}

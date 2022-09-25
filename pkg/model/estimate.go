@@ -2,9 +2,10 @@ package model
 
 import (
 	"encoding/json"
-	"log"
 	"math"
 	"net"
+
+	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
@@ -41,19 +42,19 @@ func InitMetricIndexes(metricNames []string) {
 	for index, metricName := range metricNames {
 		if metricName == config.CoreUsageMetric {
 			coreMetricIndex = index
-			log.Printf("set coreMetricIndex = %d", index)
+			klog.V(4).Infof("set coreMetricIndex = %d", index)
 		}
 		if metricName == config.DRAMUsageMetric {
 			dramMetricIndex = index
-			log.Printf("set dramMetricIndex = %d", index)
+			klog.V(4).Infof("set dramMetricIndex = %d", index)
 		}
 		if metricName == config.UncoreUsageMetric {
 			uncoreMetricIndex = index
-			log.Printf("set uncoreMetricIndex = %d", index)
+			klog.V(4).Infof("set uncoreMetricIndex = %d", index)
 		}
 		if metricName == config.GeneralUsageMetric {
 			generalMetricIndex = index
-			log.Printf("set generalMetricIndex = %d", index)
+			klog.V(4).Infof("set generalMetricIndex = %d", index)
 		}
 	}
 }
@@ -132,36 +133,36 @@ func GetDynamicPower(metricNames []string, podMetricValues [][]float64, corePowe
 	}
 	powerRequestJSON, err := json.Marshal(powerRequest)
 	if err != nil {
-		log.Printf("marshal error: %v (%v)", err, powerRequest)
+		klog.V(4).Infof("marshal error: %v (%v)", err, powerRequest)
 		return []float64{}
 	}
 
 	c, err := net.Dial("unix", serveSocket)
 	if err != nil {
-		log.Printf("dial error: %v", err)
+		klog.V(4).Infof("dial error: %v", err)
 		return []float64{}
 	}
 	defer c.Close()
 
 	_, err = c.Write(powerRequestJSON)
 	if err != nil {
-		log.Printf("estimator write error: %v", err)
+		klog.V(4).Infof("estimator write error: %v", err)
 		return []float64{}
 	}
 	buf := make([]byte, 1024)
 	n, err := c.Read(buf)
 	if err != nil {
-		log.Printf("estimator read error: %v", err)
+		klog.V(4).Infof("estimator read error: %v", err)
 		return []float64{}
 	}
 	var powerResponse PowerResponse
 	err = json.Unmarshal(buf[0:n], &powerResponse)
 	if err != nil {
-		log.Printf("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
+		klog.V(4).Infof("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
 		return []float64{}
 	}
 	if len(powerResponse.Powers) != len(podMetricValues) {
-		log.Printf("fail to get pod power : %s", powerResponse.Message)
+		klog.V(4).Infof("fail to get pod power : %s", powerResponse.Message)
 	}
 	return powerResponse.Powers
 }

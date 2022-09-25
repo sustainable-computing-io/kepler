@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -80,7 +81,6 @@ func (v *NodeEnergy) ResetCurr() {
 }
 
 func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.PackageEnergy, totalGPUDelta uint64, usage map[string]float64) {
-	fmt.Printf("%v %v\n", sensorEnergy, pkgEnergy)
 	for sensorID, energy := range sensorEnergy {
 		v.SensorEnergy.AddStat(sensorID, uint64(energy))
 	}
@@ -92,7 +92,7 @@ func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[in
 		v.EnergyInPkg.AddStat(key, energy.Pkg)
 	}
 	v.EnergyInGPU = totalGPUDelta
-	fmt.Printf("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
+	klog.V(3).Infof("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
 	totalSensorDelta := v.SensorEnergy.Curr()
 	totalPkgDelta := v.EnergyInPkg.Curr()
 	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {

@@ -22,7 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
-	"log"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -59,9 +59,9 @@ func getUIntFeatures() []string {
 	// kubelet metric
 	metrics = append(metrics, availableKubeletMetrics...)
 	metrics = append(metrics, iostatMetrics...)
-	log.Printf("Available counter metrics: %v", availableCounters)
-	log.Printf("Available cgroup metrics: %v", availableCgroupMetrics)
-	log.Printf("Available kubelet metrics: %v", availableKubeletMetrics)
+	klog.V(3).Infof("Available counter metrics: %v", availableCounters)
+	klog.V(3).Infof("Available cgroup metrics: %v", availableCgroupMetrics)
+	klog.V(3).Infof("Available kubelet metrics: %v", availableKubeletMetrics)
 	return metrics
 }
 

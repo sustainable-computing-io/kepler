@@ -69,6 +69,7 @@ spec:
         - 0.0.0.0:9102
         - -enable-gpu=true
         - -enable-cgroup-id=true
+        - -v=1
         ports:
         - containerPort: 9102
           hostPort: 9102

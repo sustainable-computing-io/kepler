@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/jszwec/csvutil"
+	"k8s.io/klog/v2"
 )
 
 type PowerEstimate struct{}
@@ -127,17 +128,17 @@ func getCPUPowerEstimate(cpu string) (perThreadMinPowerEstimate, perThreadMaxPow
 func (r *PowerEstimate) IsSupported() bool {
 	cpu, err := GetCPUArchitecture()
 	if err != nil {
-		fmt.Printf("no cpu info: %v\n", err)
+		klog.V(2).Infof("no cpu info: %v\n", err)
 		return false
 	}
 	dramInGB, err = getDram()
 	if err != nil {
-		fmt.Printf("no dram info: %v\n", err)
+		klog.V(2).Infof("no dram info: %v\n", err)
 		return false
 	}
 	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate, err = getCPUPowerEstimate(cpu)
 	startTime = time.Now()
-	fmt.Printf("cpu architecture %v, dram in GB %v\n", cpu, dramInGB)
+	klog.V(4).Infof("cpu architecture %v, dram in GB %v\n", cpu, dramInGB)
 	return err == nil
 }
 

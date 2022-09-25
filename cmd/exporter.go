@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
@@ -31,6 +30,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
+
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -42,11 +43,12 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
-		log.Fatalf("failed to register : %v", err)
+		klog.Fatalf("failed to register : %v", err)
 	}
 
 	if *enableGPU {
@@ -65,16 +67,16 @@ func main() {
 	defer newCollector.Destroy()
 	defer rapl.StopPower()
 	if err != nil {
-		log.Panicf("%s", fmt.Sprintf("failed to create collector: %v", err))
+		klog.Fatalf("%s", fmt.Sprintf("failed to create collector: %v", err))
 	}
 	err = newCollector.Attach()
 	if err != nil {
-		log.Panicf("%s", fmt.Sprintf("failed to attach : %v", err))
+		klog.Fatalf("%s", fmt.Sprintf("failed to attach : %v", err))
 	}
 
 	err = prometheus.Register(newCollector)
 	if err != nil {
-		log.Panicf("%s", fmt.Sprintf("failed to register collector: %v", err))
+		klog.Fatalf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
 	http.Handle(*metricsPath, promhttp.Handler())
@@ -87,12 +89,12 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
-			log.Panicf("%s", fmt.Sprintf("failed to write response: %v", err))
+			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
 
 	err = http.ListenAndServe(*address, nil)
 	if err != nil {
-		log.Panicf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
+		klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
 	}
 }

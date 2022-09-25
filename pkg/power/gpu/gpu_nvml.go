@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -40,7 +41,7 @@ func Init() error {
 		nvml.Shutdown()
 		return fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 	}
-	fmt.Printf("found %d gpu devices\n", count)
+	klog.V(1).Infof("found %d gpu devices\n", count)
 	devices = make([]nvml.Device, count)
 	for i := 0; i < count; i++ {
 		device, ret := nvml.DeviceGetHandleByIndex(i)
@@ -62,7 +63,7 @@ func GetGpuEnergy() []uint32 {
 	for i, device := range devices {
 		power, ret := device.GetPowerUsage()
 		if ret != nvml.SUCCESS {
-			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
 		e[i] = power
@@ -76,12 +77,12 @@ func GetCurrGpuEnergyPerPid() (map[uint32]float64, error) {
 	for _, device := range devices {
 		power, ret := device.GetPowerUsage()
 		if ret != nvml.SUCCESS {
-			fmt.Printf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
 		pids, ret := device.GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
-			fmt.Printf("failed to get compute processes on device %v: %v", device, nvml.ErrorString(ret))
+			klog.V(2).Infof("failed to get compute processes on device %v: %v", device, nvml.ErrorString(ret))
 			continue
 		}
 		totalMem := uint64(0)
@@ -94,7 +95,7 @@ func GetCurrGpuEnergyPerPid() (map[uint32]float64, error) {
 		}
 		// use per pid used memory/total used memory to estimate per pid energy
 		for _, p := range pm {
-			fmt.Printf("pid %v power %v total mem %v mem %v\n", p.pid, power, totalMem, p.mem)
+			klog.V(5).Infof("pid %v power %v total mem %v mem %v\n", p.pid, power, totalMem, p.mem)
 			m[p.pid] = float64(uint64(power) * p.mem / totalMem)
 		}
 	}

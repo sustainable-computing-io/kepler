@@ -13,6 +13,7 @@ require (
 	github.com/prometheus/common v0.37.0
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 	k8s.io/api v0.25.0
+	k8s.io/klog/v2 v2.70.1
 )
 
 require (
@@ -38,7 +39,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.25.0 // indirect
-	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect

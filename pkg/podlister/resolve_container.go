@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
@@ -131,7 +132,7 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 	pods, err := podLister.ListPods()
 	if err != nil {
-		fmt.Printf("%v", err)
+		klog.V(4).Infof("%v", err)
 		return
 	}
 	for i := 0; i < len(*pods); i++ {

@@ -31,6 +31,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 
 	bpf "github.com/iovisor/gobpf/bcc"
+
+	"k8s.io/klog/v2"
 )
 
 type perfCounter struct {
@@ -81,7 +83,7 @@ func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
 		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
 		if perfErr != nil {
 			// some hypervisors don't expose perf counters
-			fmt.Printf("failed to attach perf event %s: %v\n", arrayName, perfErr)
+			klog.Infof("failed to attach perf event %s: %v\n", arrayName, perfErr)
 			counter.enabled = false
 			// if perf counters are not available, it is likely running on a VM
 			model.SetVMCoeff()
@@ -106,12 +108,12 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	m, err := loadModule(objProg, options)
 	if err != nil {
-		fmt.Printf("failed to attach perf module with options %v: %v\n", options, err)
+		klog.Infof("failed to attach perf module with options %v: %v\n", options, err)
 		options = []string{"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU())}
 		EnableCPUFreq = false
 		m, err = loadModule(objProg, options)
 		if err != nil {
-			fmt.Printf("failed to attach perf module with options %v: %v\n", options, err)
+			klog.Infof("failed to attach perf module with options %v: %v\n", options, err)
 			// at this time, there is not much we can do with the eBPF module
 			return nil, err
 		}
