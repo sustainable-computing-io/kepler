@@ -95,8 +95,9 @@ func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[in
 	klog.V(3).Infof("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
 	totalSensorDelta := v.SensorEnergy.Curr()
 	totalPkgDelta := v.EnergyInPkg.Curr()
+	totalDramDelta := v.EnergyInDRAM.Curr()
 	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {
-		v.EnergyInOther = totalSensorDelta - (totalPkgDelta + totalGPUDelta)
+		v.EnergyInOther = totalSensorDelta - (totalPkgDelta + totalGPUDelta + totalDramDelta)
 	}
 	v.Usage = usage
 }
