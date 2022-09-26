@@ -49,14 +49,14 @@ type BpfModuleTables struct {
 
 const (
 	CPUCycleLable       = "cpu_cycles"
-	CPUInstructionLable = "cpu_instr"
+	CPUInstructionLabel = "cpu_instr"
 	CacheMissLabel      = "cache_miss"
 )
 
 var (
 	Counters = map[string]perfCounter{
 		CPUCycleLable:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
-		CPUInstructionLable: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	EnableCPUFreq = true

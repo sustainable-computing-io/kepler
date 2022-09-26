@@ -25,7 +25,7 @@ import (
 
 const (
 	CPUCycleLable       = "cpu_cycles"
-	CPUInstructionLable = "cpu_instr"
+	CPUInstructionLabel = "cpu_instr"
 	CacheMissLabel      = "cache_miss"
 )
 

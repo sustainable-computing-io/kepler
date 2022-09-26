@@ -47,6 +47,8 @@ var (
 	uintFeatures  []string = getUIntFeatures()
 	features      []string = append(FloatFeatures, uintFeatures...)
 	metricNames   []string = getEstimatorMetrics()
+
+	cpuInstrCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 )
 
 func getUIntFeatures() []string {
@@ -87,4 +89,13 @@ func getEstimatorMetrics() []string {
 	names = append(names, blockDeviceLabel)
 	model.InitMetricIndexes(names)
 	return names
+}
+
+func isCounterStatEnabled(label string) bool {
+	for _, counter := range availableCounters {
+		if counter == label {
+			return true
+		}
+	}
+	return false
 }

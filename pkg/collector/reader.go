@@ -160,7 +160,7 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 			switch counterKey {
 			case attacher.CPUCycleLable:
 				val = ct.CPUCycles
-			case attacher.CPUInstructionLable:
+			case attacher.CPUInstructionLabel:
 				val = ct.CPUInstr
 			case attacher.CacheMissLabel:
 				val = ct.CacheMisses
