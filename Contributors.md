@@ -7,7 +7,7 @@
 | Ji Chen | jichenjc | Testing | IBM | China |
 | Sam Yang | SamYuan1990 | CI | IBM | China |
 | William Caban Babilonia | williamcaban | Kepler Deployment | Red Hat | USA |
-| Kayi Liu | KaiyiLiu1234 | Kepler Model Server | Red Hat | Cananda |
+| Kayi Liu | KaiyiLiu1234 | Kepler Model Server | Red Hat | Canada |
 | Parul Singh | husky-parul  | Kepler Deployment and Documentation | Red Hat | USA |
 | Chen Wang | wangchen615 | Kepler Core | IBM | USA |
 
