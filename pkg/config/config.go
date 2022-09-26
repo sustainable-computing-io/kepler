@@ -59,12 +59,12 @@ var (
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func EnableEBPFCgroupID(enabled bool) {
-	klog.V(1).Infoln("config EnabledEBPFCgroupID enabled: ", enabled)
-	klog.V(1).Infoln("config getKernelVersion: ", getKernelVersion(c))
+	klog.Infoln("config EnabledEBPFCgroupID enabled: ", enabled)
+	klog.Infoln("config getKernelVersion: ", getKernelVersion(c))
 	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	}
-	klog.V(1).Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
+	klog.Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
