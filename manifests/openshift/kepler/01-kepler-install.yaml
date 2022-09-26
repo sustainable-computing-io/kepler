@@ -71,6 +71,10 @@ spec:
       - name: kepler-exporter
         image: quay.io/sustainable_computing_io/kepler:latest
         imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "400Mi"
+            cpu: "100m"
         securityContext:
           privileged: true
         command:
