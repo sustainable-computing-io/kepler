@@ -26,12 +26,13 @@ import (
 )
 
 const (
-	nodeEnergyStatMetric = "node_energy_stat"
-	podEnergyStatMetric  = "pod_energy_stat"
-	nodeEnergyMetric     = "node_hwmon_energy_joule_total"
-	freqMetric           = "node_cpu_scaling_frequency_hertz"
-	pkgEnergyMetric      = "node_package_energy_millijoule"
-	perCPUStatMetric     = "pod_cpu_cpu_time_us"
+	nodeEnergyStatMetric    = "node_energy_stat"
+	podEnergyStatMetric     = "pod_energy_stat"
+	nodeEnergyMetric        = "node_hwmon_energy_joule_total"
+	freqMetric              = "node_cpu_scaling_frequency_hertz"
+	pkgEnergyMetric         = "node_package_energy_millijoule"
+	perCPUStatMetric        = "pod_cpu_cpu_time_us"
+	podCPUInstructionMetric = "pod_cpu_instructions"
 
 	podLabelPrefix  = "pod_"
 	nodeLabelPrefix = "node_"
@@ -265,6 +266,18 @@ func (c *Collector) getPodDetailedCPUTimeDescription() *prometheus.Desc {
 	)
 }
 
+func (c *Collector) getPodInstructionDescription() *prometheus.Desc {
+	return prometheus.NewDesc(
+		podCPUInstructionMetric,
+		"Recorded CPU instructions during the period.",
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+		nil,
+	)
+}
+
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	lock.Lock()
 	defer lock.Unlock()
@@ -284,6 +297,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.getFreqDescription()
 	ch <- c.getPackageEnergyDescription()
 	ch <- c.getPodDetailedCPUTimeDescription()
+	if cpuInstrCounterEnabled {
+		ch <- c.getPodInstructionDescription()
+	}
 }
 
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
@@ -389,6 +405,16 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				v.PodName, v.Namespace, strconv.Itoa(int(cpu)),
 			)
 			ch <- metric
+		}
+		if cpuInstrCounterEnabled &&
+			v.CounterStats[attacher.CPUInstructionLabel] != nil {
+			// all curr pod cpu instructions
+			edesc = prometheus.MustNewConstMetric(
+				c.getPodInstructionDescription(),
+				prometheus.GaugeValue,
+				float64(v.CounterStats[attacher.CPUInstructionLabel].Curr),
+				v.PodName, v.Namespace)
+			ch <- edesc
 		}
 	}
 
