@@ -42,6 +42,14 @@ var (
 	enabledEBPFCgroupID = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 )
 
+func healthProbe(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(`ok`))
+	if err != nil {
+		klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
+	}
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -80,6 +88,7 @@ func main() {
 	}
 
 	http.Handle(*metricsPath, promhttp.Handler())
+	http.HandleFunc("/healthz", healthProbe)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write([]byte(`<html>
 			<head><title>Energy Stats Exporter</title></head>
