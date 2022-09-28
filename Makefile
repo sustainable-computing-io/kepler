@@ -144,6 +144,12 @@ test-verbose: ginkgo-set tidy-vendor
 escapes_detect: tidy-vendor
 	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... | grep "escapes to heap" || true
 
+set_govulncheck:
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+
+govulncheck: set_govulncheck tidy-vendor
+	@govulncheck -v ./... || true
+
 format:
 	gofmt -e -d -s -l -w pkg/ cmd/
 
