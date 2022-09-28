@@ -141,6 +141,15 @@ test: ginkgo-set tidy-vendor
 test-verbose: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
 
+escapes_detect: tidy-vendor
+	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... | grep "escapes to heap" || true
+
+set_govulncheck:
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+
+govulncheck: set_govulncheck tidy-vendor
+	@govulncheck -v ./... || true
+
 format:
 	gofmt -e -d -s -l -w pkg/ cmd/
 

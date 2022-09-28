@@ -1,0 +1,15 @@
+name: go escapes detect
+
+on:
+  pull_request:
+
+jobs:
+  escapes_detect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-go@main
+        with:
+          go-version: 1.18
+      - name: run escapes detect
+        run: make escapes_detect
