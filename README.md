@@ -8,6 +8,8 @@
 
 ![GitHub](https://img.shields.io/github/license/sustainable-computing-io/kepler)
 
+[![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/KeplerProject.svg?style=social&label=Follow%20%40KeplerProject)](https://twitter.com/KeplerProject)
+
 # kepler
 Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy related system stats and exports as Prometheus metrics
 
