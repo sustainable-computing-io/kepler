@@ -78,6 +78,16 @@ spec:
         - containerPort: 9102
           hostPort: 9102
           name: http
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 9102
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
         volumeMounts:
         - mountPath: /lib/modules
           name: lib-modules
