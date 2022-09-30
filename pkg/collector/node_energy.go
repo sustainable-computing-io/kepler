@@ -80,7 +80,7 @@ func (v *NodeEnergy) ResetCurr() {
 	v.SensorEnergy.ResetCurr()
 }
 
-func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.PackageEnergy, totalGPUDelta uint64, usage map[string]float64) {
+func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.RAPLEnergy, totalGPUDelta uint64, usage map[string]float64) {
 	for sensorID, energy := range sensorEnergy {
 		v.SensorEnergy.AddStat(sensorID, uint64(energy))
 	}

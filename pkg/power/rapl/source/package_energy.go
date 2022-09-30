@@ -16,8 +16,8 @@ limitations under the License.
 
 package source
 
-// PackageEnergy defines set of energy per package in mJ
-type PackageEnergy struct {
+// RAPLEnergy defines set of energy per RAPL components in mJ
+type RAPLEnergy struct {
 	Core   uint64
 	DRAM   uint64
 	Uncore uint64

@@ -170,11 +170,11 @@ func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
 }
 
 // No package information, consider as 1 package
-func (r *PowerEstimate) GetPackageEnergy() map[int]PackageEnergy {
+func (r *PowerEstimate) GetRAPLEnergy() map[int]RAPLEnergy {
 	coreEnergy, _ := r.GetEnergyFromCore()
 	dramEnergy, _ := r.GetEnergyFromDram()
-	packageEnergies := make(map[int]PackageEnergy)
-	packageEnergies[0] = PackageEnergy{
+	packageEnergies := make(map[int]RAPLEnergy)
+	packageEnergies[0] = RAPLEnergy{
 		Core:   coreEnergy,
 		DRAM:   dramEnergy,
 		Uncore: 0,

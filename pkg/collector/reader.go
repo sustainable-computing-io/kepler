@@ -59,7 +59,7 @@ const (
 var (
 	// latest read energy
 	sensorEnergy = map[string]float64{}
-	pkgEnergy    = map[int]source.PackageEnergy{}
+	pkgEnergy    = map[int]source.RAPLEnergy{}
 	// latest process energy
 	podEnergy  = map[string]*PodEnergy{}
 	nodeEnergy = NewNodeEnergy()
@@ -76,7 +76,7 @@ var (
 // readEnergy reads sensor/pkg energies in mJ
 func (c *Collector) readEnergy() {
 	sensorEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
-	pkgEnergy = rapl.GetPackageEnergy()
+	pkgEnergy = rapl.GetRAPLEnergy()
 }
 
 // resetCurrValue reset existing podEnergy previous curr value
