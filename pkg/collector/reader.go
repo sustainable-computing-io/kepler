@@ -75,6 +75,19 @@ var (
 	systemProcessNamespace = podlister.GetSystemProcessNamespace()
 )
 
+func init() {
+	pods, err := podlister.Init()
+	if err != nil {
+		klog.V(5).Infoln(err)
+		return
+	}
+	for i := 0; i < len(*pods); i++ {
+		podName := (*pods)[i].Name
+		podNamespace := (*pods)[i].Namespace
+		podEnergy[podName] = NewPodEnergy(podName, podNamespace)
+	}
+}
+
 // readEnergy reads sensor/pkg energies in mJ
 func (c *Collector) readEnergy() {
 	sensorEnergy, _ = acpiPowerMeter.GetEnergyFromHost()
