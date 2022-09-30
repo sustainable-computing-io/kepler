@@ -8,3 +8,6 @@ containerdConfigPatches:
     endpoint = ["http://kind-registry:5000"]
 nodes:
   - role: control-plane
+    extraMounts:
+      - hostPath: /proc
+        containerPath: /proc-host
