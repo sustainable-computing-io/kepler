@@ -31,8 +31,8 @@ type powerInterface interface {
 	GetEnergyFromUncore() (uint64, error)
 	// GetEnergyFromDram returns mJ in package
 	GetEnergyFromPackage() (uint64, error)
-	// GetPackageEnergy returns set of mJ per package
-	GetPackageEnergy() map[int]source.PackageEnergy
+	// GetRAPLEnergy returns set of mJ per RAPL components
+	GetRAPLEnergy() map[int]source.RAPLEnergy
 	StopPower()
 	IsSupported() bool
 }
@@ -82,8 +82,8 @@ func GetEnergyFromPackage() (uint64, error) {
 	return powerImpl.GetEnergyFromPackage()
 }
 
-func GetPackageEnergy() map[int]source.PackageEnergy {
-	return powerImpl.GetPackageEnergy()
+func GetRAPLEnergy() map[int]source.RAPLEnergy {
+	return powerImpl.GetRAPLEnergy()
 }
 
 func StopPower() {

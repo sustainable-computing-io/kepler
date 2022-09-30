@@ -97,7 +97,7 @@ var _ = Describe("Test Collector Unit", func() {
 		sensorEnergy = map[string]float64{
 			"sensor0": sampleNodeEnergy,
 		}
-		pkgEnergy = map[int]source.PackageEnergy{
+		pkgEnergy = map[int]source.RAPLEnergy{
 			0: {
 				Pkg: samplePkgEnergy,
 			},
@@ -106,7 +106,7 @@ var _ = Describe("Test Collector Unit", func() {
 		sensorEnergy = map[string]float64{
 			"sensor0": sampleNodeEnergy * 2,
 		}
-		pkgEnergy = map[int]source.PackageEnergy{
+		pkgEnergy = map[int]source.RAPLEnergy{
 			0: {
 				Pkg: samplePkgEnergy * 2,
 			},

@@ -445,7 +445,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- metric
 	}
 
-	// collect energy per package by RAPL mJ
+	// collect energy per RAPL components in mJ
 	for pkgID, energy := range pkgEnergy {
 		desc := c.getPackageEnergyDescription()
 		coreEnergy := strconv.FormatUint(energy.Core, 10)

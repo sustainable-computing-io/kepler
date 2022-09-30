@@ -115,8 +115,8 @@ func (r *PowerSysfs) GetEnergyFromPackage() (uint64, error) {
 	return getEnergy(packageEvent)
 }
 
-func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
-	packageEnergies := make(map[int]PackageEnergy)
+func (r *PowerSysfs) GetRAPLEnergy() map[int]RAPLEnergy {
+	packageEnergies := make(map[int]RAPLEnergy)
 
 	pkgEnergies := readEventEnergy(packageEvent)
 	coreEnergies := readEventEnergy(coreEvent)
@@ -129,7 +129,7 @@ func (r *PowerSysfs) GetPackageEnergy() map[int]PackageEnergy {
 		uncoreEnergy := uncoreEnergies[pkgID]
 		splits := strings.Split(pkgID, "-")
 		i, _ := strconv.Atoi(splits[len(splits)-1])
-		packageEnergies[i] = PackageEnergy{
+		packageEnergies[i] = RAPLEnergy{
 			Core:   coreEnergy,
 			DRAM:   dramEnergy,
 			Uncore: uncoreEnergy,
