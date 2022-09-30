@@ -54,6 +54,8 @@ type CgroupTime struct {
 const (
 	samplePeriodSec = 3
 	samplePeriod    = samplePeriodSec * 1000 * time.Millisecond
+
+	maxInactivePods = 10
 )
 
 var (
@@ -197,12 +199,7 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 		}
 	}
 	c.resetBPFTables()
-	// clean podEnergy
-	for podName := range podEnergy {
-		if _, found := foundPod[podName]; !found {
-			delete(podEnergy, podName)
-		}
-	}
+	handleInactivePods(foundPod)
 	return pidPodName, containerIDPodName
 }
 
@@ -396,4 +393,21 @@ func getActiveCPUs(cpuTime *[C.CPU_VECTOR_SIZE]uint16) (activeCPUs []int32) {
 		}
 	}
 	return
+}
+
+// handleInactivePods
+func handleInactivePods(foundPod map[string]bool) {
+	numOfInactive := len(podEnergy) - len(foundPod)
+	if numOfInactive > maxInactivePods {
+		alivePods, err := podlister.GetAlivePods()
+		if err != nil {
+			klog.V(5).Infoln(err)
+			return
+		}
+		for podName := range podEnergy {
+			if _, found := alivePods[podName]; !found {
+				delete(podEnergy, podName)
+			}
+		}
+	}
 }

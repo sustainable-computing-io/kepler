@@ -26,10 +26,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
-
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 type ContainerInfo struct {
@@ -283,4 +282,18 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 		}
 	}
 	return systemProcessName, fmt.Errorf("failed to find pod's container id")
+}
+
+// GetAlivePods returns alive pod map
+func GetAlivePods() (map[string]bool, error) {
+	pods, err := podLister.ListPods()
+	alivePods := make(map[string]bool)
+	if err != nil {
+		return alivePods, err
+	}
+	for i := 0; i < len(*pods); i++ {
+		podName := (*pods)[i].Name
+		alivePods[podName] = true
+	}
+	return alivePods, nil
 }
