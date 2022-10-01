@@ -19,3 +19,13 @@ base on different k8s cluster, for example kind(k8s in docker)
 back to common checking process
 - deploy a kepler at local kind cluster with image stored at local image registry.
 - check via kubectl command for ...
+
+## Dev on Mac
+Please notice that in kepler we use different build tags to adapt to different hardwares.
+Please see keywords below for more details, as the code talks.
+```
+//go:build darwin
+// +build darwin
+or
+if runtime.GOOS == "linux" {
+```

@@ -1,3 +1,6 @@
+//go:build gpu
+// +build gpu
+
 /*
 Copyright 2021.
 

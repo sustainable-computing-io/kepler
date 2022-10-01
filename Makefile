@@ -43,10 +43,10 @@ endif
 
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
-GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu'
 ifneq ($(shell command -v ldconfig),)
   ifneq ($(shell ldconfig -p|grep bcc),)
-     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
+     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
   endif
 endif
 
@@ -140,6 +140,9 @@ test: ginkgo-set tidy-vendor
 
 test-verbose: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
+
+test-mac-verbose: tidy-vendor
+	@go test ./... --race --bench=. -cover --count=1 --vet=all
 
 escapes_detect: tidy-vendor
 	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... | grep "escapes to heap" || true

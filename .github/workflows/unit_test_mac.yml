@@ -1,0 +1,18 @@
+name: Unit test Mac
+
+on:
+  pull_request:
+
+jobs:
+  unit_test_mac:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+    - uses: actions/setup-go@main
+      with:
+          go-version: 1.18
+    - name: Run 
+      run: make test-mac-verbose
