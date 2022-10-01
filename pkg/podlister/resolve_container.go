@@ -28,6 +28,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -65,8 +66,8 @@ var (
 	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
 )
 
-func init() {
-	updateListPodCache("", false)
+func Init() (*[]corev1.Pod, error) {
+	return updateListPodCache("", false)
 }
 
 func GetSystemProcessName() string {
@@ -117,7 +118,7 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 	}
 
 	// update cache info and stop loop if container id found
-	updateListPodCache(containerID, true)
+	_, _ = updateListPodCache(containerID, true)
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	}
@@ -128,11 +129,11 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 
 // updateListPodCache updates cache info with all pods and optionally
 // stops the loop when a given container ID is found
-func updateListPodCache(targetContainerID string, stopWhenFound bool) {
+func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1.Pod, error) {
 	pods, err := podLister.ListPods()
 	if err != nil {
 		klog.V(4).Infof("%v", err)
-		return
+		return pods, err
 	}
 	for i := 0; i < len(*pods); i++ {
 		statuses := (*pods)[i].Status.ContainerStatuses
@@ -145,7 +146,7 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
 			if stopWhenFound && statuses[j].ContainerID == targetContainerID {
-				return
+				return pods, err
 			}
 		}
 		statuses = (*pods)[i].Status.InitContainerStatuses
@@ -158,10 +159,11 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) {
 			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
 			if stopWhenFound && statuses[j].ContainerID == targetContainerID {
-				return
+				return pods, err
 			}
 		}
 	}
+	return pods, err
 }
 
 func GetContainerID(cGroupID, pid uint64) (string, error) {

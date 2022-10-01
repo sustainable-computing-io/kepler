@@ -27,3 +27,7 @@ func TestPodLoader(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "PodLister Suite")
 }
+
+var _ = BeforeSuite(func() {
+	_, _ = Init()
+})
