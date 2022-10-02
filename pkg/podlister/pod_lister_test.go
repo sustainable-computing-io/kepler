@@ -3,6 +3,7 @@ package podlister
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -74,9 +75,10 @@ func TestGetPathFromPID(t *testing.T) {
 			d, err := strconv.Atoi(file)
 			g.Expect(err).NotTo(HaveOccurred())
 			ret, err := getPathFromPID(s, uint64(d))
-
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(ret).To(Equal(testcase.expectedRet))
+			if runtime.GOOS == "linux" {
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(ret).To(Equal(testcase.expectedRet))
+			}
 		})
 	}
 }

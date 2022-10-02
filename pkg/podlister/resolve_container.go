@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -240,11 +239,11 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 		if !dentry.IsDir() {
 			return nil
 		}
-		handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
+		getCgroupID, err := getCgroupIDFromPath(byteOrder, path)
 		if err != nil {
 			return fmt.Errorf("error resolving handle: %v", err)
 		}
-		cGroupIDToPath[byteOrder.Uint64(handle.Bytes())] = path
+		cGroupIDToPath[getCgroupID] = path
 		return nil
 	})
 
