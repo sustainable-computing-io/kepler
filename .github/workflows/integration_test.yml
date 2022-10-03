@@ -18,6 +18,11 @@ jobs:
       - name: install kubectl
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
+      - name: Enable ipv4 and ipv6 forwarding
+        run: |
+          sudo sysctl -w net.ipv6.conf.all.forwarding=1
+          sudo sysctl -w net.ipv4.ip_forward=1
+
       - name: start local k8s cluster
         run: make cluster-up
         env:
@@ -29,4 +34,12 @@ jobs:
         run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
-            CTR_CMD: docker
+            CTR_CMD: podman
+            
+      - name: run integration_test
+        run: 	|
+          POD=`kubectl -n kepler get pods -oname`
+          kubectl port-forward --address 0.0.0.0 $POD 9102:9102 -n kepler -v7 &
+          go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
+        env:
+            kepler_address: localhost:9102

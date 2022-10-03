@@ -55,7 +55,6 @@ spec:
         app.kubernetes.io/component: exporter
         app.kubernetes.io/name: kepler-exporter
     spec:
-      hostNetwork: true
       serviceAccountName: kepler-sa
       containers:
       - name: kepler-exporter
@@ -123,7 +122,6 @@ metadata:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
 spec:
-  clusterIP: None
   selector:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
@@ -131,3 +129,4 @@ spec:
   - name: http
     port: 9102
     targetPort: http
+    protocol: TCP

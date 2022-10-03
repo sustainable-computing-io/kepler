@@ -25,7 +25,7 @@ _registry_name="kind-registry"
 CTR_CMD=${CTR_CMD-docker}
 
 CONFIG_PATH="cluster-up/cluster"
-KIND_VERSION=${KIND_VERSION:-0.15.0}
+KIND_VERSION=${KIND_VERSION:-0.16.0}
 KIND_MANIFESTS_DIR="$CONFIG_PATH/${CLUSTER_PROVIDER}/manifests"
 CLUSTER_NAME=${KIND_CLUSTER_NAME:-kind}
 REGISTRY_NAME=${REGISTRY_NAME:-kind-registry}
@@ -187,8 +187,8 @@ function _setup_kind() {
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
 
     _wait_kind_up
-    kubectl cluster-info
 
+    kubectl cluster-info --context kind-kind
     # wait until k8s pods are running
     while [ -n "$(_get_pods | grep -v Running)" ]; do
         echo "Waiting for all pods to enter the Running state ..."

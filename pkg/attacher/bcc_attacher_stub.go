@@ -19,10 +19,6 @@ limitations under the License.
 
 package attacher
 
-import (
-	"fmt"
-)
-
 const (
 	CPUCycleLable       = "cpu_cycles"
 	CPUInstructionLabel = "cpu_instr"
@@ -66,7 +62,7 @@ var (
 )
 
 func AttachBPFAssets() (*BpfModuleTables, error) {
-	return nil, fmt.Errorf("no bcc build tag")
+	return nil, nil
 }
 
 func DetachBPFModules(bpfModules *BpfModuleTables) {

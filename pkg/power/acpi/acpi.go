@@ -17,11 +17,7 @@ limitations under the License.
 package acpi
 
 import (
-	"fmt"
-	"os"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -112,49 +108,6 @@ func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
 	return shallowClone
 }
 
-func getCPUCoreFrequency() map[int32]uint64 {
-	files, err := os.ReadDir(freqPathDir)
-	if err != nil {
-		klog.Fatal(err)
-	}
-
-	ch := make(chan []uint64)
-	for i := 0; i < len(files); i++ {
-		go func(i uint64) {
-			path := fmt.Sprintf(freqPath, i)
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return
-			}
-			if freq, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
-				ch <- []uint64{i, freq}
-				return
-			}
-			ch <- []uint64{i, 0}
-		}(uint64(i))
-	}
-
-	cpuCoreFrequency := map[int32]uint64{}
-	for i := 0; i < len(files); i++ {
-		select {
-		case val, ok := <-ch:
-			if ok {
-				cpuCoreFrequency[int32(val[0])] = val[1]
-			}
-		case <-time.After(1 * time.Minute):
-			klog.V(1).Infoln("timeout reading cpu core frequency files")
-		}
-	}
-
-	return cpuCoreFrequency
-}
-
-func (a *ACPI) IsPowerSupported() bool {
-	file := fmt.Sprintf(powerPath, 1)
-	_, err := os.ReadFile(file)
-	return err == nil
-}
-
 // GetEnergyFromHost returns the accumulated energy consumption and reset the counter
 func (a *ACPI) GetEnergyFromHost() (map[string]float64, error) {
 	power := map[string]float64{}
@@ -165,26 +118,5 @@ func (a *ACPI) GetEnergyFromHost() (map[string]float64, error) {
 		a.systemEnergy[sensorID] = 0
 	}
 	a.mu.Unlock()
-	return power, nil
-}
-
-func getPowerFromSensor() (map[string]float64, error) {
-	power := map[string]float64{}
-
-	for i := int32(1); i <= numCPUS; i++ {
-		path := fmt.Sprintf(powerPath, i)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			break
-		}
-		// currPower is in microWatt
-		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
-		if err == nil {
-			power[fmt.Sprintf("%s%d", sensorIDPrefix, i)] = float64(currPower) / 1000 /*miliWatts*/
-		} else {
-			return power, err
-		}
-	}
-
 	return power, nil
 }
