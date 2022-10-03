@@ -30,3 +30,11 @@ jobs:
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             CTR_CMD: docker
+            
+      - name: run integration_test
+        run: 	|
+          POD=`kubectl -n kepler get pods -oname`
+          kubectl port-forward --address 0.0.0.0 $POD 9102:9102 -n kepler -v7 &
+          go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
+        env:
+            kepler_address: localhost:9102

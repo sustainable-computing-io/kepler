@@ -144,6 +144,9 @@ test-verbose: ginkgo-set tidy-vendor
 test-mac-verbose: tidy-vendor
 	@go test ./... --race --bench=. -cover --count=1 --vet=all
 
+test-integeration:
+	@go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
+
 escapes_detect: tidy-vendor
 	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... | grep "escapes to heap" || true
 
@@ -159,6 +162,11 @@ format:
 golint:
 	./hack/golint.sh
 
+test-integeration-ci:
+	@kubectl -n kepler get pod
+	@kubectl -n kepler get pods -oname
+	@kubectl port-forward $(kubectl -n kepler get pods -oname) 9102:9102 -n kepler -v7 &
+	@go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
 
 clean-cross-build:
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
