@@ -58,6 +58,12 @@ type CPUModelData struct {
 }
 
 func GetCPUArchitecture() (string, error) {
+	// check if there is a CPU architecture override
+	cpuArchOverride := os.Getenv("CPU_ARCH_OVERRIDE")
+	if len(cpuArchOverride) > 0 {
+		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
+		return cpuArchOverride, nil
+	}
 	output, err := exec.Command("archspec", "cpu").Output()
 	if err != nil {
 		return "", err
@@ -166,7 +172,7 @@ func (r *PowerEstimate) GetEnergyFromUncore() (uint64, error) {
 }
 
 func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
-	return 0, nil
+	return r.GetEnergyFromCore()
 }
 
 // No package information, consider as 1 package
