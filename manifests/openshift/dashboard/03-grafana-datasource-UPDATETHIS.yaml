@@ -16,7 +16,7 @@ spec:
         httpHeaderName1: 'Authorization'
         timeInterval: 5s
         tlsSkipVerify: true
-      name: Prometheus
+      name: prometheus
       secureJsonData:
         # Update bearer token to match your environment
         httpHeaderValue1: 'Bearer ${BEARER_TOKEN}'
