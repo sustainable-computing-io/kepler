@@ -46,6 +46,4 @@ function run_job() {
     kubectl logs $pods
 }
 
-
-
-main()
+main
