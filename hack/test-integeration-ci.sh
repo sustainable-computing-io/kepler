@@ -19,7 +19,8 @@ function build_test_image() {
     docker build -f ./e2e/Dockerfile -t localhost:5001/keplere2etest:latest .
 }
 
-function _fetch_kind() {
+function fetch_kind() {
+    rm -rf ${CONFIG_OUT_DIR}
     mkdir -p ${CONFIG_OUT_DIR}
     KIND="${CONFIG_OUT_DIR}"/.kind
     if [ -f $KIND ]; then
@@ -37,7 +38,7 @@ function _fetch_kind() {
 }
 
 function push_test_image() {
-    _fetch_kind
+    fetch_kind
     $KIND load docker-image localhost:5001/keplere2etest:latest
 }
 
