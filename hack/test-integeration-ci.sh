@@ -14,7 +14,7 @@ main() {
 }
 
 function build_test_image() {
-    docker build -f ./e2e/Dockerfile -t localhost:5001/keplere2etest:latest ./... 
+    docker build -f ./e2e/Dockerfile -t localhost:5001/keplere2etest:latest .
 }
 
 function _fetch_kind() {
