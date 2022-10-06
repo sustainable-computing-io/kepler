@@ -35,9 +35,6 @@ jobs:
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             CTR_CMD: docker
-
-      - name: debugging
-        run: cat _output/manifests/kind/generated/kind.yml
             
       - name: run integration_test
         run: 	|
