@@ -3,9 +3,6 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
   ipFamily: ipv4
-  podSubnet: "10.244.0.0/16"
-  #disableDefaultCNI: true
-  kubeProxyMode: "ipvs"
 # create a cluster with the local registry enabled in containerd
 containerdConfigPatches:
 - |-
@@ -13,20 +10,6 @@ containerdConfigPatches:
     endpoint = ["http://kind-registry:5000"]
 nodes:
   - role: control-plane
-    kubeadmConfigPatches:
-    - |
-      kind: InitConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "ingress-ready=true"
-          authorization-mode: "AlwaysAllow"
-    extraPortMappings:
-      - containerPort: 80
-        hostPort: 80
-        protocol: TCP
-      - containerPort: 443
-        hostPort: 443
-        protocol: TCP
     extraMounts:
       - hostPath: /proc
         containerPath: /proc-host
