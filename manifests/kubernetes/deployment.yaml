@@ -100,6 +100,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: CPU_ARCH_OVERRIDE
+          value:
       volumes:
       - name: lib-modules
         hostPath:
