@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
       - name: test
-        image: keplere2etest:latest
+        image: localhost:5001/keplere2etest:latest
         env:
           kepler_address: kepler-exporter:9102
       restartPolicy: Never
