@@ -186,9 +186,10 @@ function _setup_kind() {
     $KIND create cluster -v=6 --name=${CLUSTER_NAME} --config=${CONFIG_OUT_DIR}/kind.yml
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
 
+    kubectl cluster-info --context kind-kind
+    kubectl apply -f https://docs.projectcalico.org/v3.24.1/manifests/calico.yaml
+    
     _wait_kind_up
-    kubectl cluster-info
-
     # wait until k8s pods are running
     while [ -n "$(_get_pods | grep -v Running)" ]; do
         echo "Waiting for all pods to enter the Running state ..."
