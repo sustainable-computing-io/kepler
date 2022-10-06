@@ -3,6 +3,8 @@
 set -o errexit
 #set -x
 
+CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
+
 main() {
     #kubectl -n kepler get pod
     #kubectl -n kepler get pods -oname
