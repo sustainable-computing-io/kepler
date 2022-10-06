@@ -187,7 +187,7 @@ function _setup_kind() {
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
 
     kubectl cluster-info --context kind-kind
-    kubectl apply -f https://docs.projectcalico.org/v3.24.1/manifests/calico.yaml
+    kubectl apply -f https://projectcalico.docs.tigera.io/v3.24.1/manifests/calico.yaml
     
     _wait_kind_up
     # wait until k8s pods are running
