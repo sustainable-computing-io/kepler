@@ -34,7 +34,7 @@ jobs:
         run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
-            CTR_CMD: docker
+            CTR_CMD: podman
             
       - name: run integration_test
         run: 	|
