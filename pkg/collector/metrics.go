@@ -19,6 +19,7 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
@@ -26,14 +27,14 @@ import (
 )
 
 const (
-	freqMetricLabel = "avg_cpu_frequency"
+	freqMetricLabel = config.CPUFrequency
 
 	// TO-DO: merge to cgroup stat
-	ByteReadLabel    = "bytes_read"
-	ByteWriteLabel   = "bytes_writes"
-	blockDeviceLabel = "block_devices_used"
+	ByteReadLabel    = config.BytesReadIO
+	ByteWriteLabel   = config.BytesWriteIO
+	blockDeviceLabel = config.BlockDevicesIO
 
-	CPUTimeLabel = "cpu_time"
+	CPUTimeLabel = config.CPUTime
 )
 
 var (

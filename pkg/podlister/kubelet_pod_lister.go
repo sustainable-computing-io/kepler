@@ -27,6 +27,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -41,10 +42,10 @@ const (
 var (
 	podURL, metricsURL string
 
-	nodeCPUUsageMetricName      = "node_cpu_usage_seconds_total"
-	nodeMemUsageMetricName      = "node_memory_working_set_bytes"
-	containerCPUUsageMetricName = "container_cpu_usage_seconds_total"
-	containerMemUsageMetricName = "container_memory_working_set_bytes"
+	nodeCPUUsageMetricName      = config.KubeletNodeCPU
+	nodeMemUsageMetricName      = config.KubeletNodeMemory
+	containerCPUUsageMetricName = config.KubeletContainerCPU
+	containerMemUsageMetricName = config.KubeletContainerMemory
 
 	podNameTag   = "pod"
 	namespaceTag = "namespace"
