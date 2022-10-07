@@ -38,7 +38,7 @@ function main() {
     for i in 1 2 3
     do
         echo "check deployment status for round $i"
-        kubectl rollout status daemonset kepler-exporter -n kepler --timeout 60s
+        kubectl rollout status daemonset kepler-exporter -n kepler --timeout 180s
         #check rollout status
         if [ $? -eq 0 ]
         then
