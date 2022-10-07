@@ -28,7 +28,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
 
 	"k8s.io/klog/v2"
@@ -77,7 +76,7 @@ func main() {
 	if err != nil {
 		klog.Fatalf("%s", fmt.Sprintf("failed to create collector: %v", err))
 	}
-	_ = newCollector.Attach()
+	//_ = newCollector.Attach()
 	/*if err != nil {
 		klog.Fatalf("%s", fmt.Sprintf("failed to attach : %v", err))
 	}*/
@@ -87,7 +86,7 @@ func main() {
 		klog.Fatalf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
-	http.Handle(*metricsPath, promhttp.Handler())
+	//http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/healthz", healthProbe)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write([]byte(`<html>
