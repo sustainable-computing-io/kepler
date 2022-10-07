@@ -104,8 +104,10 @@ func (c *Collector) resetCurrValue() {
 
 // resetBPFTables reset BPF module's tables
 func (c *Collector) resetBPFTables() {
-	c.modules.Table.DeleteAll()
-	c.modules.TimeTable.DeleteAll()
+	if c.modules != nil {
+		c.modules.Table.DeleteAll()
+		c.modules.TimeTable.DeleteAll()
+	}
 }
 
 // readBPFEvent reads BPF event and maps between pid/cgroupid and container/pod

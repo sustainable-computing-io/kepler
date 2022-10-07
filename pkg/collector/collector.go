@@ -23,6 +23,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -101,6 +102,11 @@ func New() (*Collector, error) {
 }
 
 func (c *Collector) Attach() error {
+	defer func() {
+		if r := recover(); r != nil {
+			klog.Infoln(r)
+		}
+	}()
 	m, err := attacher.AttachBPFAssets()
 	setPodStatProm()
 	if err != nil {
