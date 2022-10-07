@@ -75,7 +75,7 @@ spec:
         - -v=1
         ports:
         - containerPort: 9102
-          hostPort: 9102
+          #hostPort: 9102
           name: http
         livenessProbe:
           failureThreshold: 5
@@ -128,5 +128,6 @@ spec:
   ports:
   - name: http
     port: 9102
+    nodePort: 9102
     targetPort: http
     protocol: TCP
