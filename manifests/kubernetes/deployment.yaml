@@ -88,8 +88,8 @@ spec:
           successThreshold: 1
           timeoutSeconds: 10
         volumeMounts:
-        - mountPath: /lib/modules
-          name: lib-modules
+        #- mountPath: /lib/modules
+        #  name: lib-modules
         - mountPath: /sys
           name: tracing
         - mountPath: /proc
