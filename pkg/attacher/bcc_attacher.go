@@ -63,6 +63,11 @@ var (
 )
 
 func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			klog.Infof("failed to attach the bpf program:", err)
+		}
+	}()
 	m := bpf.NewModule(string(objProg), options)
 	// TODO make all entrypoints yaml-declarable
 	sched_switch, err := m.LoadTracepoint("sched_switch")
