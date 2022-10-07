@@ -38,10 +38,10 @@ jobs:
 
       - name: get pod logs
         run: |
-          sleep 10
+          sleep 60
           kubectl logs $(kubectl -n kepler get pods -oname) -n kepler
           kubectl get po -n kepler
-          kubectl describe po $(kubectl -n kepler get pods -oname) -n kepler
+          kubectl get deployment -n kepler
 
       - name: run integration_test
         run: go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
