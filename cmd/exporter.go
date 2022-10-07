@@ -79,7 +79,7 @@ func main() {
 	}
 	err = newCollector.Attach()
 	if err != nil {
-		klog.Fatalf("%s", fmt.Sprintf("failed to attach : %v", err))
+		klog.Infof("%s", fmt.Sprintf("failed to attach : %v", err))
 	}
 
 	err = prometheus.Register(newCollector)

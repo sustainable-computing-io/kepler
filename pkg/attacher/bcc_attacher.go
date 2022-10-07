@@ -62,13 +62,14 @@ var (
 	EnableCPUFreq = true
 )
 
-func loadModule(objProg []byte, options []string) (*bpf.Module, error) {
+func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 	defer func() {
-		if err := recover(); err != nil {
-			klog.Infof("failed to attach the bpf program:", err)
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to attach the bpf program: %v", err)
+			klog.Infoln(err)
 		}
 	}()
-	m := bpf.NewModule(string(objProg), options)
+	m = bpf.NewModule(string(objProg), options)
 	// TODO make all entrypoints yaml-declarable
 	sched_switch, err := m.LoadTracepoint("sched_switch")
 	if err != nil {
