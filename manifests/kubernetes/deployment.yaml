@@ -100,10 +100,10 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
       volumes:
-      - name: lib-modules
-        hostPath:
-          path: /lib/modules
-          type: Directory
+      #- name: lib-modules
+      #  hostPath:
+      #    path: /lib/modules
+      #    type: Directory
       - name: tracing
         hostPath:
           path: /sys
