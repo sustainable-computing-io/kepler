@@ -1,11 +1,6 @@
 ---
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  ipFamily: ipv4
-  #disableDefaultCNI: true
-  podSubnet: "10.244.0.0/16"
-  serviceSubnet: "10.245.0.0/16"
 # create a cluster with the local registry enabled in containerd
 containerdConfigPatches:
 - |-
@@ -16,3 +11,6 @@ nodes:
     extraMounts:
       - hostPath: /proc
         containerPath: /proc-host
+    extraPortMappings:
+      - containerPort: 9102
+        hostPort: 9102        
