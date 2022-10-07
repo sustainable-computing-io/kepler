@@ -38,7 +38,7 @@ jobs:
 
       - name: get pod logs
         run: |
-          kubectl logs $(kubectl -n kepler get pods -oname)
+          kubectl logs $(kubectl -n kepler get pods -oname) -n kepler
 
       - name: run integration_test
         run: go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
