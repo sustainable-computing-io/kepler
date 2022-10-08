@@ -84,7 +84,8 @@ func init() {
 	for i := 0; i < len(*pods); i++ {
 		podName := (*pods)[i].Name
 		podNamespace := (*pods)[i].Namespace
-		podEnergy[podName] = NewPodEnergy(podName, podNamespace)
+		podID := string((*pods)[i].ObjectMeta.UID)
+		podEnergy[podID] = NewPodEnergy(podName, podNamespace)
 	}
 }
 
@@ -111,9 +112,9 @@ func (c *Collector) resetBPFTables() {
 // readBPFEvent reads BPF event and maps between pid/cgroupid and container/pod
 // initializes podEnergy component if not exists
 // adds stats from BPF events (CPU time, available HW counters)
-func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPodName map[string]string) {
-	pidPodName = make(map[uint32]string)
-	containerIDPodName = make(map[string]string)
+func (c *Collector) readBPFEvent() (pidPodID map[uint32]string, containerIDPodID map[string]string) {
+	pidPodID = make(map[uint32]string)
+	containerIDPodID = make(map[string]string)
 	if c.modules == nil {
 		return nil, nil
 	}
@@ -127,13 +128,19 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 			continue
 		}
 		comm := (*C.char)(unsafe.Pointer(&ct.Command))
+
+		podID, err := podlister.GetPodID(ct.CGroupPID, ct.PID)
+		if err != nil || podID == "" {
+			klog.V(5).Infof("failed to resolve pod ID for cGroup ID %v: %v, set podName=%s", ct.CGroupPID, err, systemProcessName)
+			podID = "system"
+		}
 		podName, err := podlister.GetPodName(ct.CGroupPID, ct.PID)
 
 		if err != nil {
-			klog.V(5).Infof("failed to resolve pod for cGroup ID %v: %v, set podName=%s", ct.CGroupPID, err, systemProcessName)
+			klog.V(5).Infof("failed to resolve pod name for cGroup ID %v: %v, set podName=%s", ct.CGroupPID, err, systemProcessName)
 			podName = systemProcessName
 		}
-		if _, ok := podEnergy[podName]; !ok {
+		if _, ok := podEnergy[podID]; !ok {
 			// new pod
 			var podNamespace string
 			if podName == systemProcessName {
@@ -145,28 +152,28 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 					podNamespace = "unknown"
 				}
 			}
-			podEnergy[podName] = NewPodEnergy(podName, podNamespace)
+			podEnergy[podID] = NewPodEnergy(podName, podNamespace)
 		}
-		foundPod[podName] = true
+		foundPod[podID] = true
 
-		podEnergy[podName].SetLatestProcess(ct.CGroupPID, ct.PID, C.GoString(comm))
+		podEnergy[podID].SetLatestProcess(ct.CGroupPID, ct.PID, C.GoString(comm))
 
 		var activeCPUs []int32
 		var avgFreq float64
 		var totalCPUTime uint64
 		if attacher.EnableCPUFreq {
 			avgFreq, totalCPUTime, activeCPUs = getAVGCPUFreqAndTotalCPUTime(cpuFrequency, &ct.CPUTime)
-			podEnergy[podName].AvgCPUFreq = avgFreq
+			podEnergy[podID].AvgCPUFreq = avgFreq
 		} else {
 			totalCPUTime = ct.ProcessRunTime
 			activeCPUs = getActiveCPUs(&ct.CPUTime)
 		}
 
 		for _, cpu := range activeCPUs {
-			podEnergy[podName].CurrCPUTimePerCPU[uint32(cpu)] += uint64(ct.CPUTime[cpu])
+			podEnergy[podID].CurrCPUTimePerCPU[uint32(cpu)] += uint64(ct.CPUTime[cpu])
 		}
 
-		if err = podEnergy[podName].CPUTime.AddNewCurr(totalCPUTime); err != nil {
+		if err = podEnergy[podID].CPUTime.AddNewCurr(totalCPUTime); err != nil {
 			klog.V(5).Infoln(err)
 		}
 
@@ -182,49 +189,49 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 			default:
 				val = 0
 			}
-			if err = podEnergy[podName].CounterStats[counterKey].AddNewCurr(val); err != nil {
+			if err = podEnergy[podID].CounterStats[counterKey].AddNewCurr(val); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
 
-		podEnergy[podName].CurrProcesses++
+		podEnergy[podID].CurrProcesses++
 		containerID, err := podlister.GetContainerID(ct.CGroupPID, ct.PID)
 		if err != nil {
 			klog.V(5).Infoln(err)
 		}
 		// first-time found container (should not include non-container event)
-		if _, found := containerIDPodName[containerID]; !found && podName != systemProcessName {
-			containerIDPodName[containerID] = podName
+		if _, found := containerIDPodID[containerID]; !found && podName != systemProcessName {
+			containerIDPodID[containerID] = podID
 			// TO-DO: move to container-level section
 			rBytes, wBytes, disks, err := podlister.ReadCgroupIOStat(ct.CGroupPID, ct.PID)
 
 			if err == nil {
-				if disks > podEnergy[podName].Disks {
-					podEnergy[podName].Disks = disks
+				if disks > podEnergy[podID].Disks {
+					podEnergy[podID].Disks = disks
 				}
-				podEnergy[podName].BytesRead.AddStat(containerID, rBytes)
-				podEnergy[podName].BytesWrite.AddStat(containerID, wBytes)
+				podEnergy[podID].BytesRead.AddStat(containerID, rBytes)
+				podEnergy[podID].BytesWrite.AddStat(containerID, wBytes)
 			}
 		}
 		pid := uint32(ct.PID)
-		if _, found := pidPodName[pid]; !found {
-			pidPodName[pid] = podName
+		if _, found := pidPodID[pid]; !found {
+			pidPodID[pid] = podID
 		}
 	}
 	c.resetBPFTables()
 	handleInactivePods(foundPod)
-	return pidPodName, containerIDPodName
+	return pidPodID, containerIDPodID
 }
 
 // readCgroup adds container-level cgroup data
-func (c *Collector) readCgroup(containerIDPodName map[string]string) {
-	for containerID, podName := range containerIDPodName {
+func (c *Collector) readCgroup(containerIDPodID map[string]string) {
+	for containerID, podID := range containerIDPodID {
 		cgroup.TryInitStatReaders(containerID)
 		cgroupFSStandardStats := cgroup.GetStandardStat(containerID)
 		for cgroupFSKey, cgroupFSValue := range cgroupFSStandardStats {
 			readVal := cgroupFSValue.(uint64)
-			if _, ok := podEnergy[podName].CgroupFSStats[cgroupFSKey]; ok {
-				podEnergy[podName].CgroupFSStats[cgroupFSKey].AddStat(containerID, readVal)
+			if _, ok := podEnergy[podID].CgroupFSStats[cgroupFSKey]; ok {
+				podEnergy[podID].CgroupFSStats[cgroupFSKey].AddStat(containerID, readVal)
 			}
 		}
 	}
@@ -235,8 +242,8 @@ func (c *Collector) readKubelet() {
 	if len(availableKubeletMetrics) == 2 {
 		podCPU, podMem, _, _, _ := podlister.GetPodMetrics()
 		klog.V(5).Infof("Kubelet Read: %v, %v\n", podCPU, podMem)
-		for podName, v := range podEnergy {
-			k := v.Namespace + "/" + podName
+		for _, v := range podEnergy {
+			k := v.Namespace + "/" + v.PodName
 			readCPU := uint64(podCPU[k])
 			readMem := uint64(podMem[k])
 			cpuMetricName := availableKubeletMetrics[0]
@@ -269,31 +276,31 @@ func (c *Collector) reader() {
 			// read node-level settings (frequency)
 			cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 			// read pod metrics
-			pidPodName, containerIDPodName := c.readBPFEvent()
-			c.readCgroup(containerIDPodName)
+			pidPodID, containerIDPodID := c.readBPFEvent()
+			c.readCgroup(containerIDPodID)
 			c.readKubelet()
 			// convert to pod metrics to array
 			var podMetricValues [][]float64
-			var podNameList []string
-			for podName, v := range podEnergy {
+			var podIDList []string
+			for podID, v := range podEnergy {
 				values := v.ToEstimatorValues()
 				podMetricValues = append(podMetricValues, values)
-				podNameList = append(podNameList, podName)
+				podIDList = append(podIDList, podID)
 			}
 			// TO-DO: handle metrics read by GPU device in the same way as the other usage metrics
 			// read gpu power
 			gpuPerPid, _ := gpu.GetCurrGpuEnergyPerPid() // power not energy
 			podGPUDelta := make(map[string]float64)
-			for pid, podName := range pidPodName {
+			for pid, podID := range pidPodID {
 				gpuPower := gpuPerPid[pid]
-				if _, found := podGPUDelta[podName]; !found {
-					podGPUDelta[podName] = 0
+				if _, found := podGPUDelta[podID]; !found {
+					podGPUDelta[podID] = 0
 				} else {
-					podGPUDelta[podName] += gpuPower
+					podGPUDelta[podID] += gpuPower
 				}
 			}
-			for _, podName := range podNameList {
-				gpuNDelta = append(gpuNDelta, podGPUDelta[podName])
+			for _, podID := range podIDList {
+				gpuNDelta = append(gpuNDelta, podGPUDelta[podID])
 			}
 			// read and compute power (energy delta)
 			var totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower uint64
@@ -322,37 +329,37 @@ func (c *Collector) reader() {
 			podDynamicPower := model.GetDynamicPower(metricNames, podMetricValues, coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta)
 			// get other energy - divide equally
 			podOther := uint64(0)
-			podCount := len(podNameList)
+			podCount := len(podIDList)
 			if podCount > 0 {
 				podOther = nodeEnergy.EnergyInOther / uint64(podCount)
 			}
 
 			// set pod energy
-			for i, podName := range podNameList {
-				if err := podEnergy[podName].EnergyInCore.AddNewCurr(podCore[i]); err != nil {
+			for i, podID := range podIDList {
+				if err := podEnergy[podID].EnergyInCore.AddNewCurr(podCore[i]); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInDRAM.AddNewCurr(podDRAM[i]); err != nil {
+				if err := podEnergy[podID].EnergyInDRAM.AddNewCurr(podDRAM[i]); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInUncore.AddNewCurr(podUncore[i]); err != nil {
+				if err := podEnergy[podID].EnergyInUncore.AddNewCurr(podUncore[i]); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInPkg.AddNewCurr(podPkg[i]); err != nil {
+				if err := podEnergy[podID].EnergyInPkg.AddNewCurr(podPkg[i]); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				podGPU := uint64(math.Ceil(podGPUDelta[podName]))
-				if err := podEnergy[podName].EnergyInGPU.AddNewCurr(podGPU); err != nil {
+				podGPU := uint64(math.Ceil(podGPUDelta[podID]))
+				if err := podEnergy[podID].EnergyInGPU.AddNewCurr(podGPU); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInOther.AddNewCurr(podOther); err != nil {
+				if err := podEnergy[podID].EnergyInOther.AddNewCurr(podOther); err != nil {
 					klog.V(5).Infoln(err)
 				}
 			}
 			if len(podDynamicPower) != 0 {
-				for i, podName := range podNameList {
+				for i, podID := range podIDList {
 					power := uint64(podDynamicPower[i])
-					if err := podEnergy[podName].DynEnergy.AddNewCurr(power); err != nil {
+					if err := podEnergy[podID].DynEnergy.AddNewCurr(power); err != nil {
 						klog.V(5).Infoln(err)
 					}
 				}
@@ -417,9 +424,9 @@ func handleInactivePods(foundPod map[string]bool) {
 			klog.V(5).Infoln(err)
 			return
 		}
-		for podName := range podEnergy {
-			if _, found := alivePods[podName]; !found {
-				delete(podEnergy, podName)
+		for podID := range podEnergy {
+			if _, found := alivePods[podID]; !found {
+				delete(podEnergy, podID)
 			}
 		}
 	}
