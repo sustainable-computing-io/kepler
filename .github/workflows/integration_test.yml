@@ -30,3 +30,9 @@ jobs:
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             CTR_CMD: docker
+
+      - name: test if kepler is still alive
+        run: |
+          sleep 60
+          kubectl logs $(kubectl -n kepler get pods -oname) -n kepler
+          kubectl get all -n kepler
