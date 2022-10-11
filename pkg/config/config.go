@@ -45,7 +45,8 @@ type config struct {
 var c config
 
 var (
-	EnabledEBPFCgroupID = false
+	EnabledEBPFCgroupID          = false
+	ExposeHardwareCounterMetrics = true
 
 	EstimatorModel        = "" // auto-select
 	EstimatorSelectFilter = "" // no filter
@@ -65,6 +66,11 @@ func EnableEBPFCgroupID(enabled bool) {
 		EnabledEBPFCgroupID = true
 	}
 	klog.V(1).Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
+}
+
+// EnableHardwareCounterMetrics enables the exposure of hardware counter metrics
+func EnableHardwareCounterMetrics(enabled bool) {
+	ExposeHardwareCounterMetrics = enabled
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {

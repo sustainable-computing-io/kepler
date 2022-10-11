@@ -44,9 +44,9 @@ var (
 	availableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
 	// TO-DO: merge to cgroup stat and remove hard-code metric list
 	iostatMetrics []string = []string{ByteReadLabel, ByteWriteLabel}
-	uintFeatures  []string = getUIntFeatures()
-	features      []string = append(FloatFeatures, uintFeatures...)
-	metricNames   []string = getEstimatorMetrics()
+	uintFeatures  []string
+	features      []string
+	metricNames   []string
 
 	cpuInstrCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 )
@@ -54,17 +54,30 @@ var (
 func getUIntFeatures() []string {
 	var metrics []string
 	metrics = append(metrics, CPUTimeLabel)
+
 	// counter metric
 	metrics = append(metrics, availableCounters...)
 	// cgroup metric
 	metrics = append(metrics, availableCgroupMetrics...)
 	// kubelet metric
 	metrics = append(metrics, availableKubeletMetrics...)
+
 	metrics = append(metrics, iostatMetrics...)
+
 	klog.V(3).Infof("Available counter metrics: %v", availableCounters)
 	klog.V(3).Infof("Available cgroup metrics: %v", availableCgroupMetrics)
 	klog.V(3).Infof("Available kubelet metrics: %v", availableKubeletMetrics)
+
 	return metrics
+}
+
+func SetEnabledMetrics() {
+	availableCounters = attacher.GetEnabledCounters()
+
+	uintFeatures = getUIntFeatures()
+	features = append(features, FloatFeatures...)
+	features = append(features, uintFeatures...)
+	metricNames = getEstimatorMetrics()
 }
 
 func getPrometheusMetrics() []string {

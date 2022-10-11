@@ -35,11 +35,12 @@ import (
 )
 
 var (
-	address             = flag.String("address", "0.0.0.0:8888", "bind address")
-	metricsPath         = flag.String("metrics-path", "/metrics", "metrics path")
-	enableGPU           = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
-	enabledEBPFCgroupID = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
+	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
+	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
+	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	modelServerEndpoint          = flag.String("model-server-endpoint", "", "model server endpoint")
+	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
+	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -54,6 +55,11 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
+	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
+	config.EnableHardwareCounterMetrics(*exposeHardwareCounterMetrics)
+
+	collector.SetEnabledMetrics()
+
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
 		klog.Fatalf("failed to register : %v", err)
@@ -65,11 +71,10 @@ func main() {
 			defer gpu.Shutdown()
 		}
 	}
+
 	if modelServerEndpoint != nil {
 		model.SetModelServerEndpoint(*modelServerEndpoint)
 	}
-
-	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
 
 	newCollector, err := collector.New()
 	defer newCollector.Destroy()

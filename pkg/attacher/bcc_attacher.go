@@ -136,6 +136,12 @@ func DetachBPFModules(bpfModules *BpfModuleTables) {
 
 func GetEnabledCounters() []string {
 	var metrics []string
+	klog.V(5).Infof("hardeware counter metr %t", config.ExposeHardwareCounterMetrics)
+	if !config.ExposeHardwareCounterMetrics {
+		klog.V(5).Info("hardeware counter metrics not enabled")
+		return metrics
+	}
+
 	for metric, counter := range Counters {
 		if counter.enabled {
 			metrics = append(metrics, metric)
