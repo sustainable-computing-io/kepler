@@ -58,11 +58,20 @@ type UInt64StatCollection struct {
 	Stat map[string]*UInt64Stat
 }
 
-func (s *UInt64StatCollection) AddStat(key string, newAggr uint64) {
+func (s *UInt64StatCollection) AddAggrStat(key string, newAggr uint64) {
 	if _, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{}
 	}
 	if err := s.Stat[key].SetNewAggr(newAggr); err != nil {
+		klog.V(3).Infoln(err)
+	}
+}
+
+func (s *UInt64StatCollection) AddCurrStat(key string, newCurr uint64) {
+	if _, found := s.Stat[key]; !found {
+		s.Stat[key] = &UInt64Stat{}
+	}
+	if err := s.Stat[key].AddNewCurr(newCurr); err != nil {
 		klog.V(3).Infoln(err)
 	}
 }

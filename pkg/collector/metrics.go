@@ -23,6 +23,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
 	"k8s.io/klog/v2"
+
+	ratio "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 )
 
 const (
@@ -43,10 +45,12 @@ var (
 	availableCgroupMetrics  []string = cgroup.GetAvailableCgroupMetrics()
 	availableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
 	// TO-DO: merge to cgroup stat and remove hard-code metric list
-	iostatMetrics []string = []string{ByteReadLabel, ByteWriteLabel}
-	uintFeatures  []string = getUIntFeatures()
-	features      []string = append(FloatFeatures, uintFeatures...)
-	metricNames   []string = getEstimatorMetrics()
+	iostatMetrics  []string = []string{ByteReadLabel, ByteWriteLabel}
+	uintFeatures   []string = getUIntFeatures()
+	features       []string = append(FloatFeatures, uintFeatures...)
+	metricNames    []string = getEstimatorMetrics()
+	systemFeatures []string = []string{"cpu_architecture"}
+	systemValues   []string = []string{cpuArch}
 
 	cpuInstrCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 )
@@ -82,12 +86,11 @@ func getPrometheusMetrics() []string {
 
 func getEstimatorMetrics() []string {
 	var names []string
-	for _, feature := range features {
-		names = append(names, CurrPrefix+feature)
-	}
+	names = append(names, features...)
 	// TO-DO: remove this hard code metric
 	names = append(names, blockDeviceLabel)
-	model.InitMetricIndexes(names)
+	ratio.InitMetricIndexes(names)
+	model.InitEstimateFunctions(names, systemFeatures, systemValues)
 	return names
 }
 

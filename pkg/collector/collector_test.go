@@ -102,7 +102,7 @@ var _ = Describe("Test Collector Unit", func() {
 				Pkg: samplePkgEnergy,
 			},
 		}
-		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{})
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, [][]float64{})
 		sensorEnergy = map[string]float64{
 			"sensor0": sampleNodeEnergy * 2,
 		}
@@ -111,7 +111,7 @@ var _ = Describe("Test Collector Unit", func() {
 				Pkg: samplePkgEnergy * 2,
 			},
 		}
-		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{})
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, [][]float64{})
 
 		res = httptest.NewRecorder()
 		handler = promhttp.Handler()
