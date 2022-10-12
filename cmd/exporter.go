@@ -23,7 +23,6 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
@@ -66,7 +65,7 @@ func main() {
 		}
 	}
 	if modelServerEndpoint != nil {
-		model.SetModelServerEndpoint(*modelServerEndpoint)
+		config.SetModelServerEndpoint(*modelServerEndpoint)
 	}
 
 	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)

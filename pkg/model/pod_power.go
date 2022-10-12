@@ -64,7 +64,6 @@ func GetPodPowers(usageValues [][]float64, systemValues []string, nodeTotalPower
 			Core: socketPower,
 		}
 	}
-
 	if nodeTotalPower > 0 {
 		// total power all set, use ratio
 		nodeOtherPower := nodeTotalPower - nodeComponentPower.Pkg - nodeComponentPower.DRAM - totalGPUPower

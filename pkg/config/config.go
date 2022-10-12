@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 
@@ -44,18 +45,42 @@ type config struct {
 
 var c config
 
-var (
-	EnabledEBPFCgroupID = false
+const (
+	defaultMetricValue = ""
+)
 
-	EstimatorModel        = "" // auto-select
-	EstimatorSelectFilter = "" // no filter
-	CoreUsageMetric       = "curr_cpu_cycles"
-	DRAMUsageMetric       = "curr_cache_miss"
-	UncoreUsageMetric     = ""                // no metric (evenly divided)
-	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - uncore
+var (
+	EnabledEBPFCgroupID          = false
+	ExposeHardwareCounterMetrics = true
+
+	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
+	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
+	CoreUsageMetric       = getConfig("CORE_USAGE_METRIC", CPUInstruction)
+	DRAMUsageMetric       = getConfig("DRAM_USAGE_METRIC", CacheMiss)
+	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue) // no metric (evenly divided)
+	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", CPUInstruction)    // for uncategorized energy; pkg - core - uncore
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
+
+	ModelServerEndpoint = ""
+	configPath          = "/etc/config"
 )
+
+func getConfig(configKey, defaultValue string) (result string) {
+	result = string([]byte(defaultValue))
+	key := string([]byte(configKey))
+	configFile := filepath.Join(configPath, key)
+	value, err := os.ReadFile(configFile)
+	if err == nil {
+		result = bytes.NewBuffer(value).String()
+	} else {
+		strValue, present := os.LookupEnv(key)
+		if present {
+			result = strValue
+		}
+	}
+	return
+}
 
 // EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func EnableEBPFCgroupID(enabled bool) {
@@ -65,6 +90,11 @@ func EnableEBPFCgroupID(enabled bool) {
 		EnabledEBPFCgroupID = true
 	}
 	klog.V(1).Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
+}
+
+// EnableHardwareCounterMetrics enables the exposure of hardware counter metrics
+func EnableHardwareCounterMetrics(enabled bool) {
+	ExposeHardwareCounterMetrics = enabled
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
@@ -129,4 +159,8 @@ func GetCGroupVersion() int {
 func SetEstimatorConfig(modelName, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter
+}
+
+func SetModelServerEndpoint(serverEndpoint string) {
+	ModelServerEndpoint = serverEndpoint
 }

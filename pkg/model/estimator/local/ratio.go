@@ -37,13 +37,14 @@ var (
 )
 
 func getSumMetricValues(podMetricValues [][]float64) (sumMetricValues []float64) {
-	podNumber := len(podMetricValues)
-	for i := 0; i < podNumber; i++ {
-		sumUsage := float64(0)
-		for _, podMetricValue := range podMetricValues {
-			sumUsage += podMetricValue[i]
+	if len(podMetricValues) == 0 {
+		return
+	}
+	sumMetricValues = make([]float64, len(podMetricValues[0]))
+	for _, values := range podMetricValues {
+		for index, podMetricValue := range values {
+			sumMetricValues[index] += podMetricValue
 		}
-		sumMetricValues = append(sumMetricValues, sumUsage)
 	}
 	return
 }

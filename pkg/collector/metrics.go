@@ -19,6 +19,7 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
@@ -28,14 +29,14 @@ import (
 )
 
 const (
-	freqMetricLabel = "avg_cpu_frequency"
+	freqMetricLabel = config.CPUFrequency
 
 	// TO-DO: merge to cgroup stat
-	ByteReadLabel    = "bytes_read"
-	ByteWriteLabel   = "bytes_writes"
-	blockDeviceLabel = "block_devices_used"
+	ByteReadLabel    = config.BytesReadIO
+	ByteWriteLabel   = config.BytesWriteIO
+	blockDeviceLabel = config.BlockDevicesIO
 
-	CPUTimeLabel = "cpu_time"
+	CPUTimeLabel = config.CPUTime
 )
 
 var (
@@ -46,9 +47,9 @@ var (
 	availableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
 	// TO-DO: merge to cgroup stat and remove hard-code metric list
 	iostatMetrics  []string = []string{ByteReadLabel, ByteWriteLabel}
-	uintFeatures   []string = getUIntFeatures()
-	features       []string = append(FloatFeatures, uintFeatures...)
-	metricNames    []string = getEstimatorMetrics()
+	uintFeatures   []string
+	features       []string
+	metricNames    []string
 	systemFeatures []string = []string{"cpu_architecture"}
 	systemValues   []string = []string{cpuArch}
 
@@ -58,17 +59,31 @@ var (
 func getUIntFeatures() []string {
 	var metrics []string
 	metrics = append(metrics, CPUTimeLabel)
+
 	// counter metric
 	metrics = append(metrics, availableCounters...)
 	// cgroup metric
 	metrics = append(metrics, availableCgroupMetrics...)
 	// kubelet metric
 	metrics = append(metrics, availableKubeletMetrics...)
+
 	metrics = append(metrics, iostatMetrics...)
+
 	klog.V(3).Infof("Available counter metrics: %v", availableCounters)
 	klog.V(3).Infof("Available cgroup metrics: %v", availableCgroupMetrics)
 	klog.V(3).Infof("Available kubelet metrics: %v", availableKubeletMetrics)
+
 	return metrics
+}
+
+func SetEnabledMetrics() {
+	features = []string{}
+	availableCounters = attacher.GetEnabledCounters()
+
+	uintFeatures = getUIntFeatures()
+	features = append(features, FloatFeatures...)
+	features = append(features, uintFeatures...)
+	metricNames = getEstimatorMetrics()
 }
 
 func getPrometheusMetrics() []string {

@@ -24,6 +24,7 @@ var _ = Describe("Test Metric Unit", func() {
 		clearPlatformDependentAvailability()
 
 		setPodStatProm()
+		SetEnabledMetrics()
 		Expect(len(uintFeatures)).Should(BeNumerically(">", 0))
 		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
 		Expect(len(podEnergyLabels)).Should(BeNumerically(">", 0))
