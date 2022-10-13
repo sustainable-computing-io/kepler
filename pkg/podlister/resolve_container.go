@@ -35,7 +35,6 @@ type ContainerInfo struct {
 	PodName       string
 	ContainerName string
 	Namespace     string
-	PodID         string
 }
 
 const (
@@ -81,11 +80,6 @@ func GetSystemProcessNamespace() string {
 func GetPodName(cGroupID, pid uint64) (string, error) {
 	info, err := getContainerInfo(cGroupID, pid)
 	return info.PodName, err
-}
-
-func GetPodID(cGroupID, pid uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid)
-	return info.PodID, err
 }
 
 func GetPodNameSpace(cGroupID, pid uint64) (string, error) {
@@ -147,7 +141,6 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1
 				PodName:       (*pods)[i].Name,
 				Namespace:     (*pods)[i].Namespace,
 				ContainerName: statuses[j].Name,
-				PodID:         string((*pods)[i].ObjectMeta.UID),
 			}
 			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
@@ -161,7 +154,6 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1
 				PodName:       (*pods)[i].Name,
 				Namespace:     (*pods)[i].Namespace,
 				ContainerName: statuses[j].Name,
-				PodID:         string((*pods)[i].ObjectMeta.UID),
 			}
 			containerID := regexReplaceContainerIDPrefix.ReplaceAllString(statuses[j].ContainerID, "")
 			containerIDToContainerInfo[containerID] = info
@@ -301,8 +293,8 @@ func GetAlivePods() (map[string]bool, error) {
 		return alivePods, err
 	}
 	for i := 0; i < len(*pods); i++ {
-		podID := string((*pods)[i].ObjectMeta.UID)
-		alivePods[podID] = true
+		podName := (*pods)[i].Name
+		alivePods[podName] = true
 	}
 	return alivePods, nil
 }
