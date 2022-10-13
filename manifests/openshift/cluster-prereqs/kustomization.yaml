@@ -2,5 +2,7 @@ commonLabels:
   sustainable-computing.io/app: kepler
 
 resources:
-- 50-master-kernel-devel-cgroupv2.yaml
-- 50-worker-kernel-devel-cgroupv2.yaml
+- 50-master-cgroupv2.yaml
+- 50-worker-cgroupv2.yaml
+- 51-master-kernel-devel.yaml
+- 51-worker-kernel-devel.yaml
