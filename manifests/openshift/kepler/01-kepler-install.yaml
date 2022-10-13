@@ -69,7 +69,7 @@ spec:
       serviceAccountName: kepler-sa
       containers:
       - name: kepler-exporter
-        image: quay.io/sustainable_computing_io/kepler:latest
+        image: quay.io/sustainable_computing_io/kepler:v0.3
         imagePullPolicy: Always
         resources:
           requests:
