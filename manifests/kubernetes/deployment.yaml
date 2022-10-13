@@ -57,6 +57,14 @@ spec:
     spec:
       hostNetwork: true
       serviceAccountName: kepler-sa
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR
+                operator: DoesNotExist
+                values:
       containers:
       - name: kepler-exporter
         image: quay.io/sustainable_computing_io/kepler:latest
