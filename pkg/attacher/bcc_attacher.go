@@ -48,9 +48,9 @@ type BpfModuleTables struct {
 }
 
 const (
-	CPUCycleLable       = "cpu_cycles"
-	CPUInstructionLabel = "cpu_instr"
-	CacheMissLabel      = "cache_miss"
+	CPUCycleLable       = config.CPUCycle
+	CPUInstructionLabel = config.CPUInstruction
+	CacheMissLabel      = config.CacheMiss
 )
 
 var (
