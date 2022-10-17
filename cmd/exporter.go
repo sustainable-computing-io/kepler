@@ -33,12 +33,18 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	// kFlag is a keyword to check whether the healthcheck is ready (or process is died)
+	kFlag = "kflag"
+)
+
 var (
-	address             = flag.String("address", "0.0.0.0:8888", "bind address")
-	metricsPath         = flag.String("metrics-path", "/metrics", "metrics path")
-	enableGPU           = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
-	enabledEBPFCgroupID = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
+	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
+	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
+	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	modelServerEndpoint          = flag.String("model-server-endpoint", "", "model server endpoint")
+	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
+	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -49,12 +55,22 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func printKFlag() {
+	fmt.Println(kFlag)
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
+	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
+	config.EnableHardwareCounterMetrics(*exposeHardwareCounterMetrics)
+
+	collector.SetEnabledMetrics()
+
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("failed to register : %v", err)
 	}
 
@@ -64,16 +80,16 @@ func main() {
 			defer gpu.Shutdown()
 		}
 	}
+
 	if modelServerEndpoint != nil {
 		config.SetModelServerEndpoint(*modelServerEndpoint)
 	}
-
-	config.EnableEBPFCgroupID(*enabledEBPFCgroupID)
 
 	newCollector, err := collector.New()
 	defer newCollector.Destroy()
 	defer rapl.StopPower()
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to create collector: %v", err))
 	}
 	err = newCollector.Attach()
@@ -83,6 +99,7 @@ func main() {
 
 	err = prometheus.Register(newCollector)
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
@@ -97,10 +114,12 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
+			printKFlag()
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
 
+	printKFlag()
 	err = http.ListenAndServe(*address, nil)
 	if err != nil {
 		klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
