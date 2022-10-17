@@ -23,3 +23,7 @@ set -e
 if [ ${CLUSTER_PROVIDER} = "kind" ]; then
     CLUSTER_PROVIDER="kubernetes"
 fi
+
+if [ ${CLUSTER_PROVIDER} = "k3d" ]; then
+    CLUSTER_PROVIDER="kubernetes"
+fi
