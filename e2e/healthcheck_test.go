@@ -18,7 +18,7 @@ var _ = Describe("healthz check should pass", func() {
 			if !ok {
 				address = "localhost:8888"
 				cmd := exec.Command(keplerBin)
-				keplerSession, err = gexec.Start(cmd, nil, nil)
+				keplerSession, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(5 * time.Second) // wait for server start up
 			}
