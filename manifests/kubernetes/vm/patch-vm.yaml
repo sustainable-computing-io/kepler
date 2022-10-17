@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler-exporter
+  namespace: kepler
+spec:
+  template:
+    spec:
+      containers:
+      - name: kepler-exporter
+        env:
+          - name: ALLOW_RUNNING_INSIDE_VM
+            value: "true"

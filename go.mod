@@ -6,6 +6,7 @@ require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/iovisor/gobpf v0.2.0
 	github.com/jszwec/csvutil v1.7.1
+	github.com/klauspost/cpuid/v2 v2.1.2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
 	github.com/prometheus/client_golang v1.13.0

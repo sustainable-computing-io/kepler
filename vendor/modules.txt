@@ -44,6 +44,9 @@ github.com/json-iterator/go
 # github.com/jszwec/csvutil v1.7.1
 ## explicit; go 1.13
 github.com/jszwec/csvutil
+# github.com/klauspost/cpuid/v2 v2.1.2
+## explicit; go 1.15
+github.com/klauspost/cpuid/v2
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 ## explicit
 github.com/matttproud/golang_protobuf_extensions/pbutil

@@ -102,6 +102,8 @@ spec:
               fieldPath: spec.nodeName
         - name: CPU_ARCH_OVERRIDE
           value:
+        - name: ALLOW_RUNNING_INSIDE_VM
+          value: "false"
       volumes:
       - name: lib-modules
         hostPath:

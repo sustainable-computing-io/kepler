@@ -1,2 +1,5 @@
 resources:
 - ../base
+
+patchesStrategicMerge:
+- patch-vm.yaml

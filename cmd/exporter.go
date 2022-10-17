@@ -20,6 +20,8 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -28,6 +30,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
+	cpu "github.com/klauspost/cpuid/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
@@ -64,11 +67,28 @@ func finalizing() {
 	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
 }
 
+func getenvBool(key string) bool {
+	s := os.Getenv(key)
+
+	v, err := strconv.ParseBool(s)
+	if err != nil {
+		klog.Infof("%s is not a valid bool value, assume false", s)
+		// other value assume False
+		return false
+	}
+	return v
+}
+
 func main() {
 	start := time.Now()
 	defer finalizing()
 	klog.InitFlags(nil)
 	flag.Parse()
+
+	// by default running on VM is not allowed
+	if cpu.CPU.VM() && !getenvBool("ALLOW_RUNNING_INSIDE_VM") {
+		klog.Fatalf("Running inside a Virtual machine is not supported currently, if you still plan to use kepler in a VM, please set to trun in the command option")
+	}
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)

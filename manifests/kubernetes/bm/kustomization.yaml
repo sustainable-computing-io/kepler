@@ -1,5 +1,2 @@
 resources:
 - ../base
-
-patchesStrategicMerge:
-- patch-bm.yaml
