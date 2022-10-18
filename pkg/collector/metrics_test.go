@@ -16,10 +16,13 @@ func clearPlatformDependentAvailability() {
 	uintFeatures = getUIntFeatures()
 	features = []string{}
 	features = append(features, uintFeatures...)
+	metricNames = getEstimatorMetrics()
 }
 
 var _ = Describe("Test Metric Unit", func() {
 	It("Check feature values", func() {
+		clearPlatformDependentAvailability()
+
 		setPodStatProm()
 		SetEnabledMetrics()
 		Expect(len(uintFeatures)).Should(BeNumerically(">", 0))
@@ -51,12 +54,14 @@ var _ = Describe("Test Metric Unit", func() {
 	It("Test getEstimatorMetrics", func() {
 		clearPlatformDependentAvailability()
 
-		exp := []string{"curr_cpu_time", "curr_bytes_read", "curr_bytes_writes", "block_devices_used"}
+		exp := []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
 		cur := getEstimatorMetrics()
 		Expect(exp).To(Equal(cur))
 	})
 
 	It("Check convert values", func() {
+		clearPlatformDependentAvailability()
+
 		setPodStatProm()
 		v := NewPodEnergy("podA", "default")
 		v.EnergyInCore = &UInt64Stat{

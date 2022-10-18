@@ -23,7 +23,6 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
 
@@ -32,6 +31,11 @@ import (
 	"github.com/prometheus/common/version"
 
 	"k8s.io/klog/v2"
+)
+
+const (
+	// kFlag is a keyword to check whether the healthcheck is ready (or process is died)
+	kFlag = "kflag"
 )
 
 var (
@@ -51,6 +55,10 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func printKFlag() {
+	fmt.Println(kFlag)
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -62,6 +70,7 @@ func main() {
 
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("failed to register : %v", err)
 	}
 
@@ -73,13 +82,14 @@ func main() {
 	}
 
 	if modelServerEndpoint != nil {
-		model.SetModelServerEndpoint(*modelServerEndpoint)
+		config.SetModelServerEndpoint(*modelServerEndpoint)
 	}
 
 	newCollector, err := collector.New()
 	defer newCollector.Destroy()
 	defer rapl.StopPower()
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to create collector: %v", err))
 	}
 	err = newCollector.Attach()
@@ -89,6 +99,7 @@ func main() {
 
 	err = prometheus.Register(newCollector)
 	if err != nil {
+		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
@@ -103,10 +114,12 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
+			printKFlag()
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
 
+	printKFlag()
 	err = http.ListenAndServe(*address, nil)
 	if err != nil {
 		klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))

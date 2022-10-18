@@ -16,10 +16,26 @@ limitations under the License.
 
 package source
 
+import (
+	"fmt"
+)
+
 // RAPLEnergy defines set of energy per RAPL components in mJ
 type RAPLEnergy struct {
 	Core   uint64
 	DRAM   uint64
 	Uncore uint64
 	Pkg    uint64
+}
+
+// RAPLComponentPower defines power per components in mJ
+type RAPLPower struct {
+	Core   uint64
+	DRAM   uint64
+	Uncore uint64
+	Pkg    uint64
+}
+
+func (p RAPLPower) String() string {
+	return fmt.Sprintf("Pkg: %d (Core: %d, Uncore: %d) DRAM: %d", p.Pkg, p.Core, p.Uncore, p.DRAM)
 }

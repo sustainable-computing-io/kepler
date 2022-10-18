@@ -62,7 +62,8 @@ var (
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
-	configPath = "/etc/config"
+	ModelServerEndpoint = ""
+	configPath          = "/etc/config"
 )
 
 func getConfig(configKey, defaultValue string) (result string) {
@@ -158,4 +159,8 @@ func GetCGroupVersion() int {
 func SetEstimatorConfig(modelName, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter
+}
+
+func SetModelServerEndpoint(serverEndpoint string) {
+	ModelServerEndpoint = serverEndpoint
 }

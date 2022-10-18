@@ -202,8 +202,8 @@ func (c *Collector) readBPFEvent() (pidPodName map[uint32]string, containerIDPod
 				if disks > podEnergy[podName].Disks {
 					podEnergy[podName].Disks = disks
 				}
-				podEnergy[podName].BytesRead.AddStat(containerID, rBytes)
-				podEnergy[podName].BytesWrite.AddStat(containerID, wBytes)
+				podEnergy[podName].BytesRead.AddAggrStat(containerID, rBytes)
+				podEnergy[podName].BytesWrite.AddAggrStat(containerID, wBytes)
 			}
 		}
 		pid := uint32(ct.PID)
@@ -224,7 +224,7 @@ func (c *Collector) readCgroup(containerIDPodName map[string]string) {
 		for cgroupFSKey, cgroupFSValue := range cgroupFSStandardStats {
 			readVal := cgroupFSValue.(uint64)
 			if _, ok := podEnergy[podName].CgroupFSStats[cgroupFSKey]; ok {
-				podEnergy[podName].CgroupFSStats[cgroupFSKey].AddStat(containerID, readVal)
+				podEnergy[podName].CgroupFSStats[cgroupFSKey].AddAggrStat(containerID, readVal)
 			}
 		}
 	}
@@ -257,7 +257,7 @@ func (c *Collector) reader() {
 		_ = gpu.GetGpuEnergy() // reset power usage counter
 		c.resetBPFTables()
 		c.readEnergy()
-		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, map[string]float64{}) // set initial energy
+		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, [][]float64{}) // set initial energy
 		acpiPowerMeter.Run()
 		for {
 			// wait ticker
@@ -265,7 +265,7 @@ func (c *Collector) reader() {
 
 			lock.Lock()
 			c.resetCurrValue()
-			var coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta []float64
+			var gpuNDelta []float64
 			// read node-level settings (frequency)
 			cpuFrequency = acpiPowerMeter.GetCPUCoreFrequency()
 			// read pod metrics
@@ -296,67 +296,36 @@ func (c *Collector) reader() {
 				gpuNDelta = append(gpuNDelta, podGPUDelta[podName])
 			}
 			// read and compute power (energy delta)
-			var totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower uint64
+			var totalGPUPower uint64
 
 			for _, val := range gpuNDelta {
 				totalGPUPower += uint64(val)
 			}
 			c.readEnergy()
-			sumUsage := model.GetSumUsageMap(metricNames, podMetricValues)
-			nodeEnergy.SetValues(sensorEnergy, pkgEnergy, totalGPUPower, sumUsage)
-			for pkgIDKey, pkgStat := range nodeEnergy.EnergyInPkg.Stat {
-				coreDelta, dramDelta, uncoreDelta := nodeEnergy.GetCurrEnergyPerpkgID(pkgIDKey)
-				pkgDelta := pkgStat.Curr
-				coreNDelta = append(coreNDelta, float64(coreDelta))
-				dramNDelta = append(dramNDelta, float64(dramDelta))
-				uncoreNDelta = append(uncoreNDelta, float64(uncoreDelta))
-				pkgNDelta = append(pkgNDelta, float64(pkgDelta))
-				totalCorePower += coreDelta
-				totalDRAMPower += dramDelta
-				totalUncorePower += uncoreDelta
-				totalPkgPower += pkgDelta
-			}
-			// get power from usage ratio
-			podCore, podDRAM, podUncore, podPkg := model.GetPowerFromUsageRatio(podMetricValues, totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, sumUsage)
-			// get dynamic power from usage metrics
-			podDynamicPower := model.GetDynamicPower(metricNames, podMetricValues, coreNDelta, dramNDelta, uncoreNDelta, pkgNDelta, gpuNDelta)
-			// get other energy - divide equally
-			podOther := uint64(0)
-			podCount := len(podNameList)
-			if podCount > 0 {
-				podOther = nodeEnergy.EnergyInOther / uint64(podCount)
-			}
+			nodeEnergy.SetValues(sensorEnergy, pkgEnergy, totalGPUPower, podMetricValues)
+			podComponentPowers, podOtherPowers := model.GetPodPowers(podMetricValues, systemValues, nodeEnergy.Curr(), totalGPUPower, nodeEnergy.GetNodeComponentPower())
 
 			// set pod energy
 			for i, podName := range podNameList {
-				if err := podEnergy[podName].EnergyInCore.AddNewCurr(podCore[i]); err != nil {
+				if err := podEnergy[podName].EnergyInCore.AddNewCurr(podComponentPowers[i].Core); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInDRAM.AddNewCurr(podDRAM[i]); err != nil {
+				if err := podEnergy[podName].EnergyInDRAM.AddNewCurr(podComponentPowers[i].DRAM); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInUncore.AddNewCurr(podUncore[i]); err != nil {
+				if err := podEnergy[podName].EnergyInUncore.AddNewCurr(podComponentPowers[i].Uncore); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInPkg.AddNewCurr(podPkg[i]); err != nil {
+				if err := podEnergy[podName].EnergyInPkg.AddNewCurr(podComponentPowers[i].Pkg); err != nil {
 					klog.V(5).Infoln(err)
 				}
 				podGPU := uint64(math.Ceil(podGPUDelta[podName]))
 				if err := podEnergy[podName].EnergyInGPU.AddNewCurr(podGPU); err != nil {
 					klog.V(5).Infoln(err)
 				}
-				if err := podEnergy[podName].EnergyInOther.AddNewCurr(podOther); err != nil {
+				if err := podEnergy[podName].EnergyInOther.AddNewCurr(podOtherPowers[i]); err != nil {
 					klog.V(5).Infoln(err)
 				}
-			}
-			if len(podDynamicPower) != 0 {
-				for i, podName := range podNameList {
-					power := uint64(podDynamicPower[i])
-					if err := podEnergy[podName].DynEnergy.AddNewCurr(power); err != nil {
-						klog.V(5).Infoln(err)
-					}
-				}
-				klog.V(3).Infof("Get pod powers: %v \n %v from %v (%d x %d)\n", podMetricValues[0:2], podDynamicPower, metricNames, len(podMetricValues), len(podMetricValues[0]))
 			}
 			for _, v := range podEnergy {
 				klog.V(3).Infoln(v)

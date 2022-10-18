@@ -28,7 +28,6 @@ import (
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpfassets"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
 
 	bpf "github.com/iovisor/gobpf/bcc"
 
@@ -85,14 +84,11 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 		if t == nil {
 			return nil, fmt.Errorf("failed to find perf array: %s", arrayName)
 		}
-		model.SetBMCoeff()
 		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
 		if perfErr != nil {
 			// some hypervisors don't expose perf counters
 			klog.Infof("failed to attach perf event %s: %v\n", arrayName, perfErr)
 			counter.enabled = false
-			// if perf counters are not available, it is likely running on a VM
-			model.SetVMCoeff()
 		}
 	}
 	return m, err

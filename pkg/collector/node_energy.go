@@ -17,21 +17,76 @@ limitations under the License.
 package collector
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/jszwec/csvutil"
 	"k8s.io/klog/v2"
+
+	"github.com/sustainable-computing-io/kepler/pkg/model"
+	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+)
+
+const (
+	estimatorID     string = "estimator"
+	estimatorPkgKey string = "0"
 )
 
 var (
+	cpuModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
+
 	nodeName, _ = os.Hostname()
 	cpuArch     = getCPUArch()
 )
 
+type CPUModelData struct {
+	Name         string `csv:"Name"`
+	Architecture string `csv:"Architecture"`
+}
+
+func getCPUArchitecture() (string, error) {
+	// check if there is a CPU architecture override
+	cpuArchOverride := os.Getenv("CPU_ARCH_OVERRIDE")
+	if len(cpuArchOverride) > 0 {
+		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
+		return cpuArchOverride, nil
+	}
+	output, err := exec.Command("archspec", "cpu").Output()
+	if err != nil {
+		return "", err
+	}
+	myCPUModel := strings.TrimSuffix(string(output), "\n")
+	file, err := os.Open(cpuModelDataPath)
+	if err != nil {
+		return "", err
+	}
+	reader := csv.NewReader(file)
+
+	dec, err := csvutil.NewDecoder(reader)
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		var p CPUModelData
+		if err := dec.Decode(&p); err == io.EOF {
+			break
+		}
+		if strings.HasPrefix(myCPUModel, p.Name) {
+			return p.Architecture, nil
+		}
+	}
+
+	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
+}
+
 func getCPUArch() string {
-	arch, err := source.GetCPUArchitecture()
+	arch, err := getCPUArchitecture()
 	if err == nil {
 		return arch
 	}
@@ -80,16 +135,49 @@ func (v *NodeEnergy) ResetCurr() {
 	v.SensorEnergy.ResetCurr()
 }
 
-func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.RAPLEnergy, totalGPUDelta uint64, usage map[string]float64) {
+func (v NodeEnergy) sumUsage(podMetricValues [][]float64) (nodeUsageValues []float64, nodeUsageMap map[string]float64) {
+	nodeUsageValues = make([]float64, len(metricNames))
+	nodeUsageMap = make(map[string]float64)
+	podNumber := len(podMetricValues)
+	for metricIndex, metric := range metricNames {
+		nodeUsageMap[metric] = 0
+		for podIndex := 0; podIndex < podNumber; podIndex++ {
+			nodeUsageMap[metric] += podMetricValues[podIndex][metricIndex]
+			nodeUsageValues[metricIndex] += podMetricValues[podIndex][metricIndex]
+		}
+	}
+	return
+}
+
+func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.RAPLEnergy, totalGPUDelta uint64, podMetricValues [][]float64) {
+	nodeUsageValues, nodeUsageMap := v.sumUsage(podMetricValues)
+	v.Usage = nodeUsageMap
 	for sensorID, energy := range sensorEnergy {
-		v.SensorEnergy.AddStat(sensorID, uint64(energy))
+		v.SensorEnergy.AddAggrStat(sensorID, uint64(energy))
+	}
+	if len(sensorEnergy) == 0 && model.NodeTotalPowerModelValid {
+		// no energy sensor
+		valid, estimatedTotalPower := model.GetNodeTotalPower(nodeUsageValues, systemValues)
+		if valid {
+			v.SensorEnergy.AddCurrStat(estimatorID, estimatedTotalPower)
+		}
 	}
 	for pkgID, energy := range pkgEnergy {
 		key := strconv.Itoa(pkgID)
-		v.EnergyInCore.AddStat(key, energy.Core)
-		v.EnergyInDRAM.AddStat(key, energy.DRAM)
-		v.EnergyInUncore.AddStat(key, energy.Uncore)
-		v.EnergyInPkg.AddStat(key, energy.Pkg)
+		v.EnergyInCore.AddAggrStat(key, energy.Core)
+		v.EnergyInDRAM.AddAggrStat(key, energy.DRAM)
+		v.EnergyInUncore.AddAggrStat(key, energy.Uncore)
+		v.EnergyInPkg.AddAggrStat(key, energy.Pkg)
+	}
+	if len(pkgEnergy) == 0 && model.NodeComponentPowerModelValid {
+		// no RAPL
+		valid, estimatedComponentPower := model.GetNodeComponentPowers(nodeUsageValues, systemValues)
+		if valid {
+			v.EnergyInCore.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Core)
+			v.EnergyInDRAM.AddCurrStat(estimatorPkgKey, estimatedComponentPower.DRAM)
+			v.EnergyInUncore.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Uncore)
+			v.EnergyInPkg.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Pkg)
+		}
 	}
 	v.EnergyInGPU = totalGPUDelta
 	klog.V(3).Infof("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", v.EnergyInCore, v.EnergyInDRAM, v.EnergyInUncore, v.EnergyInPkg, v.EnergyInGPU, v.SensorEnergy)
@@ -99,7 +187,6 @@ func (v *NodeEnergy) SetValues(sensorEnergy map[string]float64, pkgEnergy map[in
 	if totalSensorDelta > (totalPkgDelta + totalGPUDelta) {
 		v.EnergyInOther = totalSensorDelta - (totalPkgDelta + totalGPUDelta + totalDramDelta)
 	}
-	v.Usage = usage
 }
 
 func (v *NodeEnergy) ToPrometheusValues() []string {
@@ -145,6 +232,24 @@ func (v *NodeEnergy) GetCurrEnergyPerpkgID(pkgIDKey string) (coreDelta, dramDelt
 	dramDelta = v.EnergyInDRAM.Stat[pkgIDKey].Curr
 	uncoreDelta = v.EnergyInUncore.Stat[pkgIDKey].Curr
 	return
+}
+
+func (v *NodeEnergy) GetNodeComponentPower() source.RAPLPower {
+	coreValue := v.EnergyInCore.Curr()
+	uncoreValue := v.EnergyInUncore.Curr()
+	pkgValue := v.EnergyInPkg.Curr()
+	if pkgValue == 0 {
+		pkgValue = coreValue + uncoreValue
+	}
+	if coreValue == 0 {
+		coreValue = pkgValue - uncoreValue
+	}
+	return source.RAPLPower{
+		Core:   coreValue,
+		Uncore: uncoreValue,
+		Pkg:    pkgValue,
+		DRAM:   v.EnergyInDRAM.Curr(),
+	}
 }
 
 func (v NodeEnergy) String() string {
