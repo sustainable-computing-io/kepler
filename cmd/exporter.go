@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -34,8 +35,9 @@ import (
 )
 
 const (
-	// kFlag is a keyword to check whether the healthcheck is ready (or process is died)
-	kFlag = "kflag"
+	// to change these msg, you also need to update the e2e test
+	finishingMsg = "Exiting..."
+	startedMsg   = "Started Kepler in %s"
 )
 
 var (
@@ -55,11 +57,15 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func printKFlag() {
-	fmt.Println(kFlag)
+func finalizing() {
+	exitCode := 10
+	klog.Infoln(finishingMsg)
+	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
 }
 
 func main() {
+	start := time.Now()
+	defer finalizing()
 	klog.InitFlags(nil)
 	flag.Parse()
 
@@ -70,7 +76,6 @@ func main() {
 
 	err := prometheus.Register(version.NewCollector("energy_stats_exporter"))
 	if err != nil {
-		printKFlag()
 		klog.Fatalf("failed to register : %v", err)
 	}
 
@@ -89,7 +94,6 @@ func main() {
 	defer newCollector.Destroy()
 	defer rapl.StopPower()
 	if err != nil {
-		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to create collector: %v", err))
 	}
 	err = newCollector.Attach()
@@ -99,7 +103,6 @@ func main() {
 
 	err = prometheus.Register(newCollector)
 	if err != nil {
-		printKFlag()
 		klog.Fatalf("%s", fmt.Sprintf("failed to register collector: %v", err))
 	}
 
@@ -114,14 +117,17 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
-			printKFlag()
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
 
-	printKFlag()
-	err = http.ListenAndServe(*address, nil)
-	if err != nil {
-		klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
-	}
+	ch := make(chan error)
+	go func() {
+		ch <- http.ListenAndServe(*address, nil)
+	}()
+
+	klog.Infof(startedMsg, time.Since(start))
+	klog.Flush() // force flush to parse the start msg in the e2e test
+	err = <-ch
+	klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
 }
