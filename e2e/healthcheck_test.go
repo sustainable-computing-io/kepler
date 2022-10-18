@@ -1,19 +1,19 @@
 package e2e_test
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
 const (
-	// kFlag is a keyword to check whether the healthcheck is ready (or process is died)
-	kFlag = "kflag"
+	timeout         = 60
+	poolingInterval = 5
 )
 
 var _ = Describe("healthz check should pass", func() {
@@ -25,7 +25,11 @@ var _ = Describe("healthz check should pass", func() {
 				cmd := exec.Command(keplerBin)
 				keplerSession, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(keplerSession.Out, 60, 5).Should(gbytes.Say(kFlag))
+				Eventually(func() string {
+					sdtErr := string(keplerSession.Err.Contents())
+					fmt.Println("keplerSession sdtErr", sdtErr)
+					return sdtErr
+				}, timeout, poolingInterval).Should(Or(ContainSubstring("Started Kepler"), ContainSubstring("exiting...")))
 			}
 			resp, err := http.Get("http://" + address + "/healthz")
 			Expect(err).NotTo(HaveOccurred())
