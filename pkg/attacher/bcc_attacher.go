@@ -47,9 +47,9 @@ type BpfModuleTables struct {
 }
 
 const (
-	CPUCycleLable       = "cpu_cycles"
-	CPUInstructionLabel = "cpu_instr"
-	CacheMissLabel      = "cache_miss"
+	CPUCycleLable       = config.CPUCycle
+	CPUInstructionLabel = config.CPUInstruction
+	CacheMissLabel      = config.CacheMiss
 )
 
 var (
@@ -110,12 +110,12 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	m, err := loadModule(objProg, options)
 	if err != nil {
-		klog.Infof("failed to attach perf module with options %v: %v\n", options, err)
+		klog.Warningf("failed to attach perf module with options %v: %v, Hardware counter related metrics does not exist\n", options, err)
 		options = []string{"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU())}
 		EnableCPUFreq = false
 		m, err = loadModule(objProg, options)
 		if err != nil {
-			klog.Infof("failed to attach perf module with options %v: %v\n", options, err)
+			klog.Infof("failed to attach perf module with options %v: %v, not able to load eBPF modules\n", options, err)
 			// at this time, there is not much we can do with the eBPF module
 			return nil, err
 		}
@@ -128,6 +128,8 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	bpfModules.Table = table
 	bpfModules.TimeTable = timeTable
 
+	klog.Infof("Successfully load eBPF module with option: %s", options)
+
 	return bpfModules, nil
 }
 
@@ -138,6 +140,12 @@ func DetachBPFModules(bpfModules *BpfModuleTables) {
 
 func GetEnabledCounters() []string {
 	var metrics []string
+	klog.V(5).Infof("hardeware counter metr %t", config.ExposeHardwareCounterMetrics)
+	if !config.ExposeHardwareCounterMetrics {
+		klog.V(5).Info("hardeware counter metrics not enabled")
+		return metrics
+	}
+
 	for metric, counter := range Counters {
 		if counter.enabled {
 			metrics = append(metrics, metric)

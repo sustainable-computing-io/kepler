@@ -1,0 +1,10 @@
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: 51-master-kernel-devel
+  labels:
+    machineconfiguration.openshift.io/role: master
+spec:
+  extensions:
+  - kernel-devel
