@@ -5,18 +5,18 @@ name: _cluster_name # name that you want to give to your cluster (will still be 
 servers: _cluster_servers # same as `--servers 1`
 agents: _cluster_agents # same as `--agents 2`
 kubeAPI: # same as `--api-port myhost.my.domain:6445` (where the name would resolve to 127.0.0.1)
-  host: "kepler.k3d.local" # important for the `server` setting in the kubeconfig
+  # host: "kepler.k3d.local" # important for the `server` setting in the kubeconfig
   hostIP: "127.0.0.1" # where the Kubernetes API will be listening on
   hostPort: "6445" # where the Kubernetes API listening port will be mapped to on your host system
 # image: rancher/k3s:v1.20.4-k3s1 # same as `--image rancher/k3s:v1.20.4-k3s1`
 network: _cluster_network # same as `--network my-custom-net`
 # subnet: "172.28.0.0/16" # same as `--subnet 172.28.0.0/16`
 # token: superSecretToken # same as `--token superSecretToken`
-# volumes: # repeatable flags are represented as YAML lists
-#   - volume: /my/host/path:/path/in/node # same as `--volume '/my/host/path:/path/in/node@server:0;agent:*'`
-#     nodeFilters:
-#       - server:0
-#       - agent:*
+volumes: # repeatable flags are represented as YAML lists
+  - volume: /proc:/proc-host # same as `--volume '/my/host/path:/path/in/node@server:0;agent:*'`
+    nodeFilters:
+      - server:0
+      - agent:*
 ports:
   - port: _loadbalancer_port:80 # same as `--port '8080:80@loadbalancer'`
     nodeFilters:
@@ -34,9 +34,9 @@ registries: # define how registries should be created or used
   #   - k3d-myotherregistry:5000 # some other k3d-managed registry; same as `--registry-use 'k3d-myotherregistry:5000'`
   config: | # define contents of the `registries.yaml` file (or reference a file); same as `--registry-config /path/to/config.yaml`
     mirrors:
-      _registry_fqdn:
+      "localhost":
         endpoint:
-          - http://kepler.registry.local:5001
+          - http://localhost:_registry_port
 options:
   k3d: # k3d runtime settings
     wait: true # wait for cluster to be usable before returining; same as `--wait` (default: true)

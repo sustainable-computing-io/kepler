@@ -121,7 +121,7 @@ spec:
           type: Directory
       - name: proc
         hostPath:
-          path: /proc-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host
+          path: /proc-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host-host
           type: Directory
 ---
 kind: Service

@@ -30,16 +30,15 @@ CONFIG_PATH="cluster-up/cluster"
 K3D_VERSION=${K3D_VERSION:-v5.4.4}
 K3D="${K3D_INSTALL_DIR}/${APP_NAME}"
 K3D_MANIFESTS_DIR="$CONFIG_PATH/${CLUSTER_PROVIDER}/manifests"
-CLUSTER_NAME=${K3D_CLUSTER_NAME:-sustainable-computing-io-kepler}
-CLUSTER_NETWORK="sustainable-computing-io-kepler-network"
+CLUSTER_NAME=${K3D_CLUSTER_NAME:-kepler}
+CLUSTER_NETWORK="kepler-network"
 CLUSTER_SERVERS=${K3D_SERVERS:-1}
 CLUSTER_AGENTS=${K3D_AGENTS:-1}
 LOADBALANCER_PORT=${LOADBALANCER_PORT:-8081}
 
 REGISTRY_NAME=${REGISTRY_NAME:-kepler-registry-local}
 REGISTRY_PORT=${REGISTRY_PORT:-5001}
-REGISTRY_FQDN=${REGISTRY_FQDN:-kepler.registry.local}
-REGISTRY_ENDPOINT="http://${REGISTRY_FQDN}:${REGISTRY_PORT}"
+REGISTRY_ENDPOINT="http://localhost:${REGISTRY_PORT}"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001/kepler}
 IMAGE_TAG=${IMAGE_TAG:-devel}
@@ -83,8 +82,8 @@ function _get_prometheus_operator_images {
 function _load_prometheus_operator_images_to_local_registry {
     for img in $(_get_prometheus_operator_images); do
         $CTR_CMD pull $img
-        $CTR_CMD tag $img "${REGISTRY_FQDN}:${REGISTRY_PORT}/${img}"
-        $CTR_CMD push "${REGISTRY_FQDN}:${REGISTRY_PORT}/${img}"
+        $CTR_CMD tag $img "localhost:${REGISTRY_PORT}/${img}"
+        $CTR_CMD push "localhost:${REGISTRY_PORT}/${img}"
     done
 } 
 
@@ -117,7 +116,7 @@ function _wait_k3d_up {
     echo "Waiting for k3d to be ready ..."
     
     # while [ -z "$($CTR_CMD exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
-    #     echo "Waiting for kind to be ready ..."
+    #     echo "Waiting for k3d to be ready ..."
     #     sleep 10
     # done
 
@@ -165,29 +164,8 @@ function _fetch_k3d() {
     fi
 }
 
-# function _run_registry() {
-#     until [ -z "$($CTR_CMD ps -a | grep ${REGISTRY_NAME})" ]; do
-#         $CTR_CMD stop ${REGISTRY_NAME} || true
-#         $CTR_CMD rm ${REGISTRY_NAME} || true
-#         sleep 5
-#     done
-
-#     $CTR_CMD run \
-#         -d --restart=always \
-#         -p "127.0.0.1:${REGISTRY_PORT}:5000" \
-#         --name "${REGISTRY_NAME}" \
-#         registry:2
-
-#     # connect the registry to the cluster network if not already connected
-#     $CTR_CMD network connect "${K3D_DEFAULT_NETWORK}" "${REGISTRY_NAME}" || true
-
-#     kubectl apply -f ${CONFIG_OUT_DIR}/local-registry.yml
-# }
-
 function _prepare_config() {
     echo "Building manifests..."
-
-    REGISTRY_ENDPOINT="http://${REGISTRY_FQDN}:${REGISTRY_PORT}"
 
     cp $K3D_MANIFESTS_DIR/k3d.yml ${CONFIG_OUT_DIR}/k3d.yml
     sed -i -e "s/_cluster_name/${CLUSTER_NAME}/g" ${CONFIG_OUT_DIR}/k3d.yml
@@ -196,8 +174,6 @@ function _prepare_config() {
     sed -i -e "s/_cluster_agents/${CLUSTER_AGENTS}/g" ${CONFIG_OUT_DIR}/k3d.yml
     sed -i -e "s/_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/k3d.yml
     sed -i -e "s/_registry_port/\"${REGISTRY_PORT}\"/g" ${CONFIG_OUT_DIR}/k3d.yml
-    sed -i -e "s/_registry_fqdn/\"${REGISTRY_FQDN}\"/g" ${CONFIG_OUT_DIR}/k3d.yml
-    # sed -i -e "s/_registry_endpoint/http://${REGISTRY_FQDN}:${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/k3d.yml
 
     sed -i -e "s/_loadbalancer_port/${LOADBALANCER_PORT}/g" ${CONFIG_OUT_DIR}/k3d.yml
 
@@ -216,7 +192,7 @@ function _get_pods() {
 }
 
 function _setup_k3d() {
-     echo "Starting kind with cluster name \"${CLUSTER_NAME}\""
+     echo "Starting k3d with cluster name \"${CLUSTER_NAME}\""
 
     $K3D cluster create --config=${CONFIG_OUT_DIR}/k3d.yml
     $K3D kubeconfig get ${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
@@ -232,11 +208,10 @@ function _setup_k3d() {
     done
 
     # _wait_containers_ready kube-system
-    # _run_registry
 
-    if [ ${PROMETHEUS_ENABLE} == "true" ]; then
-        _deploy_prometheus_operator
-    fi
+    # if [ ${PROMETHEUS_ENABLE} == "true" ]; then
+    #     # _deploy_prometheus_operator
+    # fi
 }
 
 function _k3d_up() {
@@ -251,13 +226,12 @@ function up() {
     echo "${CLUSTER_PROVIDER} cluster '$CLUSTER_NAME' is ready"
 }
 
-# function down() {
-#     _fetch_kind
-#     if [ -z "$($KIND get clusters | grep ${CLUSTER_NAME})" ]; then
-#         return
-#     fi
-#     # Avoid failing an entire test run just because of a deletion error
-#     $KIND delete cluster --name=${CLUSTER_NAME} || "true"
-#     $CTR_CMD rm -f ${REGISTRY_NAME} >> /dev/null
-#     rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/kind.yml
-# }
+function down() {
+    if [ -z "$($K3D cluster list | grep ${CLUSTER_NAME})" ]; then
+        return
+    fi
+    # Avoid failing an entire test run just because of a deletion error
+    $K3D cluster delete ${CLUSTER_NAME} || "true"
+    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/k3d.yml
+    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/.k3d
+}
