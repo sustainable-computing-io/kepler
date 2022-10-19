@@ -178,7 +178,7 @@ cluster-clean: build-manifest
 .PHONY: cluster-clean
 
 cluster-deploy: cluster-clean
-	./hack/cluster-deploy.sh
+	BARE_METAL_NODE_ONLY=false ./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
 cluster-sync:

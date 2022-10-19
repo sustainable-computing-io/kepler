@@ -19,20 +19,23 @@
 
 set -ex
 
-source cluster-up/common.sh
-
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 IMAGE_TAG=${IMAGE_TAG:-devel}
 IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io/kepler}
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
 
+source cluster-up/common.sh
 
 echo "Building manifests..."
 
 rm -rf ${MANIFESTS_OUT_DIR}
 mkdir -p ${MANIFESTS_OUT_DIR}
 cp -r manifests/${CLUSTER_PROVIDER}/* ${MANIFESTS_OUT_DIR}/
+
+echo "kustomize manifests..."
+kubectl kustomize ${MANIFESTS_OUT_DIR}/bm > ${MANIFESTS_OUT_DIR}/bm/deployment.yaml
+kubectl kustomize ${MANIFESTS_OUT_DIR}/vm > ${MANIFESTS_OUT_DIR}/vm/deployment.yaml
 
 if [[ $CLUSTER_PROVIDER == "openshift" ]]; then
     cat manifests/${CLUSTER_PROVIDER}/kepler/01-kepler-install.yaml | sed "s|image:.*|image: $IMAGE_REPO:$IMAGE_TAG|" > ${MANIFESTS_OUT_DIR}/kepler/01-kepler-install.yaml

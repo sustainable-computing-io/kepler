@@ -30,7 +30,19 @@ Need access to a Kubernetes cluster.
 Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
 port 9102.
 ```
-# kubectl create -f manifests/kubernetes/deployment.yaml
+# build manifests file for VM+Baremetal and Baremetal only
+# manifests are created in  _output/manifests/kubernetes/generated/ by default
+# make build-manifest
+```
+
+if you are running with Baremetal only
+```
+kubectl create -f _output/manifests/kubernetes/generated/bm/deployment.yaml
+```
+
+if you are running with Baremetal and/or VM
+```
+kubectl create -f _output/manifests/kubernetes/generated/vm/deployment.yaml
 ```
 
 ## Deploy the Prometheus operator and the whole monitoring stack
