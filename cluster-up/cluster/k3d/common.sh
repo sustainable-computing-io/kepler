@@ -19,16 +19,10 @@
 
 set -ex pipefail
 
-APP_NAME="k3d"
-REPO_URL="https://github.com/k3d-io/k3d"
-
-: ${K3D_INSTALL_DIR:="/usr/local/bin"}
-
 CTR_CMD=${CTR_CMD-docker}
 
 CONFIG_PATH="cluster-up/cluster"
-K3D_VERSION=${K3D_VERSION:-v5.4.6}
-K3D="${K3D_INSTALL_DIR}/${APP_NAME}"
+K3D_VERSION=${K3D_VERSION:-5.4.6}
 K3D_MANIFESTS_DIR="$CONFIG_PATH/${CLUSTER_PROVIDER}/manifests"
 CLUSTER_NAME=${K3D_CLUSTER_NAME:-kepler}
 CLUSTER_NETWORK="kepler-network"
@@ -38,7 +32,6 @@ LOADBALANCER_PORT=${LOADBALANCER_PORT:-8081}
 
 REGISTRY_NAME=${REGISTRY_NAME:-kepler-registry-local}
 REGISTRY_PORT=${REGISTRY_PORT:-5001}
-REGISTRY_ENDPOINT="http://localhost:${REGISTRY_PORT}"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001/kepler}
 IMAGE_TAG=${IMAGE_TAG:-devel}
@@ -115,10 +108,10 @@ function _deploy_prometheus_operator {
 function _wait_k3d_up {
     echo "Waiting for k3d to be ready ..."
     
-    # while [ -z "$($CTR_CMD exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
-    #     echo "Waiting for k3d to be ready ..."
-    #     sleep 10
-    # done
+    while [ -z "$($CTR_CMD exec --privileged k3d-${CLUSTER_NAME}-server-0 kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
+        echo "Waiting for k3d to be ready ..."
+        sleep 10
+    done
 
     echo "Waiting for dns to be ready ..."
     kubectl wait -n kube-system --timeout=12m --for=condition=Ready -l k8s-app=kube-dns pods
@@ -130,57 +123,21 @@ function _wait_containers_ready {
     kubectl wait --for=condition=Ready pod --all -n $namespace --timeout 12m
 }
 
-function _fetch_k3d() {
+function _fetch_k3d(){
     mkdir -p ${CONFIG_OUT_DIR}
-    K3D_INSTALL_SCRIPT_PATH="${CONFIG_OUT_DIR}"/.install.sh
-
-    if [ $K3D_VERSION == "latest" ]; then
-        K3D_LATEST_RELEASE_URL="$REPO_URL/releases/latest"
-
-        if type "curl" > /dev/null; then
-            K3D_LATEST_RELEASE_TAG=$(scurl -Ls -o /dev/null -w %{url_effective} $K3D_LATEST_RELEASE_URL | grep -oE "[^/]+$" )
-        elif type "wget" > /dev/null; then
-            K3D_LATEST_RELEASE_TAG=$(wget $K3D_LATEST_RELEASE_URL --server-response -O /dev/null 2>&1 | awk '/^\s*Location: /{DEST=$2} END{ print DEST}' | grep -oE "[^/]+$")
-        fi
-
-        $K3D_VERSION = $K3D_LATEST_RELEASE_TAG
-        echo "Latest k3d version: $K3D_LATEST_RELEASE_TAG"
+    K3D="${CONFIG_OUT_DIR}"/.k3d
+    if [ -f $K3D ]; then
+        current_K3D_VERSION=$($K3D version | grep 'k3d version' | cut -d " " -f3)
     fi
-
-    if [[ -f "${K3D_INSTALL_DIR}/${APP_NAME}" ]]; then
-        current_K3D_VERSION=$(k3d version | grep 'k3d version' | cut -d " " -f3)
-        echo "Currently installed k3d version is $current_K3D_VERSION and requested k3d version is $K3D_VERSION"
-    fi
-
     if [[ $current_K3D_VERSION != $K3D_VERSION ]]; then
-        # echo "Downloading k3d installation script..."
-        # curl -LSs https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh -o "$K3D_INSTALL_SCRIPT_PATH"
-        # chmod +x "$K3D_INSTALL_SCRIPT_PATH"
-
-        echo "Installing k3d $K3D_VERSION..."
-        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh -o "$K3D_INSTALL_SCRIPT_PATH" | TAG=$K3D_VERSION bash
-        # $K3D_INSTALL_SCRIPT_PATH | TAG=$K3D_VERSION bash
-
+        echo "Downloading k3d v$K3D_VERSION"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            curl -LSs https://github.com/k3d-io/k3d/releases/download/v$K3D_VERSION/k3d-darwin-${ARCH} -o "$K3D"
+        else
+            curl -LSs https://github.com/k3d-io/k3d/releases/download/v$K3D_VERSION/k3d-linux-${ARCH} -o "$K3D"
+        fi
+        chmod +x "$K3D"
     fi
-
-    # if [[ $current_K3D_VERSION != $K3D_VERSION  && ($K3D_VERSION == "" || $K3D_VERSION == "latest") ]]; then
-    #     echo "Downloading latest k3d $K3D_LATEST_RELEASE_TAG"
-        
-    #     curl -LSs https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh -o "$K3D_INSTALL_SCRIPT_PATH"
-    #     chmod +x "$K3D_INSTALL_SCRIPT_PATH"
-
-    #     echo "Installing k3d $K3D_VERSION"
-
-    # elif [[ $current_K3D_VERSION != $K3D_VERSION  && ($K3D_VERSION != "" && $K3D_VERSION != "latest") ]]; then
-    #     echo "Downloading k3d $K3D_VERSION"
-                
-    #     curl -LSs https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh -o "$K3D_INSTALL_SCRIPT_PATH"
-    #     chmod +x "$K3D_INSTALL_SCRIPT_PATH"
-
-    #     # $K3D_INSTALL_SCRIPT_PATH | TAG=$K3D_VERSION 
-
-    #     echo "Installing k3d $K3D_VERSION"
-    # fi
 }
 
 function _prepare_config() {
@@ -235,8 +192,8 @@ function _setup_k3d() {
 
 function _k3d_up() {
     _fetch_k3d
-    # _prepare_config
-    # _setup_k3d
+    _prepare_config
+    _setup_k3d
 }
 
 function up() {
@@ -246,11 +203,12 @@ function up() {
 }
 
 function down() {
+    _fetch_k3d
     if [ -z "$($K3D cluster list | grep ${CLUSTER_NAME})" ]; then
         return
     fi
     # Avoid failing an entire test run just because of a deletion error
     $K3D cluster delete ${CLUSTER_NAME} || "true"
     rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/k3d.yml
-    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/.install.sh
+    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/.k3d
 }
