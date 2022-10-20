@@ -105,12 +105,12 @@ func getPodTotalPower(usageValues [][]float64, systemValues []string) (valid boo
 
 // getPodTotalPower returns estimated pods' RAPL power
 func getPodComponentPowers(usageValues [][]float64, systemValues []string) (bool, []source.RAPLPower) {
+	podNumber := len(usageValues)
 	if PodComponentPowerModelValid {
 		powers, err := PodComponentPowerModelFunc(usageValues, systemValues)
 		if err != nil {
-			return false, []source.RAPLPower{}
+			return false, make([]source.RAPLPower, podNumber)
 		}
-		podNumber := len(usageValues)
 		raplPowers := make([]source.RAPLPower, podNumber)
 		for index := 0; index < podNumber; index++ {
 			pkgPower := getComponentPower(powers, "pkg", index)
@@ -121,5 +121,5 @@ func getPodComponentPowers(usageValues [][]float64, systemValues []string) (bool
 		}
 		return true, raplPowers
 	}
-	return false, []source.RAPLPower{}
+	return false, make([]source.RAPLPower, podNumber)
 }
