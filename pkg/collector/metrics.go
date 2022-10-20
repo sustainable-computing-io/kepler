@@ -83,6 +83,7 @@ func SetEnabledMetrics() {
 	uintFeatures = getUIntFeatures()
 	features = append(features, FloatFeatures...)
 	features = append(features, uintFeatures...)
+
 	metricNames = getEstimatorMetrics()
 }
 
@@ -105,7 +106,12 @@ func getEstimatorMetrics() []string {
 	// TO-DO: remove this hard code metric
 	names = append(names, blockDeviceLabel)
 	ratio.InitMetricIndexes(names)
-	model.InitEstimateFunctions(names, systemFeatures, systemValues)
+
+	// do not try to inilialize estimator if it was not configured
+	if config.ModelServerEndpoint != "" {
+		model.InitEstimateFunctions(names, systemFeatures, systemValues)
+	}
+
 	return names
 }
 
