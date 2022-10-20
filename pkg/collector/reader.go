@@ -387,6 +387,9 @@ func handleInactivePods(foundPod map[string]bool) {
 			return
 		}
 		for podName := range podEnergy {
+			if podName == systemProcessName {
+				continue
+			}
 			if _, found := alivePods[podName]; !found {
 				delete(podEnergy, podName)
 			}
