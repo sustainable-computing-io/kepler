@@ -67,7 +67,7 @@ function _get_prometheus_operator_images {
     grep -R "image:" kube-prometheus/manifests/*prometheus-* | awk '{print $3}'
     grep -R "image:" kube-prometheus/manifests/*prometheusOperator* | awk '{print $3}'
     grep -R "prometheus-config-reloader=" kube-prometheus/manifests/ | sed 's/.*=//g'
-    if [ ${GRAFANA_ENABLE} == "true" ]; then
+    if [ ${GRAFANA_ENABLE,,} == "true" ]; then
         grep -R "image:" kube-prometheus/manifests/*grafana* | awk '{print $3}'
     fi
 }
@@ -120,7 +120,8 @@ function _wait_k3d_up {
 function _wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
     namespace=$1
-    kubectl wait --for=condition=Ready pod --all -n $namespace --timeout 12m
+    kubectl wait --for=condition=Initialized pod --all -n $namespace --timeout 12m || \
+    kubectl wait --for=condition=Ready pod --all -n $namespace --timeout 12m 
 }
 
 function _fetch_k3d(){
@@ -156,6 +157,7 @@ function _prepare_config() {
     # make cluster-sync overwrite the CONFIG_OUT_DIR, so that we update the manifest dir directly.
     # TODO: configure the kepler yaml in the CONFIG_OUT_DIR, not in the MANIFEST DIR.
     echo "WARN: we are changing the file manifests/kubernetes/deployment.yaml"
+    sed -i -e "s/path: \/proc-host/path: \/proc/g" manifests/kubernetes/deployment.yaml
     sed -i -e "s/path: \/proc/path: \/proc-host/g" manifests/kubernetes/deployment.yaml
 }
 
@@ -183,11 +185,11 @@ function _setup_k3d() {
         sleep 10
     done
 
-    # _wait_containers_ready kube-system
+    _wait_containers_ready kube-system
 
-    # if [ ${PROMETHEUS_ENABLE} == "true" ]; then
-    #     # _deploy_prometheus_operator
-    # fi
+    if [ ${PROMETHEUS_ENABLE,,} == "true" ]; then
+        _deploy_prometheus_operator
+    fi
 }
 
 function _k3d_up() {
