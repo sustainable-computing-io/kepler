@@ -47,8 +47,9 @@ var (
 	containerCPUUsageMetricName = config.KubeletContainerCPU
 	containerMemUsageMetricName = config.KubeletContainerMemory
 
-	podNameTag   = "pod"
-	namespaceTag = "namespace"
+	podNameTag       = "pod"
+	containerNameTag = "container"
+	namespaceTag     = "namespace"
 )
 
 func init() {
@@ -139,12 +140,12 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]
 			case nodeMemUsageMetricName:
 				nodeMem = value
 			case containerCPUUsageMetricName:
-				namespace, pod := parseLabels(v.GetLabel())
-				containerCPU[namespace+"/"+pod] = value
+				namespace, pod, container := parseLabels(v.GetLabel())
+				containerCPU[namespace+"/"+pod+"/"+container] = value
 				totalContainerCPU += value
 			case containerMemUsageMetricName:
-				namespace, pod := parseLabels(v.GetLabel())
-				containerMem[namespace+"/"+pod] = value
+				namespace, pod, container := parseLabels(v.GetLabel())
+				containerMem[namespace+"/"+pod+"/"+container] = value
 				totalContainerMem += value
 			default:
 				continue
@@ -168,13 +169,16 @@ func (k *KubeletPodLister) GetAvailableMetrics() []string {
 	return []string{containerCPUUsageMetricName, containerMemUsageMetricName}
 }
 
-func parseLabels(labels []*dto.LabelPair) (namespace, pod string) {
+func parseLabels(labels []*dto.LabelPair) (namespace, pod, container string) {
 	for _, v := range labels {
 		if v.GetName() == podNameTag {
 			pod = v.GetValue()
 		}
 		if v.GetName() == namespaceTag {
 			namespace = v.GetValue()
+		}
+		if v.GetName() == containerNameTag {
+			container = v.GetValue()
 		}
 	}
 	return
