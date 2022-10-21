@@ -166,10 +166,12 @@ function _prepare_config() {
     sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/local-registry.yml
     sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/local-registry.yml
 
+    kubectl kustomize manifests/kubernetes/vm > manifests/kubernetes/vm/deployment.yaml
+
     # make cluster-sync overwrite the CONFIG_OUT_DIR, so that we update the manifest dir directly.
     # TODO: configure the kepler yaml in the CONFIG_OUT_DIR, not in the MANIFEST DIR.
-    echo "WARN: we are changing the file manifests/kubernetes/deployment.yaml"
-    sed -i -e "s/path: \/proc/path: \/proc-host/g" manifests/kubernetes/deployment.yaml
+    echo "WARN: we are changing the file manifests/kubernetes/vm/deployment.yaml"
+    sed -i -e "s/path: \/proc/path: \/proc-host/g" manifests/kubernetes/vm/deployment.yaml
 }
 
 function _get_nodes() {

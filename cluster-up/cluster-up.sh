@@ -22,5 +22,12 @@ if [ -z "$CLUSTER_PROVIDER" ]; then
     exit 1
 fi
 
+version=$(kubectl version --short | grep 'Client Version' | sed 's/.*v//g' | cut -b -4)
+if [ 1 -eq "$(echo "${version} < 1.21" | bc)" ]
+then
+    echo "You need to update your kubectl version to 1.21+ to support kustomize"
+    exit 1
+fi
+
 source cluster-up/cluster/$CLUSTER_PROVIDER/common.sh
 up
