@@ -52,6 +52,7 @@ const (
 var (
 	EnabledEBPFCgroupID          = false
 	ExposeHardwareCounterMetrics = true
+	EnabledGPU                   = false
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -82,19 +83,23 @@ func getConfig(configKey, defaultValue string) (result string) {
 	return
 }
 
-// EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
-func EnableEBPFCgroupID(enabled bool) {
-	klog.V(1).Infoln("config EnabledEBPFCgroupID enabled: ", enabled)
-	klog.V(1).Infoln("config getKernelVersion: ", getKernelVersion(c))
+// SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
+func SetEnabledEBPFCgroupID(enabled bool) {
+	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
+	klog.Infoln("kernel version:", getKernelVersion(c))
 	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	}
-	klog.V(1).Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
 }
 
-// EnableHardwareCounterMetrics enables the exposure of hardware counter metrics
-func EnableHardwareCounterMetrics(enabled bool) {
+// SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
+func SetEnabledHardwareCounterMetrics(enabled bool) {
 	ExposeHardwareCounterMetrics = enabled
+}
+
+// SetEnabledGPU enables the exposure of gpu metrics
+func SetEnabledGPU(enabled bool) {
+	EnabledGPU = true
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
