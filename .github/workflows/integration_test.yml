@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        kube_provider: [kind]
+        kube_provider: [kind, k3d]
     steps:
       - uses: actions/checkout@main
       - uses: actions/setup-go@main
