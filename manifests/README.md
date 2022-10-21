@@ -15,6 +15,7 @@ port 9102.
 ```
 # build manifests file for VM+Baremetal and Baremetal only
 # manifests are created in  _output/manifests/kubernetes/generated/ by default
+# kubectl v1.21.0 is minimum version that support build manifest
 # make build-manifest
 ```
 
