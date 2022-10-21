@@ -10,12 +10,22 @@ The operating system must provide:
 Consult the documentation of your Linux distribution on details for enabling these prerequisites.
 ## Installing Kepler on Kubernetes
 
-```bash
-# NOTE: These manifest take care of creating the namespace and Kepler exporter
-kubectl apply -f kubernetes/deployment.yaml
+Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
+port 9102.
+```
+# build manifests file for VM+Baremetal and Baremetal only
+# manifests are created in  _output/manifests/kubernetes/generated/ by default
+# make build-manifest
+```
 
-# Note: During the initialization of `kepler-exporter` Pods or after rebooting the nodes, 
-# it could take a while for the metrics to be stable.
+if you are running with Baremetal only
+```
+kubectl create -f _output/manifests/kubernetes/generated/bm/deployment.yaml
+```
+
+if you are running with Baremetal and/or VM
+```
+kubectl create -f _output/manifests/kubernetes/generated/vm/deployment.yaml
 ```
 
 # Kepler on OpenShift
