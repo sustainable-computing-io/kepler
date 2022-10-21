@@ -31,7 +31,7 @@ var (
 )
 
 var _ = Describe("Test Model Unit", func() {
-	It("Get pod power with no dependency and no node power ", func() {
+	It("Get container power with no dependency and no node power ", func() {
 		// collector/metrics.go - getEstimatorMetrics
 		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
 		Expect(PodComponentPowerModelValid).To(Equal(true))
@@ -39,11 +39,11 @@ var _ = Describe("Test Model Unit", func() {
 		totalNodePower := uint64(0)
 		totalGPUPower := uint64(0)
 		nodeComponentPowers := source.RAPLPower{}
-		podComponentPowers, podOtherPowers := GetPodPowers(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(podOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(podComponentPowers)).Should(Equal(len(usageValues)))
+		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
+		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
+		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
 	})
-	It("Get pod power with no dependency but with total node power ", func() {
+	It("Get container power with no dependency but with total node power ", func() {
 		// collector/metrics.go - getEstimatorMetrics
 		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
 		Expect(PodComponentPowerModelValid).To(Equal(true))
@@ -51,11 +51,11 @@ var _ = Describe("Test Model Unit", func() {
 		totalNodePower := uint64(10000)
 		totalGPUPower := uint64(1000)
 		nodeComponentPowers := source.RAPLPower{}
-		podComponentPowers, podOtherPowers := GetPodPowers(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(podOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(podComponentPowers)).Should(Equal(len(usageValues)))
+		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
+		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
+		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
 	})
-	It("Get pod power with no dependency but with all node power ", func() {
+	It("Get container power with no dependency but with all node power ", func() {
 		// collector/metrics.go - getEstimatorMetrics
 		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
 		Expect(PodComponentPowerModelValid).To(Equal(true))
@@ -67,8 +67,8 @@ var _ = Describe("Test Model Unit", func() {
 			Core: 5000,
 			DRAM: 1000,
 		}
-		podComponentPowers, podOtherPowers := GetPodPowers(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(podOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(podComponentPowers)).Should(Equal(len(usageValues)))
+		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
+		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
+		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
 	})
 })
