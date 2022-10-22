@@ -29,3 +29,10 @@ Please see keywords below for more details, as the code talks.
 or
 if runtime.GOOS == "linux" {
 ```
+
+## Commit message
+ref to https://www.kubernetes.dev/docs/guide/pull-requests/#commit-message-guidelines
+we have 3 rules as commit messages check to ensure commit message is meaningful.
+- Try to keep the subject line to 50 characters or less; do not exceed 72 characters
+- Providing additional context if I am right means formatting in topic":" something
+- The first word in the commit message subject should be capitalized unless it starts with a lowercase symbol or other identifier

@@ -1,0 +1,37 @@
+name: 'Commit Message Check'
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+jobs:
+  check-commit-message:
+    name: Check Commit Message
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try to keep the subject line to 50 characters or less; do not exceed 72 characters
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '^[^#].{72}'
+          error: 'The maximum line length of 72 characters is exceeded.'
+          excludeDescription: 'true' # optional: this excludes the description body of a pull request
+          excludeTitle: 'true' # optional: this excludes the title of a pull request
+      - name: Providing additional context if I am right means formatting in topic":" something
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '^.*:\s.*'
+          error: 'topic: someting for example commit msg as [CI: enhancement xxx]'
+      - name: The first word in the commit message subject should be capitalized unless it starts with a lowercase symbol or other identifier
+        uses: gsactions/commit-message-checker@v2
+        with:
+          pattern: '^[^].*'
+          error: 'topic: someting for example commit msg as [CI: enhancement xxx]'
