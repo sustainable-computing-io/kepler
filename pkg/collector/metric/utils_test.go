@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 )
 
 func clearPlatformDependentAvailability() {

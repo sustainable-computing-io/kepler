@@ -23,7 +23,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 
