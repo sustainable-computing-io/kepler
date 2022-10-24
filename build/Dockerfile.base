@@ -1,9 +1,23 @@
-FROM registry.access.redhat.com/ubi8/ubi:8.4
+FROM registry.access.redhat.com/ubi8/ubi:8.6
 
 ARG ARCH=amd64
 
-RUN yum update -y && \
-    yum install -y https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/nvidia-driver-NVML-515.48.07-1.el8.x86_64.rpm && \
-    yum install -y http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/bcc-devel-0.19.0-4.el8.x86_64.rpm && \
-    yum install -y kmod xz python3 && yum clean all -y && \
+# enable centos appstream
+RUN yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-gpg-keys-8-6.el8.noarch.rpm && \
+    yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-stream-repos-8-6.el8.noarch.rpm
+
+# don't update yet, this will conflict with protected pkg i.e. redhat-release
+#RUN yum update -y
+
+# install less frequently updated pkg first
+RUN yum install -y kmod xz python3 && yum clean all -y && \
     pip3 install  --no-cache-dir archspec 
+
+# bcc pkg is updated more frequently
+RUN yum install -y http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/bcc-0.24.0-2.el8.x86_64.rpm && \
+    yum install -y http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/bcc-devel-0.24.0-2.el8.x86_64.rpm
+
+# nvidia driver is updated on a (bi)monthly basis
+RUN yum install -y https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/nvidia-driver-NVML-520.61.05-1.el8.x86_64.rpm
+
+    

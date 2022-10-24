@@ -1,6 +1,6 @@
 ARG ARCH=amd64
 
-FROM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18 as builder
 
 
 ARG MAKE_TARGET=cross-build-linux-$ARCH
@@ -27,7 +27,7 @@ RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TI
 # RUN make test
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:latest
+FROM quay.io/sustainable_computing_io/kepler_base:ubi-8.6-bcc-0.24
 
 ARG ARCH=amd64
 
