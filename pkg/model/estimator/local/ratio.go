@@ -22,7 +22,6 @@ calculate Pods' component and other power by ratio approach when node power is a
 package local
 
 import (
-	"log"
 	"math"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -53,19 +52,15 @@ func InitMetricIndexes(metricNames []string) {
 	for index, metricName := range metricNames {
 		if metricName == config.CoreUsageMetric {
 			coreMetricIndex = index
-			log.Printf("set coreMetricIndex = %d", index)
 		}
 		if metricName == config.DRAMUsageMetric {
 			dramMetricIndex = index
-			log.Printf("set dramMetricIndex = %d", index)
 		}
 		if metricName == config.UncoreUsageMetric {
 			uncoreMetricIndex = index
-			log.Printf("set uncoreMetricIndex = %d", index)
 		}
 		if metricName == config.GeneralUsageMetric {
 			generalMetricIndex = index
-			log.Printf("set generalMetricIndex = %d", index)
 		}
 	}
 }

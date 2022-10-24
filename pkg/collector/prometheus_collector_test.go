@@ -1,13 +1,12 @@
 package collector
 
 import (
-	"io"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -16,11 +15,16 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 const (
-	CPUUsageTotalKey = "cgroupfs_cpu_usage_us"
+	nodeEnergyMetric             = "kepler_node_platform_joules_total"
+	nodefreqMetric               = "kepler_node_cpu_scaling_frequency_hertz"
+	nodePackageEnergyMetric      = "kepler_node_package_joules_total"
+	containerCPUCoreEnergyMetric = "kepler_container_package_joules_total"
+
 	SampleCurr       = 100
 	SampleAggr       = 1000
 	sampleNodeEnergy = 20000 // mJ
@@ -53,13 +57,23 @@ func convertPromToValue(body []byte, metric string) (int, error) {
 	return strconv.Atoi(splits[1])
 }
 
+func newMockPrometheusExporter() *PrometheusCollector {
+	exporter := NewPrometheusExporter()
+	exporter.NodePkgEnergy = &map[int]source.RAPLEnergy{}
+	exporter.NodeCPUFrequency = &map[int32]uint64{}
+	exporter.NodeMetrics = collector_metric.NewNodeMetrics()
+	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
+	exporter.SamplePeriodSec = 3.0
+	return exporter
+}
+
 var _ = Describe("Test Collector Unit", func() {
 	It("Init and Run", func() {
-		newCollector, err := New()
-		setPodStatProm()
+		exporter := newMockPrometheusExporter()
+		err := prometheus.Register(exporter)
 		Expect(err).NotTo(HaveOccurred())
-		err = prometheus.Register(newCollector)
-		Expect(err).NotTo(HaveOccurred())
+
+		// check if prometheus is replying
 		req, _ := http.NewRequest("GET", "", http.NoBody)
 		res := httptest.NewRecorder()
 		handler := promhttp.Handler()
@@ -67,52 +81,22 @@ var _ = Describe("Test Collector Unit", func() {
 		body, _ := io.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
 
-		regStr := fmt.Sprintf(`%s{[^{}]*}`, podEnergyStatMetric)
-		r := regexp.MustCompile(regStr)
-		match := r.FindString(string(body))
-		Expect(match).To(Equal(""))
+		// add container mock values
+		containerA := collector_metric.NewContainerMetrics("containerA", "podA", "default")
+		err = containerA.EnergyInPkg.AddNewCurr(SampleCurr * 1000)
+		Expect(err).NotTo(HaveOccurred())
 
-		v := NewPodEnergy("podA", "default")
-		v.EnergyInCore = &UInt64Stat{
-			Curr: 10,
-			Aggr: 10,
-		}
-		v.CgroupFSStats = map[string]*UInt64StatCollection{
-			CPUUsageTotalKey: {
-				Stat: map[string]*UInt64Stat{
-					"cA": {
-						Curr: SampleCurr,
-						Aggr: SampleAggr,
-					},
-				},
-			},
-		}
-		cpuFrequency = map[int32]uint64{
-			0: SampleFreq,
-		}
-		podEnergy = map[string]*PodEnergy{
-			"a": v,
-		}
-		// initial
-		sensorEnergy = map[string]float64{
+		// add node mock values
+		(*exporter.ContainersMetrics)["containerA"] = containerA
+		(*exporter.NodeCPUFrequency)[0] = SampleFreq
+		(*exporter.NodePkgEnergy)[0] = source.RAPLEnergy{Pkg: samplePkgEnergy}
+		nodeSensorEnergy := map[string]float64{
 			"sensor0": sampleNodeEnergy,
 		}
-		pkgEnergy = map[int]source.RAPLEnergy{
-			0: {
-				Pkg: samplePkgEnergy,
-			},
-		}
-		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, [][]float64{})
-		sensorEnergy = map[string]float64{
-			"sensor0": sampleNodeEnergy * 2,
-		}
-		pkgEnergy = map[int]source.RAPLEnergy{
-			0: {
-				Pkg: samplePkgEnergy * 2,
-			},
-		}
-		nodeEnergy.SetValues(sensorEnergy, pkgEnergy, 0, [][]float64{})
+		gpuEnergy := []uint32{uint32(sampleNodeEnergy)}
+		exporter.NodeMetrics.SetValues(nodeSensorEnergy, *exporter.NodePkgEnergy, gpuEnergy, [][]float64{})
 
+		// get metrics from prometheus
 		res = httptest.NewRecorder()
 		handler = promhttp.Handler()
 		handler.ServeHTTP(res, req)
@@ -120,33 +104,24 @@ var _ = Describe("Test Collector Unit", func() {
 		Expect(len(body)).Should(BeNumerically(">", 0))
 		fmt.Printf("Result:\n %s\n", body)
 
-		// check sample pod energy stat
-		response := convertPromMetricToMap(body, podEnergyStatMetric)
-		if len(availableCgroupMetrics) > 0 {
-			currSample, found := response["curr_"+CPUUsageTotalKey]
-			Expect(found).To(Equal(true))
-			Expect(currSample).To(Equal(fmt.Sprintf("%d", SampleCurr)))
-			aggrSample, found := response["total_"+CPUUsageTotalKey]
-			Expect(found).To(Equal(true))
-			Expect(aggrSample).To(Equal(fmt.Sprintf("%d", SampleAggr)))
-		}
 		// check sample node energy
 		val, err := convertPromToValue(body, nodeEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(2 * sampleNodeEnergy / 1000))) //J
-		val, err = convertPromToValue(body, nodeEnergyStatMetric)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(val).Should(BeEquivalentTo(int(sampleNodeEnergy / 1000))) // J
-		val, err = convertPromToValue(body, nodeLabelPrefix+CurrPrefix+EnergyLabels["pkg"]+JSuffix)
+		Expect(val).To(Equal(int(sampleNodeEnergy / 1000))) //J
+
+		// check pkg energy
+		val, err = convertPromToValue(body, nodePackageEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).Should(BeEquivalentTo(int(samplePkgEnergy / 1000))) // J
-		// check pkg energy
-		val, err = convertPromToValue(body, pkgEnergyMetric)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(val).Should(BeEquivalentTo(int(2 * samplePkgEnergy))) // mJ
+
 		// check sample frequency
-		val, err = convertPromToValue(body, freqMetric)
+		val, err = convertPromToValue(body, nodefreqMetric)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).To(Equal(int(SampleFreq)))
+
+		// check sample pod
+		val, err = convertPromToValue(body, containerCPUCoreEnergyMetric)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(val).To(Equal(int(SampleCurr)))
 	})
 })

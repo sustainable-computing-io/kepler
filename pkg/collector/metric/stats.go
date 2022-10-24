@@ -1,10 +1,42 @@
-package collector
+package metric
 
 import (
 	"fmt"
 	"math"
 
 	"k8s.io/klog/v2"
+
+	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/podlister"
+)
+
+const (
+	freqMetricLabel = config.CPUFrequency
+
+	// TO-DO: merge to cgroup stat
+	ByteReadLabel    = config.BytesReadIO
+	ByteWriteLabel   = config.BytesWriteIO
+	blockDeviceLabel = config.BlockDevicesIO
+
+	CPUTimeLabel = config.CPUTime
+
+	CurrPrefix = "curr_"
+	AggrPrefix = "total_"
+)
+
+var (
+	// AvailableCounters holds a list of hardware counters that might be collected
+	AvailableCounters []string = attacher.GetEnabledCounters()
+	// AvailableCgroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
+	AvailableCgroupMetrics []string = cgroup.GetAvailableCgroupMetrics()
+	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
+	AvailableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
+
+	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
+	CPUHardwareCounterEnabled bool = false
+	// CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 )
 
 type UInt64Stat struct {

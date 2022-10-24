@@ -49,25 +49,25 @@ func InitPodPowerEstimator(usageMetrics, systemFeatures, systemValues []string) 
 	}
 }
 
-// GetPodPowers returns pods' RAPL power and other power
-func GetPodPowers(usageValues [][]float64, systemValues []string, nodeTotalPower, totalGPUPower uint64, nodeComponentPower source.RAPLPower) (componentPodPowers []source.RAPLPower, otherPodPowers []uint64) {
-	if nodeComponentPower.Pkg > 0 {
-		if nodeTotalPower < nodeComponentPower.Pkg+nodeComponentPower.DRAM+totalGPUPower {
+// GetContainerPower returns pods' RAPL power and other power
+func GetContainerPower(usageValues [][]float64, systemValues []string, nodeTotalPower, nodeTotalGPUPower uint64, nodeTotalPowerPerComponents source.RAPLPower) (componentPodPowers []source.RAPLPower, otherPodPowers []uint64) {
+	if nodeTotalPowerPerComponents.Pkg > 0 {
+		if nodeTotalPower < nodeTotalPowerPerComponents.Pkg+nodeTotalPowerPerComponents.DRAM+nodeTotalGPUPower {
 			// case: NodeTotalPower is invalid but NodeComponentPower model is available, set = pkg+DRAM+GPU
-			nodeTotalPower = nodeComponentPower.Pkg + nodeComponentPower.DRAM + totalGPUPower
+			nodeTotalPower = nodeTotalPowerPerComponents.Pkg + nodeTotalPowerPerComponents.DRAM + nodeTotalGPUPower
 		}
 	} else if nodeTotalPower > 0 {
 		// case: no NodeComponentPower model but NodeTotalPower model is available, set = total-GPU, DRAM=0
-		socketPower := nodeTotalPower - totalGPUPower
-		nodeComponentPower = source.RAPLPower{
+		socketPower := nodeTotalPower - nodeTotalGPUPower
+		nodeTotalPowerPerComponents = source.RAPLPower{
 			Pkg:  socketPower,
 			Core: socketPower,
 		}
 	}
 	if nodeTotalPower > 0 {
 		// total power all set, use ratio
-		nodeOtherPower := nodeTotalPower - nodeComponentPower.Pkg - nodeComponentPower.DRAM - totalGPUPower
-		componentPodPowers, otherPodPowers = local.GetPodPowerRatio(usageValues, nodeOtherPower, nodeComponentPower)
+		nodeOtherPower := nodeTotalPower - nodeTotalPowerPerComponents.Pkg - nodeTotalPowerPerComponents.DRAM - nodeTotalGPUPower
+		componentPodPowers, otherPodPowers = local.GetPodPowerRatio(usageValues, nodeOtherPower, nodeTotalPowerPerComponents)
 	} else {
 		// otherwise, use trained power model
 		totalPowerValid, totalPodPowers := getPodTotalPower(usageValues, systemValues)
