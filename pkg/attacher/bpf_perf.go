@@ -50,18 +50,6 @@ func init() {
 	byteOrder = bpf.GetHostByteOrder()
 }
 
-func determineHostByteOrder() binary.ByteOrder {
-	var i int32 = 0x01020304
-	u := unsafe.Pointer(&i)
-	pb := (*byte)(u)
-	b := *pb
-	if b == 0x04 {
-		return binary.LittleEndian
-	}
-
-	return binary.BigEndian
-}
-
 func openPerfEvent(table *bpf.Table, typ, config int) error {
 	perfKey := fmt.Sprintf("%d:%d", typ, config)
 	if _, ok := perfEvents[perfKey]; ok {
