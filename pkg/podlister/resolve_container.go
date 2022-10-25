@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -48,7 +49,7 @@ const (
 )
 
 var (
-	byteOrder binary.ByteOrder = determineHostByteOrder()
+	byteOrder binary.ByteOrder = utils.DetermineHostByteOrder()
 	podLister KubeletPodLister = KubeletPodLister{}
 
 	// map to cache data to speedup lookups
