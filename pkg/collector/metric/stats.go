@@ -9,7 +9,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 )
 
 const (
@@ -32,7 +31,7 @@ var (
 	// AvailableCgroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
 	AvailableCgroupMetrics []string = cgroup.GetAvailableCgroupMetrics()
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
-	AvailableKubeletMetrics []string = podlister.GetAvailableKubeletMetrics()
+	AvailableKubeletMetrics []string = cgroup.GetAvailableKubeletMetrics()
 
 	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
 	CPUHardwareCounterEnabled bool = false

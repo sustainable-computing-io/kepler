@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021.
@@ -17,20 +17,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podlister
+package kubelet
 
-import (
-	"fmt"
+import "encoding/binary"
 
-	"encoding/binary"
-
-	"golang.org/x/sys/unix"
-)
-
-func getCgroupIDFromPath(byteOrder binary.ByteOrder, path string) (uint64, error) {
-	handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
-	if err != nil {
-		return uint64(0), fmt.Errorf("error resolving handle: %v", err)
-	}
-	return byteOrder.Uint64(handle.Bytes()), nil
+func GetCgroupIDFromPath(byteOrder binary.ByteOrder, path string) (uint64, error) {
+	// to do for Mac OS how to get CGROUP ID from path
+	return uint64(0), nil
 }

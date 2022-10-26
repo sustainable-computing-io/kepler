@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"bufio"
 	"encoding/binary"
+	"fmt"
 	"os"
+	"strings"
 	"unsafe"
 )
 
@@ -30,4 +33,35 @@ func DetermineHostByteOrder() binary.ByteOrder {
 	}
 
 	return binary.BigEndian
+}
+
+const (
+	systemProcessName      string = "system_processes"
+	systemProcessNamespace string = "system"
+)
+
+func GetSystemProcessName() string {
+	return systemProcessName
+}
+
+func GetSystemProcessNamespace() string {
+	return systemProcessNamespace
+}
+
+func GetPathFromPID(searchPath string, pid uint64) (string, error) {
+	path := fmt.Sprintf(searchPath, pid)
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open cgroup description file for pid %d: %v", pid, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "pod") || strings.Contains(line, "containerd") || strings.Contains(line, "crio") {
+			return line, nil
+		}
+	}
+	return "", fmt.Errorf("could not find cgroup description entry for pid %d", pid)
 }

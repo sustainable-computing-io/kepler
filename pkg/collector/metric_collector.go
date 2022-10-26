@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/podlister"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
@@ -67,8 +68,8 @@ func NewCollector() *Collector {
 		NodeCPUFrequency:       map[int32]uint64{},
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
-		systemProcessName:      podlister.GetSystemProcessName(),
-		systemProcessNamespace: podlister.GetSystemProcessNamespace(),
+		systemProcessName:      utils.GetSystemProcessName(),
+		systemProcessNamespace: utils.GetSystemProcessNamespace(),
 	}
 	return c
 }
@@ -80,7 +81,7 @@ func (c *Collector) Initialize() error {
 	}
 	c.bpfHCMeter = m
 
-	pods, err := podlister.Init()
+	pods, err := cgroup.Init()
 	if err != nil {
 		klog.V(5).Infoln(err)
 		return err
@@ -146,17 +147,17 @@ func (c *Collector) prePopulateContainerMetrics(pods *[]corev1.Pod) {
 		pod := (*pods)[i]
 		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {
 			container := pod.Status.InitContainerStatuses[j]
-			containerID := podlister.ParseContainerIDFromPodStatus(container.ContainerID)
+			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
 			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
 		}
 		for j := 0; j < len(pod.Status.ContainerStatuses); j++ {
 			container := pod.Status.ContainerStatuses[j]
-			containerID := podlister.ParseContainerIDFromPodStatus(container.ContainerID)
+			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
 			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
 		}
 		for j := 0; j < len(pod.Status.EphemeralContainerStatuses); j++ {
 			container := pod.Status.EphemeralContainerStatuses[j]
-			containerID := podlister.ParseContainerIDFromPodStatus(container.ContainerID)
+			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
 			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
 		}
 	}

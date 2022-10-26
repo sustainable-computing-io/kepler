@@ -142,13 +142,13 @@ func TestReadKV(t *testing.T) {
 	}
 }
 
-const iostatContent1 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6`
+const pathIostatContent1 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6`
 
-const iostatContent2 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
+const pathIostatContent2 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
 34:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7`
 
 // 253:x is ignored
-const iostatContent3 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
+const pathIostatContent3 = `252:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=5 dios=6
 34:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7
 253:0 rbytes=2 wbytes=3 rios=4 wios=5 dbytes=6 dios=7`
 
@@ -182,21 +182,21 @@ func TestReadLineKEqualToV(t *testing.T) {
 	}{
 		{
 			name:          "test valid input 1 line",
-			contents:      iostatContent1,
+			contents:      pathIostatContent1,
 			expectErr:     false,
 			fileName:      "",
 			expectResults: testKVResults1,
 		},
 		{
 			name:          "test valid input 2 lines",
-			contents:      iostatContent2,
+			contents:      pathIostatContent2,
 			expectErr:     false,
 			fileName:      "",
 			expectResults: testKVResults2,
 		},
 		{
 			name:          "test valid input 3 lines with 253:x",
-			contents:      iostatContent3,
+			contents:      pathIostatContent3,
 			expectErr:     false,
 			fileName:      "",
 			expectResults: testKVResults2,

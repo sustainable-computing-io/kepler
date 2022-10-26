@@ -35,7 +35,7 @@ const (
 	BytesReadIO          = "bytes_read"
 	BytesWriteIO         = "bytes_writes"
 	BlockDevicesIO       = "block_devices_used"
-	// kubelet - podlister package
+	// kubelet - package
 	KubeletContainerCPU    = "container_cpu_usage_seconds_total"
 	KubeletContainerMemory = "container_memory_working_set_bytes"
 	KubeletNodeCPU         = "node_cpu_usage_seconds_total"

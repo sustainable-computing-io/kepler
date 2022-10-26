@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podlister
+package kubelet
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -154,7 +155,7 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]
 	}
 	systemContainerMem := nodeMem - totalContainerMem
 	systemContainerCPU := nodeCPU - totalContainerCPU
-	systemContainerName := systemProcessNamespace + "/" + systemProcessName
+	systemContainerName := utils.GetSystemProcessNamespace() + "/" + utils.GetSystemProcessName()
 	containerCPU[systemContainerName] = systemContainerCPU
 	containerMem[systemContainerName] = systemContainerMem
 	return containerCPU, containerMem, nodeCPU, nodeMem, retErr
