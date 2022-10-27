@@ -29,6 +29,8 @@ jobs:
         run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
+            IMAGE_REPO: "localhost:5001/kepler"
+            IMAGE_TAG: "devel"
             CTR_CMD: docker
 
       - name: test if kepler is still alive
