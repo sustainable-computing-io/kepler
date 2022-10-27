@@ -27,7 +27,7 @@ then
 fi
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-IMAGE_TAG=${IMAGE_TAG:-devel}
+IMAGE_TAG=${IMAGE_TAG:-latest}
 IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io/kepler}
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}

@@ -20,6 +20,12 @@ export IMAGE_REPO=index.docker.io/myrepo
 export IMAGE_TAG=mybuild
 ```
 
+By default, please use:
+```bash
+export IMAGE_REPO="localhost:5001/kepler"
+export IMAGE_TAG="devel"
+```
+
 We assume that you have logged in your container registry
 
 Then point the `Makefile` to cluster provider to build the right manifests:

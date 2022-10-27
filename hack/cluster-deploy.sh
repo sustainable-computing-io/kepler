@@ -40,6 +40,9 @@ function main() {
     echo "Deploying manifests..."
 
     # Ignore errors because some clusters might not have prometheus operator
+    echo "Deploying with image:"
+    cat ${MANIFESTS_OUT_DIR}/deployment.yaml | grep "image:"
+
     kubectl apply -f ${MANIFESTS_OUT_DIR} || true
     
     # round for 3 times and each for 60s

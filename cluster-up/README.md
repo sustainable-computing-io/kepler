@@ -30,6 +30,6 @@ This destroys the whole cluster.
 
 ```bash
 export CLUSTER_PROVIDER=`kind`
-make cluster-sync
+IMAGE_REPO="localhost:5001/kepler" IMAGE_TAG="devel" make cluster-sync
 ```
 This removes a running kepler deployment, creates a new docker image, pushes it to the local cluster registry, deploys kepler with the newly created image, and waits for the kepler container to be in the running state.
