@@ -51,6 +51,14 @@ func InitPodPowerEstimator(usageMetrics, systemFeatures, systemValues []string) 
 
 // GetContainerPower returns pods' RAPL power and other power
 func GetContainerPower(usageValues [][]float64, systemValues []string, nodeTotalPower, nodeTotalGPUPower uint64, nodeTotalPowerPerComponents source.RAPLPower) (componentPodPowers []source.RAPLPower, otherPodPowers []uint64) {
+	componentPodPowers = make([]source.RAPLPower, len(usageValues))
+	otherPodPowers = make([]uint64, len(usageValues))
+	if len(usageValues) == 0 {
+		// in some edges case otherPodPowers will happens an out of bounds error
+		// directly return to avoid panic
+		return
+	}
+
 	if nodeTotalPowerPerComponents.Pkg > 0 {
 		if nodeTotalPower < nodeTotalPowerPerComponents.Pkg+nodeTotalPowerPerComponents.DRAM+nodeTotalGPUPower {
 			// case: NodeTotalPower is invalid but NodeComponentPower model is available, set = pkg+DRAM+GPU
@@ -64,6 +72,7 @@ func GetContainerPower(usageValues [][]float64, systemValues []string, nodeTotal
 			Core: socketPower,
 		}
 	}
+
 	if nodeTotalPower > 0 {
 		// total power all set, use ratio
 		nodeOtherPower := nodeTotalPower - nodeTotalPowerPerComponents.Pkg - nodeTotalPowerPerComponents.DRAM - nodeTotalGPUPower
