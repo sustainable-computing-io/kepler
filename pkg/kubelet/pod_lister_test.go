@@ -1,4 +1,4 @@
-package podlister
+package kubelet
 
 import (
 	"os"
@@ -74,7 +74,7 @@ func TestGetPathFromPID(t *testing.T) {
 			s := "/tmp/%d"
 			d, err := strconv.Atoi(file)
 			g.Expect(err).NotTo(HaveOccurred())
-			ret, err := getPathFromPID(s, uint64(d))
+			ret, err := utils.GetPathFromPID(s, uint64(d))
 			if runtime.GOOS == "linux" {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(ret).To(Equal(testcase.expectedRet))

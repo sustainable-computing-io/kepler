@@ -1,4 +1,4 @@
-package podlister
+package cgroup
 
 import (
 	"os"

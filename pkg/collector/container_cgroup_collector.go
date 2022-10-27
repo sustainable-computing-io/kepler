@@ -19,7 +19,6 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
 	"k8s.io/klog/v2"
 )
@@ -41,7 +40,7 @@ func (c *Collector) updateCgroupMetrics() {
 // updateKubeletMetrics adds kubelet data (resident mem)
 func (c *Collector) updateKubeletMetrics() {
 	if len(collector_metric.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _, _, _ := podlister.GetContainerMetrics()
+		containerCPU, containerMem, _, _, _ := cgroup.GetContainerMetrics()
 		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
 		for _, c := range c.ContainersMetrics {
 			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName

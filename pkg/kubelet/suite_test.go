@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cgroup
+package kubelet
 
 import (
 	"testing"
@@ -25,9 +25,9 @@ import (
 
 func TestPodLoader(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CGroup Suite")
+	RunSpecs(t, "PodLister Suite")
 }
 
 var _ = BeforeSuite(func() {
-	_, _ = Init()
+	// _, _ = Init()
 })

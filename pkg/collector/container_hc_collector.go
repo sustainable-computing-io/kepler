@@ -23,8 +23,8 @@ import (
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/podlister"
 
 	"k8s.io/klog/v2"
 )
@@ -66,7 +66,7 @@ func (c *Collector) updateBPFMetrics() {
 		}
 		comm := (*C.char)(unsafe.Pointer(&ct.Command))
 
-		containerID, _ := podlister.GetContainerID(ct.CGroupPID, ct.PID)
+		containerID, _ := cgroup.GetContainerID(ct.CGroupPID, ct.PID)
 		if err != nil {
 			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupPID, err, c.systemProcessName)
 		}
@@ -74,13 +74,13 @@ func (c *Collector) updateBPFMetrics() {
 		foundContainer[containerID] = true
 
 		if _, ok := c.ContainersMetrics[containerID]; !ok {
-			podName, _ := podlister.GetPodName(ct.CGroupPID, ct.PID)
-			containerName, _ := podlister.GetContainerName(ct.CGroupPID, ct.PID)
+			podName, _ := cgroup.GetPodName(ct.CGroupPID, ct.PID)
+			containerName, _ := cgroup.GetContainerName(ct.CGroupPID, ct.PID)
 			namespace := c.systemProcessNamespace
 			if containerName == c.systemProcessName {
 				containerID = c.systemProcessName
 			} else {
-				namespace, err = podlister.GetPodNameSpace(ct.CGroupPID, ct.PID)
+				namespace, err = cgroup.GetPodNameSpace(ct.CGroupPID, ct.PID)
 				if err != nil {
 					klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", ct.CGroupPID, err)
 					namespace = "unknown"
@@ -135,7 +135,7 @@ func (c *Collector) updateBPFMetrics() {
 		// system process should not include container event
 		if containerID != c.systemProcessName {
 			// TODO: move to container-level section
-			rBytes, wBytes, disks, err := podlister.ReadCgroupIOStat(ct.CGroupPID, ct.PID)
+			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupPID, ct.PID)
 			if err == nil {
 				if disks > c.ContainersMetrics[containerID].Disks {
 					c.ContainersMetrics[containerID].Disks = disks
@@ -194,7 +194,7 @@ func getActiveCPUs(cpuTime *[C.CPU_VECTOR_SIZE]uint16) (activeCPUs []int32) {
 func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 	numOfInactive := len(c.ContainersMetrics) - len(foundContainer)
 	if numOfInactive > maxInactiveContainers {
-		aliveContainers, err := podlister.GetAliveContainers()
+		aliveContainers, err := cgroup.GetAliveContainers()
 		if err != nil {
 			klog.V(5).Infoln(err)
 			return

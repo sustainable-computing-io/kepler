@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
 Copyright 2021.
 
@@ -14,20 +17,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package podlister
+package kubelet
 
 import (
-	"testing"
+	"fmt"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"encoding/binary"
+
+	"golang.org/x/sys/unix"
 )
 
-func TestPodLoader(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "PodLister Suite")
+func GetCgroupIDFromPath(byteOrder binary.ByteOrder, path string) (uint64, error) {
+	handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
+	if err != nil {
+		return uint64(0), fmt.Errorf("error resolving handle: %v", err)
+	}
+	return byteOrder.Uint64(handle.Bytes()), nil
 }
-
-var _ = BeforeSuite(func() {
-	_, _ = Init()
-})
