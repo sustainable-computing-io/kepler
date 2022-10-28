@@ -27,6 +27,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
+	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -69,6 +70,8 @@ func main() {
 	defer finalizing()
 	klog.InitFlags(nil)
 	flag.Parse()
+
+	klog.Infof("Kepler running on version: %s", kversion.Version)
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)

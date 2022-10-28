@@ -9,6 +9,9 @@ OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
 ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
+GIT_VERSION     := $(shell git describe --dirty --tags --match='v*')
+VERSION         ?= $(GIT_VERSION)
+LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 
 ifdef IMAGE_REPO
 	IMAGE_REPO := $(IMAGE_REPO)
@@ -64,7 +67,7 @@ tidy-vendor:
 _build_local: format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
-		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler ./cmd/exporter.go
+		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
 
 cross-build-linux-amd64:
 	+$(MAKE) _build_local GOOS=linux GOARCH=amd64
