@@ -23,7 +23,7 @@ The model weights can be obtained by Kepler Model Server or configured initial m
 package local
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"encoding/json"
