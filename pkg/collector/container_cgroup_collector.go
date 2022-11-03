@@ -25,6 +25,8 @@ import (
 
 // updateCgroupMetrics adds container-level cgroup data
 func (c *Collector) updateCgroupMetrics() {
+	klog.V(5).Infof("overall cgroup stats %v", cgroup.SliceHandlerInstance)
+
 	for containerID := range c.ContainersMetrics {
 		cgroup.TryInitStatReaders(containerID)
 		cgroupFSStandardStats := cgroup.GetStandardStat(containerID)
