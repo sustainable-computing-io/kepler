@@ -51,7 +51,11 @@ type SliceHandler struct {
 	IOTopPath     string
 }
 
-var SliceHandlerInstance *SliceHandler = InitSliceHandler()
+var SliceHandlerInstance *SliceHandler
+
+func SetSliceHandler() {
+	SliceHandlerInstance = InitSliceHandler()
+}
 
 func (s *SliceHandler) Init() {
 	s.statReaders = make(map[string][]StatReader)

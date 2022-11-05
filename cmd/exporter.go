@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -76,11 +77,14 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
+
+	cgroup.SetSliceHandler()
+
 	if modelServerEndpoint != nil {
 		klog.Infof("Initializing the Model Server")
 		config.SetModelServerEndpoint(*modelServerEndpoint)
 	}
-	collector_metric.SetEnabledMetrics()
+	collector_metric.InitAvailableParamAndMetrics()
 
 	if *enableGPU {
 		klog.Infof("Initializing the GPU collector")

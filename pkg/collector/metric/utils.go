@@ -47,7 +47,7 @@ func getcontainerUintFeatureNames() []string {
 	return metrics
 }
 
-func SetEnabledMetrics() {
+func setEnabledMetrics() {
 	ContainerFeaturesNames = []string{}
 	AvailableCounters = attacher.GetEnabledCounters()
 

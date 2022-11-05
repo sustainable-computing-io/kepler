@@ -27,16 +27,25 @@ const (
 
 var (
 	// AvailableCounters holds a list of hardware counters that might be collected
-	AvailableCounters []string = attacher.GetEnabledCounters()
+	AvailableCounters []string
 	// AvailableCgroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
-	AvailableCgroupMetrics []string = cgroup.GetAvailableCgroupMetrics()
+	AvailableCgroupMetrics []string
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
-	AvailableKubeletMetrics []string = cgroup.GetAvailableKubeletMetrics()
+	AvailableKubeletMetrics []string
 
 	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
 	CPUHardwareCounterEnabled bool = false
 	// CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 )
+
+func InitAvailableParamAndMetrics() {
+	AvailableCounters = attacher.GetEnabledCounters()
+	AvailableCgroupMetrics = cgroup.GetAvailableCgroupMetrics()
+	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
+
+	// defined in utils to init metrics
+	setEnabledMetrics()
+}
 
 type UInt64Stat struct {
 	Curr     uint64
