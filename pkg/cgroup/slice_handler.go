@@ -157,6 +157,15 @@ func findContainerScope(path string) string {
 func findExampleContainerID(slice *SliceHandler) string {
 	topPath := slice.GetCPUTopPath()
 	containerScopePath := findContainerScope(topPath)
+
+	// if we are not able to find scope path, this means
+	// availableMetrics is likely to be empty, we should
+	// put log to warn user and return fast
+	if containerScopePath == "" {
+		klog.Infof("Not able to find any valid .scope file in %v, this likely cause all cgroup metrics to be 0", topPath)
+		return ""
+	}
+
 	pathSplits := strings.Split(containerScopePath, "/")
 	fileName := pathSplits[len(pathSplits)-1]
 	scopeSplit := strings.Split(fileName, ".scope")[0]
