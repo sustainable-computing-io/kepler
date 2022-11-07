@@ -140,7 +140,18 @@ func (c *ContainerMetrics) ResetCurr() {
 // NOTICE: can lose main container info for multi-container pod
 func (c *ContainerMetrics) SetLatestProcess(cgroupPID, pid uint64, comm string) {
 	c.CGroupPID = cgroupPID
-	c.PIDS = append(c.PIDS, pid)
+
+	// TODO: review if we can remove the PIDS list as it's for GPU consumption and likely will remove this dependency
+	notexist := true
+	for _, v := range c.PIDS {
+		if v == pid {
+			notexist = false
+		}
+	}
+	if notexist {
+		c.PIDS = append(c.PIDS, pid)
+	}
+
 	c.Command = comm
 }
 
