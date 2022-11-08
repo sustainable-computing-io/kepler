@@ -81,7 +81,7 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64
 .PHONY: cross-build
 
 
-_build_containerized: format
+_build_containerized: genbpfassets tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 	$(CTR_CMD) build -t $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) \
@@ -195,3 +195,8 @@ cluster-up:
 cluster-down:
 	./hack/cluster-down.sh
 .PHONY: cluster-down
+
+genbpfassets:
+	go get -u github.com/go-bindata/go-bindata/...
+	./hack/bindata.sh
+.PHONY: genbpfassets
