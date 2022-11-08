@@ -197,6 +197,6 @@ cluster-down:
 .PHONY: cluster-down
 
 genbpfassets:
-	go get -u github.com/go-bindata/go-bindata/...
+	go get -d github.com/go-bindata/go-bindata/...
 	./hack/bindata.sh
 .PHONY: genbpfassets
