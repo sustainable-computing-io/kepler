@@ -113,6 +113,7 @@ type ContainerDesc struct {
 	containerPackageJoulesTotal         *prometheus.Desc
 	containerOtherComponentsJoulesTotal *prometheus.Desc
 	containerGPUJoulesTotal             *prometheus.Desc
+	containerJoulesTotal                *prometheus.Desc
 
 	// Hardware Counters (counter)
 	containerCPUCyclesTotal *prometheus.Desc
@@ -202,6 +203,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	if config.EnabledGPU {
 		ch <- p.containerDesc.containerGPUJoulesTotal
 	}
+	ch <- p.containerDesc.containerJoulesTotal
 
 	// container Hardware Counters (counter)
 	if collector_metric.CPUHardwareCounterEnabled {
@@ -325,6 +327,11 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		"Aggregated GPU value in joules",
 		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
+	containerJoulesTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "joules_total"),
+		"Aggregated RAPL Package + Uncore + DRAM + GPU + other host components (platform - package - dram) in joules",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
 
 	// Hardware Counters (counter)
 	containerCPUCyclesTotal := prometheus.NewDesc(
@@ -357,6 +364,7 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		containerPackageJoulesTotal:         containerPackageJoulesTotal,
 		containerOtherComponentsJoulesTotal: containerOtherComponentsJoulesTotal,
 		containerGPUJoulesTotal:             containerGPUJoulesTotal,
+		containerJoulesTotal:                containerJoulesTotal,
 		containerCPUCyclesTotal:             containerCPUCyclesTotal,
 		containerCPUInstrTotal:              containerCPUInstrTotal,
 		containerCacheMissTotal:             containerCacheMissTotal,
@@ -564,6 +572,16 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 			}
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerJoulesTotal,
+				prometheus.CounterValue,
+				(float64(container.EnergyInPkg.Aggr)/miliJouleToJoule +
+					float64(container.EnergyInUncore.Aggr)/miliJouleToJoule +
+					float64(container.EnergyInDRAM.Aggr)/miliJouleToJoule +
+					float64(container.EnergyInGPU.Aggr)/miliJouleToJoule +
+					float64(container.EnergyInOther.Aggr)/miliJouleToJoule),
+				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+			)
 			if collector_metric.CPUHardwareCounterEnabled {
 				if container.CounterStats[attacher.CPUCycleLable] != nil {
 					ch <- prometheus.MustNewConstMetric(
