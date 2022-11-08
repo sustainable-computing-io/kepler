@@ -1,8 +1,7 @@
 name: image
 
 on:
-  push:
-    branches: [ main ]
+  pull_request:
 
 jobs:
   image_build:
@@ -16,7 +15,9 @@ jobs:
         registry: quay.io/sustainable_computing_io
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
+    - name: check go version
+      run: go version
     - name: make container
       run: make
-    - name: push to quay
-      run: podman push quay.io/sustainable_computing_io/kepler:latest
+    #- name: push to quay
+    #  run: podman push quay.io/sustainable_computing_io/kepler:latest
