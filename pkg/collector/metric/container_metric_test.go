@@ -75,7 +75,7 @@ var _ = Describe("Test Container Metric", func() {
 
 	It("Test extractUIntCurrAggr", func() {
 		curr, aggr, err := c.extractUIntCurrAggr("core")
-		Expect(err).To(BeNil())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(13)))
 		Expect(aggr).To(Equal(uint64(14)))
 		curr, aggr, err = c.extractUIntCurrAggr("dram")
