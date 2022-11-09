@@ -87,7 +87,7 @@ var _ = Describe("Test Container Metric", func() {
 		Expect(curr).To(Equal(uint64(17)))
 		Expect(aggr).To(Equal(uint64(18)))
 		curr, aggr, err = c.extractUIntCurrAggr("pkg")
-		Expect(err).To(BeNil())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(19)))
 		Expect(aggr).To(Equal(uint64(20)))
 		curr, aggr, err = c.extractUIntCurrAggr("gpu")
