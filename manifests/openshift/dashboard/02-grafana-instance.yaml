@@ -4,6 +4,9 @@ metadata:
   name: kepler-grafana
   namespace: kepler
 spec:
+  # TODO: this hard-coded image version is necessary until the currently available version
+  # of grafana operator from OperatorHub (v4.7.1) pulls in a later version of grafana
+  baseImage: 'docker.io/grafana/grafana:8.5.5'
   ingress:
     enabled: true
   config:
