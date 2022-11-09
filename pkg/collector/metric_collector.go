@@ -128,7 +128,7 @@ func (c *Collector) Update() {
 		}
 		klog.V(3).Infoln(c.NodeMetrics)
 	}
-	klog.V(2).Infoln("Collector Update elapsed time: %s", time.Since(start))
+	klog.V(2).Infof("Collector Update elapsed time: %s", time.Since(start))
 }
 
 // resetCurrValue reset existing podEnergy previous curr value
