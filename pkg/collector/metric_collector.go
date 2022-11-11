@@ -68,8 +68,8 @@ func NewCollector() *Collector {
 		NodeCPUFrequency:       map[int32]uint64{},
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
-		systemProcessName:      utils.GetSystemProcessName(),
-		systemProcessNamespace: utils.GetSystemProcessNamespace(),
+		systemProcessName:      utils.SystemProcessName,
+		systemProcessNamespace: utils.SystemProcessNamespace,
 	}
 	return c
 }

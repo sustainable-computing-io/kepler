@@ -155,7 +155,7 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]
 	}
 	systemContainerMem := nodeMem - totalContainerMem
 	systemContainerCPU := nodeCPU - totalContainerCPU
-	systemContainerName := utils.GetSystemProcessNamespace() + "/" + utils.GetSystemProcessName()
+	systemContainerName := utils.SystemProcessNamespace + "/" + utils.SystemProcessName
 	containerCPU[systemContainerName] = systemContainerCPU
 	containerMem[systemContainerName] = systemContainerMem
 	return containerCPU, containerMem, nodeCPU, nodeMem, retErr

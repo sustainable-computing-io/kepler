@@ -102,10 +102,10 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{
-		ContainerID:   utils.GetSystemProcessName(),
-		ContainerName: utils.GetSystemProcessName(),
-		PodName:       utils.GetSystemProcessName(),
-		Namespace:     utils.GetSystemProcessNamespace(),
+		ContainerID:   utils.SystemProcessName,
+		ContainerName: utils.SystemProcessName,
+		PodName:       utils.SystemProcessName,
+		Namespace:     utils.SystemProcessNamespace,
 	}
 
 	if containerID, err = getContainerIDFromPath(cGroupID, pid); err != nil {
@@ -125,8 +125,8 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 	// in the case the containerID is not a kubernetes container, the updateListPodCache will not add it to the cache
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
 		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
-		if info.ContainerName == utils.GetSystemProcessName() {
-			containerID = utils.GetSystemProcessName()
+		if info.ContainerName == utils.SystemProcessName {
+			containerID = utils.SystemProcessName
 		}
 	}
 
@@ -209,7 +209,7 @@ func getContainerIDFromPID(pid uint64) (string, error) {
 	var err error
 	var path string
 	if path, err = getPathFromPID(procPath, pid); err != nil {
-		return utils.GetSystemProcessName(), err
+		return utils.SystemProcessName, err
 	}
 
 	containerIDCache[pid], err = extractPodContainerIDfromPath(path)
@@ -242,7 +242,7 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 	var err error
 	var path string
 	if path, err = getPathFromcGroupID(cGroupID); err != nil {
-		return utils.GetSystemProcessName(), err
+		return utils.SystemProcessName, err
 	}
 
 	containerIDCache[cGroupID], err = extractPodContainerIDfromPath(path)
@@ -307,7 +307,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 			return containerID, nil
 		}
 	}
-	return utils.GetSystemProcessName(), fmt.Errorf("failed to find pod's container id")
+	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
 
 // GetAliveContainers returns alive pod map

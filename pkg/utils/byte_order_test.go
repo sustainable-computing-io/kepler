@@ -18,4 +18,15 @@ var _ = Describe("Byte order test", func() {
 			Expect(order).To(Equal(binary.LittleEndian))
 		}
 	})
+
+	It("CreateTempFile", func() {
+		filename, err := CreateTempFile("abc")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(filename).ToNot(BeEmpty())
+	})
+
+	It("GetPathFromPID", func() {
+		_, err := GetPathFromPID("", 1)
+		Expect(err).To(HaveOccurred())
+	})
 })

@@ -15,11 +15,14 @@ func CreateTempFile(contents string) (filename string, reterr error) {
 		return "", err
 	}
 	defer func() {
-		if err := f.Close(); err != nil {
+		if err = f.Close(); err != nil {
 			return
 		}
 	}()
-	_, _ = f.WriteString(contents)
+	_, err = f.WriteString(contents)
+	if err != nil {
+		return "", err
+	}
 	return f.Name(), nil
 }
 
@@ -40,17 +43,9 @@ func DetermineHostByteOrder() binary.ByteOrder {
 }
 
 const (
-	systemProcessName      string = "system_processes"
-	systemProcessNamespace string = "system"
+	SystemProcessName      string = "system_processes"
+	SystemProcessNamespace string = "system"
 )
-
-func GetSystemProcessName() string {
-	return systemProcessName
-}
-
-func GetSystemProcessNamespace() string {
-	return systemProcessNamespace
-}
 
 func GetPathFromPID(searchPath string, pid uint64) (string, error) {
 	path := fmt.Sprintf(searchPath, pid)
