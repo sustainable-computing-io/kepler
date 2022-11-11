@@ -26,6 +26,7 @@ This file is a main file of cgroup module containing
 package cgroup
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,11 +144,34 @@ func GetStandardStat(containerID string) map[string]interface{} {
 	return convertToStandard(stats)
 }
 
-func findContainerScope(path string) string {
-	if strings.Contains(path, scopeSuffix) {
-		return path
+func searchBySuffix(topFolder, suffix string) string {
+	found := filepath.Walk(topFolder,
+		func(path string, info os.FileInfo, err error) error {
+			if path == topFolder {
+				return nil
+			}
+			if strings.HasSuffix(path, suffix) {
+				return errors.New(path)
+			}
+			return nil
+		})
+	if found != nil {
+		return found.Error()
 	}
-	slicePath := SearchByContainerID(path, sliceSuffix)
+	return ""
+}
+
+func findContainerScope(path string) string {
+	// Search a scope file, if we do, return it, the file might be
+	// /sys/fs/cgroup/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-podd4f512ba_d18f_41ef_a3a7_0d169174b9ff.slice/crio-12b270d3b4ec20ad1fe09889bbf7faa153309d691adbaa660b110289a41f6434.scope
+	scopePath := searchBySuffix(path, scopeSuffix)
+	if scopePath != "" {
+		klog.V(5).Infof("found scope file path %v", scopePath)
+		return scopePath
+	}
+
+	// let's search subfolder with .slice
+	slicePath := searchBySuffix(path, sliceSuffix)
 	if slicePath == "" {
 		return ""
 	}
