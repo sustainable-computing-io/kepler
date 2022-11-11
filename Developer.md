@@ -18,7 +18,10 @@ If you are good with our [License](./LICENSE) and [DCO](./DCO), then contents wo
 We run go test base on specific build tag for different conditions.
 Please don't break others build tag, otherwise you will see CI failure.
 
-## Dev on Mac
+## Local environment build
+[Link](./doc/dev/README.md)
+
+## Coding on Mac
 Please notice that in kepler we use different build tags to adapt to different hardwares.
 Please see keywords below for more details, as the code talks.
 ```
