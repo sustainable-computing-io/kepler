@@ -18,9 +18,12 @@ package cgroup
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 var testPaths []string = []string{
@@ -84,5 +87,51 @@ var _ = Describe("Test Read Stat", func() {
 			fmt.Println(standardStats)
 			Expect(len(standardStats)).To(Equal(expectedStandardStats[testPath]))
 		}
+	})
+})
+
+var _ = Describe("Test Read Scope file", func() {
+	It("Properly find scope file", func() {
+		dir, err := utils.CreateTempDir()
+		Expect(err).NotTo(HaveOccurred())
+
+		defer os.RemoveAll(dir)
+
+		// we create a temp folder, then we create a a<random string>.slice a<random string>.scope inside the folder expect to find those files with search function
+		fslice, err := os.CreateTemp(dir, "a*.slice")
+		Expect(err).NotTo(HaveOccurred())
+		fscope, err := os.CreateTemp(dir, "a*.scope")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.CreateTemp(dir, "a")
+		Expect(err).NotTo(HaveOccurred())
+
+		f := searchBySuffix(dir, ".slice")
+		Expect(f).To(Equal(fslice.Name()))
+
+		sc := findContainerScope(dir)
+		Expect(sc).To(Equal(fscope.Name()))
+	})
+	It("Properly find scope file in subfolder", func() {
+		dirTop, err := utils.CreateTempDir()
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(dirTop)
+
+		// Create a subfolder with suffix
+		dir, err := os.MkdirTemp(dirTop, "")
+		Expect(err).NotTo(HaveOccurred())
+
+		// we create a temp folder, then we create a a<random string>.slice a<random string>.scope inside the folder expect to find those files with search function
+		fslice, err := os.CreateTemp(dir, "a*.slice")
+		Expect(err).NotTo(HaveOccurred())
+		fscope, err := os.CreateTemp(dir, "a*.scope")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.CreateTemp(dir, "a")
+		Expect(err).NotTo(HaveOccurred())
+
+		f := searchBySuffix(dirTop, ".slice")
+		Expect(f).To(Equal(fslice.Name()))
+
+		sc := findContainerScope(dirTop)
+		Expect(sc).To(Equal(fscope.Name()))
 	})
 })

@@ -23,6 +23,10 @@ func CreateTempFile(contents string) (filename string, reterr error) {
 	return f.Name(), nil
 }
 
+func CreateTempDir() (dir string, err error) {
+	return os.MkdirTemp("", "")
+}
+
 func DetermineHostByteOrder() binary.ByteOrder {
 	var i int32 = 0x01020304
 	u := unsafe.Pointer(&i)
