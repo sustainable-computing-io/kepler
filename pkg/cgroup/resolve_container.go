@@ -122,15 +122,11 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 		return cinfo, nil
 	}
 
-	// in the case the containerID is not a kubernetes container, the updateListPodCache will not add it to the cache
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
 		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
-		if info.ContainerName == utils.SystemProcessName {
-			containerID = utils.SystemProcessName
-		}
+		containerIDToContainerInfo[containerID] = info
 	}
 
-	containerIDToContainerInfo[containerID] = info
 	return containerIDToContainerInfo[containerID], nil
 }
 
