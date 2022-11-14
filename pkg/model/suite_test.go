@@ -21,7 +21,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 )
 
 var (
@@ -34,7 +33,6 @@ func TestModels(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	local.InitMetricIndexes(usageMetrics)
 })
 
 var _ = AfterSuite(func() {

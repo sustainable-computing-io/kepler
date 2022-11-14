@@ -20,7 +20,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 func getSumDelta(corePower, dramPower, uncorePower, pkgPower, gpuPower []float64) (totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower uint64) {
@@ -37,31 +39,39 @@ func getSumDelta(corePower, dramPower, uncorePower, pkgPower, gpuPower []float64
 }
 
 var _ = Describe("Test Ratio Unit", func() {
-	It("GetPodPowerRatio", func() {
-		corePower := []float64{10, 10}
-		dramPower := []float64{2, 2}
-		uncorePower := []float64{1, 1}
-		pkgPower := []float64{15, 15}
-		totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, _ := getSumDelta(corePower, dramPower, uncorePower, pkgPower, empty)
-		Expect(totalCorePower).Should(BeEquivalentTo(20))
-		Expect(totalDRAMPower).Should(BeEquivalentTo(4))
-		Expect(totalUncorePower).Should(BeEquivalentTo(2))
-		Expect(totalPkgPower).Should(BeEquivalentTo(30))
-		nodeComponentPower := source.RAPLPower{
-			Core:   totalCorePower,
-			Uncore: totalUncorePower,
-			DRAM:   totalDRAMPower,
-			Pkg:    totalPkgPower,
+	It("GetContainerEnergyRatio", func() {
+
+		containersMetrics := map[string]*collector_metric.ContainerMetrics{}
+		containersMetrics["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test")
+		err := containersMetrics["containerA"].CounterStats[config.CoreUsageMetric].AddNewCurr(100)
+		Expect(err).NotTo(HaveOccurred())
+		containersMetrics["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test")
+		err = containersMetrics["containerB"].CounterStats[config.CoreUsageMetric].AddNewCurr(100)
+		Expect(err).NotTo(HaveOccurred())
+
+		nodeMetrics := *collector_metric.NewNodeMetrics()
+		nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
+		Expect(nodeMetrics.ResourceUsage[config.CoreUsageMetric]).Should(BeEquivalentTo(200))
+
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Core:   10,
+			DRAM:   3,
+			Uncore: 2,
+			Pkg:    20,
 		}
-		otherNodePower := uint64(10)
-		componentPowers, otherPodPowers := GetPodPowerRatio(usageValues, otherNodePower, nodeComponentPower)
-		Expect(len(componentPowers)).Should(Equal(len(usageValues)))
-		Expect(len(otherPodPowers)).Should(Equal(len(usageValues)))
-		Expect(componentPowers[0].Core).Should(Equal(componentPowers[1].Core))
-		Expect(componentPowers[0].Core).Should(BeEquivalentTo(10))
-		Expect(componentPowers[0].DRAM).Should(BeEquivalentTo(2))
-		Expect(componentPowers[0].Uncore).Should(BeEquivalentTo(1))
-		Expect(componentPowers[0].Pkg).Should(BeEquivalentTo(15))
-		Expect(otherPodPowers[0]).Should(BeEquivalentTo(5))
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		Expect(nodeMetrics.EnergyInCore.Curr()).Should(BeEquivalentTo(10))
+		Expect(nodeMetrics.EnergyInDRAM.Curr()).Should(BeEquivalentTo(3))
+		Expect(nodeMetrics.EnergyInUncore.Curr()).Should(BeEquivalentTo(2))
+		Expect(nodeMetrics.EnergyInPkg.Curr()).Should(BeEquivalentTo(20))
+
+		nodePlatformEnergy := map[string]float64{}
+		nodePlatformEnergy["sensor0"] = 40
+		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy) // must be higher than components energy
+		Expect(nodeMetrics.EnergyInPlatform.Curr()).Should(BeEquivalentTo(40))
+
+		UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
+		Expect(containersMetrics["containerA"].EnergyInPkg).Should(BeEquivalentTo(10))
 	})
 })

@@ -18,36 +18,48 @@ package model
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+)
+
+const (
+	estimatorACPISensorID string = "estimator"
 )
 
 var (
-	NodeTotalPowerModelValid bool
-	NodeTotalPowerModelFunc  func([][]float64, []string) ([]float64, error)
+	NodePlatformPowerModelEnabled bool
+	NodeTotalPowerModelFunc       func([][]float64, []string) ([]float64, error)
 
 	// TODO: be configured by config package
-	NodeTotalPowerModelConfig types.ModelConfig = types.ModelConfig{UseEstimatorSidecar: false}
+	NodePlatformPowerModelConfig types.ModelConfig = types.ModelConfig{UseEstimatorSidecar: false}
 )
 
 func InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
 	var estimateFunc interface{}
 	// init func for NodeTotalPower
-	NodeTotalPowerModelValid, estimateFunc = initEstimateFunction(NodeTotalPowerModelConfig, types.AbsPower, types.AbsModelWeight, usageMetrics, systemFeatures, systemValues, true)
-	if NodeTotalPowerModelValid {
+	NodePlatformPowerModelEnabled, estimateFunc = initEstimateFunction(NodePlatformPowerModelConfig, types.AbsPower, types.AbsModelWeight, usageMetrics, systemFeatures, systemValues, true)
+	if NodePlatformPowerModelEnabled {
 		NodeTotalPowerModelFunc = estimateFunc.(func([][]float64, []string) ([]float64, error))
 	}
 }
 
-// GetNodeTotalPower returns a single estimated value of node total power
-func GetNodeTotalPower(usageValues []float64, systemValues []string) (valid bool, value uint64) {
-	valid = false
-	value = 0
-	if NodeTotalPowerModelValid {
-		powers, err := NodeTotalPowerModelFunc([][]float64{usageValues}, systemValues)
+// IsNodePlatformPowerModelEnabled returns if the estimator has been enabled or not
+func IsNodePlatformPowerModelEnabled() bool {
+	return NodePlatformPowerModelEnabled
+}
+
+// GetNodeTotalEnergy returns a single estimated value of node total power
+func GetEstimatedNodePlatformPower(nodeMetrics collector_metric.NodeMetrics) (platformEnergy map[string]float64) {
+	platformEnergy = map[string]float64{}
+	platformEnergy[estimatorACPISensorID] = 0
+	if NodePlatformPowerModelEnabled {
+		// convert the resource usage map to an array since the model server does not receive structured data
+		nodeMetricResourceUsageValuesOnly := nodeMetricsToArray(nodeMetrics)
+		powers, err := NodeTotalPowerModelFunc(nodeMetricResourceUsageValuesOnly, collector_metric.NodeMetadataValues)
 		if err != nil || len(powers) == 0 {
 			return
 		}
-		valid = true
-		value = uint64(powers[0])
+		platformEnergy[estimatorACPISensorID] = powers[0]
 		return
 	}
 	return

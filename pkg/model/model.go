@@ -20,7 +20,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 var (
@@ -34,7 +33,7 @@ var (
 func InitEstimateFunctions(usageMetrics, systemFeatures, systemValues []string) {
 	InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues)
 	InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues)
-	InitPodPowerEstimator(usageMetrics, systemFeatures, systemValues)
+	InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues)
 }
 
 // initEstimateFunction called by InitEstimateFunctions to initiate estimate function for each power model
@@ -78,30 +77,4 @@ func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeigh
 		estimateFunc = r.GetComponentPower
 	}
 	return valid, estimateFunc
-}
-
-// getComponentPower called by getPodComponentPowers to check if component key is present in powers response and fills with single 0
-func getComponentPower(powers map[string][]float64, componentKey string, index int) uint64 {
-	values := powers[componentKey]
-	if index >= len(values) {
-		return 0
-	} else {
-		return uint64(values[index])
-	}
-}
-
-// fillRAPLPower fills missing component (pkg or core) power
-func fillRAPLPower(pkgPower, corePower, uncorePower, dramPower uint64) source.RAPLPower {
-	if pkgPower < corePower+uncorePower {
-		pkgPower = corePower + uncorePower
-	}
-	if corePower == 0 {
-		corePower = pkgPower - uncorePower
-	}
-	return source.RAPLPower{
-		Core:   corePower,
-		Uncore: uncorePower,
-		DRAM:   dramPower,
-		Pkg:    pkgPower,
-	}
 }

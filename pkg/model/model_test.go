@@ -19,56 +19,113 @@ package model
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
-)
-
-var (
-	SampleDynPowerValue float64 = 100.0
-
-	systemFeatures = []string{"cpu_architecture"}
-	usageValues    = [][]float64{{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}
-	systemValues   = []string{"Sandy Bridge"}
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 var _ = Describe("Test Model Unit", func() {
+	var (
+		containersMetrics map[string]*collector_metric.ContainerMetrics
+		nodeMetrics       collector_metric.NodeMetrics
+
+		machineSensorID = "sensor0"
+		machineSocketID = 0
+
+		systemFeatures = []string{"cpu_architecture"}
+		systemValues   = []string{"Sandy Bridge"}
+	)
+
+	BeforeEach(func() {
+		source.SystemCollectionSupported = false // disable the system power collection to use the prediction power model
+		setCollectorMetrics()
+		containersMetrics = createMockContainersMetrics()
+		nodeMetrics = createMockNodeMetrics(containersMetrics)
+	})
+
+	// Currently, the model server test models only have data for the DynComponentModelWeight. We cannot get weights for the AbsModelWeight, AbsComponentModelWeight and DynModelWeight
+	// Therefore, we can only test this the DynComponentModelWeight component
+	// TODO: the make the usage of this different models more transparent, it is currently very hard to know what is going on...
 	It("Get container power with no dependency and no node power ", func() {
-		// collector/metrics.go - getEstimatorMetrics
+		// getEstimatorMetrics
 		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(PodComponentPowerModelValid).To(Equal(true))
-		// collector/reader.go
-		totalNodePower := uint64(0)
-		totalGPUPower := uint64(0)
-		nodeComponentPowers := source.RAPLPower{}
-		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
-	})
-	It("Get container power with no dependency but with total node power ", func() {
-		// collector/metrics.go - getEstimatorMetrics
-		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(PodComponentPowerModelValid).To(Equal(true))
-		// collector/reader.go
-		totalNodePower := uint64(10000)
-		totalGPUPower := uint64(1000)
-		nodeComponentPowers := source.RAPLPower{}
-		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
-	})
-	It("Get container power with no dependency but with all node power ", func() {
-		// collector/metrics.go - getEstimatorMetrics
-		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(PodComponentPowerModelValid).To(Equal(true))
-		// collector/reader.go
-		totalNodePower := uint64(10000)
-		totalGPUPower := uint64(1000)
-		nodeComponentPowers := source.RAPLPower{
-			Pkg:  8000,
-			Core: 5000,
-			DRAM: 1000,
+		Expect(ContainerComponentPowerModelValid).To(Equal(true))
+
+		// update container and node metrics
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+			Pkg:  0,
+			Core: 0,
+			DRAM: 0,
 		}
-		containerComponentPowers, containerOtherPowers := GetContainerPower(usageValues, systemValues, totalNodePower, totalGPUPower, nodeComponentPowers)
-		Expect(len(containerOtherPowers)).To(Equal(len(usageValues)))
-		Expect(len(containerComponentPowers)).Should(Equal(len(usageValues)))
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodePlatformEnergy := map[string]float64{}
+		nodePlatformEnergy[machineSensorID] = 0 // empty
+		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+
+		// calculate container energy consumption
+		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
+		// The test is return 1323 for EnergyInPkg, dosen't matter the input
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+	})
+
+	It("Get container power with no dependency but with total node power ", func() {
+		// getEstimatorMetrics
+		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
+		Expect(ContainerComponentPowerModelValid).To(Equal(true))
+
+		// update container and node metrics
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+			Pkg:  0,
+			Core: 0,
+			DRAM: 0,
+		}
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodePlatformEnergy := map[string]float64{}
+		nodePlatformEnergy[machineSensorID] = 10
+		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+
+		// calculate container energy consumption
+		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
+		// The test is return 1323 for EnergyInPkg, dosen't matter the input
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+	})
+
+	It("Get container power with no dependency but with all node power ", func() {
+		// getEstimatorMetrics
+		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
+		Expect(ContainerComponentPowerModelValid).To(Equal(true))
+
+		// update container and node metrics
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		// the NodeComponentsEnergy is the aggregated energy consumption of the node components
+		// then, the components energy consumption is added to the in the nodeMetrics as Agg data
+		// this means that, to have a Curr value, we must have at least two Agg data (to have Agg diff)
+		// therefore, we need to add two values for NodeComponentsEnergy to have energy values to test
+		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+			Pkg:  10,
+			Core: 10,
+			DRAM: 10,
+		}
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+			Pkg:  18,
+			Core: 15,
+			DRAM: 11,
+		}
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodePlatformEnergy := map[string]float64{}
+		nodePlatformEnergy[machineSensorID] = 10
+		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+		nodePlatformEnergy[machineSensorID] = 15
+		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+
+		// calculate container energy consumption
+		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
+		// The test is return 1323 for EnergyInPkg, dosen't matter the input
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
 	})
 })
