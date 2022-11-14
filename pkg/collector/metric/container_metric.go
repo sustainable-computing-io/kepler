@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
 )
 
@@ -99,6 +101,11 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 	}
 	for _, metricName := range AvailableCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}
+	}
+	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
+	if accelerator.IsGPUCollectionSupported() {
+		c.CounterStats[config.GPUSMUtilization] = &UInt64Stat{}
+		c.CounterStats[config.GPUMemUtilization] = &UInt64Stat{}
 	}
 	for _, metricName := range AvailableCgroupMetrics {
 		c.CgroupFSStats[metricName] = &UInt64StatCollection{
