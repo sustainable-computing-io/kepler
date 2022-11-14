@@ -1,6 +1,3 @@
-//go:build !gpu
-// +build !gpu
-
 /*
 Copyright 2021.
 
@@ -17,24 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gpu
+package source
 
-// todo: refactor it as an interface of device?
-// todo: refactor logic at invoking side, if gpu is not set?
-func Init() error {
-	return nil
-}
-
-func Shutdown() bool {
-	return true
-}
-
-func GetGpuEnergy() []uint32 {
-	e := make([]uint32, 0)
-	return e
-}
-
-func GetCurrGpuEnergyPerPid() (map[uint32]float64, error) {
-	m := make(map[uint32]float64)
-	return m, nil
+type ProcessUtilizationSample struct {
+	Pid       uint32
+	TimeStamp uint64
+	SmUtil    uint32
+	MemUtil   uint32
+	EncUtil   uint32
+	DecUtil   uint32
 }
