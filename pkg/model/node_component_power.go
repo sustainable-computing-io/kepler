@@ -17,13 +17,14 @@ limitations under the License.
 package model
 
 import (
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 var (
-	NodeComponentPowerModelValid bool
-	NodeComponentPowerModelFunc  func([][]float64, []string) (map[string][]float64, error)
+	NodeComponentPowerModelEnabled bool
+	NodeComponentPowerModelFunc    func([][]float64, []string) (map[string][]float64, error)
 
 	// TODO: be configured by config package
 	NodeComponentPowerModelConfig types.ModelConfig = types.ModelConfig{UseEstimatorSidecar: false}
@@ -32,27 +33,34 @@ var (
 func InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
 	var estimateFunc interface{}
 	// init func for NodeComponentPower
-	NodeComponentPowerModelValid, estimateFunc = initEstimateFunction(NodeComponentPowerModelConfig, types.AbsComponentPower, types.AbsComponentModelWeight, usageMetrics, systemFeatures, systemValues, false)
-	if NodeComponentPowerModelValid {
+	NodeComponentPowerModelEnabled, estimateFunc = initEstimateFunction(NodeComponentPowerModelConfig, types.AbsComponentPower, types.AbsComponentModelWeight, usageMetrics, systemFeatures, systemValues, false)
+	if NodeComponentPowerModelEnabled {
 		NodeComponentPowerModelFunc = estimateFunc.(func([][]float64, []string) (map[string][]float64, error))
 	}
 }
 
-// GetNodeTotalPower returns estimated RAPL power
-func GetNodeComponentPowers(usageValues []float64, systemValues []string) (valid bool, results source.RAPLPower) {
-	results = source.RAPLPower{}
-	valid = false
-	if NodeComponentPowerModelValid {
-		powers, err := NodeComponentPowerModelFunc([][]float64{usageValues}, systemValues)
+// IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
+func IsNodeComponentPowerModelEnabled() bool {
+	return NodeComponentPowerModelEnabled
+}
+
+// GetNodeTotalEnergy returns estimated RAPL power
+// func GetNodeComponentPowers(usageValues []float64, systemValues []string) (results source.RAPLPower) {
+func GetNodeComponentPowers(nodeMetrics collector_metric.NodeMetrics) (nodeComponentsEnergy map[int]source.NodeComponentsEnergy) {
+	nodeComponentsEnergy = map[int]source.NodeComponentsEnergy{}
+	// TODO: make the estimator also retrieve the socket ID, we are estimating that the node will have only socket
+	socketID := 0
+	if NodeComponentPowerModelEnabled {
+		nodeMetricResourceUsageValuesOnly := nodeMetricsToArray(nodeMetrics)
+		powers, err := NodeComponentPowerModelFunc(nodeMetricResourceUsageValuesOnly, collector_metric.NodeMetadataValues)
 		if err != nil {
 			return
 		}
-		pkgPower := getComponentPower(powers, "pkg", 0)
-		corePower := getComponentPower(powers, "core", 0)
-		uncorePower := getComponentPower(powers, "uncore", 0)
-		dramPower := getComponentPower(powers, "dram", 0)
-		valid = true
-		results = fillRAPLPower(pkgPower, corePower, uncorePower, dramPower)
+		pkgPower := getComponentPower(powers, "pkg", socketID)
+		corePower := getComponentPower(powers, "core", socketID)
+		uncorePower := getComponentPower(powers, "uncore", socketID)
+		dramPower := getComponentPower(powers, "dram", socketID)
+		nodeComponentsEnergy[socketID] = fillRAPLPower(pkgPower, corePower, uncorePower, dramPower)
 		return
 	}
 	return

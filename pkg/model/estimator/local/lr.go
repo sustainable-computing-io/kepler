@@ -31,6 +31,7 @@ import (
 	"math"
 	"net/http"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"k8s.io/klog/v2"
 )
@@ -147,9 +148,12 @@ type LinearRegressor struct {
 
 // Init returns valid if model weight is obtainable
 func (r *LinearRegressor) Init() bool {
-	// try getting weight from model server
-	weight, err := r.getWeightFromServer()
-	if err != nil && r.InitModelURL != "" {
+	var err error
+	var weight interface{}
+	// try getting weight from model server if it is enabled
+	if config.ModelServerEndpoint != "" {
+		weight, err = r.getWeightFromServer()
+	} else if r.InitModelURL != "" {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURL()
 	}
@@ -252,7 +256,10 @@ func (r *LinearRegressor) GetTotalPower(usageValues [][]float64, systemValues []
 	if !r.valid {
 		return []float64{}, fmt.Errorf("invalid power model call: %s", r.OutputType.String())
 	}
-	return r.modelWeight.(ModelWeights).predict(r.UsageMetrics, usageValues, r.SystemFeatures, systemValues), nil
+	if r.modelWeight != nil {
+		return r.modelWeight.(ModelWeights).predict(r.UsageMetrics, usageValues, r.SystemFeatures, systemValues), nil
+	}
+	return []float64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
 }
 
 // GetComponentPower applies each component's ModelWeight prediction and return a map of component powers

@@ -45,7 +45,6 @@ var (
 	usageValues    = [][]float64{{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}
 	nodeUsageValue = usageValues[0]
 	systemValues   = []string{"Sandy Bridge"}
-	empty          = []float64{}
 )
 
 var (

@@ -16,12 +16,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 const (
 	nodeEnergyMetric             = "kepler_node_platform_joules_total"
-	nodefreqMetric               = "kepler_node_cpu_scaling_frequency_hertz"
 	nodePackageEnergyMetric      = "kepler_node_package_joules_total"
 	containerCPUCoreEnergyMetric = "kepler_container_package_joules_total"
 
@@ -29,7 +29,6 @@ const (
 	SampleAggr       = 1000
 	sampleNodeEnergy = 20000 // mJ
 	samplePkgEnergy  = 1000  // mJ
-	SampleFreq       = 100000
 )
 
 func convertPromMetricToMap(body []byte, metric string) map[string]string {
@@ -58,8 +57,11 @@ func convertPromToValue(body []byte, metric string) (int, error) {
 }
 
 func newMockPrometheusExporter() *PrometheusCollector {
+	if accelerator.IsGPUCollectionSupported() {
+		err := accelerator.Init() // create structure instances that will be accessed to create a containerMetric
+		Expect(err).NotTo(HaveOccurred())
+	}
 	exporter := NewPrometheusExporter()
-	exporter.NodePkgEnergy = &map[int]source.RAPLEnergy{}
 	exporter.NodeCPUFrequency = &map[int32]uint64{}
 	exporter.NodeMetrics = collector_metric.NewNodeMetrics()
 	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
@@ -67,7 +69,7 @@ func newMockPrometheusExporter() *PrometheusCollector {
 	return exporter
 }
 
-var _ = Describe("Test Collector Unit", func() {
+var _ = Describe("Test Prometheus Collector Unit", func() {
 	It("Init and Run", func() {
 		exporter := newMockPrometheusExporter()
 		err := prometheus.Register(exporter)
@@ -82,19 +84,19 @@ var _ = Describe("Test Collector Unit", func() {
 		Expect(len(body)).Should(BeNumerically(">", 0))
 
 		// add container mock values
-		containerA := collector_metric.NewContainerMetrics("containerA", "podA", "default")
-		err = containerA.EnergyInPkg.AddNewCurr(SampleCurr * 1000)
+		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test")
+		err = (*exporter.ContainersMetrics)["containerA"].EnergyInPkg.AddNewCurr(SampleCurr * 1000)
 		Expect(err).NotTo(HaveOccurred())
 
 		// add node mock values
-		(*exporter.ContainersMetrics)["containerA"] = containerA
-		(*exporter.NodeCPUFrequency)[0] = SampleFreq
-		(*exporter.NodePkgEnergy)[0] = source.RAPLEnergy{Pkg: samplePkgEnergy}
-		nodeSensorEnergy := map[string]float64{
-			"sensor0": sampleNodeEnergy,
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Pkg: samplePkgEnergy,
 		}
-		gpuEnergy := []uint32{uint32(sampleNodeEnergy)}
-		exporter.NodeMetrics.SetValues(nodeSensorEnergy, *exporter.NodePkgEnergy, gpuEnergy, [][]float64{})
+		exporter.NodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodePlatformEnergy := map[string]float64{}
+		nodePlatformEnergy["sensor0"] = sampleNodeEnergy
+		exporter.NodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy) // must be higher than components energy
 
 		// get metrics from prometheus
 		res = httptest.NewRecorder()
@@ -113,11 +115,6 @@ var _ = Describe("Test Collector Unit", func() {
 		val, err = convertPromToValue(body, nodePackageEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(val).Should(BeEquivalentTo(int(samplePkgEnergy / 1000))) // J
-
-		// check sample frequency
-		val, err = convertPromToValue(body, nodefreqMetric)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(SampleFreq)))
 
 		// check sample pod
 		val, err = convertPromToValue(body, containerCPUCoreEnergyMetric)

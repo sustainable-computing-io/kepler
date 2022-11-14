@@ -70,23 +70,23 @@ func Init() (*[]corev1.Pod, error) {
 	return updateListPodCache("", false)
 }
 
-func GetPodName(cGroupID, pid uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid)
+func GetPodName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
 	return info.PodName, err
 }
 
-func GetPodNameSpace(cGroupID, pid uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid)
+func GetPodNameSpace(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
 	return info.Namespace, err
 }
 
-func GetContainerName(cGroupID, pid uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid)
+func GetContainerName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
 	return info.ContainerName, err
 }
 
-func GetContainerID(cGroupID, pid uint64) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid)
+func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
 	return info.ContainerID, err
 }
 
@@ -98,7 +98,7 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
-func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
+func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{
@@ -108,7 +108,7 @@ func getContainerInfo(cGroupID, pid uint64) (*ContainerInfo, error) {
 		Namespace:     utils.SystemProcessNamespace,
 	}
 
-	if containerID, err = getContainerIDFromPath(cGroupID, pid); err != nil {
+	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
 		return info, err
 	}
 
@@ -190,18 +190,24 @@ func ParseContainerIDFromPodStatus(containerID string) string {
 	return regexReplaceContainerIDPrefix.ReplaceAllString(containerID, "")
 }
 
-func getContainerIDFromPath(cGroupID, pid uint64) (string, error) {
+func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, error) {
 	var err error
 	var containerID string
-	if config.EnabledEBPFCgroupID {
+	if withCGroupID {
 		containerID, err = getContainerIDFromcGroupID(cGroupID)
 	} else {
-		containerID, err = getContainerIDFromPID(pid)
+		containerID, err = GetContainerIDFromPID(pid)
 	}
 	return containerID, err
 }
 
-func getContainerIDFromPID(pid uint64) (string, error) {
+// AddContainerIDToCache add the container id to cache using the pid as the key
+func AddContainerIDToCache(pid uint64, containerID string) {
+	containerIDCache[pid] = containerID
+}
+
+// GetContainerIDFromPID find the container ID using the process PID
+func GetContainerIDFromPID(pid uint64) (string, error) {
 	if p, ok := containerIDCache[pid]; ok {
 		return p, nil
 	}
@@ -212,7 +218,8 @@ func getContainerIDFromPID(pid uint64) (string, error) {
 		return utils.SystemProcessName, err
 	}
 
-	containerIDCache[pid], err = extractPodContainerIDfromPath(path)
+	containerID, err := extractPodContainerIDfromPath(path)
+	AddContainerIDToCache(pid, containerID)
 	return containerIDCache[pid], err
 }
 
@@ -245,7 +252,8 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 		return utils.SystemProcessName, err
 	}
 
-	containerIDCache[cGroupID], err = extractPodContainerIDfromPath(path)
+	containerID, err := extractPodContainerIDfromPath(path)
+	AddContainerIDToCache(cGroupID, containerID)
 	return containerIDCache[cGroupID], err
 }
 

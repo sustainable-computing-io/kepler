@@ -16,7 +16,7 @@ limitations under the License.
 
 /*
 ratio.go
-calculate Pods' component and other power by ratio approach when node power is available.
+calculate Containers' component and other power by ratio approach when node power is available.
 */
 
 package local
@@ -25,82 +25,96 @@ import (
 	"math"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"k8s.io/klog/v2"
+
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-var (
-	coreMetricIndex    int = -1
-	dramMetricIndex    int = -1
-	uncoreMetricIndex  int = -1
-	generalMetricIndex int = -1
-)
-
-func getSumMetricValues(podMetricValues [][]float64) (sumMetricValues []float64) {
-	if len(podMetricValues) == 0 {
+func getSumMetricValues(containerMetricValues [][]float64) (sumMetricValues []float64) {
+	if len(containerMetricValues) == 0 {
 		return
 	}
-	sumMetricValues = make([]float64, len(podMetricValues[0]))
-	for _, values := range podMetricValues {
-		for index, podMetricValue := range values {
-			sumMetricValues[index] += podMetricValue
+	sumMetricValues = make([]float64, len(containerMetricValues[0]))
+	for _, values := range containerMetricValues {
+		for index, containerMetricValue := range values {
+			sumMetricValues[index] += containerMetricValue
 		}
 	}
 	return
 }
 
-func InitMetricIndexes(metricNames []string) {
-	for index, metricName := range metricNames {
-		if metricName == config.CoreUsageMetric {
-			coreMetricIndex = index
-		}
-		if metricName == config.DRAMUsageMetric {
-			dramMetricIndex = index
-		}
-		if metricName == config.UncoreUsageMetric {
-			uncoreMetricIndex = index
-		}
-		if metricName == config.GeneralUsageMetric {
-			generalMetricIndex = index
-		}
-	}
-}
-
-func getRatio(podMetricValue []float64, metricIndex int, totalPower uint64, podNumber float64, sumMetricValues []float64) uint64 {
+func getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber float64) uint64 {
 	var power float64
-	if metricIndex >= 0 && sumMetricValues[metricIndex] > 0 {
-		power = podMetricValue[metricIndex] / sumMetricValues[metricIndex] * float64(totalPower)
+	if nodeTotalResUsage > 0 {
+		power = (containerResUsage / nodeTotalResUsage) * nodeResEnergyUtilization
 	} else {
-		power = float64(totalPower) / podNumber
+		// TODO: we should not equaly divide the energy consumptio across the containers. If a hardware counter metrics is not available we should use cgroup metrics.
+		power = nodeResEnergyUtilization / containerNumber
 	}
 	return uint64(math.Ceil(power))
 }
 
-func GetPodPowerRatio(podMetricValues [][]float64, otherNodePower uint64, nodeComponentPower source.RAPLPower) (componentPowers []source.RAPLPower, otherPodPowers []uint64) {
-	sumMetricValues := getSumMetricValues(podMetricValues)
-	podNumber := len(podMetricValues)
-	componentPowers = make([]source.RAPLPower, podNumber)
-	otherPodPowers = make([]uint64, podNumber)
-	podNumberDivision := float64(podNumber)
+// UpdateContainerEnergyByRatioPowerModel calculates the container energy consumption based on the resource utilization ratio
+func UpdateContainerEnergyByRatioPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics collector_metric.NodeMetrics) {
+	nodeTotalEnergyPerComponent := nodeMetrics.GetNodeTotalEnergyPerComponent()
+	containerNumber := float64(len(containersMetrics))
 
-	// Package (PKG) domain measures the energy consumption of the entire socket, including the consumption of all the cores, integrated graphics and
-	// also the "unknown" components such as last level caches and memory controllers
-	pkgUnknownValue := nodeComponentPower.Pkg - nodeComponentPower.Core - nodeComponentPower.Uncore
+	for containerID, container := range containersMetrics {
+		var containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization float64
 
-	// find ratio power
-	for index, podMetricValue := range podMetricValues {
-		coreValue := getRatio(podMetricValue, coreMetricIndex, nodeComponentPower.Core, podNumberDivision, sumMetricValues)
-		uncoreValue := getRatio(podMetricValue, uncoreMetricIndex, nodeComponentPower.Uncore, podNumberDivision, sumMetricValues)
-		unknownValue := getRatio(podMetricValue, generalMetricIndex, pkgUnknownValue, podNumberDivision, sumMetricValues)
-		dramValue := getRatio(podMetricValue, dramMetricIndex, nodeComponentPower.DRAM, podNumberDivision, sumMetricValues)
-		otherValue := getRatio(podMetricValue, generalMetricIndex, otherNodePower, podNumberDivision, sumMetricValues)
-		pkgValue := coreValue + uncoreValue + unknownValue
-		componentPowers[index] = source.RAPLPower{
-			Pkg:    pkgValue,
-			Core:   coreValue,
-			Uncore: uncoreValue,
-			DRAM:   dramValue,
+		// calculate the container package/socket energy consumption
+		if _, ok := container.CounterStats[config.CoreUsageMetric]; ok {
+			containerResUsage = float64(container.CounterStats[config.CoreUsageMetric].Curr)
+			nodeTotalResUsage = nodeMetrics.GetNodeResUsagePerResType(config.CoreUsageMetric)
+			nodeResEnergyUtilization = float64(nodeTotalEnergyPerComponent.Pkg)
+			containerPkgEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
+			if err := containersMetrics[containerID].EnergyInPkg.AddNewCurr(containerPkgEnergy); err != nil {
+				klog.Infoln(err)
+			}
+
+			// calculate the container core energy consumption
+			nodeResEnergyUtilization = float64(nodeTotalEnergyPerComponent.Core)
+			containerCoreEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
+			if err := containersMetrics[containerID].EnergyInCore.AddNewCurr(containerCoreEnergy); err != nil {
+				klog.Infoln(err)
+			}
 		}
-		otherPodPowers[index] = otherValue
+
+		// calculate the container uncore energy consumption
+		nodeResEnergyUtilization = float64(nodeTotalEnergyPerComponent.Uncore)
+		containerUncoreEnergy := uint64(math.Ceil(nodeResEnergyUtilization / containerNumber))
+		if err := containersMetrics[containerID].EnergyInUncore.AddNewCurr(containerUncoreEnergy); err != nil {
+			klog.Infoln(err)
+		}
+
+		// calculate the container dram energy consumption
+		if _, ok := container.CounterStats[config.DRAMUsageMetric]; ok {
+			containerResUsage = float64(container.CounterStats[config.DRAMUsageMetric].Curr)
+			nodeTotalResUsage = nodeMetrics.GetNodeResUsagePerResType(config.DRAMUsageMetric)
+			nodeResEnergyUtilization = float64(nodeTotalEnergyPerComponent.DRAM)
+			containerDramEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
+			if err := containersMetrics[containerID].EnergyInDRAM.AddNewCurr(containerDramEnergy); err != nil {
+				klog.Infoln(err)
+			}
+		}
+
+		// calculate the container gpu energy consumption
+		if accelerator.IsGPUCollectionSupported() {
+			containerResUsage = float64(container.CounterStats[config.GpuUsageMetric].Curr)
+			nodeTotalResUsage = nodeMetrics.GetNodeResUsagePerResType(config.GpuUsageMetric)
+			nodeResEnergyUtilization = float64(nodeMetrics.GetNodeTotalGPUEnergy())
+			containerGPUEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
+			if err := containersMetrics[containerID].EnergyInGPU.AddNewCurr(containerGPUEnergy); err != nil {
+				klog.Infoln(err)
+			}
+		}
+
+		// calculate the container host other components energy consumption
+		nodeResEnergyUtilization = float64(nodeMetrics.GetNodeTotalOtherComponentsEnergy())
+		containerOtherHostComponentsEnergy := uint64(math.Ceil(nodeResEnergyUtilization / containerNumber))
+		if err := containersMetrics[containerID].EnergyInOther.AddNewCurr(containerOtherHostComponentsEnergy); err != nil {
+			klog.Infoln(err)
+		}
 	}
-	return
 }
