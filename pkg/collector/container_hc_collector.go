@@ -25,6 +25,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 
 	"k8s.io/klog/v2"
 )
@@ -34,7 +35,7 @@ import "C"
 
 // TODO in sync with bpf program
 type ProcessBPFMetrics struct {
-	CGroupPID      uint64
+	CGroupID       uint64
 	PID            uint64
 	ProcessRunTime uint64
 	CPUCycles      uint64
@@ -66,33 +67,19 @@ func (c *Collector) updateBPFMetrics() {
 		}
 		comm := (*C.char)(unsafe.Pointer(&ct.Command))
 
-		containerID, _ := cgroup.GetContainerID(ct.CGroupPID, ct.PID)
+		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
-			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupPID, err, c.systemProcessName)
+			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupID, err, c.systemProcessName)
 		}
 		// TODO: improve the removal of deleted containers from ContainersMetrics. Currently we verify the maxInactiveContainers using the foundContainer map
 		foundContainer[containerID] = true
 
-		if _, ok := c.ContainersMetrics[containerID]; !ok {
-			podName, _ := cgroup.GetPodName(ct.CGroupPID, ct.PID)
-			containerName, _ := cgroup.GetContainerName(ct.CGroupPID, ct.PID)
-			namespace := c.systemProcessNamespace
-			if containerName == c.systemProcessName {
-				containerID = c.systemProcessName
-			} else {
-				namespace, err = cgroup.GetPodNameSpace(ct.CGroupPID, ct.PID)
-				if err != nil {
-					klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", ct.CGroupPID, err)
-					namespace = "unknown"
-				}
-			}
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(containerName, podName, namespace)
-		}
+		c.createContainersMetricsIfNotExist(containerID, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
 		if containerID != c.systemProcessName {
-			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupPID, ct.PID, C.GoString(comm))
+			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
 		}
 
 		var activeCPUs []int32
@@ -135,7 +122,7 @@ func (c *Collector) updateBPFMetrics() {
 		// system process should not include container event
 		if containerID != c.systemProcessName {
 			// TODO: move to container-level section
-			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupPID, ct.PID)
+			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupID, ct.PID)
 			if err == nil {
 				if disks > c.ContainersMetrics[containerID].Disks {
 					c.ContainersMetrics[containerID].Disks = disks
