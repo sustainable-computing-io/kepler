@@ -211,14 +211,14 @@ func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 	return energy, nil
 }
 
-func GetRAPLEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uint64, error)) map[int]RAPLEnergy {
-	packageEnergies := make(map[int]RAPLEnergy)
+func GetRAPLEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uint64, error)) map[int]NodeComponentsEnergy {
+	packageEnergies := make(map[int]NodeComponentsEnergy)
 	for i := 0; i <= maxPackage; {
 		coreEnergy, _ := coreFunc(i)
 		dramEnergy, _ := dramFunc(i)
 		uncoreEnergy, _ := uncoreFunc(i)
 		pkgEnergy, _ := pkgFunc(i)
-		packageEnergies[i] = RAPLEnergy{
+		packageEnergies[i] = NodeComponentsEnergy{
 			Core:   coreEnergy,
 			DRAM:   dramEnergy,
 			Uncore: uncoreEnergy,

@@ -18,7 +18,7 @@ package source
 
 type PowerMSR struct{}
 
-func (r *PowerMSR) IsSupported() bool {
+func (r *PowerMSR) IsSystemCollectionSupported() bool {
 	return InitUnits() == nil
 }
 
@@ -38,7 +38,7 @@ func (r *PowerMSR) GetEnergyFromPackage() (uint64, error) {
 	return ReadAllPower(ReadPkgPower)
 }
 
-func (r *PowerMSR) GetRAPLEnergy() map[int]RAPLEnergy {
+func (r *PowerMSR) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
 	return GetRAPLEnergyByMSR(ReadCorePower, ReadDramPower, ReadUncorePower, ReadPkgPower)
 }
 

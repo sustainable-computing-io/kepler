@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rapl
+package components
 
 import (
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 type powerInterface interface {
@@ -31,10 +31,12 @@ type powerInterface interface {
 	GetEnergyFromUncore() (uint64, error)
 	// GetEnergyFromDram returns mJ in package
 	GetEnergyFromPackage() (uint64, error)
-	// GetRAPLEnergy returns set of mJ per RAPL components
-	GetRAPLEnergy() map[int]source.RAPLEnergy
+	// GetNodeComponentsEnergy returns set of mJ per RAPL components
+	GetNodeComponentsEnergy() map[int]source.NodeComponentsEnergy
+	// StopPower stops the collection
 	StopPower()
-	IsSupported() bool
+	// IsSystemCollectionSupported returns if it is possible to use this collector
+	IsSystemCollectionSupported() bool
 }
 
 var (
@@ -46,11 +48,11 @@ var (
 )
 
 func init() {
-	if sysfsImpl.IsSupported() /*&& false*/ {
+	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
-		if msrImpl.IsSupported() && useMSR {
+		if msrImpl.IsSystemCollectionSupported() && useMSR {
 			klog.V(1).Infoln("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
@@ -76,8 +78,12 @@ func GetEnergyFromPackage() (uint64, error) {
 	return powerImpl.GetEnergyFromPackage()
 }
 
-func GetRAPLEnergy() map[int]source.RAPLEnergy {
-	return powerImpl.GetRAPLEnergy()
+func GetNodeComponentsEnergy() map[int]source.NodeComponentsEnergy {
+	return powerImpl.GetNodeComponentsEnergy()
+}
+
+func IsSystemCollectionSupported() bool {
+	return powerImpl.IsSystemCollectionSupported()
 }
 
 func StopPower() {

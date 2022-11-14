@@ -16,21 +16,26 @@ limitations under the License.
 
 package source
 
+var (
+	// this variable is used for unit and functional test purpose
+	SystemCollectionSupported = true
+)
+
 type PowerDummy struct{}
 
-func (r *PowerDummy) IsSupported() bool {
-	return true
+func (r *PowerDummy) IsSystemCollectionSupported() bool {
+	return SystemCollectionSupported
 }
 
 func (r *PowerDummy) StopPower() {
 }
 
 func (r *PowerDummy) GetEnergyFromDram() (uint64, error) {
-	return 0, nil
+	return 1, nil
 }
 
 func (r *PowerDummy) GetEnergyFromCore() (uint64, error) {
-	return 0, nil
+	return 5, nil
 }
 
 func (r *PowerDummy) GetEnergyFromUncore() (uint64, error) {
@@ -38,9 +43,16 @@ func (r *PowerDummy) GetEnergyFromUncore() (uint64, error) {
 }
 
 func (r *PowerDummy) GetEnergyFromPackage() (uint64, error) {
-	return 0, nil
+	return 8, nil
 }
 
-func (r *PowerDummy) GetRAPLEnergy() map[int]RAPLEnergy {
-	return map[int]RAPLEnergy{}
+func (r *PowerDummy) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
+	componentsEnergies := make(map[int]NodeComponentsEnergy)
+	machineSocketID := 0
+	componentsEnergies[machineSocketID] = NodeComponentsEnergy{
+		Pkg:  8,
+		Core: 5,
+		DRAM: 1,
+	}
+	return componentsEnergies
 }

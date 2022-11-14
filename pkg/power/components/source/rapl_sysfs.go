@@ -93,7 +93,7 @@ func readEventEnergy(eventName string) map[string]uint64 {
 
 type PowerSysfs struct{}
 
-func (r *PowerSysfs) IsSupported() bool {
+func (r *PowerSysfs) IsSystemCollectionSupported() bool {
 	path := fmt.Sprintf(packageNamePathTemplate, 0)
 	_, err := os.ReadFile(path + energyFile)
 	return err == nil
@@ -115,8 +115,8 @@ func (r *PowerSysfs) GetEnergyFromPackage() (uint64, error) {
 	return getEnergy(packageEvent)
 }
 
-func (r *PowerSysfs) GetRAPLEnergy() map[int]RAPLEnergy {
-	packageEnergies := make(map[int]RAPLEnergy)
+func (r *PowerSysfs) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
+	packageEnergies := make(map[int]NodeComponentsEnergy)
 
 	pkgEnergies := readEventEnergy(packageEvent)
 	coreEnergies := readEventEnergy(coreEvent)
@@ -129,7 +129,7 @@ func (r *PowerSysfs) GetRAPLEnergy() map[int]RAPLEnergy {
 		uncoreEnergy := uncoreEnergies[pkgID]
 		splits := strings.Split(pkgID, "-")
 		i, _ := strconv.Atoi(splits[len(splits)-1])
-		packageEnergies[i] = RAPLEnergy{
+		packageEnergies[i] = NodeComponentsEnergy{
 			Core:   coreEnergy,
 			DRAM:   dramEnergy,
 			Uncore: uncoreEnergy,

@@ -131,21 +131,10 @@ func getCPUPowerEstimate(cpu string) (perThreadMinPowerEstimate, perThreadMaxPow
 
 	return 0.0, 0.0, 0.0, fmt.Errorf("no CPU power info found")
 }
-func (r *PowerEstimate) IsSupported() bool {
-	cpu, err := GetCPUArchitecture()
-	if err != nil {
-		klog.V(2).Infof("no cpu info: %v\n", err)
-		return false
-	}
-	dramInGB, err = getDram()
-	if err != nil {
-		klog.V(2).Infof("no dram info: %v\n", err)
-		return false
-	}
-	perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate, err = getCPUPowerEstimate(cpu)
-	startTime = time.Now()
-	klog.V(4).Infof("cpu architecture %v, dram in GB %v\n", cpu, dramInGB)
-	return err == nil
+
+// If the Estimated Power is being used, it means that the system does not support Components Power Measurement
+func (r *PowerEstimate) IsSystemCollectionSupported() bool {
+	return false
 }
 
 func (r *PowerEstimate) StopPower() {
@@ -175,16 +164,16 @@ func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
 	return r.GetEnergyFromCore()
 }
 
-// No package information, consider as 1 package
-func (r *PowerEstimate) GetRAPLEnergy() map[int]RAPLEnergy {
+// No node components information, consider as 1 socket
+func (r *PowerEstimate) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
 	coreEnergy, _ := r.GetEnergyFromCore()
 	dramEnergy, _ := r.GetEnergyFromDram()
-	packageEnergies := make(map[int]RAPLEnergy)
-	packageEnergies[0] = RAPLEnergy{
+	componentsEnergies := make(map[int]NodeComponentsEnergy)
+	componentsEnergies[0] = NodeComponentsEnergy{
 		Core:   coreEnergy,
 		DRAM:   dramEnergy,
 		Uncore: 0,
 		Pkg:    coreEnergy,
 	}
-	return packageEnergies
+	return componentsEnergies
 }
