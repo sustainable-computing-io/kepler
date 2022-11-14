@@ -19,56 +19,88 @@ package metric
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
+// we need to add all metric to a container, otherwise it will not create the right usageMetric with all elements. The usageMetric is used in the Prediction Power Models
+// TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
+func setCollectorMetrics() {
+	// initialize the Available metrics since they are used to create a new containersMetrics instance
+	AvailableCgroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory}
+	ContainerUintFeaturesNames = append(ContainerUintFeaturesNames, AvailableCgroupMetrics...)
+	// ContainerMetricNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ContainerMetricNames will be used.
+	ContainerMetricNames = ContainerUintFeaturesNames
+}
+
+// add two containers with all metrics initialized
+func createMockContainersMetrics() map[string]*ContainerMetrics {
+	containersMetrics := map[string]*ContainerMetrics{}
+	containersMetrics["containerA"] = createMockContainerMetrics("containerA", "podA", "test")
+
+	return containersMetrics
+}
+
+// see usageMetrics for the list of used metrics. For the sake of visibility we add all metrics, but only few of them will be used.
+func createMockContainerMetrics(containerName, podName, namespace string) *ContainerMetrics {
+	containerMetrics := NewContainerMetrics(containerName, podName, namespace)
+	// cgroup - cgroup package
+	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 100)
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 110)
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 200)
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 220)
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 300)
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 330)
+	return containerMetrics
+}
+
+func createMockNodeMetrics(containersMetrics map[string]*ContainerMetrics) *NodeMetrics {
+	nodeMetrics := NewNodeMetrics()
+	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
+	componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+	machineSocketID := 0
+
+	// the NodeComponentsEnergy is the aggregated energy consumption of the node components
+	// then, the components energy consumption is added to the in the nodeMetrics as Agg data
+	// this means that, to have a Curr value, we must have at least two Agg data (to have Agg diff)
+	// therefore, we need to add two values for NodeComponentsEnergy to have energy values to test
+	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+		Pkg:  10,
+		Core: 10,
+		DRAM: 10,
+	}
+	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
+		Pkg:  18,
+		Core: 15,
+		DRAM: 11,
+	}
+	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+
+	return nodeMetrics
+}
+
 var _ = Describe("Test Node Metric", func() {
+	var (
+		containerMetrics map[string]*ContainerMetrics
+		nodeMetrics      *NodeMetrics
+	)
 
-	nodeMap := make(map[string]float64)
-	nodeMap["cgroupfs_memory_usage_bytes"] = 100
-	nodeMap["cgroupfs_kernel_memory_usage_bytes"] = 200
-	nodeMap["cgroupfs_tcp_memory_usage_bytes"] = 300
+	BeforeEach(func() {
+		setCollectorMetrics()
+		containerMetrics = createMockContainersMetrics()
+		nodeMetrics = createMockNodeMetrics(containerMetrics)
+	})
 
-	It("Test sumUsage", func() {
-		ne := NodeMetrics{
-			Usage:          nodeMap,
-			EnergyInCore:   &UInt64StatCollection{},
-			EnergyInDRAM:   &UInt64StatCollection{},
-			EnergyInUncore: &UInt64StatCollection{},
-			EnergyInPkg:    &UInt64StatCollection{},
-			EnergyInGPU:    &UInt64StatCollection{},
-			EnergyInOther:  &UInt64StatCollection{},
-			SensorEnergy:   &UInt64StatCollection{},
-		}
-		podMetricValues := make([][]float64, 0)
-		podMetricValues = append(podMetricValues, []float64{100, 100, 100})
-		nodeUsageValues, nodeUsageMap := ne.sumUsage(podMetricValues)
-		Expect(len(nodeUsageMap)).To(Equal(1))
-		v, ok := nodeUsageMap["cgroupfs_memory_usage_bytes"]
-		Expect(ok).To(Equal(false))
-		Expect(v).To(Equal(float64(0)))
-		Expect(len(nodeUsageValues)).To(Equal(1))
-		Expect(nodeUsageValues[0]).To(Equal(float64(100)))
+	It("Test nodeMetrics ResourceUsage", func() {
+		v, ok := nodeMetrics.ResourceUsage[config.CgroupfsMemory]
+		Expect(ok).To(Equal(true))
+		Expect(v).To(Equal(float64(10)))
 	})
 
 	It("Test GetPrometheusEnergyValue", func() {
-		ne := NodeMetrics{
-			Usage: nodeMap,
-			EnergyInCore: &UInt64StatCollection{
-				Stat: map[string]*UInt64Stat{
-					"0": {
-						Curr: 123,
-					},
-				},
-			},
-			EnergyInDRAM:   &UInt64StatCollection{},
-			EnergyInUncore: &UInt64StatCollection{},
-			EnergyInPkg:    &UInt64StatCollection{},
-			EnergyInGPU:    &UInt64StatCollection{},
-			EnergyInOther:  &UInt64StatCollection{},
-			SensorEnergy:   &UInt64StatCollection{},
-		}
-
-		out := ne.GetPrometheusEnergyValue("core")
-		Expect(out).To(Equal(uint64(123)))
+		out := nodeMetrics.GetPrometheusEnergyValue("core")
+		Expect(out).To(Equal(uint64(5)))
 	})
 })

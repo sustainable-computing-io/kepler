@@ -29,13 +29,7 @@ import (
 	"github.com/jszwec/csvutil"
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
-)
-
-const (
-	estimatorID     string = "estimator"
-	estimatorPkgKey string = "0"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
 var (
@@ -109,14 +103,14 @@ func getCPUArchitecture() (string, error) {
 }
 
 type NodeMetrics struct {
-	Usage          map[string]float64
-	EnergyInCore   *UInt64StatCollection
-	EnergyInDRAM   *UInt64StatCollection
-	EnergyInUncore *UInt64StatCollection
-	EnergyInPkg    *UInt64StatCollection
-	EnergyInGPU    *UInt64StatCollection
-	EnergyInOther  *UInt64StatCollection
-	SensorEnergy   *UInt64StatCollection
+	ResourceUsage    map[string]float64
+	EnergyInCore     *UInt64StatCollection
+	EnergyInDRAM     *UInt64StatCollection
+	EnergyInUncore   *UInt64StatCollection
+	EnergyInPkg      *UInt64StatCollection
+	EnergyInGPU      *UInt64StatCollection
+	EnergyInOther    *UInt64StatCollection
+	EnergyInPlatform *UInt64StatCollection
 }
 
 func NewNodeMetrics() *NodeMetrics {
@@ -139,54 +133,47 @@ func NewNodeMetrics() *NodeMetrics {
 		EnergyInOther: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		SensorEnergy: &UInt64StatCollection{
+		EnergyInPlatform: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
 	}
 }
 
 func (ne *NodeMetrics) ResetCurr() {
-	ne.Usage = make(map[string]float64)
+	ne.ResourceUsage = make(map[string]float64)
 	ne.EnergyInCore.ResetCurr()
 	ne.EnergyInDRAM.ResetCurr()
 	ne.EnergyInUncore.ResetCurr()
 	ne.EnergyInPkg.ResetCurr()
 	ne.EnergyInGPU.ResetCurr()
 	ne.EnergyInOther.ResetCurr()
-	ne.SensorEnergy.ResetCurr()
+	ne.EnergyInPlatform.ResetCurr()
 }
 
-func (ne NodeMetrics) sumUsage(podMetricValues [][]float64) (nodeUsageValues []float64, nodeUsageMap map[string]float64) {
-	nodeUsageValues = make([]float64, len(NodeMetadataNames))
-	nodeUsageMap = make(map[string]float64)
-	podNumber := len(podMetricValues)
-	for metricIndex, metric := range NodeMetadataNames {
-		nodeUsageMap[metric] = 0
-		for podIndex := 0; podIndex < podNumber; podIndex++ {
-			nodeUsageMap[metric] += podMetricValues[podIndex][metricIndex]
-			nodeUsageValues[metricIndex] += podMetricValues[podIndex][metricIndex]
+// AddNodeResResourceUsageFromContainerResResourceUsage adds the sum of all container resource usage as the node resource usage
+func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics map[string]*ContainerMetrics) {
+	nodeResourceUsage := make(map[string]float64)
+	for _, metricName := range ContainerMetricNames {
+		nodeResourceUsage[metricName] = 0
+		for _, container := range containersMetrics {
+			// TODO: refactor the extractUIntCurrAggr, this is not an intuitive function name
+			curr, _, _ := container.extractUIntCurrAggr(metricName)
+			nodeResourceUsage[metricName] += float64(curr)
 		}
 	}
-	return
+	ne.ResourceUsage = nodeResourceUsage
 }
 
-func (ne *NodeMetrics) addMeasuredSensorData(sensorEnergy map[string]float64) {
-	for sensorID, energy := range sensorEnergy {
-		ne.SensorEnergy.AddAggrStat(sensorID, uint64(math.Ceil(energy)))
+// AddLastestPlatformEnergy adds the lastest energy consumption from the node sensor
+func (ne *NodeMetrics) AddLastestPlatformEnergy(platformEnergy map[string]float64) {
+	for sensorID, energy := range platformEnergy {
+		ne.EnergyInPlatform.AddAggrStat(sensorID, uint64(math.Ceil(energy)))
 	}
 }
 
-// if could not collect host energy sensor metric
-func (ne *NodeMetrics) addEstimatedSensorData(nodeUsageValues []float64) {
-	if model.NodeTotalPowerModelValid {
-		if valid, estimatedTotalPower := model.GetNodeTotalPower(nodeUsageValues, NodeMetadataValues); valid {
-			ne.SensorEnergy.AddCurrStat(estimatorID, estimatedTotalPower)
-		}
-	}
-}
-
-func (ne *NodeMetrics) addMeasuredRAPLData(pkgEnergy map[int]source.RAPLEnergy) {
-	for pkgID, energy := range pkgEnergy {
+// AddNodeComponentsEnergy adds the lastest energy consumption collected from the node's components (e.g., using RAPL)
+func (ne *NodeMetrics) AddNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy) {
+	for pkgID, energy := range componentsEnergy {
 		key := strconv.Itoa(pkgID)
 		ne.EnergyInCore.AddAggrStat(key, energy.Core)
 		ne.EnergyInDRAM.AddAggrStat(key, energy.DRAM)
@@ -195,51 +182,12 @@ func (ne *NodeMetrics) addMeasuredRAPLData(pkgEnergy map[int]source.RAPLEnergy) 
 	}
 }
 
-// if could not collect RAPL metrics
-func (ne *NodeMetrics) addEstimatedRAPLData(nodeUsageValues []float64) {
-	if model.NodeComponentPowerModelValid {
-		if valid, estimatedComponentPower := model.GetNodeComponentPowers(nodeUsageValues, NodeMetadataValues); valid {
-			ne.EnergyInCore.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Core)
-			ne.EnergyInDRAM.AddCurrStat(estimatorPkgKey, estimatedComponentPower.DRAM)
-			ne.EnergyInUncore.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Uncore)
-			ne.EnergyInPkg.AddCurrStat(estimatorPkgKey, estimatedComponentPower.Pkg)
-		}
-	}
-}
-
-func (ne *NodeMetrics) SetValues(sensorEnergy map[string]float64, pkgEnergy map[int]source.RAPLEnergy, gpuEnergy []uint32, containerMetricValues [][]float64) {
-	nodeUsageValues, nodeUsageMap := ne.sumUsage(containerMetricValues)
-	ne.Usage = nodeUsageMap
-
-	// adding total host energy consumption
-	if len(sensorEnergy) > 0 {
-		ne.addMeasuredSensorData(sensorEnergy)
-	} else {
-		ne.addEstimatedSensorData(nodeUsageValues)
-	}
-
-	// adding each host component energy consumption
-	if len(pkgEnergy) > 0 {
-		ne.addMeasuredRAPLData(pkgEnergy)
-	} else {
-		ne.addEstimatedRAPLData(nodeUsageValues)
-	}
-
-	// adding the host gpu energy consumption
+// AddNodeGPUEnergy adds the lastest energy consumption of each GPU power consumption.
+// Right now we don't support other types of accelerators than GPU, but we will in the future.
+func (ne *NodeMetrics) AddNodeGPUEnergy(gpuEnergy []uint32) {
 	for gpuID, energy := range gpuEnergy {
 		key := strconv.Itoa(gpuID)
 		ne.EnergyInGPU.AddCurrStat(key, uint64(energy))
-	}
-
-	klog.V(3).Infof("node energy stat core %v dram %v uncore %v pkg %v gpu %v sensor %v\n", ne.EnergyInCore, ne.EnergyInDRAM, ne.EnergyInUncore, ne.EnergyInPkg, ne.EnergyInGPU, ne.SensorEnergy)
-	totalSensorDelta := ne.SensorEnergy.Curr()
-	totalPkgDelta := ne.EnergyInPkg.Curr()
-	totalDramDelta := ne.EnergyInDRAM.Curr()
-	totalGPUDelta := ne.EnergyInGPU.Curr()
-	if totalSensorDelta > (totalPkgDelta + totalDramDelta + totalGPUDelta) {
-		energyOtherComponents := totalSensorDelta - (totalPkgDelta + totalDramDelta + totalGPUDelta)
-		key := strconv.Itoa(len(ne.EnergyInOther.Stat))
-		ne.EnergyInOther.AddCurrStat(key, energyOtherComponents)
 	}
 }
 
@@ -265,22 +213,44 @@ func (ne *NodeMetrics) GetPrometheusEnergyValue(ekey string) (val uint64) {
 	return ne.getEnergyValue(ekey)
 }
 
-func (ne *NodeMetrics) GetNodeComponentPower() source.RAPLPower {
+// TODO: fix me: we shouldn't use the total node power as Pkg and not Pkg as Core power
+// See https://github.com/sustainable-computing-io/kepler/issues/295
+func (ne *NodeMetrics) GetNodeTotalEnergyPerComponent() source.NodeComponentsEnergy {
 	coreValue := ne.EnergyInCore.Curr()
 	uncoreValue := ne.EnergyInUncore.Curr()
 	pkgValue := ne.EnergyInPkg.Curr()
 	if pkgValue == 0 {
-		pkgValue = coreValue + uncoreValue
+		// if RAPL is not available, but the node power from sensor is available
+		pkgValue = ne.EnergyInOther.Curr()
 	}
 	if coreValue == 0 {
 		coreValue = pkgValue - uncoreValue
 	}
-	return source.RAPLPower{
+	return source.NodeComponentsEnergy{
 		Core:   coreValue,
 		Uncore: uncoreValue,
 		Pkg:    pkgValue,
 		DRAM:   ne.EnergyInDRAM.Curr(),
 	}
+}
+
+func (ne *NodeMetrics) GetNodeTotalGPUEnergy() uint64 {
+	return ne.EnergyInGPU.Curr()
+}
+
+func (ne *NodeMetrics) GetNodeTotalOtherComponentsEnergy() uint64 {
+	return ne.EnergyInOther.Curr()
+}
+
+func (ne *NodeMetrics) GetNodeTotalEnergy() (totalPower uint64) {
+	return ne.EnergyInPkg.Curr() +
+		ne.EnergyInDRAM.Curr() +
+		ne.EnergyInGPU.Curr() +
+		ne.EnergyInOther.Curr()
+}
+
+func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
+	return ne.ResourceUsage[resource]
 }
 
 func (ne *NodeMetrics) String() string {
