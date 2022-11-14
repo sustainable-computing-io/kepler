@@ -26,8 +26,9 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
-	"github.com/sustainable-computing-io/kepler/pkg/power/gpu"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -83,14 +84,16 @@ func main() {
 	if modelServerEndpoint != nil {
 		klog.Infof("Initializing the Model Server")
 		config.SetModelServerEndpoint(*modelServerEndpoint)
+		model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
 	}
+
 	collector_metric.InitAvailableParamAndMetrics()
 
 	if *enableGPU {
 		klog.Infof("Initializing the GPU collector")
-		err := gpu.Init()
+		err := accelerator.Init()
 		if err == nil {
-			defer gpu.Shutdown()
+			defer accelerator.Shutdown()
 		}
 	}
 
@@ -98,7 +101,7 @@ func main() {
 	prometheus.MustRegister(version.NewCollector("kepler_exporter"))
 	prometheus.MustRegister(m.PrometheusCollector)
 	defer m.MetricCollector.Destroy()
-	defer rapl.StopPower()
+	defer components.StopPower()
 
 	// starting a new gorotine to collect data and report metrics
 	if err := m.Start(); err != nil {

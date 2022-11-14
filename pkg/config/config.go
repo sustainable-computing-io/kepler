@@ -59,6 +59,7 @@ var (
 	CoreUsageMetric       = getConfig("CORE_USAGE_METRIC", CPUInstruction)
 	DRAMUsageMetric       = getConfig("DRAM_USAGE_METRIC", CacheMiss)
 	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue) // no metric (evenly divided)
+	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)      // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", CPUInstruction)    // for uncategorized energy; pkg - core - uncore
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)

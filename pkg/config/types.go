@@ -21,8 +21,10 @@ const (
 	CPUCycle       = "cpu_cycles"
 	CPUInstruction = "cpu_instr"
 	CacheMiss      = "cache_miss"
+
 	// bpf - attacher package
 	CPUTime = "cpu_time"
+
 	// cgroup - cgroup package
 	CgroupfsMemory       = "cgroupfs_memory_usage_bytes"
 	CgroupfsKernelMemory = "cgroupfs_kernel_memory_usage_bytes"
@@ -43,4 +45,8 @@ const (
 
 	// system
 	CPUFrequency = "avg_cpu_frequency"
+
+	// GPU
+	GPUSMUtilization  = "gpu_sm_util"
+	GPUMemUtilization = "gpu_mem_util"
 )

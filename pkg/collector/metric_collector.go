@@ -22,8 +22,9 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -43,9 +44,6 @@ type Collector struct {
 	acpiPowerMeter *acpi.ACPI
 
 	// TODO: fix me: these metrics should be in NodeMetrics structure
-	NodeSensorEnergy map[string]float64
-	NodePkgEnergy    map[int]source.RAPLEnergy
-	NodeGPUEnergy    []uint32
 	NodeCPUFrequency map[int32]uint64
 
 	// NodeMetrics holds all node energy and resource usage metrics
@@ -62,9 +60,6 @@ type Collector struct {
 func NewCollector() *Collector {
 	c := &Collector{
 		acpiPowerMeter:         acpi.NewACPIPowerMeter(),
-		NodeSensorEnergy:       map[string]float64{},
-		NodePkgEnergy:          map[int]source.RAPLEnergy{},
-		NodeGPUEnergy:          []uint32{},
 		NodeCPUFrequency:       map[int32]uint64{},
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
@@ -88,8 +83,7 @@ func (c *Collector) Initialize() error {
 	}
 
 	c.prePopulateContainerMetrics(pods)
-	c.updateMeasuredNodeEnergy()
-	c.NodeMetrics.SetValues(c.NodeSensorEnergy, c.NodePkgEnergy, c.NodeGPUEnergy, [][]float64{}) // set initial energy
+	c.updateNodeEnergyMetrics()
 	c.acpiPowerMeter.Run()
 	c.resetBPFTables()
 
@@ -111,15 +105,26 @@ func (c *Collector) Update() {
 	c.resetCurrValue()
 
 	// update container metrics regarding the resource utilization to be used to calculate the energy consumption
-	c.updateContainerResourceUsageMetrics()
-	containerMetricValuesOnly, containerIDList, containerGPUDelta := c.getContainerMetricsList()
+	// we first updates the bpf which is resposible to include new containers in the ContainersMetrics collection
+	// the bpf collects metrics per processes and then map the process ids to container ids
+	// TODO: when bpf is not running, the ContainersMetrics will not be updated with new containers.
+	// The ContainersMetrics will only have the containers that were identified during the initialization (initContainersMetrics)
+	c.updateBPFMetrics() // collect new hardware counter metrics if possible
+
+	// TODO: collect cgroup metrics only from cgroup to avoid unnecessary overhead to kubelet
+	c.updateCgroupMetrics()  // collect new cgroup metrics from cgroup
+	c.updateKubeletMetrics() // collect new cgroup metrics from kubelet
+
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		c.updateAcceleratorMetrics()
+	}
 
 	// use the container's resource usage metrics to update the node metrics
-	nodeTotalPower, nodeTotalGPUPower, nodeTotalPowerPerComponents := c.updateNoderMetrics(containerMetricValuesOnly)
+	c.updateNodeResourceUsage()
+	c.updateNodeEnergyMetrics()
 
 	// calculate the container energy consumption using its resource utilization and the node components energy consumption
-	// TODO: minimize the number of collection variables, we already have the containerMetrics and NodeMetrics structures
-	c.updateContainerEnergy(containerMetricValuesOnly, containerIDList, containerGPUDelta, nodeTotalPower, nodeTotalGPUPower, nodeTotalPowerPerComponents)
+	c.updateContainerEnergy()
 
 	// check the log verbosity level before iterating in all container
 	if klog.V(3).Enabled() {
