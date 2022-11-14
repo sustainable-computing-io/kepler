@@ -33,7 +33,7 @@ function main() {
     fi
 
     # Ignore errors because some clusters might not have prometheus operator
-    kubectl delete --ignore-not-found=true -f ${MANIFESTS_OUT_DIR} || true
+    kubectl delete --ignore-not-found=true -f ${MANIFESTS_OUT_DIR}/*.yaml || true
 
     sleep 2
 
