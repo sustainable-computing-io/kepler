@@ -61,9 +61,7 @@ var _ = Describe("Test Read Stat", func() {
 			TryInitStatReaders(containerID)
 			statReaders := SliceHandlerInstance.GetStatReaders()
 			Expect(len(statReaders)).To(Equal(1))
-			fmt.Println(statReaders)
 			stats := SliceHandlerInstance.GetStats(containerID)
-			fmt.Println(stats)
 			Expect(len(stats)).Should(BeNumerically(">", 0))
 		}
 	})
@@ -73,7 +71,6 @@ var _ = Describe("Test Read Stat", func() {
 			SliceHandlerInstance = initSliceHandler(testPath)
 			availableMetrics := GetAvailableCgroupMetrics()
 			Expect(len(availableMetrics)).Should(BeNumerically(">", 0))
-			fmt.Println("Available Metrics:", availableMetrics)
 		}
 	})
 
@@ -84,7 +81,6 @@ var _ = Describe("Test Read Stat", func() {
 			Expect(containerID).NotTo(Equal(""))
 			TryInitStatReaders(containerID)
 			standardStats := GetStandardStat(containerID)
-			fmt.Println(standardStats)
 			Expect(len(standardStats)).To(Equal(expectedStandardStats[testPath]))
 		}
 	})
