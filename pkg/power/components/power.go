@@ -42,23 +42,16 @@ type powerInterface interface {
 var (
 	dummyImpl                = &source.PowerDummy{}
 	sysfsImpl                = &source.PowerSysfs{}
-	msrImpl                  = &source.PowerMSR{}
 	powerImpl powerInterface = sysfsImpl
-	useMSR                   = false // it looks MSR on kvm or hyper-v is not working
 )
 
 func init() {
-	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
+	if sysfsImpl.IsSystemCollectionSupported() {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
-		if msrImpl.IsSystemCollectionSupported() && useMSR {
-			klog.V(1).Infoln("use MSR to obtain power")
-			powerImpl = msrImpl
-		} else {
-			klog.V(1).Infoln("power not supported")
-			powerImpl = dummyImpl
-		}
+		klog.V(1).Infoln("power not supported")
+		powerImpl = dummyImpl
 	}
 }
 
