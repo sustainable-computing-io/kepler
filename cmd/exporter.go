@@ -20,6 +20,10 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"runtime/pprof"
+	"syscall"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
@@ -50,6 +54,7 @@ var (
 	modelServerEndpoint          = flag.String("model-server-endpoint", "", "model server endpoint")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
+	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -73,6 +78,22 @@ func main() {
 	flag.Parse()
 
 	klog.Infof("Kepler running on version: %s", kversion.Version)
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err == nil {
+			profErr := pprof.StartCPUProfile(f)
+			if profErr == nil {
+				sigs := make(chan os.Signal, 1)
+				signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+				go func() {
+					<-sigs
+					fmt.Println("exiting...")
+					pprof.StopCPUProfile()
+					os.Exit(0)
+				}()
+			}
+		}
+	}
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
