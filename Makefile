@@ -135,7 +135,7 @@ ginkgo-set: tidy-vendor
 	mkdir -p $(GOBIN)
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-	 (go install github.com/onsi/ginkgo/ginkgo@v1.16.5  && \
+	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
