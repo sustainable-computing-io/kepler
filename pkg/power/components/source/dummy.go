@@ -18,7 +18,7 @@ package source
 
 var (
 	// this variable is used for unit and functional test purpose
-	SystemCollectionSupported = true
+	SystemCollectionSupported = false
 )
 
 type PowerDummy struct{}
