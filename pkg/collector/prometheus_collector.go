@@ -26,8 +26,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-
-	"github.com/sustainable-computing-io/kepler/pkg/power/rapl/source"
 )
 
 const (
@@ -142,7 +140,6 @@ type PrometheusCollector struct {
 	podDesc       *PodDesc
 
 	// TODO: fix me: these metrics should be in NodeMetrics structure
-	NodePkgEnergy    *map[int]source.RAPLEnergy
 	NodeCPUFrequency *map[int32]uint64
 
 	// NodeMetrics holds all node energy and resource usage metrics
@@ -416,27 +413,28 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 				fmt.Sprintf("%d", cpuID), collector_metric.NodeName,
 			)
 		}
-		for pkgID, val := range *p.NodePkgEnergy {
-			coreEnergy := strconv.FormatUint(val.Core, 10)
-			dramEnergy := strconv.FormatUint(val.DRAM, 10)
-			uncoreEnergy := strconv.FormatUint(val.Uncore, 10)
+		for pkgID, val := range p.NodeMetrics.EnergyInPkg.Stat {
+			coreEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInCore.Stat[pkgID].Curr, 10)
+			dramEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInDRAM.Stat[pkgID].Curr, 10)
+			uncoreEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInUncore.Stat[pkgID].Curr, 10)
 			ch <- prometheus.MustNewConstMetric(
 				p.nodeDesc.nodePackageMiliJoulesTotal,
 				prometheus.CounterValue,
-				float64(val.Pkg),
-				collector_metric.NodeName, strconv.Itoa(pkgID), coreEnergy, dramEnergy, uncoreEnergy,
+				float64(val.Curr),
+				collector_metric.NodeName, pkgID, coreEnergy, dramEnergy, uncoreEnergy,
 			) // deprecated metric
 		}
+
 		NodeMetricsStatusLabelValues := []string{collector_metric.NodeName, collector_metric.NodeCPUArchitecture}
 		for _, label := range NodeMetricsStatLabels[2:] {
-			val := uint64(p.NodeMetrics.Usage[label])
+			val := uint64(p.NodeMetrics.ResourceUsage[label])
 			valStr := strconv.FormatUint(val, 10)
 			NodeMetricsStatusLabelValues = append(NodeMetricsStatusLabelValues, valStr)
 		}
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.NodeMetricsStat,
 			prometheus.CounterValue,
-			(float64(p.NodeMetrics.SensorEnergy.Curr())/miliJouleToJoule)/p.SamplePeriodSec,
+			(float64(p.NodeMetrics.EnergyInPlatform.Curr())/miliJouleToJoule)/p.SamplePeriodSec,
 			NodeMetricsStatusLabelValues...,
 		)
 		ch <- prometheus.MustNewConstMetric(
@@ -481,7 +479,7 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodePlatformJoulesTotal,
 			prometheus.CounterValue,
-			float64(p.NodeMetrics.SensorEnergy.Aggr())/miliJouleToJoule,
+			float64(p.NodeMetrics.EnergyInPlatform.Aggr())/miliJouleToJoule,
 			collector_metric.NodeName, "acpi",
 		)
 		ch <- prometheus.MustNewConstMetric(
