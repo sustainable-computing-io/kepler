@@ -18,12 +18,8 @@ package metric
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
 
 	"k8s.io/klog/v2"
-
-	ratio "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 )
 
 func getcontainerUintFeatureNames() []string {
@@ -71,18 +67,12 @@ func getPrometheusMetrics() []string {
 }
 
 func getEstimatorMetrics() []string {
-	var names []string
-	names = append(names, ContainerFeaturesNames...)
+	var metricNames []string
+	metricNames = append(metricNames, ContainerFeaturesNames...)
 	// TO-DO: remove this hard code metric
-	names = append(names, blockDeviceLabel)
-	ratio.InitMetricIndexes(names)
+	metricNames = append(metricNames, blockDeviceLabel)
 
-	// do not try to inilialize estimator if it was not configured
-	if config.ModelServerEndpoint != "" {
-		model.InitEstimateFunctions(names, NodeMetadataNames, NodeMetadataValues)
-	}
-
-	return names
+	return metricNames
 }
 
 func isCounterStatEnabled(label string) bool {
