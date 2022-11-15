@@ -157,11 +157,16 @@ func (r *LinearRegressor) Init() bool {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURL()
 	}
-	if err == nil {
+	if weight != nil {
 		r.valid = true
 		r.modelWeight = weight
 		klog.V(3).Infof("LR Model (%s) Weight: %v", r.OutputType.String(), r.modelWeight)
 	} else {
+		if err == nil {
+			klog.V(3).Infof("LR Model (%s): no config", r.OutputType.String())
+		} else {
+			klog.V(3).Infof("LR Model (%s): %v", r.OutputType.String(), err)
+		}
 		r.valid = false
 	}
 	return r.valid
