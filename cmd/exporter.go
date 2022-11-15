@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -56,6 +57,8 @@ var (
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
+	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
+	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -72,29 +75,76 @@ func finalizing() {
 	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
 }
 
+func startProfiling(cpuProfile, memProfile string) {
+	if cpuProfile != "" {
+		f, err := os.Create(cpuProfile)
+		if err != nil {
+			klog.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			klog.Fatal("could not start CPU profile: ", err)
+		}
+		klog.Infof("Started CPU profiling")
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			defer f.Close()
+			exit := false
+			select {
+			case <-sigs:
+				exit = true
+				break
+			case <-time.After(time.Duration(*profileDuration) * time.Second):
+				break
+			}
+			pprof.StopCPUProfile()
+			klog.Infof("Stopped CPU profiling")
+			if exit {
+				time.Sleep(time.Second) // sleep 1s to make sure that the mem profile could finish
+				os.Exit(0)
+			}
+		}()
+	}
+	if memProfile != "" {
+		f, err := os.Create(memProfile)
+		if err != nil {
+			klog.Fatal("could not create memory profile: ", err)
+		}
+		klog.Infof("Started Memory profiling")
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			defer f.Close()
+			exit := false
+			select {
+			case <-sigs:
+				exit = true
+				break
+			case <-time.After(time.Duration(*profileDuration) * time.Second):
+				break
+			}
+			runtime.GC() // get up-to-date statistics
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				klog.Fatal("could not write memory profile: ", err)
+			}
+			klog.Infof("Stopped Memory profiling")
+			if exit {
+				time.Sleep(time.Second) // sleep 1s to make sure that the cpu profile could finish
+				os.Exit(0)
+			}
+		}()
+	}
+}
+
 func main() {
 	start := time.Now()
 	defer finalizing()
 	klog.InitFlags(nil)
 	flag.Parse()
 
+	startProfiling(*cpuProfile, *memProfile)
+
 	klog.Infof("Kepler running on version: %s", kversion.Version)
-	if *cpuProfile != "" {
-		f, err := os.Create(*cpuProfile)
-		if err == nil {
-			profErr := pprof.StartCPUProfile(f)
-			if profErr == nil {
-				sigs := make(chan os.Signal, 1)
-				signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-				go func() {
-					<-sigs
-					fmt.Println("exiting...")
-					pprof.StopCPUProfile()
-					os.Exit(0)
-				}()
-			}
-		}
-	}
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
