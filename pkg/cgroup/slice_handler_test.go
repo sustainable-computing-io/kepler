@@ -17,7 +17,6 @@ limitations under the License.
 package cgroup
 
 import (
-	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,19 +26,20 @@ import (
 )
 
 var testPaths []string = []string{
-	"./test/hierarchypath", "./test/toppath/kubepod", "./test/toppath/system",
+	"./test/hierachywithqos", "./test/hierarchypath", "./test/toppath/kubepod", "./test/toppath/system",
 }
 
 var expectedStandardStats map[string]int = map[string]int{
 	testPaths[0]: 6,
 	testPaths[1]: 6,
 	testPaths[2]: 6,
+	testPaths[3]: 6,
 }
 
 func initSliceHandler(basePath string) *SliceHandler {
 	baseCGroupPath = basePath
-	KubePodCGroupPath = fmt.Sprintf("%s/kubepods.slice", basePath)
-	SystemCGroupPath = fmt.Sprintf("%s/system.slice", basePath)
+	KubePodCGroupPath = cGroupSlicePath(baseCGroupPath, kubepodSlice)
+	SystemCGroupPath = cGroupSlicePath(baseCGroupPath, systemSlice)
 	sliceHandler := InitSliceHandler()
 	return sliceHandler
 }
@@ -101,10 +101,10 @@ var _ = Describe("Test Read Scope file", func() {
 		_, err = os.CreateTemp(dir, "a")
 		Expect(err).NotTo(HaveOccurred())
 
-		f := searchBySuffix(dir, ".slice")
+		f := SearchBySuffix(dir, ".slice")
 		Expect(f).To(Equal(fslice.Name()))
 
-		sc := findContainerScope(dir)
+		sc := SearchBySuffix(dir, ".scope")
 		Expect(sc).To(Equal(fscope.Name()))
 	})
 	It("Properly find scope file in subfolder", func() {
@@ -124,10 +124,10 @@ var _ = Describe("Test Read Scope file", func() {
 		_, err = os.CreateTemp(dir, "a")
 		Expect(err).NotTo(HaveOccurred())
 
-		f := searchBySuffix(dirTop, ".slice")
+		f := SearchBySuffix(dirTop, ".slice")
 		Expect(f).To(Equal(fslice.Name()))
 
-		sc := findContainerScope(dirTop)
+		sc := SearchBySuffix(dirTop, ".scope")
 		Expect(sc).To(Equal(fscope.Name()))
 	})
 })

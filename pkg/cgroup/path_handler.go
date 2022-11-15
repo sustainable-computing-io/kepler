@@ -26,12 +26,23 @@ import (
 )
 
 func SearchByContainerID(topFolder, containerID string) string {
-	found := filepath.Walk(topFolder,
-		func(path string, info os.FileInfo, err error) error {
-			if path == topFolder {
-				return nil
+	found := filepath.WalkDir(topFolder,
+		func(path string, info os.DirEntry, err error) error {
+			if info != nil && strings.Contains(info.Name(), containerID) {
+				return errors.New(path)
 			}
-			if strings.Contains(path, containerID) {
+			return nil
+		})
+	if found != nil {
+		return found.Error()
+	}
+	return ""
+}
+
+func SearchBySuffix(topFolder, suffix string) string {
+	found := filepath.WalkDir(topFolder,
+		func(path string, info os.DirEntry, err error) error {
+			if info != nil && strings.HasSuffix(path, suffix) {
 				return errors.New(path)
 			}
 			return nil
