@@ -11,3 +11,5 @@ nodes:
     extraMounts:
       - hostPath: /proc
         containerPath: /proc-host
+      - hostPath: /usr/src
+        containerPath: /usr/src

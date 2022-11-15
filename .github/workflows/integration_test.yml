@@ -14,7 +14,12 @@ jobs:
       - uses: actions/setup-go@main
         with:
           go-version: 1.18
-          
+
+      - name: install kernel headers
+        run: |
+          sudo apt-get install -y linux-headers-`uname -r`
+          sudo ls /usr/src/linux-headers-`uname -r`
+
       - name: install kubectl
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
@@ -43,6 +48,8 @@ jobs:
       - name: run integration_test
         run: |
           kubectl port-forward $(kubectl -n kepler get pods -oname) 9102:9102 -n kepler -v7 &
-          go test ./e2e/... --race --bench=. -cover --count=1 --vet=all
+          kubectl logs -n kepler daemonset/kepler-exporter
+          kubectl get pods -n kepler -o yaml
+          go test -tags=bcc ./e2e/... --race --bench=. -cover --count=1 --vet=all
         env:
             kepler_address: localhost:9102
