@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -70,6 +71,8 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 }
 
 func finalizing() {
+	stack := "exit stack: \n" + string(debug.Stack())
+	klog.Infof(stack)
 	exitCode := 10
 	klog.Infoln(finishingMsg)
 	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
