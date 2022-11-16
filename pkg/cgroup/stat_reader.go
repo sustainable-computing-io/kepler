@@ -103,7 +103,11 @@ func (s CPUStatReader) Read() map[string]interface{} {
 			fileName := filepath.Join(s.Path, usageFile)
 			kv, err := ReadKV(fileName)
 			if err == nil {
-				return kv
+				// in some system, both cpu.stat (cpu.stat) and individual files for each stat exists,
+				// if the summary stat file does not container the cpu usage value, skip reading from summary stat file.
+				if _, exists := kv["user_usec"]; exists {
+					return kv
+				}
 			}
 		default:
 			fileName := filepath.Join(s.Path, usageFile)
