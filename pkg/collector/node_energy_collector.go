@@ -22,6 +22,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+
+	"k8s.io/klog/v2"
 )
 
 // updateNodeResourceUsage updates node resource usage with the total container resource usage
@@ -46,9 +48,13 @@ func (c *Collector) updatePlatformEnergy() {
 func (c *Collector) updateNodeComponentsEnergy() {
 	nodeComponentsEnergy := map[int]source.NodeComponentsEnergy{}
 	if components.IsSystemCollectionSupported() {
+		klog.V(5).Info("System energy collection is supported")
 		nodeComponentsEnergy = components.GetNodeComponentsEnergy()
 	} else if model.IsNodeComponentPowerModelEnabled() {
+		klog.V(5).Info("Node components power model collection is supported")
 		nodeComponentsEnergy = model.GetNodeComponentPowers(c.NodeMetrics)
+	} else {
+		klog.V(1).Info("No nodeComponentsEnergy found, node components energy metrics is not exposed ")
 	}
 	c.NodeMetrics.AddNodeComponentsEnergy(nodeComponentsEnergy)
 }
