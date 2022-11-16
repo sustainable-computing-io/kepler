@@ -123,10 +123,16 @@ func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 	}
 
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
-		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
 		containerIDToContainerInfo[containerID] = info
+		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
+		if info.ContainerName == utils.SystemProcessName {
+			containerID = utils.SystemProcessName
+			// in addition to the system container ID, add also the system process name to the cache
+			if _, ok := containerIDToContainerInfo[containerID]; !ok {
+				containerIDToContainerInfo[containerID] = info
+			}
+		}
 	}
-
 	return containerIDToContainerInfo[containerID], nil
 }
 
