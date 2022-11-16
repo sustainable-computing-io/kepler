@@ -45,10 +45,12 @@ const (
 )
 
 var (
-	fds        []int
-	byteOrder  binary.ByteOrder
-	packageMap []int
-	maxPackage = -1
+	fds       []int
+	byteOrder binary.ByteOrder
+
+	// package - core
+	packageMap  map[int]int
+	packageList []int
 
 	powerUnits, timeUnits           float64
 	cpuEnergyUnits, dramEnergyUnits []float64
@@ -68,12 +70,8 @@ func init() {
 
 func mapPackageAndCore() error {
 	cores := runtime.NumCPU()
-	packageMap = make([]int, cores)
-
-	for i := 0; i < cores; {
-		packageMap[i] = -1
-		i++
-	}
+	packageMap = make(map[int]int, cores)
+	packageList = make([]int, cores)
 
 	for i := 0; i < cores; {
 		path := fmt.Sprintf(topologyPath, i)
@@ -85,21 +83,20 @@ func mapPackageAndCore() error {
 		if err != nil {
 			return err
 		}
-		if packageMap[id] == -1 {
-			packageMap[id] = i
-		}
-		if maxPackage < id {
-			maxPackage = id
-		}
+
+		packageMap[id] = i
+		packageList = append(packageList, id)
+
 		i++
 	}
 	return nil
 }
 
 func OpenAllMSR() error {
-	fds = make([]int, maxPackage+1)
-	for i := 0; i <= maxPackage; {
-		core := packageMap[i]
+	fds = make([]int, len(packageList))
+	var i int = 0
+	for packid := range packageList {
+		core := packageMap[packid]
 		path := fmt.Sprintf(msrPath, core)
 		fd, err := syscall.Open(path, syscall.O_RDONLY, 777)
 		if err != nil {
@@ -120,8 +117,8 @@ func CloseAllMSR() {
 }
 
 func ReadMSR(packageID int, msr int64) (uint64, error) {
-	if packageID > maxPackage {
-		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageID, maxPackage)
+	if packageID > len(packageList) {
+		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageID, len(packageList))
 	}
 	buf := make([]byte, 8)
 	core := packageMap[packageID]
@@ -150,9 +147,9 @@ func InitUnits() error {
 	if err := OpenAllMSR(); err != nil {
 		return err
 	}
-	cpuEnergyUnits = make([]float64, maxPackage+1)
-	dramEnergyUnits = make([]float64, maxPackage+1)
-	for i := 0; i <= maxPackage; {
+	cpuEnergyUnits = make([]float64, len(packageList))
+	dramEnergyUnits = make([]float64, len(packageList))
+	for i := 0; i < len(packageList); {
 		result, err := ReadMSR(i, msrRaplPowerUnit)
 		if err != nil {
 			return fmt.Errorf("failed to read power unit: %v", err)
@@ -200,7 +197,7 @@ func ReadDramPower(packageID int) (uint64, error) {
 
 func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 	energy := uint64(0)
-	for i := 0; i <= maxPackage; {
+	for i := 0; i < len(packageList); {
 		result, err := f(i)
 		if err != nil {
 			return 0, err
@@ -213,7 +210,7 @@ func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 
 func GetRAPLEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uint64, error)) map[int]NodeComponentsEnergy {
 	packageEnergies := make(map[int]NodeComponentsEnergy)
-	for i := 0; i <= maxPackage; {
+	for i := 0; i < len(packageList); {
 		coreEnergy, _ := coreFunc(i)
 		dramEnergy, _ := dramFunc(i)
 		uncoreEnergy, _ := uncoreFunc(i)
