@@ -47,4 +47,36 @@ var _ = Describe("Test Metric Unit", func() {
 		cur := getEstimatorMetrics()
 		Expect(exp).To(Equal(cur))
 	})
+
+	It("Test isCounterStatEnabled for True", func() {
+		AvailableCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+		exp := isCounterStatEnabled("cpu_time")
+		Expect(exp).To(BeTrue())
+	})
+
+	It("Test isCounterStatEnabled for False", func() {
+		AvailableCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+		exp := isCounterStatEnabled("")
+		Expect(exp).To(BeFalse())
+	})
+
+	It("Test setEnabledMetrics", func() {
+		clearPlatformDependentAvailability()
+		cur := setEnabledMetrics()
+
+		if attacher.EnableCPUFreq {
+			expMap := make(map[string]int, 7)
+			exp := []string{"cpu_time", "cpu_instr", "cache_miss", "cpu_cycles", "bytes_read", "bytes_writes", "block_devices_used"}
+			for _, v := range exp {
+				expMap[v] = 1
+			}
+			for _, vCur := range cur {
+				_, ok := expMap[vCur]
+				Expect(ok).To(BeTrue())
+			}
+		} else {
+			exp := []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+			Expect(exp).To(Equal(cur))
+		}
+	})
 })
