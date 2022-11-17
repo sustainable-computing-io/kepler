@@ -59,8 +59,6 @@ var (
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
-	// by default it should be "http://kepler-model-server.monitoring.cluster.local:8100/model" if we use model server
-	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -156,16 +154,11 @@ func main() {
 
 	cgroup.SetSliceHandler()
 
-	if modelServerEndpoint != nil {
-		klog.Infof("Initializing the Model Server")
-		config.SetModelServerEndpoint(*modelServerEndpoint)
-	}
+	collector_metric.InitAvailableParamAndMetrics()
 
 	// For local estimator, there is endpoint provided, thus we should let
 	// model component decide whether/how to init
 	model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
-
-	collector_metric.InitAvailableParamAndMetrics()
 
 	if *enableGPU {
 		klog.Infof("Initializing the GPU collector")
