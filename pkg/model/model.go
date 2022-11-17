@@ -17,6 +17,7 @@ limitations under the License.
 package model
 
 import (
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
@@ -24,9 +25,6 @@ import (
 
 var (
 	EstimatorSidecarSocket = "/tmp/estimator.sock"
-
-	// TODO: be configured by config package
-	modelServerEndpoint = "http://kepler-model-server.monitoring.cluster.local:8100/model"
 )
 
 // InitEstimateFunctions checks validity of power model and set estimate functions
@@ -62,7 +60,7 @@ func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeigh
 	modelConfig.UseEstimatorSidecar = false
 	// try init LinearRegressor
 	r := local.LinearRegressor{
-		Endpoint:       modelServerEndpoint,
+		Endpoint:       config.ModelServerEndpoint,
 		UsageMetrics:   usageMetrics,
 		OutputType:     modelWeightType,
 		SystemFeatures: systemFeatures,

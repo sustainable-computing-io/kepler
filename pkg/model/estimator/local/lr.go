@@ -31,7 +31,6 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"k8s.io/klog/v2"
 )
@@ -151,10 +150,11 @@ func (r *LinearRegressor) Init() bool {
 	var err error
 	var weight interface{}
 	// try getting weight from model server if it is enabled
-	if config.ModelServerEndpoint != "" {
+	if r.Endpoint != "" {
 		weight, err = r.getWeightFromServer()
 	} else if r.InitModelURL != "" {
 		// next try loading from URL by config
+		klog.V(5).Infof("getWeightFromServer failed, using InitModelURL:%v to load", r.InitModelURL)
 		weight, err = r.loadWeightFromURL()
 	}
 	if weight != nil {

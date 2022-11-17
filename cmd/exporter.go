@@ -54,12 +54,13 @@ var (
 	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
 	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
 	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	modelServerEndpoint          = flag.String("model-server-endpoint", "", "model server endpoint")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
+	// by default it should be "http://kepler-model-server.monitoring.cluster.local:8100/model" if we use model server
+	modelServerEndpoint = flag.String("model-server-endpoint", "", "model server endpoint")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -158,8 +159,11 @@ func main() {
 	if modelServerEndpoint != nil {
 		klog.Infof("Initializing the Model Server")
 		config.SetModelServerEndpoint(*modelServerEndpoint)
-		model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
 	}
+
+	// For local estimator, there is endpoint provided, thus we should let
+	// model component decide whether/how to init
+	model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
 
 	collector_metric.InitAvailableParamAndMetrics()
 
