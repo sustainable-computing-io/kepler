@@ -21,6 +21,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -37,7 +38,7 @@ func InitEstimateFunctions(usageMetrics, systemFeatures, systemValues []string) 
 // initEstimateFunction called by InitEstimateFunctions to initiate estimate function for each power model
 func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeightType types.ModelOutputType, usageMetrics, systemFeatures, systemValues []string, isTotalPower bool) (valid bool, estimateFunc interface{}) {
 	if modelConfig.UseEstimatorSidecar {
-		// try init EstimatorSidecarConnector
+		// init EstimatorSidecarConnector
 		c := sidecar.EstimatorSidecarConnector{
 			Socket:         EstimatorSidecarSocket,
 			UsageMetrics:   usageMetrics,
@@ -53,26 +54,31 @@ func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeigh
 			} else {
 				estimateFunc = c.GetComponentPower
 			}
-			return
 		}
-	}
-	// set UseEstimatorSidecar to false as cannot init valid EstimatorSidecarConnector
-	modelConfig.UseEstimatorSidecar = false
-	// try init LinearRegressor
-	r := local.LinearRegressor{
-		Endpoint:       config.ModelServerEndpoint,
-		UsageMetrics:   usageMetrics,
-		OutputType:     modelWeightType,
-		SystemFeatures: systemFeatures,
-		ModelName:      modelConfig.SelectedModel,
-		SelectFilter:   modelConfig.SelectFilter,
-		InitModelURL:   modelConfig.InitModelURL,
-	}
-	valid = r.Init()
-	if isTotalPower {
-		estimateFunc = r.GetTotalPower
+		klog.V(3).Infof("Model %s initiated (%v)", archiveType.String(), valid)
 	} else {
-		estimateFunc = r.GetComponentPower
+		// init LinearRegressor
+		r := local.LinearRegressor{
+			Endpoint:       config.ModelServerEndpoint,
+			UsageMetrics:   usageMetrics,
+			OutputType:     modelWeightType,
+			SystemFeatures: systemFeatures,
+			ModelName:      modelConfig.SelectedModel,
+			SelectFilter:   modelConfig.SelectFilter,
+			InitModelURL:   modelConfig.InitModelURL,
+		}
+		valid = r.Init()
+		if isTotalPower {
+			estimateFunc = r.GetTotalPower
+		} else {
+			estimateFunc = r.GetComponentPower
+		}
+		klog.V(3).Infof("Model %s initiated (%v)", modelWeightType.String(), valid)
 	}
 	return valid, estimateFunc
+}
+
+func InitModelConfig(modelItem string) types.ModelConfig {
+	useEstimatorSidecar, selectedModel, selectFilter, initModelURL := config.GetModelConfig(modelItem)
+	return types.ModelConfig{UseEstimatorSidecar: useEstimatorSidecar, SelectedModel: selectedModel, SelectFilter: selectFilter, InitModelURL: initModelURL}
 }
