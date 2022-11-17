@@ -43,7 +43,7 @@ func getcontainerUintFeatureNames() []string {
 	return metrics
 }
 
-func setEnabledMetrics() {
+func setEnabledMetrics() []string {
 	ContainerFeaturesNames = []string{}
 	AvailableCounters = attacher.GetEnabledCounters()
 
@@ -51,6 +51,7 @@ func setEnabledMetrics() {
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerFloatFeatureNames...)
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
 	ContainerMetricNames = getEstimatorMetrics()
+	return ContainerMetricNames
 }
 
 func getPrometheusMetrics() []string {
