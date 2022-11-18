@@ -103,7 +103,7 @@ func UpdateContainerEnergyByRatioPowerModel(containersMetrics map[string]*collec
 		if accelerator.IsGPUCollectionSupported() {
 			containerResUsage = float64(container.CounterStats[config.GpuUsageMetric].Curr)
 			nodeTotalResUsage = nodeMetrics.GetNodeResUsagePerResType(config.GpuUsageMetric)
-			nodeResEnergyUtilization = float64(nodeMetrics.GetNodeTotalGPUEnergy())
+			nodeResEnergyUtilization = float64(nodeMetrics.GetEnergyValue(collector_metric.GPU))
 			containerGPUEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
 			if err := containersMetrics[containerID].EnergyInGPU.AddNewCurr(containerGPUEnergy); err != nil {
 				klog.Infoln(err)
@@ -111,7 +111,7 @@ func UpdateContainerEnergyByRatioPowerModel(containersMetrics map[string]*collec
 		}
 
 		// calculate the container host other components energy consumption
-		nodeResEnergyUtilization = float64(nodeMetrics.GetNodeTotalOtherComponentsEnergy())
+		nodeResEnergyUtilization = float64(nodeMetrics.GetEnergyValue(collector_metric.OTHER))
 		containerOtherHostComponentsEnergy := uint64(math.Ceil(nodeResEnergyUtilization / containerNumber))
 		if err := containersMetrics[containerID].EnergyInOther.AddNewCurr(containerOtherHostComponentsEnergy); err != nil {
 			klog.Infoln(err)

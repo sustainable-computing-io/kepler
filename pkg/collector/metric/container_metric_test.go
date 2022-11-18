@@ -31,32 +31,32 @@ var _ = Describe("Test Container Metric", func() {
 		EnergyInGPU:    &UInt64Stat{Curr: uint64(9), Aggr: uint64(10)},
 		EnergyInOther:  &UInt64Stat{Curr: uint64(11), Aggr: uint64(12)},
 		CgroupFSStats: map[string]*UInt64StatCollection{
-			"core": {
+			CORE: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(13), Aggr: uint64(14)},
 				},
 			},
-			"dram": {
+			DRAM: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(15), Aggr: uint64(16)},
 				},
 			},
-			"uncore": {
+			UNCORE: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(17), Aggr: uint64(18)},
 				},
 			},
-			"pkg": {
+			PKG: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(19), Aggr: uint64(20)},
 				},
 			},
-			"gpu": {
+			GPU: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(21), Aggr: uint64(22)},
 				},
 			},
-			"other": {
+			OTHER: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Curr: uint64(23), Aggr: uint64(24)},
 				},
@@ -65,36 +65,36 @@ var _ = Describe("Test Container Metric", func() {
 	}
 
 	It("Test GetPrometheusEnergyValue", func() {
-		Expect(c.GetPrometheusEnergyValue("core", true)).To(Equal(float64(1)))
-		Expect(c.GetPrometheusEnergyValue("dram", true)).To(Equal(float64(3)))
-		Expect(c.GetPrometheusEnergyValue("uncore", true)).To(Equal(float64(5)))
-		Expect(c.GetPrometheusEnergyValue("pkg", true)).To(Equal(float64(7)))
-		Expect(c.GetPrometheusEnergyValue("gpu", true)).To(Equal(float64(9)))
-		Expect(c.GetPrometheusEnergyValue("other", true)).To(Equal(float64(11)))
+		Expect(c.GetPrometheusEnergyValue(CORE, true)).To(Equal(float64(1)))
+		Expect(c.GetPrometheusEnergyValue(DRAM, true)).To(Equal(float64(3)))
+		Expect(c.GetPrometheusEnergyValue(UNCORE, true)).To(Equal(float64(5)))
+		Expect(c.GetPrometheusEnergyValue(PKG, true)).To(Equal(float64(7)))
+		Expect(c.GetPrometheusEnergyValue(GPU, true)).To(Equal(float64(9)))
+		Expect(c.GetPrometheusEnergyValue(OTHER, true)).To(Equal(float64(11)))
 	})
 
 	It("Test extractUIntCurrAggr", func() {
-		curr, aggr, err := c.extractUIntCurrAggr("core")
+		curr, aggr, err := c.extractUIntCurrAggr(CORE)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(13)))
 		Expect(aggr).To(Equal(uint64(14)))
-		curr, aggr, err = c.extractUIntCurrAggr("dram")
+		curr, aggr, err = c.extractUIntCurrAggr(DRAM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(15)))
 		Expect(aggr).To(Equal(uint64(16)))
-		curr, aggr, err = c.extractUIntCurrAggr("uncore")
+		curr, aggr, err = c.extractUIntCurrAggr(UNCORE)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(17)))
 		Expect(aggr).To(Equal(uint64(18)))
-		curr, aggr, err = c.extractUIntCurrAggr("pkg")
+		curr, aggr, err = c.extractUIntCurrAggr(PKG)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(19)))
 		Expect(aggr).To(Equal(uint64(20)))
-		curr, aggr, err = c.extractUIntCurrAggr("gpu")
+		curr, aggr, err = c.extractUIntCurrAggr(GPU)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(21)))
 		Expect(aggr).To(Equal(uint64(22)))
-		curr, aggr, err = c.extractUIntCurrAggr("other")
+		curr, aggr, err = c.extractUIntCurrAggr(OTHER)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(curr).To(Equal(uint64(23)))
 		Expect(aggr).To(Equal(uint64(24)))

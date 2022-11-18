@@ -32,6 +32,15 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
+const (
+	CORE   = "core"
+	DRAM   = "dram"
+	UNCORE = "uncore"
+	PKG    = "pkg"
+	GPU    = "gpu"
+	OTHER  = "other"
+)
+
 var (
 	CPUModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
 
@@ -191,26 +200,22 @@ func (ne *NodeMetrics) AddNodeGPUEnergy(gpuEnergy []uint32) {
 	}
 }
 
-func (ne *NodeMetrics) getEnergyValue(ekey string) (val uint64) {
+func (ne *NodeMetrics) GetEnergyValue(ekey string) (val uint64) {
 	switch ekey {
-	case "core":
+	case CORE:
 		val = ne.EnergyInCore.Curr()
-	case "dram":
+	case DRAM:
 		val = ne.EnergyInDRAM.Curr()
-	case "uncore":
+	case UNCORE:
 		val = ne.EnergyInUncore.Curr()
-	case "pkg":
+	case PKG:
 		val = ne.EnergyInPkg.Curr()
-	case "gpu":
+	case GPU:
 		val = ne.EnergyInGPU.Curr()
-	case "other":
+	case OTHER:
 		val = ne.EnergyInOther.Curr()
 	}
 	return
-}
-
-func (ne *NodeMetrics) GetPrometheusEnergyValue(ekey string) (val uint64) {
-	return ne.getEnergyValue(ekey)
 }
 
 // TODO: fix me: we shouldn't use the total node power as Pkg and not Pkg as Core power
@@ -232,14 +237,6 @@ func (ne *NodeMetrics) GetNodeTotalEnergyPerComponent() source.NodeComponentsEne
 		Pkg:    pkgValue,
 		DRAM:   ne.EnergyInDRAM.Curr(),
 	}
-}
-
-func (ne *NodeMetrics) GetNodeTotalGPUEnergy() uint64 {
-	return ne.EnergyInGPU.Curr()
-}
-
-func (ne *NodeMetrics) GetNodeTotalOtherComponentsEnergy() uint64 {
-	return ne.EnergyInOther.Curr()
 }
 
 func (ne *NodeMetrics) GetNodeTotalEnergy() (totalPower uint64) {
