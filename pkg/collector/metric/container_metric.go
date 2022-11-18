@@ -253,17 +253,17 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 func (c *ContainerMetrics) GetPrometheusEnergyValue(ekey string, curr bool) float64 {
 	var val *UInt64Stat
 	switch ekey {
-	case "core":
+	case CORE:
 		val = c.EnergyInCore
-	case "dram":
+	case DRAM:
 		val = c.EnergyInDRAM
-	case "uncore":
+	case UNCORE:
 		val = c.EnergyInUncore
-	case "pkg":
+	case PKG:
 		val = c.EnergyInPkg
-	case "gpu":
+	case GPU:
 		val = c.EnergyInGPU
-	case "other":
+	case OTHER:
 		val = c.EnergyInOther
 	}
 	if curr {
