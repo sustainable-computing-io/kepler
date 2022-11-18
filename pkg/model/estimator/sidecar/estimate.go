@@ -126,7 +126,7 @@ func (c *EstimatorSidecarConnector) makeRequest(usageValues [][]float64, systemV
 		powers = powerResponse.Powers
 	}
 	if err != nil {
-		klog.V(4).Info("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
+		klog.V(4).Infof("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
 		return nil, err
 	}
 	return powers, nil

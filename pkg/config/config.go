@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
@@ -46,10 +47,16 @@ type config struct {
 var c config
 
 const (
-	defaultMetricValue = ""
+	defaultMetricValue      = ""
+	defaultNamespace        = "kepler"
+	defaultModelServerPort  = "8100"
+	defaultModelRequestPath = "/model"
 )
 
 var (
+	modelServerService = fmt.Sprintf("kepler-model-server.%s.cluster.local", KeplerNamespace)
+
+	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = false
 	ExposeHardwareCounterMetrics = true
 	EnabledGPU                   = false
@@ -64,8 +71,25 @@ var (
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
-	ModelServerEndpoint = ""
-	configPath          = "/etc/config"
+	configPath = "/etc/config"
+
+	////////////////////////////////////
+	ModelServerEnable   = strings.ToLower(getConfig("MODEL_SERVER_ENABLE", "false")) == "true"
+	ModelServerEndpoint = SetModelServerReqEndpoint()
+	// for model config
+	ModelConfigValues = getModelConfigMap()
+	// model_item
+	NodeTotalKey           = "NODE_TOTAL"
+	NodeComponentsKey      = "NODE_COMPONENTS"
+	ContainerTotalKey      = "CONTAINER_TOTAL"
+	ContainerComponentsKey = "CONTAINER_COMPONENTS"
+
+	//  attribute
+	EstimatorEnabledKey = "ESTIMATOR"
+	InitModelURLKey     = "INIT_URL"
+	FixedModelNameKey   = "MODEL"
+	ModelFiltersKey     = "FILTERS"
+	////////////////////////////////////
 )
 
 func getConfig(configKey, defaultValue string) (result string) {
@@ -81,6 +105,17 @@ func getConfig(configKey, defaultValue string) (result string) {
 			result = strValue
 		}
 	}
+	return
+}
+
+func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
+	modelServerURL := getConfig("MODEL_SERVER_URL", modelServerService)
+	if modelServerURL == modelServerService {
+		modelServerPort := getConfig("MODEL_SERVER_PORT", defaultModelServerPort)
+		modelServerURL = fmt.Sprintf("http://%s:%s", modelServerURL, modelServerPort)
+	}
+	modelReqPath := getConfig("MODEL_SERVER_MODEL_REQ_PATH", defaultModelRequestPath)
+	modelServerReqEndpoint = modelServerURL + modelReqPath
 	return
 }
 
@@ -169,4 +204,34 @@ func SetEstimatorConfig(modelName, selectFilter string) {
 
 func SetModelServerEndpoint(serverEndpoint string) {
 	ModelServerEndpoint = serverEndpoint
+}
+
+func getModelConfigMap() map[string]string {
+	configMap := make(map[string]string)
+	modelConfigStr := getConfig("MODEL_CONFIG", "")
+	lines := strings.Fields(modelConfigStr)
+	for _, line := range lines {
+		values := strings.Split(line, "=")
+		if len(values) == 2 {
+			configMap[values[0]] = values[1]
+		}
+	}
+	klog.V(3).Infof("Model ConfigValues: %v", configMap)
+	return configMap
+}
+
+func getModelConfigKey(modelItem, attribute string) string {
+	return fmt.Sprintf("%s_%s", modelItem, attribute)
+}
+
+func GetModelConfig(modelItem string) (useEstimatorSidecar bool, selectedModel, selectFilter, initModelURL string) {
+	defaultValue := ""
+	useEstimatorSidecarStr := getConfig(ModelConfigValues[getModelConfigKey(modelItem, EstimatorEnabledKey)], defaultValue)
+	if strings.EqualFold(useEstimatorSidecarStr, "true") {
+		useEstimatorSidecar = true
+	}
+	selectedModel = getConfig(ModelConfigValues[getModelConfigKey(modelItem, FixedModelNameKey)], defaultValue)
+	selectFilter = getConfig(ModelConfigValues[getModelConfigKey(modelItem, ModelFiltersKey)], defaultValue)
+	initModelURL = getConfig(ModelConfigValues[getModelConfigKey(modelItem, InitModelURLKey)], defaultValue)
+	return
 }

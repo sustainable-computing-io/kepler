@@ -18,6 +18,7 @@ package model
 
 import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
@@ -30,12 +31,20 @@ var (
 	ContainerTotalPowerModelFunc                                     func([][]float64, []string) ([]float64, error)
 	ContainerComponentPowerModelFunc                                 func([][]float64, []string) (map[string][]float64, error)
 
-	// TODO: be configured by config package
 	// cgroupOnly
-	dynCompURL                                           = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
-	ContainerTotalPowerModelConfig     types.ModelConfig = types.ModelConfig{UseEstimatorSidecar: false}
-	ContainerComponentPowerModelConfig types.ModelConfig = types.ModelConfig{UseEstimatorSidecar: false, InitModelURL: dynCompURL}
+	defaultDynCompURL                                    = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
+	ContainerTotalPowerModelConfig     types.ModelConfig = InitModelConfig(config.ContainerTotalKey)
+	ContainerComponentPowerModelConfig types.ModelConfig = initContainerComponentPowerModelConfig()
 )
+
+// initContainerComponentPowerModelConfig: the container component power model must be set by default.
+func initContainerComponentPowerModelConfig() types.ModelConfig {
+	modelConfig := InitModelConfig(config.ContainerComponentsKey)
+	if modelConfig.InitModelURL == "" {
+		modelConfig.InitModelURL = defaultDynCompURL
+	}
+	return modelConfig
+}
 
 func InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
 	var estimateFunc interface{}
