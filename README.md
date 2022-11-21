@@ -73,7 +73,7 @@ Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.j
 
 
 ## To start developing Kepler
-To set up a development environment please read our [Getting Started Guide](dev/README.md)
+To set up a development environment please read our [Getting Started Guide](doc/dev/README.md)
 
 ## Community Meetings
 [Download](https://us06web.zoom.us/meeting/tZ0sfuigqz8oHNQOn3yCDuBoEtPbXbZII5tH/ics?icsToken=98tyKuGhrzIrEtGRsh-HRpx5BYr4d_zwmClBgo1ssxG2GgN3dyH5E_ZyMIp9KvH5) the biweekly community meeting iCalendar file.
