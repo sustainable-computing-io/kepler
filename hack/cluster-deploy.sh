@@ -28,13 +28,19 @@ BARE_METAL_NODE_ONLY=${BARE_METAL_NODE_ONLY:-true}
 function main() {
     [ ! -d "${MANIFESTS_OUT_DIR}" ] && echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
 
-    if [ "$BARE_METAL_NODE_ONLY" = true ] 
+    if [ "$CI_ONLY" = true ]
     then
-        echo "Deploy with Allowing Baremetal as infrastructure"
-        cp ${MANIFESTS_OUT_DIR}/vm/deployment.yaml ${MANIFESTS_OUT_DIR}/
+            echo "Deploy with Allowing CI as infrastructure"
+            cp ${MANIFESTS_OUT_DIR}/ci/deployment.yaml ${MANIFESTS_OUT_DIR}/
     else
-        echo "Deploy with Allowing Baremetal and virtual machine as infrastructure"
-        cp ${MANIFESTS_OUT_DIR}/bm/deployment.yaml ${MANIFESTS_OUT_DIR}/
+        if [ "$BARE_METAL_NODE_ONLY" = true ] 
+        then
+            echo "Deploy with Allowing Baremetal as infrastructure"
+            cp ${MANIFESTS_OUT_DIR}/vm/deployment.yaml ${MANIFESTS_OUT_DIR}/
+        else
+            echo "Deploy with Allowing Baremetal and virtual machine as infrastructure"
+            cp ${MANIFESTS_OUT_DIR}/bm/deployment.yaml ${MANIFESTS_OUT_DIR}/
+        fi
     fi
     
     echo "Deploying manifests..."

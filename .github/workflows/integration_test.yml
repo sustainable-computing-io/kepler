@@ -32,6 +32,7 @@ jobs:
             IMAGE_REPO: "localhost:5001/kepler"
             IMAGE_TAG: "devel"
             CTR_CMD: docker
+            CI_ONLY: "true"
 
       - name: test if kepler is still alive
         run: |
