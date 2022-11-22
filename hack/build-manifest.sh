@@ -43,12 +43,14 @@ cp -r manifests/${CLUSTER_PROVIDER}/* ${MANIFESTS_OUT_DIR}/
 echo "kustomize manifests..."
 kubectl kustomize ${MANIFESTS_OUT_DIR}/bm > ${MANIFESTS_OUT_DIR}/bm/deployment.yaml
 kubectl kustomize ${MANIFESTS_OUT_DIR}/vm > ${MANIFESTS_OUT_DIR}/vm/deployment.yaml
+kubectl kustomize ${MANIFESTS_OUT_DIR}/ci > ${MANIFESTS_OUT_DIR}/ci/deployment.yaml
 
 if [[ $CLUSTER_PROVIDER == "openshift" ]]; then
     cat manifests/${CLUSTER_PROVIDER}/kepler/01-kepler-install.yaml | sed "s|image:.*|image: $IMAGE_REPO:$IMAGE_TAG|" > ${MANIFESTS_OUT_DIR}/kepler/01-kepler-install.yaml
 else
     sed -i "s|image:.*|image: $IMAGE_REPO:$IMAGE_TAG|" ${MANIFESTS_OUT_DIR}/bm/deployment.yaml
     sed -i "s|image:.*|image: $IMAGE_REPO:$IMAGE_TAG|" ${MANIFESTS_OUT_DIR}/vm/deployment.yaml
+    sed -i "s|image:.*|image: $IMAGE_REPO:$IMAGE_TAG|" ${MANIFESTS_OUT_DIR}/ci/deployment.yaml
 fi
 
 echo "Done $0"
