@@ -131,7 +131,7 @@ func (c *Collector) Update() {
 		for _, v := range c.ContainersMetrics {
 			klog.V(3).Infoln(v)
 		}
-		klog.V(3).Infoln(c.NodeMetrics)
+		klog.V(3).Infoln(c.NodeMetrics.String())
 	}
 	klog.V(2).Infof("Collector Update elapsed time: %s", time.Since(start))
 }
