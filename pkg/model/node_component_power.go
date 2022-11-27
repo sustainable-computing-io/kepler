@@ -27,8 +27,19 @@ var (
 	NodeComponentPowerModelEnabled bool
 	NodeComponentPowerModelFunc    func([][]float64, []string) (map[string][]float64, error)
 
-	NodeComponentPowerModelConfig types.ModelConfig = InitModelConfig(config.NodeComponentsKey)
+	defaultAbsCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
+
+	NodeComponentPowerModelConfig types.ModelConfig = initNodeComponentPowerModelConfig()
 )
+
+// initContainerComponentPowerModelConfig: the container component power model must be set by default.
+func initNodeComponentPowerModelConfig() types.ModelConfig {
+	modelConfig := InitModelConfig(config.NodeComponentsKey)
+	if modelConfig.InitModelURL == "" {
+		modelConfig.InitModelURL = defaultAbsCompURL
+	}
+	return modelConfig
+}
 
 func InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
 	var estimateFunc interface{}
