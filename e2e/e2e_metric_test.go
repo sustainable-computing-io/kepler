@@ -21,46 +21,21 @@ package e2e_test
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
-	"regexp"
 
-	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/prometheus/prometheus/model/textparse"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var (
-	// metrics obtained from the kepler exporter:
-	// curl http://localhost:9102/metrics |awk -F"\{" '{print $1}' | grep kepler_ |grep -v \# |sort  |uniq  |xargs -I {} echo \"{}\",
-	//TODO: uncomment the following lines after the metrics are implemented
-	keplerMetrics = []string{
-		"kepler_container_core_joules_total",
-		//"kepler_container_cpu_cpu_time_us",
-		"kepler_container_dram_joules_total",
-		"kepler_container_gpu_joules_total",
-		"kepler_container_joules_total",
-		"kepler_container_other_host_components_joules_total",
-		"kepler_container_package_joules_total",
-		"kepler_container_uncore_joules_total",
-		"kepler_exporter_build_info",
-		"kepler_node_core_joules_total",
-		//"kepler_node_cpu_scaling_frequency_hertz",
-		"kepler_node_dram_joules_total",
-		"kepler_node_energy_stat",
-		"kepler_node_nodeInfo",
-		"kepler_node_other_host_components_joules_total",
-		"kepler_node_package_energy_millijoule",
-		"kepler_node_package_joules_total",
-		"kepler_node_platform_joules_total",
-		"kepler_node_uncore_joules_total",
-		"kepler_pod_energy_stat",
-	}
-)
-var _ = Describe("Check metrics", func() {
-	It("Check kepler metrics", func() {
+var k_metric map[string]float64
+
+var _ = Describe("metrics check should pass", Ordered, func() {
+	var _ = BeforeAll(func() {
+		k_metric = make(map[string]float64)
 		reader := bytes.NewReader([]byte{})
 		req, err := http.NewRequest("GET", "http://"+address+"/metrics", reader)
 		Expect(err).NotTo(HaveOccurred())
@@ -71,16 +46,54 @@ var _ = Describe("Check metrics", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
-		content := string(body)
-		cgroupVer := config.GetCGroupVersion()
-		for _, metric := range keplerMetrics {
-			reStr := metric + "{.*} \\d*\\.?\\d*" // metric{.*}\d*\.?\d*
-			re := regexp.MustCompile(reStr)
-			str := re.FindString(content)
-			if str == "" && cgroupVer == 2 {
-				msg := fmt.Sprintf("metric %s not found; cgroup version %v; content:\n%v", metric, cgroupVer, content)
-				Fail(msg)
+		// ref https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse_test.go
+		p := textparse.NewPromParser(body)
+		for {
+			et, err := p.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			switch et {
+			case textparse.EntrySeries:
+				m, _, v := p.Series()
+				k_metric[string(m)] = v
+			case textparse.EntryType:
+				m, _ := p.Type()
+				k_metric[string(m)] = 0
+			case textparse.EntryHelp:
+				m, _ := p.Help()
+				k_metric[string(m)] = 0
 			}
 		}
 	})
+	DescribeTable("Check metrics for details",
+		func(metrics string) {
+			v, ok := k_metric[metrics]
+			Expect(ok).To(BeTrue())
+			// TODO: check value in details base on cgroup and gpu etc...
+			// so far just base check as compare with zero by default
+			Expect(v).To(BeNumerically(">=", 0))
+		},
+		EntryDescription("checking %s"),
+		Entry(nil, "kepler_container_core_joules_total"),
+		Entry(nil, "kepler_container_dram_joules_total"),
+		Entry(nil, "kepler_container_gpu_joules_total"),
+		Entry(nil, "kepler_container_joules_total"),
+		Entry(nil, "kepler_container_other_host_components_joules_total"),
+		Entry(nil, "kepler_container_package_joules_total"),
+		Entry(nil, "kepler_container_uncore_joules_total"),
+		Entry(nil, "kepler_exporter_build_info"),
+		Entry(nil, "kepler_node_core_joules_total"),
+		//"kepler_node_cpu_scaling_frequency_hertz",
+		Entry(nil, "kepler_node_dram_joules_total"),
+		Entry(nil, "kepler_node_energy_stat"),
+		Entry(nil, "kepler_node_nodeInfo"),
+		Entry(nil, "kepler_node_other_host_components_joules_total"),
+		Entry(nil, "kepler_node_package_energy_millijoule"),
+		Entry(nil, "kepler_node_package_joules_total"),
+		Entry(nil, "kepler_node_platform_joules_total"),
+		Entry(nil, "kepler_node_uncore_joules_total"),
+		Entry(nil, "kepler_pod_energy_stat"),
+	)
+
 })

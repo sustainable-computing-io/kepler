@@ -20,6 +20,12 @@ jobs:
           sudo apt-get install -y linux-headers-`uname -r`
           sudo ls /usr/src/linux-headers-`uname -r`
 
+      - name: install bcc
+        run: |
+            wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.25.0/bcc_v0.25.0.tar.gz
+            tar -zxvf bcc_v0.25.0.tar.gz
+            sudo dpkg -i libbcc_0.25.0-1_amd64.deb
+
       - name: install kubectl
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
