@@ -281,7 +281,7 @@ func (c *ContainerMetrics) Aggr() uint64 {
 }
 
 func (c *ContainerMetrics) String() string {
-	return fmt.Sprintf("energy from pod (%d active processes): name: %s namespace: %s \n"+
+	return fmt.Sprintf("energy from pod/container (%d active processes): name: %s/%s namespace: %s \n"+
 		"\tcgrouppid: %d pid: %d comm: %s\n"+
 		"\tePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\teDyn (mJ): %s \n"+
@@ -290,7 +290,7 @@ func (c *ContainerMetrics) String() string {
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
-		c.CurrProcesses, c.PodName, c.Namespace,
+		c.CurrProcesses, c.PodName, c.ContainerName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command,
 		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInGPU, c.EnergyInOther,
 		c.DynEnergy,
