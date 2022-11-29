@@ -30,8 +30,12 @@ jobs:
         with:
           pattern: '^.*:\s.*'
           error: 'topic: someting for example commit msg as [CI: enhancement xxx]'
+          excludeDescription: 'true' # optional: this excludes the description body of a pull request
+          excludeTitle: 'true' # optional: this excludes the title of a pull request
       - name: The first word in the commit message subject should be capitalized unless it starts with a lowercase symbol or other identifier
         uses: gsactions/commit-message-checker@v2
         with:
           pattern: '^[^].*'
           error: 'topic: someting for example commit msg as [CI: enhancement xxx]'
+          excludeDescription: 'true' # optional: this excludes the description body of a pull request
+          excludeTitle: 'true' # optional: this excludes the title of a pull request
