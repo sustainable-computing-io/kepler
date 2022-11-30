@@ -21,21 +21,48 @@ package e2e_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"flag"
 	"io"
 	"net/http"
 
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var k_metric map[string]float64
+var kMetric map[string]float64
+var podlists []string
+var pods *v1.PodList
 
 var _ = Describe("metrics check should pass", Ordered, func() {
 	var _ = BeforeAll(func() {
-		k_metric = make(map[string]float64)
+		kMetric = make(map[string]float64)
+		podlists = make([]string, 0)
+
+		kubeconfig := flag.String("kubeconfig", "/tmp/.kube/config", "location to your kubeconfig file")
+		config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		Expect(err).NotTo(HaveOccurred())
+		clientset, err := kubernetes.NewForConfig(config)
+		Expect(err).NotTo(HaveOccurred())
+		ctx := context.Background()
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		for _, ns := range namespaces.Items {
+			pods, err = clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			for _, pod := range pods.Items {
+				podlists = append(podlists, pod.Name)
+			}
+		}
+
 		reader := bytes.NewReader([]byte{})
 		req, err := http.NewRequest("GET", "http://"+address+"/metrics", reader)
 		Expect(err).NotTo(HaveOccurred())
@@ -47,6 +74,7 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		// ref https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse_test.go
+		var res labels.Labels
 		p := textparse.NewPromParser(body)
 		for {
 			et, err := p.Next()
@@ -56,44 +84,63 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 			switch et {
 			case textparse.EntrySeries:
 				m, _, v := p.Series()
-				k_metric[string(m)] = v
+				p.Metric(&res)
+				if res.Has("pod_name") {
+					kMetric[res.Get("__name__")+res.Get("pod_name")] = v
+				} else {
+					kMetric[string(m)] = v
+				}
+				res = res[:0]
 			case textparse.EntryType:
 				m, _ := p.Type()
-				k_metric[string(m)] = 0
+				kMetric[string(m)] = 0
 			case textparse.EntryHelp:
 				m, _ := p.Help()
-				k_metric[string(m)] = 0
+				kMetric[string(m)] = 0
 			}
 		}
 	})
-	DescribeTable("Check metrics for details",
+
+	var _ = DescribeTable("Check node level metrics for details",
 		func(metrics string) {
-			v, ok := k_metric[metrics]
+			v, ok := kMetric[metrics]
 			Expect(ok).To(BeTrue())
 			// TODO: check value in details base on cgroup and gpu etc...
 			// so far just base check as compare with zero by default
 			Expect(v).To(BeNumerically(">=", 0))
 		},
 		EntryDescription("checking %s"),
-		Entry(nil, "kepler_container_core_joules_total"),
-		Entry(nil, "kepler_container_dram_joules_total"),
-		Entry(nil, "kepler_container_gpu_joules_total"),
-		Entry(nil, "kepler_container_joules_total"),
-		Entry(nil, "kepler_container_other_host_components_joules_total"),
-		Entry(nil, "kepler_container_package_joules_total"),
-		Entry(nil, "kepler_container_uncore_joules_total"),
-		Entry(nil, "kepler_exporter_build_info"),
-		Entry(nil, "kepler_node_core_joules_total"),
-		//"kepler_node_cpu_scaling_frequency_hertz",
-		Entry(nil, "kepler_node_dram_joules_total"),
-		Entry(nil, "kepler_node_energy_stat"),
-		Entry(nil, "kepler_node_nodeInfo"),
-		Entry(nil, "kepler_node_other_host_components_joules_total"),
-		Entry(nil, "kepler_node_package_energy_millijoule"),
-		Entry(nil, "kepler_node_package_joules_total"),
-		Entry(nil, "kepler_node_platform_joules_total"),
-		Entry(nil, "kepler_node_uncore_joules_total"),
-		Entry(nil, "kepler_pod_energy_stat"),
+		Entry(nil, "kepler_exporter_build_info"),                     // only one
+		Entry(nil, "kepler_node_core_joules_total"),                  // node level  check by instance
+		Entry(nil, "kepler_node_dram_joules_total"),                  // node level check by instance
+		Entry(nil, "kepler_node_energy_stat"),                        // node level missing instance label but node_name
+		Entry(nil, "kepler_node_nodeInfo"),                           // node level missing labels
+		Entry(nil, "kepler_node_other_host_components_joules_total"), // node level check by instance
+		Entry(nil, "kepler_node_package_energy_millijoule"),          // node level missing instance label
+		Entry(nil, "kepler_node_package_joules_total"),               // node levelcheck by instance
+		Entry(nil, "kepler_node_platform_joules_total"),              // node levelcheck by instance
+		Entry(nil, "kepler_node_uncore_joules_total"),                // node levelcheck by instance
 	)
 
+	var _ = DescribeTable("Check pod level metrics for details",
+		func(metrics string) {
+			for _, podname := range podlists {
+				v, ok := kMetric[metrics+podname]
+				Expect(ok).To(BeTrue())
+				// TODO: check value in details base on cgroup and gpu etc...
+				// so far just base check as compare with zero by default
+				Expect(v).To(BeNumerically(">=", 0))
+			}
+
+		},
+		EntryDescription("checking %s"),
+		Entry(nil, "kepler_container_core_joules_total"),                  // pod level
+		Entry(nil, "kepler_container_dram_joules_total"),                  // pod level
+		Entry(nil, "kepler_container_gpu_joules_total"),                   // pod level
+		Entry(nil, "kepler_container_joules_total"),                       // pod level
+		Entry(nil, "kepler_container_other_host_components_joules_total"), // pod level
+		Entry(nil, "kepler_container_package_joules_total"),               // pod level
+		Entry(nil, "kepler_container_uncore_joules_total"),                // pod level
+		Entry(nil, "kepler_pod_energy_stat"),                              // pod level
+	)
 })

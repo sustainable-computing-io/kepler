@@ -53,6 +53,9 @@ jobs:
 
       - name: run integration_test
         run: |
+          docker ps -a
+          mkdir -p /tmp/.kube
+          kind get kubeconfig --name=kind > /tmp/.kube/config
           kubectl port-forward $(kubectl -n kepler get pods -oname) 9102:9102 -n kepler -v7 &
           kubectl logs -n kepler daemonset/kepler-exporter
           kubectl get pods -n kepler -o yaml
