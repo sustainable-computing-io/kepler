@@ -84,12 +84,7 @@ func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 		s.Curr = s.PrevCurr
 		return fmt.Errorf("Aggr value overflow %d < %d", newAggr, oldAggr)
 	}
-	if oldAggr == 0 {
-		// new value
-		s.Curr = 0
-	} else {
-		s.Curr = newAggr - oldAggr
-	}
+	s.Curr = newAggr - oldAggr
 	return nil
 }
 
