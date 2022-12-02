@@ -117,8 +117,13 @@ func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]
 		return nil, nil, 0, 0, fmt.Errorf("failed to get response: %v", err)
 	}
 	defer resp.Body.Close()
+
+	return parseMetrics(resp.Body)
+}
+
+func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
 	var parser expfmt.TextParser
-	mf, err := parser.TextToMetricFamilies(resp.Body)
+	mf, err := parser.TextToMetricFamilies(r)
 	if err != nil {
 		return nil, nil, 0, 0, fmt.Errorf("failed to parse: %v", err)
 	}

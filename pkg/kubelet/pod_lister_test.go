@@ -82,3 +82,64 @@ func TestGetPathFromPID(t *testing.T) {
 		})
 	}
 }
+
+const listmetricsoutput = `
+# HELP node_cpu_usage_seconds_total [ALPHA] Cumulative cpu time consumed by the node in core-seconds
+# TYPE node_cpu_usage_seconds_total counter
+node_cpu_usage_seconds_total 531271.893651 1669950438731
+# HELP node_memory_working_set_bytes [ALPHA] Current working set of the node in bytes
+# TYPE node_memory_working_set_bytes gauge
+node_memory_working_set_bytes 5.871231414e+09 1669950438731
+# HELP container_cpu_usage_seconds_total [ALPHA] Cumulative cpu time consumed by the container in core-seconds
+# TYPE container_cpu_usage_seconds_total counter
+container_cpu_usage_seconds_total{container="kepler-exporter",namespace="kepler",pod="kepler-exporter-rksvt"} 22.985283 1669950431811
+container_cpu_usage_seconds_total{container="busybox",namespace="default",pod="busybox"} 0.035062 1669950435121
+# HELP container_memory_working_set_bytes [ALPHA] Current working set of the container in bytes
+# TYPE container_memory_working_set_bytes gauge
+container_memory_working_set_bytes{container="busybox",namespace="default",pod="busybox"} 2.46897321e+08 1669950435121
+container_memory_working_set_bytes{container="kepler-exporter",namespace="kepler",pod="kepler-exporter-rksvt"} 1.09776896e+08 1669950431811
+`
+
+func TestListMetrics(t *testing.T) {
+	g := NewWithT(t)
+
+	var testcases = []struct {
+		name     string
+		contents string
+	}{
+		{
+			name:     "list metrics",
+			contents: listmetricsoutput,
+		},
+	}
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			p, err := utils.CreateTempFile(testcase.contents)
+			g.Expect(err).NotTo(HaveOccurred())
+			defer os.Remove(p)
+
+			f, err := os.Open(p)
+			g.Expect(err).NotTo(HaveOccurred())
+			defer f.Close()
+
+			cCPU, cMem, nodeCPU, nodeMem, err := parseMetrics(f)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			// See above simulated output
+			g.Expect(531271.893651).To(Equal(nodeCPU))
+			g.Expect(5.871231414e+09).To(Equal(nodeMem))
+
+			// 3 includes system container
+			g.Expect(3).To(Equal(len(cCPU)))
+			g.Expect(3).To(Equal(len(cMem)))
+
+			c1 := "kepler/kepler-exporter-rksvt/kepler-exporter"
+			g.Expect(22.985283).To(Equal(cCPU[c1]))
+			g.Expect(1.09776896e+08).To(Equal(cMem[c1]))
+
+			c2 := "default/busybox/busybox"
+			g.Expect(0.035062).To(Equal(cCPU[c2]))
+			g.Expect(2.46897321e+08).To(Equal(cMem[c2]))
+		})
+	}
+}
