@@ -107,7 +107,10 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 			Expect(ok).To(BeTrue())
 			// TODO: check value in details base on cgroup and gpu etc...
 			// so far just base check as compare with zero by default
-			Expect(v).To(BeNumerically(">=", 0))
+			if v == 0 {
+				Skip("skip as " + metrics + " is zero")
+			}
+			Expect(v).To(BeNumerically(">", 0))
 		},
 		EntryDescription("checking %s"),
 		Entry(nil, "kepler_exporter_build_info"),                     // only one
@@ -129,9 +132,11 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 				Expect(ok).To(BeTrue())
 				// TODO: check value in details base on cgroup and gpu etc...
 				// so far just base check as compare with zero by default
-				Expect(v).To(BeNumerically(">=", 0))
+				if v == 0 {
+					Skip("skip as " + metrics + " for " + podname + " is zero")
+				}
+				Expect(v).To(BeNumerically(">", 0))
 			}
-
 		},
 		EntryDescription("checking %s"),
 		Entry(nil, "kepler_container_core_joules_total"),                  // pod level
