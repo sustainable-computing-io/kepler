@@ -116,6 +116,7 @@ build-containerized-cross-build:
 .PHONY: build-containerized-cross-build
 
 push-image:
+	$(CTR_CMD) ps -a
 	$(CTR_CMD) push $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 .PHONY: push-image
 

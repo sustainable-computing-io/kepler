@@ -15,26 +15,10 @@ jobs:
         with:
           go-version: 1.18
 
-      - name: install kernel headers
-        run: |
-          sudo apt-get install -y linux-headers-`uname -r`
-          sudo ls /usr/src/linux-headers-`uname -r`
-
-      - name: install bcc
-        run: |
-            wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.25.0/bcc_v0.25.0.tar.gz
-            tar -zxvf bcc_v0.25.0.tar.gz
-            sudo dpkg -i libbcc_0.25.0-1_amd64.deb
-
-      - name: install kubectl
-        run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-
-      - name: start local k8s cluster
-        run: make cluster-up
-        env:
-            CLUSTER_PROVIDER: ${{matrix.kube_provider}}
-            PROMETHEUS_ENABLE: "true"
-            GRAFANA_ENABLE: "false"
+      - name: use kepler action for kind cluster build
+        uses: sustainable-computing-io/KeplerK8SAction@main
+        with:
+          runningBranch: kind
 
       - name: simple test - deploy kepler
         run: make cluster-sync
