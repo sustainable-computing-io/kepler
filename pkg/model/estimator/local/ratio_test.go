@@ -58,6 +58,13 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Core:   1,
+			DRAM:   1,
+			Uncore: 1,
+			Pkg:    1,
+		}
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
 			Core:   10,
 			DRAM:   3,
 			Uncore: 2,
