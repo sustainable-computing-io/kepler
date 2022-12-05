@@ -53,6 +53,12 @@ ifneq ($(shell command -v ldconfig),)
   endif
 endif
 
+ifneq ($(shell command -v dpkg),)
+	ifneq ($(shell dpkg -l|grep bcc),)
+		GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
+	endif
+endif
+
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 
