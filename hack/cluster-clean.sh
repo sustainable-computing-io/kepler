@@ -21,8 +21,7 @@ set -e
 
 source cluster-up/common.sh
 
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
+MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
 function main() {
     echo "Cleaning up ..."

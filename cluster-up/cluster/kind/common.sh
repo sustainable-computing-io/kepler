@@ -40,7 +40,8 @@ PROMETHEUS_ENABLE=${PROMETHEUS_ENABLE:-false}
 PROMETHEUS_REPLICAS=${PROMETHEUS_REPLICAS:-1}
 GRAFANA_ENABLE=${GRAFANA_ENABLE:-false}
 
-CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
+CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/generated-manifest"}
+KIND_DIR=${KIND_DIR:-"kind"}
 rm -rf ${CONFIG_OUT_DIR}
 mkdir -p ${CONFIG_OUT_DIR}
 
@@ -120,8 +121,8 @@ function _wait_containers_ready {
 }
 
 function _fetch_kind() {
-    mkdir -p ${CONFIG_OUT_DIR}
-    KIND="${CONFIG_OUT_DIR}"/.kind
+    mkdir -p ${KIND_DIR}
+    KIND="${KIND_DIR}"/.kind
     if [ -f $KIND ]; then
         current_kind_version=$($KIND --version |& awk '{print $3}')
     fi
@@ -158,20 +159,23 @@ function _run_registry() {
 function _prepare_config() {
     echo "Building manifests..."
 
-    cp $KIND_MANIFESTS_DIR/kind.yml ${CONFIG_OUT_DIR}/kind.yml
-    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/kind.yml
-    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/kind.yml
+    cp $KIND_MANIFESTS_DIR/kind.yml ${KIND_DIR}/kind.yml
+    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${KIND_DIR}/kind.yml
+    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${KIND_DIR}/kind.yml
     
-    cp $KIND_MANIFESTS_DIR/local-registry.yml ${CONFIG_OUT_DIR}/local-registry.yml
-    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/local-registry.yml
-    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/local-registry.yml
+    cp $KIND_MANIFESTS_DIR/local-registry.yml ${KIND_DIR}/local-registry.yml
+    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${KIND_DIR}/local-registry.yml
+    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${KIND_DIR}/local-registry.yml
 
-    kubectl kustomize manifests/kubernetes/vm > manifests/kubernetes/vm/deployment.yaml
+    make build-manifest
 
     # make cluster-sync overwrite the CONFIG_OUT_DIR, so that we update the manifest dir directly.
     # TODO: configure the kepler yaml in the CONFIG_OUT_DIR, not in the MANIFEST DIR.
-    echo "WARN: we are changing the file manifests/kubernetes/vm/deployment.yaml"
-    sed -i -e "s/path: \/proc/path: \/proc-host/g" manifests/kubernetes/vm/deployment.yaml
+    echo "WARN: we are changing the file ${CONFIG_OUT_DIR}/deployment.yaml"
+    sed -i -e "s/path: \/proc/path: \/proc-host/g" ${CONFIG_OUT_DIR}/deployment.yaml
+
+    cp ${KIND_DIR}/kind.yml ${CONFIG_OUT_DIR}
+    cp ${KIND_DIR}/local-registry.yml ${CONFIG_OUT_DIR}
 }
 
 function _get_nodes() {
