@@ -57,12 +57,12 @@ var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.cluster.local", KeplerNamespace)
 
 	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
-	EnabledEBPFCgroupID          = getConfig("ENABLE_EBPF_CGROUPID", "true") == "true"
-	ExposeHardwareCounterMetrics = getConfig("EXPOSE_HW_COUNTER_METRICS", "true") == "true"
-	EnabledGPU                   = strings.ToLower(getConfig("ENABLE_GPU", "false")) == "true"
+	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
+	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
+	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	MetricPathKey                = "METRIC_PATH"
 	BindAddressKey               = "BIND_ADDRESS"
-	CpuArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
+	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -77,7 +77,7 @@ var (
 	configPath = "/etc/config"
 
 	////////////////////////////////////
-	ModelServerEnable   = strings.ToLower(getConfig("MODEL_SERVER_ENABLE", "false")) == "true"
+	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
 	// for model config
 	ModelConfigValues = getModelConfigMap()
@@ -94,6 +94,14 @@ var (
 	ModelFiltersKey     = "FILTERS"
 	////////////////////////////////////
 )
+
+func getBoolConfig(configKey string, defaultBool bool) bool {
+	defaultValue := "false"
+	if defaultBool {
+		defaultValue = "true"
+	}
+	return strings.ToLower(getConfig(configKey, defaultValue)) == "true"
+}
 
 func getConfig(configKey, defaultValue string) (result string) {
 	result = string([]byte(defaultValue))

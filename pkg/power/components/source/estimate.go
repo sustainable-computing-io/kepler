@@ -61,7 +61,7 @@ type CPUModelData struct {
 
 func GetCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
-	cpuArchOverride := config.CpuArchOverride
+	cpuArchOverride := config.CPUArchOverride
 	if len(cpuArchOverride) > 0 {
 		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
 		return cpuArchOverride, nil
