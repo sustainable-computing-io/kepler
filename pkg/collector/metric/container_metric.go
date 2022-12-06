@@ -185,6 +185,8 @@ func (c *ContainerMetrics) extractUIntCurrAggr(metric string) (curr, aggr uint64
 		return c.CPUTime.Curr, c.CPUTime.Aggr, nil
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
+	case config.BlockDevicesIO:
+		return uint64(c.Disks), uint64(c.Disks), nil
 	case ByteReadLabel:
 		return c.BytesRead.Curr(), c.BytesRead.Aggr(), nil
 	case ByteWriteLabel:
