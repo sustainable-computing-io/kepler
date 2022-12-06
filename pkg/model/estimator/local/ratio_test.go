@@ -43,17 +43,27 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		containersMetrics := map[string]*collector_metric.ContainerMetrics{}
 		containersMetrics["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test")
+		containersMetrics["containerA"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
 		err := containersMetrics["containerA"].CounterStats[config.CoreUsageMetric].AddNewCurr(100)
 		Expect(err).NotTo(HaveOccurred())
 		containersMetrics["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test")
+		containersMetrics["containerB"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
 		err = containersMetrics["containerB"].CounterStats[config.CoreUsageMetric].AddNewCurr(100)
 		Expect(err).NotTo(HaveOccurred())
 
 		nodeMetrics := *collector_metric.NewNodeMetrics()
+		collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
 		nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
 		Expect(nodeMetrics.ResourceUsage[config.CoreUsageMetric]).Should(BeEquivalentTo(200))
 
 		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Core:   1,
+			DRAM:   1,
+			Uncore: 1,
+			Pkg:    1,
+		}
+		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
 			Core:   10,
 			DRAM:   3,
@@ -61,17 +71,17 @@ var _ = Describe("Test Ratio Unit", func() {
 			Pkg:    20,
 		}
 		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
-		Expect(nodeMetrics.EnergyInCore.Curr()).Should(BeEquivalentTo(10))
-		Expect(nodeMetrics.EnergyInDRAM.Curr()).Should(BeEquivalentTo(3))
-		Expect(nodeMetrics.EnergyInUncore.Curr()).Should(BeEquivalentTo(2))
-		Expect(nodeMetrics.EnergyInPkg.Curr()).Should(BeEquivalentTo(20))
+		Expect(nodeMetrics.EnergyInCore.Aggr()).Should(BeEquivalentTo(10))
+		Expect(nodeMetrics.EnergyInDRAM.Aggr()).Should(BeEquivalentTo(3))
+		Expect(nodeMetrics.EnergyInUncore.Aggr()).Should(BeEquivalentTo(2))
+		Expect(nodeMetrics.EnergyInPkg.Aggr()).Should(BeEquivalentTo(20))
 
 		nodePlatformEnergy := map[string]float64{}
 		nodePlatformEnergy["sensor0"] = 40
 		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy) // must be higher than components energy
-		Expect(nodeMetrics.EnergyInPlatform.Curr()).Should(BeEquivalentTo(40))
+		Expect(nodeMetrics.EnergyInPlatform.Aggr()).Should(BeEquivalentTo(40))
 
 		UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
-		Expect(containersMetrics["containerA"].EnergyInPkg).Should(BeEquivalentTo(10))
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).Should(BeEquivalentTo(10))
 	})
 })
