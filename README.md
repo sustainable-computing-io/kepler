@@ -50,7 +50,7 @@ port 9102.
         CI_DEPLOY|deploy volumn mount for CI
         ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset
         MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset
-        TRAIN_DEPLOY|patch online-trainer sidecar to model server (only available when MODEL_SERVER_DEPLOY set)
+        TRAINER_DEPLOY|patch online-trainer sidecar to model server (only available when MODEL_SERVER_DEPLOY set)
 
 2. For deployment with cluster prerequisites:
     ```bash

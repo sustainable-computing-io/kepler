@@ -4,7 +4,7 @@ metadata:
   name: kepler-model-server-cfm
   namespace: system
 data:
-  MODEL_PATH: models
+  MODEL_PATH: /data/models
   PROM_SERVER: 'http://prometheus-k8s.monitoring.svc.cluster.local:9090'
   PROM_QUERY_INTERVAL: '20'
   PROM_QUERY_STEP: '3'
@@ -40,6 +40,8 @@ spec:
       - name: cfm
         configMap:
           name: kepler-model-server-cfm
+      - emptyDir: {}
+        name: model-data
       containers:
       - name: server-api
         image: kepler-model-server:latest
@@ -50,7 +52,11 @@ spec:
           - name: cfm
             mountPath: /etc/config
             readOnly: true
+          - name: model-data
+            mountPath: /data
+            readOnly: false
         command: ["python3.8",  "model_server.py"]
+    
 ---
 kind: Service
 apiVersion: v1

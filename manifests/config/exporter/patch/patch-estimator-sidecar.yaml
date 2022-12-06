@@ -35,7 +35,7 @@ spec:
         volumeMounts:
         - mountPath: /tmp
           name: tmp
-        name: kepler-estimator
+        name: kepler-exporter
       volumes:
       - emptyDir: {}
         name: tmp

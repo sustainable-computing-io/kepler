@@ -2,8 +2,12 @@ resources:
 - model-server.yaml
 
 patchesStrategicMerge: []
+# add this line for openshift patch
+# - ./patch/patch-openshift.yaml
 # add this line to enable online trainer
 # - ./patch/patch-trainer.yaml
+# add this line to enable online trainer and openshift
+# - ./patch/patch-train-ocp.yaml
 
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

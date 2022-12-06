@@ -65,8 +65,10 @@ uncomment() {
 IMAGE_TAG=${IMAGE_TAG:-latest}
 MODEL_SERVER_IMAGE_TAG=${MODEL_SERVER_IMAGE_TAG:-latest}
 IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}
+ESTIMATOR_REPO=${ESTIMATOR_REPO:-${IMAGE_REPO}}
+MODEL_SERVER_REPO=${MODEL_SERVER_REPO:-${IMAGE_REPO}}
 EXPORTER_IMAGE_NAME=${EXPORTER_IMAGE_NAME:-kepler}
-ESTIMATOR_IMAGE_NAME=${ESTIMATOR_IMAGE_NAME:-kepler_estimator}
+ESTIMATOR_IMAGE_NAME=${ESTIMATOR_IMAGE_NAME:-kepler-estimator}
 MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-$(pwd)"/_output/generated-manifest"}
@@ -118,17 +120,23 @@ if [ ! -z ${MODEL_SERVER_DEPLOY} ]; then
     echo "enable model-server"
     uncomment_path model-server ${MANIFESTS_OUT_DIR}/base/kustomization.yaml
     uncomment_patch model-server-kepler-config ${MANIFESTS_OUT_DIR}/base/kustomization.yaml
+    if [ ! -z ${OPENSHIFT_DEPLOY} ]; then
+        uncomment_patch openshift ${MANIFESTS_OUT_DIR}/model-server/kustomization.yaml
+    fi
 
-    if [ ! -z ${TRAINER_DEPLOY}]; then
+    if [ ! -z ${TRAINER_DEPLOY} ]; then
         echo "enable online-trainer of model-server"
         uncomment_patch trainer ${MANIFESTS_OUT_DIR}/model-server/kustomization.yaml
+        if [ ! -z ${OPENSHIFT_DEPLOY} ]; then
+            uncomment_patch train-ocp ${MANIFESTS_OUT_DIR}/model-server/kustomization.yaml
+        fi
     fi
 fi
 
 echo "set manager image"
 EXPORTER_IMG=${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}
-ESTIMATOR_IMG=${IMAGE_REPO}/${ESTIMATOR_IMAGE_NAME}:${IMAGE_TAG}
-MODEL_SERVER_IMG=${IMAGE_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}
+ESTIMATOR_IMG=${ESTIMATOR_REPO}/${ESTIMATOR_IMAGE_NAME}:${IMAGE_TAG}
+MODEL_SERVER_IMG=${MODEL_SERVER_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}
 cd ${MANIFESTS_OUT_DIR}/exporter;${KUSTOMIZE} edit set image kepler=${EXPORTER_IMG}; ${KUSTOMIZE} edit set image kepler-estimator=${ESTIMATOR_IMG}
 cd ${MANIFESTS_OUT_DIR}/model-server;${KUSTOMIZE} edit set image kepler=${MODEL_SERVER_IMG}
 

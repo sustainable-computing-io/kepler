@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kepler-model-server
+  namespace: system
+spec:
+  template:
+    spec:
+      serviceAccountName: kepler-sa
+      containers:
+      - name: server-api
+        securityContext:
+          privileged: true

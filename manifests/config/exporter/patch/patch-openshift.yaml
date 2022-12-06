@@ -15,7 +15,7 @@ spec:
   template:
     spec:
       containers:
-      - name: kepler-estimator
+      - name: kepler-exporter
         volumeMounts:
         - name: kernel-src
           mountPath: /usr/src/kernels

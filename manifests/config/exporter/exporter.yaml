@@ -75,10 +75,10 @@ spec:
           name: tracing
         - mountPath: /proc
           name: proc
-        env:
         - name: cfm
           mountPath: /etc/config
           readOnly: true
+        env:
         - name: NODE_NAME
           valueFrom:
             fieldRef:
