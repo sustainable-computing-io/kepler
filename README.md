@@ -10,70 +10,29 @@
 
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/KeplerProject.svg?style=social&label=Follow%20%40KeplerProject)](https://twitter.com/KeplerProject)
 
-# kepler
-Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy related system stats and exports as Prometheus metrics
+# Kepler
+Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy-related system stats and exports them as Prometheus metrics.
 
-# Architecture
+## Architecture
+Kepler Exporter exposes a variety of [metrics](https://sustainable-computing.io/design/metrics/) about the energy consumption of Kubernetes components such as Pods and Nodes. 
+
 ![Architecture](doc/kepler-arch.png)
 
-# Talk and Demo
-[Open Source Summit NA 2022 talk](doc/OSS-NA22.pdf) and [demo](https://www.youtube.com/watch?v=P5weULiBl60)
+## Install Kepler
+Instructions to install Kepler can be found in the [Kepler docs](https://sustainable-computing.io/installation/kepler/).
 
-# Requirement
-Kernel 4.18+
-
-# Installation and Configuration for Prometheus
-## Prerequisites
-Need access to a Kubernetes cluster.
-
-## Deploy the Kepler exporter
-Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
-port 9102.
-```
-# build manifests file for VM+Baremetal and Baremetal only
-# manifests are created in  _output/manifests/kubernetes/generated/ by default
-# kubectl v1.21.0 is minimum version that support build manifest
-# make build-manifest
-```
-
-if you are running with Baremetal only
-```
-kubectl create -f _output/manifests/kubernetes/generated/bm/deployment.yaml
-```
-
-if you are running with Baremetal and/or VM
-```
-kubectl create -f _output/manifests/kubernetes/generated/vm/deployment.yaml
-```
-
-## Deploy the Prometheus operator and the whole monitoring stack
-1. Clone the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) project to your local folder.
-```
-# git clone https://github.com/prometheus-operator/kube-prometheus
-```
-
-2. Deploy the whole monitoring stack using the config in the `manifests` directory.
-Create the namespace and CRDs, and then wait for them to be available before creating the remaining resources
-```
-# cd kube-prometheus
-# kubectl apply --server-side -f manifests/setup
-# until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
-# kubectl apply -f manifests/
-```
-
-## Configure Prometheus to scrape Kepler-exporter endpoints.
-```
-# cd ../kepler
-# kubectl create -f manifests/kubernetes/keplerExporter-serviceMonitor.yaml
-```
-
-## Sample Grafana dashboard
-Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.json) into grafana
+## Visualise Kepler metrics with Grafana
+To visualise the power consumption metrics made available by the Kepler Exporter, import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.json) into Grafana:
  ![Sample Grafana dashboard](doc/dashboard.png)
 
+## Contribute to Kepler
+Interested in contributing to Kepler? Follow the [Contributing Guide](CONTRIBUTING.md) to get started!
 
-## To start developing Kepler
-To set up a development environment please read our [Getting Started Guide](doc/dev/README.md)
+## Talks & Demos
+- [Kepler Demo](https://www.youtube.com/watch?v=P5weULiBl60)
+- ["Sustainability the Container Native Way" - Open Source Summit NA 2022](doc/OSS-NA22.pdf)
+
+A full list of talks and demos about Kepler can be found [here](https://github.com/sustainable-computing-io/kepler-doc/tree/main/demos).
 
 ## Community Meetings
 [Download](https://us06web.zoom.us/meeting/tZ0sfuigqz8oHNQOn3yCDuBoEtPbXbZII5tH/ics?icsToken=98tyKuGhrzIrEtGRsh-HRpx5BYr4d_zwmClBgo1ssxG2GgN3dyH5E_ZyMIp9KvH5) the biweekly community meeting iCalendar file.
