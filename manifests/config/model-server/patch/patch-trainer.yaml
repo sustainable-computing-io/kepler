@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kepler-model-server
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: server-api
+      - name: online-trainer
+        image: kepler-model-server:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: cfm
+            mountPath: /etc/config
+            readOnly: true
+        command: ["python3.8",  "online_trainer.py"]

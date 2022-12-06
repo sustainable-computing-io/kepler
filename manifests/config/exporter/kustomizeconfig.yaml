@@ -1,0 +1,11 @@
+varReference: 
+- kind: SecurityContextConstraints
+  group: security.openshift.io
+  version: v1
+  name: kepler-scc
+  path: users
+- kind: ConfigMap
+  group: ""
+  version: v1
+  name: kepler-cfm
+  path: data/KEPLER_NAMESPACE

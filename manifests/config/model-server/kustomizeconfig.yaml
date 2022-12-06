@@ -1,0 +1,6 @@
+varReference: 
+- kind: ConfigMap
+  group: ""
+  version: v1
+  name: kepler-cfm
+  path: data/MODEL_SERVER_ENDPOINT

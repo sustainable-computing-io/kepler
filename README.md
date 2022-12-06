@@ -29,30 +29,47 @@ Need access to a Kubernetes cluster.
 ## Deploy the Kepler exporter
 Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
 port 9102.
-```
-# build manifests file for VM+Baremetal and Baremetal only
-# manifests are created in  _output/manifests/kubernetes/generated/ by default
-# kubectl v1.21.0 is minimum version that support build manifest
-# make build-manifest
-```
+1. Build Manifest file
+   -  kubectl v1.21.0 is minimum version that support build manifest
+   -  manifest sources and outputs will be in  _output/generated-manifests by default
+   -  Run:
+        ```bash
+        make build-manifest OPTS="<deployment options>"
+        # minimum deployment: 
+        # > make build-manifest
+        # deployment with sidecar on openshift: 
+        # > make build-manifest OPTS="ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
+        ```
 
-if you are running with Baremetal only
-```
-kubectl create -f _output/manifests/kubernetes/generated/bm/deployment.yaml
-```
+        Deployment Option|Description
+        ---|---
+        BM_DEPLOY|baremetal deployment patched with node selector feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR to not exist
+        OPENSHIFT_DEPLOY|patch openshift-specific attribute to kepler daemonset and deploy SecurityContextConstraints
+        PROMETHEUS_DEPLOY|patch prometheus-related resource (ServiceMonitor, RBAC role, rolebinding) - require [prometheus deployment](README.md/#deploy-the-prometheus-operator-and-the-whole-monitoring-stack)
+        CLUSTER_PREREQ_DEPLOY|deploy prerequisites for kepler on openshift cluster (only available when OPENSHIFT_DEPLOY set)
+        CI_DEPLOY|deploy volumn mount for CI
+        ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset
+        MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset
+        TRAIN_DEPLOY|patch online-trainer sidecar to model server (only available when MODEL_SERVER_DEPLOY set)
 
-if you are running with Baremetal and/or VM
-```
-kubectl create -f _output/manifests/kubernetes/generated/vm/deployment.yaml
-```
-
+2. For deployment with cluster prerequisites:
+    ```bash
+    oc apply --kustomize _output/generated-manifests/config/cluster-prereqs
+    # Check before proceeding that all nodes are Ready and Schedulable
+    oc get nodes
+    ```
+    > Each node is decommissioned and rebooted - this may take ~20 minutes.
+3. Deploy kustomized manifest
+    ```bash
+    kubectl create -f _output/generated-manifests/deployment.yaml
+    ```
 ## Deploy the Prometheus operator and the whole monitoring stack
 1. Clone the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) project to your local folder.
 ```
 # git clone https://github.com/prometheus-operator/kube-prometheus
 ```
 
-2. Deploy the whole monitoring stack using the config in the `manifests` directory.
+1. Deploy the whole monitoring stack using the config in the `manifests` directory.
 Create the namespace and CRDs, and then wait for them to be available before creating the remaining resources
 ```
 # cd kube-prometheus
@@ -61,16 +78,9 @@ Create the namespace and CRDs, and then wait for them to be available before cre
 # kubectl apply -f manifests/
 ```
 
-## Configure Prometheus to scrape Kepler-exporter endpoints.
-```
-# cd ../kepler
-# kubectl create -f manifests/kubernetes/keplerExporter-serviceMonitor.yaml
-```
-
 ## Sample Grafana dashboard
 Import the pre-generated [Kepler Dashboard](grafana-dashboards/Kepler-Exporter.json) into grafana
  ![Sample Grafana dashboard](doc/dashboard.png)
-
 
 ## To start developing Kepler
 To set up a development environment please read our [Getting Started Guide](doc/dev/README.md)

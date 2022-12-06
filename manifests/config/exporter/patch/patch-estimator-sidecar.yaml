@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-cfm
+  namespace: system
+data:
+  CGROUP_METRICS: '*'
+  MODEL_CONFIG: |
+    POD_COMPONENTS_ESTIMATOR=true
+    POD_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed.zip
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler-exporter
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - image: kepler-estimator:latest
+        imagePullPolicy: Always
+        name: estimator
+        volumeMounts:
+        - name: cfm
+          mountPath: /etc/config
+          readOnly: true
+        - mountPath: /tmp
+          name: tmp
+      - command:
+        - /bin/sh
+        - -c
+        args:
+        - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=1
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        name: kepler-estimator
+      volumes:
+      - emptyDir: {}
+        name: tmp

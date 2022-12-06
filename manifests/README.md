@@ -8,26 +8,37 @@ The operating system must provide:
 - Kernel with eBPF support
 
 Consult the documentation of your Linux distribution on details for enabling these prerequisites.
+
+### Build Manifests
+  ```bash
+  make build-manifest OPTS="<deployment options>"
+  # minimum deployment: 
+  # > make build-manifest
+  # deployment with sidecar on openshift: 
+  # > make build-manifest OPTS="ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
+  ```
+
+Deployment Option|Description
+---|---
+BM_DEPLOY|baremetal deployment patched with node selector feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR to not exist
+OPENSHIFT_DEPLOY|patch openshift-specific attribute to kepler daemonset and deploy SecurityContextConstraints
+PROMETHEUS_DEPLOY|patch prometheus-related resource (ServiceMonitor, RBAC role, rolebinding) - require [prometheus deployment](https://github.com/sustainable-computing-io/kepler#deploy-the-prometheus-operator-and-the-whole-monitoring-stack)
+CLUSTER_PREREQ_DEPLOY|deploy prerequisites for kepler on openshift cluster (only available when OPENSHIFT_DEPLOY set)
+CI_DEPLOY|deploy volumn mount for CI
+ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset
+MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset
+TRAIN_DEPLOY|patch online-trainer sidecar to model server (only available when MODEL_SERVER_DEPLOY set)
+
+ -  kubectl v1.21.0 is minimum version that support build manifest
+ -  manifest sources and outputs will be in  _output/generated-manifests by default
+
 ## Installing Kepler on Kubernetes
 
-Deploying the Kepler exporter as a daemonset to run on all nodes. The following deployment will also create a service listening on
-port 9102.
-```
-# build manifests file for VM+Baremetal and Baremetal only
-# manifests are created in  _output/manifests/kubernetes/generated/ by default
-# kubectl v1.21.0 is minimum version that support build manifest
-# make build-manifest
-```
+Deploy kustomized manifest
 
-if you are running with Baremetal only
-```
-kubectl create -f _output/manifests/kubernetes/generated/bm/deployment.yaml
-```
-
-if you are running with Baremetal and/or VM
-```
-kubectl create -f _output/manifests/kubernetes/generated/vm/deployment.yaml
-```
+ ```bash
+ kubectl create -f _output/generated-manifests/deployment.yaml
+ ```
 
 # Kepler on OpenShift
 
@@ -41,8 +52,10 @@ Kepler requires the nodes to support cgroup-v2 and kernel-devel extensions. In O
 
 - Create MachineConfig (MC) for the MachineConfigPools (MCPs)
 ```bash
+# NOTE: The manifest must be built with CLUSTER_PREREQ_DEPLOY option
+# If it is not built with BM_DEPLOY, the cgroupv2 installation will be also applied.
 # WARNING: THIS WILL TRIGGER A ROLLING UPGRADE/REBOOT OF THE NODES
-kubectl apply -k openshift/cluster-prereqs
+kubectl apply -k _output/generated-manifests/cluster-prereqs
 ```
 
 - Wait for this step to be completed before trying to install and configure Kepler. You may track the progress with `kubectl get mcp` and `kubectl get nodes`.
@@ -64,8 +77,9 @@ kubectl label node worker1 sustainable-computing.io/kepler=''
 
 - Deploying Kepler (namespace, scc, exporter, etc.) 
 ```bash
-# NOTE: These manifest take care of creating the namespace, SCC and Kepler exporter
-kubectl apply -k openshift/kepler
+# NOTE: The manifest must be built with OPENSHIFT_DEPLOY option
+# These manifest take care of creating the namespace, SCC and Kepler exporter
+kubectl create -f _output/generated-manifests/deployment.yaml
 
 # Note: During the initialization of `kepler-exporter` Pods or after rebooting the nodes, 
 # it could take a while for the metrics to be stable.
@@ -73,7 +87,7 @@ kubectl apply -k openshift/kepler
 
 Note: During the initialization of `kepler-exporter` Pods or after reboots, it could take few minutes for the metrics to be stable.
 
-- For enabling the example dashbaord in OpenShift see [openshift/dashboard/README.md](openshift/dashboard/README.md)
+- For enabling the example dashbaord in OpenShift see [dashboard/README.md](config/dashboard/README.md)
 
 
 ## References

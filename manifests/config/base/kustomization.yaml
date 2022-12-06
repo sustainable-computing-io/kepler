@@ -1,0 +1,14 @@
+namespace: kepler
+
+commonLabels:
+  sustainable-computing.io/app: kepler
+  
+bases:
+- ../rbac
+- ../exporter
+# add this line to enable model-server
+# - ../model-server
+
+patchesStrategicMerge: []
+# add this line to set model-server endpoint to kepler
+# - ./patch/patch-model-server-kepler-config.yaml

@@ -1,4 +1,3 @@
-
 # scc for the Kepler
 kind: SecurityContextConstraints
 apiVersion: security.openshift.io/v1
@@ -26,4 +25,5 @@ volumes:
   - emptyDir
   - hostPath
 users:
-  - system:serviceaccount:kepler:kepler-sa # serviceaccount:namespace:sa
+  - $(KEPLER_NAMESPACE)
+  - system:serviceaccount:$(KEPLER_NAMESPACE):kepler-sa

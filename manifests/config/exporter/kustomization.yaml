@@ -1,0 +1,39 @@
+resources:
+# uncomment this line for openshift
+# - openshift_scc.yaml
+- exporter.yaml
+# uncomment this line if prometheus deployed
+# - prometheus_service_monitor.yaml
+
+patchesStrategicMerge: []
+# add this line to allow ci
+# - ./patch/patch-ci.yaml
+# add this line for bm case
+# - ./patch/patch-bm.yaml
+# add this line to enable estimator sidecar
+# - ./patch/patch-estimator-sidecar.yaml
+# add this line for openshift patch
+# - ./patch/patch-openshift.yaml
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: kepler
+  newName: quay.io/sustainable_computing_io/kepler
+  newTag: latest
+- name: kepler-estimator
+  newName: quay.io/sustainable_computing_io/kepler_estimator
+  newTag: latest
+
+vars:
+- name: KEPLER_NAMESPACE
+  objref:
+    kind: Namespace
+    group: ""
+    version: v1
+    name: system
+  fieldref:
+    fieldpath: metadata.name
+
+configurations:
+- ./kustomizeconfig.yaml

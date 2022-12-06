@@ -1,9 +1,8 @@
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kepler-exporter
-  namespace: kepler
+  namespace: system
 spec:
   template:
     spec:
@@ -14,4 +13,3 @@ spec:
             - matchExpressions:
               - key: feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR
                 operator: DoesNotExist
-                values:

@@ -21,5 +21,11 @@ Session.vim
 # test-bin
 test-bin
 
+# bin
+bin
+
 # vscode
 .vscode
+
+.DS_Store
+*/.DS_Store

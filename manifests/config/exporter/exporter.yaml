@@ -1,49 +1,30 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kepler
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kepler-clusterrole
-  namespace: kepler
-rules:
-- apiGroups: [""]
-  resources:
-  - nodes/metrics # access /metrics/resource
-  - nodes/proxy # access /pods
-  - nodes/stats # access /pods
-  verbs:
-  - 'get'
-  - 'watch'
-  - 'list'
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kepler-clusterrole-binding
-  namespace: kepler
-roleRef:
-  kind: ClusterRole
-  name: kepler-clusterrole
-  apiGroup: "rbac.authorization.k8s.io"
-subjects:
-- kind: ServiceAccount
-  name: kepler-sa
-  namespace: kepler
+  name: system
 ---
 apiVersion: v1
-kind: ServiceAccount
+kind: ConfigMap
 metadata:
-  name: kepler-sa
-  namespace: kepler
+  name: kepler-cfm
+  namespace: system
+data:
+  KEPLER_NAMESPACE: $(KEPLER_NAMESPACE)
+  METRIC_PATH: "/metrics"
+  BIND_ADDRESS: "0.0.0.0:9102"
+  ENABLE_GPU: "true"
+  ENABLE_EBPF_CGROUPID: "true"
+  CPU_ARCH_OVERRIDE: ""
+  CGROUP_METRICS: '*'
+  MODEL_CONFIG: |
+    POD_COMPONENTS_ESTIMATOR=false
+    POD_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kepler-exporter
-  namespace: kepler
+  namespace: system
 spec:
   selector:
     matchLabels:
@@ -55,11 +36,14 @@ spec:
         app.kubernetes.io/component: exporter
         app.kubernetes.io/name: kepler-exporter
     spec:
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
       hostNetwork: true
       serviceAccountName: kepler-sa
       containers:
       - name: kepler-exporter
-        image: quay.io/sustainable_computing_io/kepler:latest
+        image: kepler:latest
         imagePullPolicy: Always
         resources:
           requests:
@@ -69,10 +53,6 @@ spec:
           privileged: true
         command:
         - /usr/bin/kepler
-        - -address
-        - 0.0.0.0:9102
-        - -enable-gpu=true
-        - -enable-cgroup-id=true
         - -v=1
         ports:
         - containerPort: 9102
@@ -96,12 +76,13 @@ spec:
         - mountPath: /proc
           name: proc
         env:
+        - name: cfm
+          mountPath: /etc/config
+          readOnly: true
         - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: CPU_ARCH_OVERRIDE
-          value:
       volumes:
       - name: lib-modules
         hostPath:
@@ -115,12 +96,15 @@ spec:
         hostPath:
           path: /proc
           type: Directory
+      - name: cfm
+        configMap:
+          name: kepler-cfm
 ---
 kind: Service
 apiVersion: v1
 metadata:
   name: kepler-exporter
-  namespace: kepler
+  namespace: system
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
