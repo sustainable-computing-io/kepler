@@ -57,9 +57,12 @@ var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.cluster.local", KeplerNamespace)
 
 	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
-	EnabledEBPFCgroupID          = false
-	ExposeHardwareCounterMetrics = true
-	EnabledGPU                   = false
+	EnabledEBPFCgroupID          = getConfig("ENABLE_EBPF_CGROUPID", "true") == "true"
+	ExposeHardwareCounterMetrics = getConfig("EXPOSE_HW_COUNTER_METRICS", "true") == "true"
+	EnabledGPU                   = strings.ToLower(getConfig("ENABLE_GPU", "false")) == "true"
+	MetricPathKey                = "METRIC_PATH"
+	BindAddressKey               = "BIND_ADDRESS"
+	CpuArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -121,21 +124,27 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 
 // SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func SetEnabledEBPFCgroupID(enabled bool) {
+	// set to false if any config source set it to false
+	enabled = enabled && EnabledEBPFCgroupID
 	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
 	klog.Infoln("kernel version:", getKernelVersion(c))
 	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
+	} else {
+		EnabledEBPFCgroupID = false
 	}
 }
 
 // SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
 func SetEnabledHardwareCounterMetrics(enabled bool) {
-	ExposeHardwareCounterMetrics = enabled
+	// set to false is any config source set it to false
+	ExposeHardwareCounterMetrics = enabled && ExposeHardwareCounterMetrics
 }
 
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
-	EnabledGPU = true
+	// set to true if any config source set it to true
+	EnabledGPU = enabled || EnabledGPU
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
@@ -204,6 +213,14 @@ func SetEstimatorConfig(modelName, selectFilter string) {
 
 func SetModelServerEndpoint(serverEndpoint string) {
 	ModelServerEndpoint = serverEndpoint
+}
+
+func GetMetricPath(cmdSet string) string {
+	return getConfig(MetricPathKey, cmdSet)
+}
+
+func GetBindAddress(cmdSet string) string {
+	return getConfig(BindAddressKey, cmdSet)
 }
 
 func getModelConfigMap() map[string]string {

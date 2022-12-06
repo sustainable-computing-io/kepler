@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"github.com/jszwec/csvutil"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+
 	"k8s.io/klog/v2"
 )
 
@@ -59,7 +61,7 @@ type CPUModelData struct {
 
 func GetCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
-	cpuArchOverride := os.Getenv("CPU_ARCH_OVERRIDE")
+	cpuArchOverride := config.CpuArchOverride
 	if len(cpuArchOverride) > 0 {
 		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
 		return cpuArchOverride, nil

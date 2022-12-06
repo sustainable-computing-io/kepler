@@ -178,15 +178,17 @@ func main() {
 	if err := m.Start(); err != nil {
 		klog.Infof("%s", fmt.Sprintf("failed to start : %v", err))
 	}
+	metricPathConfig := config.GetMetricPath(*metricsPath)
+	bindAddressConfig := config.GetBindAddress(*address)
 
-	http.Handle(*metricsPath, promhttp.Handler())
+	http.Handle(metricPathConfig, promhttp.Handler())
 	http.HandleFunc("/healthz", healthProbe)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(`<html>
                         <head><title>Energy Stats Exporter</title></head>
                         <body>
                         <h1>Energy Stats Exporter</h1>
-                        <p><a href="` + *metricsPath + `">Metrics</a></p>
+                        <p><a href="` + metricPathConfig + `">Metrics</a></p>
                         </body>
                         </html>`))
 		if err != nil {
@@ -196,11 +198,11 @@ func main() {
 
 	ch := make(chan error)
 	go func() {
-		ch <- http.ListenAndServe(*address, nil)
+		ch <- http.ListenAndServe(bindAddressConfig, nil)
 	}()
 
 	klog.Infof(startedMsg, time.Since(start))
 	klog.Flush() // force flush to parse the start msg in the e2e test
 	err := <-ch
-	klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", *address, err))
+	klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", bindAddressConfig, err))
 }
