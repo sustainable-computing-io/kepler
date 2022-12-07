@@ -88,6 +88,10 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 				if res.Has("pod_name") {
 					kMetric[res.Get("__name__")+res.Get("pod_name")] = v
 				} else {
+					if m == "kepler_exporter_build_info" || m == "kepler_node_energy_stat" || m == "kepler_node_nodeInfo" {
+						fmt.Println(m)
+						fmt.Println(res)
+					}
 					kMetric[string(m)] = v
 				}
 				res = res[:0]
