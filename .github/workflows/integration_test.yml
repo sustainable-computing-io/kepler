@@ -59,6 +59,6 @@ jobs:
           kubectl port-forward $(kubectl -n kepler get pods -oname) 9102:9102 -n kepler -v7 &
           kubectl logs -n kepler daemonset/kepler-exporter
           kubectl get pods -n kepler -o yaml
-          go test -tags=bcc ./e2e/... --race --bench=. -cover --count=1 --vet=all
+          go test -tags=bcc -v ./e2e/... --race --bench=. -cover --count=1 --vet=all
         env:
             kepler_address: localhost:9102
