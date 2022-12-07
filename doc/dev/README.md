@@ -2,14 +2,14 @@
 
 A quick start guide to get Kepler up and running inside your container-based development cluster.
 
-## To create a new emphemeral local kubernetes cluster
-You can bring the cluster up with:
+## Create a new emphemeral local kubernetes cluster
+Bring the cluster up with:
 ```bash
 export CLUSTER_PROVIDER=`kind`
 make cluster-up
 ```
 
-For more information please read our ![How to use cluster-up](cluster-up/README.md)
+For more information please read our ![How to use cluster-up](../../cluster-up/README.md)
 
 ## Then build and run kepler on your cluster
 

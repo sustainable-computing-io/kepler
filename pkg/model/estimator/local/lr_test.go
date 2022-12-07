@@ -34,6 +34,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
 
@@ -108,7 +109,6 @@ func dummyModelWeightServer(start, quit chan bool) {
 	http.HandleFunc("/model", getDummyWeights)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", modelServerPort))
 	if err != nil {
-		fmt.Println(modelServerPort)
 		panic(err)
 	}
 	defer listener.Close()
@@ -121,6 +121,8 @@ func dummyModelWeightServer(start, quit chan bool) {
 }
 
 func genLinearRegressor(outputType types.ModelOutputType, endpoint, initModelURL string) LinearRegressor {
+	config.ModelServerEnable = true
+	config.ModelServerEndpoint = endpoint
 	return LinearRegressor{
 		Endpoint:       endpoint,
 		UsageMetrics:   usageMetrics,
