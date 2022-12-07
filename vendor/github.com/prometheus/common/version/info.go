@@ -21,6 +21,7 @@ import (
 	"text/template"
 
 	"github.com/prometheus/client_golang/prometheus"
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
 // Build information. Populated at build-time.
@@ -49,6 +50,7 @@ func NewCollector(program string) prometheus.Collector {
 				"revision":  Revision,
 				"branch":    Branch,
 				"goversion": GoVersion,
+				"instance":  collector_metric.NodeName,
 			},
 		},
 		func() float64 { return 1 },

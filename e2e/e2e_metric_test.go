@@ -83,12 +83,14 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 			}
 			switch et {
 			case textparse.EntrySeries:
-				m, _, v := p.Series()
+				_, _, v := p.Series()
 				p.Metric(&res)
 				if res.Has("pod_name") {
 					kMetric[res.Get("__name__")+res.Get("pod_name")] = v
-				} else {
-					kMetric[string(m)] = v
+				}
+				if res.Has("instance") {
+					kMetric[res.Get("__name__")] = v
+					Expect(res.Get("instance")).To(Equal("kind-control-plane"))
 				}
 				res = res[:0]
 			case textparse.EntryType:

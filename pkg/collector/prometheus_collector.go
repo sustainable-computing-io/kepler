@@ -38,7 +38,7 @@ var (
 	// These metris report the following labels, we have the full list here to make it more transparent
 	// TODO: review these metrics, they might be deprecated
 	NodeMetricsStatLabels = []string{
-		"node_name",
+		"instance",
 		"cpu_architecture",
 		"node_curr_cpu_time",
 		"node_curr_cpu_cycles",
@@ -218,7 +218,7 @@ func (p *PrometheusCollector) newNodeMetrics() {
 	nodeInfo := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "nodeInfo"),
 		"Labeled node information",
-		[]string{"cpu_architecture"}, nil,
+		[]string{"cpu_architecture", "instance"}, nil,
 	)
 	// Energy (counter)
 	// TODO: separate the energy consumption per CPU, including the label cpu
@@ -441,7 +441,7 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			p.nodeDesc.nodeInfo,
 			prometheus.CounterValue,
 			1,
-			collector_metric.NodeCPUArchitecture,
+			collector_metric.NodeCPUArchitecture, collector_metric.NodeName,
 		)
 		for pkgID, val := range p.NodeMetrics.EnergyInCore.Stat {
 			// Node metrics in joules (counter)
