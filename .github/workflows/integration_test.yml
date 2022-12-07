@@ -40,7 +40,7 @@ jobs:
         run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
-            IMAGE_REPO: "localhost:5001/kepler"
+            IMAGE_REPO: "localhost:5001"
             IMAGE_TAG: "devel"
             CTR_CMD: docker
             CI_ONLY: "true"

@@ -22,7 +22,7 @@ export IMAGE_TAG=mybuild
 
 By default, please use:
 ```bash
-export IMAGE_REPO="localhost:5001/kepler"
+export IMAGE_REPO="localhost:5001"
 export IMAGE_TAG="devel"
 ```
 

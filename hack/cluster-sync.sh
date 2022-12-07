@@ -24,7 +24,7 @@ source cluster-up/cluster/$CLUSTER_PROVIDER/common.sh
 source cluster-up/common.sh
 
 export IMAGE_TAG=${IMAGE_TAG:-devel}
-export IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io/kepler}
+export IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}
 
 # we do not use `make cluster-clean` and `make cluster-deploy` because they trigger other actions
 function main() {
