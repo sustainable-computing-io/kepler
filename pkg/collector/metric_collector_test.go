@@ -156,4 +156,13 @@ var _ = Describe("Test Collector Unit", func() {
 		Expect(metricCollector.ContainersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
 	})
 
+	It("HandleInactiveContainers without error", func() {
+		metricCollector = newMockCollector()
+		foundContainer := make(map[string]bool)
+		foundContainer["containerA"] = true
+		foundContainer["containerB"] = true
+		metricCollector.handleInactiveContainers(foundContainer)
+		Expect(len(metricCollector.ContainersMetrics)).Should(Equal(2))
+	})
+
 })
