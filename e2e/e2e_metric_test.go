@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -90,8 +89,9 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 					kMetric[res.Get("__name__")+res.Get("pod_name")] = v
 				} else {
 					if string(m) == "kepler_exporter_build_info" || string(m) == "kepler_node_energy_stat" || string(m) == "kepler_node_nodeInfo" {
-						fmt.Println(m)
-						fmt.Println(res)
+						if res.Get("label") == "" {
+							Expect(false).To(BeTrue())
+						}
 					}
 					kMetric[string(m)] = v
 				}
