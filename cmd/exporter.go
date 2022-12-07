@@ -160,7 +160,7 @@ func main() {
 	// model component decide whether/how to init
 	model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
 
-	if *enableGPU {
+	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
 		err := accelerator.Init()
 		if err == nil {

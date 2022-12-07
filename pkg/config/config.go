@@ -153,6 +153,7 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+	klog.Infoln("EnabledGPU:", EnabledGPU)
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {

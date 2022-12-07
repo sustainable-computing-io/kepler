@@ -114,7 +114,7 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		},
 		EntryDescription("checking %s"),
 		Entry(nil, "kepler_exporter_build_info"),                     // only one
-		Entry(nil, "kepler_node_core_joules_total"),                  // node level  check by instance
+		Entry(nil, "kepler_node_core_joules_total"),                  // node level check by instance
 		Entry(nil, "kepler_node_dram_joules_total"),                  // node level check by instance
 		Entry(nil, "kepler_node_energy_stat"),                        // node level missing instance label but node_name
 		Entry(nil, "kepler_node_nodeInfo"),                           // node level missing labels

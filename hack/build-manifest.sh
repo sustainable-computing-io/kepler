@@ -31,7 +31,7 @@ then
     exit 1
 fi
 
-KUSTOMIZE=$(pwd)/bin/kustomize
+KUSTOMIZE=${PWD}/bin/kustomize
 SED="sed -i"
 if [ "$(uname)" == "Darwin" ]; then
     SED="sed -i .bak " 
@@ -39,7 +39,7 @@ fi
 
 remove_empty_patch() {
     file="${1:?}"
-    sed -i "" -e "/^patchesStrategicMerge.*/s/\[\]//" $file
+    ${SED} -e "/^patchesStrategicMerge.*/s/\[\]//" $file
 }
 
 uncomment_patch() {
@@ -71,7 +71,7 @@ EXPORTER_IMAGE_NAME=${EXPORTER_IMAGE_NAME:-kepler}
 ESTIMATOR_IMAGE_NAME=${ESTIMATOR_IMAGE_NAME:-kepler-estimator}
 MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
 
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-$(pwd)"/_output/generated-manifest"}
+MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
 source cluster-up/common.sh
 
@@ -137,8 +137,8 @@ echo "set manager image"
 EXPORTER_IMG=${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}
 ESTIMATOR_IMG=${ESTIMATOR_REPO}/${ESTIMATOR_IMAGE_NAME}:${IMAGE_TAG}
 MODEL_SERVER_IMG=${MODEL_SERVER_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}
-cd ${MANIFESTS_OUT_DIR}/exporter;${KUSTOMIZE} edit set image kepler=${EXPORTER_IMG}; ${KUSTOMIZE} edit set image kepler-estimator=${ESTIMATOR_IMG}
-cd ${MANIFESTS_OUT_DIR}/model-server;${KUSTOMIZE} edit set image kepler=${MODEL_SERVER_IMG}
+pushd ${MANIFESTS_OUT_DIR}/exporter;${KUSTOMIZE} edit set image kepler=${EXPORTER_IMG}; ${KUSTOMIZE} edit set image kepler-estimator=${ESTIMATOR_IMG}; popd
+pushd ${MANIFESTS_OUT_DIR}/model-server;${KUSTOMIZE} edit set image kepler=${MODEL_SERVER_IMG}; popd
 
 echo "kustomize manifests..."
 ${KUSTOMIZE} build ${MANIFESTS_OUT_DIR}/base > ${MANIFESTS_OUT_DIR}/deployment.yaml

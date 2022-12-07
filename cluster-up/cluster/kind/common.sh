@@ -155,7 +155,7 @@ function _run_registry() {
     # connect the registry to the cluster network if not already connected
     $CTR_CMD network connect "${KIND_DEFAULT_NETWORK}" "${REGISTRY_NAME}" || true
 
-    kubectl apply -f ${CONFIG_OUT_DIR}/local-registry.yml
+    kubectl apply -f ${KIND_DIR}/local-registry.yml
 }
 
 function _prepare_config() {
@@ -169,15 +169,6 @@ function _prepare_config() {
     sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${KIND_DIR}/local-registry.yml
     sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${KIND_DIR}/local-registry.yml
 
-    make build-manifest
-
-    # make cluster-sync overwrite the CONFIG_OUT_DIR, so that we update the manifest dir directly.
-    # TODO: configure the kepler yaml in the CONFIG_OUT_DIR, not in the MANIFEST DIR.
-    echo "WARN: we are changing the file ${CONFIG_OUT_DIR}/deployment.yaml"
-    sed -i -e "s/path: \/proc/path: \/proc-host/g" ${CONFIG_OUT_DIR}/deployment.yaml
-
-    cp ${KIND_DIR}/kind.yml ${CONFIG_OUT_DIR}
-    cp ${KIND_DIR}/local-registry.yml ${CONFIG_OUT_DIR}
 }
 
 function _get_nodes() {
@@ -191,8 +182,8 @@ function _get_pods() {
 function _setup_kind() {
      echo "Starting kind with cluster name \"${CLUSTER_NAME}\""
 
-    $KIND create cluster -v=6 --name=${CLUSTER_NAME} --config=${CONFIG_OUT_DIR}/kind.yml
-    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
+    $KIND create cluster -v=6 --name=${CLUSTER_NAME} --config=${KIND_DIR}/kind.yml
+    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KIND_DIR}/.kubeconfig
 
     _wait_kind_up
     kubectl cluster-info
@@ -232,5 +223,5 @@ function down() {
     # Avoid failing an entire test run just because of a deletion error
     $KIND delete cluster --name=${CLUSTER_NAME} || "true"
     $CTR_CMD rm -f ${REGISTRY_NAME} >> /dev/null
-    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/kind.yml
+    rm -f ${KIND_DIR}/kind.yml
 }

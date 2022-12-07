@@ -17,3 +17,7 @@ spec:
         hostPath:
           path: /usr/src
           type: Directory
+      - name: proc
+        hostPath:
+          path: /proc-host
+          type: Directory
