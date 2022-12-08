@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kepler-exporter
-  namespace: kepler
+  namespace: system
 spec:
   template:
     spec:
@@ -16,4 +16,8 @@ spec:
       - name: usr-src
         hostPath:
           path: /usr/src
+          type: Directory
+      - name: proc
+        hostPath:
+          path: /proc-host
           type: Directory

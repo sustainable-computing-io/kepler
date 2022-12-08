@@ -32,7 +32,9 @@ REGISTRY_NAME=${REGISTRY_NAME:-kind-registry}
 REGISTRY_PORT=${REGISTRY_PORT:-5001}
 KIND_DEFAULT_NETWORK="kind"
 
-IMAGE_REPO=${IMAGE_REPO:-localhost:5001/kepler}
+IMAGE_REPO=${IMAGE_REPO:-localhost:5001}
+ESTIMATOR_REPO=${ESTIMATOR_REPO:-quay.io/sustainable_computing_io}
+MODEL_SERVER_REPO=${MODEL_SERVER_REPO:-quay.io/sustainable_computing_io}
 IMAGE_TAG=${IMAGE_TAG:-devel}
 
 PROMETHEUS_OPERATOR_VERSION=${PROMETHEUS_OPERATOR_VERSION:-v0.11.0}
@@ -40,7 +42,8 @@ PROMETHEUS_ENABLE=${PROMETHEUS_ENABLE:-false}
 PROMETHEUS_REPLICAS=${PROMETHEUS_REPLICAS:-1}
 GRAFANA_ENABLE=${GRAFANA_ENABLE:-false}
 
-CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/manifests/${CLUSTER_PROVIDER}/generated"}
+CONFIG_OUT_DIR=${CONFIG_OUT_DIR:-"_output/generated-manifest"}
+KIND_DIR=${KIND_DIR:-"kind"}
 rm -rf ${CONFIG_OUT_DIR}
 mkdir -p ${CONFIG_OUT_DIR}
 
@@ -120,8 +123,8 @@ function _wait_containers_ready {
 }
 
 function _fetch_kind() {
-    mkdir -p ${CONFIG_OUT_DIR}
-    KIND="${CONFIG_OUT_DIR}"/.kind
+    mkdir -p ${KIND_DIR}
+    KIND="${KIND_DIR}"/.kind
     if [ -f $KIND ]; then
         current_kind_version=$($KIND --version |& awk '{print $3}')
     fi
@@ -152,26 +155,20 @@ function _run_registry() {
     # connect the registry to the cluster network if not already connected
     $CTR_CMD network connect "${KIND_DEFAULT_NETWORK}" "${REGISTRY_NAME}" || true
 
-    kubectl apply -f ${CONFIG_OUT_DIR}/local-registry.yml
+    kubectl apply -f ${KIND_DIR}/local-registry.yml
 }
 
 function _prepare_config() {
     echo "Building manifests..."
 
-    cp $KIND_MANIFESTS_DIR/kind.yml ${CONFIG_OUT_DIR}/kind.yml
-    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/kind.yml
-    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/kind.yml
+    cp $KIND_MANIFESTS_DIR/kind.yml ${KIND_DIR}/kind.yml
+    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${KIND_DIR}/kind.yml
+    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${KIND_DIR}/kind.yml
     
-    cp $KIND_MANIFESTS_DIR/local-registry.yml ${CONFIG_OUT_DIR}/local-registry.yml
-    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${CONFIG_OUT_DIR}/local-registry.yml
-    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${CONFIG_OUT_DIR}/local-registry.yml
+    cp $KIND_MANIFESTS_DIR/local-registry.yml ${KIND_DIR}/local-registry.yml
+    sed -i -e "s/$_registry_name/${REGISTRY_NAME}/g" ${KIND_DIR}/local-registry.yml
+    sed -i -e "s/$_registry_port/${REGISTRY_PORT}/g" ${KIND_DIR}/local-registry.yml
 
-    kubectl kustomize manifests/kubernetes/vm > manifests/kubernetes/vm/deployment.yaml
-
-    # make cluster-sync overwrite the CONFIG_OUT_DIR, so that we update the manifest dir directly.
-    # TODO: configure the kepler yaml in the CONFIG_OUT_DIR, not in the MANIFEST DIR.
-    echo "WARN: we are changing the file manifests/kubernetes/vm/deployment.yaml"
-    sed -i -e "s/path: \/proc/path: \/proc-host/g" manifests/kubernetes/vm/deployment.yaml
 }
 
 function _get_nodes() {
@@ -185,8 +182,8 @@ function _get_pods() {
 function _setup_kind() {
      echo "Starting kind with cluster name \"${CLUSTER_NAME}\""
 
-    $KIND create cluster -v=6 --name=${CLUSTER_NAME} --config=${CONFIG_OUT_DIR}/kind.yml
-    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${CONFIG_OUT_DIR}/.kubeconfig
+    $KIND create cluster -v=6 --name=${CLUSTER_NAME} --config=${KIND_DIR}/kind.yml
+    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KIND_DIR}/.kubeconfig
 
     _wait_kind_up
     kubectl cluster-info
@@ -226,5 +223,5 @@ function down() {
     # Avoid failing an entire test run just because of a deletion error
     $KIND delete cluster --name=${CLUSTER_NAME} || "true"
     $CTR_CMD rm -f ${REGISTRY_NAME} >> /dev/null
-    rm -f ${CONFIG_PATH}/${CLUSTER_PROVIDER}/kind.yml
+    rm -f ${KIND_DIR}/kind.yml
 }

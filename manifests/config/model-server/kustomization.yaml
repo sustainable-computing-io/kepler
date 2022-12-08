@@ -1,0 +1,40 @@
+resources:
+- model-server.yaml
+
+patchesStrategicMerge: []
+# add this line for openshift patch
+# - ./patch/patch-openshift.yaml
+# add this line to enable online trainer
+# - ./patch/patch-trainer.yaml
+# add this line to enable online trainer and openshift
+# - ./patch/patch-train-ocp.yaml
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: kepler-model-server
+  newName: quay.io/sustainable_computing_io/kepler_model_server
+  newTag: latest
+
+vars:
+- name: MODEL_SERVER_NAMESPACE
+  objref:
+    kind: Deployment
+    group: apps
+    version: v1
+    name: kepler-model-server
+  fieldref:
+    fieldpath: metadata.namespace
+- name: MODEL_SERVER_PORT
+  objref:
+    kind: Deployment
+    group: apps
+    version: v1
+    name: kepler-model-server
+  fieldref:
+    fieldpath: spec.template.spec.containers[0].ports[0].containerPort
+
+configurations:
+- ./kustomizeconfig.yaml
+
+

@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kepler-clusterrole
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes/metrics # access /metrics/resource
+  - nodes/proxy # access /pods
+  - nodes/stats # access /pods
+  verbs:
+  - 'get'
+  - 'watch'
+  - 'list'

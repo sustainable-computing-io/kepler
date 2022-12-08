@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kepler-clusterrole-binding
+roleRef:
+  kind: ClusterRole
+  name: kepler-clusterrole
+  apiGroup: "rbac.authorization.k8s.io"
+subjects:
+- kind: ServiceAccount
+  name: kepler-sa
+  namespace: system

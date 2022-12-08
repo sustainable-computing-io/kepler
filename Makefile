@@ -16,7 +16,7 @@ LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/ver
 ifdef IMAGE_REPO
 	IMAGE_REPO := $(IMAGE_REPO)
 else
-	IMAGE_REPO := quay.io/sustainable_computing_io/kepler
+	IMAGE_REPO := quay.io/sustainable_computing_io
 endif
 
 ifdef IMAGE_TAG
@@ -90,7 +90,7 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64
 _build_containerized: genbpfassets tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
-	$(CTR_CMD) build -t $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) \
+	$(CTR_CMD) build -t $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) \
 		-f "$(SRC_ROOT)"/build/Dockerfile \
 		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
 		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
@@ -98,7 +98,7 @@ _build_containerized: genbpfassets tidy-vendor format
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_TAG)
+	$(CTR_CMD) tag $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 
 .PHONY: _build_containerized
 
@@ -116,7 +116,7 @@ build-containerized-cross-build:
 .PHONY: build-containerized-cross-build
 
 push-image:
-	$(CTR_CMD) push $(IMAGE_REPO):$(IMAGE_TAG)
+	$(CTR_CMD) push $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 .PHONY: push-image
 
 multi-arch-image-base:	
@@ -178,8 +178,29 @@ clean-cross-build:
 clean: clean-cross-build
 .PHONY: clean
 
-build-manifest:
-	./hack/build-manifest.sh
+KUSTOMIZE = $(shell pwd)/bin/kustomize
+kustomize: ## Download kustomize locally if necessary.
+	mkdir -p bin
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
+ls $$TMP_DIR;\
+echo $(PROJECT_DIR);\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+build-manifest: kustomize
+	./hack/build-manifest.sh "${OPTS}"
 .PHONY: build-manifest
 
 cluster-clean: build-manifest
