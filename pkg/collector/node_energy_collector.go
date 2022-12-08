@@ -69,7 +69,7 @@ func (c *Collector) updateNodeGPUEnergy() {
 
 // updateNodeAvgCPUFrequency updates the average CPU frequency in each core
 func (c *Collector) updateNodeAvgCPUFrequency() {
-	c.NodeCPUFrequency = c.acpiPowerMeter.GetCPUCoreFrequency()
+	c.NodeMetrics.CPUFrequency = c.acpiPowerMeter.GetCPUCoreFrequency()
 }
 
 // updateNodeEnergyMetrics updates the node energy consumption of each component

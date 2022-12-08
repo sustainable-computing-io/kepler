@@ -121,6 +121,7 @@ type NodeMetrics struct {
 	EnergyInGPU      *UInt64StatCollection
 	EnergyInOther    *UInt64StatCollection
 	EnergyInPlatform *UInt64StatCollection
+	CPUFrequency     map[int32]uint64
 }
 
 func NewNodeMetrics() *NodeMetrics {

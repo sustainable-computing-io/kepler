@@ -43,9 +43,6 @@ type Collector struct {
 	// instance that collects the node energy consumption
 	acpiPowerMeter *acpi.ACPI
 
-	// TODO: fix me: these metrics should be in NodeMetrics structure
-	NodeCPUFrequency map[int32]uint64
-
 	// NodeMetrics holds all node energy and resource usage metrics
 	NodeMetrics collector_metric.NodeMetrics
 
@@ -60,7 +57,6 @@ type Collector struct {
 func NewCollector() *Collector {
 	c := &Collector{
 		acpiPowerMeter:         acpi.NewACPIPowerMeter(),
-		NodeCPUFrequency:       map[int32]uint64{},
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
 		systemProcessName:      utils.SystemProcessName,
