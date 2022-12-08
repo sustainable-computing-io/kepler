@@ -86,7 +86,7 @@ func (c *Collector) updateBPFMetrics() {
 		var avgFreq float64
 		var totalCPUTime uint64
 		if attacher.EnableCPUFreq {
-			avgFreq, totalCPUTime, activeCPUs = getAVGCPUFreqAndTotalCPUTime(c.NodeCPUFrequency, &ct.CPUTime)
+			avgFreq, totalCPUTime, activeCPUs = getAVGCPUFreqAndTotalCPUTime(c.NodeMetrics.CPUFrequency, &ct.CPUTime)
 			c.ContainersMetrics[containerID].AvgCPUFreq = avgFreq
 		} else {
 			totalCPUTime = ct.ProcessRunTime
