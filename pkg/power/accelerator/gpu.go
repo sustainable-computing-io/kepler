@@ -41,7 +41,7 @@ func init() {
 		fmt.Println("Using nvml to obtain gpu power")
 		return
 	}
-	fmt.Println("Using dummy source to obtain gpu power")
+	fmt.Printf("Failed to init nvml: %v, using dummy source to obtain gpu power\n", err)
 	acceleratorImpl = &accelerator_source.GPUDummy{}
 	err = acceleratorImpl.Init()
 }
