@@ -27,7 +27,7 @@ RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TI
 # RUN make test
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:ubi-8.6-bcc-0.24
+FROM quay.io/sustainable_computing_io/kepler_base:cuda-11.8.0-base-ubi8-bcc-0.24
 
 ARG ARCH=amd64
 
