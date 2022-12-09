@@ -167,8 +167,7 @@ func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics ma
 	for _, metricName := range ContainerMetricNames {
 		nodeResourceUsage[metricName] = 0
 		for _, container := range containersMetrics {
-			// TODO: refactor the extractUIntCurrAggr, this is not an intuitive function name
-			curr, _, _ := container.extractUIntCurrAggr(metricName)
+			curr, _, _ := container.getIntCurrAndAggrValue(metricName)
 			nodeResourceUsage[metricName] += float64(curr)
 		}
 	}

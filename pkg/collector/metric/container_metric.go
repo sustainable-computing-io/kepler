@@ -162,14 +162,14 @@ func (c *ContainerMetrics) SetLatestProcess(cgroupPID, pid uint64, comm string) 
 	c.Command = comm
 }
 
-// extractFloatCurrAggr return curr, aggr float64 values of specific uint metric
-func (c *ContainerMetrics) extractFloatCurrAggr(metric string) (curr, aggr float64, err error) {
+// getFloatCurrAndAggrValue return curr, aggr float64 values of specific uint metric
+func (c *ContainerMetrics) getFloatCurrAndAggrValue(metric string) (curr, aggr float64, err error) {
 	// TO-ADD
 	return 0, 0, nil
 }
 
-// extractUIntCurrAggr return curr, aggr uint64 values of specific uint metric
-func (c *ContainerMetrics) extractUIntCurrAggr(metric string) (curr, aggr uint64, err error) {
+// getIntCurrAndAggrValue return curr, aggr uint64 values of specific uint metric
+func (c *ContainerMetrics) getIntCurrAndAggrValue(metric string) (curr, aggr uint64, err error) {
 	if val, exists := c.CounterStats[metric]; exists {
 		return val.Curr, val.Aggr, nil
 	}
@@ -198,11 +198,11 @@ func (c *ContainerMetrics) extractUIntCurrAggr(metric string) (curr, aggr uint64
 // ToEstimatorValues return values regarding metricNames
 func (c *ContainerMetrics) ToEstimatorValues() (values []float64) {
 	for _, metric := range ContainerFloatFeatureNames {
-		curr, _, _ := c.extractFloatCurrAggr(metric)
+		curr, _, _ := c.getFloatCurrAndAggrValue(metric)
 		values = append(values, curr)
 	}
 	for _, metric := range ContainerUintFeaturesNames {
-		curr, _, _ := c.extractUIntCurrAggr(metric)
+		curr, _, _ := c.getIntCurrAndAggrValue(metric)
 		values = append(values, float64(curr))
 	}
 	// TO-DO: remove this hard code metric
@@ -228,7 +228,7 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 	}
 	metric = strings.ReplaceAll(metric, "total_", "")
 
-	if curr, aggr, err := c.extractUIntCurrAggr(metric); err == nil {
+	if curr, aggr, err := c.getIntCurrAndAggrValue(metric); err == nil {
 		if currentValue {
 			return strconv.FormatUint(curr, 10)
 		}
@@ -240,7 +240,7 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 	if metric == "avg_cpu_frequency" {
 		return fmt.Sprintf("%f", c.AvgCPUFreq)
 	}
-	if curr, aggr, err := c.extractFloatCurrAggr(metric); err == nil {
+	if curr, aggr, err := c.getFloatCurrAndAggrValue(metric); err == nil {
 		if currentValue {
 			return fmt.Sprintf("%f", curr)
 		}
