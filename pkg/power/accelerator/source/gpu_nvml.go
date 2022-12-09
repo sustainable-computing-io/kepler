@@ -57,7 +57,7 @@ func (n *GPUNvml) Init() (err error) {
 		err = fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 		return err
 	}
-	klog.V(1).Infof("found %d gpu devices\n", count)
+	fmt.Printf("found %d gpu devices\n", count)
 	devices = make([]interface{}, count)
 	for i := 0; i < count; i++ {
 		device, ret := nvml.DeviceGetHandleByIndex(i)
