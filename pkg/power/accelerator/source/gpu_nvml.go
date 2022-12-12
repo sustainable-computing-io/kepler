@@ -50,6 +50,7 @@ func (n *GPUNvml) Init() (err error) {
 		err = fmt.Errorf("failed to init nvml: %v", nvml.ErrorString(ret))
 		return err
 	}
+
 	count, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
 		nvml.Shutdown()
@@ -69,6 +70,7 @@ func (n *GPUNvml) Init() (err error) {
 		}
 		devices[i] = device
 	}
+	n.collectionSupported = true
 	return nil
 }
 

@@ -292,7 +292,7 @@ func (c *ContainerMetrics) String() string {
 		"\tkubelets: %v\n",
 		c.CurrProcesses, c.PodName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command,
-		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInOther, c.EnergyInGPU,
+		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInGPU, c.EnergyInOther,
 		c.DynEnergy,
 		c.AvgCPUFreq/1000, /*MHZ*/
 		c.CPUTime.Curr, c.CPUTime.Aggr,
