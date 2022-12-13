@@ -17,8 +17,8 @@ data:
   CPU_ARCH_OVERRIDE: ""
   CGROUP_METRICS: '*'
   MODEL_CONFIG: |
-    POD_COMPONENTS_ESTIMATOR=false
-    POD_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json
+    CONTAINER_COMPONENTS_ESTIMATOR=false
+    CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json
 ---
 apiVersion: apps/v1
 kind: DaemonSet
