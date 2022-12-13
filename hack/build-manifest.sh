@@ -138,7 +138,7 @@ EXPORTER_IMG=${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}
 ESTIMATOR_IMG=${ESTIMATOR_REPO}/${ESTIMATOR_IMAGE_NAME}:${IMAGE_TAG}
 MODEL_SERVER_IMG=${MODEL_SERVER_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}
 pushd ${MANIFESTS_OUT_DIR}/exporter;${KUSTOMIZE} edit set image kepler=${EXPORTER_IMG}; ${KUSTOMIZE} edit set image kepler-estimator=${ESTIMATOR_IMG}; popd
-pushd ${MANIFESTS_OUT_DIR}/model-server;${KUSTOMIZE} edit set image kepler=${MODEL_SERVER_IMG}; popd
+pushd ${MANIFESTS_OUT_DIR}/model-server;${KUSTOMIZE} edit set image kepler-model-server=${MODEL_SERVER_IMG}; popd
 
 echo "kustomize manifests..."
 ${KUSTOMIZE} build ${MANIFESTS_OUT_DIR}/base > ${MANIFESTS_OUT_DIR}/deployment.yaml

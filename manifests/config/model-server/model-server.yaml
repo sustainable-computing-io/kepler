@@ -48,6 +48,7 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8100
+          name: http
         volumeMounts:
           - name: cfm
             mountPath: /etc/config

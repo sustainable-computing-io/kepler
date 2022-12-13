@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	modelServerService = fmt.Sprintf("kepler-model-server.%s.cluster.local", KeplerNamespace)
+	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
 	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
@@ -123,6 +123,7 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 	modelServerURL := getConfig("MODEL_SERVER_URL", modelServerService)
 	if modelServerURL == modelServerService {
 		modelServerPort := getConfig("MODEL_SERVER_PORT", defaultModelServerPort)
+		modelServerPort = strings.TrimSuffix(modelServerPort, "\n") // trim \n for kustomized manifest
 		modelServerURL = fmt.Sprintf("http://%s:%s", modelServerURL, modelServerPort)
 	}
 	modelReqPath := getConfig("MODEL_SERVER_MODEL_REQ_PATH", defaultModelRequestPath)

@@ -40,6 +40,7 @@ spec:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: kepler-sa
       containers:
       - name: kepler-exporter

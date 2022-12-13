@@ -3,4 +3,9 @@ varReference:
   group: ""
   version: v1
   name: kepler-cfm
-  path: data/MODEL_SERVER_ENDPOINT
+  path: data/MODEL_SERVER_URL
+- kind: ConfigMap
+  group: ""
+  version: v1
+  name: kepler-cfm
+  path: data/MODEL_SERVER_PORT
