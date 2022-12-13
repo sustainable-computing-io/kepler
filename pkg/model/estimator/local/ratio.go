@@ -104,10 +104,12 @@ func UpdateContainerEnergyByRatioPowerModel(containersMetrics map[string]*collec
 			containerResUsage = float64(container.CounterStats[config.GpuUsageMetric].Curr)
 			nodeTotalResUsage = nodeMetrics.GetNodeResUsagePerResType(config.GpuUsageMetric)
 			nodeResEnergyUtilization = float64(nodeMetrics.GetEnergyValue(collector_metric.GPU))
-			klog.V(5).Infof("gpu power: containerID %v containerResUsage: %f, nodeTotalResUsage: %f, nodeResEnergyUtilization: %f, containerNumber: %f\n", containerID, containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
 			containerGPUEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber)
 			if err := containersMetrics[containerID].EnergyInGPU.AddNewCurr(containerGPUEnergy); err != nil {
 				klog.Infoln(err)
+			} else {
+				klog.V(5).Infof("gpu power ratio: containerID %v containerResUsage: %f, nodeTotalResUsage: %f, nodeResEnergyUtilization: %f, containerNumber: %f containerGPUEnergy: %v",
+					containerID, containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber, containersMetrics[containerID].EnergyInGPU.Curr)
 			}
 		}
 
