@@ -165,6 +165,8 @@ func main() {
 		err := accelerator.Init()
 		if err == nil {
 			defer accelerator.Shutdown()
+		} else {
+			klog.Infof("Failed to initialize the GPU collector: %v", err)
 		}
 	}
 
