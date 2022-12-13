@@ -80,7 +80,7 @@ var (
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
 	// for model config
-	ModelConfigValues = getModelConfigMap()
+	modelConfigValues map[string]string
 	// model_item
 	NodeTotalKey           = "NODE_TOTAL"
 	NodeComponentsKey      = "NODE_COMPONENTS"
@@ -128,6 +128,11 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 	modelReqPath := getConfig("MODEL_SERVER_MODEL_REQ_PATH", defaultModelRequestPath)
 	modelServerReqEndpoint = modelServerURL + modelReqPath
 	return
+}
+
+// InitModelConfigMap initializes map of config from MODEL_CONFIG
+func InitModelConfigMap() {
+	modelConfigValues = getModelConfigMap()
 }
 
 // SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
@@ -242,7 +247,6 @@ func getModelConfigMap() map[string]string {
 			configMap[values[0]] = values[1]
 		}
 	}
-	klog.V(3).Infof("Model ConfigValues: %v", configMap)
 	return configMap
 }
 
@@ -251,13 +255,12 @@ func getModelConfigKey(modelItem, attribute string) string {
 }
 
 func GetModelConfig(modelItem string) (useEstimatorSidecar bool, selectedModel, selectFilter, initModelURL string) {
-	defaultValue := ""
-	useEstimatorSidecarStr := getConfig(ModelConfigValues[getModelConfigKey(modelItem, EstimatorEnabledKey)], defaultValue)
+	useEstimatorSidecarStr := modelConfigValues[getModelConfigKey(modelItem, EstimatorEnabledKey)]
 	if strings.EqualFold(useEstimatorSidecarStr, "true") {
 		useEstimatorSidecar = true
 	}
-	selectedModel = getConfig(ModelConfigValues[getModelConfigKey(modelItem, FixedModelNameKey)], defaultValue)
-	selectFilter = getConfig(ModelConfigValues[getModelConfigKey(modelItem, ModelFiltersKey)], defaultValue)
-	initModelURL = getConfig(ModelConfigValues[getModelConfigKey(modelItem, InitModelURLKey)], defaultValue)
+	selectedModel = modelConfigValues[getModelConfigKey(modelItem, FixedModelNameKey)]
+	selectFilter = modelConfigValues[getModelConfigKey(modelItem, ModelFiltersKey)]
+	initModelURL = modelConfigValues[getModelConfigKey(modelItem, InitModelURLKey)]
 	return
 }

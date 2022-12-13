@@ -30,6 +30,7 @@ var (
 
 // InitEstimateFunctions checks validity of power model and set estimate functions
 func InitEstimateFunctions(usageMetrics, systemFeatures, systemValues []string) {
+	config.InitModelConfigMap()
 	InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues)
 	InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues)
 	InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues)
@@ -80,5 +81,7 @@ func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeigh
 
 func InitModelConfig(modelItem string) types.ModelConfig {
 	useEstimatorSidecar, selectedModel, selectFilter, initModelURL := config.GetModelConfig(modelItem)
-	return types.ModelConfig{UseEstimatorSidecar: useEstimatorSidecar, SelectedModel: selectedModel, SelectFilter: selectFilter, InitModelURL: initModelURL}
+	modelConfig := types.ModelConfig{UseEstimatorSidecar: useEstimatorSidecar, SelectedModel: selectedModel, SelectFilter: selectFilter, InitModelURL: initModelURL}
+	klog.V(3).Infof("Model Config %s: %v", modelItem, modelConfig)
+	return modelConfig
 }

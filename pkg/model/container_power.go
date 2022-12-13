@@ -32,9 +32,7 @@ var (
 	ContainerComponentPowerModelFunc                                 func([][]float64, []string) (map[string][]float64, error)
 
 	// cgroupOnly
-	defaultDynCompURL                                    = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
-	ContainerTotalPowerModelConfig     types.ModelConfig = InitModelConfig(config.ContainerTotalKey)
-	ContainerComponentPowerModelConfig types.ModelConfig = initContainerComponentPowerModelConfig()
+	defaultDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
 )
 
 // initContainerComponentPowerModelConfig: the container component power model must be set by default.
@@ -47,14 +45,16 @@ func initContainerComponentPowerModelConfig() types.ModelConfig {
 }
 
 func InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
+	containerTotalPowerModelConfig := InitModelConfig(config.ContainerTotalKey)
 	var estimateFunc interface{}
 	// init func for ContainerTotalPower
-	ContainerTotalPowerModelValid, estimateFunc = initEstimateFunction(ContainerTotalPowerModelConfig, types.DynPower, types.DynModelWeight, usageMetrics, systemFeatures, systemValues, true)
+	ContainerTotalPowerModelValid, estimateFunc = initEstimateFunction(containerTotalPowerModelConfig, types.DynPower, types.DynModelWeight, usageMetrics, systemFeatures, systemValues, true)
 	if ContainerTotalPowerModelValid {
 		ContainerTotalPowerModelFunc = estimateFunc.(func([][]float64, []string) ([]float64, error))
 	}
+	containerComponentPowerModelConfig := initContainerComponentPowerModelConfig()
 	// init func for ContainerComponentPower
-	ContainerComponentPowerModelValid, estimateFunc = initEstimateFunction(ContainerComponentPowerModelConfig, types.DynComponentPower, types.DynComponentModelWeight, usageMetrics, systemFeatures, systemValues, false)
+	ContainerComponentPowerModelValid, estimateFunc = initEstimateFunction(containerComponentPowerModelConfig, types.DynComponentPower, types.DynComponentModelWeight, usageMetrics, systemFeatures, systemValues, false)
 	if ContainerComponentPowerModelValid {
 		ContainerComponentPowerModelFunc = estimateFunc.(func([][]float64, []string) (map[string][]float64, error))
 	}

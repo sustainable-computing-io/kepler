@@ -30,14 +30,13 @@ const (
 var (
 	NodePlatformPowerModelEnabled bool
 	NodeTotalPowerModelFunc       func([][]float64, []string) ([]float64, error)
-
-	NodePlatformPowerModelConfig types.ModelConfig = InitModelConfig(config.NodeTotalKey)
 )
 
 func InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues []string) {
 	var estimateFunc interface{}
+	nodePlatformPowerModelConfig := InitModelConfig(config.NodeTotalKey)
 	// init func for NodeTotalPower
-	NodePlatformPowerModelEnabled, estimateFunc = initEstimateFunction(NodePlatformPowerModelConfig, types.AbsPower, types.AbsModelWeight, usageMetrics, systemFeatures, systemValues, true)
+	NodePlatformPowerModelEnabled, estimateFunc = initEstimateFunction(nodePlatformPowerModelConfig, types.AbsPower, types.AbsModelWeight, usageMetrics, systemFeatures, systemValues, true)
 	if NodePlatformPowerModelEnabled {
 		NodeTotalPowerModelFunc = estimateFunc.(func([][]float64, []string) ([]float64, error))
 	}
