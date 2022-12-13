@@ -5,4 +5,7 @@ metadata:
   namespace: system
 data:
   MODEL_SERVER_ENABLE: "true"
-  MODEL_SERVER_ENDPOINT: http://kepler-model-server.$(MODEL_SERVER_NAMESPACE).cluster.local:$(MODEL_SERVER_PORT)/model
+  MODEL_SERVER_URL: kepler-model-server.$(MODEL_SERVER_NAMESPACE).svc.cluster.local
+  MODEL_SERVER_PORT: |
+    $(MODEL_SERVER_PORT)
+  MODEL_SERVER_MODEL_REQ_PATH: /model

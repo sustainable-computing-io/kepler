@@ -150,23 +150,25 @@ type LinearRegressor struct {
 func (r *LinearRegressor) Init() bool {
 	var err error
 	var weight interface{}
+	outputStr := r.OutputType.String()
 	// try getting weight from model server if it is enabled
 	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
 		weight, err = r.getWeightFromServer()
-	} else if r.InitModelURL != "" {
+		klog.V(3).Infof("LR Model (%s): getWeightFromServer: %v", outputStr, weight)
+	}
+	if weight == nil && r.InitModelURL != "" {
 		// next try loading from URL by config
-		klog.V(5).Infof("getWeightFromServer failed, using InitModelURL:%v to load", r.InitModelURL)
 		weight, err = r.loadWeightFromURL()
+		klog.V(3).Infof("LR Model (%s): loadWeightFromURL(%v): %v", outputStr, r.InitModelURL, weight)
 	}
 	if weight != nil {
 		r.valid = true
 		r.modelWeight = weight
-		klog.V(3).Infof("LR Model (%s) Weight: %v", r.OutputType.String(), r.modelWeight)
 	} else {
 		if err == nil {
-			klog.V(3).Infof("LR Model (%s): no config", r.OutputType.String())
+			klog.V(3).Infof("LR Model (%s): no config", outputStr)
 		} else {
-			klog.V(3).Infof("LR Model (%s): %v", r.OutputType.String(), err)
+			klog.V(3).Infof("LR Model (%s): %v", outputStr, err)
 		}
 		r.valid = false
 	}
