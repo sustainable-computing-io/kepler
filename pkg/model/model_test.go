@@ -64,9 +64,10 @@ var _ = Describe("Test Model Unit", func() {
 
 		// calculate container energy consumption
 		UpdateContainerEnergy(containersMetrics, nodeMetrics)
-		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
-		// The test is return 1323 for EnergyInPkg, dosen't matter the input
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+		// Unit test use is reported by default settings through LR model
+		// and following will be reported so EnergyInPkg.Curr will be 1323
+		// map[dram:[1330.24062191839 1330.24062191839] pkg:[1323.5139455775347 1323.5139455775347]]
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(1323)))
 	})
 
 	It("Get container power with no dependency but with total node power ", func() {
@@ -88,9 +89,10 @@ var _ = Describe("Test Model Unit", func() {
 
 		// calculate container energy consumption
 		UpdateContainerEnergy(containersMetrics, nodeMetrics)
-		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
-		// The test is return 1323 for EnergyInPkg, dosen't matter the input
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+		// Unit test use is reported by default settings through LR model
+		// and following will be reported so EnergyInPkg.Curr will be 1323
+		// map[dram:[1330.24062191839 1330.24062191839] pkg:[1323.5139455775347 1323.5139455775347]]
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(1323)))
 	})
 
 	It("Get container power with no dependency but with all node power ", func() {
@@ -123,9 +125,11 @@ var _ = Describe("Test Model Unit", func() {
 		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
 
 		// calculate container energy consumption
+
 		UpdateContainerEnergy(containersMetrics, nodeMetrics)
-		// TODO: right now we just test if it is returning a value, but we need to test if the value is reasonable
-		// The test is return 1323 for EnergyInPkg, dosen't matter the input
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+		// Unit test use is reported by default settings through LR model
+		// and following will be reported so EnergyInPkg.Curr will be 1323
+		// map[dram:[1330.24062191839 1330.24062191839] pkg:[1323.5139455775347 1323.5139455775347]]
+		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(1323)))
 	})
 })
