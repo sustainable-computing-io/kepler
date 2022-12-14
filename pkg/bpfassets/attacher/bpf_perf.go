@@ -64,7 +64,7 @@ func openPerfEvent(table *bpf.Table, typ, config int) error {
 	leafSize := table.Config()["leaf_size"].(uint64)
 
 	if keySize != 4 || leafSize != 4 {
-		return fmt.Errorf("passed table has wrong size")
+		return fmt.Errorf("passed table has wrong size: key_size=%d, leaf_size=%d", keySize, leafSize)
 	}
 
 	res := []int{}

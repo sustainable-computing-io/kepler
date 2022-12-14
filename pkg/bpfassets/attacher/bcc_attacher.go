@@ -41,24 +41,27 @@ type perfCounter struct {
 }
 
 type BpfModuleTables struct {
-	Module    *bpf.Module
-	Table     *bpf.Table
-	TimeTable *bpf.Table
+	Module       *bpf.Module
+	Table        *bpf.Table
+	CPUFreqTable *bpf.Table
 }
 
 const (
-	CPUCycleLable       = config.CPUCycle
+	CPUCycleLabel       = config.CPUCycle
+	CPURefCycleLabel    = config.CPURefCycle
 	CPUInstructionLabel = config.CPUInstruction
 	CacheMissLabel      = config.CacheMiss
+	bpfPerfArrayPrefix  = "_hc_reader"
 )
 
 var (
 	Counters = map[string]perfCounter{
-		CPUCycleLable:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		CPUCycleLabel:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		CPURefCycleLabel:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
 		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
-	EnableCPUFreq = true
+	HardwareCountersEnabled = false
 )
 
 func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
@@ -70,24 +73,28 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 	}()
 	m = bpf.NewModule(string(objProg), options)
 	// TODO make all entrypoints yaml-declarable
-	sched_switch, err := m.LoadTracepoint("sched_switch")
+	ftswitch, err := m.LoadKprobe("kprobe__finish_task_switch")
 	if err != nil {
-		return nil, fmt.Errorf("failed to load sched_switch: %s", err)
+		return nil, fmt.Errorf("failed to load kprobe__finish_task_switch: %s", err)
 	}
-	err = m.AttachTracepoint("sched:sched_switch", sched_switch)
+	err = m.AttachKprobe("finish_task_switch", ftswitch, -1)
 	if err != nil {
-		return nil, fmt.Errorf("failed to attach sched_switch: %s", err)
+		err = m.AttachKprobe("finish_task_switch.isra.0", ftswitch, -1)
+		if err != nil {
+			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
+		}
 	}
 
 	for arrayName, counter := range Counters {
-		t := bpf.NewTable(m.TableId(arrayName), m)
+		bpfPerfArrayName := arrayName + bpfPerfArrayPrefix
+		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)
 		if t == nil {
-			return nil, fmt.Errorf("failed to find perf array: %s", arrayName)
+			return nil, fmt.Errorf("failed to find perf array: %s", bpfPerfArrayName)
 		}
 		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
 		if perfErr != nil {
 			// some hypervisors don't expose perf counters
-			klog.Infof("failed to attach perf event %s: %v\n", arrayName, perfErr)
+			klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
 			counter.enabled = false
 		}
 	}
@@ -103,30 +110,23 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	options := []string{
 		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
-		"-DCPU_FREQ",
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")
 	}
+	// TODO: verify if ebpf can run in the VM without hardware counter support, if not, we can disable the HC part and only collect the cpu time
 	m, err := loadModule(objProg, options)
 	if err != nil {
-		klog.Warningf("failed to attach perf module with options %v: %v, Hardware counter related metrics does not exist\n", options, err)
-		options = []string{"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU())}
-		EnableCPUFreq = false
-		m, err = loadModule(objProg, options)
-		if err != nil {
-			klog.Infof("failed to attach perf module with options %v: %v, not able to load eBPF modules\n", options, err)
-			// at this time, there is not much we can do with the eBPF module
-			return nil, err
-		}
+		klog.Infof("failed to attach perf module with options %v: %v, not able to load eBPF modules\n", options, err)
+		return nil, err
 	}
 
 	table := bpf.NewTable(m.TableId("processes"), m)
-	timeTable := bpf.NewTable(m.TableId("pid_time"), m)
+	cpuFreqTable := bpf.NewTable(m.TableId("cpu_freq_array"), m)
 
 	bpfModules.Module = m
 	bpfModules.Table = table
-	bpfModules.TimeTable = timeTable
+	bpfModules.CPUFreqTable = cpuFreqTable
 
 	klog.Infof("Successfully load eBPF module with option: %s", options)
 
