@@ -64,20 +64,23 @@ func NewACPIPowerMeter() *ACPI {
 	return acpi
 }
 
-func (a *ACPI) Run() {
+func (a *ACPI) Run(isEBPFEnabled bool) {
 	go func() {
 		for {
 			select {
 			case <-a.stopChannel:
 				return
 			default:
-				cpuCoreFrequency := getCPUCoreFrequency()
-				a.mu.Lock()
-				for cpu, freq := range cpuCoreFrequency {
-					// average cpu frequency
-					a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
+				// in the case we cannot collect the cpu frequency using EBPF
+				if !isEBPFEnabled {
+					cpuCoreFrequency := getCPUCoreFrequency()
+					a.mu.Lock()
+					for cpu, freq := range cpuCoreFrequency {
+						// average cpu frequency
+						a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
+					}
+					a.mu.Unlock()
 				}
-				a.mu.Unlock()
 
 				if a.collectEnergy {
 					if sensorPower, err := getPowerFromSensor(); err == nil {
@@ -90,6 +93,11 @@ func (a *ACPI) Run() {
 					} else {
 						klog.Fatal(err)
 					}
+				}
+
+				// stop the gorotime if there is nothing to do
+				if (isEBPFEnabled) && (!a.collectEnergy) {
+					return
 				}
 
 				time.Sleep(poolingInterval)
