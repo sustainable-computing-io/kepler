@@ -42,13 +42,11 @@ type ProcessBPFMetrics struct {
 	CPUInstr       uint64
 	CacheMisses    uint64
 	Command        [16]byte
-	CPUTime        [C.CPU_VECTOR_SIZE]uint16
 }
 
 // resetBPFTables reset BPF module's tables
 func (c *Collector) resetBPFTables() {
 	c.bpfHCMeter.Table.DeleteAll()
-	c.bpfHCMeter.TimeTable.DeleteAll()
 }
 
 // updateBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
@@ -82,29 +80,14 @@ func (c *Collector) updateBPFMetrics() {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
 		}
 
-		var activeCPUs []int32
-		var avgFreq float64
-		var totalCPUTime uint64
-		if attacher.EnableCPUFreq {
-			avgFreq, totalCPUTime, activeCPUs = getAVGCPUFreqAndTotalCPUTime(c.NodeMetrics.CPUFrequency, &ct.CPUTime)
-			c.ContainersMetrics[containerID].AvgCPUFreq = avgFreq
-		} else {
-			totalCPUTime = ct.ProcessRunTime
-			activeCPUs = getActiveCPUs(&ct.CPUTime)
-		}
-
-		for _, cpu := range activeCPUs {
-			c.ContainersMetrics[containerID].CurrCPUTimePerCPU[uint32(cpu)] += uint64(ct.CPUTime[cpu])
-		}
-
-		if err = c.ContainersMetrics[containerID].CPUTime.AddNewCurr(totalCPUTime); err != nil {
+		if err = c.ContainersMetrics[containerID].CPUTime.AddNewCurr(ct.ProcessRunTime); err != nil {
 			klog.V(5).Infoln(err)
 		}
 
 		for _, counterKey := range collector_metric.AvailableCounters {
 			var val uint64
 			switch counterKey {
-			case attacher.CPUCycleLable:
+			case attacher.CPUCycleLabel:
 				val = ct.CPUCycles
 			case attacher.CPUInstructionLabel:
 				val = ct.CPUInstr
@@ -134,47 +117,6 @@ func (c *Collector) updateBPFMetrics() {
 	}
 	c.resetBPFTables()
 	c.handleInactiveContainers(foundContainer)
-}
-
-// getAVGCPUFreqAndTotalCPUTime calculates the weighted cpu frequency average
-func getAVGCPUFreqAndTotalCPUTime(cpuFrequency map[int32]uint64, cpuTime *[C.CPU_VECTOR_SIZE]uint16) (avgFreq float64, totalCPUTime uint64, activeCPUs []int32) {
-	totalFreq := float64(0)
-	totalFreqWithoutWeight := float64(0)
-	for cpu, freq := range cpuFrequency {
-		if int(cpu) > len((*cpuTime))-1 {
-			break
-		}
-		totalCPUTime += uint64(cpuTime[cpu])
-		totalFreqWithoutWeight += float64(freq)
-	}
-	if totalCPUTime == 0 {
-		if len(cpuFrequency) == 0 {
-			return
-		}
-		avgFreq = totalFreqWithoutWeight / float64(len(cpuFrequency))
-	} else {
-		for cpu, freq := range cpuFrequency {
-			if int(cpu) > len((*cpuTime))-1 {
-				break
-			}
-			if cpuTime[cpu] != 0 {
-				totalFreq += float64(freq) * (float64(cpuTime[cpu]) / float64(totalCPUTime))
-				activeCPUs = append(activeCPUs, cpu)
-			}
-		}
-		avgFreq = totalFreqWithoutWeight / float64(len(cpuFrequency))
-	}
-	return
-}
-
-// getActiveCPUs returns active cpu(vcpu) (in case that frequency is not active)
-func getActiveCPUs(cpuTime *[C.CPU_VECTOR_SIZE]uint16) (activeCPUs []int32) {
-	for cpu := range cpuTime {
-		if cpuTime[cpu] != 0 {
-			activeCPUs = append(activeCPUs, int32(cpu))
-		}
-	}
-	return
 }
 
 // handleInactiveContainers

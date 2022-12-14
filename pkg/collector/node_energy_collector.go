@@ -17,6 +17,9 @@ limitations under the License.
 package collector
 
 import (
+	"encoding/binary"
+
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
@@ -69,6 +72,17 @@ func (c *Collector) updateNodeGPUEnergy() {
 
 // updateNodeAvgCPUFrequency updates the average CPU frequency in each core
 func (c *Collector) updateNodeAvgCPUFrequency() {
+	// update the cpu frequency using hardware counters when available because reading files can be very expensive
+	if attacher.HardwareCountersEnabled {
+		cpuFreq := map[int32]uint64{}
+		for it := c.bpfHCMeter.CPUFreqTable.Iter(); it.Next(); {
+			cpu := int32(binary.LittleEndian.Uint32(it.Key()))
+			freq := uint64(binary.LittleEndian.Uint32(it.Leaf()))
+			cpuFreq[cpu] = freq
+		}
+		c.NodeMetrics.CPUFrequency = cpuFreq
+		return
+	}
 	c.NodeMetrics.CPUFrequency = c.acpiPowerMeter.GetCPUCoreFrequency()
 }
 

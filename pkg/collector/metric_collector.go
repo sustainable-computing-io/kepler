@@ -80,7 +80,7 @@ func (c *Collector) Initialize() error {
 
 	c.prePopulateContainerMetrics(pods)
 	c.updateNodeEnergyMetrics()
-	c.acpiPowerMeter.Run()
+	c.acpiPowerMeter.Run(attacher.HardwareCountersEnabled)
 	c.resetBPFTables()
 
 	return nil

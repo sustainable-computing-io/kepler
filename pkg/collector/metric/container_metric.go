@@ -48,7 +48,6 @@ type ContainerMetrics struct {
 	// TODO: we should consider deprecate the command information
 	Command string
 
-	AvgCPUFreq    float64
 	CurrProcesses int
 	Disks         int
 
@@ -61,8 +60,6 @@ type ContainerMetrics struct {
 
 	BytesRead  *UInt64StatCollection
 	BytesWrite *UInt64StatCollection
-
-	CurrCPUTimePerCPU map[uint32]uint64
 
 	EnergyInCore   *UInt64Stat
 	EnergyInDRAM   *UInt64Stat
@@ -90,14 +87,13 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		BytesWrite: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		CurrCPUTimePerCPU: make(map[uint32]uint64),
-		EnergyInCore:      &UInt64Stat{},
-		EnergyInDRAM:      &UInt64Stat{},
-		EnergyInUncore:    &UInt64Stat{},
-		EnergyInPkg:       &UInt64Stat{},
-		EnergyInOther:     &UInt64Stat{},
-		EnergyInGPU:       &UInt64Stat{},
-		DynEnergy:         &UInt64Stat{},
+		EnergyInCore:   &UInt64Stat{},
+		EnergyInDRAM:   &UInt64Stat{},
+		EnergyInUncore: &UInt64Stat{},
+		EnergyInPkg:    &UInt64Stat{},
+		EnergyInOther:  &UInt64Stat{},
+		EnergyInGPU:    &UInt64Stat{},
+		DynEnergy:      &UInt64Stat{},
 	}
 	for _, metricName := range AvailableCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}
@@ -133,7 +129,6 @@ func (c *ContainerMetrics) ResetCurr() {
 	for kubeletKey := range c.KubeletStats {
 		c.KubeletStats[kubeletKey].ResetCurr()
 	}
-	c.CurrCPUTimePerCPU = make(map[uint32]uint64)
 	c.EnergyInCore.ResetCurr()
 	c.EnergyInDRAM.ResetCurr()
 	c.EnergyInUncore.ResetCurr()
@@ -237,9 +232,6 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 	if metric == "block_devices_used" {
 		return strconv.FormatUint(uint64(c.Disks), 10)
 	}
-	if metric == "avg_cpu_frequency" {
-		return fmt.Sprintf("%f", c.AvgCPUFreq)
-	}
 	if curr, aggr, err := c.getFloatCurrAndAggrValue(metric); err == nil {
 		if currentValue {
 			return fmt.Sprintf("%f", curr)
@@ -285,7 +277,6 @@ func (c *ContainerMetrics) String() string {
 		"\tcgrouppid: %d pid: %d comm: %s\n"+
 		"\tePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\teDyn (mJ): %s \n"+
-		"\tavgFreq: %.2f\n"+
 		"\tCPUTime:  %d (%d)\n"+
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
@@ -294,7 +285,6 @@ func (c *ContainerMetrics) String() string {
 		c.CGroupPID, c.PIDS, c.Command,
 		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInGPU, c.EnergyInOther,
 		c.DynEnergy,
-		c.AvgCPUFreq/1000, /*MHZ*/
 		c.CPUTime.Curr, c.CPUTime.Aggr,
 		c.CounterStats,
 		c.CgroupFSStats,

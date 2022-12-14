@@ -59,9 +59,6 @@ func getPrometheusMetrics() []string {
 	for _, feature := range ContainerFeaturesNames {
 		labels = append(labels, CurrPrefix+feature, AggrPrefix+feature)
 	}
-	if attacher.EnableCPUFreq {
-		labels = append(labels, freqMetricLabel)
-	}
 	// TO-DO: remove this hard code metric
 	labels = append(labels, blockDeviceLabel)
 	return labels
