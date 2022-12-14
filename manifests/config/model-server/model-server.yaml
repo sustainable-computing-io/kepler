@@ -5,11 +5,6 @@ metadata:
   namespace: system
 data:
   MODEL_PATH: /data/models
-  PROM_SERVER: 'http://prometheus-k8s.monitoring.svc.cluster.local:9090'
-  PROM_QUERY_INTERVAL: '20'
-  PROM_QUERY_STEP: '3'
-  PROM_HEADERS: ''
-  PROM_SSL_DISABLE: 'true'
   INITIAL_MODELS_LOC: https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models
   INITIAL_MODEL_NAMES: |
     AbsComponentModelWeight=KerasCompWeightFullPipeline
