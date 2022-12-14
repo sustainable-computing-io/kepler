@@ -5,7 +5,6 @@ metadata:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
   name: kepler-exporter
-  namespace: system
 spec:
   endpoints:
   - interval: 3s
@@ -23,3 +22,6 @@ spec:
     matchLabels:
       app.kubernetes.io/component: exporter
       app.kubernetes.io/name: kepler-exporter
+  namespaceSelector:
+    matchNames:
+    - $(KEPLER_NAMESPACE)
