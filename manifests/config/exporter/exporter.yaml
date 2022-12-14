@@ -10,6 +10,7 @@ metadata:
   namespace: system
 data:
   KEPLER_NAMESPACE: $(KEPLER_NAMESPACE)
+  KEPLER_LOG_LEVEL: "1"
   METRIC_PATH: "/metrics"
   BIND_ADDRESS: "0.0.0.0:9102"
   ENABLE_GPU: "true"
@@ -53,8 +54,10 @@ spec:
         securityContext:
           privileged: true
         command:
-        - /usr/bin/kepler
-        - -v=1
+        - /bin/sh
+        - -c
+        args:
+        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL)
         ports:
         - containerPort: 9102
           hostPort: 9102

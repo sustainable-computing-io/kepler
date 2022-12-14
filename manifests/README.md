@@ -18,20 +18,23 @@ Consult the documentation of your Linux distribution on details for enabling the
   # > make build-manifest OPTS="ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
   ```
 
-Deployment Option|Description
----|---
-BM_DEPLOY|baremetal deployment patched with node selector feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR to not exist
-OPENSHIFT_DEPLOY|patch openshift-specific attribute to kepler daemonset and deploy SecurityContextConstraints
-PROMETHEUS_DEPLOY|patch prometheus-related resource (ServiceMonitor, RBAC role, rolebinding) - require [prometheus deployment](https://github.com/sustainable-computing-io/kepler#deploy-the-prometheus-operator-and-the-whole-monitoring-stack)
-CLUSTER_PREREQ_DEPLOY|deploy prerequisites for kepler on openshift cluster (only available when OPENSHIFT_DEPLOY set)
-CI_DEPLOY|deploy volumn mount for CI
-ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset
-MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset
-TRAINER_DEPLOY|patch online-trainer sidecar to model server (only available when MODEL_SERVER_DEPLOY set)
+Deployment Option|Description|Dependency
+---|---|---
+BM_DEPLOY|baremetal deployment patched with node selector feature.node.kubernetes.io/cpu-cpuid.HYPERVISOR to not exist|-
+OPENSHIFT_DEPLOY|patch openshift-specific attribute to kepler daemonset and deploy SecurityContextConstraints|-
+PROMETHEUS_DEPLOY|patch prometheus-related resource (ServiceMonitor, RBAC role, rolebinding) |require prometheus deployment which can be OpenShift integrated or [custom deploy](https://github.com/sustainable-computing-io/kepler#deploy-the-prometheus-operator-and-the-whole-monitoring-stack)
+CLUSTER_PREREQ_DEPLOY|deploy prerequisites for kepler on openshift cluster| OPENSHIFT_DEPLOY option set
+CI_DEPLOY|update proc path for kind cluster using in CI|-
+ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset|-
+MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset|-
+TRAIN_DEPLOY|patch online-trainer sidecar to model server| MODEL_SERVER_DEPLOY option set
+DEBUG_DEPLOY|patch KEPLER_LOG_LEVEL for debugging|
 
- -  kubectl v1.21.0 is minimum version that support build manifest
- -  manifest sources and outputs will be in  _output/generated-manifests by default
-
+ -  build-manifest requirements:
+    -  kubectl v1.21+
+    -  make
+    -  go
+ -  manifest sources and outputs will be in  `_output/generated-manifests` by default
 ## Installing Kepler on Kubernetes
 
 Deploy kustomized manifest

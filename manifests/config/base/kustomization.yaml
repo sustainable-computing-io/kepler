@@ -12,3 +12,5 @@ bases:
 patchesStrategicMerge: []
 # add this line to set model-server endpoint to kepler
 # - ./patch/patch-model-server-kepler-config.yaml
+# add this line to change log level for debugging
+# - ./patch/patch-debug.yaml

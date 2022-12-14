@@ -18,6 +18,15 @@ spec:
   template:
     spec:
       containers:
+      - command:
+        - /bin/sh
+        - -c
+        args:
+        - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL)
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        name: kepler-exporter
       - image: kepler-estimator:latest
         imagePullPolicy: Always
         name: estimator
@@ -27,15 +36,6 @@ spec:
           readOnly: true
         - mountPath: /tmp
           name: tmp
-      - command:
-        - /bin/sh
-        - -c
-        args:
-        - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=1
-        volumeMounts:
-        - mountPath: /tmp
-          name: tmp
-        name: kepler-exporter
       volumes:
       - emptyDir: {}
         name: tmp
