@@ -12,8 +12,6 @@ import (
 )
 
 const (
-	freqMetricLabel = config.CPUFrequency
-
 	// TO-DO: merge to cgroup stat
 	ByteReadLabel    = config.BytesReadIO
 	ByteWriteLabel   = config.BytesWriteIO

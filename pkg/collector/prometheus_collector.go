@@ -350,8 +350,8 @@ func (p *PrometheusCollector) newContainerMetrics() {
 	// Additional metrics (gauge)
 	containerCPUTime := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "cpu_cpu_time_us"),
-		"Current CPU time per CPU",
-		[]string{"pod_name", "container_name", "container_namespace", "cpu"}, nil,
+		"Aggregated CPU time",
+		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	p.containerDesc = &ContainerDesc{
@@ -524,14 +524,12 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				float64(container.Curr()),
 				podEnergyStatusLabelValues...,
 			)
-			for cpu, cpuTime := range container.CurrCPUTimePerCPU {
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerCPUTime,
-					prometheus.GaugeValue,
-					float64(cpuTime),
-					container.PodName, container.ContainerName, container.Namespace, strconv.Itoa(int(cpu)),
-				)
-			}
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerCPUTime,
+				prometheus.CounterValue,
+				float64(container.CPUTime.Aggr),
+				container.PodName, container.ContainerName, container.Namespace,
+			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerCoreJoulesTotal,
 				prometheus.CounterValue,
@@ -581,11 +579,11 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				container.PodName, container.ContainerName, container.Namespace, containerCommand,
 			)
 			if collector_metric.CPUHardwareCounterEnabled {
-				if container.CounterStats[attacher.CPUCycleLable] != nil {
+				if container.CounterStats[attacher.CPUCycleLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerCPUCyclesTotal,
 						prometheus.CounterValue,
-						float64(container.CounterStats[attacher.CPUCycleLable].Aggr),
+						float64(container.CounterStats[attacher.CPUCycleLabel].Aggr),
 						container.PodName, container.ContainerName, container.Namespace, containerCommand,
 					)
 				}

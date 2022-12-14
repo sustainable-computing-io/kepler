@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 func clearPlatformDependentAvailability() {
@@ -33,9 +33,6 @@ var _ = Describe("Test Metric Unit", func() {
 		clearPlatformDependentAvailability()
 
 		exp := []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "block_devices_used"}
-		if attacher.EnableCPUFreq {
-			exp = []string{"curr_cpu_time", "total_cpu_time", "curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "avg_cpu_frequency", "block_devices_used"}
-		}
 		cur := getPrometheusMetrics()
 		Expect(exp).To(Equal(cur))
 	})
@@ -61,22 +58,10 @@ var _ = Describe("Test Metric Unit", func() {
 	})
 
 	It("Test setEnabledMetrics", func() {
+		config.ExposeHardwareCounterMetrics = false
 		clearPlatformDependentAvailability()
 		cur := setEnabledMetrics()
-
-		if attacher.EnableCPUFreq {
-			expMap := make(map[string]int, 7)
-			exp := []string{"cpu_time", "cpu_instr", "cache_miss", "cpu_cycles", "bytes_read", "bytes_writes", "block_devices_used"}
-			for _, v := range exp {
-				expMap[v] = 1
-			}
-			for _, vCur := range cur {
-				_, ok := expMap[vCur]
-				Expect(ok).To(BeTrue())
-			}
-		} else {
-			exp := []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
-			Expect(exp).To(Equal(cur))
-		}
+		exp := []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+		Expect(exp).To(Equal(cur))
 	})
 })

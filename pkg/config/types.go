@@ -19,6 +19,7 @@ package config
 const (
 	// counter - attacher package
 	CPUCycle       = "cpu_cycles"
+	CPURefCycle    = "cpu_ref_cycles"
 	CPUInstruction = "cpu_instr"
 	CacheMiss      = "cache_miss"
 
