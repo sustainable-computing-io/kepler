@@ -34,6 +34,14 @@ vars:
     name: system
   fieldref:
     fieldpath: metadata.name
+- name: KEPLER_LOG_LEVEL
+  objref:
+    kind: ConfigMap
+    group: ""
+    version: v1
+    name: kepler-cfm
+  fieldref:
+    fieldpath: data.KEPLER_LOG_LEVEL
 
 configurations:
 - ./kustomizeconfig.yaml

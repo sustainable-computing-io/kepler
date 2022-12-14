@@ -117,6 +117,11 @@ if [ ! -z ${CI_DEPLOY} ]; then
     uncomment_patch ci ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
 fi
 
+if [ ! -z ${DEBUG_DEPLOY} ]; then
+    echo "enable debug"
+    uncomment_patch debug ${MANIFESTS_OUT_DIR}/base/kustomization.yaml
+fi
+
 if [ ! -z ${MODEL_SERVER_DEPLOY} ]; then
     echo "enable model-server"
     uncomment_path model-server ${MANIFESTS_OUT_DIR}/base/kustomization.yaml
