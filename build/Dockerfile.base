@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi:8.6
+FROM docker.io/nvidia/cuda:11.8.0-base-ubi8
 
 ARG ARCH=amd64
 
@@ -18,6 +18,6 @@ RUN yum install -y http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/
     yum install -y http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/bcc-devel-0.24.0-2.el8.x86_64.rpm
 
 # nvidia driver is updated on a (bi)monthly basis
-RUN yum install -y https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/nvidia-driver-NVML-520.61.05-1.el8.x86_64.rpm
+# RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
 
     
