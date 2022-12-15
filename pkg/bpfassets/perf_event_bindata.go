@@ -84,7 +84,7 @@ limitations under the License.
 #define CPU_REF_FREQ 2500
 #endif
 
-#define KHZ 1000
+#define HZ 1000
 
 typedef struct process_metrics_t
 {
@@ -233,11 +233,11 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
     cpu_freq_array.lookup_or_try_init(cpu_id, &avg_freq);
     if (avg_freq == 0)
     {
-        avg_freq = ((on_cpu_cycles_delta * CPU_REF_FREQ) / on_cpu_ref_cycles_delta) / KHZ;
+        avg_freq = ((on_cpu_cycles_delta * CPU_REF_FREQ) / on_cpu_ref_cycles_delta) * HZ;
     }
     else
     {
-        avg_freq += ((on_cpu_cycles_delta * CPU_REF_FREQ) / on_cpu_ref_cycles_delta) / KHZ;
+        avg_freq += ((on_cpu_cycles_delta * CPU_REF_FREQ) / on_cpu_ref_cycles_delta) * HZ;
         avg_freq /= 2;
     }
     return avg_freq;
