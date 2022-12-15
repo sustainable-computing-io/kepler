@@ -154,7 +154,7 @@ test-mac-verbose: tidy-vendor
 	@go test ./... --race --bench=. -cover --count=1 --vet=all
 
 escapes_detect: tidy-vendor
-	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... | grep "escapes to heap" || true
+	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
 set_govulncheck:
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
