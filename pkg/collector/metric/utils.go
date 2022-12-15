@@ -18,6 +18,8 @@ package metric
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 
 	"k8s.io/klog/v2"
 )
@@ -34,6 +36,10 @@ func getcontainerUintFeatureNames() []string {
 	metrics = append(metrics, AvailableKubeletMetrics...)
 	// cgroup I/O metric
 	metrics = append(metrics, ContainerIOStatMetricsNames...)
+	// gpu metric
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
+	}
 
 	klog.V(3).Infof("Available counter metrics: %v", AvailableCounters)
 	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCgroupMetrics)
