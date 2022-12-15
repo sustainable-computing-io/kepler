@@ -140,7 +140,7 @@ func getContainerTotalPower(containerMetricValuesOnly [][]float64) (valid bool, 
 	return
 }
 
-// getContainerTotalPower returns estimated pods' RAPL power
+// getContainerComponentPowers returns estimated pods' RAPL power
 func getContainerComponentPowers(containerMetricValuesOnly [][]float64) (bool, []source.NodeComponentsEnergy) {
 	podNumber := len(containerMetricValuesOnly)
 	if ContainerComponentPowerModelValid {

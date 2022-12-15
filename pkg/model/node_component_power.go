@@ -54,8 +54,7 @@ func IsNodeComponentPowerModelEnabled() bool {
 	return NodeComponentPowerModelEnabled
 }
 
-// GetNodeTotalEnergy returns estimated RAPL power
-// func GetNodeComponentPowers(usageValues []float64, systemValues []string) (results source.RAPLPower) {
+// GetNodeComponentPowers returns estimated RAPL power for the node
 func GetNodeComponentPowers(nodeMetrics collector_metric.NodeMetrics) (nodeComponentsEnergy map[int]source.NodeComponentsEnergy) {
 	nodeComponentsEnergy = map[int]source.NodeComponentsEnergy{}
 	// TODO: make the estimator also retrieve the socket ID, we are estimating that the node will have only socket
