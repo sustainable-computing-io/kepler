@@ -177,7 +177,7 @@ func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics ma
 // AddLastestPlatformEnergy adds the lastest energy consumption from the node sensor
 func (ne *NodeMetrics) AddLastestPlatformEnergy(platformEnergy map[string]float64) {
 	for sensorID, energy := range platformEnergy {
-		ne.EnergyInPlatform.AddAggrStat(sensorID, uint64(math.Ceil(energy)))
+		ne.EnergyInPlatform.AddCurrStat(sensorID, uint64(math.Ceil(energy)))
 	}
 }
 
