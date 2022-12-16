@@ -7,7 +7,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -38,8 +37,6 @@ var (
 
 func InitAvailableParamAndMetrics() {
 	AvailableCounters = attacher.GetEnabledCounters()
-	AvailableCgroupMetrics = cgroup.GetAvailableCgroupMetrics()
-	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
 
 	// defined in utils to init metrics
 	setEnabledMetrics()

@@ -152,7 +152,7 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 
-	cgroup.SetSliceHandler()
+	cgroup.InitParam()
 
 	collector_metric.InitAvailableParamAndMetrics()
 

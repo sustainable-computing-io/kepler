@@ -29,7 +29,6 @@ import (
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -72,13 +71,11 @@ func (c *Collector) Initialize() error {
 	}
 	c.bpfHCMeter = m
 
-	pods, err := cgroup.Init()
+	err = cgroup.Init(c.ContainersMetrics)
 	if err != nil {
 		klog.V(5).Infoln(err)
 		return err
 	}
-
-	c.prePopulateContainerMetrics(pods)
 	c.updateNodeEnergyMetrics()
 	c.acpiPowerMeter.Run(attacher.HardwareCountersEnabled)
 	c.resetBPFTables()
@@ -138,28 +135,4 @@ func (c *Collector) resetCurrValue() {
 		v.ResetCurr()
 	}
 	c.NodeMetrics.ResetCurr()
-}
-
-// init adds the information of containers that were already running before kepler has been created
-// This is a necessary hacking to export metrics of idle containers, since we can only include in
-// the containers list the containers that present any updates from the bpf metrics
-func (c *Collector) prePopulateContainerMetrics(pods *[]corev1.Pod) {
-	for i := 0; i < len(*pods); i++ {
-		pod := (*pods)[i]
-		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {
-			container := pod.Status.InitContainerStatuses[j]
-			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
-		}
-		for j := 0; j < len(pod.Status.ContainerStatuses); j++ {
-			container := pod.Status.ContainerStatuses[j]
-			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
-		}
-		for j := 0; j < len(pod.Status.EphemeralContainerStatuses); j++ {
-			container := pod.Status.EphemeralContainerStatuses[j]
-			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
-		}
-	}
 }

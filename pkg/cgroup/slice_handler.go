@@ -60,7 +60,7 @@ type SliceHandler struct {
 
 var SliceHandlerInstance *SliceHandler
 
-func SetSliceHandler() {
+func setSliceHandler() {
 	SliceHandlerInstance = InitSliceHandler()
 }
 

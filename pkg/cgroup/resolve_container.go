@@ -26,6 +26,7 @@ import (
 	"regexp"
 	"strings"
 
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -66,8 +67,20 @@ var (
 	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
 )
 
-func Init() (*[]corev1.Pod, error) {
-	return updateListPodCache("", false)
+func InitParam() {
+	setSliceHandler()
+
+	collector_metric.AvailableCgroupMetrics = GetAvailableCgroupMetrics()
+	collector_metric.AvailableKubeletMetrics = GetAvailableKubeletMetrics()
+}
+
+func Init(metrics map[string]*collector_metric.ContainerMetrics) error {
+	pods, err := updateListPodCache("", false)
+	if err != nil {
+		return err
+	}
+	prePopulateContainerMetrics(pods, metrics)
+	return nil
 }
 
 func GetPodName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
@@ -345,4 +358,28 @@ func GetAliveContainers() (map[string]bool, error) {
 		}
 	}
 	return aliveContainers, nil
+}
+
+// init adds the information of containers that were already running before kepler has been created
+// This is a necessary hacking to export metrics of idle containers, since we can only include in
+// the containers list the containers that present any updates from the bpf metrics
+func prePopulateContainerMetrics(pods *[]corev1.Pod, metrics map[string]*collector_metric.ContainerMetrics) {
+	for i := 0; i < len(*pods); i++ {
+		pod := (*pods)[i]
+		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {
+			container := pod.Status.InitContainerStatuses[j]
+			containerID := ParseContainerIDFromPodStatus(container.ContainerID)
+			metrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+		}
+		for j := 0; j < len(pod.Status.ContainerStatuses); j++ {
+			container := pod.Status.ContainerStatuses[j]
+			containerID := ParseContainerIDFromPodStatus(container.ContainerID)
+			metrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+		}
+		for j := 0; j < len(pod.Status.EphemeralContainerStatuses); j++ {
+			container := pod.Status.EphemeralContainerStatuses[j]
+			containerID := ParseContainerIDFromPodStatus(container.ContainerID)
+			metrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+		}
+	}
 }

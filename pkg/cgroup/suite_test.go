@@ -19,6 +19,8 @@ package cgroup
 import (
 	"testing"
 
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,5 +31,6 @@ func TestPodLoader(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	_, _ = Init()
+	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
+	_ = Init(containersMetrics)
 })
