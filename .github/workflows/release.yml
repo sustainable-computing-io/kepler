@@ -79,4 +79,6 @@ jobs:
     - name: make container
       run: make
     - name: push to quay
-      run: podman push quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
+      run: |
+        podman tag quay.io/sustainable_computing_io/kepler:latest quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
+        podman push quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
