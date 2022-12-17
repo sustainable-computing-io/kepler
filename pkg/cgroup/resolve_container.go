@@ -320,13 +320,9 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
 
-// GetAliveContainers returns alive pod map
-func GetAliveContainers() (map[string]bool, error) {
-	pods, err := podLister.ListPods()
+func getAliveContainers(pods *[]corev1.Pod) (map[string]bool, error) {
 	aliveContainers := make(map[string]bool)
-	if err != nil {
-		return aliveContainers, err
-	}
+
 	for i := 0; i < len(*pods); i++ {
 		statuses := (*pods)[i].Status.InitContainerStatuses
 		for j := 0; j < len(statuses); j++ {
@@ -345,4 +341,14 @@ func GetAliveContainers() (map[string]bool, error) {
 		}
 	}
 	return aliveContainers, nil
+}
+
+// GetAliveContainers returns alive pod map
+func GetAliveContainers() (map[string]bool, error) {
+	pods, err := podLister.ListPods()
+	if err != nil {
+		return nil, err
+	}
+
+	return getAliveContainers(pods)
 }
