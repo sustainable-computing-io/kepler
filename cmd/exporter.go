@@ -154,6 +154,8 @@ func main() {
 
 	cgroup.SetSliceHandler()
 
+	components.InitPowerImpl()
+
 	collector_metric.InitAvailableParamAndMetrics()
 
 	// For local estimator, there is endpoint provided, thus we should let
