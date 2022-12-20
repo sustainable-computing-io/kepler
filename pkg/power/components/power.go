@@ -47,7 +47,7 @@ var (
 	useMSR                   = false // it looks MSR on kvm or hyper-v is not working
 )
 
-func init() {
+func InitPowerImpl() {
 	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
@@ -56,7 +56,7 @@ func init() {
 			klog.V(1).Infoln("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
-			klog.V(1).Infoln("power not supported")
+			klog.V(1).Infoln("Not able to obtain power, use dummy method")
 			powerImpl = dummyImpl
 		}
 	}
