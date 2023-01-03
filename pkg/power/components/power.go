@@ -40,11 +40,11 @@ type powerInterface interface {
 }
 
 var (
-	dummyImpl                = &source.PowerDummy{}
-	sysfsImpl                = &source.PowerSysfs{}
-	msrImpl                  = &source.PowerMSR{}
-	powerImpl powerInterface = sysfsImpl
-	useMSR                   = false // it looks MSR on kvm or hyper-v is not working
+	estimateImpl                = &source.PowerEstimate{}
+	sysfsImpl                   = &source.PowerSysfs{}
+	msrImpl                     = &source.PowerMSR{}
+	powerImpl    powerInterface = sysfsImpl
+	useMSR                      = false // it looks MSR on kvm or hyper-v is not working
 )
 
 func InitPowerImpl() {
@@ -56,8 +56,8 @@ func InitPowerImpl() {
 			klog.V(1).Infoln("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
-			klog.V(1).Infoln("Not able to obtain power, use dummy method")
-			powerImpl = dummyImpl
+			klog.V(1).Infoln("Not able to obtain power, use estimate method")
+			powerImpl = estimateImpl
 		}
 	}
 }
