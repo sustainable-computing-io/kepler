@@ -41,6 +41,9 @@ type ApmXgeneSysfs struct{}
 
 func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
 	labelFiles, err := filepath.Glob(powerLabelPathTemplate)
+	if err != nil {
+		return false
+	}
 	for _, labelFile := range labelFiles {
 		var data []byte
 		if data, err = os.ReadFile(labelFile); err != nil {
