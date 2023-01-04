@@ -62,7 +62,7 @@ func (r *ApmXgeneSysfs) GetEnergyFromDram() (uint64, error) {
 
 func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
 	now := time.Now()
-	diff := now.Sub(startTime)
+	diff := now.Sub(currTime)
 	seconds := diff.Seconds()
 	// read from the power input file and convert file content to numbers
 	var data []byte
@@ -74,8 +74,6 @@ func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// convert to milliwatts
-	power = power * 1000
 	return uint64(power * seconds), nil
 }
 
