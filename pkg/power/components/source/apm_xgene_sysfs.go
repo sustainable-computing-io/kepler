@@ -30,6 +30,7 @@ const (
 	// sysfs path templates for Ampere Xgene hwmon
 	powerLabelPathTemplate = "/sys/class/hwmon/hwmon*/power*_label"
 	cpuPowerLabel          = "CPU power"
+	uJTomJ                 = 1000
 )
 
 var (
@@ -77,7 +78,8 @@ func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(power * seconds), nil
+	// per https://dri.freedesktop.org/docs/drm/hwmon/xgene-hwmon.html, the power is in uJ/s
+	return uint64(power*seconds) / uJTomJ, nil
 }
 
 func (r *ApmXgeneSysfs) GetEnergyFromUncore() (uint64, error) {
