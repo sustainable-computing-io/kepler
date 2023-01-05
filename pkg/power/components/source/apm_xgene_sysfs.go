@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,10 +35,11 @@ const (
 
 var (
 	powerInputPath = ""
-	currTime       = time.Now()
 )
 
-type ApmXgeneSysfs struct{}
+type ApmXgeneSysfs struct {
+	currTime time.Time
+}
 
 func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
 	labelFiles, err := filepath.Glob(powerLabelPathTemplate)
@@ -65,9 +66,14 @@ func (r *ApmXgeneSysfs) GetEnergyFromDram() (uint64, error) {
 }
 
 func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
+	if r.currTime.IsZero() {
+		r.currTime = time.Now()
+		return 0, nil
+	}
 	now := time.Now()
-	diff := now.Sub(currTime)
+	diff := now.Sub(r.currTime)
 	seconds := diff.Seconds()
+	r.currTime = now
 	// read from the power input file and convert file content to numbers
 	var data []byte
 	var err error
