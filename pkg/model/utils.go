@@ -21,13 +21,17 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
+const (
+	jouleToMiliJoule = 1000
+)
+
 // getComponentPower called by getPodComponentPowers to check if component key is present in powers response and fills with single 0
 func getComponentPower(powers map[string][]float64, componentKey string, index int) uint64 {
 	values := powers[componentKey]
 	if index >= len(values) {
 		return 0
 	} else {
-		return uint64(values[index])
+		return uint64(values[index] * jouleToMiliJoule)
 	}
 }
 
