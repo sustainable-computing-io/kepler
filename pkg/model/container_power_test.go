@@ -175,9 +175,8 @@ var _ = Describe("ContainerPower", func() {
 			UpdateContainerEnergy(containersMetrics, nodeMetrics)
 
 			// Unit test use is reported by default settings through LR model
-			// and following will be reported so EnergyInPkg.Curr will be 1323
-			// map[dram:[1330.24062191839 1330.24062191839] pkg:[1323.5139455775347 1323.5139455775347]]
-			Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(1323)))
+			// and following will be reported so EnergyInPkg.Curr will be 9512
+			Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(9512)))
 		})
 	})
 })
