@@ -17,10 +17,11 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/unix"
 )
@@ -112,5 +113,17 @@ var _ = Describe("Test Configuration", func() {
 		default:
 			// no test
 		}
+	})
+	It("Test getModelConfigMap", func() {
+		configStr := "CONTAINER_COMPONENTS_ESTIMATOR=true\nCONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
+		os.Setenv("MODEL_CONFIG", configStr)
+		configValues := getModelConfigMap()
+		modelItem := "CONTAINER_COMPONENTS"
+		fmt.Printf("%s: %s", getModelConfigKey(modelItem, EstimatorEnabledKey), configValues[getModelConfigKey(modelItem, EstimatorEnabledKey)])
+		useEstimatorSidecarStr := configValues[getModelConfigKey(modelItem, EstimatorEnabledKey)]
+		Expect(useEstimatorSidecarStr).To(Equal("true"))
+		initModelURL := configValues[getModelConfigKey(modelItem, InitModelURLKey)]
+		Expect(initModelURL).NotTo(Equal(""))
+
 	})
 })

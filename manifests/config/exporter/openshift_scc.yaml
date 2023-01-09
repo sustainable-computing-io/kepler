@@ -1,0 +1,29 @@
+# scc for the Kepler
+kind: SecurityContextConstraints
+apiVersion: security.openshift.io/v1
+metadata:
+  name: kepler-scc
+# To allow running privilegedContainers
+allowPrivilegedContainer: true
+allowHostDirVolumePlugin: true
+allowHostNetwork: true
+allowHostPorts: true
+allowHostIPC: true
+allowHostPID: true
+readOnlyRootFilesystem: true
+defaultAddCapabilities:
+- SYS_ADMIN
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+fsGroup:
+  type: RunAsAny
+volumes:
+  - configMap
+  - projected
+  - emptyDir
+  - hostPath
+users:
+  - $(KEPLER_NAMESPACE)
+  - system:serviceaccount:$(KEPLER_NAMESPACE):kepler-sa

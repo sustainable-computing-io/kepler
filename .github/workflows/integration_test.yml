@@ -2,8 +2,6 @@ name: Integration test
 
 on:
   pull_request:
-  push:
-    branches: [ main ]
 
 jobs:
   integration_test:
@@ -16,7 +14,18 @@ jobs:
       - uses: actions/setup-go@main
         with:
           go-version: 1.18
-          
+
+      - name: install kernel headers
+        run: |
+          sudo apt-get install -y linux-headers-`uname -r`
+          sudo ls /usr/src/linux-headers-`uname -r`
+
+      - name: install bcc
+        run: |
+            wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.25.0/bcc_v0.25.0.tar.gz
+            tar -zxvf bcc_v0.25.0.tar.gz
+            sudo dpkg -i libbcc_0.25.0-1_amd64.deb
+
       - name: install kubectl
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
@@ -31,20 +40,25 @@ jobs:
         run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
+            IMAGE_REPO: "localhost:5001"
+            IMAGE_TAG: "devel"
             CTR_CMD: docker
+            CI_ONLY: "true"
 
-      - name: Login to Quay
-        if: github.event_name == 'push'
-        uses: docker/login-action@v1
-        with:
-            registry: quay.io/sustainable_computing_io
-            username: ${{ secrets.BOT_NAME }}
-            password: ${{ secrets.BOT_TOKEN }}
+      - name: test if kepler is still alive
+        run: |
+          sleep 60
+          kubectl logs $(kubectl -n kepler get pods -oname) -n kepler
+          kubectl get all -n kepler
 
-      - name: make container
-        if: github.event_name == 'push'
-        run: make
-
-      - name: push to quay
-        if: github.event_name == 'push'
-        run: podman push quay.io/sustainable_computing_io/kepler:latest
+      - name: run integration_test
+        run: |
+          docker ps -a
+          mkdir -p /tmp/.kube
+          kind get kubeconfig --name=kind > /tmp/.kube/config
+          kubectl port-forward $(kubectl -n kepler get pods -oname) 9102:9102 -n kepler -v7 &
+          kubectl logs -n kepler daemonset/kepler-exporter
+          kubectl get pods -n kepler -o yaml
+          go test -tags=bcc ./e2e/... --race --bench=. -cover --count=1 --vet=all
+        env:
+            kepler_address: localhost:9102

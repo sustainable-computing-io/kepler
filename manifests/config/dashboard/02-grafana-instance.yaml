@@ -1,0 +1,28 @@
+apiVersion: integreatly.org/v1alpha1
+kind: Grafana
+metadata:
+  name: kepler-grafana
+  namespace: kepler
+spec:
+  # TODO: this hard-coded image version is necessary until the currently available version
+  # of grafana operator from OperatorHub (v4.7.1) pulls in a later version of grafana
+  baseImage: 'docker.io/grafana/grafana:8.5.5'
+  ingress:
+    enabled: true
+  config:
+    auth:
+      disable_signout_menu: true
+    auth.anonymous:
+      enabled: true
+    log:
+      level: warn
+      mode: console
+    security:
+      admin_password: "kepler"
+      admin_user: "kepler"
+  dashboardLabelSelector:
+    - matchExpressions:
+        - key: app
+          operator: In
+          values:
+            - grafana

@@ -9,11 +9,14 @@ OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
 ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
+GIT_VERSION     := $(shell git describe --dirty --tags --always --match='v*')
+VERSION         ?= $(GIT_VERSION)
+LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 
 ifdef IMAGE_REPO
 	IMAGE_REPO := $(IMAGE_REPO)
 else
-	IMAGE_REPO := quay.io/sustainable_computing_io/kepler
+	IMAGE_REPO := quay.io/sustainable_computing_io
 endif
 
 ifdef IMAGE_TAG
@@ -43,11 +46,17 @@ endif
 
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
-GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu'
 ifneq ($(shell command -v ldconfig),)
   ifneq ($(shell ldconfig -p|grep bcc),)
-     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo bcc'
+     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
   endif
+endif
+
+ifneq ($(shell command -v dpkg),)
+	ifneq ($(shell dpkg -l|grep bcc),)
+		GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
+	endif
 endif
 
 OS := $(shell go env GOOS)
@@ -64,7 +73,7 @@ tidy-vendor:
 _build_local: format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
-		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler ./cmd/exporter.go
+		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
 
 cross-build-linux-amd64:
 	+$(MAKE) _build_local GOOS=linux GOARCH=amd64
@@ -82,10 +91,10 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64 cross-build-linux-s
 .PHONY: cross-build
 
 
-_build_containerized: format
+_build_containerized: genbpfassets tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
-	$(CTR_CMD) build -t $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) \
+	$(CTR_CMD) build -t $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) \
 		-f "$(SRC_ROOT)"/build/Dockerfile \
 		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
 		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
@@ -93,7 +102,7 @@ _build_containerized: format
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
-	$(CTR_CMD) tag $(IMAGE_REPO):$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO):$(IMAGE_TAG)
+	$(CTR_CMD) tag $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 
 .PHONY: _build_containerized
 
@@ -111,7 +120,7 @@ build-containerized-cross-build:
 .PHONY: build-containerized-cross-build
 
 push-image:
-	$(CTR_CMD) push $(IMAGE_REPO):$(IMAGE_TAG)
+	$(CTR_CMD) push $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 .PHONY: push-image
 
 multi-arch-image-base:	
@@ -136,14 +145,26 @@ ginkgo-set: tidy-vendor
 	mkdir -p $(GOBIN)
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-	 (go install github.com/onsi/ginkgo/ginkgo@v1.16.5  && \
+	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 	
 test: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
 test-verbose: ginkgo-set tidy-vendor
-	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./pkg/... --race --bench=. -cover --count=1 --vet=all
+
+test-mac-verbose: tidy-vendor
+	@go test ./... --race --bench=. -cover --count=1 --vet=all
+
+escapes_detect: tidy-vendor
+	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
+
+set_govulncheck:
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+
+govulncheck: set_govulncheck tidy-vendor
+	@govulncheck -v ./... || true
 
 format:
 	gofmt -e -d -s -l -w pkg/ cmd/
@@ -161,8 +182,29 @@ clean-cross-build:
 clean: clean-cross-build
 .PHONY: clean
 
-build-manifest:
-	./hack/build-manifest.sh
+KUSTOMIZE = $(shell pwd)/bin/kustomize
+kustomize: ## Download kustomize locally if necessary.
+	mkdir -p bin
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
+ls $$TMP_DIR;\
+echo $(PROJECT_DIR);\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+build-manifest: kustomize
+	./hack/build-manifest.sh "${OPTS}"
 .PHONY: build-manifest
 
 cluster-clean: build-manifest
@@ -170,7 +212,7 @@ cluster-clean: build-manifest
 .PHONY: cluster-clean
 
 cluster-deploy: cluster-clean
-	./hack/cluster-deploy.sh
+	BARE_METAL_NODE_ONLY=false ./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
 cluster-sync:
@@ -184,3 +226,8 @@ cluster-up:
 cluster-down:
 	./hack/cluster-down.sh
 .PHONY: cluster-down
+
+genbpfassets:
+	GO111MODULE=off go get -d github.com/go-bindata/go-bindata/...
+	./hack/bindata.sh
+.PHONY: genbpfassets

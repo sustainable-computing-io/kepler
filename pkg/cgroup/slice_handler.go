@@ -34,15 +34,22 @@ import (
 )
 
 const (
-	sliceSuffix = ".slice"
 	scopeSuffix = ".scope"
 )
 
 var (
-	baseCGroupPath    string = "/sys/fs/cgroup"
-	KubePodCGroupPath string = "/sys/fs/cgroup/kubepods.slice"
-	SystemCGroupPath  string = "/sys/fs/cgroup/system.slice"
+	baseCGroupPath string = "/sys/fs/cgroup"
+
+	kubepodSlice string = "kubepods.slice"
+	systemSlice  string = "system.slice"
+
+	KubePodCGroupPath string = cGroupSlicePath(baseCGroupPath, kubepodSlice)
+	SystemCGroupPath  string = cGroupSlicePath(baseCGroupPath, systemSlice)
 )
+
+func cGroupSlicePath(basePath, slice string) string {
+	return filepath.Join(basePath, slice)
+}
 
 type SliceHandler struct {
 	statReaders   map[string][]StatReader
@@ -51,7 +58,11 @@ type SliceHandler struct {
 	IOTopPath     string
 }
 
-var SliceHandlerInstance *SliceHandler = InitSliceHandler()
+var SliceHandlerInstance *SliceHandler
+
+func SetSliceHandler() {
+	SliceHandlerInstance = InitSliceHandler()
+}
 
 func (s *SliceHandler) Init() {
 	s.statReaders = make(map[string][]StatReader)
@@ -106,10 +117,28 @@ func InitSliceHandler() *SliceHandler {
 			IOTopPath:     SystemCGroupPath,
 		}
 	} else {
-		handler = &SliceHandler{
-			CPUTopPath:    filepath.Join(baseCGroupPath, "cpu"),
-			MemoryTopPath: filepath.Join(baseCGroupPath, "memory"),
-			IOTopPath:     filepath.Join(baseCGroupPath, "blkio"),
+		baseCPUCGroupPath := filepath.Join(baseCGroupPath, "cpu")
+		baseMemoryCgroupPath := filepath.Join(baseCGroupPath, "memory")
+		baseIOCgroupPath := filepath.Join(baseCGroupPath, "blkio")
+
+		if _, err := os.Stat(cGroupSlicePath(baseCPUCGroupPath, kubepodSlice)); err == nil {
+			handler = &SliceHandler{
+				CPUTopPath:    cGroupSlicePath(baseCPUCGroupPath, kubepodSlice),
+				MemoryTopPath: cGroupSlicePath(baseMemoryCgroupPath, kubepodSlice),
+				IOTopPath:     cGroupSlicePath(baseIOCgroupPath, kubepodSlice),
+			}
+		} else if _, err := os.Stat(cGroupSlicePath(baseCPUCGroupPath, systemSlice)); err == nil {
+			handler = &SliceHandler{
+				CPUTopPath:    cGroupSlicePath(baseCPUCGroupPath, systemSlice),
+				MemoryTopPath: cGroupSlicePath(baseMemoryCgroupPath, systemSlice),
+				IOTopPath:     cGroupSlicePath(baseIOCgroupPath, systemSlice),
+			}
+		} else {
+			handler = &SliceHandler{
+				CPUTopPath:    baseCPUCGroupPath,
+				MemoryTopPath: baseMemoryCgroupPath,
+				IOTopPath:     baseIOCgroupPath,
+			}
 		}
 	}
 	handler.Init()
@@ -139,20 +168,18 @@ func GetStandardStat(containerID string) map[string]interface{} {
 	return convertToStandard(stats)
 }
 
-func findContainerScope(path string) string {
-	if strings.Contains(path, scopeSuffix) {
-		return path
-	}
-	slicePath := SearchByContainerID(path, sliceSuffix)
-	if slicePath == "" {
-		return ""
-	}
-	return findContainerScope(slicePath)
-}
-
 func findExampleContainerID(slice *SliceHandler) string {
 	topPath := slice.GetCPUTopPath()
-	containerScopePath := findContainerScope(topPath)
+	containerScopePath := SearchBySuffix(topPath, scopeSuffix)
+
+	// if we are not able to find scope path, this means
+	// availableMetrics is likely to be empty, we should
+	// put log to warn user and return fast
+	if containerScopePath == "" {
+		klog.Infof("Not able to find any valid .scope file in %v, this likely cause all cgroup metrics to be 0", topPath)
+		return ""
+	}
+
 	pathSplits := strings.Split(containerScopePath, "/")
 	fileName := pathSplits[len(pathSplits)-1]
 	scopeSplit := strings.Split(fileName, ".scope")[0]

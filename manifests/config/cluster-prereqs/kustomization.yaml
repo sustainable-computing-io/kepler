@@ -1,0 +1,9 @@
+commonLabels:
+  sustainable-computing.io/app: kepler
+
+resources:
+# the cgroupsv2 machineconfig updates are required when running in virtual machines
+# - 50-master-cgroupv2.yaml
+# - 50-worker-cgroupv2.yaml
+- 51-master-kernel-devel.yaml
+- 51-worker-kernel-devel.yaml

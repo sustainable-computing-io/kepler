@@ -20,8 +20,10 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
@@ -44,27 +46,120 @@ type config struct {
 
 var c config
 
-var (
-	EnabledEBPFCgroupID = false
-
-	EstimatorModel        = "" // auto-select
-	EstimatorSelectFilter = "" // no filter
-	CoreUsageMetric       = "curr_cpu_cycles"
-	DRAMUsageMetric       = "curr_cache_miss"
-	UncoreUsageMetric     = ""                // no metric (evenly divided)
-	GeneralUsageMetric    = "curr_cpu_cycles" // for uncategorized energy; pkg - core - uncore
-
-	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
+const (
+	defaultMetricValue      = ""
+	defaultNamespace        = "kepler"
+	defaultModelServerPort  = "8100"
+	defaultModelRequestPath = "/model"
 )
 
-// EnableEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
-func EnableEBPFCgroupID(enabled bool) {
-	klog.V(1).Infoln("config EnabledEBPFCgroupID enabled: ", enabled)
-	klog.V(1).Infoln("config getKernelVersion: ", getKernelVersion(c))
+var (
+	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
+
+	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
+	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
+	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
+	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	MetricPathKey                = "METRIC_PATH"
+	BindAddressKey               = "BIND_ADDRESS"
+	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
+
+	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
+	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
+	CoreUsageMetric       = getConfig("CORE_USAGE_METRIC", CPUInstruction)
+	DRAMUsageMetric       = getConfig("DRAM_USAGE_METRIC", CacheMiss)
+	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue) // no metric (evenly divided)
+	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)      // no metric (evenly divided)
+	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", CPUInstruction)    // for uncategorized energy; pkg - core - uncore
+
+	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
+
+	configPath = "/etc/config"
+
+	////////////////////////////////////
+	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
+	ModelServerEndpoint = SetModelServerReqEndpoint()
+	// for model config
+	modelConfigValues map[string]string
+	// model_item
+	NodeTotalKey           = "NODE_TOTAL"
+	NodeComponentsKey      = "NODE_COMPONENTS"
+	ContainerTotalKey      = "CONTAINER_TOTAL"
+	ContainerComponentsKey = "CONTAINER_COMPONENTS"
+
+	//  attribute
+	EstimatorEnabledKey = "ESTIMATOR"
+	InitModelURLKey     = "INIT_URL"
+	FixedModelNameKey   = "MODEL"
+	ModelFiltersKey     = "FILTERS"
+	////////////////////////////////////
+)
+
+func getBoolConfig(configKey string, defaultBool bool) bool {
+	defaultValue := "false"
+	if defaultBool {
+		defaultValue = "true"
+	}
+	return strings.ToLower(getConfig(configKey, defaultValue)) == "true"
+}
+
+func getConfig(configKey, defaultValue string) (result string) {
+	result = string([]byte(defaultValue))
+	key := string([]byte(configKey))
+	configFile := filepath.Join(configPath, key)
+	value, err := os.ReadFile(configFile)
+	if err == nil {
+		result = bytes.NewBuffer(value).String()
+	} else {
+		strValue, present := os.LookupEnv(key)
+		if present {
+			result = strValue
+		}
+	}
+	return
+}
+
+func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
+	modelServerURL := getConfig("MODEL_SERVER_URL", modelServerService)
+	if modelServerURL == modelServerService {
+		modelServerPort := getConfig("MODEL_SERVER_PORT", defaultModelServerPort)
+		modelServerPort = strings.TrimSuffix(modelServerPort, "\n") // trim \n for kustomized manifest
+		modelServerURL = fmt.Sprintf("http://%s:%s", modelServerURL, modelServerPort)
+	}
+	modelReqPath := getConfig("MODEL_SERVER_MODEL_REQ_PATH", defaultModelRequestPath)
+	modelServerReqEndpoint = modelServerURL + modelReqPath
+	return
+}
+
+// InitModelConfigMap initializes map of config from MODEL_CONFIG
+func InitModelConfigMap() {
+	modelConfigValues = getModelConfigMap()
+}
+
+// SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
+func SetEnabledEBPFCgroupID(enabled bool) {
+	// set to false if any config source set it to false
+	enabled = enabled && EnabledEBPFCgroupID
+	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
+	klog.Infoln("kernel version:", getKernelVersion(c))
 	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
+	} else {
+		EnabledEBPFCgroupID = false
 	}
-	klog.V(1).Infoln("config set EnabledEBPFCgroupID to ", EnabledEBPFCgroupID)
+}
+
+// SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
+func SetEnabledHardwareCounterMetrics(enabled bool) {
+	// set to false is any config source set it to false
+	ExposeHardwareCounterMetrics = enabled && ExposeHardwareCounterMetrics
+}
+
+// SetEnabledGPU enables the exposure of gpu metrics
+func SetEnabledGPU(enabled bool) {
+	// set to true if any config source set it to true
+	EnabledGPU = enabled || EnabledGPU
+	klog.Infoln("EnabledGPU:", EnabledGPU)
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
@@ -129,4 +224,44 @@ func GetCGroupVersion() int {
 func SetEstimatorConfig(modelName, selectFilter string) {
 	EstimatorModel = modelName
 	EstimatorSelectFilter = selectFilter
+}
+
+func SetModelServerEndpoint(serverEndpoint string) {
+	ModelServerEndpoint = serverEndpoint
+}
+
+func GetMetricPath(cmdSet string) string {
+	return getConfig(MetricPathKey, cmdSet)
+}
+
+func GetBindAddress(cmdSet string) string {
+	return getConfig(BindAddressKey, cmdSet)
+}
+
+func getModelConfigMap() map[string]string {
+	configMap := make(map[string]string)
+	modelConfigStr := getConfig("MODEL_CONFIG", "")
+	lines := strings.Fields(modelConfigStr)
+	for _, line := range lines {
+		values := strings.Split(line, "=")
+		if len(values) == 2 {
+			configMap[values[0]] = values[1]
+		}
+	}
+	return configMap
+}
+
+func getModelConfigKey(modelItem, attribute string) string {
+	return fmt.Sprintf("%s_%s", modelItem, attribute)
+}
+
+func GetModelConfig(modelItem string) (useEstimatorSidecar bool, selectedModel, selectFilter, initModelURL string) {
+	useEstimatorSidecarStr := modelConfigValues[getModelConfigKey(modelItem, EstimatorEnabledKey)]
+	if strings.EqualFold(useEstimatorSidecarStr, "true") {
+		useEstimatorSidecar = true
+	}
+	selectedModel = modelConfigValues[getModelConfigKey(modelItem, FixedModelNameKey)]
+	selectFilter = modelConfigValues[getModelConfigKey(modelItem, ModelFiltersKey)]
+	initModelURL = modelConfigValues[getModelConfigKey(modelItem, InitModelURLKey)]
+	return
 }

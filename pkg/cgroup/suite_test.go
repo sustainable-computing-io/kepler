@@ -19,7 +19,7 @@ package cgroup
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -27,3 +27,7 @@ func TestPodLoader(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CGroup Suite")
 }
+
+var _ = BeforeSuite(func() {
+	_, _ = Init()
+})

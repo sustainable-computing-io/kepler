@@ -6,7 +6,7 @@ on:
       - 'base'
 
 jobs:
-  docker:
+  baseimagebuild:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

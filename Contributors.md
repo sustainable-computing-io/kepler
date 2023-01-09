@@ -19,3 +19,5 @@
 | Lu Ken | kenplusplus | Kepler Deployment | Intel | China |
 | Sally O'Malley | sallyom | Kepler Deployment | Red Hat | USA |
 | Ruomeng Hao | ruomengh | Kepler Deployment | Intel | China |
+| Niki Manoledaki | nikimanoledaki | Kepler Documentation | WeaveWorks | Spain |
+| Peng Hui Jiang | jiangphcn | Kepler Deployment | IBM | China |

@@ -1,0 +1,10 @@
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: 51-worker-kernel-devel
+  labels:
+    machineconfiguration.openshift.io/role: worker
+spec:
+  extensions:
+  - kernel-devel

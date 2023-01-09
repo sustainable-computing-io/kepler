@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   unit_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
       with:
@@ -26,11 +26,15 @@ jobs:
       env:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
+    - name: Build bcc
+      run: |
+          wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.25.0/bcc_v0.25.0.tar.gz
+          tar -zxvf bcc_v0.25.0.tar.gz
+          sudo dpkg -i libbcc_0.25.0-1_amd64.deb
     - name: Run 
       run: |
           make test-verbose
           go tool cover -func=coverage.out -o=coverage.out
-
     - name: Go Coverage Badge  # Pass the `coverage.out` output to this action
       uses: tj-actions/coverage-badge-go@v2
       with:

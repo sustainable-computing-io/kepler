@@ -1,0 +1,25 @@
+# 1. Grant `cluster-monitoring-view` role to the `grafana-serviceaccount`
+#  oc adm policy add-cluster-role-to-user cluster-monitoring-view -z grafana-serviceaccount
+# 2. Get bearer token for `grafana-serviceaccount`. Update manifest.
+#  oc serviceaccounts get-token grafana-serviceaccount -n kepler
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDataSource
+metadata:
+  name: prometheus-grafanadatasource
+  namespace: kepler
+spec:
+  datasources:
+    - access: proxy
+      editable: true
+      isDefault: true
+      jsonData:
+        httpHeaderName1: 'Authorization'
+        timeInterval: 5s
+        tlsSkipVerify: true
+      name: prometheus
+      secureJsonData:
+        # Update bearer token to match your environment
+        httpHeaderValue1: 'Bearer ${BEARER_TOKEN}'
+      type: prometheus
+      url: 'https://thanos-querier.openshift-monitoring.svc.cluster.local:9091'
+  name: prometheus-grafanadatasource.yaml

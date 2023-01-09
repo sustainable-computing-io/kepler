@@ -18,7 +18,9 @@ package acpi
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -29,15 +31,19 @@ import (
 )
 
 const (
-	freqPathDir     = "/sys/devices/system/cpu/cpufreq/"
-	freqPath        = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
-	powerPath       = "/sys/class/hwmon/hwmon2/device/power%d_average"
-	poolingInterval = 3000 * time.Millisecond // in seconds
-	sensorIDPrefix  = "energy"
+	freqPathDir         = "/sys/devices/system/cpu/cpufreq/"
+	freqPath            = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
+	hwmonPowerPath      = "/sys/class/hwmon/hwmon2/device/"
+	acpiPowerPath       = "/sys/devices/LNXSYSTM:00"
+	acpiPowerFilePrefix = "power"
+	acpiPowerFileSuffix = "_average"
+	poolingInterval     = 3000 * time.Millisecond // in seconds
+	sensorIDPrefix      = "energy"
 )
 
 var (
-	numCPUS int32 = int32(runtime.NumCPU())
+	numCPUS   int32 = int32(runtime.NumCPU())
+	powerPath       = hwmonPowerPath
 )
 
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
@@ -60,24 +66,62 @@ func NewACPIPowerMeter() *ACPI {
 	}
 	if acpi.IsPowerSupported() {
 		acpi.collectEnergy = true
+		klog.V(5).Infof("Using the HWMON power meter path: %s\n", powerPath)
+	} else {
+		// if the acpi power_average file is not in the hwmon path, try to find the acpi path
+		powerPath = findACPIPowerPath()
+		if powerPath != "" {
+			acpi.collectEnergy = true
+			klog.V(5).Infof("Using the ACPI power meter path: %s\n", powerPath)
+		} else {
+			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
+		}
 	}
 	return acpi
 }
 
-func (a *ACPI) Run() {
+func findACPIPowerPath() string {
+	err := filepath.WalkDir(acpiPowerPath, func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && (info.Name() == "power" ||
+			strings.Contains(info.Name(), "INTL") ||
+			strings.Contains(info.Name(), "PNP") ||
+			strings.Contains(info.Name(), "input") ||
+			strings.Contains(info.Name(), "device:") ||
+			strings.Contains(info.Name(), "wakeup")) {
+			return filepath.SkipDir
+		}
+		if !info.IsDir() && strings.Contains(info.Name(), "_average") {
+			powerPath = path[:(len(path) - len(info.Name()))]
+		}
+		return nil
+	})
+	if err != nil {
+		klog.V(3).Infof("Could not find any ACPI power meter path: %v\n", err)
+		return ""
+	}
+	return powerPath
+}
+
+func (a *ACPI) Run(isEBPFEnabled bool) {
 	go func() {
 		for {
 			select {
 			case <-a.stopChannel:
 				return
 			default:
-				cpuCoreFrequency := getCPUCoreFrequency()
-				a.mu.Lock()
-				for cpu, freq := range cpuCoreFrequency {
-					// average cpu frequency
-					a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
+				// in the case we cannot collect the cpu frequency using EBPF
+				if !isEBPFEnabled {
+					cpuCoreFrequency := getCPUCoreFrequency()
+					a.mu.Lock()
+					for cpu, freq := range cpuCoreFrequency {
+						// average cpu frequency
+						a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
+					}
+					a.mu.Unlock()
 				}
-				a.mu.Unlock()
 
 				if a.collectEnergy {
 					if sensorPower, err := getPowerFromSensor(); err == nil {
@@ -88,8 +132,17 @@ func (a *ACPI) Run() {
 						}
 						a.mu.Unlock()
 					} else {
-						klog.Fatal(err)
+						// There is a kernel bug that does not allow us to collect metrics in /sys/devices/LNXSYSTM:00/device:00/ACPI000D:00/power1_average
+						// More info is here: https://www.suse.com/support/kb/doc/?id=000017865
+						// Therefore, when we cannot read the powerPath, we stop the collection.
+						klog.Infof("Disabling the ACPI power meter collection. This might be related to a kernel bug.\n")
+						a.collectEnergy = false
 					}
+				}
+
+				// stop the gorotime if there is nothing to do
+				if (isEBPFEnabled) && (!a.collectEnergy) {
+					return
 				}
 
 				time.Sleep(poolingInterval)
@@ -150,7 +203,8 @@ func getCPUCoreFrequency() map[int32]uint64 {
 }
 
 func (a *ACPI) IsPowerSupported() bool {
-	file := fmt.Sprintf(powerPath, 1)
+	// we do not use fmt.Sprintf because it is expensive in the performance standpoint
+	file := powerPath + acpiPowerFilePrefix + "1" + acpiPowerFileSuffix
 	_, err := os.ReadFile(file)
 	return err == nil
 }
@@ -172,7 +226,7 @@ func getPowerFromSensor() (map[string]float64, error) {
 	power := map[string]float64{}
 
 	for i := int32(1); i <= numCPUS; i++ {
-		path := fmt.Sprintf(powerPath, i)
+		path := powerPath + acpiPowerFilePrefix + strconv.Itoa(int(i)) + acpiPowerFileSuffix
 		data, err := os.ReadFile(path)
 		if err != nil {
 			break
@@ -180,7 +234,7 @@ func getPowerFromSensor() (map[string]float64, error) {
 		// currPower is in microWatt
 		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			power[fmt.Sprintf("%s%d", sensorIDPrefix, i)] = float64(currPower) / 1000 /*miliWatts*/
+			power[sensorIDPrefix+strconv.Itoa(int(i))] = float64(currPower) / 1000 /*miliWatts*/
 		} else {
 			return power, err
 		}

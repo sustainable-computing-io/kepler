@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-cfm
+  namespace: system
+data:
+  MODEL_SERVER_ENABLE: "true"
+  MODEL_SERVER_ENDPOINT: http://kepler-model-server.$(MODEL_SERVER_NAMESPACE).svc.cluster.local:$(MODEL_SERVER_PORT)/model
+  MODEL_SERVER_PORT: |
+    $(MODEL_SERVER_PORT)
+  MODEL_SERVER_URL: http://kepler-model-server.$(MODEL_SERVER_NAMESPACE).svc.cluster.local:$(MODEL_SERVER_PORT)
+  MODEL_SERVER_MODEL_REQ_PATH: /model
+  MODEL_SERVER_MODEL_LIST_PATH: /best-models

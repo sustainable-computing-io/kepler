@@ -1,5 +1,5 @@
 ARG ARCH=$TARGETARCH
-FROM --platform=$BUILDPLATFORM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
+FROM --platform=$BUILDPLATFORM quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18 as builder
 
 ARG MAKE_TARGET=cross-build-linux-$ARCH
 ARG BIN_TIMESTAMP
@@ -27,7 +27,7 @@ RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TI
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 # build image
-FROM --platform=$TARGETPLATFORM quay.io/sustainable_computing_io/kepler_base:latest
+FROM --platform=$TARGETPLATFORM quay.io/sustainable_computing_io/kepler_base:cuda-11.8.0-base-ubi8-bcc-0.24
 
 ARG ARCH=$TARGETARCH
 

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-model-server-cfm
+  namespace: system
+data:
+  PROM_SERVER: 'http://prometheus-operated.openshift-monitoring.svc.cluster.local:9090'
+  PROM_QUERY_INTERVAL: '20'
+  PROM_QUERY_STEP: '3'
+  PROM_HEADERS: ''
+  PROM_SSL_DISABLE: 'true'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kepler-model-server
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: server-api
+      - name: online-trainer
+        securityContext:
+          privileged: true
