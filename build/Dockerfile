@@ -1,7 +1,5 @@
-ARG ARCH=amd64
-
-FROM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
-
+ARG ARCH=$TARGETARCH
+FROM --platform=$BUILDPLATFORM quay.io/sustainable_computing_io/kepler_builder:go1.18 as builder
 
 ARG MAKE_TARGET=cross-build-linux-$ARCH
 ARG BIN_TIMESTAMP
@@ -18,7 +16,7 @@ ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
 
 
-COPY . .
+COPY ../ .
 RUN mkdir -p data
 
 # Build kepler
@@ -26,10 +24,12 @@ RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TI
 
 # RUN make test
 
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:latest
+FROM --platform=$TARGETPLATFORM quay.io/sustainable_computing_io/kepler_base:latest
 
-ARG ARCH=amd64
+ARG ARCH=$TARGETARCH
 
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/linux_$ARCH/kepler /usr/bin/kepler
 
