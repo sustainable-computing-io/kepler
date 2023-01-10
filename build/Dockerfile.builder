@@ -1,6 +1,6 @@
 FROM quay.io/sustainable_computing_io/kepler_base:ubi-8.6-bcc-0.24 as builder
 
-USER root
+#USER root
 
 LABEL name=kepler-builder
 

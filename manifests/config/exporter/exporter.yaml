@@ -52,7 +52,13 @@ spec:
             memory: "400Mi"
             cpu: "100m"
         securityContext:
-          privileged: true
+           runAsUser: 2000
+           privileged: true
+           capabilities:
+             add:
+             # - BPF is only available in kernel 5.8+
+             - NET_ADMIN
+             - SYS_ADMIN
         command:
         - /bin/sh
         - -c

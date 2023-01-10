@@ -7,7 +7,7 @@ ARG MAKE_TARGET=cross-build-linux-$ARCH
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
 
-USER root
+#USER root
 
 LABEL name=kepler-builder
 
