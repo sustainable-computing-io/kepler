@@ -60,6 +60,9 @@ spec:
              # - BPF is only available in kernel 5.8+
              - NET_ADMIN
              - SYS_ADMIN
+             - SYS_RESOURCE
+           seLinuxOptions:
+            level: 's0' 
         command:
         - /bin/sh
         - -c
