@@ -32,6 +32,9 @@ jobs:
       - name: Check ulimit size
         run: ulimit -a
 
+      - name: check docker service
+        run: cat /usr/lib/systemd/system/docker.service
+
       - name: start local k8s cluster
         run: ulimit -l 10240; make cluster-up
         env:
