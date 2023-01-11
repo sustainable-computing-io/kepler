@@ -30,10 +30,10 @@ jobs:
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
       - name: Check ulimit size
-        run: ulimit -a
+        run: sudo /usr/bin/ulimit -a
 
       - name: set ulimit
-        run: sudo ulimit -l 10240
+        run: sudo /usr/bin/ulimit -l 10240
 
       - name: start local k8s cluster
         run: make cluster-up
