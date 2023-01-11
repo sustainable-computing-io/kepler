@@ -38,6 +38,9 @@ jobs:
       - name: reconfigure docker service
         run : |
           sudo sed -i 's/LimitCORE=infinity/LimitCORE=infinity\nLimitMEMLOCK=Infinity\n/g' /usr/lib/systemd/system/docker.service
+
+      - name: restart docker service
+        run : |
           sudo systemctl daemon-reload docker.service
           sudo systemctl restart docker.service
 
