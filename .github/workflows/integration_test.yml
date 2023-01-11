@@ -33,7 +33,7 @@ jobs:
         run: ulimit -a
 
       - name: set ulimit
-        run: ulimit -l 10240
+        run: sudo ulimit -l 10240
 
       - name: start local k8s cluster
         run: make cluster-up
