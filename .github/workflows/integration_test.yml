@@ -29,6 +29,16 @@ jobs:
       - name: install kubectl
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
+      - name: Check ulimit size
+        run: |
+          ulimit -a
+          sudo ulimit -a
+
+      - name: set ulimit
+        run: |
+          ulimit -l 10240
+          sudo ulimit -l 10240
+
       - name: start local k8s cluster
         run: make cluster-up
         env:
