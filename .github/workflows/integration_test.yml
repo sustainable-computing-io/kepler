@@ -30,20 +30,17 @@ jobs:
         run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 
       - name: Check ulimit size
-        run: sudo /usr/bin/ulimit -a
-
-      - name: set ulimit
-        run: sudo /usr/bin/ulimit -l 10240
+        run: ulimit -a
 
       - name: start local k8s cluster
-        run: make cluster-up
+        run: ulimit -l 10240; make cluster-up
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             PROMETHEUS_ENABLE: "true"
             GRAFANA_ENABLE: "false"
 
       - name: simple test - deploy kepler
-        run: make cluster-sync
+        run: ulimit -l 10240; make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             IMAGE_REPO: "localhost:5001"
