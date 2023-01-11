@@ -35,15 +35,21 @@ jobs:
       - name: check docker service
         run: cat /usr/lib/systemd/system/docker.service
 
+      - name: reconfigure docker service
+        run : |
+        sudo sed -i 's/LimitCORE=infinity/LimitCORE=infinity\nLimitMEMLOCK=Infinity\n/g' /tmp/docker.service
+        sudo systemctl daemon-reload docker.service
+        sudo systemctl restart docker.service
+
       - name: start local k8s cluster
-        run: ulimit -l 10240; make cluster-up
+        run: make cluster-up
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             PROMETHEUS_ENABLE: "true"
             GRAFANA_ENABLE: "false"
 
       - name: simple test - deploy kepler
-        run: ulimit -l 10240; make cluster-sync
+        run: make cluster-sync
         env:
             CLUSTER_PROVIDER: ${{matrix.kube_provider}}
             IMAGE_REPO: "localhost:5001"
