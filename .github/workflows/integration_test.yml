@@ -37,6 +37,7 @@ jobs:
 
       - name: reconfigure docker service
         run : |
+          sudo sed -i 's/ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock/ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --default-ulimit memlock=-1:-1/g' /usr/lib/systemd/system/docker.service
           sudo sed -i 's/LimitCORE=infinity/LimitCORE=infinity\nLimitMEMLOCK=Infinity\n/g' /usr/lib/systemd/system/docker.service
 
       - name: restart docker service
