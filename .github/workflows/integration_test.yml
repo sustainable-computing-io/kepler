@@ -37,9 +37,9 @@ jobs:
 
       - name: reconfigure docker service
         run : |
-        sudo sed -i 's/LimitCORE=infinity/LimitCORE=infinity\nLimitMEMLOCK=Infinity\n/g' /tmp/docker.service
-        sudo systemctl daemon-reload docker.service
-        sudo systemctl restart docker.service
+          sudo sed -i 's/LimitCORE=infinity/LimitCORE=infinity\nLimitMEMLOCK=Infinity\n/g' /tmp/docker.service
+          sudo systemctl daemon-reload docker.service
+          sudo systemctl restart docker.service
 
       - name: start local k8s cluster
         run: make cluster-up
