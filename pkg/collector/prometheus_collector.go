@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
@@ -118,6 +119,10 @@ type ContainerDesc struct {
 	containerCPUInstrTotal  *prometheus.Desc
 	containerCacheMissTotal *prometheus.Desc
 
+	// General kubelet (counter)
+	containerKubeletCPUUsageTotal    *prometheus.Desc
+	containerKubeletMemoryBytesTotal *prometheus.Desc
+
 	// Additional metrics (gauge)
 	// TODO: review if we really need to expose this metric. cgroup also has some sortof cpuTime metric
 	containerCPUTime *prometheus.Desc
@@ -153,6 +158,9 @@ type PrometheusCollector struct {
 
 	// Lock to syncronize the collector update with prometheus exporter
 	Mx sync.Mutex
+
+	// Record whether we have KubletMetrics
+	HaveKubletMetric bool
 }
 
 // NewPrometheusExporter create and initialize all the PrometheusCollector structures
@@ -207,6 +215,15 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		ch <- p.containerDesc.containerCPUCyclesTotal
 		ch <- p.containerDesc.containerCPUInstrTotal
 		ch <- p.containerDesc.containerCacheMissTotal
+	}
+
+	kubeletAvailableMetrics := cgroup.GetAvailableKubeletMetrics()
+	if len(kubeletAvailableMetrics) != 0 {
+		ch <- p.containerDesc.containerKubeletCPUUsageTotal
+		ch <- p.containerDesc.containerKubeletMemoryBytesTotal
+		p.HaveKubletMetric = true
+	} else {
+		p.HaveKubletMetric = false
 	}
 
 	// Old Node metric
@@ -347,6 +364,18 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
+	containerKubeletCPUUsageTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "kubelet_cpu_usage_total"),
+		"Aggregated cpu usage obtain from kubelet",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
+	containerKubeletMemoryBytesTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "kubelet_memory_bytes_total"),
+		"Aggregated memory bytes obtain from kubelet",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
 	// Additional metrics (gauge)
 	containerCPUTime := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "cpu_cpu_time_us"),
@@ -365,6 +394,8 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		containerCPUCyclesTotal:             containerCPUCyclesTotal,
 		containerCPUInstrTotal:              containerCPUInstrTotal,
 		containerCacheMissTotal:             containerCacheMissTotal,
+		containerKubeletMemoryBytesTotal:    containerKubeletMemoryBytesTotal,
+		containerKubeletCPUUsageTotal:       containerKubeletCPUUsageTotal,
 		containerCPUTime:                    containerCPUTime,
 	}
 }
@@ -603,6 +634,21 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						container.PodName, container.ContainerName, container.Namespace, containerCommand,
 					)
 				}
+			}
+
+			if p.HaveKubletMetric {
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerKubeletCPUUsageTotal,
+					prometheus.CounterValue,
+					float64(container.KubeletStats[config.KubeletContainerCPU].Aggr),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerKubeletMemoryBytesTotal,
+					prometheus.CounterValue,
+					float64(container.KubeletStats[config.KubeletContainerMemory].Aggr),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
 			}
 		}(container)
 	}
