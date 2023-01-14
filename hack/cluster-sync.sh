@@ -19,9 +19,8 @@
 
 set -e
 export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-source cluster-up/cluster/$CLUSTER_PROVIDER/common.sh
 # set the CLUSTER_PROVIDER to kubernetes or openshift kind
-source cluster-up/common.sh
+source ./hack/common.sh
 
 export IMAGE_TAG=${IMAGE_TAG:-devel}
 export IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}

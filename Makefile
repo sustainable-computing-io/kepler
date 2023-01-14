@@ -116,7 +116,6 @@ build-containerized-cross-build:
 .PHONY: build-containerized-cross-build
 
 push-image:
-	$(CTR_CMD) ps -a
 	$(CTR_CMD) push $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 .PHONY: push-image
 
@@ -215,14 +214,6 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 .PHONY: cluster-sync
-
-cluster-up:
-	./hack/cluster-up.sh
-.PHONY: cluster-up
-
-cluster-down:
-	./hack/cluster-down.sh
-.PHONY: cluster-down
 
 genbpfassets:
 	GO111MODULE=off go get -d github.com/go-bindata/go-bindata/...

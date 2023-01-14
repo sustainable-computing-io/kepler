@@ -74,7 +74,7 @@ MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
-source cluster-up/common.sh
+source hack/common.sh
 
 echo "Building manifests..."
 
