@@ -215,14 +215,6 @@ cluster-sync:
 	./hack/cluster-sync.sh
 .PHONY: cluster-sync
 
-cluster-up:
-	./hack/cluster-up.sh
-.PHONY: cluster-up
-
-cluster-down:
-	./hack/cluster-down.sh
-.PHONY: cluster-down
-
 genbpfassets:
 	GO111MODULE=off go get -d github.com/go-bindata/go-bindata/...
 	./hack/bindata.sh

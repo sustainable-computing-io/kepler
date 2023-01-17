@@ -19,7 +19,7 @@
 
 set -e
 
-source cluster-up/common.sh
+source ./hack/common.sh
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 

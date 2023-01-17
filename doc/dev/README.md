@@ -3,13 +3,15 @@
 A quick start guide to get Kepler up and running inside your container-based development cluster.
 
 ## Create a new emphemeral local kubernetes cluster
-Bring the cluster up with:
+Bring the cluster up with following [repo](https://github.com/sustainable-computing-io/KeplerK8SAction)
+
+## Deploying kepler in the cluster
 ```bash
 export CLUSTER_PROVIDER=`kind`
-make cluster-up
+IMAGE_REPO="localhost:5001" IMAGE_TAG="devel" make cluster-sync
 ```
+This removes a running kepler deployment, creates a new docker image, pushes it to the local cluster registry, deploys kepler with the newly created image, and waits for the kepler container to be in the running state.
 
-For more information please read our ![How to use cluster-up](../../cluster-up/README.md)
 
 ## Then build and run kepler on your cluster
 

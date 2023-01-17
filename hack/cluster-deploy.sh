@@ -19,7 +19,7 @@
 
 set -ex pipefail
 
-source cluster-up/common.sh
+source ./hack/common.sh
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
