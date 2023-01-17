@@ -266,21 +266,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
     // store process metrics
     struct process_metrics_t *process_metrics;
     process_metrics = processes.lookup(&prev_pid);
-    if (process_metrics == 0)
-    {
-        process_metrics_t new_process = {};
-        new_process.pid = cur_pid;
-        new_process.cgroup_id = cgroup_id;
-        new_process.process_run_time = on_cpu_time_delta;
-        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
-
-        new_process.cpu_cycles = on_cpu_cycles_delta;
-        new_process.cpu_instr = on_cpu_instr_delta;
-        new_process.cache_miss = on_cpu_cache_miss_delta;
-
-        processes.update(&cur_pid, &new_process);
-    }
-    else
+    if (process_metrics != 0)
     {
         // update process time
         process_metrics->process_run_time += on_cpu_time_delta;
@@ -288,6 +274,16 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
         process_metrics->cpu_cycles += on_cpu_cycles_delta;
         process_metrics->cpu_instr += on_cpu_instr_delta;
         process_metrics->cache_miss += on_cpu_cache_miss_delta;
+    }
+
+    process_metrics = processes.lookup(&cur_pid);
+    if (process_metrics == 0)
+    {
+        process_metrics_t new_process = {};
+        new_process.pid = cur_pid;
+        new_process.cgroup_id = cgroup_id;
+        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+        processes.update(&cur_pid, &new_process);
     }
 
     return 0;
