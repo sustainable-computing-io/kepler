@@ -7,8 +7,6 @@ ARG MAKE_TARGET=cross-build-linux-$ARCH
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
 
-USER root
-
 LABEL name=kepler-builder
 
 ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go 
