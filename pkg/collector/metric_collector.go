@@ -51,6 +51,7 @@ type Collector struct {
 
 	// generic names to be used for process that are not within a pod
 	systemProcessName      string
+	kblockdProcessName     string
 	systemProcessNamespace string
 }
 
@@ -60,6 +61,7 @@ func NewCollector() *Collector {
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
 		systemProcessName:      utils.SystemProcessName,
+		kblockdProcessName:     utils.KblockdProcessName,
 		systemProcessNamespace: utils.SystemProcessNamespace,
 	}
 	return c

@@ -22,24 +22,28 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroupID, pid uint64, withCGroupID bool) {
+func (c *Collector) createContainersMetricsIfNotExist(containerID, comm string, cGroupID, pid uint64, withCGroupID bool) {
 	if _, ok := c.ContainersMetrics[containerID]; !ok {
 		var err error
 		var podName, containerName string
 
 		// the acceletator package does not get the cgroup ID, then we need to verify if we can call the cgroup with cGroupID or not
-		podName, _ = cgroup.GetPodName(cGroupID, pid, withCGroupID)
-		containerName, _ = cgroup.GetContainerName(cGroupID, pid, withCGroupID)
+		podName, _ = cgroup.GetPodName(cGroupID, pid, comm, withCGroupID)
+		containerName, _ = cgroup.GetContainerName(cGroupID, pid, comm, withCGroupID)
 
 		namespace := c.systemProcessNamespace
 
 		if containerName == c.systemProcessName {
 			containerID = c.systemProcessName
 		} else {
-			namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, withCGroupID)
-			if err != nil {
-				klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", cGroupID, err)
-				namespace = "unknown"
+			if containerName == c.kblockdProcessName {
+				containerID = c.kblockdProcessName
+			} else {
+				namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, comm, withCGroupID)
+				if err != nil {
+					klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", cGroupID, err)
+					namespace = "unknown"
+				}
 			}
 		}
 

@@ -63,21 +63,22 @@ func (c *Collector) updateBPFMetrics() {
 			klog.V(5).Infof("failed to decode received data: %v", err)
 			continue
 		}
-		comm := (*C.char)(unsafe.Pointer(&ct.Command))
+		commChar := (*C.char)(unsafe.Pointer(&ct.Command))
+		comm := C.GoString(commChar)
 
-		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
+		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, comm, config.EnabledEBPFCgroupID)
 		if err != nil {
 			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupID, err, c.systemProcessName)
 		}
 		// TODO: improve the removal of deleted containers from ContainersMetrics. Currently we verify the maxInactiveContainers using the foundContainer map
 		foundContainer[containerID] = true
 
-		c.createContainersMetricsIfNotExist(containerID, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
+		c.createContainersMetricsIfNotExist(containerID, comm, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
-		if containerID != c.systemProcessName {
-			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
+		if containerID != c.systemProcessName && containerID != c.kblockdProcessName {
+			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, comm)
 		}
 
 		if err = c.ContainersMetrics[containerID].CPUTime.AddNewCurr(ct.ProcessRunTime); err != nil {
@@ -103,7 +104,7 @@ func (c *Collector) updateBPFMetrics() {
 
 		c.ContainersMetrics[containerID].CurrProcesses++
 		// system process should not include container event
-		if containerID != c.systemProcessName {
+		if containerID != c.systemProcessName && containerID != c.kblockdProcessName {
 			// TODO: move to container-level section
 			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupID, ct.PID)
 			if err == nil {
@@ -129,7 +130,7 @@ func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 			return
 		}
 		for containerID := range c.ContainersMetrics {
-			if containerID == c.systemProcessName {
+			if containerID == c.systemProcessName || containerID == c.kblockdProcessName {
 				continue
 			}
 			if _, found := aliveContainers[containerID]; !found {

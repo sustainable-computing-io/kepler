@@ -14,28 +14,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collector
+package cgroup
 
 import (
 	"fmt"
 	"os"
 	"regexp"
+
+	"k8s.io/klog/v2"
 )
 
 var (
-	kblockdPodName       = "kworker-kblockd"
+	//kblockdPodName       = "kworker-kblockd"
 	processNameRegex     = "^kworker/"
 	processFullNameRegex = "^kworker/.*kblockd"
+	kblockCache          = make(map[uint64]bool)
 )
 
-func isKblockdWorker(processName string, pid uint64) bool {
-	found, _ := regexp.MatchString(processNameRegex, processName)
+func isKblockdWorker(comm string, pid uint64) bool {
+	found, _ := regexp.MatchString(processNameRegex, comm)
 	// if it is kworker, check the /proc/pid/comm to get full name
 	if found {
+		if _, ok := kblockCache[pid]; ok {
+			return true
+		}
 		commFile := fmt.Sprintf("/proc/%d/comm", int(pid))
 		comm, err := os.ReadFile(commFile)
 		if err == nil {
 			matched, _ := regexp.MatchString(processFullNameRegex, string(comm))
+			if matched {
+				klog.V(5).Infof("found kblockd worker %v %s", pid, string(comm))
+				kblockCache[pid] = true
+			}
 			return matched
 		}
 	}
