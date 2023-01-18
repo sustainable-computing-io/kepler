@@ -88,6 +88,11 @@ if [ ! -z ${BM_DEPLOY} ]; then
     uncomment_patch bm ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
 fi
 
+if [ ! -z ${ROOTLESS} ]; then
+    echo "rootless deployment"
+    uncomment_patch rootless ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
+fi
+
 if [ ! -z ${OPENSHIFT_DEPLOY} ]; then
     echo "deployment on openshift"
     uncomment_patch openshift ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml

@@ -12,6 +12,7 @@ ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
 GIT_VERSION     := $(shell git describe --dirty --tags --always --match='v*')
 VERSION         ?= $(GIT_VERSION)
 LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
+ROOTLESS	?= false
 
 ifdef IMAGE_REPO
 	IMAGE_REPO := $(IMAGE_REPO)
@@ -90,6 +91,7 @@ cross-build: cross-build-linux-amd64 cross-build-linux-arm64
 _build_containerized: genbpfassets tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
+
 	$(CTR_CMD) build -t $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) \
 		-f "$(SRC_ROOT)"/build/Dockerfile \
 		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
@@ -98,6 +100,7 @@ _build_containerized: genbpfassets tidy-vendor format
 		--build-arg MAKE_TARGET="cross-build-linux-$(ARCH)" \
 		--platform="linux/$(ARCH)" \
 		.
+
 	$(CTR_CMD) tag $(IMAGE_REPO)/kepler:$(SOURCE_GIT_TAG)-linux-$(ARCH) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 
 .PHONY: _build_containerized
