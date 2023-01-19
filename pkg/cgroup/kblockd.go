@@ -25,7 +25,6 @@ import (
 )
 
 var (
-	//kblockdPodName       = "kworker-kblockd"
 	processNameRegex     = "^kworker/"
 	processFullNameRegex = "^kworker/.*kblockd"
 	kblockCache          = make(map[uint64]bool)
