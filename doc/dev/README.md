@@ -37,9 +37,13 @@ export CLUSTER_PROVIDER=kubernetes
 
 By default we use the IMAGE_TAG=`devel` and CLUSTER_PROVIDER=`kubernetes`
 
-After that, build the manifests and images:
+After that, build the manifests (remove OPTS="ROOTLESS" if you want to run kepler with privileged setup):
 ```bash
-make build-manifest
+OPTS="ROOTLESS" make build-manifest
+```
+
+Then build images:
+```bash
 make _build_containerized
 make push-image
 ```
