@@ -146,6 +146,8 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_container_other_host_components_joules_total"), // pod level
 		Entry(nil, "kepler_container_package_joules_total"),               // pod level
 		Entry(nil, "kepler_container_uncore_joules_total"),                // pod level
+		Entry(nil, "kepler_container_kubelet_cpu_usage_total"),            // pod level
+		Entry(nil, "kepler_container_kubelet_memory_bytes_total"),         // pod level
 		Entry(nil, "kepler_pod_energy_stat"),                              // pod level
 	)
 })
