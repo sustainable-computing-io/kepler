@@ -79,7 +79,7 @@ func (c *Collector) updateBPFMetrics() {
 
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
-		if containerID != c.systemProcessName && containerID != c.kblockdProcessName {
+		if containerID != c.systemProcessName && !cgroup.IsIRQProcess(containerID) {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, comm)
 		}
 
@@ -106,7 +106,7 @@ func (c *Collector) updateBPFMetrics() {
 
 		c.ContainersMetrics[containerID].CurrProcesses++
 		// system process should not include container event
-		if containerID != c.systemProcessName && containerID != c.kblockdProcessName {
+		if containerID != c.systemProcessName && !cgroup.IsIRQProcess(containerID) {
 			// TODO: move to container-level section
 			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupID, ct.PID)
 			if err == nil {

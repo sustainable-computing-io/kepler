@@ -114,8 +114,8 @@ func getContainerInfo(cGroupID, pid uint64, vec uint32, withCGroupID bool) (*Con
 		irqName := VecToName(vec)
 		if irqName != UNDEFINED_SOFTIRQ {
 			return &ContainerInfo{
-				ContainerID:   utils.KblockdProcessName,
-				ContainerName: utils.KblockdProcessName,
+				ContainerID:   irqName,
+				ContainerName: irqName,
 				PodName:       utils.SystemProcessName,
 				Namespace:     utils.SystemProcessNamespace,
 			}, nil

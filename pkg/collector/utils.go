@@ -36,8 +36,8 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, vec ui
 		if containerName == c.systemProcessName {
 			containerID = c.systemProcessName
 		} else {
-			if containerName == c.kblockdProcessName {
-				containerID = c.kblockdProcessName
+			if cgroup.IsIRQProcess(containerName) {
+				containerID = containerName
 			} else {
 				namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, vec, withCGroupID)
 				if err != nil {
