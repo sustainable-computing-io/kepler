@@ -70,23 +70,23 @@ func Init() (*[]corev1.Pod, error) {
 	return updateListPodCache("", false)
 }
 
-func GetPodName(cGroupID, pid uint64, comm string, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, comm, withCGroupID)
+func GetPodName(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.PodName, err
 }
 
-func GetPodNameSpace(cGroupID, pid uint64, comm string, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, comm, withCGroupID)
+func GetPodNameSpace(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.Namespace, err
 }
 
-func GetContainerName(cGroupID, pid uint64, comm string, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, comm, withCGroupID)
+func GetContainerName(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.ContainerName, err
 }
 
-func GetContainerID(cGroupID, pid uint64, comm string, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, comm, withCGroupID)
+func GetContainerID(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.ContainerID, err
 }
 
@@ -98,7 +98,7 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
-func getContainerInfo(cGroupID, pid uint64, comm string, withCGroupID bool) (*ContainerInfo, error) {
+func getContainerInfo(cGroupID, pid uint64, vec int32, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{

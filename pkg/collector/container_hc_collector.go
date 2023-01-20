@@ -42,6 +42,7 @@ type ProcessBPFMetrics struct {
 	CPUInstr       uint64
 	CacheMisses    uint64
 	Command        [16]byte
+	IRQVecNum      uint32
 }
 
 // resetBPFTables reset BPF module's tables
@@ -65,8 +66,9 @@ func (c *Collector) updateBPFMetrics() {
 		}
 		commChar := (*C.char)(unsafe.Pointer(&ct.Command))
 		comm := C.GoString(commChar)
+		vec := ct.IRQVecNum
 
-		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, comm, config.EnabledEBPFCgroupID)
+		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, vec, config.EnabledEBPFCgroupID)
 		if err != nil {
 			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupID, err, c.systemProcessName)
 		}

@@ -84,6 +84,14 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
 		}
 	}
+	softirqEntry, err := m.LoadTracepoint("softirq_entry")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load softirq_entry: %s", err)
+	}
+	err = m.AttachTracepoint("irq:softirq_entry", softirqEntry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach softirq_entry: %s", err)
+	}
 
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + bpfPerfArrayPrefix
