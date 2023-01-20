@@ -225,6 +225,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
         process_metrics_t new_process = {};
         new_process.pid = cur_pid;
         new_process.cgroup_id = cgroup_id;
+        new_process.vec_nr = (u32)10; // initialize to undefined value
         bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
         processes.update(&cur_pid, &new_process);
     }
