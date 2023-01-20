@@ -75,7 +75,7 @@ func (c *Collector) updateBPFMetrics() {
 		// TODO: improve the removal of deleted containers from ContainersMetrics. Currently we verify the maxInactiveContainers using the foundContainer map
 		foundContainer[containerID] = true
 
-		c.createContainersMetricsIfNotExist(containerID, comm, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
+		c.createContainersMetricsIfNotExist(containerID, vec, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache

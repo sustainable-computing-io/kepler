@@ -70,22 +70,22 @@ func Init() (*[]corev1.Pod, error) {
 	return updateListPodCache("", false)
 }
 
-func GetPodName(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+func GetPodName(cGroupID, pid uint64, vec uint32, withCGroupID bool) (string, error) {
 	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.PodName, err
 }
 
-func GetPodNameSpace(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+func GetPodNameSpace(cGroupID, pid uint64, vec uint32, withCGroupID bool) (string, error) {
 	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.Namespace, err
 }
 
-func GetContainerName(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+func GetContainerName(cGroupID, pid uint64, vec uint32, withCGroupID bool) (string, error) {
 	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.ContainerName, err
 }
 
-func GetContainerID(cGroupID, pid uint64, vec int32, withCGroupID bool) (string, error) {
+func GetContainerID(cGroupID, pid uint64, vec uint32, withCGroupID bool) (string, error) {
 	info, err := getContainerInfo(cGroupID, pid, vec, withCGroupID)
 	return info.ContainerID, err
 }
@@ -98,7 +98,7 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
-func getContainerInfo(cGroupID, pid uint64, vec int32, withCGroupID bool) (*ContainerInfo, error) {
+func getContainerInfo(cGroupID, pid uint64, vec uint32, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{
@@ -110,7 +110,9 @@ func getContainerInfo(cGroupID, pid uint64, vec int32, withCGroupID bool) (*Cont
 
 	// if the containerID is empty, then this is a system process
 	if containerID == "" {
-		if isKblockdWorker(comm, pid) {
+		// check if this is a softirq process
+		irqName := VecToName(vec)
+		if irqName != UNDEFINED_SOFTIRQ {
 			return &ContainerInfo{
 				ContainerID:   utils.KblockdProcessName,
 				ContainerName: utils.KblockdProcessName,

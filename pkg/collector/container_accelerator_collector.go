@@ -48,7 +48,7 @@ func (c *Collector) updateAcceleratorMetrics() {
 				containerID = c.systemProcessName
 			}
 
-			c.createContainersMetricsIfNotExist(containerID, "" /* comm */, 0, uint64(pid), false)
+			c.createContainersMetricsIfNotExist(containerID, 10 /* undefined vec */, 0, uint64(pid), false)
 
 			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewCurr(uint64(processUtilization.SmUtil)); err != nil {
 				klog.V(5).Infoln(err)
