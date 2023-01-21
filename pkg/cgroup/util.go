@@ -21,9 +21,9 @@ const (
 )
 
 var (
-	// based /sys/kernel/debug/tracing/events/irq/softirq_entry/format
-	irqName = []string{"SoftIRQ_HI" /* 0 */, "SoftIRQ_TIMER", "SoftIRQ_NET_TX", "SoftIRQ_NET_RX", "SoftIRQ_BLOCK",
-		"SoftIRQ_IRQ_POLL", "SoftIRQ_TASKLET", "SoftIRQ_SCHED", "SoftIRQ_HRTIMER", "SoftIRQ_RCU" /* 9 */}
+	// based /sys/kernel/debug/tracing/events/irq/entry/format
+	irqName = []string{"HI" /* 0 */, "TIMER", "NET_TX", "NET_RX", "BLOCK",
+		"IRQ_POLL", "TASKLET", "SCHED", "HRTIMER", "RCU" /* 9 */}
 )
 
 func VecToName(vec uint32) string {
