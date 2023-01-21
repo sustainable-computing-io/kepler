@@ -44,7 +44,6 @@ func DetermineHostByteOrder() binary.ByteOrder {
 
 const (
 	SystemProcessName      string = "system_processes"
-	KblockdProcessName     string = "kblockd"
 	SystemProcessNamespace string = "system"
 )
 

@@ -132,7 +132,7 @@ func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 			return
 		}
 		for containerID := range c.ContainersMetrics {
-			if containerID == c.systemProcessName || containerID == c.kblockdProcessName {
+			if containerID == c.systemProcessName || cgroup.IsIRQProcess(containerID) {
 				continue
 			}
 			if _, found := aliveContainers[containerID]; !found {
