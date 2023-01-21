@@ -112,7 +112,7 @@ func getContainerInfo(cGroupID, pid uint64, vec uint32, withCGroupID bool) (*Con
 	if containerID == "" {
 		// check if this is a softirq process
 		irqName := VecToName(vec)
-		if irqName != UNDEFINED_SOFTIRQ {
+		if irqName != UndefinedSoftIRQ {
 			return &ContainerInfo{
 				ContainerID:   irqName,
 				ContainerName: irqName,

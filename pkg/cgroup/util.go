@@ -17,7 +17,7 @@ limitations under the License.
 package cgroup
 
 const (
-	UNDEFINED_SOFTIRQ = "UNDEFINED"
+	UndefinedSoftIRQ = "UNDEFINED"
 )
 
 var (
@@ -30,7 +30,7 @@ func VecToName(vec uint32) string {
 	if vec < uint32(len(irqName)) {
 		return irqName[vec]
 	}
-	return UNDEFINED_SOFTIRQ
+	return UndefinedSoftIRQ
 }
 
 func IsIRQProcess(name string) bool {
