@@ -108,21 +108,6 @@ func getContainerInfo(cGroupID, pid uint64, vec uint32, withCGroupID bool) (*Con
 		Namespace:     utils.SystemProcessNamespace,
 	}
 
-	// if the containerID is empty, then this is a system process
-	if containerID == "" {
-		// check if this is a softirq process
-		irqName := VecToName(vec)
-		if irqName != UndefinedSoftIRQ {
-			return &ContainerInfo{
-				ContainerID:   irqName,
-				ContainerName: irqName,
-				PodName:       utils.SystemProcessName,
-				Namespace:     utils.SystemProcessNamespace,
-			}, nil
-		}
-		return info, nil
-	}
-
 	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
 		return info, err
 	}
@@ -138,6 +123,17 @@ func getContainerInfo(cGroupID, pid uint64, vec uint32, withCGroupID bool) (*Con
 	}
 
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
+		// check if this is a softirq process
+		irqName := VecToName(vec)
+		if irqName != UndefinedSoftIRQ {
+			return &ContainerInfo{
+				ContainerID:   irqName,
+				ContainerName: irqName,
+				PodName:       utils.SystemProcessName,
+				Namespace:     utils.SystemProcessNamespace,
+			}, nil
+		}
+
 		containerIDToContainerInfo[containerID] = info
 		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
 		if info.ContainerName == utils.SystemProcessName {

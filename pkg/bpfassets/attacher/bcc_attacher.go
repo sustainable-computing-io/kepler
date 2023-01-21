@@ -84,7 +84,7 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
 		}
 	}
-	softirqEntry, err := m.LoadTracepoint("softirq_entry")
+	softirqEntry, err := m.LoadTracepoint("tracepoint__irq__softirq_entry")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load softirq_entry: %s", err)
 	}
