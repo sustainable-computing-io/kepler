@@ -24,7 +24,10 @@ const (
 	CacheMiss      = "cache_miss"
 
 	// bpf - attacher package
-	CPUTime = "cpu_time"
+	CPUTime       = "cpu_time"
+	IRQNetTXLabel = "irq_net_tx"
+	IRQNetRXLabel = "irq_net_rx"
+	IRQBlockLabel = "irq_block"
 
 	// cgroup - cgroup package
 	CgroupfsMemory       = "cgroupfs_memory_usage_bytes"

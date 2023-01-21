@@ -8,7 +8,7 @@ import (
 )
 
 func clearPlatformDependentAvailability() {
-	AvailableCounters = []string{}
+	AvailableHWCounters = []string{}
 	AvailableCgroupMetrics = []string{}
 	AvailableKubeletMetrics = []string{}
 
@@ -46,13 +46,13 @@ var _ = Describe("Test Metric Unit", func() {
 	})
 
 	It("Test isCounterStatEnabled for True", func() {
-		AvailableCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+		AvailableHWCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
 		exp := isCounterStatEnabled("cpu_time")
 		Expect(exp).To(BeTrue())
 	})
 
 	It("Test isCounterStatEnabled for False", func() {
-		AvailableCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
+		AvailableHWCounters = []string{"cpu_time", "bytes_read", "bytes_writes", "block_devices_used"}
 		exp := isCounterStatEnabled("")
 		Expect(exp).To(BeFalse())
 	})

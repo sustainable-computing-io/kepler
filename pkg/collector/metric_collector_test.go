@@ -15,12 +15,12 @@ import (
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func setCollectorMetrics() {
 	// initialize the Available metrics since they are used to create a new containersMetrics instance
-	collector_metric.AvailableCounters = []string{config.CPUCycle, config.CPUInstruction, config.CacheMiss}
+	collector_metric.AvailableHWCounters = []string{config.CPUCycle, config.CPUInstruction, config.CacheMiss}
 	collector_metric.AvailableCgroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory, config.CgroupfsCPU,
 		config.CgroupfsSystemCPU, config.CgroupfsUserCPU, config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO}
 	collector_metric.AvailableKubeletMetrics = []string{config.KubeletContainerCPU, config.KubeletContainerMemory, config.KubeletNodeCPU, config.KubeletNodeMemory}
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.CPUTimeLabel)
-	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableCounters...)
+	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableHWCounters...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableCgroupMetrics...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableKubeletMetrics...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.ContainerIOStatMetricsNames...)

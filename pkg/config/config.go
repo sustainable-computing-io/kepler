@@ -51,6 +51,8 @@ const (
 	defaultNamespace        = "kepler"
 	defaultModelServerPort  = "8100"
 	defaultModelRequestPath = "/model"
+	// MaxIRQ is the maximum number of IRQs to be monitored
+	MaxIRQ = 10
 )
 
 var (
@@ -60,6 +62,7 @@ var (
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
 	MetricPathKey                = "METRIC_PATH"
 	BindAddressKey               = "BIND_ADDRESS"
 	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")

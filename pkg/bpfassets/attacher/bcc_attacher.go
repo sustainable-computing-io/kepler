@@ -52,6 +52,13 @@ const (
 	CPUInstructionLabel = config.CPUInstruction
 	CacheMissLabel      = config.CacheMiss
 	bpfPerfArrayPrefix  = "_hc_reader"
+
+	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
+	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
+	// IRQ vector to IRQ number
+	IRQNetTX = 2
+	IRQNetRX = 3
+	IRQBlock = 4
 )
 
 var (
@@ -83,6 +90,14 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
 		}
+	}
+	softirqEntry, err := m.LoadTracepoint("tracepoint__irq__softirq_entry")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load softirq_entry: %s", err)
+	}
+	err = m.AttachTracepoint("irq:softirq_entry", softirqEntry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach softirq_entry: %s", err)
 	}
 
 	for arrayName, counter := range Counters {
@@ -138,9 +153,9 @@ func DetachBPFModules(bpfModules *BpfModuleTables) {
 	bpfModules.Module.Close()
 }
 
-func GetEnabledCounters() []string {
+func GetEnabledHWCounters() []string {
 	var metrics []string
-	klog.V(5).Infof("hardeware counter metr %t", config.ExposeHardwareCounterMetrics)
+	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
 	if !config.ExposeHardwareCounterMetrics {
 		klog.V(5).Info("hardeware counter metrics not enabled")
 		return metrics
@@ -151,5 +166,21 @@ func GetEnabledCounters() []string {
 			metrics = append(metrics, metric)
 		}
 	}
+	return metrics
+}
+
+func GetEnabledBPFCounters() []string {
+	var metrics []string
+	metrics = append(metrics, config.CPUTime)
+
+	klog.V(5).Infof("irq counter metrics config %t", config.ExposeIRQCounterMetrics)
+	if !config.ExposeIRQCounterMetrics {
+		klog.V(5).Info("irq counter metrics not enabled")
+		return metrics
+	}
+	metrics = append(metrics, config.IRQNetTXLabel)
+	metrics = append(metrics, config.IRQNetRXLabel)
+	metrics = append(metrics, config.IRQBlockLabel)
+
 	return metrics
 }

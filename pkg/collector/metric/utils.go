@@ -41,10 +41,10 @@ type CPUModelData struct {
 
 func getcontainerUintFeatureNames() []string {
 	var metrics []string
-	metrics = append(metrics, CPUTimeLabel)
-
+	// bpf metrics
+	metrics = append(metrics, AvailableEBPFCounters...)
 	// counter metric
-	metrics = append(metrics, AvailableCounters...)
+	metrics = append(metrics, AvailableHWCounters...)
 	// cgroup metric
 	metrics = append(metrics, AvailableCgroupMetrics...)
 	// cgroup kubelet metric
@@ -56,7 +56,8 @@ func getcontainerUintFeatureNames() []string {
 		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
 	}
 
-	klog.V(3).Infof("Available counter metrics: %v", AvailableCounters)
+	klog.V(3).Infof("Available ebpf metrics: %v", AvailableEBPFCounters)
+	klog.V(3).Infof("Available counter metrics: %v", AvailableHWCounters)
 	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCgroupMetrics)
 	klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
 	klog.V(3).Infof("Available I/O metrics: %v", ContainerIOStatMetricsNames)
@@ -66,7 +67,6 @@ func getcontainerUintFeatureNames() []string {
 
 func setEnabledMetrics() []string {
 	ContainerFeaturesNames = []string{}
-	AvailableCounters = attacher.GetEnabledCounters()
 
 	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerFloatFeatureNames...)
@@ -95,7 +95,7 @@ func getEstimatorMetrics() []string {
 }
 
 func isCounterStatEnabled(label string) bool {
-	for _, counter := range AvailableCounters {
+	for _, counter := range AvailableHWCounters {
 		if counter == label {
 			return true
 		}

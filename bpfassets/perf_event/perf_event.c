@@ -36,6 +36,7 @@ typedef struct process_metrics_t
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_miss;
+    u16 vec_nr[10]; // irq counter, 10 is the max number of irq vectors
     char comm[16];
 } process_metrics_t;
 
@@ -228,5 +229,20 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
         processes.update(&cur_pid, &new_process);
     }
 
+    return 0;
+}
+
+// per https://www.kernel.org/doc/html/latest/core-api/tracepoint.html#c.trace_softirq_entry
+TRACEPOINT_PROBE(irq, softirq_entry)
+{
+    u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+    struct process_metrics_t *process_metrics;
+    process_metrics = processes.lookup(&cur_pid);
+    if (process_metrics != 0)
+    {
+        if (args->vec < 10) {
+            process_metrics->vec_nr[args->vec] ++;
+        }
+    }
     return 0;
 }

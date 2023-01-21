@@ -77,7 +77,13 @@ var (
 		"total_bytes_read",
 		"curr_bytes_writes",
 		"total_bytes_writes",
-		"block_devices_used"}
+		"block_devices_used",
+		"curr_irq_net_rx",
+		"total_irq_net_rx",
+		"curr_irq_net_tx",
+		"total_irq_net_tx",
+		"curr_irq_block",
+		"total_irq_block"}
 )
 
 type NodeDesc struct {
@@ -126,9 +132,14 @@ type ContainerDesc struct {
 	// Additional metrics (gauge)
 	// TODO: review if we really need to expose this metric. cgroup also has some sortof cpuTime metric
 	containerCPUTime *prometheus.Desc
+
+	// IRQ metrics
+	containerNetTxIRQTotal *prometheus.Desc
+	containerNetRxIRQTotal *prometheus.Desc
+	containerBlockIRQTotal *prometheus.Desc
 }
 
-// Old metric
+// metric used by the model server to train the model
 type PodDesc struct {
 	// TODO: review if we need to remove this metric
 	// the NodeMetricsStat does not follow the prometheus metrics standard guideline, and this is only used by the model server.
@@ -229,6 +240,13 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	// Old Node metric
 	ch <- p.containerDesc.containerCPUTime
 	ch <- p.podDesc.podEnergyStat
+
+	// IRQ counter
+	if config.ExposeIRQCounterMetrics {
+		ch <- p.containerDesc.containerNetTxIRQTotal
+		ch <- p.containerDesc.containerNetRxIRQTotal
+		ch <- p.containerDesc.containerBlockIRQTotal
+	}
 }
 
 func (p *PrometheusCollector) newNodeMetrics() {
@@ -383,6 +401,23 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 
+	// network irq metrics
+	containerNetTxIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "net_tx_irq_total"),
+		"Aggregated network tx irq value",
+		[]string{"pod_name", "container_name", "container_namespace"}, nil,
+	)
+	containerNetRxIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "net_rx_irq_total"),
+		"Aggregated network rx irq value",
+		[]string{"pod_name", "container_name", "container_namespace"}, nil,
+	)
+	containerBlockIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "block_irq_total"),
+		"Aggregated block irq value",
+		[]string{"pod_name", "container_name", "container_namespace"}, nil,
+	)
+
 	p.containerDesc = &ContainerDesc{
 		containerCoreJoulesTotal:            containerCoreJoulesTotal,
 		containerUncoreJoulesTotal:          containerUncoreJoulesTotal,
@@ -397,6 +432,9 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		containerKubeletMemoryBytesTotal:    containerKubeletMemoryBytesTotal,
 		containerKubeletCPUUsageTotal:       containerKubeletCPUUsageTotal,
 		containerCPUTime:                    containerCPUTime,
+		containerNetTxIRQTotal:              containerNetTxIRQTotal,
+		containerNetRxIRQTotal:              containerNetRxIRQTotal,
+		containerBlockIRQTotal:              containerBlockIRQTotal,
 	}
 }
 
@@ -749,6 +787,27 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					prometheus.CounterValue,
 					float64(container.KubeletStats[config.KubeletContainerMemory].Aggr),
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+			}
+
+			if config.ExposeIRQCounterMetrics {
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerNetTxIRQTotal,
+					prometheus.CounterValue,
+					float64(container.SoftIQRCount[attacher.IRQNetTX].Aggr),
+					container.PodName, container.ContainerName, container.Namespace,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerNetRxIRQTotal,
+					prometheus.CounterValue,
+					float64(container.SoftIQRCount[attacher.IRQNetRX].Aggr),
+					container.PodName, container.ContainerName, container.Namespace,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerBlockIRQTotal,
+					prometheus.CounterValue,
+					float64(container.SoftIQRCount[attacher.IRQBlock].Aggr),
+					container.PodName, container.ContainerName, container.Namespace,
 				)
 			}
 		}(container)
