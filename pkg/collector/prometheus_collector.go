@@ -242,37 +242,37 @@ func (p *PrometheusCollector) newNodeMetrics() {
 	nodeCoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "core_joules_total"),
 		"Aggregated RAPL value in core in joules",
-		[]string{"package", "instance", "source"}, nil,
+		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodeUncoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "uncore_joules_total"),
 		"Aggregated RAPL value in uncore in joules",
-		[]string{"package", "instance", "source"}, nil,
+		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodeDramJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "dram_joules_total"),
 		"Aggregated RAPL value in dram in joules",
-		[]string{"package", "instance", "source"}, nil,
+		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodePackageJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "package_joules_total"),
 		"Aggregated RAPL value in package (socket) in joules",
-		[]string{"package", "instance", "source"}, nil,
+		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodePlatformJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "platform_joules_total"),
 		"Aggregated RAPL value in platform (entire node) in joules",
-		[]string{"instance", "source"}, nil,
+		[]string{"instance", "source", "mode"}, nil,
 	)
 	nodeOtherComponentsJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "other_host_components_joules_total"),
 		"Aggregated RAPL value in other components (platform - package - dram) in joules",
-		[]string{"instance"}, nil,
+		[]string{"instance", "mode"}, nil,
 	)
 	nodeGPUJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "gpu_joules_total"),
 		"Current GPU value in joules",
-		[]string{"index", "instance", "source"}, nil,
+		[]string{"index", "instance", "source", "mode"}, nil,
 	)
 
 	// Additional metrics (gauge)
@@ -314,37 +314,37 @@ func (p *PrometheusCollector) newContainerMetrics() {
 	containerCoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "core_joules_total"),
 		"Aggregated RAPL value in core in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerUncoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "uncore_joules_total"),
 		"Aggregated RAPL value in uncore in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerDramJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "dram_joules_total"),
 		"Aggregated RAPL value in dram in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerPackageJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "package_joules_total"),
 		"Aggregated RAPL value in package (socket) in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerOtherComponentsJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "other_host_components_joules_total"),
 		"Aggregated value in other host components (platform - package - dram) in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerGPUJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "gpu_joules_total"),
 		"Aggregated GPU value in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "joules_total"),
 		"Aggregated RAPL Package + Uncore + DRAM + GPU + other host components (platform - package - dram) in joules",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 
 	// Hardware Counters (counter)
@@ -444,14 +444,14 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 				fmt.Sprintf("%d", cpuID), collector_metric.NodeName,
 			)
 		}
-		for pkgID, val := range p.NodeMetrics.EnergyInPkg.Stat {
-			coreEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInCore.Stat[pkgID].Curr, 10)
-			dramEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInDRAM.Stat[pkgID].Curr, 10)
-			uncoreEnergy := strconv.FormatUint(p.NodeMetrics.EnergyInUncore.Stat[pkgID].Curr, 10)
+		for pkgID, val := range p.NodeMetrics.TotalEnergyInPkg.Stat {
+			coreEnergy := strconv.FormatUint(p.NodeMetrics.TotalEnergyInCore.Stat[pkgID].Delta, 10)
+			dramEnergy := strconv.FormatUint(p.NodeMetrics.TotalEnergyInDRAM.Stat[pkgID].Delta, 10)
+			uncoreEnergy := strconv.FormatUint(p.NodeMetrics.TotalEnergyInUncore.Stat[pkgID].Delta, 10)
 			ch <- prometheus.MustNewConstMetric(
 				p.nodeDesc.nodePackageMiliJoulesTotal,
 				prometheus.CounterValue,
-				float64(val.Curr),
+				float64(val.Delta),
 				collector_metric.NodeName, pkgID, coreEnergy, dramEnergy, uncoreEnergy,
 			) // deprecated metric
 		}
@@ -465,7 +465,7 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.NodeMetricsStat,
 			prometheus.CounterValue,
-			(float64(p.NodeMetrics.EnergyInPlatform.Curr())/miliJouleToJoule)/p.SamplePeriodSec,
+			(float64(p.NodeMetrics.TotalEnergyInPlatform.SumAllDeltaValues())/miliJouleToJoule)/p.SamplePeriodSec,
 			NodeMetricsStatusLabelValues...,
 		)
 		ch <- prometheus.MustNewConstMetric(
@@ -474,58 +474,113 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			1,
 			collector_metric.NodeCPUArchitecture,
 		)
-		for pkgID, val := range p.NodeMetrics.EnergyInCore.Stat {
-			// Node metrics in joules (counter)
-			ch <- prometheus.MustNewConstMetric(
-				p.nodeDesc.nodeCoreJoulesTotal,
-				prometheus.CounterValue,
-				float64(val.Aggr)/miliJouleToJoule,
-				pkgID, collector_metric.NodeName, "rapl",
-			)
-		}
-		for pkgID, val := range p.NodeMetrics.EnergyInUncore.Stat {
-			ch <- prometheus.MustNewConstMetric(
-				p.nodeDesc.nodeUncoreJoulesTotal,
-				prometheus.CounterValue,
-				float64(val.Aggr)/miliJouleToJoule,
-				pkgID, collector_metric.NodeName, "rapl",
-			)
-		}
-		for pkgID, val := range p.NodeMetrics.EnergyInDRAM.Stat {
-			ch <- prometheus.MustNewConstMetric(
-				p.nodeDesc.nodeDramJoulesTotal,
-				prometheus.CounterValue,
-				float64(val.Aggr)/miliJouleToJoule,
-				pkgID, collector_metric.NodeName, "rapl",
-			)
-		}
-		for pkgID, val := range p.NodeMetrics.EnergyInPkg.Stat {
+		// Node metrics in joules (counter)
+		for pkgID := range p.NodeMetrics.TotalEnergyInCore.Stat {
+			dynPower := (float64(p.NodeMetrics.GetAggrDynEnergyPerID(collector_metric.PKG, pkgID)) / miliJouleToJoule)
 			ch <- prometheus.MustNewConstMetric(
 				p.nodeDesc.nodePackageJoulesTotal,
 				prometheus.CounterValue,
-				float64(val.Aggr)/miliJouleToJoule,
-				pkgID, collector_metric.NodeName, "rapl",
+				dynPower,
+				pkgID, collector_metric.NodeName, "rapl", "dynamic",
+			)
+			idlePower := (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.PKG, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodePackageJoulesTotal,
+				prometheus.CounterValue,
+				idlePower,
+				pkgID, collector_metric.NodeName, "rapl", "idle",
+			)
+
+			dynPower = (float64(p.NodeMetrics.GetAggrDynEnergyPerID(collector_metric.CORE, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeCoreJoulesTotal,
+				prometheus.CounterValue,
+				dynPower,
+				pkgID, collector_metric.NodeName, "rapl", "dynamic",
+			)
+			idlePower = (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.CORE, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeCoreJoulesTotal,
+				prometheus.CounterValue,
+				idlePower,
+				pkgID, collector_metric.NodeName, "rapl", "idle",
+			)
+
+			dynPower = (float64(p.NodeMetrics.GetAggrDynEnergyPerID(collector_metric.UNCORE, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeUncoreJoulesTotal,
+				prometheus.CounterValue,
+				dynPower,
+				pkgID, collector_metric.NodeName, "rapl", "dynamic",
+			)
+			idlePower = (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.UNCORE, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeUncoreJoulesTotal,
+				prometheus.CounterValue,
+				idlePower,
+				pkgID, collector_metric.NodeName, "rapl", "idle",
+			)
+			dynPower = (float64(p.NodeMetrics.GetAggrDynEnergyPerID(collector_metric.DRAM, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeDramJoulesTotal,
+				prometheus.CounterValue,
+				dynPower,
+				pkgID, collector_metric.NodeName, "rapl", "dynamic",
+			)
+			idlePower = (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.DRAM, pkgID)) / miliJouleToJoule)
+			ch <- prometheus.MustNewConstMetric(
+				p.nodeDesc.nodeDramJoulesTotal,
+				prometheus.CounterValue,
+				idlePower,
+				pkgID, collector_metric.NodeName, "rapl", "idle",
 			)
 		}
-		ch <- prometheus.MustNewConstMetric(
-			p.nodeDesc.nodePlatformJoulesTotal,
-			prometheus.CounterValue,
-			float64(p.NodeMetrics.EnergyInPlatform.Aggr())/miliJouleToJoule,
-			collector_metric.NodeName, "acpi",
-		)
+
+		dynPower := (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.OTHER)) / miliJouleToJoule)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodeOtherComponentsJoulesTotal,
 			prometheus.CounterValue,
-			float64(p.NodeMetrics.EnergyInOther.Aggr())/miliJouleToJoule,
-			collector_metric.NodeName,
+			dynPower,
+			collector_metric.NodeName, "dynamic",
 		)
+		idlePower := (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.OTHER)) / miliJouleToJoule)
+		ch <- prometheus.MustNewConstMetric(
+			p.nodeDesc.nodeOtherComponentsJoulesTotal,
+			prometheus.CounterValue,
+			idlePower,
+			collector_metric.NodeName, "idle",
+		)
+
+		dynPower = (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
+		ch <- prometheus.MustNewConstMetric(
+			p.nodeDesc.nodePlatformJoulesTotal,
+			prometheus.CounterValue,
+			dynPower,
+			collector_metric.NodeName, "acpi", "dynamic",
+		)
+		idlePower = (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
+		ch <- prometheus.MustNewConstMetric(
+			p.nodeDesc.nodePlatformJoulesTotal,
+			prometheus.CounterValue,
+			idlePower,
+			collector_metric.NodeName, "acpi", "idle",
+		)
+
 		if config.EnabledGPU {
-			for gpuID, val := range p.NodeMetrics.EnergyInGPU.Stat {
+			for gpuID := range p.NodeMetrics.TotalEnergyInGPU.Stat {
+				dynPower = (float64(p.NodeMetrics.GetAggrDynEnergyPerID(collector_metric.GPU, gpuID)) / miliJouleToJoule)
 				ch <- prometheus.MustNewConstMetric(
 					p.nodeDesc.nodeGPUJoulesTotal,
 					prometheus.CounterValue,
-					float64(val.Aggr)/miliJouleToJoule,
-					gpuID, collector_metric.NodeName, "nvidia",
+					dynPower,
+					gpuID, collector_metric.NodeName, "nvidia", "dynamic",
+				)
+				idlePower = (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.GPU, gpuID)) / miliJouleToJoule)
+				ch <- prometheus.MustNewConstMetric(
+					p.nodeDesc.nodeGPUJoulesTotal,
+					prometheus.CounterValue,
+					idlePower,
+					gpuID, collector_metric.NodeName, "nvidia", "idle",
 				)
 			}
 		}
@@ -552,7 +607,7 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			ch <- prometheus.MustNewConstMetric(
 				p.podDesc.podEnergyStat,
 				prometheus.GaugeValue,
-				float64(container.Curr()),
+				float64(container.SumAllDynDeltaValues()),
 				podEnergyStatusLabelValues...,
 			)
 			ch <- prometheus.MustNewConstMetric(
@@ -564,50 +619,96 @@ func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerCoreJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.EnergyInCore.Aggr)/miliJouleToJoule,
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				float64(container.DynEnergyInCore.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerCoreJoulesTotal,
+				prometheus.CounterValue,
+				float64(container.IdleEnergyInCore.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerUncoreJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.EnergyInUncore.Aggr)/miliJouleToJoule,
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				float64(container.DynEnergyInUncore.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerUncoreJoulesTotal,
+				prometheus.CounterValue,
+				float64(container.IdleEnergyInUncore.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerDramJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.EnergyInDRAM.Aggr)/miliJouleToJoule,
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				float64(container.DynEnergyInDRAM.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerDramJoulesTotal,
+				prometheus.CounterValue,
+				float64(container.IdleEnergyInDRAM.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerPackageJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.EnergyInPkg.Aggr)/miliJouleToJoule,
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				float64(container.DynEnergyInPkg.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerPackageJoulesTotal,
+				prometheus.CounterValue,
+				float64(container.IdleEnergyInPkg.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerOtherComponentsJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.EnergyInOther.Aggr)/miliJouleToJoule,
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerOtherComponentsJoulesTotal,
+				prometheus.CounterValue,
+				float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule,
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			if config.EnabledGPU {
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerGPUJoulesTotal,
 					prometheus.CounterValue,
-					float64(container.EnergyInGPU.Aggr)/miliJouleToJoule,
-					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule,
+					container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerGPUJoulesTotal,
+					prometheus.CounterValue,
+					float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule,
+					container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 				)
 			}
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerJoulesTotal,
 				prometheus.CounterValue,
-				(float64(container.EnergyInPkg.Aggr)/miliJouleToJoule +
-					float64(container.EnergyInUncore.Aggr)/miliJouleToJoule +
-					float64(container.EnergyInDRAM.Aggr)/miliJouleToJoule +
-					float64(container.EnergyInGPU.Aggr)/miliJouleToJoule +
-					float64(container.EnergyInOther.Aggr)/miliJouleToJoule),
-				container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				(float64(container.DynEnergyInPkg.Aggr)/miliJouleToJoule +
+					float64(container.DynEnergyInUncore.Aggr)/miliJouleToJoule +
+					float64(container.DynEnergyInDRAM.Aggr)/miliJouleToJoule +
+					float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule +
+					float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule),
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerJoulesTotal,
+				prometheus.CounterValue,
+				(float64(container.IdleEnergyInPkg.Aggr)/miliJouleToJoule +
+					float64(container.IdleEnergyInUncore.Aggr)/miliJouleToJoule +
+					float64(container.IdleEnergyInDRAM.Aggr)/miliJouleToJoule +
+					float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule +
+					float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule),
+				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			if collector_metric.CPUHardwareCounterEnabled {
 				if container.CounterStats[attacher.CPUCycleLabel] != nil {
