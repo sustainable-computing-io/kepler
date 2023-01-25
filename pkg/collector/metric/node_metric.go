@@ -34,12 +34,14 @@ import (
 )
 
 const (
-	CORE   = "core"
-	DRAM   = "dram"
-	UNCORE = "uncore"
-	PKG    = "pkg"
-	GPU    = "gpu"
-	OTHER  = "other"
+	CORE      = "core"
+	DRAM      = "dram"
+	UNCORE    = "uncore"
+	PKG       = "pkg"
+	GPU       = "gpu"
+	OTHER     = "other"
+	PLATFORM  = "platform"
+	FREQUENCY = "frequency"
 )
 
 var (
@@ -113,82 +115,161 @@ func getCPUArchitecture() (string, error) {
 }
 
 type NodeMetrics struct {
-	ResourceUsage    map[string]float64
-	EnergyInCore     *UInt64StatCollection
-	EnergyInDRAM     *UInt64StatCollection
-	EnergyInUncore   *UInt64StatCollection
-	EnergyInPkg      *UInt64StatCollection
-	EnergyInGPU      *UInt64StatCollection
-	EnergyInOther    *UInt64StatCollection
-	EnergyInPlatform *UInt64StatCollection
-	CPUFrequency     map[int32]uint64
+	ResourceUsage map[string]float64
+
+	TotalEnergyInCore     *UInt64StatCollection
+	TotalEnergyInDRAM     *UInt64StatCollection
+	TotalEnergyInUncore   *UInt64StatCollection
+	TotalEnergyInPkg      *UInt64StatCollection
+	TotalEnergyInGPU      *UInt64StatCollection
+	TotalEnergyInOther    *UInt64StatCollection
+	TotalEnergyInPlatform *UInt64StatCollection
+
+	DynEnergyInCore     *UInt64StatCollection
+	DynEnergyInDRAM     *UInt64StatCollection
+	DynEnergyInUncore   *UInt64StatCollection
+	DynEnergyInPkg      *UInt64StatCollection
+	DynEnergyInGPU      *UInt64StatCollection
+	DynEnergyInOther    *UInt64StatCollection
+	DynEnergyInPlatform *UInt64StatCollection
+
+	IdleEnergyInCore     *UInt64StatCollection
+	IdleEnergyInDRAM     *UInt64StatCollection
+	IdleEnergyInUncore   *UInt64StatCollection
+	IdleEnergyInPkg      *UInt64StatCollection
+	IdleEnergyInGPU      *UInt64StatCollection
+	IdleEnergyInOther    *UInt64StatCollection
+	IdleEnergyInPlatform *UInt64StatCollection
+
+	CPUFrequency map[int32]uint64
+
+	// IdleCPUUtilization is used to determine idle periods
+	IdleCPUUtilization uint64
+	FoundNewIdleState  bool
 }
 
 func NewNodeMetrics() *NodeMetrics {
 	return &NodeMetrics{
-		EnergyInCore: &UInt64StatCollection{
+		TotalEnergyInCore: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInDRAM: &UInt64StatCollection{
+		TotalEnergyInDRAM: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInUncore: &UInt64StatCollection{
+		TotalEnergyInUncore: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInPkg: &UInt64StatCollection{
+		TotalEnergyInPkg: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInGPU: &UInt64StatCollection{
+		TotalEnergyInGPU: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInOther: &UInt64StatCollection{
+		TotalEnergyInOther: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInPlatform: &UInt64StatCollection{
+		TotalEnergyInPlatform: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+
+		DynEnergyInCore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInDRAM: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInUncore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInPkg: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInGPU: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInOther: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		DynEnergyInPlatform: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+
+		IdleEnergyInCore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInDRAM: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInUncore: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInPkg: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInGPU: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInOther: &UInt64StatCollection{
+			Stat: make(map[string]*UInt64Stat),
+		},
+		IdleEnergyInPlatform: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
 	}
 }
 
-func (ne *NodeMetrics) ResetCurr() {
+func (ne *NodeMetrics) ResetDeltaValues() {
 	ne.ResourceUsage = make(map[string]float64)
-	ne.EnergyInCore.ResetCurr()
-	ne.EnergyInDRAM.ResetCurr()
-	ne.EnergyInUncore.ResetCurr()
-	ne.EnergyInPkg.ResetCurr()
-	ne.EnergyInGPU.ResetCurr()
-	ne.EnergyInOther.ResetCurr()
-	ne.EnergyInPlatform.ResetCurr()
+	ne.TotalEnergyInCore.ResetDeltaValues()
+	ne.TotalEnergyInDRAM.ResetDeltaValues()
+	ne.TotalEnergyInUncore.ResetDeltaValues()
+	ne.TotalEnergyInPkg.ResetDeltaValues()
+	ne.TotalEnergyInGPU.ResetDeltaValues()
+	ne.TotalEnergyInPlatform.ResetDeltaValues()
+	ne.DynEnergyInCore.ResetDeltaValues()
+	ne.DynEnergyInDRAM.ResetDeltaValues()
+	ne.DynEnergyInUncore.ResetDeltaValues()
+	ne.DynEnergyInPkg.ResetDeltaValues()
+	ne.DynEnergyInGPU.ResetDeltaValues()
+	ne.DynEnergyInPlatform.ResetDeltaValues()
 }
 
 // AddNodeResResourceUsageFromContainerResResourceUsage adds the sum of all container resource usage as the node resource usage
 func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics map[string]*ContainerMetrics) {
+	var IdleCPUUtilization uint64
 	nodeResourceUsage := make(map[string]float64)
 	for _, metricName := range ContainerMetricNames {
 		nodeResourceUsage[metricName] = 0
 		for _, container := range containersMetrics {
-			curr, _, _ := container.getIntCurrAndAggrValue(metricName)
-			nodeResourceUsage[metricName] += float64(curr)
+			delta, _, _ := container.getIntDeltaAndAggrValue(metricName)
+			nodeResourceUsage[metricName] += float64(delta)
+			if metricName == config.CPUInstruction {
+				IdleCPUUtilization += delta
+			}
 		}
 	}
 	ne.ResourceUsage = nodeResourceUsage
-}
-
-// AddLastestPlatformEnergy adds the lastest energy consumption from the node sensor
-func (ne *NodeMetrics) AddLastestPlatformEnergy(platformEnergy map[string]float64) {
-	for sensorID, energy := range platformEnergy {
-		ne.EnergyInPlatform.AddCurrStat(sensorID, uint64(math.Ceil(energy)))
+	if (ne.IdleCPUUtilization > IdleCPUUtilization) || (ne.IdleCPUUtilization == 0) {
+		ne.FoundNewIdleState = true
+		ne.IdleCPUUtilization = IdleCPUUtilization
 	}
 }
 
-// AddNodeComponentsEnergy adds the lastest energy consumption collected from the node's components (e.g., using RAPL)
-func (ne *NodeMetrics) AddNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy) {
+// SetLastestPlatformEnergy adds the lastest energy consumption from the node sensor
+func (ne *NodeMetrics) SetLastestPlatformEnergy(platformEnergy map[string]float64) {
+	for sensorID, energy := range platformEnergy {
+		ne.TotalEnergyInPlatform.SetDeltaStat(sensorID, uint64(math.Ceil(energy)))
+	}
+}
+
+// SetNodeComponentsEnergy adds the lastest energy consumption collected from the node's components (e.g., using RAPL)
+func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy) {
 	for pkgID, energy := range componentsEnergy {
 		key := strconv.Itoa(pkgID)
-		ne.EnergyInCore.AddAggrStat(key, energy.Core)
-		ne.EnergyInDRAM.AddAggrStat(key, energy.DRAM)
-		ne.EnergyInUncore.AddAggrStat(key, energy.Uncore)
-		ne.EnergyInPkg.AddAggrStat(key, energy.Pkg)
+		ne.TotalEnergyInCore.SetAggrStat(key, energy.Core)
+		ne.TotalEnergyInDRAM.SetAggrStat(key, energy.DRAM)
+		ne.TotalEnergyInUncore.SetAggrStat(key, energy.Uncore)
+		ne.TotalEnergyInPkg.SetAggrStat(key, energy.Pkg)
 	}
 }
 
@@ -197,54 +278,87 @@ func (ne *NodeMetrics) AddNodeComponentsEnergy(componentsEnergy map[int]source.N
 func (ne *NodeMetrics) AddNodeGPUEnergy(gpuEnergy []uint32) {
 	for gpuID, energy := range gpuEnergy {
 		key := strconv.Itoa(gpuID)
-		ne.EnergyInGPU.AddCurrStat(key, uint64(energy))
+		ne.TotalEnergyInGPU.AddDeltaStat(key, uint64(energy))
 	}
 }
 
-func (ne *NodeMetrics) GetEnergyValue(ekey string) (val uint64) {
-	switch ekey {
-	case CORE:
-		val = ne.EnergyInCore.Curr()
-	case DRAM:
-		val = ne.EnergyInDRAM.Curr()
-	case UNCORE:
-		val = ne.EnergyInUncore.Curr()
-	case PKG:
-		val = ne.EnergyInPkg.Curr()
-	case GPU:
-		val = ne.EnergyInGPU.Curr()
-	case OTHER:
-		val = ne.EnergyInOther.Curr()
-	}
-	return
+func (ne *NodeMetrics) UpdateIdleEnergy() {
+	ne.CalcIdleEnergy(CORE)
+	ne.CalcIdleEnergy(DRAM)
+	ne.CalcIdleEnergy(UNCORE)
+	ne.CalcIdleEnergy(PKG)
+	ne.CalcIdleEnergy(GPU)
+	ne.CalcIdleEnergy(PLATFORM)
+	// reset
+	ne.FoundNewIdleState = false
 }
 
-// TODO: fix me: we shouldn't use the total node power as Pkg and not Pkg as Core power
-// See https://github.com/sustainable-computing-io/kepler/issues/295
-func (ne *NodeMetrics) GetNodeTotalEnergyPerComponent() source.NodeComponentsEnergy {
-	coreValue := ne.EnergyInCore.Curr()
-	uncoreValue := ne.EnergyInUncore.Curr()
-	pkgValue := ne.EnergyInPkg.Curr()
-	if pkgValue == 0 {
-		// if RAPL is not available, but the node power from sensor is available
-		pkgValue = ne.EnergyInOther.Curr()
-	}
-	if coreValue == 0 {
-		coreValue = pkgValue - uncoreValue
-	}
-	return source.NodeComponentsEnergy{
-		Core:   coreValue,
-		Uncore: uncoreValue,
-		Pkg:    pkgValue,
-		DRAM:   ne.EnergyInDRAM.Curr(),
+func (ne *NodeMetrics) CalcIdleEnergy(component string) {
+	toalStatCollection := ne.getTotalEnergyStatCollection(component)
+	idleStatCollection := ne.getIdleEnergyStatCollection(component)
+	for id := range toalStatCollection.Stat {
+		delta := toalStatCollection.Stat[id].Delta
+		if _, exist := idleStatCollection.Stat[id]; !exist {
+			idleStatCollection.SetDeltaStat(id, delta)
+		} else {
+			idleDelta := idleStatCollection.Stat[id].Delta
+			// only updates the idle energy if the resource utilization is low. i.e., ne.FoundNewIdleState == true
+			if ((idleDelta == 0) || (idleDelta > delta)) && ((ne.FoundNewIdleState) || (ne.IdleCPUUtilization == 0)) {
+				idleStatCollection.SetDeltaStat(id, delta)
+			} else {
+				idleStatCollection.SetDeltaStat(id, idleDelta)
+			}
+		}
 	}
 }
 
-func (ne *NodeMetrics) GetNodeTotalEnergy() (totalPower uint64) {
-	return ne.EnergyInPkg.Curr() +
-		ne.EnergyInDRAM.Curr() +
-		ne.EnergyInGPU.Curr() +
-		ne.EnergyInOther.Curr()
+// UpdateDynEnergy calculates the dynamic energy
+func (ne *NodeMetrics) UpdateDynEnergy() {
+	for pkgID := range ne.TotalEnergyInPkg.Stat {
+		ne.CalcDynEnergy(PKG, pkgID)
+		ne.CalcDynEnergy(CORE, pkgID)
+		ne.CalcDynEnergy(UNCORE, pkgID)
+		ne.CalcDynEnergy(DRAM, pkgID)
+	}
+	for sensorID := range ne.TotalEnergyInPlatform.Stat {
+		ne.CalcDynEnergy(PLATFORM, sensorID)
+	}
+}
+
+func (ne *NodeMetrics) CalcDynEnergy(component, id string) {
+	total := ne.getTotalEnergyStatCollection(component).Stat[id].Delta
+	idle := ne.getIdleEnergyStatCollection(component).Stat[id].Delta
+	dyn := calcDynEnergy(total, idle)
+	ne.getDynEnergyStatCollection(component).SetDeltaStat(id, dyn)
+}
+
+func calcDynEnergy(totalE, idleE uint64) uint64 {
+	if (totalE == 0) || (idleE == 0) || (totalE < idleE) {
+		return 0
+	}
+	return totalE - idleE
+}
+
+// SetNodeOtherComponentsEnergy adds the lastest energy consumption collected from the other node's components than CPU and DRAM
+// Other components energy is a special case where the energy is calculated and not measured
+func (ne *NodeMetrics) SetNodeOtherComponentsEnergy() {
+	dynCPUComponentsEnergy := ne.DynEnergyInPkg.SumAllDeltaValues() +
+		ne.DynEnergyInDRAM.SumAllDeltaValues() +
+		ne.DynEnergyInGPU.SumAllDeltaValues()
+	dynPlatformEnergy := ne.DynEnergyInPlatform.SumAllDeltaValues()
+	if dynPlatformEnergy > dynCPUComponentsEnergy {
+		otherComponentEnergy := dynPlatformEnergy - dynCPUComponentsEnergy
+		ne.DynEnergyInOther.SetDeltaStat(OTHER, otherComponentEnergy)
+	}
+
+	idleCPUComponentsEnergy := ne.IdleEnergyInPkg.SumAllDeltaValues() +
+		ne.IdleEnergyInDRAM.SumAllDeltaValues() +
+		ne.IdleEnergyInGPU.SumAllDeltaValues()
+	idlePlatformEnergy := ne.IdleEnergyInPlatform.SumAllDeltaValues()
+	if idlePlatformEnergy > idleCPUComponentsEnergy {
+		otherComponentEnergy := idlePlatformEnergy - idleCPUComponentsEnergy
+		ne.IdleEnergyInOther.SetDeltaStat(OTHER, otherComponentEnergy)
+	}
 }
 
 func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
@@ -254,5 +368,143 @@ func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
 func (ne *NodeMetrics) String() string {
 	return fmt.Sprintf("node energy (mJ): \n"+
 		"\tePkg: %d (eCore: %d eDram: %d eUncore: %d) eGPU: %d eOther: %d \n",
-		ne.EnergyInPkg.Curr(), ne.EnergyInCore.Curr(), ne.EnergyInDRAM.Curr(), ne.EnergyInUncore.Curr(), ne.EnergyInGPU.Curr(), ne.EnergyInOther.Curr())
+		ne.TotalEnergyInPkg.SumAllDeltaValues(), ne.TotalEnergyInCore.SumAllDeltaValues(), ne.TotalEnergyInDRAM.SumAllDeltaValues(), ne.TotalEnergyInUncore.SumAllDeltaValues(), ne.TotalEnergyInGPU.SumAllDeltaValues(), ne.TotalEnergyInOther.SumAllDeltaValues())
+}
+
+// GetAggrDynEnergyPerID returns the delta dynamic energy from all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetAggrDynEnergyPerID(component, id string) uint64 {
+	statCollection := ne.getDynEnergyStatCollection(component)
+	if _, exist := statCollection.Stat[id]; exist {
+		return statCollection.Stat[id].Aggr
+	}
+	return uint64(0)
+}
+
+// GetDeltaDynEnergyPerID returns the delta dynamic energy from all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetDeltaDynEnergyPerID(component, id string) uint64 {
+	statCollection := ne.getDynEnergyStatCollection(component)
+	if _, exist := statCollection.Stat[id]; exist {
+		return statCollection.Stat[id].Delta
+	}
+	return uint64(0)
+}
+
+// GetSumAggrDynEnergyFromAllSources returns the sum of delta dynamic energy of all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetSumAggrDynEnergyFromAllSources(component string) uint64 {
+	var dynamicEnergy uint64
+	for _, val := range ne.getDynEnergyStatCollection(component).Stat {
+		dynamicEnergy += val.Aggr
+	}
+	return dynamicEnergy
+}
+
+// GetSumDeltaDynEnergyFromAllSources returns the sum of delta dynamic energy of all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetSumDeltaDynEnergyFromAllSources(component string) uint64 {
+	var dynamicEnergy uint64
+	for _, val := range ne.getDynEnergyStatCollection(component).Stat {
+		dynamicEnergy += val.Delta
+	}
+	return dynamicEnergy
+}
+
+// GetAggrIdleEnergyPerID returns the aggr idle energy for a given id
+func (ne *NodeMetrics) GetAggrIdleEnergyPerID(component, id string) uint64 {
+	statCollection := ne.getIdleEnergyStatCollection(component)
+	if _, exist := statCollection.Stat[id]; exist {
+		return statCollection.Stat[id].Aggr
+	}
+	return uint64(0)
+}
+
+// GetDeltaIdleEnergyPerID returns the delta idle energy from all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetDeltaIdleEnergyPerID(component, id string) uint64 {
+	statCollection := ne.getIdleEnergyStatCollection(component)
+	if _, exist := statCollection.Stat[id]; exist {
+		return statCollection.Stat[id].Delta
+	}
+	return uint64(0)
+}
+
+// GetSumDeltaIdleEnergyromAllSources returns the sum of delta idle energy of all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetSumDeltaIdleEnergyromAllSources(component string) uint64 {
+	var idleEnergy uint64
+	for _, val := range ne.getIdleEnergyStatCollection(component).Stat {
+		idleEnergy += val.Delta
+	}
+	return idleEnergy
+}
+
+// GetSumAggrIdleEnergyromAllSources returns the sum of delta idle energy of all source (e.g. package or gpu ids)
+func (ne *NodeMetrics) GetSumAggrIdleEnergyromAllSources(component string) uint64 {
+	var idleEnergy uint64
+	for _, val := range ne.getIdleEnergyStatCollection(component).Stat {
+		idleEnergy += val.Aggr
+	}
+	return idleEnergy
+}
+
+func (ne *NodeMetrics) getTotalEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+	switch component {
+	case PKG:
+		return ne.TotalEnergyInPkg
+	case CORE:
+		return ne.TotalEnergyInCore
+	case DRAM:
+		return ne.TotalEnergyInDRAM
+	case UNCORE:
+		return ne.TotalEnergyInUncore
+	case GPU:
+		return ne.TotalEnergyInGPU
+	case OTHER:
+		return ne.TotalEnergyInOther
+	case PLATFORM:
+		return ne.TotalEnergyInPlatform
+	default:
+		klog.Fatalf("TotalEnergy component type %s is unknown\n", component)
+	}
+	return
+}
+
+func (ne *NodeMetrics) getDynEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+	switch component {
+	case PKG:
+		return ne.DynEnergyInPkg
+	case CORE:
+		return ne.DynEnergyInCore
+	case DRAM:
+		return ne.DynEnergyInDRAM
+	case UNCORE:
+		return ne.DynEnergyInUncore
+	case GPU:
+		return ne.DynEnergyInGPU
+	case OTHER:
+		return ne.DynEnergyInOther
+	case PLATFORM:
+		return ne.DynEnergyInPlatform
+	default:
+		klog.Fatalf("DynEnergy component type %s is unknown\n", component)
+	}
+	return
+}
+
+func (ne *NodeMetrics) getIdleEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+	switch component {
+	case PKG:
+		return ne.IdleEnergyInPkg
+	case CORE:
+		return ne.IdleEnergyInCore
+	case DRAM:
+		return ne.IdleEnergyInDRAM
+	case UNCORE:
+		return ne.IdleEnergyInUncore
+	case GPU:
+		return ne.IdleEnergyInGPU
+	case OTHER:
+		return ne.IdleEnergyInOther
+	case PLATFORM:
+		return ne.IdleEnergyInPlatform
+	default:
+		klog.Fatalf("IdleEnergy component type %s is unknown\n", component)
+	}
+	return
 }

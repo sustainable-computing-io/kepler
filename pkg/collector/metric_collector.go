@@ -98,7 +98,7 @@ func (c *Collector) Update() {
 
 	// reset the previous collected value because not all containers will have new data
 	// that is, a container that was inactive will not have any update but we need to set its metrics to 0
-	c.resetCurrValue()
+	c.resetDeltaValue()
 
 	// update container metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is resposible to include new containers in the ContainersMetrics collection
@@ -132,12 +132,12 @@ func (c *Collector) Update() {
 	klog.V(2).Infof("Collector Update elapsed time: %s", time.Since(start))
 }
 
-// resetCurrValue reset existing podEnergy previous curr value
-func (c *Collector) resetCurrValue() {
+// resetDeltaValue reset existing podEnergy previous curr value
+func (c *Collector) resetDeltaValue() {
 	for _, v := range c.ContainersMetrics {
-		v.ResetCurr()
+		v.ResetDeltaValues()
 	}
-	c.NodeMetrics.ResetCurr()
+	c.NodeMetrics.ResetDeltaValues()
 }
 
 // init adds the information of containers that were already running before kepler has been created

@@ -18,6 +18,7 @@ package collector
 
 import (
 	"encoding/binary"
+	"sync"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -37,33 +38,36 @@ func (c *Collector) updateNodeResourceUsage() {
 }
 
 // updateMeasuredNodeEnergy updates the node platfomr power consumption, i.e, the node total power consumption
-func (c *Collector) updatePlatformEnergy() {
+func (c *Collector) updatePlatformEnergy(wg *sync.WaitGroup) {
+	defer wg.Done()
 	nodePlatformEnergy := map[string]float64{}
 	if c.acpiPowerMeter.IsPowerSupported() {
 		nodePlatformEnergy, _ = c.acpiPowerMeter.GetEnergyFromHost()
 	} else if model.IsNodePlatformPowerModelEnabled() {
-		nodePlatformEnergy = model.GetEstimatedNodePlatformPower(c.NodeMetrics)
+		nodePlatformEnergy = model.GetEstimatedNodePlatformPower(&c.NodeMetrics)
 	}
-	c.NodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+	c.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 }
 
 // updateMeasuredNodeEnergy updates each node component power consumption, i.e., the CPU core, uncore, package/socket and DRAM
-func (c *Collector) updateNodeComponentsEnergy() {
+func (c *Collector) updateNodeComponentsEnergy(wg *sync.WaitGroup) {
+	defer wg.Done()
 	nodeComponentsEnergy := map[int]source.NodeComponentsEnergy{}
 	if components.IsSystemCollectionSupported() {
 		klog.V(5).Info("System energy collection is supported")
 		nodeComponentsEnergy = components.GetNodeComponentsEnergy()
 	} else if model.IsNodeComponentPowerModelEnabled() {
 		klog.V(5).Info("Node components power model collection is supported")
-		nodeComponentsEnergy = model.GetNodeComponentPowers(c.NodeMetrics)
+		nodeComponentsEnergy = model.GetNodeComponentPowers(&c.NodeMetrics)
 	} else {
 		klog.V(1).Info("No nodeComponentsEnergy found, node components energy metrics is not exposed ")
 	}
-	c.NodeMetrics.AddNodeComponentsEnergy(nodeComponentsEnergy)
+	c.NodeMetrics.SetNodeComponentsEnergy(nodeComponentsEnergy)
 }
 
 // updateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
-func (c *Collector) updateNodeGPUEnergy() {
+func (c *Collector) updateNodeGPUEnergy(wg *sync.WaitGroup) {
+	defer wg.Done()
 	if config.EnabledGPU {
 		gpuEnergy := accelerator.GetGpuEnergyPerGPU()
 		c.NodeMetrics.AddNodeGPUEnergy(gpuEnergy)
@@ -71,7 +75,8 @@ func (c *Collector) updateNodeGPUEnergy() {
 }
 
 // updateNodeAvgCPUFrequency updates the average CPU frequency in each core
-func (c *Collector) updateNodeAvgCPUFrequency() {
+func (c *Collector) updateNodeAvgCPUFrequency(wg *sync.WaitGroup) {
+	defer wg.Done()
 	// update the cpu frequency using hardware counters when available because reading files can be very expensive
 	if attacher.HardwareCountersEnabled {
 		cpuFreq := map[int32]uint64{}
@@ -88,8 +93,16 @@ func (c *Collector) updateNodeAvgCPUFrequency() {
 
 // updateNodeEnergyMetrics updates the node energy consumption of each component
 func (c *Collector) updateNodeEnergyMetrics() {
-	c.updatePlatformEnergy()
-	c.updateNodeComponentsEnergy()
-	c.updateNodeAvgCPUFrequency()
-	c.updateNodeGPUEnergy()
+	var wgNode sync.WaitGroup
+	wgNode.Add(4)
+	go c.updatePlatformEnergy(&wgNode)
+	go c.updateNodeComponentsEnergy(&wgNode)
+	go c.updateNodeAvgCPUFrequency(&wgNode)
+	go c.updateNodeGPUEnergy(&wgNode)
+	wgNode.Wait()
+	// after updating the total energy we calculate the dynamic energy
+	// the idle energy is only updated if we find the node using less resources than previously observed
+	c.NodeMetrics.UpdateIdleEnergy()
+	c.NodeMetrics.UpdateDynEnergy()
+	c.NodeMetrics.SetNodeOtherComponentsEnergy()
 }

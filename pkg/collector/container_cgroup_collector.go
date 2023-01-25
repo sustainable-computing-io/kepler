@@ -33,7 +33,7 @@ func (c *Collector) updateCgroupMetrics() {
 		for cgroupFSKey, cgroupFSValue := range cgroupFSStandardStats {
 			readVal := cgroupFSValue.(uint64)
 			if _, ok := c.ContainersMetrics[containerID].CgroupFSStats[cgroupFSKey]; ok {
-				c.ContainersMetrics[containerID].CgroupFSStats[cgroupFSKey].AddAggrStat(containerID, readVal)
+				c.ContainersMetrics[containerID].CgroupFSStats[cgroupFSKey].SetAggrStat(containerID, readVal)
 			}
 		}
 	}

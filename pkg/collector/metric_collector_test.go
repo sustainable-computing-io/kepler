@@ -41,40 +41,40 @@ func createMockContainersMetrics() map[string]*collector_metric.ContainerMetrics
 func createMockContainerMetrics(containerName, podName, namespace string) *collector_metric.ContainerMetrics {
 	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace)
 	// counter - attacher package
-	err := containerMetrics.CounterStats[config.CPUCycle].AddNewCurr(10)
+	err := containerMetrics.CounterStats[config.CPUCycle].AddNewDelta(10)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.CounterStats[config.CPUInstruction].AddNewCurr(10)
+	err = containerMetrics.CounterStats[config.CPUInstruction].AddNewDelta(10)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.CounterStats[config.CacheMiss].AddNewCurr(10)
+	err = containerMetrics.CounterStats[config.CacheMiss].AddNewDelta(10)
 	Expect(err).NotTo(HaveOccurred())
 	// bpf - cpu time
-	err = containerMetrics.CPUTime.AddNewCurr(10) // config.CPUTime
+	err = containerMetrics.CPUTime.AddNewDelta(10) // config.CPUTime
 	Expect(err).NotTo(HaveOccurred())
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 10) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 20) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 10)    // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 20)    // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsCPU].AddAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsCPU].AddAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].AddAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].AddAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].AddAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].AddAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].AddAggrStat(containerName, 10)  // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].AddAggrStat(containerName, 20)  // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].AddAggrStat(containerName, 10) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].AddAggrStat(containerName, 20) // not used
-	containerMetrics.CgroupFSStats[config.BlockDevicesIO].AddAggrStat(containerName, 10)  // not used
-	containerMetrics.CgroupFSStats[config.BlockDevicesIO].AddAggrStat(containerName, 20)  // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 10) // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 20) // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 10)    // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 20)    // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupFSStats[config.CgroupfsCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].SetAggrStat(containerName, 10)  // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].SetAggrStat(containerName, 20)  // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].SetAggrStat(containerName, 10) // not used
+	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].SetAggrStat(containerName, 20) // not used
+	containerMetrics.CgroupFSStats[config.BlockDevicesIO].SetAggrStat(containerName, 10)  // not used
+	containerMetrics.CgroupFSStats[config.BlockDevicesIO].SetAggrStat(containerName, 20)  // not used
 	// cgroup - I/O stat metrics
-	containerMetrics.BytesRead.AddAggrStat(containerName, 10)  // config.BytesReadIO
-	containerMetrics.BytesRead.AddAggrStat(containerName, 20)  // config.BytesReadIO
-	containerMetrics.BytesWrite.AddAggrStat(containerName, 10) // config.BytesWriteIO
-	containerMetrics.BytesWrite.AddAggrStat(containerName, 20) // config.BytesWriteIO
+	containerMetrics.BytesRead.SetAggrStat(containerName, 10)  // config.BytesReadIO
+	containerMetrics.BytesRead.SetAggrStat(containerName, 20)  // config.BytesReadIO
+	containerMetrics.BytesWrite.SetAggrStat(containerName, 10) // config.BytesWriteIO
+	containerMetrics.BytesWrite.SetAggrStat(containerName, 20) // config.BytesWriteIO
 	// kubelet - cgroup package
 	err = containerMetrics.KubeletStats[config.KubeletContainerCPU].SetNewAggr(10) // not used
 	Expect(err).NotTo(HaveOccurred())
@@ -110,13 +110,13 @@ func createMockNodeMetrics(containersMetrics map[string]*collector_metric.Contai
 		Core: 10,
 		DRAM: 10,
 	}
-	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 		Pkg:  18,
 		Core: 15,
 		DRAM: 11,
 	}
-	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 
 	return nodeMetrics
 }
@@ -153,7 +153,7 @@ var _ = Describe("Test Collector Unit", func() {
 		metricCollector.updateNodeEnergyMetrics()
 		// TODO CONTINUE -- it is missing the node energy
 		metricCollector.updateContainerEnergy()
-		Expect(metricCollector.ContainersMetrics["containerA"].EnergyInPkg.Curr).ShouldNot(BeNil())
+		Expect(metricCollector.ContainersMetrics["containerA"].DynEnergyInPkg.Delta).ShouldNot(BeNil())
 	})
 
 	It("HandleInactiveContainers without error", func() {

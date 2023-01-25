@@ -19,8 +19,8 @@ const (
 
 	CPUTimeLabel = config.CPUTime
 
-	CurrPrefix = "curr_"
-	AggrPrefix = "total_"
+	DeltaPrefix = "curr_"
+	AggrPrefix  = "total_"
 )
 
 var (
@@ -46,47 +46,73 @@ func InitAvailableParamAndMetrics() {
 }
 
 type UInt64Stat struct {
-	Curr     uint64
-	Aggr     uint64
-	PrevCurr uint64
+	Aggr  uint64
+	Delta uint64
 }
 
 func (s UInt64Stat) String() string {
-	return fmt.Sprintf("%d (%d)", s.Curr, s.Aggr)
+	return fmt.Sprintf("%d (%d)", s.Delta, s.Aggr)
 }
 
-// ResetCurr resets current value and keep previous curr value for filling negative value
-func (s *UInt64Stat) ResetCurr() {
-	s.PrevCurr = s.Curr
-	s.Curr = uint64(0)
+// ResetDelta resets current value
+func (s *UInt64Stat) ResetDeltaValues() {
+	s.Delta = uint64(0)
 }
 
-// AddNewCurr adds new read current value (e.g., from bpf table that is reset, computed delta energy)
-func (s *UInt64Stat) AddNewCurr(newCurr uint64) error {
-	s.Curr += newCurr
-	if math.MaxUint64-newCurr < s.Aggr {
-		// overflow
-		s.Aggr = s.Curr
-		return fmt.Errorf("Aggr value overflow %d < %d, reset", s.Aggr+newCurr, s.Aggr)
+// AddNewDelta sum a new read delta value (e.g., from bpf table that is reset, computed delta energy)
+func (s *UInt64Stat) AddNewDelta(newDelta uint64) error {
+	return s.SetNewDeltaValue(newDelta, true)
+}
+
+// SetNewDelta replace the delta value with a new read delta value (e.g., from bpf table that is reset, computed delta energy)
+func (s *UInt64Stat) SetNewDelta(newDelta uint64) error {
+	return s.SetNewDeltaValue(newDelta, false)
+}
+
+// SetNewDeltaValue sum or replace the delta value with a new read delta value
+func (s *UInt64Stat) SetNewDeltaValue(newDelta uint64, sum bool) error {
+	if newDelta == 0 {
+		// if a counter has overflowed we skip it
+		return nil
 	}
-	s.Aggr += newCurr
+	if sum {
+		// sum is used to accumulate metrics from different processes
+		s.Delta += newDelta
+	} else {
+		s.Delta = newDelta
+	}
+	s.Aggr += newDelta
+	// verify overflow
+	if s.Aggr == math.MaxUint64 {
+		// we must set the the value to 0 when overflow, so that prometheus will handle it
+		s.Aggr = 0
+		return fmt.Errorf("the aggregated value has overflowed")
+	}
 	return nil
 }
 
 // SetNewAggr set new read aggregated value (e.g., from cgroup, energy files)
 func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
+	if newAggr == 0 {
+		// if a counter has overflowed we skip it
+		return nil
+	}
+	if newAggr == s.Aggr {
+		// if a counter has not changed, we skip it
+		return fmt.Errorf("the input value has not changed")
+	}
+	// verify aggregated value overflow
+	if newAggr == math.MaxUint64 {
+		// we must set the the value to 0 when overflow, so that prometheus will handle it
+		s.Aggr = 0
+		return fmt.Errorf("the aggregated value has overflowed")
+	}
+
 	oldAggr := s.Aggr
 	s.Aggr = newAggr
-	if newAggr < oldAggr {
-		// overflow: set to prev value
-		s.Curr = s.PrevCurr
-		return fmt.Errorf("Aggr value overflow %d < %d", newAggr, oldAggr)
-	}
-	if oldAggr == 0 {
-		// new value
-		s.Curr = 0
-	} else {
-		s.Curr = newAggr - oldAggr
+
+	if (oldAggr > 0) && (newAggr > oldAggr) {
+		s.Delta = newAggr - oldAggr
 	}
 	return nil
 }
@@ -96,7 +122,7 @@ type UInt64StatCollection struct {
 	Stat map[string]*UInt64Stat
 }
 
-func (s *UInt64StatCollection) AddAggrStat(key string, newAggr uint64) {
+func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
 	if _, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{}
 	}
@@ -105,24 +131,34 @@ func (s *UInt64StatCollection) AddAggrStat(key string, newAggr uint64) {
 	}
 }
 
-func (s *UInt64StatCollection) AddCurrStat(key string, newCurr uint64) {
+func (s *UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
 	if _, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{}
 	}
-	if err := s.Stat[key].AddNewCurr(newCurr); err != nil {
+	if err := s.Stat[key].AddNewDelta(newDelta); err != nil {
+		klog.V(3).Infoln(err)
+	}
+}
+func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
+	if _, found := s.Stat[key]; !found {
+		s.Stat[key] = &UInt64Stat{}
+	}
+	if err := s.Stat[key].SetNewDelta(newDelta); err != nil {
 		klog.V(3).Infoln(err)
 	}
 }
 
-func (s *UInt64StatCollection) Curr() uint64 {
+// SumAllDeltaValues aggregates the delta metrics of all sources (i.e., stat keys)
+func (s *UInt64StatCollection) SumAllDeltaValues() uint64 {
 	sum := uint64(0)
 	for _, stat := range s.Stat {
-		sum += stat.Curr
+		sum += stat.Delta
 	}
 	return sum
 }
 
-func (s *UInt64StatCollection) Aggr() uint64 {
+// SumAllAggrValues aggregates the aggregated metrics of all sources (i.e., stat keys)
+func (s *UInt64StatCollection) SumAllAggrValues() uint64 {
 	sum := uint64(0)
 	for _, stat := range s.Stat {
 		sum += stat.Aggr
@@ -130,12 +166,12 @@ func (s *UInt64StatCollection) Aggr() uint64 {
 	return sum
 }
 
-func (s *UInt64StatCollection) ResetCurr() {
+func (s *UInt64StatCollection) ResetDeltaValues() {
 	for _, stat := range s.Stat {
-		stat.ResetCurr()
+		stat.ResetDeltaValues()
 	}
 }
 
 func (s UInt64StatCollection) String() string {
-	return fmt.Sprintf("%d (%d)", s.Curr(), s.Aggr())
+	return fmt.Sprintf("%d (%d)", s.SumAllDeltaValues(), s.SumAllAggrValues())
 }

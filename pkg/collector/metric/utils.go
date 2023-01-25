@@ -63,7 +63,7 @@ func setEnabledMetrics() []string {
 func getPrometheusMetrics() []string {
 	var labels []string
 	for _, feature := range ContainerFeaturesNames {
-		labels = append(labels, CurrPrefix+feature, AggrPrefix+feature)
+		labels = append(labels, DeltaPrefix+feature, AggrPrefix+feature)
 	}
 	// TO-DO: remove this hard code metric
 	labels = append(labels, blockDeviceLabel)
