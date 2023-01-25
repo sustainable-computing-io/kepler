@@ -222,3 +222,9 @@ genbpfassets:
 	GO111MODULE=off go get -d github.com/go-bindata/go-bindata/...
 	./hack/bindata.sh
 .PHONY: genbpfassets
+
+cluster-up:
+	rm -rf local-dev-cluster
+	git clone https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
+	cd local-dev-cluster && ./main.sh
+.PHONY: cluster-up

@@ -30,3 +30,6 @@ bin
 .DS_Store
 */.DS_Store
 .idea
+
+kepler-action
+local-dev-cluster
