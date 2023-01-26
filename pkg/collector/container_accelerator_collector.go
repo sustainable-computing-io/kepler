@@ -50,10 +50,10 @@ func (c *Collector) updateAcceleratorMetrics() {
 
 			c.createContainersMetricsIfNotExist(containerID, 0, uint64(pid), false)
 
-			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewCurr(uint64(processUtilization.SmUtil)); err != nil {
+			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewDelta(uint64(processUtilization.SmUtil)); err != nil {
 				klog.V(5).Infoln(err)
 			}
-			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUMemUtilization].AddNewCurr(uint64(processUtilization.MemUtil)); err != nil {
+			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUMemUtilization].AddNewDelta(uint64(processUtilization.MemUtil)); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}

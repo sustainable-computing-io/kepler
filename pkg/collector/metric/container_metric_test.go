@@ -24,79 +24,70 @@ import (
 var _ = Describe("Test Container Metric", func() {
 
 	c := ContainerMetrics{
-		EnergyInCore:   &UInt64Stat{Curr: uint64(1), Aggr: uint64(2)},
-		EnergyInDRAM:   &UInt64Stat{Curr: uint64(3), Aggr: uint64(4)},
-		EnergyInUncore: &UInt64Stat{Curr: uint64(5), Aggr: uint64(6)},
-		EnergyInPkg:    &UInt64Stat{Curr: uint64(7), Aggr: uint64(8)},
-		EnergyInGPU:    &UInt64Stat{Curr: uint64(9), Aggr: uint64(10)},
-		EnergyInOther:  &UInt64Stat{Curr: uint64(11), Aggr: uint64(12)},
+		DynEnergyInCore:   &UInt64Stat{Delta: uint64(1), Aggr: uint64(2)},
+		DynEnergyInDRAM:   &UInt64Stat{Delta: uint64(3), Aggr: uint64(4)},
+		DynEnergyInUncore: &UInt64Stat{Delta: uint64(5), Aggr: uint64(6)},
+		DynEnergyInPkg:    &UInt64Stat{Delta: uint64(7), Aggr: uint64(8)},
+		DynEnergyInGPU:    &UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
+		DynEnergyInOther:  &UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
 		CgroupFSStats: map[string]*UInt64StatCollection{
 			CORE: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(13), Aggr: uint64(14)},
+					"usage": {Delta: uint64(13), Aggr: uint64(14)},
 				},
 			},
 			DRAM: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(15), Aggr: uint64(16)},
+					"usage": {Delta: uint64(15), Aggr: uint64(16)},
 				},
 			},
 			UNCORE: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(17), Aggr: uint64(18)},
+					"usage": {Delta: uint64(17), Aggr: uint64(18)},
 				},
 			},
 			PKG: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(19), Aggr: uint64(20)},
+					"usage": {Delta: uint64(19), Aggr: uint64(20)},
 				},
 			},
 			GPU: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(21), Aggr: uint64(22)},
+					"usage": {Delta: uint64(21), Aggr: uint64(22)},
 				},
 			},
 			OTHER: {
 				Stat: map[string]*UInt64Stat{
-					"usage": {Curr: uint64(23), Aggr: uint64(24)},
+					"usage": {Delta: uint64(23), Aggr: uint64(24)},
 				},
 			},
 		},
 	}
 
-	It("Test GetPrometheusEnergyValue", func() {
-		Expect(c.GetPrometheusEnergyValue(CORE, true)).To(Equal(float64(1)))
-		Expect(c.GetPrometheusEnergyValue(DRAM, true)).To(Equal(float64(3)))
-		Expect(c.GetPrometheusEnergyValue(UNCORE, true)).To(Equal(float64(5)))
-		Expect(c.GetPrometheusEnergyValue(PKG, true)).To(Equal(float64(7)))
-		Expect(c.GetPrometheusEnergyValue(GPU, true)).To(Equal(float64(9)))
-		Expect(c.GetPrometheusEnergyValue(OTHER, true)).To(Equal(float64(11)))
-	})
-
-	It("Test getIntCurrAndAggrValue", func() {
-		curr, aggr, err := c.getIntCurrAndAggrValue(CORE)
+	It("Test getIntDeltaAndAggrValue", func() {
+		delta, aggr, err := c.getIntDeltaAndAggrValue(CORE)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(13)))
+		Expect(delta).To(Equal(uint64(13)))
 		Expect(aggr).To(Equal(uint64(14)))
-		curr, aggr, err = c.getIntCurrAndAggrValue(DRAM)
+		delta, aggr, err = c.getIntDeltaAndAggrValue(DRAM)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(15)))
+		Expect(delta).To(Equal(uint64(15)))
 		Expect(aggr).To(Equal(uint64(16)))
-		curr, aggr, err = c.getIntCurrAndAggrValue(UNCORE)
+		delta, aggr, err = c.getIntDeltaAndAggrValue(UNCORE)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(17)))
+		Expect(delta).To(Equal(uint64(17)))
 		Expect(aggr).To(Equal(uint64(18)))
-		curr, aggr, err = c.getIntCurrAndAggrValue(PKG)
+		delta, aggr, err = c.getIntDeltaAndAggrValue(PKG)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(19)))
+		Expect(delta).To(Equal(uint64(19)))
 		Expect(aggr).To(Equal(uint64(20)))
-		curr, aggr, err = c.getIntCurrAndAggrValue(GPU)
+		delta, aggr, err = c.getIntDeltaAndAggrValue(GPU)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(21)))
+		Expect(delta).To(Equal(uint64(21)))
 		Expect(aggr).To(Equal(uint64(22)))
-		curr, aggr, err = c.getIntCurrAndAggrValue(OTHER)
+		delta, aggr, err = c.getIntDeltaAndAggrValue(OTHER)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(curr).To(Equal(uint64(23)))
+		Expect(delta).To(Equal(uint64(23)))
 		Expect(aggr).To(Equal(uint64(24)))
 	})
 })

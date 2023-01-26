@@ -48,7 +48,7 @@ func IsNodePlatformPowerModelEnabled() bool {
 }
 
 // GetNodeTotalEnergy returns a single estimated value of node total power
-func GetEstimatedNodePlatformPower(nodeMetrics collector_metric.NodeMetrics) (platformEnergy map[string]float64) {
+func GetEstimatedNodePlatformPower(nodeMetrics *collector_metric.NodeMetrics) (platformEnergy map[string]float64) {
 	platformEnergy = map[string]float64{}
 	platformEnergy[estimatorACPISensorID] = 0
 	if NodePlatformPowerModelEnabled {

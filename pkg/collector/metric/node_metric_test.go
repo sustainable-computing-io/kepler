@@ -46,12 +46,12 @@ func createMockContainerMetrics(containerName, podName, namespace string) *Conta
 	containerMetrics := NewContainerMetrics(containerName, podName, namespace)
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 100)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].AddAggrStat(containerName, 110)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 200)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].AddAggrStat(containerName, 220)
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 300)
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].AddAggrStat(containerName, 330)
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 100)
+	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 110)
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 200)
+	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 220)
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 300)
+	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 330)
 	return containerMetrics
 }
 
@@ -63,20 +63,20 @@ func createMockNodeMetrics(containersMetrics map[string]*ContainerMetrics) *Node
 
 	// the NodeComponentsEnergy is the aggregated energy consumption of the node components
 	// then, the components energy consumption is added to the in the nodeMetrics as Agg data
-	// this means that, to have a Curr value, we must have at least two Agg data (to have Agg diff)
+	// this means that, to have a Delta value, we must have at least two Agg data (to have Agg diff)
 	// therefore, we need to add two values for NodeComponentsEnergy to have energy values to test
 	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 		Pkg:  10,
 		Core: 10,
 		DRAM: 10,
 	}
-	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 		Pkg:  18,
 		Core: 15,
 		DRAM: 11,
 	}
-	nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 
 	return nodeMetrics
 }
@@ -99,50 +99,8 @@ var _ = Describe("Test Node Metric", func() {
 		Expect(v).To(Equal(float64(10)))
 	})
 
-	It("Test GetPrometheusEnergyValue", func() {
-		out := nodeMetrics.GetEnergyValue(CORE)
-		Expect(out).To(Equal(uint64(5)))
-	})
-
-	It("Test getEnergyValue dram", func() {
-		cur := nodeMetrics.GetEnergyValue(DRAM)
-		Expect(nodeMetrics.EnergyInDRAM.Curr()).To(Equal(cur))
-	})
-
-	It("Test getEnergyValue uncore", func() {
-		cur := nodeMetrics.GetEnergyValue(UNCORE)
-		Expect(nodeMetrics.EnergyInUncore.Curr()).To(Equal(cur))
-	})
-
-	It("Test getEnergyValue pkg", func() {
-		cur := nodeMetrics.GetEnergyValue(PKG)
-		Expect(nodeMetrics.EnergyInPkg.Curr()).To(Equal(cur))
-	})
-
-	It("Test getEnergyValue gpu", func() {
-		cur := nodeMetrics.GetEnergyValue(GPU)
-		Expect(nodeMetrics.EnergyInGPU.Curr()).To(Equal(cur))
-	})
-
-	It("Test getEnergyValue other", func() {
-		cur := nodeMetrics.GetEnergyValue(OTHER)
-		Expect(nodeMetrics.EnergyInOther.Curr()).To(Equal(cur))
-	})
-
 	It("test AddNodeGPUEnergy", func() {
 		gpuEnergy := make([]uint32, 1)
 		nodeMetrics.AddNodeGPUEnergy(gpuEnergy)
-	})
-
-	It("test GetNodeTotalEnergyPerComponent", func() {
-		cur := nodeMetrics.GetNodeTotalEnergyPerComponent()
-		Expect(uint64(5)).To(Equal(cur.Core))
-		Expect(uint64(0)).To(Equal(cur.Uncore))
-		Expect(uint64(8)).To(Equal(cur.Pkg))
-	})
-
-	It("test GetNodeTotalEnergy", func() {
-		cur := nodeMetrics.GetNodeTotalEnergy()
-		Expect(uint64(9)).To(Equal(cur))
 	})
 })

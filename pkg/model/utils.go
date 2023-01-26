@@ -65,7 +65,7 @@ func containerMetricsToArray(containersMetrics map[string]*collector_metric.Cont
 }
 
 // TODO: as in containerMetricsToArray, consider exchange a protobuf stricture istead of simple arrays to make it more predictable and consistent
-func nodeMetricsToArray(nodeMetrics collector_metric.NodeMetrics) [][]float64 {
+func nodeMetricsToArray(nodeMetrics *collector_metric.NodeMetrics) [][]float64 {
 	nodeMetricResourceUsageValuesOnly := []float64{}
 	for _, metricName := range collector_metric.ContainerMetricNames {
 		nodeMetricResourceUsageValuesOnly = append(nodeMetricResourceUsageValuesOnly, nodeMetrics.ResourceUsage[metricName])

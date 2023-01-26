@@ -61,14 +61,19 @@ type ContainerMetrics struct {
 	BytesRead  *UInt64StatCollection
 	BytesWrite *UInt64StatCollection
 
-	EnergyInCore   *UInt64Stat
-	EnergyInDRAM   *UInt64Stat
-	EnergyInUncore *UInt64Stat
-	EnergyInPkg    *UInt64Stat
-	EnergyInGPU    *UInt64Stat
-	EnergyInOther  *UInt64Stat
+	DynEnergyInCore   *UInt64Stat
+	DynEnergyInDRAM   *UInt64Stat
+	DynEnergyInUncore *UInt64Stat
+	DynEnergyInPkg    *UInt64Stat
+	DynEnergyInGPU    *UInt64Stat
+	DynEnergyInOther  *UInt64Stat
 
-	DynEnergy *UInt64Stat
+	IdleEnergyInCore   *UInt64Stat
+	IdleEnergyInDRAM   *UInt64Stat
+	IdleEnergyInUncore *UInt64Stat
+	IdleEnergyInPkg    *UInt64Stat
+	IdleEnergyInGPU    *UInt64Stat
+	IdleEnergyInOther  *UInt64Stat
 }
 
 // NewContainerMetrics creates a new ContainerMetrics instance
@@ -87,13 +92,18 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		BytesWrite: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		EnergyInCore:   &UInt64Stat{},
-		EnergyInDRAM:   &UInt64Stat{},
-		EnergyInUncore: &UInt64Stat{},
-		EnergyInPkg:    &UInt64Stat{},
-		EnergyInOther:  &UInt64Stat{},
-		EnergyInGPU:    &UInt64Stat{},
-		DynEnergy:      &UInt64Stat{},
+		DynEnergyInCore:    &UInt64Stat{},
+		DynEnergyInDRAM:    &UInt64Stat{},
+		DynEnergyInUncore:  &UInt64Stat{},
+		DynEnergyInPkg:     &UInt64Stat{},
+		DynEnergyInOther:   &UInt64Stat{},
+		DynEnergyInGPU:     &UInt64Stat{},
+		IdleEnergyInCore:   &UInt64Stat{},
+		IdleEnergyInDRAM:   &UInt64Stat{},
+		IdleEnergyInUncore: &UInt64Stat{},
+		IdleEnergyInPkg:    &UInt64Stat{},
+		IdleEnergyInOther:  &UInt64Stat{},
+		IdleEnergyInGPU:    &UInt64Stat{},
 	}
 	for _, metricName := range AvailableCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}
@@ -115,27 +125,32 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 }
 
 // ResetCurr reset all current value to 0
-func (c *ContainerMetrics) ResetCurr() {
+func (c *ContainerMetrics) ResetDeltaValues() {
 	c.CurrProcesses = 0
-	c.CPUTime.ResetCurr()
+	c.CPUTime.ResetDeltaValues()
 	for counterKey := range c.CounterStats {
-		c.CounterStats[counterKey].ResetCurr()
+		c.CounterStats[counterKey].ResetDeltaValues()
 	}
 	for cgroupFSKey := range c.CgroupFSStats {
-		c.CgroupFSStats[cgroupFSKey].ResetCurr()
+		c.CgroupFSStats[cgroupFSKey].ResetDeltaValues()
 	}
-	c.BytesRead.ResetCurr()
-	c.BytesWrite.ResetCurr()
+	c.BytesRead.ResetDeltaValues()
+	c.BytesWrite.ResetDeltaValues()
 	for kubeletKey := range c.KubeletStats {
-		c.KubeletStats[kubeletKey].ResetCurr()
+		c.KubeletStats[kubeletKey].ResetDeltaValues()
 	}
-	c.EnergyInCore.ResetCurr()
-	c.EnergyInDRAM.ResetCurr()
-	c.EnergyInUncore.ResetCurr()
-	c.EnergyInPkg.ResetCurr()
-	c.EnergyInOther.ResetCurr()
-	c.EnergyInGPU.ResetCurr()
-	c.DynEnergy.ResetCurr()
+	c.DynEnergyInCore.ResetDeltaValues()
+	c.DynEnergyInDRAM.ResetDeltaValues()
+	c.DynEnergyInUncore.ResetDeltaValues()
+	c.DynEnergyInPkg.ResetDeltaValues()
+	c.DynEnergyInOther.ResetDeltaValues()
+	c.DynEnergyInGPU.ResetDeltaValues()
+	c.IdleEnergyInCore.ResetDeltaValues()
+	c.IdleEnergyInDRAM.ResetDeltaValues()
+	c.IdleEnergyInUncore.ResetDeltaValues()
+	c.IdleEnergyInPkg.ResetDeltaValues()
+	c.IdleEnergyInOther.ResetDeltaValues()
+	c.IdleEnergyInGPU.ResetDeltaValues()
 }
 
 // SetLatestProcess set cgroupPID, PID, and command to the latest captured process
@@ -163,29 +178,29 @@ func (c *ContainerMetrics) getFloatCurrAndAggrValue(metric string) (curr, aggr f
 	return 0, 0, nil
 }
 
-// getIntCurrAndAggrValue return curr, aggr uint64 values of specific uint metric
-func (c *ContainerMetrics) getIntCurrAndAggrValue(metric string) (curr, aggr uint64, err error) {
+// getIntDeltaAndAggrValue return curr, aggr uint64 values of specific uint metric
+func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr uint64, err error) {
 	if val, exists := c.CounterStats[metric]; exists {
-		return val.Curr, val.Aggr, nil
+		return val.Delta, val.Aggr, nil
 	}
 	if val, exists := c.CgroupFSStats[metric]; exists {
-		return val.Curr(), val.Aggr(), nil
+		return val.SumAllDeltaValues(), val.SumAllAggrValues(), nil
 	}
 	if val, exists := c.KubeletStats[metric]; exists {
-		return val.Curr, val.Aggr, nil
+		return val.Delta, val.Aggr, nil
 	}
 
 	switch metric {
 	case CPUTimeLabel:
-		return c.CPUTime.Curr, c.CPUTime.Aggr, nil
+		return c.CPUTime.Delta, c.CPUTime.Aggr, nil
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
 	case config.BlockDevicesIO:
 		return uint64(c.Disks), uint64(c.Disks), nil
 	case ByteReadLabel:
-		return c.BytesRead.Curr(), c.BytesRead.Aggr(), nil
+		return c.BytesRead.SumAllDeltaValues(), c.BytesRead.SumAllAggrValues(), nil
 	case ByteWriteLabel:
-		return c.BytesWrite.Curr(), c.BytesWrite.Aggr(), nil
+		return c.BytesWrite.SumAllDeltaValues(), c.BytesWrite.SumAllAggrValues(), nil
 	}
 
 	klog.V(4).Infof("cannot extract: %s", metric)
@@ -199,7 +214,7 @@ func (c *ContainerMetrics) ToEstimatorValues() (values []float64) {
 		values = append(values, curr)
 	}
 	for _, metric := range ContainerUintFeaturesNames {
-		curr, _, _ := c.getIntCurrAndAggrValue(metric)
+		curr, _, _ := c.getIntDeltaAndAggrValue(metric)
 		values = append(values, float64(curr))
 	}
 	// TO-DO: remove this hard code metric
@@ -225,7 +240,7 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 	}
 	metric = strings.ReplaceAll(metric, "total_", "")
 
-	if curr, aggr, err := c.getIntCurrAndAggrValue(metric); err == nil {
+	if curr, aggr, err := c.getIntDeltaAndAggrValue(metric); err == nil {
 		if currentValue {
 			return strconv.FormatUint(curr, 10)
 		}
@@ -244,50 +259,28 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 	return ""
 }
 
-func (c *ContainerMetrics) GetPrometheusEnergyValue(ekey string, curr bool) float64 {
-	var val *UInt64Stat
-	switch ekey {
-	case CORE:
-		val = c.EnergyInCore
-	case DRAM:
-		val = c.EnergyInDRAM
-	case UNCORE:
-		val = c.EnergyInUncore
-	case PKG:
-		val = c.EnergyInPkg
-	case GPU:
-		val = c.EnergyInGPU
-	case OTHER:
-		val = c.EnergyInOther
-	}
-	if curr {
-		return float64(val.Curr)
-	}
-	return float64(val.Aggr)
+func (c *ContainerMetrics) SumAllDynDeltaValues() uint64 {
+	return c.DynEnergyInPkg.Delta + c.DynEnergyInGPU.Delta + c.DynEnergyInOther.Delta
 }
 
-func (c *ContainerMetrics) Curr() uint64 {
-	return c.EnergyInPkg.Curr + c.EnergyInGPU.Curr + c.EnergyInOther.Curr
-}
-
-func (c *ContainerMetrics) Aggr() uint64 {
-	return c.EnergyInPkg.Aggr + c.EnergyInGPU.Aggr + c.EnergyInOther.Aggr
+func (c *ContainerMetrics) SumAllDynAggrValues() uint64 {
+	return c.DynEnergyInPkg.Aggr + c.DynEnergyInGPU.Aggr + c.DynEnergyInOther.Aggr
 }
 
 func (c *ContainerMetrics) String() string {
 	return fmt.Sprintf("energy from pod/container (%d active processes): name: %s/%s namespace: %s \n"+
 		"\tcgrouppid: %d pid: %d comm: %s\n"+
-		"\tePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
-		"\teDyn (mJ): %s \n"+
+		"\tDyn ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
+		"\tIdle ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tCPUTime:  %d (%d)\n"+
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
 		c.CurrProcesses, c.PodName, c.ContainerName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command,
-		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInGPU, c.EnergyInOther,
-		c.DynEnergy,
-		c.CPUTime.Curr, c.CPUTime.Aggr,
+		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
+		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
+		c.CPUTime.Delta, c.CPUTime.Aggr,
 		c.CounterStats,
 		c.CgroupFSStats,
 		c.KubeletStats)

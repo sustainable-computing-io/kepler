@@ -22,5 +22,5 @@ import (
 
 // updateContainerEnergy matches the container resource usage with the node energy consumption
 func (c *Collector) updateContainerEnergy() {
-	model.UpdateContainerEnergy(c.ContainersMetrics, c.NodeMetrics)
+	model.UpdateContainerEnergy(c.ContainersMetrics, &c.NodeMetrics)
 }

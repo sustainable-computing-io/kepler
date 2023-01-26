@@ -73,7 +73,7 @@ func getContainerMetricsList(containersMetrics map[string]*collector_metric.Cont
 }
 
 // UpdateContainerEnergy returns container energy consumption for each node component
-func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics collector_metric.NodeMetrics) {
+func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics *collector_metric.NodeMetrics) {
 	// If the node can expose power measurement per component, we can use the RATIO power model
 	// Otherwise, we estimate it from trained power model
 	if components.IsSystemCollectionSupported() {
@@ -107,19 +107,19 @@ func updateContainerEnergyByTrainedPowerModel(containersMetrics map[string]*coll
 	// update the container's components energy consumption
 	// TODO: the model server does not predict GPU
 	for i, containerID := range containerIDList {
-		if err := containersMetrics[containerID].EnergyInCore.AddNewCurr(containerComponentPowers[i].Core); err != nil {
+		if err := containersMetrics[containerID].DynEnergyInCore.AddNewDelta(containerComponentPowers[i].Core); err != nil {
 			klog.V(5).Infoln(err)
 		}
-		if err := containersMetrics[containerID].EnergyInDRAM.AddNewCurr(containerComponentPowers[i].DRAM); err != nil {
+		if err := containersMetrics[containerID].DynEnergyInDRAM.AddNewDelta(containerComponentPowers[i].DRAM); err != nil {
 			klog.V(5).Infoln(err)
 		}
-		if err := containersMetrics[containerID].EnergyInUncore.AddNewCurr(containerComponentPowers[i].Uncore); err != nil {
+		if err := containersMetrics[containerID].DynEnergyInUncore.AddNewDelta(containerComponentPowers[i].Uncore); err != nil {
 			klog.V(5).Infoln(err)
 		}
-		if err := containersMetrics[containerID].EnergyInPkg.AddNewCurr(containerComponentPowers[i].Pkg); err != nil {
+		if err := containersMetrics[containerID].DynEnergyInPkg.AddNewDelta(containerComponentPowers[i].Pkg); err != nil {
 			klog.V(5).Infoln(err)
 		}
-		if err := containersMetrics[containerID].EnergyInOther.AddNewCurr(containerOtherPowers[i]); err != nil {
+		if err := containersMetrics[containerID].DynEnergyInOther.AddNewDelta(containerOtherPowers[i]); err != nil {
 			klog.V(5).Infoln(err)
 		}
 	}

@@ -57,16 +57,16 @@ var _ = Describe("Test Model Unit", func() {
 			Core: 0,
 			DRAM: 0,
 		}
-		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		nodePlatformEnergy := map[string]float64{}
 		nodePlatformEnergy[machineSensorID] = 0 // empty
-		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 
 		// calculate container energy consumption
-		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
 		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Curr will be 9512
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(9512)))
+		// and following will be reported so EnergyInPkg.Delta will be 9512
+		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
 	})
 
 	It("Get container power with no dependency but with total node power ", func() {
@@ -81,16 +81,16 @@ var _ = Describe("Test Model Unit", func() {
 			Core: 0,
 			DRAM: 0,
 		}
-		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		nodePlatformEnergy := map[string]float64{}
 		nodePlatformEnergy[machineSensorID] = 10
-		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 
 		// calculate container energy consumption
-		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
 		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Curr will be 9512
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(9512)))
+		// and following will be reported so EnergyInPkg.Delta will be 9512
+		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
 	})
 
 	It("Get container power with no dependency but with all node power ", func() {
@@ -109,24 +109,24 @@ var _ = Describe("Test Model Unit", func() {
 			Core: 10,
 			DRAM: 10,
 		}
-		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 			Pkg:  18,
 			Core: 15,
 			DRAM: 11,
 		}
-		nodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		nodePlatformEnergy := map[string]float64{}
 		nodePlatformEnergy[machineSensorID] = 10
-		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 		nodePlatformEnergy[machineSensorID] = 15
-		nodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 
 		// calculate container energy consumption
 
-		UpdateContainerEnergy(containersMetrics, nodeMetrics)
+		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
 		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Curr will be 9512
-		Expect(containersMetrics["containerA"].EnergyInPkg.Curr).To(Equal(uint64(9512)))
+		// and following will be reported so EnergyInPkg.Delta will be 9512
+		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
 	})
 })

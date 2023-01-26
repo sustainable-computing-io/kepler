@@ -16,6 +16,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	model "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
@@ -25,10 +27,8 @@ const (
 	nodePackageEnergyMetric      = "kepler_node_package_joules_total"
 	containerCPUCoreEnergyMetric = "kepler_container_package_joules_total"
 
-	SampleCurr       = 100
-	SampleAggr       = 1000
-	sampleNodeEnergy = 20000 // mJ
-	samplePkgEnergy  = 1000  // mJ
+	SampleCurr = 100
+	SampleAggr = 1000
 )
 
 func convertPromMetricToMap(body []byte, metric string) map[string]string {
@@ -41,19 +41,18 @@ func convertPromMetricToMap(body []byte, metric string) map[string]string {
 	match = strings.ReplaceAll(match, "{", `{"`)
 	match = strings.ReplaceAll(match, "=", `:`)
 	var response map[string]string
-	if err := json.Unmarshal([]byte(match), &response); err != nil {
-		fmt.Println(err)
-	}
+	err := json.Unmarshal([]byte(match), &response)
+	Expect(err).NotTo(HaveOccurred())
 	return response
 }
 
-func convertPromToValue(body []byte, metric string) (int, error) {
-	regStr := fmt.Sprintf(`%s{[^{}]*} [0-9]+`, metric)
+func convertPromToValue(body []byte, metric string) (float64, error) {
+	regStr := fmt.Sprintf(`%s{[^{}]*}.*`, metric)
 	r := regexp.MustCompile(regStr)
 	match := r.FindString(string(body))
 	splits := strings.Split(match, " ")
-	fmt.Println(splits, regStr)
-	return strconv.Atoi(splits[1])
+	fmt.Fprintf(GinkgoWriter, "splits=%v regStr=%v\n", splits, regStr)
+	return strconv.ParseFloat(splits[1], 64)
 }
 
 func newMockPrometheusExporter() *PrometheusCollector {
@@ -66,13 +65,71 @@ func newMockPrometheusExporter() *PrometheusCollector {
 	exporter.NodeMetrics = collector_metric.NewNodeMetrics()
 	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
 	exporter.SamplePeriodSec = 3.0
+	collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
 	return exporter
 }
 
 var _ = Describe("Test Prometheus Collector Unit", func() {
 	It("Init and Run", func() {
 		exporter := newMockPrometheusExporter()
-		err := prometheus.Register(exporter)
+
+		// add container mock values
+		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test")
+		(*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
+		err := (*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		Expect(err).NotTo(HaveOccurred())
+		(*exporter.ContainersMetrics)["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test")
+		(*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
+		err = (*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		Expect(err).NotTo(HaveOccurred())
+		exporter.NodeMetrics.AddNodeResUsageFromContainerResUsage(*exporter.ContainersMetrics)
+
+		// add node mock values
+		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
+		nodePlatformEnergy := map[string]float64{}
+		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
+		nodePlatformEnergy["sensor0"] = 5
+		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		exporter.NodeMetrics.UpdateIdleEnergy()
+		// the second node energy will represent the idle and dynamic power
+		nodePlatformEnergy["sensor0"] = 10 // 5J idle, 5J dynamic power
+		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		exporter.NodeMetrics.UpdateIdleEnergy()
+		exporter.NodeMetrics.UpdateDynEnergy()
+
+		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
+		// note that NodeComponentsEnergy contains aggregated energy over time
+		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Pkg:    5,
+			Core:   5,
+			DRAM:   5,
+			Uncore: 5,
+		}
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Pkg:    10,
+			Core:   10,
+			DRAM:   10,
+			Uncore: 10,
+		}
+		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		exporter.NodeMetrics.UpdateIdleEnergy()
+		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
+		componentsEnergies[0] = source.NodeComponentsEnergy{
+			Pkg:    20, // 10J delta, which is 5J idle, 5J dynamic power
+			Core:   20, // 10J delta, which is 5J idle, 5J dynamic power
+			DRAM:   20, // 10J delta, which is 5J idle, 5J dynamic power
+			Uncore: 20, // 10J delta, which is 5J idle, 5J dynamic power
+		}
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		exporter.NodeMetrics.UpdateIdleEnergy()
+		exporter.NodeMetrics.UpdateDynEnergy()
+		model.UpdateContainerEnergyByRatioPowerModel(*exporter.ContainersMetrics, exporter.NodeMetrics)
+
+		// get metrics from prometheus
+		err = prometheus.Register(exporter)
 		Expect(err).NotTo(HaveOccurred())
 
 		// check if prometheus is replying
@@ -82,43 +139,22 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		handler.ServeHTTP(res, req)
 		body, _ := io.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
-
-		// add container mock values
-		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test")
-		err = (*exporter.ContainersMetrics)["containerA"].EnergyInPkg.AddNewCurr(SampleCurr * 1000)
-		Expect(err).NotTo(HaveOccurred())
-
-		// add node mock values
-		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg: samplePkgEnergy,
-		}
-		exporter.NodeMetrics.AddNodeComponentsEnergy(componentsEnergies)
-		nodePlatformEnergy := map[string]float64{}
-		nodePlatformEnergy["sensor0"] = sampleNodeEnergy
-		exporter.NodeMetrics.AddLastestPlatformEnergy(nodePlatformEnergy) // must be higher than components energy
-
-		// get metrics from prometheus
-		res = httptest.NewRecorder()
-		handler = promhttp.Handler()
-		handler.ServeHTTP(res, req)
-		body, _ = io.ReadAll(res.Body)
-		Expect(len(body)).Should(BeNumerically(">", 0))
 		fmt.Printf("Result:\n %s\n", body)
 
-		// check sample node energy
-		val, err := convertPromToValue(body, nodeEnergyMetric)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(sampleNodeEnergy / 1000))) //J
-
 		// check pkg energy
-		val, err = convertPromToValue(body, nodePackageEnergyMetric)
+		val, err := convertPromToValue(body, nodePackageEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).Should(BeEquivalentTo(int(samplePkgEnergy / 1000))) // J
+		Expect(val).Should(BeEquivalentTo(0.005)) // J
+
+		// check sample node energy
+		val, err = convertPromToValue(body, nodeEnergyMetric)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(val).To(Equal(0.01)) //J
 
 		// check sample pod
 		val, err = convertPromToValue(body, containerCPUCoreEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(int(SampleCurr)))
+		// The pkg dynamic energy is 5mJ, the container cpu usage is 50%, so the dynamic energy is 2.5mJ = ~3mJ
+		Expect(val).To(Equal(0.003)) //J
 	})
 })

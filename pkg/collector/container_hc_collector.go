@@ -80,7 +80,7 @@ func (c *Collector) updateBPFMetrics() {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
 		}
 
-		if err = c.ContainersMetrics[containerID].CPUTime.AddNewCurr(ct.ProcessRunTime); err != nil {
+		if err = c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
 			klog.V(5).Infoln(err)
 		}
 
@@ -96,7 +96,7 @@ func (c *Collector) updateBPFMetrics() {
 			default:
 				val = 0
 			}
-			if err = c.ContainersMetrics[containerID].CounterStats[counterKey].AddNewCurr(val); err != nil {
+			if err = c.ContainersMetrics[containerID].CounterStats[counterKey].AddNewDelta(val); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
@@ -110,8 +110,8 @@ func (c *Collector) updateBPFMetrics() {
 				if disks > c.ContainersMetrics[containerID].Disks {
 					c.ContainersMetrics[containerID].Disks = disks
 				}
-				c.ContainersMetrics[containerID].BytesRead.AddAggrStat(containerID, rBytes)
-				c.ContainersMetrics[containerID].BytesWrite.AddAggrStat(containerID, wBytes)
+				c.ContainersMetrics[containerID].BytesRead.SetAggrStat(containerID, rBytes)
+				c.ContainersMetrics[containerID].BytesWrite.SetAggrStat(containerID, wBytes)
 			}
 		}
 	}
