@@ -31,26 +31,26 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-func getSumMetricValues(containerMetricValues [][]float64) (sumMetricValues []float64) {
-	if len(containerMetricValues) == 0 {
+func getSumMetricValues(metricValues [][]float64) (sumMetricValues []float64) {
+	if len(metricValues) == 0 {
 		return
 	}
-	sumMetricValues = make([]float64, len(containerMetricValues[0]))
-	for _, values := range containerMetricValues {
-		for index, containerMetricValue := range values {
-			sumMetricValues[index] += containerMetricValue
+	sumMetricValues = make([]float64, len(metricValues[0]))
+	for _, values := range metricValues {
+		for index, metricValue := range values {
+			sumMetricValues[index] += metricValue
 		}
 	}
 	return
 }
 
-func getEnergyRatio(containerResUsage, nodeTotalResUsage, nodeResEnergyUtilization, containerNumber float64) uint64 {
+func getEnergyRatio(resUsage, nodeTotalResUsage, nodeResEnergyUtilization, totalNumber float64) uint64 {
 	var power float64
 	if nodeTotalResUsage > 0 {
-		power = (containerResUsage / nodeTotalResUsage) * nodeResEnergyUtilization
+		power = (resUsage / nodeTotalResUsage) * nodeResEnergyUtilization
 	} else {
-		// TODO: we should not equaly divide the energy consumptio across the containers. If a hardware counter metrics is not available we should use cgroup metrics.
-		power = nodeResEnergyUtilization / containerNumber
+		// TODO: we should not equaly divide the energy consumption across the all processes or containers. If a hardware counter metrics is not available we should use cgroup metrics.
+		power = nodeResEnergyUtilization / totalNumber
 	}
 	return uint64(math.Ceil(power))
 }

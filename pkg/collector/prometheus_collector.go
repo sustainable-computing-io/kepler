@@ -154,6 +154,7 @@ type PrometheusCollector struct {
 	nodeDesc      *NodeDesc
 	containerDesc *ContainerDesc
 	podDesc       *PodDesc
+	processDesc   *processDesc
 
 	// TODO: fix me: these metrics should be in NodeMetrics structure
 	NodeCPUFrequency *map[int32]uint64
@@ -163,6 +164,9 @@ type PrometheusCollector struct {
 
 	// ContainersMetrics holds all container energy and resource usage metrics
 	ContainersMetrics *map[string]*collector_metric.ContainerMetrics
+
+	// ProcessMetrics hold all process energy and resource usage metrics
+	ProcessMetrics *map[uint64]*collector_metric.ProcessMetrics
 
 	// SamplePeriodSec the collector metric collection interval
 	SamplePeriodSec float64
@@ -178,12 +182,14 @@ type PrometheusCollector struct {
 func NewPrometheusExporter() *PrometheusCollector {
 	exporter := PrometheusCollector{
 		// prometheus metric descriptions
-		nodeDesc: &NodeDesc{},
-		podDesc:  &PodDesc{},
+		nodeDesc:    &NodeDesc{},
+		podDesc:     &PodDesc{},
+		processDesc: &processDesc{},
 	}
 	exporter.newNodeMetrics()
 	exporter.newContainerMetrics()
 	exporter.newPodMetrics()
+	exporter.newprocessMetrics()
 	return &exporter
 }
 
@@ -247,6 +253,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		ch <- p.containerDesc.containerNetRxIRQTotal
 		ch <- p.containerDesc.containerBlockIRQTotal
 	}
+	p.describeProcess(ch)
 }
 
 func (p *PrometheusCollector) newNodeMetrics() {
@@ -462,13 +469,14 @@ func (p *PrometheusCollector) Collect(ch chan<- prometheus.Metric) {
 	p.Mx.Lock()
 	defer p.Mx.Unlock()
 	wg := sync.WaitGroup{}
-	p.UpdateNodeMetrics(&wg, ch)
-	p.UpdatePodMetrics(&wg, ch)
+	p.updateNodeMetrics(&wg, ch)
+	p.updatePodMetrics(&wg, ch)
+	p.updateProcessMetrics(&wg, ch)
 	wg.Wait()
 }
 
-// UpdateNodeMetrics send node metrics to prometheus
-func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- prometheus.Metric) {
+// updateNodeMetrics send node metrics to prometheus
+func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- prometheus.Metric) {
 	// we start with the metrics that might have a longer loop, e.g. range the cpus
 	wg.Add(1)
 	go func() {
@@ -626,7 +634,7 @@ func (p *PrometheusCollector) UpdateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 }
 
 // updatePodMetrics send pod metrics to prometheus
-func (p *PrometheusCollector) UpdatePodMetrics(wg *sync.WaitGroup, ch chan<- prometheus.Metric) {
+func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- prometheus.Metric) {
 	const commandLenLimit = 10
 	for _, container := range *p.ContainersMetrics {
 		wg.Add(1)

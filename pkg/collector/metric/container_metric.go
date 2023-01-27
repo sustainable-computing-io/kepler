@@ -41,42 +41,21 @@ var (
 )
 
 type ContainerMetrics struct {
+	ProcessMetrics
+
 	CGroupPID     uint64
 	PIDS          []uint64
 	ContainerName string
 	PodName       string
 	Namespace     string
-	// TODO: we should consider deprecate the command information
-	Command string
 
 	CurrProcesses int
 	Disks         int
 
-	// ebpf metrics
-	CPUTime      *UInt64Stat
-	SoftIQRCount []UInt64Stat
-
-	CounterStats  map[string]*UInt64Stat
 	CgroupFSStats map[string]*UInt64StatCollection
 	KubeletStats  map[string]*UInt64Stat
-	GPUStats      map[string]*UInt64Stat
-
-	BytesRead  *UInt64StatCollection
-	BytesWrite *UInt64StatCollection
-
-	DynEnergyInCore   *UInt64Stat
-	DynEnergyInDRAM   *UInt64Stat
-	DynEnergyInUncore *UInt64Stat
-	DynEnergyInPkg    *UInt64Stat
-	DynEnergyInGPU    *UInt64Stat
-	DynEnergyInOther  *UInt64Stat
-
-	IdleEnergyInCore   *UInt64Stat
-	IdleEnergyInDRAM   *UInt64Stat
-	IdleEnergyInUncore *UInt64Stat
-	IdleEnergyInPkg    *UInt64Stat
-	IdleEnergyInGPU    *UInt64Stat
-	IdleEnergyInOther  *UInt64Stat
+	BytesRead     *UInt64StatCollection
+	BytesWrite    *UInt64StatCollection
 }
 
 // NewContainerMetrics creates a new ContainerMetrics instance
@@ -85,9 +64,23 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		PodName:       podName,
 		ContainerName: containerName,
 		Namespace:     podNamespace,
-		CPUTime:       &UInt64Stat{},
-		SoftIQRCount:  make([]UInt64Stat, config.MaxIRQ),
-		CounterStats:  make(map[string]*UInt64Stat),
+		ProcessMetrics: ProcessMetrics{
+			CPUTime:            &UInt64Stat{},
+			CounterStats:       make(map[string]*UInt64Stat),
+			SoftIQRCount:       make([]UInt64Stat, config.MaxIRQ),
+			DynEnergyInCore:    &UInt64Stat{},
+			DynEnergyInDRAM:    &UInt64Stat{},
+			DynEnergyInUncore:  &UInt64Stat{},
+			DynEnergyInPkg:     &UInt64Stat{},
+			DynEnergyInOther:   &UInt64Stat{},
+			DynEnergyInGPU:     &UInt64Stat{},
+			IdleEnergyInCore:   &UInt64Stat{},
+			IdleEnergyInDRAM:   &UInt64Stat{},
+			IdleEnergyInUncore: &UInt64Stat{},
+			IdleEnergyInPkg:    &UInt64Stat{},
+			IdleEnergyInOther:  &UInt64Stat{},
+			IdleEnergyInGPU:    &UInt64Stat{},
+		},
 		CgroupFSStats: make(map[string]*UInt64StatCollection),
 		KubeletStats:  make(map[string]*UInt64Stat),
 		BytesRead: &UInt64StatCollection{
@@ -96,18 +89,6 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		BytesWrite: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
-		DynEnergyInCore:    &UInt64Stat{},
-		DynEnergyInDRAM:    &UInt64Stat{},
-		DynEnergyInUncore:  &UInt64Stat{},
-		DynEnergyInPkg:     &UInt64Stat{},
-		DynEnergyInOther:   &UInt64Stat{},
-		DynEnergyInGPU:     &UInt64Stat{},
-		IdleEnergyInCore:   &UInt64Stat{},
-		IdleEnergyInDRAM:   &UInt64Stat{},
-		IdleEnergyInUncore: &UInt64Stat{},
-		IdleEnergyInPkg:    &UInt64Stat{},
-		IdleEnergyInOther:  &UInt64Stat{},
-		IdleEnergyInGPU:    &UInt64Stat{},
 	}
 	for _, metricName := range AvailableHWCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}

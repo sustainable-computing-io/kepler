@@ -44,6 +44,7 @@ func New() *CollectorManager {
 	manager.PrometheusCollector.NodeCPUFrequency = &manager.MetricCollector.NodeMetrics.CPUFrequency
 	manager.PrometheusCollector.NodeMetrics = &manager.MetricCollector.NodeMetrics
 	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
+	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
 	manager.PrometheusCollector.SamplePeriodSec = SamplePeriodSec
 	return manager
 }

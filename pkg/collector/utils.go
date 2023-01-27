@@ -46,3 +46,11 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(containerName, podName, namespace)
 	}
 }
+
+func (c *Collector) createProcessMetricsIfNotExist(pid uint64, command string) {
+	if p, ok := c.ProcessMetrics[pid]; !ok {
+		c.ProcessMetrics[pid] = collector_metric.NewProcessMetrics(pid, command)
+	} else if p.Command == "" {
+		p.Command = command
+	}
+}

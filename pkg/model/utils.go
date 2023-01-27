@@ -73,3 +73,13 @@ func nodeMetricsToArray(nodeMetrics *collector_metric.NodeMetrics) [][]float64 {
 	// the estimator expect a matrix
 	return [][]float64{nodeMetricResourceUsageValuesOnly}
 }
+
+// processMetricsToArray converts to process metrics map to array
+func processMetricsToArray(processMetrics map[uint64]*collector_metric.ProcessMetrics) (processMetricValuesOnly [][]float64, pidList []uint64) {
+	for pid, c := range processMetrics {
+		values := c.ToEstimatorValues()
+		processMetricValuesOnly = append(processMetricValuesOnly, values)
+		pidList = append(pidList, pid)
+	}
+	return
+}
