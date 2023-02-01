@@ -274,7 +274,7 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 		if !dentry.IsDir() {
 			return nil
 		}
-		getCgroupID, err := kubelet.GetCgroupIDFromPath(byteOrder, path)
+		getCgroupID, err := utils.GetCgroupIDFromPath(byteOrder, path)
 		if err != nil {
 			return fmt.Errorf("error resolving handle: %v", err)
 		}
