@@ -95,6 +95,7 @@ func GetContainerMetrics() (containerCPU, containerMem map[string]float64, nodeC
 }
 
 func GetAvailableKubeletMetrics() []string {
+	return []string{}
 	return podLister.GetAvailableMetrics()
 }
 
@@ -116,21 +117,32 @@ func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 		return i, nil
 	}
 
-	// update cache info and stop loop if container id found
-	_, _ = updateListPodCache(containerID, true)
-	if cinfo, ok := containerIDToContainerInfo[containerID]; ok {
-		return cinfo, nil
-	}
+	abc := false
+	if abc {
+		// update cache info and stop loop if container id found
+		_, _ = updateListPodCache(containerID, true)
+		if cinfo, ok := containerIDToContainerInfo[containerID]; ok {
+			return cinfo, nil
+		}
 
-	if _, ok := containerIDToContainerInfo[containerID]; !ok {
-		containerIDToContainerInfo[containerID] = info
-		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
-		if info.ContainerName == utils.SystemProcessName {
-			containerID = utils.SystemProcessName
-			// in addition to the system container ID, add also the system process name to the cache
-			if _, ok := containerIDToContainerInfo[containerID]; !ok {
-				containerIDToContainerInfo[containerID] = info
+		if _, ok := containerIDToContainerInfo[containerID]; !ok {
+			containerIDToContainerInfo[containerID] = info
+			// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
+			if info.ContainerName == utils.SystemProcessName {
+				containerID = utils.SystemProcessName
+				// in addition to the system container ID, add also the system process name to the cache
+				if _, ok := containerIDToContainerInfo[containerID]; !ok {
+					containerIDToContainerInfo[containerID] = info
+				}
 			}
+		}
+	} else {
+
+		containerIDToContainerInfo[containerID] = &ContainerInfo{
+			ContainerID:   containerID,
+			ContainerName: "N/A",
+			PodName:       "N/A",
+			Namespace:     "N/A",
 		}
 	}
 	return containerIDToContainerInfo[containerID], nil
