@@ -99,7 +99,7 @@ func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 	}
 	if newAggr == s.Aggr {
 		// if a counter has not changed, we skip it
-		return fmt.Errorf("the input value has not changed")
+		return nil
 	}
 	// verify aggregated value overflow
 	if newAggr == math.MaxUint64 {
