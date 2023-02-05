@@ -362,7 +362,11 @@ func (ne *NodeMetrics) SetNodeOtherComponentsEnergy() {
 }
 
 func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
-	return ne.ResourceUsage[resource]
+	data, ok := ne.ResourceUsage[resource]
+	if ok {
+		return data
+	}
+	return 0
 }
 
 func (ne *NodeMetrics) String() string {
