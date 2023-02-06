@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -29,17 +28,13 @@ import (
 	"time"
 
 	"github.com/jszwec/csvutil"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-
-	"k8s.io/klog/v2"
 )
 
 type PowerEstimate struct{}
 
 var (
-	cpuModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
-	powerDataPath    = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
-	dramRegex        = "^MemTotal:[\\s]+([0-9]+)"
+	powerDataPath = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
+	dramRegex     = "^MemTotal:[\\s]+([0-9]+)"
 
 	dramInGB                                                                 int
 	cpuCores                                                                 = runtime.NumCPU()
@@ -52,47 +47,6 @@ type PowerEstimateData struct {
 	MinWatts     float64 `csv:"Min Watts"`
 	MaxWatts     float64 `csv:"Max Watts"`
 	PerGBWatts   float64 `csv:"GB/Chip"`
-}
-
-type CPUModelData struct {
-	Name         string `csv:"Name"`
-	Architecture string `csv:"Architecture"`
-}
-
-func GetCPUArchitecture() (string, error) {
-	// check if there is a CPU architecture override
-	cpuArchOverride := config.CPUArchOverride
-	if len(cpuArchOverride) > 0 {
-		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
-		return cpuArchOverride, nil
-	}
-	output, err := exec.Command("archspec", "cpu").Output()
-	if err != nil {
-		return "", err
-	}
-	myCPUModel := strings.TrimSuffix(string(output), "\n")
-	file, err := os.Open(cpuModelDataPath)
-	if err != nil {
-		return "", err
-	}
-	reader := csv.NewReader(file)
-
-	dec, err := csvutil.NewDecoder(reader)
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		var p CPUModelData
-		if err := dec.Decode(&p); err == io.EOF {
-			break
-		}
-		if strings.HasPrefix(myCPUModel, p.Name) {
-			return p.Architecture, nil
-		}
-	}
-
-	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
 }
 
 func getDram() (int, error) {
