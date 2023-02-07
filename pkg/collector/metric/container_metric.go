@@ -131,9 +131,9 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 // ResetCurr reset all current value to 0
 func (c *ContainerMetrics) ResetDeltaValues() {
 	c.CurrProcesses = 0
-	c.CPUTime.ResetCurr()
+	c.CPUTime.ResetDeltaValues()
 	for i := 0; i < config.MaxIRQ; i++ {
-		c.SoftIQRCount[i].ResetCurr()
+		c.SoftIQRCount[i].ResetDeltaValues()
 	}
 	for counterKey := range c.CounterStats {
 		c.CounterStats[counterKey].ResetDeltaValues()
@@ -200,13 +200,13 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	switch metric {
 	// ebpf metrics
 	case config.CPUTime:
-		return c.CPUTime.Curr, c.CPUTime.Aggr, nil
+		return c.CPUTime.Delta, c.CPUTime.Aggr, nil
 	case config.IRQBlockLabel:
-		return c.SoftIQRCount[attacher.IRQBlock].Curr, c.SoftIQRCount[attacher.IRQBlock].Aggr, nil
+		return c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr, nil
 	case config.IRQNetTXLabel:
-		return c.SoftIQRCount[attacher.IRQNetTX].Curr, c.SoftIQRCount[attacher.IRQNetTX].Aggr, nil
+		return c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr, nil
 	case config.IRQNetRXLabel:
-		return c.SoftIQRCount[attacher.IRQNetRX].Curr, c.SoftIQRCount[attacher.IRQNetRX].Aggr, nil
+		return c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr, nil
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
 	case config.BlockDevicesIO:
@@ -295,12 +295,12 @@ func (c *ContainerMetrics) String() string {
 		"\tkubelets: %v\n",
 		c.CurrProcesses, c.PodName, c.ContainerName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command,
-		c.EnergyInPkg, c.EnergyInCore, c.EnergyInDRAM, c.EnergyInUncore, c.EnergyInGPU, c.EnergyInOther,
-		c.DynEnergy,
-		c.CPUTime.Curr, c.CPUTime.Aggr,
-		c.SoftIQRCount[attacher.IRQNetTX].Curr, c.SoftIQRCount[attacher.IRQNetTX].Aggr,
-		c.SoftIQRCount[attacher.IRQNetRX].Curr, c.SoftIQRCount[attacher.IRQNetRX].Aggr,
-		c.SoftIQRCount[attacher.IRQBlock].Curr, c.SoftIQRCount[attacher.IRQBlock].Aggr,
+		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
+		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
+		c.CPUTime.Delta, c.CPUTime.Aggr,
+		c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr,
+		c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr,
+		c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr,
 		c.CounterStats,
 		c.CgroupFSStats,
 		c.KubeletStats)

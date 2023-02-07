@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/jszwec/csvutil"
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 

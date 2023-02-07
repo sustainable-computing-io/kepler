@@ -83,12 +83,12 @@ func (c *Collector) updateBPFMetrics() {
 
 		// update ebpf metrics
 		// first update CPU time
-		if err = c.ContainersMetrics[containerID].CPUTime.AddNewCurr(ct.ProcessRunTime); err != nil {
+		if err = c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
 			klog.V(5).Infoln(err)
 		}
 		// update IRQ vector
 		for i := 0; i < config.MaxIRQ; i++ {
-			if err = c.ContainersMetrics[containerID].SoftIQRCount[i].AddNewCurr(uint64(ct.VecNR[i])); err != nil {
+			if err = c.ContainersMetrics[containerID].SoftIQRCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
