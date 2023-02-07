@@ -17,16 +17,10 @@ limitations under the License.
 package metric
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"math"
-	"os"
-	"os/exec"
 	"strconv"
-	"strings"
 
-	"github.com/jszwec/csvutil"
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -45,8 +39,6 @@ const (
 )
 
 var (
-	CPUModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
-
 	NodeName            = getNodeName()
 	NodeCPUArchitecture = getCPUArch()
 
@@ -56,63 +48,6 @@ var (
 	// SystemMetadata holds the metadata regarding the system information
 	NodeMetadataValues []string = []string{NodeCPUArchitecture}
 )
-
-type CPUModelData struct {
-	Name         string `csv:"Name"`
-	Architecture string `csv:"Architecture"`
-}
-
-func getNodeName() string {
-	nodeName, err := os.Hostname()
-	if err != nil {
-		klog.Fatalf("could not get the node name: %s", err)
-	}
-	return nodeName
-}
-
-func getCPUArch() string {
-	arch, err := getCPUArchitecture()
-	if err == nil {
-		return arch
-	}
-	return "unknown"
-}
-
-func getCPUArchitecture() (string, error) {
-	// check if there is a CPU architecture override
-	cpuArchOverride := config.CPUArchOverride
-	if len(cpuArchOverride) > 0 {
-		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
-		return cpuArchOverride, nil
-	}
-	output, err := exec.Command("archspec", "cpu").Output()
-	if err != nil {
-		return "", err
-	}
-	myCPUModel := strings.TrimSuffix(string(output), "\n")
-	file, err := os.Open(CPUModelDataPath)
-	if err != nil {
-		return "", err
-	}
-	reader := csv.NewReader(file)
-
-	dec, err := csvutil.NewDecoder(reader)
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		var p CPUModelData
-		if err := dec.Decode(&p); err == io.EOF {
-			break
-		}
-		if strings.HasPrefix(myCPUModel, p.Name) {
-			return p.Architecture, nil
-		}
-	}
-
-	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
-}
 
 type NodeMetrics struct {
 	ResourceUsage map[string]float64
