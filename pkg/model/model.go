@@ -82,6 +82,6 @@ func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeigh
 func InitModelConfig(modelItem string) types.ModelConfig {
 	useEstimatorSidecar, selectedModel, selectFilter, initModelURL := config.GetModelConfig(modelItem)
 	modelConfig := types.ModelConfig{UseEstimatorSidecar: useEstimatorSidecar, SelectedModel: selectedModel, SelectFilter: selectFilter, InitModelURL: initModelURL}
-	klog.V(3).Infof("Model Config %s: %v", modelItem, modelConfig)
+	klog.V(3).Infof("Model Config %s: %+v", modelItem, modelConfig)
 	return modelConfig
 }
