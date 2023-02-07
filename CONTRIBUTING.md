@@ -78,6 +78,14 @@ Back to common checking process:
 - Deploy Kepler to a local kind cluster with image stored at local image registry.
 - Use kubectl to check that the change was applied as intended.
   
+## Benchmark
+steps:
+```
+go test -cpuprofile cpu.prof -memprofile mem.prof -bench .
+pprof -http=":8091" ./cpu.prof
+```
+ref https://dave.cheney.net/2014/06/07/five-things-that-make-go-fast
+
 ## Sign Commits
 
 Please sign and commit your changes with `git commit -s`. More information on how to sign commits can be found [here](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).

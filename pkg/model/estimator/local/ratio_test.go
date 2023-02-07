@@ -50,21 +50,25 @@ var _ = Describe("Test Ratio Unit", func() {
 		containersMetrics["containerB"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
 		err = containersMetrics["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
+		containersMetrics["containerC"] = collector_metric.NewContainerMetrics("containerC", "podC", "test")
+		containersMetrics["containerC"].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
+		err = containersMetrics["containerC"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		Expect(err).NotTo(HaveOccurred())
 
 		nodeMetrics := collector_metric.NewNodeMetrics()
 		collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
 		nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
-		Expect(nodeMetrics.ResourceUsage[config.CoreUsageMetric]).Should(BeEquivalentTo(200))
+		Expect(nodeMetrics.ResourceUsage[config.CoreUsageMetric]).Should(BeEquivalentTo(300))
 
 		// add node mock values
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		nodePlatformEnergy := map[string]float64{}
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
-		nodePlatformEnergy["sensor0"] = 5
+		nodePlatformEnergy["sensor0"] = 10
 		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 		nodeMetrics.UpdateIdleEnergy()
 		// the second node energy will represent the idle and dynamic power
-		nodePlatformEnergy["sensor0"] = 10 // 5J idle, 5J dynamic power
+		nodePlatformEnergy["sensor0"] = 20 // 5J idle, 5J dynamic power
 		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 		nodeMetrics.UpdateIdleEnergy()
 		nodeMetrics.UpdateDynEnergy()
@@ -90,25 +94,27 @@ var _ = Describe("Test Ratio Unit", func() {
 		nodeMetrics.UpdateIdleEnergy()
 		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    20, // 10J delta, which is 5J idle, 5J dynamic power
-			Core:   20, // 10J delta, which is 5J idle, 5J dynamic power
-			DRAM:   20, // 10J delta, which is 5J idle, 5J dynamic power
-			Uncore: 20, // 10J delta, which is 5J idle, 5J dynamic power
+			Pkg:    40, // 10J delta, which is 5J idle, 5J dynamic power
+			Core:   40, // 10J delta, which is 5J idle, 5J dynamic power
+			DRAM:   40, // 10J delta, which is 5J idle, 5J dynamic power
+			Uncore: 40, // 10J delta, which is 5J idle, 5J dynamic power
 		}
 		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		nodeMetrics.UpdateIdleEnergy()
 		nodeMetrics.UpdateDynEnergy()
 
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PKG)).Should(BeEquivalentTo(5))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.CORE)).Should(BeEquivalentTo(5))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.UNCORE)).Should(BeEquivalentTo(5))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.DRAM)).Should(BeEquivalentTo(5))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(5))
+		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PKG)).Should(BeEquivalentTo(25))
+		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.CORE)).Should(BeEquivalentTo(25))
+		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.UNCORE)).Should(BeEquivalentTo(25))
+		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.DRAM)).Should(BeEquivalentTo(25))
+		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(10))
 
-		Expect(nodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(10))
+		Expect(nodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(20))
 
 		UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
 		// The pkg dynamic energy is 5mJ, the container cpu usage is 50%, so the dynamic energy is 2.5mJ = ~3mJ
-		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(3)))
+		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))
+		Expect(containersMetrics["containerB"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))
+		Expect(containersMetrics["containerC"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))
 	})
 })

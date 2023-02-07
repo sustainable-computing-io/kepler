@@ -33,3 +33,6 @@ bin
 
 kepler-action
 local-dev-cluster
+
+*.prof
+*.test
