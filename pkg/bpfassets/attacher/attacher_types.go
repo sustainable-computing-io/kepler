@@ -25,7 +25,6 @@ const (
 	CPURefCycleLabel    = config.CPURefCycle
 	CPUInstructionLabel = config.CPUInstruction
 	CacheMissLabel      = config.CacheMiss
-	bpfPerfArrayPrefix  = "_hc_reader"
 
 	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
 	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }

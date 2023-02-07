@@ -53,6 +53,7 @@ var (
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	HardwareCountersEnabled = false
+	bpfPerfArrayPrefix      = "_hc_reader"
 )
 
 func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
