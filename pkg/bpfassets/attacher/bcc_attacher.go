@@ -21,10 +21,9 @@ package attacher
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
 	"runtime"
 	"strconv"
-
-	"golang.org/x/sys/unix"
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpfassets"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -34,32 +33,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type perfCounter struct {
-	evType   int
-	evConfig int
-	enabled  bool
-}
-
 type BpfModuleTables struct {
 	Module       *bpf.Module
 	Table        *bpf.Table
 	CPUFreqTable *bpf.Table
 }
 
-const (
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
-	bpfPerfArrayPrefix  = "_hc_reader"
-
-	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
-	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
-	// IRQ vector to IRQ number
-	IRQNetTX = 2
-	IRQNetRX = 3
-	IRQBlock = 4
-)
+type perfCounter struct {
+	evType   int
+	evConfig int
+	enabled  bool
+}
 
 var (
 	Counters = map[string]perfCounter{
