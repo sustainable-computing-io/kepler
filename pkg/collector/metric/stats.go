@@ -17,15 +17,15 @@ const (
 	ByteWriteLabel   = config.BytesWriteIO
 	blockDeviceLabel = config.BlockDevicesIO
 
-	CPUTimeLabel = config.CPUTime
-
 	DeltaPrefix = "curr_"
 	AggrPrefix  = "total_"
 )
 
 var (
-	// AvailableCounters holds a list of hardware counters that might be collected
-	AvailableCounters []string
+	// AvailableEBPFCounters holds a list of eBPF counters that might be collected
+	AvailableEBPFCounters []string
+	// AvailableHWCounters holds a list of hardware counters that might be collected
+	AvailableHWCounters []string
 	// AvailableCgroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
 	AvailableCgroupMetrics []string
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
@@ -37,7 +37,8 @@ var (
 )
 
 func InitAvailableParamAndMetrics() {
-	AvailableCounters = attacher.GetEnabledCounters()
+	AvailableHWCounters = attacher.GetEnabledHWCounters()
+	AvailableEBPFCounters = attacher.GetEnabledBPFCounters()
 	AvailableCgroupMetrics = cgroup.GetAvailableCgroupMetrics()
 	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
 

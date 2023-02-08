@@ -21,10 +21,9 @@ package attacher
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
 	"runtime"
 	"strconv"
-
-	"golang.org/x/sys/unix"
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpfassets"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -34,25 +33,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type perfCounter struct {
-	evType   int
-	evConfig int
-	enabled  bool
-}
-
 type BpfModuleTables struct {
 	Module       *bpf.Module
 	Table        *bpf.Table
 	CPUFreqTable *bpf.Table
 }
 
-const (
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
-	bpfPerfArrayPrefix  = "_hc_reader"
-)
+type perfCounter struct {
+	evType   int
+	evConfig int
+	enabled  bool
+}
 
 var (
 	Counters = map[string]perfCounter{
@@ -62,6 +53,7 @@ var (
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
 	HardwareCountersEnabled = false
+	bpfPerfArrayPrefix      = "_hc_reader"
 )
 
 func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
@@ -83,6 +75,14 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
 		}
+	}
+	softirqEntry, err := m.LoadTracepoint("tracepoint__irq__softirq_entry")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load softirq_entry: %s", err)
+	}
+	err = m.AttachTracepoint("irq:softirq_entry", softirqEntry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach softirq_entry: %s", err)
 	}
 
 	for arrayName, counter := range Counters {
@@ -138,9 +138,9 @@ func DetachBPFModules(bpfModules *BpfModuleTables) {
 	bpfModules.Module.Close()
 }
 
-func GetEnabledCounters() []string {
+func GetEnabledHWCounters() []string {
 	var metrics []string
-	klog.V(5).Infof("hardeware counter metr %t", config.ExposeHardwareCounterMetrics)
+	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
 	if !config.ExposeHardwareCounterMetrics {
 		klog.V(5).Info("hardeware counter metrics not enabled")
 		return metrics
@@ -151,5 +151,21 @@ func GetEnabledCounters() []string {
 			metrics = append(metrics, metric)
 		}
 	}
+	return metrics
+}
+
+func GetEnabledBPFCounters() []string {
+	var metrics []string
+	metrics = append(metrics, config.CPUTime)
+
+	klog.V(5).Infof("irq counter metrics config %t", config.ExposeIRQCounterMetrics)
+	if !config.ExposeIRQCounterMetrics {
+		klog.V(5).Info("irq counter metrics not enabled")
+		return metrics
+	}
+	metrics = append(metrics, config.IRQNetTXLabel)
+	metrics = append(metrics, config.IRQNetRXLabel)
+	metrics = append(metrics, config.IRQBlockLabel)
+
 	return metrics
 }

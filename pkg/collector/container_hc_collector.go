@@ -41,6 +41,7 @@ type ProcessBPFMetrics struct {
 	CPUCycles      uint64
 	CPUInstr       uint64
 	CacheMisses    uint64
+	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
 	Command        [16]byte
 }
 
@@ -80,11 +81,20 @@ func (c *Collector) updateBPFMetrics() {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
 		}
 
+		// update ebpf metrics
+		// first update CPU time
 		if err = c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
 			klog.V(5).Infoln(err)
 		}
+		// update IRQ vector
+		for i := 0; i < config.MaxIRQ; i++ {
+			if err = c.ContainersMetrics[containerID].SoftIQRCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+				klog.V(5).Infoln(err)
+			}
+		}
 
-		for _, counterKey := range collector_metric.AvailableCounters {
+		// update HW counters
+		for _, counterKey := range collector_metric.AvailableHWCounters {
 			var val uint64
 			switch counterKey {
 			case attacher.CPUCycleLabel:

@@ -21,15 +21,6 @@ package attacher
 
 import (
 	"fmt"
-
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-)
-
-const (
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
 )
 
 type perfCounter struct{}
@@ -89,6 +80,10 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 func DetachBPFModules(bpfModules *BpfModuleTables) {
 }
 
-func GetEnabledCounters() []string {
+func GetEnabledHWCounters() []string {
+	return []string{}
+}
+
+func GetEnabledBPFCounters() []string {
 	return []string{}
 }

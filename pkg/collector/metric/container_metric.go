@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
@@ -51,7 +52,9 @@ type ContainerMetrics struct {
 	CurrProcesses int
 	Disks         int
 
-	CPUTime *UInt64Stat
+	// ebpf metrics
+	CPUTime      *UInt64Stat
+	SoftIQRCount []UInt64Stat
 
 	CounterStats  map[string]*UInt64Stat
 	CgroupFSStats map[string]*UInt64StatCollection
@@ -83,6 +86,7 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		ContainerName: containerName,
 		Namespace:     podNamespace,
 		CPUTime:       &UInt64Stat{},
+		SoftIQRCount:  make([]UInt64Stat, config.MaxIRQ),
 		CounterStats:  make(map[string]*UInt64Stat),
 		CgroupFSStats: make(map[string]*UInt64StatCollection),
 		KubeletStats:  make(map[string]*UInt64Stat),
@@ -105,7 +109,7 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		IdleEnergyInOther:  &UInt64Stat{},
 		IdleEnergyInGPU:    &UInt64Stat{},
 	}
-	for _, metricName := range AvailableCounters {
+	for _, metricName := range AvailableHWCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
@@ -128,6 +132,9 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 func (c *ContainerMetrics) ResetDeltaValues() {
 	c.CurrProcesses = 0
 	c.CPUTime.ResetDeltaValues()
+	for i := 0; i < config.MaxIRQ; i++ {
+		c.SoftIQRCount[i].ResetDeltaValues()
+	}
 	for counterKey := range c.CounterStats {
 		c.CounterStats[counterKey].ResetDeltaValues()
 	}
@@ -191,8 +198,15 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	}
 
 	switch metric {
-	case CPUTimeLabel:
+	// ebpf metrics
+	case config.CPUTime:
 		return c.CPUTime.Delta, c.CPUTime.Aggr, nil
+	case config.IRQBlockLabel:
+		return c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr, nil
+	case config.IRQNetTXLabel:
+		return c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr, nil
+	case config.IRQNetRXLabel:
+		return c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr, nil
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
 	case config.BlockDevicesIO:
@@ -273,6 +287,9 @@ func (c *ContainerMetrics) String() string {
 		"\tDyn ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tIdle ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tCPUTime:  %d (%d)\n"+
+		"\tNetTX IRQ: %d (%d)\n"+
+		"\tNetRX IRQ: %d (%d)\n"+
+		"\tBlock IRQ: %d (%d)\n"+
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
@@ -281,6 +298,9 @@ func (c *ContainerMetrics) String() string {
 		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
 		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
 		c.CPUTime.Delta, c.CPUTime.Aggr,
+		c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr,
+		c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr,
+		c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr,
 		c.CounterStats,
 		c.CgroupFSStats,
 		c.KubeletStats)
