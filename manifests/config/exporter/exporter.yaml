@@ -40,7 +40,6 @@ spec:
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
-      hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: kepler-sa
       containers:
@@ -60,7 +59,6 @@ spec:
         - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL)
         ports:
         - containerPort: 9102
-          hostPort: 9102
           name: http
         livenessProbe:
           failureThreshold: 5
