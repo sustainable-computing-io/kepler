@@ -84,7 +84,9 @@ limitations under the License.
 #define CPU_REF_FREQ 2500
 #endif
 
+#ifndef HZ
 #define HZ 1000
+#endif
 
 typedef struct process_metrics_t
 {
