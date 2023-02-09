@@ -6,15 +6,15 @@
 ## Installs Grafana community operator
 ## Creates Grafana instance
 
-oc apply --kustomize $(pwd)/manifests/openshift/dashboard
+oc apply --kustomize $(pwd)/manifests/config/dashboard
 while ! oc get grafana --all-namespaces
 do
     echo waiting for grafana custom resource definition to register
     sleep 5
 done
-oc apply -f $(pwd)/manifests/openshift/dashboard/02-grafana-instance.yaml
-oc apply -f $(pwd)/manifests/openshift/dashboard/02-grafana-sa.yaml
-oc apply -f $(pwd)/manifests/openshift/dashboard/03-grafana-sa-token-secret.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/02-grafana-instance.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/02-grafana-sa.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/03-grafana-sa-token-secret.yaml
 
 SERVICE_ACCOUNT=grafana-serviceaccount
 SECRET=grafana-sa-token
@@ -44,7 +44,7 @@ do
 done
 
 # Deploy from updated manifest
-envsubst < $(pwd)/manifests/openshift/dashboard/03-grafana-datasource-UPDATETHIS.yaml | oc apply -f -
+envsubst < $(pwd)/manifests/config/dashboard/03-grafana-datasource-UPDATETHIS.yaml | oc apply -f -
 
 # Define Grafana dashboard
 while ! oc get grafanadashboard --all-namespaces;
@@ -53,4 +53,4 @@ do
     echo waiting for grafandashboard custom resource definition to register
 done
 
-oc apply -f $(pwd)/manifests/openshift/dashboard/04-grafana-dashboard.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/04-grafana-dashboard.yaml

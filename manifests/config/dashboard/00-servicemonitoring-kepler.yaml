@@ -8,7 +8,7 @@ metadata:
 spec:
   endpoints:
   - interval: 15s
-    port: kepler-exporter
+    port: http
     scheme: http
   selector:
     matchLabels:

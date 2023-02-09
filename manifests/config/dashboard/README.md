@@ -7,6 +7,7 @@ The following cmd will:
 - Define Prometheus datasource
 - Define Grafana dashboard
 
+It should be run from the top level of the repository
 ```bash
-$(pwd)/deploy-grafana.sh
+manifests/config/dashboard/deploy-grafana.sh
 ```
