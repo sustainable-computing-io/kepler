@@ -17,24 +17,19 @@ limitations under the License.
 package source
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jszwec/csvutil"
 )
 
 type PowerEstimate struct{}
 
 var (
-	powerDataPath = "/var/lib/kepler/data/power_data.csv" // obtained from https://github.com/cloud-carbon-footprint/cloud-carbon-coefficients/blob/main/output/coefficients-aws-use.csv
-	dramRegex     = "^MemTotal:[\\s]+([0-9]+)"
+	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
 
 	dramInGB                                                                 int
 	cpuCores                                                                 = runtime.NumCPU()
@@ -64,28 +59,6 @@ func getDram() (int, error) {
 		return dram / (1024 * 1024) /*kB to GB*/, nil
 	}
 	return 0, fmt.Errorf("no memory info found")
-}
-
-func getCPUPowerEstimate(cpu string) (perThreadMinPowerEstimate, perThreadMaxPowerEstimate, perGBPowerEstimate float64, err error) {
-	file, _ := os.Open(powerDataPath)
-	reader := csv.NewReader(file)
-
-	dec, err := csvutil.NewDecoder(reader)
-	if err != nil {
-		return 0.0, 0.0, 0.0, err
-	}
-
-	for {
-		var p PowerEstimateData
-		if err := dec.Decode(&p); err == io.EOF {
-			break
-		}
-		if p.Architecture == cpu {
-			return p.MinWatts, p.MaxWatts, p.PerGBWatts, nil
-		}
-	}
-
-	return 0.0, 0.0, 0.0, fmt.Errorf("no CPU power info found")
 }
 
 // If the Estimated Power is being used, it means that the system does not support Components Power Measurement

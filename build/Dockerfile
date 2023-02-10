@@ -33,7 +33,5 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 
 RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/power_data.csv /var/lib/kepler/data/power_data.csv
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/power_model.csv /var/lib/kepler/data/power_model.csv
 
 ENTRYPOINT ["/usr/bin/kepler"]
