@@ -366,7 +366,7 @@ func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
 }
 
 func (ne *NodeMetrics) String() string {
-	return fmt.Sprintf("node energy (mJ): \n"+
+	return fmt.Sprintf("node delta energy (mJ): \n"+
 		"\tePkg: %d (eCore: %d eDram: %d eUncore: %d) eGPU: %d eOther: %d \n",
 		ne.TotalEnergyInPkg.SumAllDeltaValues(), ne.TotalEnergyInCore.SumAllDeltaValues(), ne.TotalEnergyInDRAM.SumAllDeltaValues(), ne.TotalEnergyInUncore.SumAllDeltaValues(), ne.TotalEnergyInGPU.SumAllDeltaValues(), ne.TotalEnergyInOther.SumAllDeltaValues())
 }
