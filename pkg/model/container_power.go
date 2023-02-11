@@ -79,11 +79,11 @@ func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.Contai
 	if components.IsSystemCollectionSupported() {
 		local.UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
 	} else {
-		updateContainerEnergyByTrainedPowerModel(containersMetrics)
+		UpdateContainerEnergyByTrainedPowerModel(containersMetrics)
 	}
 }
 
-func updateContainerEnergyByTrainedPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics) {
+func UpdateContainerEnergyByTrainedPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics) {
 	var enabled bool
 	// convert the container metrics map to an array since the model server does not receive structured data
 	// TODO: send data to model server via protobuf instead of no structured data
