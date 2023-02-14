@@ -58,6 +58,8 @@ const (
 var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
+	EnabledMSR = false
+
 	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)

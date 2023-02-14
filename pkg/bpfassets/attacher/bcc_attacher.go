@@ -21,9 +21,10 @@ package attacher
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"runtime"
 	"strconv"
+
+	"golang.org/x/sys/unix"
 
 	assets "github.com/sustainable-computing-io/kepler/pkg/bpfassets"
 	"github.com/sustainable-computing-io/kepler/pkg/config"

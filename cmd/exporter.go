@@ -59,6 +59,7 @@ var (
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
+	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -151,6 +152,7 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
+	config.EnabledMSR = *enabledMSR
 
 	cgroup.SetSliceHandler()
 
