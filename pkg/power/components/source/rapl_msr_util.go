@@ -31,6 +31,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -142,9 +144,11 @@ func ReadMSR(packageID int, msr int64) (uint64, error) {
 
 func InitUnits() error {
 	if err := mapPackageAndCore(); err != nil {
+		klog.V(1).Info(err)
 		return err
 	}
 	if err := OpenAllMSR(); err != nil {
+		klog.V(1).Info(err)
 		return err
 	}
 	cpuEnergyUnits = make([]float64, len(packageList))
@@ -152,6 +156,7 @@ func InitUnits() error {
 	for i := 0; i < len(packageList); {
 		result, err := ReadMSR(i, msrRaplPowerUnit)
 		if err != nil {
+			klog.V(1).Info(err)
 			return fmt.Errorf("failed to read power unit: %v", err)
 		}
 		powerUnits = math.Pow(0.5, float64((result & 0xf)))

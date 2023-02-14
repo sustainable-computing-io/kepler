@@ -21,6 +21,7 @@ package accelerator
 
 import (
 	"fmt"
+
 	accelerator_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/source"
 	"k8s.io/klog/v2"
 )

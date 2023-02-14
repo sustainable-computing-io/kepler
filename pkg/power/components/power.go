@@ -19,6 +19,7 @@ package components
 import (
 	"k8s.io/klog/v2"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
@@ -45,7 +46,6 @@ var (
 	msrImpl                          = &source.PowerMSR{}
 	apmXgeneSysfsImpl                = &source.ApmXgeneSysfs{}
 	powerImpl         powerInterface = sysfsImpl
-	useMSR                           = false // it looks MSR on kvm or hyper-v is not working
 )
 
 func InitPowerImpl() {
@@ -53,7 +53,7 @@ func InitPowerImpl() {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 	} else {
-		if msrImpl.IsSystemCollectionSupported() && useMSR {
+		if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
 			klog.V(1).Infoln("use MSR to obtain power")
 			powerImpl = msrImpl
 		} else {
