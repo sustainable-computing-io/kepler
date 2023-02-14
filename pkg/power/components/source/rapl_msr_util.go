@@ -30,8 +30,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"unsafe"
 
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"k8s.io/klog/v2"
 )
 
@@ -59,15 +59,7 @@ var (
 )
 
 func init() {
-	var i int32 = 0x01020304
-	u := unsafe.Pointer(&i)
-	pb := (*byte)(u)
-	b := *pb
-	if b == 0x04 {
-		byteOrder = binary.LittleEndian
-	} else {
-		byteOrder = binary.BigEndian
-	}
+	byteOrder = utils.DetermineHostByteOrder()
 }
 
 func mapPackageAndCore() error {

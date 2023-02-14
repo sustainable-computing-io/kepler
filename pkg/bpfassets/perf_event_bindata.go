@@ -96,7 +96,7 @@ typedef struct process_metrics_t
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_miss;
-    u16 vec_nr[10]; // 10 is the max number of irq vectors
+    u16 vec_nr[10]; // irq counter, 10 is the max number of irq vectors
     char comm[16];
 } process_metrics_t;
 
