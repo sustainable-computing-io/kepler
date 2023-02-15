@@ -77,7 +77,7 @@ func (c *Collector) Initialize() error {
 	c.bpfHCMeter = m
 
 	pods, err := cgroup.Init()
-	if err != nil {
+	if err != nil && !config.EnableProcessMetrics {
 		klog.V(5).Infoln(err)
 		return err
 	}
@@ -156,6 +156,9 @@ func (c *Collector) resetDeltaValue() {
 // This is a necessary hacking to export metrics of idle containers, since we can only include in
 // the containers list the containers that present any updates from the bpf metrics
 func (c *Collector) prePopulateContainerMetrics(pods *[]corev1.Pod) {
+	if pods == nil {
+		return
+	}
 	for i := 0; i < len(*pods); i++ {
 		pod := (*pods)[i]
 		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {
