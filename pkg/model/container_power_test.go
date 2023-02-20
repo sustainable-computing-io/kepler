@@ -138,6 +138,9 @@ var _ = Describe("ContainerPower", func() {
 			setCollectorMetrics()
 			containersMetrics = createMockContainersMetrics()
 			nodeMetrics = createMockNodeMetrics(containersMetrics)
+
+			defaultAbsCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
+			defaultDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
 		})
 
 		// Currently, the model server test models only have data for the DynComponentModelWeight. We cannot get weights for the AbsModelWeight, AbsComponentModelWeight and DynModelWeight

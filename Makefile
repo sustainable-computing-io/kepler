@@ -146,7 +146,7 @@ ginkgo-set: tidy-vendor
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
 	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
-	
+
 test: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
