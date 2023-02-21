@@ -32,7 +32,7 @@ var (
 	ContainerComponentPowerModelFunc                                 func([][]float64, []string) (map[string][]float64, error)
 
 	// cgroupOnly
-	defaultDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
+	defaultDynCompURL = "/var/lib/kepler/data/ScikitMixed.json"
 )
 
 // initContainerComponentPowerModelConfig: the container component power model must be set by default.

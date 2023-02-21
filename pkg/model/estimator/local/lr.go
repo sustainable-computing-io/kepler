@@ -30,6 +30,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
@@ -158,8 +160,8 @@ func (r *LinearRegressor) Init() bool {
 	}
 	if weight == nil && r.InitModelURL != "" {
 		// next try loading from URL by config
-		weight, err = r.loadWeightFromURL()
-		klog.V(3).Infof("LR Model (%s): loadWeightFromURL(%v): %v", outputStr, r.InitModelURL, weight)
+		weight, err = r.loadWeightFromURLorLocal()
+		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v", outputStr, r.InitModelURL, weight)
 	}
 	if weight != nil {
 		r.valid = true
@@ -224,20 +226,17 @@ func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
 	}
 }
 
-// loadWeightFromURL tries loading weights from initial model URL
-func (r *LinearRegressor) loadWeightFromURL() (interface{}, error) {
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, r.InitModelURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("connection error: %s (%v)", r.InitModelURL, err)
-	}
-	client := &http.Client{}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("connection error: %v (%v)", err, r.InitModelURL)
-	}
+// loadWeightFromURLorLocal get weight from either local or URL
+// if string start with '/', we take it as local file
+func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
+	var body []byte
+	var err error
 
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	if strings.HasPrefix(r.InitModelURL, "/") {
+		body, err = r.loadWeightFromLocal()
+	} else {
+		body, err = r.loadWeightFromURL()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -257,6 +256,36 @@ func (r *LinearRegressor) loadWeightFromURL() (interface{}, error) {
 		}
 		return content, nil
 	}
+}
+
+// loadWeightFromLocal tries loading weights from local file given by r.InitModelURL
+func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
+	data, err := os.ReadFile(r.InitModelURL)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// loadWeightFromURL tries loading weights from initial model URL
+func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, r.InitModelURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("connection error: %s (%v)", r.InitModelURL, err)
+	}
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("connection error: %v (%v)", err, r.InitModelURL)
+	}
+
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
 }
 
 // GetTotalPower applies ModelWeight prediction and return a list of total powers

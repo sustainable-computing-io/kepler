@@ -27,7 +27,7 @@ var (
 	NodeComponentPowerModelEnabled bool
 	NodeComponentPowerModelFunc    func([][]float64, []string) (map[string][]float64, error)
 
-	defaultAbsCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
+	defaultAbsCompURL = "/var/lib/kepler/data/KerasCompWeightFullPipeline.json"
 )
 
 // initContainerComponentPowerModelConfig: the container component power model must be set by default.
