@@ -93,7 +93,7 @@ func (c *Collector) updateBPFMetrics() {
 		}
 		// update IRQ vector
 		for i := 0; i < config.MaxIRQ; i++ {
-			if err = c.ContainersMetrics[containerID].SoftIQRCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+			if err = c.ContainersMetrics[containerID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}

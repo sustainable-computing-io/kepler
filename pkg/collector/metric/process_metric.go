@@ -44,7 +44,7 @@ type ProcessMetrics struct {
 	CounterStats map[string]*UInt64Stat
 	// ebpf metrics
 	CPUTime           *UInt64Stat
-	SoftIQRCount      []UInt64Stat
+	SoftIRQCount      []UInt64Stat
 	GPUStats          map[string]*UInt64Stat
 	DynEnergyInCore   *UInt64Stat
 	DynEnergyInDRAM   *UInt64Stat
@@ -68,7 +68,7 @@ func NewProcessMetrics(pid uint64, command string) *ProcessMetrics {
 		Command:            command,
 		CPUTime:            &UInt64Stat{},
 		CounterStats:       make(map[string]*UInt64Stat),
-		SoftIQRCount:       make([]UInt64Stat, config.MaxIRQ),
+		SoftIRQCount:       make([]UInt64Stat, config.MaxIRQ),
 		DynEnergyInCore:    &UInt64Stat{},
 		DynEnergyInDRAM:    &UInt64Stat{},
 		DynEnergyInUncore:  &UInt64Stat{},
@@ -131,11 +131,11 @@ func (p *ProcessMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr uint
 	case config.CPUTime:
 		return p.CPUTime.Delta, p.CPUTime.Aggr, nil
 	case config.IRQBlockLabel:
-		return p.SoftIQRCount[attacher.IRQBlock].Delta, p.SoftIQRCount[attacher.IRQBlock].Aggr, nil
+		return p.SoftIRQCount[attacher.IRQBlock].Delta, p.SoftIRQCount[attacher.IRQBlock].Aggr, nil
 	case config.IRQNetTXLabel:
-		return p.SoftIQRCount[attacher.IRQNetTX].Delta, p.SoftIQRCount[attacher.IRQNetTX].Aggr, nil
+		return p.SoftIRQCount[attacher.IRQNetTX].Delta, p.SoftIRQCount[attacher.IRQNetTX].Aggr, nil
 	case config.IRQNetRXLabel:
-		return p.SoftIQRCount[attacher.IRQNetRX].Delta, p.SoftIQRCount[attacher.IRQNetRX].Aggr, nil
+		return p.SoftIRQCount[attacher.IRQNetRX].Delta, p.SoftIRQCount[attacher.IRQNetRX].Aggr, nil
 	}
 	klog.V(4).Infof("cannot extract: %s", metric)
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)

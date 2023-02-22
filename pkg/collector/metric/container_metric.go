@@ -67,7 +67,7 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		ProcessMetrics: ProcessMetrics{
 			CPUTime:            &UInt64Stat{},
 			CounterStats:       make(map[string]*UInt64Stat),
-			SoftIQRCount:       make([]UInt64Stat, config.MaxIRQ),
+			SoftIRQCount:       make([]UInt64Stat, config.MaxIRQ),
 			DynEnergyInCore:    &UInt64Stat{},
 			DynEnergyInDRAM:    &UInt64Stat{},
 			DynEnergyInUncore:  &UInt64Stat{},
@@ -114,7 +114,7 @@ func (c *ContainerMetrics) ResetDeltaValues() {
 	c.CurrProcesses = 0
 	c.CPUTime.ResetDeltaValues()
 	for i := 0; i < config.MaxIRQ; i++ {
-		c.SoftIQRCount[i].ResetDeltaValues()
+		c.SoftIRQCount[i].ResetDeltaValues()
 	}
 	for counterKey := range c.CounterStats {
 		c.CounterStats[counterKey].ResetDeltaValues()
@@ -183,11 +183,11 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	case config.CPUTime:
 		return c.CPUTime.Delta, c.CPUTime.Aggr, nil
 	case config.IRQBlockLabel:
-		return c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr, nil
+		return c.SoftIRQCount[attacher.IRQBlock].Delta, c.SoftIRQCount[attacher.IRQBlock].Aggr, nil
 	case config.IRQNetTXLabel:
-		return c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr, nil
+		return c.SoftIRQCount[attacher.IRQNetTX].Delta, c.SoftIRQCount[attacher.IRQNetTX].Aggr, nil
 	case config.IRQNetRXLabel:
-		return c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr, nil
+		return c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr, nil
 	// hardcode cgroup metrics
 	// TO-DO: merge to cgroup stat
 	case config.BlockDevicesIO:
@@ -279,9 +279,9 @@ func (c *ContainerMetrics) String() string {
 		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
 		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
 		c.CPUTime.Delta, c.CPUTime.Aggr,
-		c.SoftIQRCount[attacher.IRQNetTX].Delta, c.SoftIQRCount[attacher.IRQNetTX].Aggr,
-		c.SoftIQRCount[attacher.IRQNetRX].Delta, c.SoftIQRCount[attacher.IRQNetRX].Aggr,
-		c.SoftIQRCount[attacher.IRQBlock].Delta, c.SoftIQRCount[attacher.IRQBlock].Aggr,
+		c.SoftIRQCount[attacher.IRQNetTX].Delta, c.SoftIRQCount[attacher.IRQNetTX].Aggr,
+		c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr,
+		c.SoftIRQCount[attacher.IRQBlock].Delta, c.SoftIRQCount[attacher.IRQBlock].Aggr,
 		c.CounterStats,
 		c.CgroupFSStats,
 		c.KubeletStats)

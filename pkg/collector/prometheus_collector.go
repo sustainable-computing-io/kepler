@@ -802,19 +802,19 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerNetTxIRQTotal,
 					prometheus.CounterValue,
-					float64(container.SoftIQRCount[attacher.IRQNetTX].Aggr),
+					float64(container.SoftIRQCount[attacher.IRQNetTX].Aggr),
 					container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerNetRxIRQTotal,
 					prometheus.CounterValue,
-					float64(container.SoftIQRCount[attacher.IRQNetRX].Aggr),
+					float64(container.SoftIRQCount[attacher.IRQNetRX].Aggr),
 					container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerBlockIRQTotal,
 					prometheus.CounterValue,
-					float64(container.SoftIQRCount[attacher.IRQBlock].Aggr),
+					float64(container.SoftIRQCount[attacher.IRQBlock].Aggr),
 					container.PodName, container.ContainerName, container.Namespace,
 				)
 			}
