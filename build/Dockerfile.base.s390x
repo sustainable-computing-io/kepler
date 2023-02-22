@@ -1,8 +1,22 @@
-FROM --platform=linux/s390x registry.access.redhat.com/ubi8/ubi:8.4
+FROM --platform=linux/s390x registry.access.redhat.com/ubi9/ubi:9.1
 
 ARG ARCH=s390x
 
-RUN yum update -y && \
-    yum install -y https://rpmfind.net/linux/opensuse/distribution/leap/15.3/repo/oss/s390x/bcc-devel-0.19.0-1.1.s390x.rpm && \
-    yum install -y kmod xz python3 && yum clean all -y && \
-    pip3 install  --no-cache-dir archspec 
+RUN yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/centos-gpg-keys-9.0-20.el9.noarch.rpm && \
+    yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/centos-stream-repos-9.0-20.el9.noarch.rpm
+
+# don't update yet, this will conflict with protected pkg i.e. redhat-release
+#RUN yum update -y
+
+RUN yum install -y kmod xz && yum clean all -y 
+
+RUN dnf -y install dnf-plugins-core && \
+    dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf config-manager --set-enabled crb
+
+# bcc pkg is updated more frequently
+RUN yum install -y bcc && yum install -y bcc-devel
+
+# install less frequently updated python3 pkg and archspec
+RUN yum install -y python3 python3-pip && yum clean all -y && \
+    pip3 install  --no-cache-dir archspec
