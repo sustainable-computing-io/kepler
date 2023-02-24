@@ -71,6 +71,13 @@ var standardMetricName = map[string][]CgroupFSReadMetric{
 	},
 }
 
+var ExportMetrics = map[string]any{
+	config.CgroupfsCPU:       nil,
+	config.CgroupfsMemory:    nil,
+	config.CgroupfsSystemCPU: nil,
+	config.CgroupfsUserCPU:   nil,
+}
+
 type StatReader interface {
 	Read() map[string]interface{}
 }

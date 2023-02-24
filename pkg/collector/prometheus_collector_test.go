@@ -31,6 +31,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	model "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
@@ -157,6 +158,13 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		body, _ := io.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
 		fmt.Printf("Result:\n %s\n", body)
+
+		// check container cgroup export metric validity
+		Expect(len(cgroup.ExportMetrics)).To(Equal(4))
+		validAvailableCgroupMetrics := []string{config.CgroupfsCPU, config.CgroupfsMemory, config.CgroupfsSystemCPU, config.CgroupfsUserCPU}
+		Expect(cgroup.HasCgroupExportMetric(validAvailableCgroupMetrics)).To(Equal(true))
+		invalidAvailableCgroupMetrics := []string{config.CgroupfsCPU, config.CgroupfsMemory}
+		Expect(cgroup.HasCgroupExportMetric(invalidAvailableCgroupMetrics)).To(Equal(false))
 
 		// check pkg energy
 		val, err := convertPromToValue(body, nodePackageEnergyMetric)

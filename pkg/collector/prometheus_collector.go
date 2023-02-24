@@ -125,6 +125,12 @@ type ContainerDesc struct {
 	containerCPUInstrTotal  *prometheus.Desc
 	containerCacheMissTotal *prometheus.Desc
 
+	// cGroups (counter)
+	containerCgroupCPUUsageUsTotal       *prometheus.Desc
+	containerCgroupMemoryUsageBytesTotal *prometheus.Desc
+	containerCgroupSystemCPUUsageUsTotal *prometheus.Desc
+	containerCgroupUserCPUUsageUsTotal   *prometheus.Desc
+
 	// General kubelet (counter)
 	containerKubeletCPUUsageTotal    *prometheus.Desc
 	containerKubeletMemoryBytesTotal *prometheus.Desc
@@ -176,6 +182,9 @@ type PrometheusCollector struct {
 
 	// Record whether we have KubletMetrics
 	HaveKubletMetric bool
+
+	// Record whether we have cGroupsMetrics
+	HavecGroupsMetric bool
 }
 
 // NewPrometheusExporter create and initialize all the PrometheusCollector structures
@@ -228,19 +237,32 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- p.containerDesc.containerJoulesTotal
 
 	// container Hardware Counters (counter)
-	if collector_metric.CPUHardwareCounterEnabled {
+	if config.ExposeHardwareCounterMetrics && collector_metric.CPUHardwareCounterEnabled {
 		ch <- p.containerDesc.containerCPUCyclesTotal
 		ch <- p.containerDesc.containerCPUInstrTotal
 		ch <- p.containerDesc.containerCacheMissTotal
 	}
 
-	kubeletAvailableMetrics := cgroup.GetAvailableKubeletMetrics()
-	if len(kubeletAvailableMetrics) != 0 {
-		ch <- p.containerDesc.containerKubeletCPUUsageTotal
-		ch <- p.containerDesc.containerKubeletMemoryBytesTotal
-		p.HaveKubletMetric = true
-	} else {
-		p.HaveKubletMetric = false
+	// container cGroups Counters (counter)
+	if config.ExposeCgroupMetrics {
+		p.HavecGroupsMetric = cgroup.HasCgroupExportMetric(collector_metric.AvailableCgroupMetrics)
+		if p.HavecGroupsMetric {
+			ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
+			ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
+			ch <- p.containerDesc.containerCgroupSystemCPUUsageUsTotal
+			ch <- p.containerDesc.containerCgroupUserCPUUsageUsTotal
+		}
+	}
+
+	// container Kubelet Counters (counter)
+	if config.ExposeKubeletMetrics {
+		if len(collector_metric.AvailableKubeletMetrics) != 0 {
+			ch <- p.containerDesc.containerKubeletCPUUsageTotal
+			ch <- p.containerDesc.containerKubeletMemoryBytesTotal
+			p.HaveKubletMetric = true
+		} else {
+			p.HaveKubletMetric = false
+		}
 	}
 
 	// Old Node metric
@@ -389,59 +411,89 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
+	// cGroups Counters (counter)
+	containerCgroupCPUUsageUsTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "cgroupfs_cpu_usage_us_total"),
+		"Aggregated cpu usage obtained from cGroups",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
+	containerCgroupMemoryUsageBytesTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "cgroupfs_memory_usage_bytes_total"),
+		"Aggregated memory bytes obtained from cGroups",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
+	containerCgroupSystemCPUUsageUsTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "cgroupfs_system_cpu_usage_us_total"),
+		"Aggregated system cpu usage obtained from cGroups",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
+	containerCgroupUserCPUUsageUsTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", "cgroupfs_user_cpu_usage_us_total"),
+		"Aggregated user cpu usage obtained from cGroups",
+		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+	)
+
+	// Kubelet Counters (counter)
 	containerKubeletCPUUsageTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "kubelet_cpu_usage_total"),
-		"Aggregated cpu usage obtain from kubelet",
+		"Aggregated cpu usage obtained from kubelet",
 		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	containerKubeletMemoryBytesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", "kubelet_memory_bytes_total"),
-		"Aggregated memory bytes obtain from kubelet",
+		"Aggregated memory bytes obtained from kubelet",
 		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	// Additional metrics (gauge)
 	containerCPUTime := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cpu_cpu_time_us"),
-		"Aggregated CPU time",
+		prometheus.BuildFQName(namespace, "container", "bpf_cpu_time_us_total"),
+		"Aggregated CPU time obtained from BPF",
 		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	// network irq metrics
 	containerNetTxIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "net_tx_irq_total"),
-		"Aggregated network tx irq value",
+		prometheus.BuildFQName(namespace, "container", "bpf_net_tx_irq_total"),
+		"Aggregated network tx irq value obtained from BPF",
 		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerNetRxIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "net_rx_irq_total"),
-		"Aggregated network rx irq value",
+		prometheus.BuildFQName(namespace, "container", "bpf_net_rx_irq_total"),
+		"Aggregated network rx irq value obtained from BPF",
 		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerBlockIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "block_irq_total"),
-		"Aggregated block irq value",
+		prometheus.BuildFQName(namespace, "container", "bpf_block_irq_total"),
+		"Aggregated block irq value obtained from BPF",
 		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	p.containerDesc = &ContainerDesc{
-		containerCoreJoulesTotal:            containerCoreJoulesTotal,
-		containerUncoreJoulesTotal:          containerUncoreJoulesTotal,
-		containerDramJoulesTotal:            containerDramJoulesTotal,
-		containerPackageJoulesTotal:         containerPackageJoulesTotal,
-		containerOtherComponentsJoulesTotal: containerOtherComponentsJoulesTotal,
-		containerGPUJoulesTotal:             containerGPUJoulesTotal,
-		containerJoulesTotal:                containerJoulesTotal,
-		containerCPUCyclesTotal:             containerCPUCyclesTotal,
-		containerCPUInstrTotal:              containerCPUInstrTotal,
-		containerCacheMissTotal:             containerCacheMissTotal,
-		containerKubeletMemoryBytesTotal:    containerKubeletMemoryBytesTotal,
-		containerKubeletCPUUsageTotal:       containerKubeletCPUUsageTotal,
-		containerCPUTime:                    containerCPUTime,
-		containerNetTxIRQTotal:              containerNetTxIRQTotal,
-		containerNetRxIRQTotal:              containerNetRxIRQTotal,
-		containerBlockIRQTotal:              containerBlockIRQTotal,
+		containerCoreJoulesTotal:             containerCoreJoulesTotal,
+		containerUncoreJoulesTotal:           containerUncoreJoulesTotal,
+		containerDramJoulesTotal:             containerDramJoulesTotal,
+		containerPackageJoulesTotal:          containerPackageJoulesTotal,
+		containerOtherComponentsJoulesTotal:  containerOtherComponentsJoulesTotal,
+		containerGPUJoulesTotal:              containerGPUJoulesTotal,
+		containerJoulesTotal:                 containerJoulesTotal,
+		containerCPUCyclesTotal:              containerCPUCyclesTotal,
+		containerCPUInstrTotal:               containerCPUInstrTotal,
+		containerCacheMissTotal:              containerCacheMissTotal,
+		containerCgroupCPUUsageUsTotal:       containerCgroupCPUUsageUsTotal,
+		containerCgroupMemoryUsageBytesTotal: containerCgroupMemoryUsageBytesTotal,
+		containerCgroupSystemCPUUsageUsTotal: containerCgroupSystemCPUUsageUsTotal,
+		containerCgroupUserCPUUsageUsTotal:   containerCgroupUserCPUUsageUsTotal,
+		containerKubeletMemoryBytesTotal:     containerKubeletMemoryBytesTotal,
+		containerKubeletCPUUsageTotal:        containerKubeletCPUUsageTotal,
+		containerCPUTime:                     containerCPUTime,
+		containerNetTxIRQTotal:               containerNetTxIRQTotal,
+		containerNetRxIRQTotal:               containerNetRxIRQTotal,
+		containerBlockIRQTotal:               containerBlockIRQTotal,
 	}
 }
 
@@ -756,7 +808,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule),
 				container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
-			if collector_metric.CPUHardwareCounterEnabled {
+			if config.ExposeHardwareCounterMetrics && collector_metric.CPUHardwareCounterEnabled {
 				if container.CounterStats[attacher.CPUCycleLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerCPUCyclesTotal,
@@ -783,7 +835,34 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				}
 			}
 
-			if p.HaveKubletMetric {
+			if config.ExposeCgroupMetrics && p.HavecGroupsMetric {
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerCgroupCPUUsageUsTotal,
+					prometheus.CounterValue,
+					float64(container.CgroupFSStats[config.CgroupfsCPU].SumAllAggrValues()),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerCgroupMemoryUsageBytesTotal,
+					prometheus.CounterValue,
+					float64(container.CgroupFSStats[config.CgroupfsMemory].SumAllAggrValues()),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerCgroupSystemCPUUsageUsTotal,
+					prometheus.CounterValue,
+					float64(container.CgroupFSStats[config.CgroupfsSystemCPU].SumAllAggrValues()),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerCgroupUserCPUUsageUsTotal,
+					prometheus.CounterValue,
+					float64(container.CgroupFSStats[config.CgroupfsUserCPU].SumAllAggrValues()),
+					container.PodName, container.ContainerName, container.Namespace, containerCommand,
+				)
+			}
+
+			if config.ExposeKubeletMetrics && p.HaveKubletMetric {
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerKubeletCPUUsageTotal,
 					prometheus.CounterValue,
