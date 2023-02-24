@@ -24,12 +24,14 @@ import (
 var _ = Describe("Test Container Metric", func() {
 
 	c := ContainerMetrics{
-		DynEnergyInCore:   &UInt64Stat{Delta: uint64(1), Aggr: uint64(2)},
-		DynEnergyInDRAM:   &UInt64Stat{Delta: uint64(3), Aggr: uint64(4)},
-		DynEnergyInUncore: &UInt64Stat{Delta: uint64(5), Aggr: uint64(6)},
-		DynEnergyInPkg:    &UInt64Stat{Delta: uint64(7), Aggr: uint64(8)},
-		DynEnergyInGPU:    &UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
-		DynEnergyInOther:  &UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
+		ProcessMetrics: ProcessMetrics{
+			DynEnergyInCore:   &UInt64Stat{Delta: uint64(1), Aggr: uint64(2)},
+			DynEnergyInDRAM:   &UInt64Stat{Delta: uint64(3), Aggr: uint64(4)},
+			DynEnergyInUncore: &UInt64Stat{Delta: uint64(5), Aggr: uint64(6)},
+			DynEnergyInPkg:    &UInt64Stat{Delta: uint64(7), Aggr: uint64(8)},
+			DynEnergyInGPU:    &UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
+			DynEnergyInOther:  &UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
+		},
 		CgroupFSStats: map[string]*UInt64StatCollection{
 			CORE: {
 				Stat: map[string]*UInt64Stat{

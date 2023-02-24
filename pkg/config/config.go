@@ -65,6 +65,7 @@ var (
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
+	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	MetricPathKey                = "METRIC_PATH"
 	BindAddressKey               = "BIND_ADDRESS"
 	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
@@ -91,6 +92,8 @@ var (
 	NodeComponentsKey      = "NODE_COMPONENTS"
 	ContainerTotalKey      = "CONTAINER_TOTAL"
 	ContainerComponentsKey = "CONTAINER_COMPONENTS"
+	ProcessTotalKey        = "PROCESS_TOTAL"
+	ProcessComponentsKey   = "PROCESS_COMPONENTS"
 
 	//  attribute
 	EstimatorEnabledKey = "ESTIMATOR"

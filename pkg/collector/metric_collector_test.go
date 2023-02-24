@@ -124,6 +124,7 @@ func createMockNodeMetrics(containersMetrics map[string]*collector_metric.Contai
 func newMockCollector() *Collector {
 	metricCollector := NewCollector()
 	metricCollector.ContainersMetrics = createMockContainersMetrics()
+	metricCollector.ProcessMetrics = map[uint64]*collector_metric.ProcessMetrics{}
 	metricCollector.NodeMetrics = createMockNodeMetrics(metricCollector.ContainersMetrics)
 
 	return metricCollector

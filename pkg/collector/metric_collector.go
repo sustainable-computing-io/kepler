@@ -49,6 +49,9 @@ type Collector struct {
 	// ContainersMetrics holds all container energy and resource usage metrics
 	ContainersMetrics map[string]*collector_metric.ContainerMetrics
 
+	// ProcessMetrics hold all process energy and resource usage metrics
+	ProcessMetrics map[uint64]*collector_metric.ProcessMetrics
+
 	// generic names to be used for process that are not within a pod
 	systemProcessName      string
 	systemProcessNamespace string
@@ -59,6 +62,7 @@ func NewCollector() *Collector {
 		acpiPowerMeter:         acpi.NewACPIPowerMeter(),
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
+		ProcessMetrics:         map[uint64]*collector_metric.ProcessMetrics{},
 		systemProcessName:      utils.SystemProcessName,
 		systemProcessNamespace: utils.SystemProcessNamespace,
 	}
@@ -73,7 +77,7 @@ func (c *Collector) Initialize() error {
 	c.bpfHCMeter = m
 
 	pods, err := cgroup.Init()
-	if err != nil {
+	if err != nil && !config.EnableProcessMetrics {
 		klog.V(5).Infoln(err)
 		return err
 	}
@@ -122,6 +126,11 @@ func (c *Collector) Update() {
 	// calculate the container energy consumption using its resource utilization and the node components energy consumption
 	c.updateContainerEnergy()
 
+	// calculate the process energy consumption using its resource utilization and the node components energy consumption
+	if config.EnableProcessMetrics {
+		c.updateProcessEnergy()
+	}
+
 	// check the log verbosity level before iterating in all container
 	if klog.V(3).Enabled() {
 		for _, v := range c.ContainersMetrics {
@@ -137,6 +146,9 @@ func (c *Collector) resetDeltaValue() {
 	for _, v := range c.ContainersMetrics {
 		v.ResetDeltaValues()
 	}
+	for _, v := range c.ProcessMetrics {
+		v.ResetDeltaValues()
+	}
 	c.NodeMetrics.ResetDeltaValues()
 }
 
@@ -144,6 +156,9 @@ func (c *Collector) resetDeltaValue() {
 // This is a necessary hacking to export metrics of idle containers, since we can only include in
 // the containers list the containers that present any updates from the bpf metrics
 func (c *Collector) prePopulateContainerMetrics(pods *[]corev1.Pod) {
+	if pods == nil {
+		return
+	}
 	for i := 0; i < len(*pods); i++ {
 		pod := (*pods)[i]
 		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {

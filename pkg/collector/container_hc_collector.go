@@ -64,7 +64,7 @@ func (c *Collector) updateBPFMetrics() {
 			klog.V(5).Infof("failed to decode received data: %v", err)
 			continue
 		}
-		comm := (*C.char)(unsafe.Pointer(&ct.Command))
+		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
 		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
@@ -78,7 +78,12 @@ func (c *Collector) updateBPFMetrics() {
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
 		if containerID != c.systemProcessName {
-			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, C.GoString(comm))
+			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, comm)
+		} else if config.EnableProcessMetrics {
+			c.createProcessMetricsIfNotExist(ct.PID, comm)
+			if err = c.ProcessMetrics[ct.PID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
+				klog.V(5).Infoln(err)
+			}
 		}
 
 		// update ebpf metrics
@@ -88,7 +93,7 @@ func (c *Collector) updateBPFMetrics() {
 		}
 		// update IRQ vector
 		for i := 0; i < config.MaxIRQ; i++ {
-			if err = c.ContainersMetrics[containerID].SoftIQRCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+			if err = c.ContainersMetrics[containerID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
@@ -106,8 +111,15 @@ func (c *Collector) updateBPFMetrics() {
 			default:
 				val = 0
 			}
+
 			if err = c.ContainersMetrics[containerID].CounterStats[counterKey].AddNewDelta(val); err != nil {
 				klog.V(5).Infoln(err)
+			}
+			// track system process metrics
+			if containerID == c.systemProcessName && config.EnableProcessMetrics {
+				if err = c.ProcessMetrics[ct.PID].CounterStats[counterKey].AddNewDelta(val); err != nil {
+					klog.V(5).Infoln(err)
+				}
 			}
 		}
 
@@ -148,3 +160,5 @@ func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 		}
 	}
 }
+
+// TODO: remove inactive processes

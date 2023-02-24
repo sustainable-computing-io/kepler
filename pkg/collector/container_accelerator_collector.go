@@ -49,12 +49,26 @@ func (c *Collector) updateAcceleratorMetrics() {
 			}
 
 			c.createContainersMetricsIfNotExist(containerID, 0, uint64(pid), false)
+			if config.EnableProcessMetrics {
+				c.createProcessMetricsIfNotExist(uint64(pid), "")
+			}
 
+			// update container metrics
 			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewDelta(uint64(processUtilization.SmUtil)); err != nil {
 				klog.V(5).Infoln(err)
 			}
 			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUMemUtilization].AddNewDelta(uint64(processUtilization.MemUtil)); err != nil {
 				klog.V(5).Infoln(err)
+			}
+
+			if containerID == c.systemProcessName && config.EnableProcessMetrics {
+				// update process metrics
+				if err = c.ProcessMetrics[uint64(pid)].CounterStats[config.GPUSMUtilization].AddNewDelta(uint64(processUtilization.SmUtil)); err != nil {
+					klog.V(5).Infoln(err)
+				}
+				if err = c.ProcessMetrics[uint64(pid)].CounterStats[config.GPUMemUtilization].AddNewDelta(uint64(processUtilization.MemUtil)); err != nil {
+					klog.V(5).Infoln(err)
+				}
 			}
 		}
 	}
