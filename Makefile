@@ -76,15 +76,19 @@ _build_local: format
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
 
-cross-build-linux-amd64:
+cross-build-linux-amd64: genbpfassets
 	+$(MAKE) _build_local GOOS=linux GOARCH=amd64
 .PHONY: cross-build-linux-amd64
 
-cross-build-linux-arm64:
+cross-build-linux-arm64: genbpfassets
 	+$(MAKE) _build_local GOOS=linux GOARCH=arm64
 .PHONY: cross-build-linux-arm64
 
-cross-build: cross-build-linux-amd64 cross-build-linux-arm64
+cross-build-linux-s390x: genbpfassets
+	+$(MAKE) _build_local GOOS=linux GOARCH=s390x
+.PHONY: cross-build-linux-s390x
+
+cross-build: cross-build-linux-amd64 cross-build-linux-arm64 cross-build-linux-s390x
 .PHONY: cross-build
 
 
