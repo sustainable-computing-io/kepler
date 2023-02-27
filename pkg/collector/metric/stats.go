@@ -32,8 +32,7 @@ var (
 	AvailableKubeletMetrics []string
 
 	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
-	CPUHardwareCounterEnabled bool = false
-	// CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
+	CPUHardwareCounterEnabled = false
 )
 
 func InitAvailableParamAndMetrics() {
@@ -41,6 +40,7 @@ func InitAvailableParamAndMetrics() {
 	AvailableEBPFCounters = attacher.GetEnabledBPFCounters()
 	AvailableCgroupMetrics = cgroup.GetAvailableCgroupMetrics()
 	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
+	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 
 	// defined in utils to init metrics
 	setEnabledMetrics()

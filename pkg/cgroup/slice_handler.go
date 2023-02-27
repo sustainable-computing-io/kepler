@@ -197,3 +197,17 @@ func GetAvailableCgroupMetrics() []string {
 	}
 	return availableMetrics
 }
+
+func HasCgroupExportMetric(availableMetrics []string) bool {
+	expectedFound := len(ExportMetrics)
+	foundCount := 0
+	for _, metric := range availableMetrics {
+		if _, ok := ExportMetrics[metric]; ok {
+			foundCount += 1
+		}
+		if foundCount >= expectedFound {
+			return true
+		}
+	}
+	return false
+}

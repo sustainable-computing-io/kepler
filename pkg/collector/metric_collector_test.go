@@ -26,6 +26,7 @@ func setCollectorMetrics() {
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.ContainerIOStatMetricsNames...)
 	// ContainerMetricNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ContainerMetricNames will be used.
 	collector_metric.ContainerMetricNames = collector_metric.ContainerUintFeaturesNames
+	collector_metric.CPUHardwareCounterEnabled = true
 }
 
 // add two containers with all metrics initialized
