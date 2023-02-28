@@ -1,0 +1,63 @@
+# on:
+#     push:
+#       # Sequence of patterns matched against refs/tags
+#       tags:
+#         - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  
+# name: Create RPM Release
+
+name: RPM Build
+on:
+  workflow_dispatch:
+    # Inputs the workflow accepts.
+    inputs:
+      tag:
+        description: "Tag name, from which the rpm will be created e.g. standalone"
+        default: standalone
+        required: true
+      release:
+        description: "Release name, e.g. 0.4"
+        default: 0.4
+        required: true
+
+jobs:
+    build:
+        name: Create RPM Release
+        runs-on: ubuntu-latest
+
+        steps:
+
+        - name: Checkout code
+          uses: actions/checkout@master
+
+        - name: Create Release
+          id: create_release
+          uses: actions/create-release@latest
+          env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+          with:
+              tag_name: ${{ github.event.inputs.tag }}
+              release_name: ${{ github.event.inputs.release }}
+              body: |
+                Changes in this Release
+                - Create RPM
+                - Upload Source RPM
+              draft: false
+              prerelease: false
+            
+        - name: build RPM package
+          id: rpm_build
+          uses: naveenrajm7/rpmbuild@master
+          with:
+              spec_file: "packaging/rpm/kepler.spec"
+            
+        - name: Upload Release Asset
+          id: upload-release-asset 
+          uses: actions/upload-release-asset@v1
+          env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          with:
+              upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+              asset_path: ${{ steps.rpm_build.outputs.source_rpm_path }}
+              asset_name: ${{ steps.rpm_build.outputs.source_rpm_name }}
+              asset_content_type: ${{ steps.rpm_build.outputs.rpm_content_type }}
