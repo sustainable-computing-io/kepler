@@ -167,8 +167,10 @@ func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
 
 func getCPUCoreFrequency() map[int32]uint64 {
 	files, err := os.ReadDir(freqPathDir)
+	cpuCoreFrequency := map[int32]uint64{}
 	if err != nil {
-		klog.Fatal(err)
+		klog.Warning(err)
+		return cpuCoreFrequency
 	}
 
 	ch := make(chan []uint64)
@@ -187,7 +189,6 @@ func getCPUCoreFrequency() map[int32]uint64 {
 		}(uint64(i))
 	}
 
-	cpuCoreFrequency := map[int32]uint64{}
 	for i := 0; i < len(files); i++ {
 		select {
 		case val, ok := <-ch:
