@@ -41,9 +41,9 @@ i3-2330M,Sandy Bridge
 i3-2330E,Sandy Bridge
 i3-2340UE,Sandy Bridge
 i3-2357M,Sandy Bridge
-i5-2557M,Sandy Bridge
 i7-2677M,Sandy Bridge
 i7-2637M,Sandy Bridge
+i5-2557M,Sandy Bridge
 i5-2405S,Sandy Bridge
 i5-2310,Sandy Bridge
 i3-2102,Sandy Bridge
@@ -54,8 +54,8 @@ i7-2610UE,Sandy Bridge
 i5-2537M,Sandy Bridge
 i7-2617M,Sandy Bridge
 i7-2657M,Sandy Bridge
-i7-2649M,Sandy Bridge
 i5-2515E,Sandy Bridge
+i7-2649M,Sandy Bridge
 i7-2629M,Sandy Bridge
 i5-2510E,Sandy Bridge
 i5-2390T,Sandy Bridge
@@ -116,8 +116,8 @@ B830,Sandy Bridge
 G465,Sandy Bridge
 G555,Sandy Bridge
 G550T,Sandy Bridge
-B820,Sandy Bridge
 807,Sandy Bridge
+B820,Sandy Bridge
 877,Sandy Bridge
 G550,Sandy Bridge
 G540T,Sandy Bridge
@@ -133,11 +133,11 @@ G530,Sandy Bridge
 B840,Sandy Bridge
 G440,Sandy Bridge
 787,Sandy Bridge
-827E,Sandy Bridge
 B710,Sandy Bridge
+827E,Sandy Bridge
 857,Sandy Bridge
-847,Sandy Bridge
 B800,Sandy Bridge
+847,Sandy Bridge
 847E,Sandy Bridge
 B810E,Sandy Bridge
 B810,Sandy Bridge
@@ -185,7 +185,7 @@ E5-2428L,Sandy Bridge
 E5-2418L,Sandy Bridge
 E5-1428L,Sandy Bridge
 1405,Sandy Bridge
-E7-4850,Ivy Bridge
+E7-2850,Ivy Bridge
 E7-4880,Ivy Bridge
 E7-8893,Ivy Bridge
 E7-8891,Ivy Bridge
@@ -198,15 +198,15 @@ E7-8850,Ivy Bridge
 E7-4890,Ivy Bridge
 E7-4870,Ivy Bridge
 E7-4860,Ivy Bridge
+E7-4850,Ivy Bridge
 E7-4830,Ivy Bridge
 E7-4820,Ivy Bridge
 E7-4809,Ivy Bridge
 E7-2890,Ivy Bridge
 E7-2880,Ivy Bridge
 E7-2870,Ivy Bridge
-E7-2850,Ivy Bridge
-E3-1220,Ivy Bridge
 E3-1220L,Ivy Bridge
+E3-1220,Ivy Bridge
 E3-1225,Ivy Bridge
 E3-1230,Ivy Bridge
 E3-1240,Ivy Bridge
@@ -229,16 +229,16 @@ i3-3227U,Ivy Bridge
 i5-3230M,Ivy Bridge
 i5-3337U,Ivy Bridge
 i7-3537U,Ivy Bridge
-i5-3380M,Ivy Bridge
+i3-3210,Ivy Bridge
 i5-3437U,Ivy Bridge
 i7-3687U,Ivy Bridge
 i5-3340M,Ivy Bridge
-i3-3210,Ivy Bridge
+i5-3380M,Ivy Bridge
 i7-3540M,Ivy Bridge
-i7-3689Y,Ivy Bridge
-i5-3439Y,Ivy Bridge
-i5-3339Y,Ivy Bridge
 i3-3229Y,Ivy Bridge
+i5-3339Y,Ivy Bridge
+i5-3439Y,Ivy Bridge
+i7-3689Y,Ivy Bridge
 i7-3632QM,Ivy Bridge
 i7-3630QM,Ivy Bridge
 i7-3635QM,Ivy Bridge
@@ -295,13 +295,13 @@ i7-3612QE,Ivy Bridge
 i7-3610QE,Ivy Bridge
 i7-3770S,Ivy Bridge
 i7-3770T,Ivy Bridge
+G2030,Ivy Bridge
 G2030T,Ivy Bridge
 G2140,Ivy Bridge
 G2120T,Ivy Bridge
-G2030,Ivy Bridge
 G2130,Ivy Bridge
-G2010,Ivy Bridge
 G2020,Ivy Bridge
+G2010,Ivy Bridge
 G2020T,Ivy Bridge
 G2100T,Ivy Bridge
 G2120,Ivy Bridge
@@ -317,11 +317,11 @@ G1620T,Ivy Bridge
 G1610T,Ivy Bridge
 G1620,Ivy Bridge
 G1610,Ivy Bridge
-1005M,Ivy Bridge
 1017U,Ivy Bridge
+1005M,Ivy Bridge
 1019Y,Ivy Bridge
-1047UE,Ivy Bridge
 1020E,Ivy Bridge
+1047UE,Ivy Bridge
 1007U,Ivy Bridge
 1000M,Ivy Bridge
 1037U,Ivy Bridge
@@ -361,12 +361,12 @@ E5-2628L,Ivy Bridge
 E5-2648L,Ivy Bridge
 E5-2658,Ivy Bridge
 E5-2687W,Ivy Bridge
-E7-8870,Haswell
-E7-8893,Haswell
 E7-8891,Haswell
+E7-8893,Haswell
 E7-8890,Haswell
 E7-8880L,Haswell
 E7-8880,Haswell
+E7-8870,Haswell
 E7-8867,Haswell
 E7-8860,Haswell
 E7-4850,Haswell
@@ -375,29 +375,34 @@ E7-4820,Haswell
 E7-4809,Haswell
 E5-4669,Haswell
 E5-4667,Haswell
-E5-4660,Haswell
-E5-4655,Haswell
-E5-4650,Haswell
-E5-4648,Haswell
 E5-4610,Haswell
 E5-4620,Haswell
 E5-4627,Haswell
 E5-4640,Haswell
+E5-4648,Haswell
+E5-4650,Haswell
+E5-4655,Haswell
+E5-4660,Haswell
 E5-2658A,Haswell
+E5-2408L,Haswell
 E5-2438L,Haswell
 E5-2428L,Haswell
 E5-2418L,Haswell
-E5-2408L,Haswell
 E5-1428L,Haswell
-E5-2620,Haswell
+E5-2630L,Haswell
 E5-2667,Haswell
 E5-2640,Haswell
 E5-2637,Haswell
-E5-2630L,Haswell
+E5-2699,Haswell
+E5-2698,Haswell
+E5-2697,Haswell
+E5-2695,Haswell
+E5-2683,Haswell
+E5-2687W,Haswell
 E5-2630,Haswell
 E5-2623,Haswell
+E5-2620,Haswell
 E5-2618L,Haswell
-E5-2650L,Haswell
 E5-2608L,Haswell
 E5-2603,Haswell
 E5-1680,Haswell
@@ -405,10 +410,9 @@ E5-1660,Haswell
 E5-1650,Haswell
 E5-1630,Haswell
 E5-1620,Haswell
-E5-2687W,Haswell
 E5-2680,Haswell
 E5-2658,Haswell
-E5-2698,Haswell
+E5-2650L,Haswell
 E5-2648L,Haswell
 E5-2643,Haswell
 E5-2609,Haswell
@@ -417,22 +421,24 @@ E5-2670,Haswell
 E5-2660,Haswell
 E5-2650,Haswell
 E5-2628L,Haswell
-E5-2699,Haswell
-E5-2697,Haswell
-E5-2695,Haswell
-E5-2683,Haswell
+E3-1286,Haswell
+E3-1240L,Haswell
+E3-1231,Haswell
 E3-1241,Haswell
 E3-1271,Haswell
 E3-1281,Haswell
 E3-1275L,Haswell
-E3-1240L,Haswell
+E3-1276,Haswell
 E3-1226,Haswell
 E3-1246,Haswell
-E3-1276,Haswell
 E3-1286L,Haswell
-E3-1286,Haswell
-E3-1231,Haswell
 E3-1220L,Haswell
+E3-1240,Haswell
+E3-1230,Haswell
+E3-1230L,Haswell
+E3-1220,Haswell
+E3-1270,Haswell
+E3-1280,Haswell
 E3-1268L,Haswell
 E3-1285L,Haswell
 E3-1285,Haswell
@@ -440,12 +446,6 @@ E3-1275,Haswell
 E3-1265L,Haswell
 E3-1245,Haswell
 E3-1225,Haswell
-E3-1230L,Haswell
-E3-1220,Haswell
-E3-1230,Haswell
-E3-1280,Haswell
-E3-1270,Haswell
-E3-1240,Haswell
 i7-4940MX,Haswell
 i7-4930MX,Haswell
 i7-4722HQ,Haswell
@@ -456,26 +456,24 @@ i7-4790T,Haswell
 i7-4790S,Haswell
 i7-4790,Haswell
 i7-4712MQ,Haswell
-i7-4712HQ,Haswell
-i7-4710MQ,Haswell
 i7-4710HQ,Haswell
+i7-4710MQ,Haswell
+i7-4712HQ,Haswell
 i7-4510U,Haswell
 i7-4702EC,Haswell
 i7-4700EC,Haswell
 i7-4610M,Haswell
 i7-4910MQ,Haswell
 i7-4810MQ,Haswell
-i7-4600M,Haswell
 i7-4771,Haswell
-i7-4600U,Haswell
 i7-4610Y,Haswell
-i7-4558U,Haswell
+i7-4600U,Haswell
+i7-4600M,Haswell
 i7-4550U,Haswell
 i7-4650U,Haswell
+i7-4558U,Haswell
 i7-4500U,Haswell
-i7-4700EQ,Haswell
-i7-4770TE,Haswell
-i7-4700HQ,Haswell
+i7-4702HQ,Haswell
 i7-4900MQ,Haswell
 i7-4800MQ,Haswell
 i7-4770T,Haswell
@@ -484,51 +482,52 @@ i7-4770K,Haswell
 i7-4770,Haswell
 i7-4765T,Haswell
 i7-4702MQ,Haswell
-i7-4702HQ,Haswell
+i7-4700HQ,Haswell
+i7-4700EQ,Haswell
+i7-4770TE,Haswell
 i7-4700MQ,Haswell
 i5-4278U,Haswell
 i5-4308U,Haswell
 i5-4210H,Haswell
-i5-4690,Haswell
+i5-4590,Haswell
 i5-4460S,Haswell
 i5-4460,Haswell
 i5-4590S,Haswell
-i5-4590,Haswell
 i5-4690T,Haswell
 i5-4690S,Haswell
-i5-4590T,Haswell
+i5-4690,Haswell
 i5-4460T,Haswell
+i5-4590T,Haswell
 i5-4422E,Haswell
 i5-4410E,Haswell
 i5-4260U,Haswell
-i5-4210M,Haswell
 i5-4210U,Haswell
 i5-4220Y,Haswell
+i5-4210M,Haswell
 i5-4402EC,Haswell
-i5-4310M,Haswell
-i5-4340M,Haswell
 i5-4310U,Haswell
+i5-4340M,Haswell
+i5-4310M,Haswell
 i5-4360U,Haswell
+i5-4330M,Haswell
+i5-4200M,Haswell
 i5-4302Y,Haswell
 i5-4300Y,Haswell
 i5-4210Y,Haswell
 i5-4202Y,Haswell
-i5-4200M,Haswell
+i5-4400E,Haswell
 i5-4300M,Haswell
 i5-4300U,Haswell
 i5-4402E,Haswell
-i5-4400E,Haswell
 i5-4200H,Haswell
 i5-4440,Haswell
 i5-4440S,Haswell
-i5-4330M,Haswell
-i5-4288U,Haswell
-i5-4250U,Haswell
-i5-4350U,Haswell
 i5-4200U,Haswell
+i5-4288U,Haswell
 i5-4258U,Haswell
 i5-4200Y,Haswell
-i5-4570TE,Haswell
+i5-4250U,Haswell
+i5-4350U,Haswell
 i5-4670T,Haswell
 i5-4670S,Haswell
 i5-4670K,Haswell
@@ -537,20 +536,21 @@ i5-4570T,Haswell
 i5-4570S,Haswell
 i5-4570,Haswell
 i5-4430S,Haswell
+i5-4570TE,Haswell
 i5-4430,Haswell
-i3-4370T,Haswell
 i3-4170T,Haswell
+i3-4370T,Haswell
 i3-4170,Haswell
 i3-4370,Haswell
 i3-4360T,Haswell
-i3-4160T,Haswell
 i3-4160,Haswell
+i3-4160T,Haswell
 i3-4340TE,Haswell
 i3-4360,Haswell
-i3-4350T,Haswell
-i3-4350,Haswell
-i3-4150T,Haswell
 i3-4150,Haswell
+i3-4150T,Haswell
+i3-4350,Haswell
+i3-4350T,Haswell
 i3-4112E,Haswell
 i3-4110E,Haswell
 i3-4110M,Haswell
@@ -558,19 +558,19 @@ i3-4120U,Haswell
 i3-4030U,Haswell
 i3-4025U,Haswell
 i3-4030Y,Haswell
-i3-4000M,Haswell
-i3-4005U,Haswell
-i3-4100M,Haswell
-i3-4020Y,Haswell
-i3-4012Y,Haswell
-i3-4102E,Haswell
-i3-4100E,Haswell
 i3-4330TE,Haswell
 i3-4340,Haswell
 i3-4330T,Haswell
 i3-4330,Haswell
 i3-4130T,Haswell
 i3-4130,Haswell
+i3-4020Y,Haswell
+i3-4012Y,Haswell
+i3-4100M,Haswell
+i3-4102E,Haswell
+i3-4100E,Haswell
+i3-4000M,Haswell
+i3-4005U,Haswell
 i3-4010U,Haswell
 i3-4100U,Haswell
 i3-4158U,Haswell
@@ -579,16 +579,16 @@ G3460T,Haswell
 G3260,Haswell
 G3260T,Haswell
 G3470,Haswell
-G3250,Haswell
 G3250T,Haswell
+G3250,Haswell
 G3460,Haswell
 G3450T,Haswell
 G3258,Haswell
-G3450,Haswell
-G3440,Haswell
 G3240T,Haswell
 G3240,Haswell
 G3440T,Haswell
+G3440,Haswell
+G3450,Haswell
 G3320TE,Haswell
 G3430,Haswell
 G3420T,Haswell
@@ -598,12 +598,12 @@ G3220,Haswell
 3560M,Haswell
 3561Y,Haswell
 3558U,Haswell
+3556U,Haswell
 3550M,Haswell
 3560Y,Haswell
-3556U,Haswell
+G1850,Haswell
 G1840T,Haswell
 G1840,Haswell
-G1850,Haswell
 G1820TE,Haswell
 G1820T,Haswell
 G1820,Haswell
@@ -614,8 +614,8 @@ G1830,Haswell
 2981U,Haswell
 2961Y,Haswell
 2957U,Haswell
-2955U,Haswell
 2950M,Haswell
+2955U,Haswell
 2980U,Haswell
 D-1513N,Broadwell
 D-1543N,Broadwell
@@ -640,13 +640,13 @@ D-1537,Broadwell
 D-1540,Broadwell
 D-1520,Broadwell
 E7-8894,Broadwell
+E7-8870,Broadwell
 E7-8891,Broadwell
 E7-4809,Broadwell
 E7-8860,Broadwell
-E7-8880,Broadwell
 E7-8890,Broadwell
 E7-8893,Broadwell
-E7-8870,Broadwell
+E7-8880,Broadwell
 E7-8867,Broadwell
 E7-4850,Broadwell
 E7-4830,Broadwell
@@ -660,9 +660,9 @@ E5-4655,Broadwell
 E5-4650,Broadwell
 E5-4610,Broadwell
 E5-4660,Broadwell
+E5-4640,Broadwell
 E5-4620,Broadwell
 E5-4627,Broadwell
-E5-4640,Broadwell
 E5-1660,Broadwell
 E5-1650,Broadwell
 E5-1680,Broadwell
@@ -823,9 +823,9 @@ E3-1558L,Sky Lake
 E3-1585,Sky Lake
 E3-1585L,Sky Lake
 E3-1565L,Sky Lake
-E3-1575M,Sky Lake
 E3-1545M,Sky Lake
 E3-1515M,Sky Lake
+E3-1575M,Sky Lake
 E3-1225,Sky Lake
 E3-1240L,Sky Lake
 E3-1235L,Sky Lake
@@ -860,19 +860,19 @@ i7-6660U,Sky Lake
 i7-6770HQ,Sky Lake
 i7-6870HQ,Sky Lake
 i7-6970HQ,Sky Lake
-i7-6820EQ,Sky Lake
 i7-6822EQ,Sky Lake
+i7-6820EQ,Sky Lake
 i7-6700TE,Sky Lake
+i7-6700HQ,Sky Lake
 i7-6920HQ,Sky Lake
 i7-6820HQ,Sky Lake
 i7-6820HK,Sky Lake
-i7-6700HQ,Sky Lake
-i7-6500U,Sky Lake
 i7-6600U,Sky Lake
+i7-6500U,Sky Lake
 i7-6650U,Sky Lake
 i7-6560U,Sky Lake
-i7-6700T,Sky Lake
 i7-6700,Sky Lake
+i7-6700T,Sky Lake
 i7-6700K,Sky Lake
 i7-6567U,Sky Lake
 i5-6585R,Sky Lake
@@ -880,57 +880,57 @@ i5-6685R,Sky Lake
 i5-6350HQ,Sky Lake
 i5-6402P,Sky Lake
 i5-6500TE,Sky Lake
-i5-6440EQ,Sky Lake
 i5-6442EQ,Sky Lake
+i5-6440EQ,Sky Lake
 i5-6440HQ,Sky Lake
 i5-6300HQ,Sky Lake
-i5-6200U,Sky Lake
 i5-6300U,Sky Lake
+i5-6200U,Sky Lake
 i5-6360U,Sky Lake
-i5-6260U,Sky Lake
-i5-6287U,Sky Lake
 i5-6267U,Sky Lake
+i5-6287U,Sky Lake
+i5-6260U,Sky Lake
+i5-6500T,Sky Lake
+i5-6500,Sky Lake
 i5-6400,Sky Lake
 i5-6400T,Sky Lake
 i5-6600,Sky Lake
 i5-6600T,Sky Lake
-i5-6500,Sky Lake
-i5-6500T,Sky Lake
 i5-6600K,Sky Lake
 i3-6006U,Sky Lake
 i3-6157U,Sky Lake
 i3-6098P,Sky Lake
 i3-6100TE,Sky Lake
-i3-6100E,Sky Lake
 i3-6102E,Sky Lake
+i3-6100E,Sky Lake
 i3-6100H,Sky Lake
 i3-6100U,Sky Lake
 i3-6167U,Sky Lake
-i3-6320,Sky Lake
-i3-6100T,Sky Lake
-i3-6300,Sky Lake
-i3-6100,Sky Lake
 i3-6300T,Sky Lake
+i3-6100,Sky Lake
+i3-6100T,Sky Lake
+i3-6320,Sky Lake
+i3-6300,Sky Lake
 m5-6Y54,Sky Lake
 m7-6Y75,Sky Lake
 m3-6Y30,Sky Lake
 m5-6Y57,Sky Lake
 G4400TE,Sky Lake
+G4500T,Sky Lake
 G4400T,Sky Lake
 G4400,Sky Lake
 G4520,Sky Lake
 G4500,Sky Lake
-G4500T,Sky Lake
-4405U,Sky Lake
 4405Y,Sky Lake
+4405U,Sky Lake
 G3900E,Sky Lake
 G3902E,Sky Lake
 G3900TE,Sky Lake
-G3900,Sky Lake
-G3900T,Sky Lake
 G3920,Sky Lake
-3955U,Sky Lake
+G3900T,Sky Lake
+G3900,Sky Lake
 3855U,Sky Lake
+3955U,Sky Lake
 6230R,Cascade Lake
 6250L,Cascade Lake
 5220R,Cascade Lake
@@ -1028,13 +1028,13 @@ i9-10900X,Cascade Lake
 i9-10980XE,Cascade Lake
 i9-10940X,Cascade Lake
 i9-10920X,Cascade Lake
+E-2276ML,Coffee Lake
 E-2254ML,Coffee Lake
 E-2276ME,Coffee Lake
 E-2254ME,Coffee Lake
-E-2278GE,Coffee Lake
-E-2276ML,Coffee Lake
-E-2226GE,Coffee Lake
 E-2278GEL,Coffee Lake
+E-2226GE,Coffee Lake
+E-2278GE,Coffee Lake
 E-2286G,Coffee Lake
 E-2276G,Coffee Lake
 E-2224,Coffee Lake
@@ -1047,15 +1047,15 @@ E-2274G,Coffee Lake
 E-2246G,Coffee Lake
 E-2278G,Coffee Lake
 E-2288G,Coffee Lake
-E-2286M,Coffee Lake
 E-2276M,Coffee Lake
-E-2136,Coffee Lake
+E-2286M,Coffee Lake
+E-2134,Coffee Lake
 E-2146G,Coffee Lake
 E-2174G,Coffee Lake
 E-2126G,Coffee Lake
 E-2144G,Coffee Lake
 E-2176G,Coffee Lake
-E-2134,Coffee Lake
+E-2136,Coffee Lake
 E-2124,Coffee Lake
 E-2186G,Coffee Lake
 E-2124G,Coffee Lake
@@ -1063,24 +1063,50 @@ E-2186M,Coffee Lake
 E-2176M,Coffee Lake
 i9-9900KS,Coffee Lake
 i9-9900T,Coffee Lake
-i9-9880H,Coffee Lake
 i9-9980HK,Coffee Lake
+i9-9880H,Coffee Lake
 i9-9900,Coffee Lake
 i9-9900KF,Coffee Lake
 i9-9900K,Coffee Lake
-i9-8950HK,Coffee Lake
-i7-9850HL,Coffee Lake
-i7-9700TE,Coffee Lake
-i7-9850HE,Coffee Lake
 i7-9700E,Coffee Lake
-i7-9700T,Coffee Lake
-i7-9850H,Coffee Lake
-i7-9750HF,Coffee Lake
+i7-9850HE,Coffee Lake
+i7-9700TE,Coffee Lake
+i7-9850HL,Coffee Lake
 i7-9750H,Coffee Lake
-i7-9700,Coffee Lake
+i7-9750HF,Coffee Lake
+i7-9850H,Coffee Lake
+i7-9700T,Coffee Lake
 i7-9700F,Coffee Lake
+i7-9700,Coffee Lake
 i7-9700KF,Coffee Lake
 i7-9700K,Coffee Lake
+i5-9500E,Coffee Lake
+i5-9500TE,Coffee Lake
+i5-9600T,Coffee Lake
+i5-9500T,Coffee Lake
+i5-9500F,Coffee Lake
+i5-9600,Coffee Lake
+i5-9400T,Coffee Lake
+i5-9500,Coffee Lake
+i5-9300H,Coffee Lake
+i5-9400H,Coffee Lake
+i5-9300HF,Coffee Lake
+i5-9600KF,Coffee Lake
+i5-9400F,Coffee Lake
+i5-9400,Coffee Lake
+i5-9600K,Coffee Lake
+i3-9100E,Coffee Lake
+i3-9100HL,Coffee Lake
+i3-9100TE,Coffee Lake
+i3-9100F,Coffee Lake
+i3-9350K,Coffee Lake
+i3-9300,Coffee Lake
+i3-9300T,Coffee Lake
+i3-9320,Coffee Lake
+i3-9100T,Coffee Lake
+i3-9100,Coffee Lake
+i3-9350KF,Coffee Lake
+i9-8950HK,Coffee Lake
 i7-8557U,Coffee Lake
 i7-8569U,Coffee Lake
 i7-8086K,Coffee Lake
@@ -1091,48 +1117,22 @@ i7-8700B,Coffee Lake
 i7-8750H,Coffee Lake
 i7-8700,Coffee Lake
 i7-8700K,Coffee Lake
-i5-9500TE,Coffee Lake
-i5-9500E,Coffee Lake
-i5-9500T,Coffee Lake
-i5-9600T,Coffee Lake
-i5-9500F,Coffee Lake
-i5-9600,Coffee Lake
-i5-9500,Coffee Lake
-i5-9400T,Coffee Lake
-i5-9400H,Coffee Lake
-i5-9300H,Coffee Lake
-i5-9300HF,Coffee Lake
-i5-9600KF,Coffee Lake
-i5-9400F,Coffee Lake
-i5-9400,Coffee Lake
-i5-9600K,Coffee Lake
 i5-8260U,Coffee Lake
 i5-8257U,Coffee Lake
 i5-8279U,Coffee Lake
-i5-8269U,Coffee Lake
 i5-8259U,Coffee Lake
-i5-8500,Coffee Lake
-i5-8500T,Coffee Lake
+i5-8269U,Coffee Lake
 i5-8400T,Coffee Lake
+i5-8500T,Coffee Lake
+i5-8500,Coffee Lake
 i5-8600T,Coffee Lake
 i5-8600,Coffee Lake
-i5-8400B,Coffee Lake
 i5-8500B,Coffee Lake
+i5-8400B,Coffee Lake
 i5-8400H,Coffee Lake
 i5-8300H,Coffee Lake
 i5-8400,Coffee Lake
 i5-8600K,Coffee Lake
-i3-9100TE,Coffee Lake
-i3-9100HL,Coffee Lake
-i3-9100E,Coffee Lake
-i3-9100F,Coffee Lake
-i3-9350K,Coffee Lake
-i3-9300T,Coffee Lake
-i3-9300,Coffee Lake
-i3-9100T,Coffee Lake
-i3-9320,Coffee Lake
-i3-9100,Coffee Lake
-i3-9350KF,Coffee Lake
 i3-8140U,Coffee Lake
 i3-8100B,Coffee Lake
 i3-8100H,Coffee Lake
@@ -1142,8 +1142,8 @@ i3-8300T,Coffee Lake
 i3-8300,Coffee Lake
 i3-8350K,Coffee Lake
 i3-8100,Coffee Lake
-G5420,Coffee Lake
 G5620,Coffee Lake
+G5420,Coffee Lake
 G5420T,Coffee Lake
 G5600T,Coffee Lake
 G5400T,Coffee Lake
@@ -1151,18 +1151,118 @@ G5500T,Coffee Lake
 G5500,Coffee Lake
 G5600,Coffee Lake
 G5400,Coffee Lake
-G4930E,Coffee Lake
 G4932E,Coffee Lake
-G4950,Coffee Lake
+G4930E,Coffee Lake
 G4930,Coffee Lake
+G4950,Coffee Lake
 G4930T,Coffee Lake
-G4900,Coffee Lake
 G4920,Coffee Lake
+G4900,Coffee Lake
 G4900T,Coffee Lake
-5315Y,Ice Lake
+i9-12900HX,Alder Lake
+i9-12950HX,Alder Lake
+i9-12900KS,Alder Lake
+i9-12900TE,Alder Lake
+i9-12900HK,Alder Lake
+i9-12900H,Alder Lake
+i9-12900E,Alder Lake
+i9-12900T,Alder Lake
+i9-12900F,Alder Lake
+i9-12900,Alder Lake
+i9-12900KF,Alder Lake
+i9-12900K,Alder Lake
+i7-1265UL,Alder Lake
+i7-12800HL,Alder Lake
+i7-1255UL,Alder Lake
+i7-12700HL,Alder Lake
+i7-12850HX,Alder Lake
+i7-12650HX,Alder Lake
+i7-12800HX,Alder Lake
+i7-1265UE,Alder Lake
+i7-1270PE,Alder Lake
+i7-1260U,Alder Lake
+i7-1250U,Alder Lake
+i7-1270P,Alder Lake
+i7-1255U,Alder Lake
+i7-1265U,Alder Lake
+i7-1260P,Alder Lake
+i7-1280P,Alder Lake
+i7-12700F,Alder Lake
+i7-12700,Alder Lake
+i7-12700H,Alder Lake
+i7-12700E,Alder Lake
+i7-12700TE,Alder Lake
+i7-12650H,Alder Lake
+i7-12800H,Alder Lake
+i7-12800HE,Alder Lake
+i7-12700T,Alder Lake
+i7-12700K,Alder Lake
+i7-12700KF,Alder Lake
+i5-12600HL,Alder Lake
+i5-12500HL,Alder Lake
+i5-1245UL,Alder Lake
+i5-1235UL,Alder Lake
+i5-12600HX,Alder Lake
+i5-12450HX,Alder Lake
+i5-1245UE,Alder Lake
+i5-1250PE,Alder Lake
+i5-1235U,Alder Lake
+i5-1230U,Alder Lake
+i5-1240U,Alder Lake
+i5-1235U,Alder Lake
+i5-1245U,Alder Lake
+i5-1250P,Alder Lake
+i5-1240P,Alder Lake
+i5-12400F,Alder Lake
+i5-12400,Alder Lake
+i5-12450H,Alder Lake
+i5-12400T,Alder Lake
+i5-12500T,Alder Lake
+i5-12500H,Alder Lake
+i5-12500TE,Alder Lake
+i5-12500E,Alder Lake
+i5-12500,Alder Lake
+i5-12600,Alder Lake
+i5-12600T,Alder Lake
+i5-12600H,Alder Lake
+i5-12600HE,Alder Lake
+i5-12600K,Alder Lake
+i5-12600KF,Alder Lake
+i3-1215UL,Alder Lake
+i3-12300HL,Alder Lake
+i3-1220PE,Alder Lake
+i3-1215UE,Alder Lake
+i3-1210U,Alder Lake
+i3-1215U,Alder Lake
+i3-1215U,Alder Lake
+i3-1220P,Alder Lake
+i3-12100TE,Alder Lake
+i3-12100,Alder Lake
+i3-12300HE,Alder Lake
+i3-12100E,Alder Lake
+i3-12100F,Alder Lake
+i3-12300T,Alder Lake
+i3-12100T,Alder Lake
+i3-12300,Alder Lake
+8500,Alder Lake
+8505,Alder Lake
+8505,Alder Lake
+G7400TE,Alder Lake
+G7400T,Alder Lake
+G7400,Alder Lake
+G7400E,Alder Lake
+G6900,Alder Lake
+G6900T,Alder Lake
+G6900TE,Alder Lake
+G6900E,Alder Lake
+7305L,Alder Lake
+7305E,Alder Lake
+7300,Alder Lake
+7305,Alder Lake
 8362,Ice Lake
+4309Y,Ice Lake
 8352M,Ice Lake
-6334,Ice Lake
+5315Y,Ice Lake
 5320,Ice Lake
 5320T,Ice Lake
 4310T,Ice Lake
@@ -1173,9 +1273,9 @@ G4900T,Coffee Lake
 6338T,Ice Lake
 4310,Ice Lake
 6342,Ice Lake
-4309Y,Ice Lake
+6348,Ice Lake
 6326,Ice Lake
-8368,Ice Lake
+6334,Ice Lake
 5317,Ice Lake
 5318Y,Ice Lake
 4316,Ice Lake
@@ -1186,7 +1286,7 @@ G4900T,Coffee Lake
 8360Y,Ice Lake
 6330,Ice Lake
 6346,Ice Lake
-6348,Ice Lake
+8368,Ice Lake
 8352V,Ice Lake
 8358P,Ice Lake
 8352S,Ice Lake
@@ -1202,6 +1302,10 @@ W-3375,Ice Lake
 W-3345,Ice Lake
 W-3335,Ice Lake
 W-3365,Ice Lake
+D-2745NX,Ice Lake
+D-2757NX,Ice Lake
+D-2777NX,Ice Lake
+D-2798NX,Ice Lake
 D-2779,Ice Lake
 D-2786NTE,Ice Lake
 D-2796TE,Ice Lake
@@ -1212,16 +1316,16 @@ D-2752NTE,Ice Lake
 D-2798NT,Ice Lake
 D-2799,Ice Lake
 D-2795NT,Ice Lake
-D-1702,Ice Lake
+D-1748TE,Ice Lake
 D-2766NT,Ice Lake
 D-2776NT,Ice Lake
 D-2753NT,Ice Lake
 D-2738,Ice Lake
 D-2733NT,Ice Lake
 D-2712T,Ice Lake
-D-1748TE,Ice Lake
+D-1713NTE,Ice Lake
 D-1747NTE,Ice Lake
-D-1713NT,Ice Lake
+D-1702,Ice Lake
 D-1734NT,Ice Lake
 D-1722NE,Ice Lake
 D-1726,Ice Lake
@@ -1232,8 +1336,8 @@ D-1712TR,Ice Lake
 D-1718T,Ice Lake
 D-1732TE,Ice Lake
 D-1715TER,Ice Lake
-D-1713NTE,Ice Lake
 D-1735TR,Ice Lake
+D-1713NT,Ice Lake
 D-1749NT,Ice Lake
 D-1746TER,Ice Lake
 D-1733NT,Ice Lake
@@ -1247,7 +1351,69 @@ i5-1030G7,Ice Lake
 i5-1035G1,Ice Lake
 i5-1035G7,Ice Lake
 i5-1035G4,Ice Lake
-i3-1000G4,Ice Lake
 i3-1005G1,Ice Lake
+i3-1000G4,Ice Lake
 i3-1000G1,Ice Lake
 6805,Ice Lake
+8470Q,Sapphire Rapids
+8452Y,Sapphire Rapids
+8450H,Sapphire Rapids
+8468H,Sapphire Rapids
+8444H,Sapphire Rapids
+8470N,Sapphire Rapids
+8490H,Sapphire Rapids
+8471N,Sapphire Rapids
+8460H,Sapphire Rapids
+8458P,Sapphire Rapids
+8461V,Sapphire Rapids
+8468V,Sapphire Rapids
+8454H,Sapphire Rapids
+8468,Sapphire Rapids
+8470,Sapphire Rapids
+6444Y,Sapphire Rapids
+5416S,Sapphire Rapids
+6421N,Sapphire Rapids
+6428N,Sapphire Rapids
+5411N,Sapphire Rapids
+5418N,Sapphire Rapids
+6448H,Sapphire Rapids
+6418H,Sapphire Rapids
+6416H,Sapphire Rapids
+6434H,Sapphire Rapids
+6458Q,Sapphire Rapids
+5412U,Sapphire Rapids
+6448Y,Sapphire Rapids
+6442Y,Sapphire Rapids
+5418Y,Sapphire Rapids
+6426Y,Sapphire Rapids
+6434,Sapphire Rapids
+6430,Sapphire Rapids
+6454S,Sapphire Rapids
+6414U,Sapphire Rapids
+5423N,Sapphire Rapids
+6438N,Sapphire Rapids
+5433N,Sapphire Rapids
+6438M,Sapphire Rapids
+4410T,Sapphire Rapids
+4410Y,Sapphire Rapids
+3408U,Sapphire Rapids
+w5-3435X,Sapphire Rapids
+w3-2425,Sapphire Rapids
+w3-2423,Sapphire Rapids
+w9-3495X,Sapphire Rapids
+w5-3425,Sapphire Rapids
+w5-2445,Sapphire Rapids
+w3-2435,Sapphire Rapids
+w7-3455,Sapphire Rapids
+w7-3445,Sapphire Rapids
+w5-2455X,Sapphire Rapids
+w9-3475X,Sapphire Rapids
+w7-2475X,Sapphire Rapids
+w7-3465X,Sapphire Rapids
+w7-2495X,Sapphire Rapids
+w5-2465X,Sapphire Rapids
+9480,Sapphire Rapids
+9470,Sapphire Rapids
+9460,Sapphire Rapids
+9468,Sapphire Rapids
+9462,Sapphire Rapids
