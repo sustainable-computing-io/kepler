@@ -155,6 +155,35 @@ func getArm64Architecture() (string, error) {
 	return strings.TrimSuffix(string(output), "\n"), nil
 }
 
+func getS390xArchitecture() (string, error) {
+	// use lscpu to get CPUArchitecture
+	grep := exec.Command("grep", "Machine type:")
+	output := exec.Command("lscpu")
+	pipe, err := output.StdoutPipe()
+	if err != nil {
+		return "", err
+	}
+	defer pipe.Close()
+
+	grep.Stdin = pipe
+	err = output.Start()
+	if err != nil {
+		return "", err
+	}
+	res, err := grep.Output()
+	if err != nil {
+		return "", err
+	}
+
+	// format the CPUArchitecture result
+	uarch := strings.Split(string(res), ":")
+	if len(uarch) != 2 {
+		return "", fmt.Errorf("could not get the CPU Architecture")
+	}
+
+	return fmt.Sprintf("zSystems model %s", strings.TrimSpace(uarch[1])), nil
+}
+
 func getCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
 	cpuArchOverride := config.CPUArchOverride
@@ -172,6 +201,8 @@ func getCPUArchitecture() (string, error) {
 		if err != nil {
 			return "", err
 		}
+	} else if runtime.GOARCH == "s390x" {
+		return getS390xArchitecture()
 	} else {
 		myCPUModel, err = getArm64Architecture()
 		if err != nil {
