@@ -34,6 +34,7 @@ func InitEstimateFunctions(usageMetrics, systemFeatures, systemValues []string) 
 	InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues)
 	InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues)
 	InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues)
+	InitProcessPowerEstimator(usageMetrics, systemFeatures, systemValues)
 }
 
 // initEstimateFunction called by InitEstimateFunctions to initiate estimate function for each power model
