@@ -36,8 +36,9 @@ var (
 	defaultCounterDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CounterOnly/ScikitMixed/ScikitMixed.json"
 )
 
-//nolint:all
 // initProcessComponentPowerModelConfig: the Process component power model must be set by default.
+//
+//nolint:all
 func initProcessComponentPowerModelConfig() types.ModelConfig {
 	modelConfig := InitModelConfig(config.ProcessComponentsKey)
 	if modelConfig.InitModelURL == "" {
