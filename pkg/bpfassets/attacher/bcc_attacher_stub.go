@@ -70,7 +70,7 @@ type BpfModuleTables struct {
 
 var (
 	Counters                = map[string]perfCounter{}
-	HardwareCountersEnabled = false
+	HardwareCountersEnabled = true
 )
 
 func AttachBPFAssets() (*BpfModuleTables, error) {
