@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
@@ -149,6 +150,7 @@ var _ = Describe("Test Collector Unit", func() {
 	})
 
 	It("Get container power", func() {
+		attacher.HardwareCountersEnabled = false
 		// update container and node metrics
 		metricCollector.updateAcceleratorMetrics()
 		metricCollector.updateNodeResourceUsage()

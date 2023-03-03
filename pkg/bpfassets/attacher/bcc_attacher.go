@@ -53,7 +53,7 @@ var (
 		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 	}
-	HardwareCountersEnabled = false
+	HardwareCountersEnabled = true
 	bpfPerfArrayPrefix      = "_hc_reader"
 )
 
@@ -97,6 +97,9 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 			// some hypervisors don't expose perf counters
 			klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
 			counter.enabled = false
+
+			// if any counter is not enabled, we need disable HardwareCountersEnabled
+			HardwareCountersEnabled = false
 		}
 	}
 	return m, err
