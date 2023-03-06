@@ -26,6 +26,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"k8s.io/klog/v2"
 )
@@ -59,7 +60,7 @@ func (c *Collector) updateBPFMetrics() {
 	var ct ProcessBPFMetrics
 	for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
 		data := it.Leaf()
-		err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &ct)
+		err := binary.Read(bytes.NewBuffer(data), utils.DetermineHostByteOrder(), &ct)
 		if err != nil {
 			klog.V(5).Infof("failed to decode received data: %v", err)
 			continue
