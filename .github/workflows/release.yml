@@ -35,7 +35,6 @@ jobs:
               ref: 'refs/tags/${{ github.event.inputs.tag }}',
               sha: context.sha
             })
-      
 
       - name: Create Release
         id: create_release
@@ -47,6 +46,39 @@ jobs:
           release_name: ${{ github.event.inputs.release }}
           draft: false
           prerelease: false
+
+      - name: Create RPM spec for the release
+        id: build_spec_file
+        run: |
+          cp -R  packaging/rpm/kepler.spec packaging/rpm/kepler_build.spec
+
+          echo "%global _VERSION_ ${{ github.event.inputs.tag }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+          echo "%global _RELEASE_ ${{ github.event.inputs.release }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+          echo "%global _COMMITTER_ ${{ github.event.pull_request.head.sha }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+          echo "%global _TIMESTAMP_ ${{ steps.date.outputs.date }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+          echo "%global _CHANGELOG_ ${{ github.event.head_commit.message }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+
+          ls -la packaging/rpm/kepler_build.spec
+
+      - name: Build RPM package
+        id: rpm_build
+        uses: naveenrajm7/rpmbuild@master
+        env:
+          VERSION : ${{ github.event.inputs.tag }}
+          RELEASE: ${{ github.event.inputs.release }}
+        with:
+            spec_file: "packaging/rpm/kepler_build.spec"
+          
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            asset_path: ${{ steps.rpm_build.outputs.source_rpm_path }}
+            asset_name: ${{ steps.rpm_build.outputs.source_rpm_name }}
+            asset_content_type: ${{ steps.rpm_build.outputs.rpm_content_type }}
 
   
   create-release-branch:
