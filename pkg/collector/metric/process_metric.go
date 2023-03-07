@@ -100,6 +100,9 @@ func (p *ProcessMetrics) ResetDeltaValues() {
 	for counterKey := range p.CounterStats {
 		p.CounterStats[counterKey].ResetDeltaValues()
 	}
+	for i := 0; i < config.MaxIRQ; i++ {
+		p.SoftIRQCount[i].ResetDeltaValues()
+	}
 	p.DynEnergyInCore.ResetDeltaValues()
 	p.DynEnergyInDRAM.ResetDeltaValues()
 	p.DynEnergyInUncore.ResetDeltaValues()
