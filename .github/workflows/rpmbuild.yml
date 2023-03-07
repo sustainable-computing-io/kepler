@@ -17,7 +17,7 @@ on:
         required: true
       release:
         description: "Release name, e.g. 0.4"
-        default: 0.4
+        default: "0.4"
         required: true
 
 jobs:

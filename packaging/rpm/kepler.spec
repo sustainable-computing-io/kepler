@@ -1,6 +1,6 @@
 Name:           kepler
-Version:        0.4
-Release:        standalone
+Version:        standalone
+Release:        0.4
 Summary:        Kepler Binary
 
 License:        Apache License 2.0
@@ -10,7 +10,7 @@ Source0:        https://github.com/sustainable-computing-io/kepler/archive/refs/
 
 
 BuildRequires: gcc
-
+BuildRequires: systemd
 BuildRequires: make
  
 Requires:       cpuid
@@ -19,6 +19,8 @@ Requires:       xz
 Requires:       python3  
 Requires:       bcc-devel
 Requires:       bcc
+
+%{?systemd_requires}
 
 %description
 Kubernetes-based Efficient Power Level Exporter
@@ -43,17 +45,25 @@ make _build_local GOOS=${GOOS} GOARCH=${GOARCH}
 
 cp ./${CROSS_BUILD_BINDIR}/${GOOS}_${GOARCH}/kepler ./_output/kepler
 
-
-
-
 %install
 
-mkdir -p %{buildroot}%{_bindir}
-cp -r ./_output/kepler  %{buildroot}%{_bindir}/kepler
+install -d %{buildroot}%{_unitdir}
+install -d %{buildroot}%{_bindir}
+install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
+install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepler.service
+
+
+%post
+
+%systemd_post kepler.service
 
 %files
-/usr/bin/kepler
+%license LICENSE
+%{_bindir}/kepler
+%{_unitdir}/kepler.service
+
 
 %changelog
 * Wed Feb 08 2023 Parul <parsingh@redhat.com>
-- 
+- Initial packaging
+
