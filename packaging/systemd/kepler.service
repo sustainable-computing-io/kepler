@@ -3,6 +3,7 @@ Description=Kepler
 
 [Service]
 WorkingDirectory=/usr/bin/
+EnvironmentFile=/etc/kepler/kepler.config
 ExecStart=kepler
 Restart=always
 User=root

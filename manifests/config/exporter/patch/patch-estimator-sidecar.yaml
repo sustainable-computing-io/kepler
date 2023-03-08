@@ -32,7 +32,7 @@ spec:
         name: estimator
         volumeMounts:
         - name: cfm
-          mountPath: /etc/config
+          mountPath: /etc/kepler/kepler.config
           readOnly: true
         - mountPath: /tmp
           name: tmp

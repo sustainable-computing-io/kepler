@@ -78,7 +78,7 @@ spec:
         - mountPath: /proc
           name: proc
         - name: cfm
-          mountPath: /etc/config
+          mountPath: /etc/kepler/kepler.config
           readOnly: true
         env:
         - name: NODE_NAME
