@@ -1,18 +1,20 @@
+%undefine _disable_source_fetch
+
 Name:           kepler
-Version:        standalone
-Release:        0.4
+Version:        %{_VERSION_}
+Release:        %{_RELEASE_}
 Summary:        Kepler Binary
 
 License:        Apache License 2.0
 URL:            https://github.com/sustainable-computing-io/kepler/
-Source0:        https://github.com/sustainable-computing-io/kepler/archive/refs/tags/standalone.tar.gz
+Source0:        https://github.com/sustainable-computing-io/kepler/archive/refs/tags/%{_VERSION_}.tar.gz
 
 
 
 BuildRequires: gcc
 BuildRequires: systemd
 BuildRequires: make
- 
+
 Requires:       cpuid
 Requires:       kmod
 Requires:       xz
@@ -64,6 +66,5 @@ install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepl
 
 
 %changelog
-* Wed Feb 08 2023 Parul <parsingh@redhat.com>
-- Initial packaging
-
+* %{_TIMESTAMP_} %{_COMMITTER_} 
+- %{_CHANGELOG_}
