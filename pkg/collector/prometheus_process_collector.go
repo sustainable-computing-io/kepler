@@ -44,6 +44,11 @@ type processDesc struct {
 
 	// Additional metrics (gauge)
 	processCPUTime *prometheus.Desc
+
+	// IRQ metrics
+	processNetTxIRQTotal *prometheus.Desc
+	processNetRxIRQTotal *prometheus.Desc
+	processBlockIRQTotal *prometheus.Desc
 }
 
 // describeProcess is called by Describe to implement the prometheus.Collector interface
@@ -64,6 +69,12 @@ func (p *PrometheusCollector) describeProcess(ch chan<- *prometheus.Desc) {
 		ch <- p.processDesc.processCPUCyclesTotal
 		ch <- p.processDesc.processCPUInstrTotal
 		ch <- p.processDesc.processCacheMissTotal
+	}
+
+	if config.ExposeIRQCounterMetrics {
+		ch <- p.processDesc.processNetTxIRQTotal
+		ch <- p.processDesc.processNetRxIRQTotal
+		ch <- p.processDesc.processBlockIRQTotal
 	}
 }
 
@@ -127,6 +138,23 @@ func (p *PrometheusCollector) newprocessMetrics() {
 		"Aggregated CPU time",
 		[]string{"pid", "command"}, nil)
 
+	// network irq metrics
+	processNetTxIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "process", "bpf_net_tx_irq_total"),
+		"Aggregated network tx irq value obtained from BPF",
+		[]string{"pid", "command"}, nil,
+	)
+	processNetRxIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "process", "bpf_net_rx_irq_total"),
+		"Aggregated network rx irq value obtained from BPF",
+		[]string{"pid", "command"}, nil,
+	)
+	processBlockIRQTotal := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "process", "bpf_block_irq_total"),
+		"Aggregated block irq value obtained from BPF",
+		[]string{"pid", "command"}, nil,
+	)
+
 	p.processDesc = &processDesc{
 		processCoreJoulesTotal:            processCoreJoulesTotal,
 		processUncoreJoulesTotal:          processUncoreJoulesTotal,
@@ -139,6 +167,9 @@ func (p *PrometheusCollector) newprocessMetrics() {
 		processCPUInstrTotal:              processCPUInstrTotal,
 		processCacheMissTotal:             processCacheMissTotal,
 		processCPUTime:                    processCPUTime,
+		processNetTxIRQTotal:              processNetTxIRQTotal,
+		processNetRxIRQTotal:              processNetRxIRQTotal,
+		processBlockIRQTotal:              processBlockIRQTotal,
 	}
 }
 
@@ -279,6 +310,26 @@ func (p *PrometheusCollector) updateProcessMetrics(wg *sync.WaitGroup, ch chan<-
 						pidStr, processCommand,
 					)
 				}
+			}
+			if config.ExposeIRQCounterMetrics {
+				ch <- prometheus.MustNewConstMetric(
+					p.processDesc.processNetTxIRQTotal,
+					prometheus.CounterValue,
+					float64(process.SoftIRQCount[attacher.IRQNetTX].Aggr),
+					pidStr, processCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.processDesc.processNetRxIRQTotal,
+					prometheus.CounterValue,
+					float64(process.SoftIRQCount[attacher.IRQNetRX].Aggr),
+					pidStr, processCommand,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					p.processDesc.processBlockIRQTotal,
+					prometheus.CounterValue,
+					float64(process.SoftIRQCount[attacher.IRQBlock].Aggr),
+					pidStr, processCommand,
+				)
 			}
 		}(pid, process)
 	}

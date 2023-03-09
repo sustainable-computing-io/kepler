@@ -121,6 +121,11 @@ func (c *Collector) updateBPFMetrics() {
 				if err = c.ProcessMetrics[ct.PID].CounterStats[counterKey].AddNewDelta(val); err != nil {
 					klog.V(5).Infoln(err)
 				}
+				for i := 0; i < config.MaxIRQ; i++ {
+					if err = c.ProcessMetrics[ct.PID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+						klog.V(5).Infoln(err)
+					}
+				}
 			}
 		}
 
