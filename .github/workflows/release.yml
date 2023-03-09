@@ -18,9 +18,6 @@ jobs:
     name: Upload Release Asset
     runs-on: ubuntu-latest
     steps:
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
 
       - name: Checkout code
         uses: actions/checkout@v2
@@ -35,6 +32,7 @@ jobs:
               ref: 'refs/tags/${{ github.event.inputs.tag }}',
               sha: context.sha
             })
+      
 
       - name: Create Release
         id: create_release
@@ -47,6 +45,40 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Install go and fmt
+        run: | 
+
+          # Install rpm build dependencies
+          sudo apt-get install -y golang-1.18-go
+          sudo apt-get install -y make
+          sudo apt-get install -y gcc
+
+          sudo echo deb http://cloudfront.debian.net/debian sid main >> sudo /etc/apt/sources.list
+          sudo apt-get install -y bpfcc-tools libbpfcc libbpfcc-dev linux-headers-$(uname -r)
+
+          # This is for debug. Will be removed later
+          go version
+          which go
+          go help
+          GOARCH=amd64
+          GOOS=linux
+          CROSS_BUILD_BINDIR=_output/bin
+          make _build_local GOOS=${GOOS} GOARCH=${GOARCH}
+
+          ls -la _output/bin/linux_amd64
+          cp ./${CROSS_BUILD_BINDIR}/${GOOS}_${GOARCH}/kepler ./_output/kepler
+          # This is for debug. Will be removed later
+
+
+
+      - name: Install RPM build dependencies
+        run: sudo apt-get install -y rpm
+
+      - name: Create RPM directory structure
+        run: |
+           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+           echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros
+
       - name: Create RPM spec for the release
         id: build_spec_file
         run: |
@@ -54,20 +86,27 @@ jobs:
 
           echo "%global _VERSION_ ${{ github.event.inputs.tag }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
           echo "%global _RELEASE_ ${{ github.event.inputs.release }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _COMMITTER_ ${{ github.event.pull_request.head.sha }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _TIMESTAMP_ ${{ steps.date.outputs.date }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _CHANGELOG_ ${{ github.event.head_commit.message }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
+          cp -R packaging/rpm/kepler_build.spec $HOME/rpmbuild/SPECS
 
+          
           ls -la packaging/rpm/kepler_build.spec
+          ls -la $HOME/rpmbuild/SPECS
+
+      
+
+       
 
       - name: Build RPM package
-        id: rpm_build
-        uses: naveenrajm7/rpmbuild@master
-        env:
-          VERSION : ${{ github.event.inputs.tag }}
-          RELEASE: ${{ github.event.inputs.release }}
+        run: |
+          rpmbuild -ba $HOME/rpmbuild/SPECS/kepler_build.spec
+          ls -la $HOME/rpmbuild/RPMS
+  
+      
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v2
         with:
-            spec_file: "packaging/rpm/kepler_build.spec"
+          name: kepler-${{ github.event.inputs.tag }}-${{ github.event.inputs.release }}-x86_64.rpm
+          path: $HOME/rpmbuild/RPMS/x86_64/kepler-${{ github.event.inputs.tag }}-${{ github.event.inputs.release }}-x86_64.rpm
           
       - name: Upload Release Asset
         id: upload-release-asset 
@@ -76,41 +115,40 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
             upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ${{ steps.rpm_build.outputs.source_rpm_path }}
-            asset_name: ${{ steps.rpm_build.outputs.source_rpm_name }}
-            asset_content_type: ${{ steps.rpm_build.outputs.rpm_content_type }}
 
   
-  create-release-branch:
-    name: Create release branch
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps: 
-    - name: Create release branch
-      uses: peterjgrainger/action-create-branch@v2.2.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        branch: ${{ github.event.inputs.release }}
-        sha: '${{ github.event.pull_request.head.sha }}'
+  
+  # This is for debug. Will be uncommented later
+  # create-release-branch:
+  #   name: Create release branch
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   steps: 
+  #   - name: Create release branch
+  #     uses: peterjgrainger/action-create-branch@v2.2.0
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     with:
+  #       branch: ${{ github.event.inputs.release }}
+  #       sha: '${{ github.event.pull_request.head.sha }}'
       
   
-  push-image:
-    name: Push image to the registry
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Login to Quay
-      uses: docker/login-action@v1
-      with:
-        registry: quay.io/sustainable_computing_io
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
-    - name: make container
-      run: make
-    - name: push to quay
-      run: |
-        podman tag quay.io/sustainable_computing_io/kepler:latest quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
-        podman push quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
+  # push-image:
+  #   name: Push image to the registry
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v3
+  #   - name: Login to Quay
+  #     uses: docker/login-action@v1
+  #     with:
+  #       registry: quay.io/sustainable_computing_io
+  #       username: ${{ secrets.BOT_NAME }}
+  #       password: ${{ secrets.BOT_TOKEN }}
+  #   - name: make container
+  #     run: make
+  #   - name: push to quay
+  #     run: |
+  #       podman tag quay.io/sustainable_computing_io/kepler:latest quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
+  #       podman push quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}

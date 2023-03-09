@@ -1,5 +1,10 @@
 %undefine _disable_source_fetch
 
+# golang specifics
+%global golang_version 1.18
+
+%global debug_package %{nil} 
+
 Name:           kepler
 Version:        %{_VERSION_}
 Release:        %{_RELEASE_}
@@ -10,8 +15,8 @@ URL:            https://github.com/sustainable-computing-io/kepler/
 Source0:        https://github.com/sustainable-computing-io/kepler/archive/refs/tags/%{_VERSION_}.tar.gz
 
 
-
 BuildRequires: gcc
+BuildRequires: golang >= %{golang_version}
 BuildRequires: systemd
 BuildRequires: make
 
@@ -27,10 +32,9 @@ Requires:       bcc
 %description
 Kubernetes-based Efficient Power Level Exporter
 
-# golang specifics
-%global golang_version 1.19
 
-%global debug_package %{nil} 
+
+
 %prep
 %autosetup
 
@@ -57,7 +61,6 @@ install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepler.service
 install -p m755 ./packaging/systemd/kepler.conf %{buildroot}%{_sysconfdir}/kepler/kepler.conf
 
-
 %post
 
 %systemd_post kepler.service
@@ -66,9 +69,7 @@ install -p m755 ./packaging/systemd/kepler.conf %{buildroot}%{_sysconfdir}/keple
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
-%{buildroot}%{_sysconfdir}/kepler/kepler.conf
-
 
 %changelog
-* %{_TIMESTAMP_} %{_COMMITTER_} 
-- %{_CHANGELOG_}
+* Wed Mar 08 2023 Parul Singh <parsingh@redhat.com> 0.4.0
+- Initial packaging
