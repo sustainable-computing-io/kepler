@@ -82,7 +82,7 @@ var (
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
-	configPath = "/etc/config"
+	configPath = "/etc/kepler/kepler.config"
 
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)

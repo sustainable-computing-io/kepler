@@ -51,8 +51,11 @@ cp ./${CROSS_BUILD_BINDIR}/${GOOS}_${GOARCH}/kepler ./_output/kepler
 
 install -d %{buildroot}%{_unitdir}
 install -d %{buildroot}%{_bindir}
+install -d %{buildroot}%{_sysconfdir}/kepler/
+
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepler.service
+install -p m755 ./packaging/systemd/kepler.conf %{buildroot}%{_sysconfdir}/kepler/kepler.conf
 
 
 %post
@@ -63,6 +66,7 @@ install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepl
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
+%{buildroot}%{_sysconfdir}/kepler/kepler.conf
 
 
 %changelog

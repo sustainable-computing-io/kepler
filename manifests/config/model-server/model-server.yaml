@@ -46,7 +46,7 @@ spec:
           name: http
         volumeMounts:
           - name: cfm
-            mountPath: /etc/config
+            mountPath: /etc/kepler/kepler.config
             readOnly: true
           - name: model-data
             mountPath: /data
