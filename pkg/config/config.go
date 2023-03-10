@@ -19,7 +19,6 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strconv"
@@ -121,6 +120,7 @@ func parseYaml(dataBuf []byte, key string) string {
 	if err := yaml.Unmarshal(dataBuf, &data); err == nil {
 		for k, v := range data.(map[interface{}]interface{}) {
 			if k == key {
+				//nolint:all // ignore
 				switch v.(type) {
 				case string:
 					result = v.(string)
@@ -141,7 +141,7 @@ func parseYaml(dataBuf []byte, key string) string {
 func getConfig(configKey, defaultValue string) (result string) {
 	result = string([]byte(defaultValue))
 	key := string([]byte(configKey))
-	dataBuf, err := ioutil.ReadFile(configPath)
+	dataBuf, err := os.ReadFile(configPath)
 	if err == nil {
 		res := parseYaml(dataBuf, key)
 		if res != "" {
