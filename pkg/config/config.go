@@ -19,11 +19,13 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
@@ -112,20 +114,47 @@ func getBoolConfig(configKey string, defaultBool bool) bool {
 	}
 	return strings.ToLower(getConfig(configKey, defaultValue)) == "true"
 }
+func parseYaml(dataBuf []byte, key string) string {
+	// convert buffer to yaml and parse it into a map
+	var data interface{}
+	result := ""
+	if err := yaml.Unmarshal(dataBuf, &data); err == nil {
+		for k, v := range data.(map[interface{}]interface{}) {
+			if k == key {
+				switch v.(type) {
+				case string:
+					result = v.(string)
+				case int:
+					result = strconv.Itoa(v.(int))
+				case bool:
+					result = strconv.FormatBool(v.(bool))
+				default:
+					klog.Errorf("unknown type for config key: %s, value: %v", key, v)
+				}
+			}
+		}
+	}
+
+	return result
+}
 
 func getConfig(configKey, defaultValue string) (result string) {
 	result = string([]byte(defaultValue))
 	key := string([]byte(configKey))
-	configFile := filepath.Join(configPath, key)
-	value, err := os.ReadFile(configFile)
+	dataBuf, err := ioutil.ReadFile(configPath)
 	if err == nil {
-		result = bytes.NewBuffer(value).String()
-	} else {
-		strValue, present := os.LookupEnv(key)
-		if present {
-			result = strValue
+		res := parseYaml(dataBuf, key)
+		if res != "" {
+			result = res
+			return
 		}
 	}
+	// if not in the config file, then read from env
+	strValue, present := os.LookupEnv(key)
+	if present {
+		result = strValue
+	}
+
 	return
 }
 
