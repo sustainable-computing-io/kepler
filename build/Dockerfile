@@ -1,9 +1,5 @@
-ARG ARCH=amd64
-
 FROM quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18 as builder
 
-
-ARG MAKE_TARGET=cross-build-linux-$ARCH
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
 
@@ -20,16 +16,14 @@ COPY . .
 RUN mkdir -p data
 
 # Build kepler
-RUN make clean $MAKE_TARGET SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
-
+RUN make build SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
+RUN ls ./_output/bin
 # RUN make test
 
 # build image
 FROM quay.io/sustainable_computing_io/kepler_base:cuda-11.8.0-base-ubi8-bcc-0.24
 
-ARG ARCH=amd64
-
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/linux_$ARCH/kepler /usr/bin/kepler
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 
 RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
