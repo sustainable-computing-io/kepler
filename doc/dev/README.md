@@ -44,7 +44,7 @@ OPTS="ROOTLESS" make build-manifest
 
 Then build images:
 ```bash
-make _build_containerized
+make build_containerized
 make push-image
 ```
 

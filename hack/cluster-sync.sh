@@ -37,7 +37,7 @@ function main() {
     ./hack/cluster-clean.sh &
     CLEAN_PID=$!
 
-    make _build_containerized
+    make build_containerized
     make push-image
 
     echo "waiting for cluster-clean to finish"
