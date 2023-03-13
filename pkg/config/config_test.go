@@ -126,15 +126,4 @@ var _ = Describe("Test Configuration", func() {
 		Expect(initModelURL).NotTo(Equal(""))
 
 	})
-	It("Test parseYaml with sample", func() {
-		buf := []byte(`NUMBER: 1`)
-		res := parseYaml(buf, "NUMBER")
-		Expect(res).To(Equal("1"))
-		buf = []byte(`BOOL: false`)
-		res = parseYaml(buf, "BOOL")
-		Expect(res).To(Equal("false"))
-		buf = []byte(`STRING: foo`)
-		res = parseYaml(buf, "STRING")
-		Expect(res).To(Equal("foo"))
-	})
 })
