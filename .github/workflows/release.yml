@@ -90,7 +90,7 @@ jobs:
           _CHANGELOG_: ${{ github.event.inputs.changelog }}
           _ARCH_: ${{ github.event.inputs.arch }}
         run: |
-          make build_rpm
+          make containerized_build_rpm
           
       - if: startsWith(github.event.ref, 'refs/tags/')
         name: Release
