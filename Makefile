@@ -18,6 +18,12 @@ else
 	IMAGE_REPO := quay.io/sustainable_computing_io
 endif
 
+ifdef BUILDER_IMAGE
+	BUILDER_IMAGE := $(BUILD_IMAGE)
+else
+	BUILDER_IMAGE := quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18
+endif
+
 ifdef IMAGE_TAG
 	IMAGE_TAG := $(IMAGE_TAG)
 else
@@ -129,6 +135,16 @@ _build_local: tidy-vendor format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -v -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
+
+container_build: tidy-vendor format
+	$(CTR_CMD) run --rm \
+		-v $(base_dir):/kepler:Z -w /kepler \
+		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
+		$(BUILDER_IMAGE) \
+		make build
+
+build_rpm: 
+	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
 
 clean_build_local:
 	rm -rf $(CROSS_BUILD_BINDIR)
