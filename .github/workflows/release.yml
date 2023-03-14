@@ -75,8 +75,8 @@ jobs:
         uses: softprops/action-gh-release@master
         with:
             files: |
-              kepler-*.rpm
-              /root/rpmbuild/RPMs/x86_64/kepler-*.rpm
+              kepler-*.rpm.tar.gz
+              /root/rpmbuild/RPMs/
   
   create-release-branch:
     name: Create release branch
