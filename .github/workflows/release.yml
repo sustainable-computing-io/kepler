@@ -87,10 +87,10 @@ jobs:
           _VERSION_ : ${{ github.event.inputs.rpm_version }}
           _RELEASE_: ${{ github.event.inputs.rpm_release }}
           _COMMITTER_: ${{ github.event.inputs.committer }}
-          _TIMESTAMP_: ${{ steps.date.outputs.date }}
           _CHANGELOG_: ${{ github.event.inputs.changelog }}
           _ARCH_: ${{ github.event.inputs.arch }}
-        run: make build_rpm
+        run: |
+          make build_rpm
           
       - if: startsWith(github.event.ref, 'refs/tags/')
         name: Release
