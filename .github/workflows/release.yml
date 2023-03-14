@@ -91,14 +91,16 @@ jobs:
           _ARCH_: ${{ github.event.inputs.arch }}
         run: |
           make containerized_build_rpm
+          cd _output/rpmbuild/
+          sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
           
       - if: startsWith(github.event.ref, 'refs/tags/')
         name: Release
         uses: softprops/action-gh-release@master
         with:
             files: |
-              kepler-*.rpm.tar.gz
-              /root/rpmbuild/RPMs/
+              kepler.rpm.tar.gz
+              /tmp/kepler.rpm.tar.gz
   
   create-release-branch:
     name: Create release branch
