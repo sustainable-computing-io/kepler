@@ -147,7 +147,7 @@ build_rpm:
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
 
 containerized_build_rpm:
-	@mkdir -p "/root/rpmbuild"
+	sudo mkdir -p /root/rpmbuild
 	$(CTR_CMD) run --rm \
 		-v $(base_dir):/kepler:Z -w /kepler -v /root/rpmbuild:/root/rpmbuild \
 		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} -e _ARCH_=${_ARCH_} \
