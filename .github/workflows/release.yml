@@ -11,6 +11,27 @@ on:
         description: "Release name, e.g. release-0.4"
         default: release-0.4
         required: true
+      rpm_version:
+        description: "rpm version, e.g. 0.4"
+        default: 0.4
+        required: true
+      rpm_release:
+        description: "rpm release, e.g. 1"
+        default: 1
+        required: true
+      committer:
+        description: "rpm committer, e.g. gh-actions"
+        default: "gh-actions"
+        required: false
+      changelog:
+        description: "rpm changelog, e.g. new release"
+        default: "new release"
+        required: false
+      arch:
+        description: "rpm arch, e.g. x86_64"
+        default: "x86_64"
+        required: false
+
 
 
 jobs:
@@ -63,11 +84,12 @@ jobs:
       - name: Build RPM package
         id: rpm_build
         env:
-          _VERSION_ : ${{ github.event.inputs.tag }}
-          _RELEASE_: ${{ github.event.inputs.release }}
-          _COMMITTER_: ${{ github.event.pull_request.head.sha }}
+          _VERSION_ : ${{ github.event.inputs.rpm_version }}
+          _RELEASE_: ${{ github.event.inputs.rpm_release }}
+          _COMMITTER_: ${{ github.event.inputs.committer }}
           _TIMESTAMP_: ${{ steps.date.outputs.date }}
-          _CHANGELOG_: ${{ github.event.head_commit.message }}
+          _CHANGELOG_: ${{ github.event.inputs.changelog }}
+          _ARCH_: ${{ github.event.inputs.arch }}
         run: make build_rpm
           
       - if: startsWith(github.event.ref, 'refs/tags/')
