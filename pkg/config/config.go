@@ -105,6 +105,22 @@ var (
 	////////////////////////////////////
 )
 
+func logBoolConfigs() {
+	if klog.V(5).Enabled() {
+		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
+		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
+		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessMetrics)
+		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
+		klog.V(5).Infof("EXPOSE_CGROUP_METRICS %t:", ExposeCgroupMetrics)
+		klog.V(5).Infof("EXPOSE_KUBELET_METRICS %t:", ExposeKubeletMetrics)
+		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS %t:", ExposeIRQCounterMetrics)
+	}
+}
+
+func LogConfigs() {
+	logBoolConfigs()
+}
+
 func getBoolConfig(configKey string, defaultBool bool) bool {
 	defaultValue := "false"
 	if defaultBool {
