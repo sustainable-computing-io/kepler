@@ -143,6 +143,9 @@ container_build: tidy-vendor format
 		$(BUILDER_IMAGE) \
 		make build
 
+build_rpm: 
+	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
+
 clean_build_local:
 	rm -rf $(CROSS_BUILD_BINDIR)
 
