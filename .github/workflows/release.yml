@@ -94,8 +94,7 @@ jobs:
           cd _output/rpmbuild/
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
           
-      - if: startsWith(github.event.ref, 'refs/tags/')
-        name: Release
+      - name: release rpm
         uses: softprops/action-gh-release@master
         with:
             files: |
