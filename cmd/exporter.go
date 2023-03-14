@@ -154,6 +154,8 @@ func main() {
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
 
+	config.LogConfigs()
+
 	cgroup.SetSliceHandler()
 
 	components.InitPowerImpl()
