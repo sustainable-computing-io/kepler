@@ -68,6 +68,27 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Build RPM packages
+        id: rpm_build
+        env:
+          _VERSION_ : ${{ github.event.inputs.rpm_version }}
+          _RELEASE_: ${{ github.event.inputs.rpm_release }}
+          _COMMITTER_: ${{ github.event.inputs.committer }}
+          _CHANGELOG_: ${{ github.event.inputs.changelog }}
+          _ARCH_: ${{ github.event.inputs.arch }}
+        run: |
+          make containerized_build_rpm
+          make containerized_build_container_rpm
+          cd _output/rpmbuild/
+          sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
+          
+      - name: release rpm
+        uses: softprops/action-gh-release@master
+        if: startsWith(github.ref, 'refs/heads')
+        with:
+            files: |
+              /tmp/kepler.rpm.tar.gz
+  
   create-release-branch:
     name: Create release branch
     needs: [build]
