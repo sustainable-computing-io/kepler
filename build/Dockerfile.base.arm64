@@ -1,7 +1,0 @@
-FROM --platform=linux/arm64 registry.access.redhat.com/ubi8/ubi:8.4
-
-ARG ARCH=arm64
-
-RUN yum update -y && \
-    yum install -y kmod xz python3 && yum clean all -y && \
-    pip3 install  --no-cache-dir archspec 

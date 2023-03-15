@@ -1,8 +1,0 @@
-FROM --platform=linux/s390x registry.access.redhat.com/ubi8/ubi:8.4
-
-ARG ARCH=s390x
-
-RUN yum update -y && \
-    yum install -y https://rpmfind.net/linux/opensuse/distribution/leap/15.3/repo/oss/s390x/bcc-devel-0.19.0-1.1.s390x.rpm && \
-    yum install -y kmod xz python3 && yum clean all -y && \
-    pip3 install  --no-cache-dir archspec 

@@ -8,7 +8,7 @@ SRC_ROOT :=$(shell pwd)
 OUTPUT_DIR :=_output
 CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
 FROM_SOURCE :=false
-ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
+CPU_ARCH :=$(shell uname -m |sed -e "s/x86_64/amd64/" |sed -e "s/aarch64/arm64/")
 GIT_VERSION     := $(shell git describe --dirty --tags --always --match='v*')
 VERSION         ?= $(GIT_VERSION)
 LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
