@@ -143,8 +143,11 @@ container_build: tidy-vendor format
 		$(BUILDER_IMAGE) \
 		make build
 
-build_rpm: 
+build_rpm:
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
+
+build_container_rpm:
+	rpmbuild packaging/rpm/container-kepler.spec --build-in-place -bb
 
 containerized_build_rpm:
 	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
