@@ -31,22 +31,22 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-// UpdateProcessEnergyByRatioPowerModel calculates the process energy consumption based on the energy consumption of the container that contains all the processes
-func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_metric.ProcessMetrics, containerMetrics *collector_metric.ContainerMetrics) {
-	pkgDynPower := float64(containerMetrics.DynEnergyInPkg.Delta)
-	coreDynPower := float64(containerMetrics.DynEnergyInCore.Delta)
-	uncoreDynPower := float64(containerMetrics.DynEnergyInUncore.Delta)
-	dramDynPower := float64(containerMetrics.DynEnergyInDRAM.Delta)
-	otherDynPower := float64(containerMetrics.DynEnergyInOther.Delta)
-	gpuDynPower := float64(containerMetrics.DynEnergyInGPU.Delta)
+// UpdateProcessEnergyByRatioPowerModel calculates the process energy consumption based on the energy consumption of the container that contains all the processes (which is a special container metrics for all system processes)
+func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_metric.ProcessMetrics, systemProcessMetrics *collector_metric.ContainerMetrics) {
+	pkgDynPower := float64(systemProcessMetrics.DynEnergyInPkg.Delta)
+	coreDynPower := float64(systemProcessMetrics.DynEnergyInCore.Delta)
+	uncoreDynPower := float64(systemProcessMetrics.DynEnergyInUncore.Delta)
+	dramDynPower := float64(systemProcessMetrics.DynEnergyInDRAM.Delta)
+	otherDynPower := float64(systemProcessMetrics.DynEnergyInOther.Delta)
+	gpuDynPower := float64(systemProcessMetrics.DynEnergyInGPU.Delta)
 
 	processNumber := float64(len(processMetrics))
 	// evenly divide the idle power to all processes. TODO: use the process resource request
-	pkgIdlePowerPerProcess := containerMetrics.IdleEnergyInPkg.Delta / uint64(processNumber)
-	coreIdlePowerPerProcess := containerMetrics.IdleEnergyInCore.Delta / uint64(processNumber)
-	uncoreIdlePowerPerProcess := containerMetrics.IdleEnergyInUncore.Delta / uint64(processNumber)
-	dramIdlePowerPerProcess := containerMetrics.IdleEnergyInDRAM.Delta / uint64(processNumber)
-	otherIdlePowerPerProcess := containerMetrics.IdleEnergyInOther.Delta / uint64(processNumber)
+	pkgIdlePowerPerProcess := systemProcessMetrics.IdleEnergyInPkg.Delta / uint64(processNumber)
+	coreIdlePowerPerProcess := systemProcessMetrics.IdleEnergyInCore.Delta / uint64(processNumber)
+	uncoreIdlePowerPerProcess := systemProcessMetrics.IdleEnergyInUncore.Delta / uint64(processNumber)
+	dramIdlePowerPerProcess := systemProcessMetrics.IdleEnergyInDRAM.Delta / uint64(processNumber)
+	otherIdlePowerPerProcess := systemProcessMetrics.IdleEnergyInOther.Delta / uint64(processNumber)
 
 	for pid, process := range processMetrics {
 		var processResUsage, containerTotalResUsage float64
@@ -54,7 +54,7 @@ func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_m
 		// calculate the process package/socket energy consumption
 		if _, ok := process.CounterStats[config.CoreUsageMetric]; ok {
 			processResUsage = float64(process.CounterStats[config.CoreUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.CoreUsageMetric].Delta)
+			containerTotalResUsage = float64(systemProcessMetrics.CounterStats[config.CoreUsageMetric].Delta)
 			processPkgEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, pkgDynPower, processNumber)
 			if err := processMetrics[pid].DynEnergyInPkg.AddNewDelta(processPkgEnergy); err != nil {
 				klog.Infoln(err)
@@ -75,7 +75,7 @@ func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_m
 		// calculate the process dram energy consumption
 		if _, ok := process.CounterStats[config.DRAMUsageMetric]; ok {
 			processResUsage = float64(process.CounterStats[config.DRAMUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.DRAMUsageMetric].Delta)
+			containerTotalResUsage = float64(systemProcessMetrics.CounterStats[config.DRAMUsageMetric].Delta)
 			processDramEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, dramDynPower, processNumber)
 			if err := processMetrics[pid].DynEnergyInDRAM.AddNewDelta(processDramEnergy); err != nil {
 				klog.Infoln(err)
@@ -85,7 +85,7 @@ func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_m
 		// calculate the process gpu energy consumption
 		if accelerator.IsGPUCollectionSupported() {
 			processResUsage = float64(process.CounterStats[config.GpuUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.GpuUsageMetric].Delta)
+			containerTotalResUsage = float64(systemProcessMetrics.CounterStats[config.GpuUsageMetric].Delta)
 			processGPUEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, gpuDynPower, processNumber)
 			if err := processMetrics[pid].DynEnergyInGPU.AddNewDelta(processGPUEnergy); err != nil {
 				klog.Infoln(err)
