@@ -83,11 +83,14 @@ jobs:
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
           
       - name: release rpm
-        uses: softprops/action-gh-release@master
-        if: startsWith(github.ref, 'refs/heads')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-            files: |
-              /tmp/kepler.rpm.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: /tmp/kepler.rpm.tar.gz
+          asset_name: kepler.rpm.tar.gz
+          asset_content_type: application/gzip
   
   create-release-branch:
     name: Create release branch
