@@ -159,6 +159,14 @@ containerized_build_rpm:
 		$(BUILDER_IMAGE) \
 		make build_rpm
 
+containerized_build_container_rpm:
+	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
+	$(CTR_CMD) run --rm \
+		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/root/rpmbuild \
+		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} \
+		$(BUILDER_IMAGE) \
+		make build_container_rpm
+
 clean_build_local:
 	rm -rf $(CROSS_BUILD_BINDIR)
 

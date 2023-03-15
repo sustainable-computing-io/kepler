@@ -1,9 +1,9 @@
 %undefine _disable_source_fetch
 
-Name:           kepler
+Name:           container-kepler
 Version:        %{getenv:_VERSION_}
 Release:        %{getenv:_RELEASE_}
-Summary:        Kepler Binary
+Summary:        Containerized Kepler
 
 License:        Apache License 2.0
 URL:            https://github.com/sustainable-computing-io/kepler/
