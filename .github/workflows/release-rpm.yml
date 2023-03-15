@@ -1,61 +1,16 @@
-name: Release
+name: Release RPM
+
 on:
-  workflow_dispatch:
-    # Inputs the workflow accepts.
-    inputs:
-      tag:
-        description: "Tag name, e.g. v0.4"
-        default: v0.4
-        required: true
-      release:
-        description: "Release name, e.g. release-0.4"
-        default: release-0.4
-        required: true
-      rpm_version:
-        description: "rpm version, e.g. 0.4"
-        default: 0.4
-        required: true
-      rpm_release:
-        description: "rpm release, e.g. 1"
-        default: 1
-        required: true
-      committer:
-        description: "rpm committer, e.g. gh-actions"
-        default: "gh-actions"
-        required: false
-      changelog:
-        description: "rpm changelog, e.g. new release"
-        default: "new release"
-        required: false
-      arch:
-        description: "rpm arch, e.g. x86_64"
-        default: "x86_64"
-        required: false
-
-
-
+  push:
+    tags:
+      - "v*.*.*"
 jobs:
   build:
-    name: Upload Release Asset
+    name: Upload RPMs
     runs-on: ubuntu-latest
     steps:
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
-
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Create tag
-        uses: actions/github-script@v5
-        with:
-          script: |
-            github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/${{ github.event.inputs.tag }}',
-              sha: context.sha
-            })
 
       - name: Create Release
         id: create_release
@@ -68,6 +23,28 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Build RPM packages
+        id: rpm_build
+        env:
+          _TAG_ : 'refs/tags/${{ github.event.inputs.tag }}'
+          _RELEASE_: "1"
+          _COMMITTER_: "gh-actions"
+          _CHANGELOG_: "new release"
+          _ARCH_: "x86_64"
+        run: |
+          export _VERSION_=$(echo $_TAG_ | sed 's/[^0-9|.]*//g')
+          make containerized_build_rpm
+          make containerized_build_container_rpm
+          cd _output/rpmbuild/
+          sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
+          
+      - name: release rpm
+        uses: softprops/action-gh-release@master
+        if: startsWith(github.ref, 'refs/heads')
+        with:
+            files: |
+              /tmp/kepler.rpm.tar.gz
+  
   create-release-branch:
     name: Create release branch
     needs: [build]
