@@ -1,0 +1,47 @@
+name: Release RPM
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+jobs:
+  build:
+    name: Upload RPMs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          release_name: ${{ github.event.inputs.release }}
+          draft: false
+          prerelease: false
+
+      - name: Build RPM packages
+        id: rpm_build
+        env:
+          _TAG_ : 'refs/tags/${{ github.event.inputs.tag }}'
+          _RELEASE_: "1"
+          _COMMITTER_: "gh-actions"
+          _CHANGELOG_: "new release"
+          _ARCH_: "x86_64"
+        run: |
+          export _VERSION_=$(echo $_TAG_ | sed 's/[^0-9|.]*//g')
+          make containerized_build_rpm
+          make containerized_build_container_rpm
+          cd _output/rpmbuild/
+          sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
+          
+      - name: release rpm
+        uses: softprops/action-gh-release@master
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+            files: |
+              /tmp/kepler.rpm.tar.gz
+  
