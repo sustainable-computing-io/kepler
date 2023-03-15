@@ -44,13 +44,13 @@ func getSumMetricValues(metricValues [][]float64) (sumMetricValues []float64) {
 	return
 }
 
-func getEnergyRatio(resUsage, nodeTotalResUsage, nodeResEnergyUtilization, totalNumber float64) uint64 {
+func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumber float64) uint64 {
 	var power float64
-	if nodeTotalResUsage > 0 {
-		power = (resUsage / nodeTotalResUsage) * nodeResEnergyUtilization
+	if totalResUsage > 0 {
+		power = (unitResUsage / totalResUsage) * resEnergyUtilization
 	} else {
 		// TODO: we should not equaly divide the energy consumption across the all processes or containers. If a hardware counter metrics is not available we should use cgroup metrics.
-		power = nodeResEnergyUtilization / totalNumber
+		power = resEnergyUtilization / totalNumber
 	}
 	return uint64(math.Ceil(power))
 }
