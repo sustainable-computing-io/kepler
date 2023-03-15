@@ -84,7 +84,7 @@ jobs:
           
       - name: release rpm
         uses: softprops/action-gh-release@master
-        if: startsWith(github.ref, 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/heads')
         with:
             files: |
               /tmp/kepler.rpm.tar.gz
