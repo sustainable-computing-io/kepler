@@ -143,8 +143,11 @@ container_build: tidy-vendor format
 		$(BUILDER_IMAGE) \
 		make build
 
-build_rpm: 
+build_rpm:
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
+
+build_container_rpm:
+	rpmbuild packaging/rpm/container-kepler.spec --build-in-place -bb
 
 containerized_build_rpm:
 	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
@@ -155,6 +158,14 @@ containerized_build_rpm:
 		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
 		make build_rpm
+
+containerized_build_container_rpm:
+	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
+	$(CTR_CMD) run --rm \
+		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/root/rpmbuild \
+		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} \
+		$(BUILDER_IMAGE) \
+		make build_container_rpm
 
 clean_build_local:
 	rm -rf $(CROSS_BUILD_BINDIR)
