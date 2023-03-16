@@ -68,20 +68,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Create RPM spec for the release
-        id: build_spec_file
-        run: |
-          cp -R  packaging/rpm/kepler.spec packaging/rpm/kepler_build.spec
-
-          echo "%global _VERSION_ ${{ github.event.inputs.tag }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _RELEASE_ ${{ github.event.inputs.release }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _COMMITTER_ ${{ github.event.pull_request.head.sha }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _TIMESTAMP_ ${{ steps.date.outputs.date }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-          echo "%global _CHANGELOG_ ${{ github.event.head_commit.message }}" | cat - packaging/rpm/kepler_build.spec > temp && mv temp packaging/rpm/kepler_build.spec
-
-          ls -la packaging/rpm/kepler_build.spec
-
-      - name: Build RPM package
+      - name: Build RPM packages
         id: rpm_build
         env:
           _VERSION_ : ${{ github.event.inputs.rpm_version }}
@@ -91,15 +78,19 @@ jobs:
           _ARCH_: ${{ github.event.inputs.arch }}
         run: |
           make containerized_build_rpm
+          make containerized_build_container_rpm
           cd _output/rpmbuild/
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
           
       - name: release rpm
-        uses: softprops/action-gh-release@master
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-            files: |
-              kepler.rpm.tar.gz
-              /tmp/kepler.rpm.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: /tmp/kepler.rpm.tar.gz
+          asset_name: kepler.rpm.tar.gz
+          asset_content_type: application/gzip
   
   create-release-branch:
     name: Create release branch

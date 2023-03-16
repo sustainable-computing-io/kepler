@@ -44,7 +44,7 @@ install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_sysconfdir}/kepler/
 
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
-install -p -m644 ./packaging/systemd/kepler.service %{buildroot}%{_unitdir}/kepler.service
+install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
 
 
 %post
