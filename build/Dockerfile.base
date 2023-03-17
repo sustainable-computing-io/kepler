@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi8/ubi:8.4
 
 RUN yum update -y && \
 #    yum install linux-headers-`uname -r` && \
-    yum install -y make git gcc curl kmod xz python3 && yum clean all -y && \
+    yum install -y libstdc++ make git gcc curl kmod xz python3 && yum clean all -y && \
     pip3 install  --no-cache-dir archspec 
 
 ADD hack/baseImage.sh .
