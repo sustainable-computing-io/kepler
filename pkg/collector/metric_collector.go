@@ -35,6 +35,7 @@ import (
 
 const (
 	maxInactiveContainers = 10
+	maxInactiveProcesses  = 5
 )
 
 type Collector struct {

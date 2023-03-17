@@ -57,6 +57,7 @@ func (c *Collector) updateBPFMetrics() {
 		return
 	}
 	foundContainer := make(map[string]bool)
+	foundProcess := make(map[uint64]bool)
 	var ct ProcessBPFMetrics
 	for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
 		data := it.Leaf()
@@ -118,6 +119,8 @@ func (c *Collector) updateBPFMetrics() {
 			}
 			// track system process metrics
 			if containerID == c.systemProcessName && config.EnableProcessMetrics {
+				foundProcess[ct.PID] = true
+
 				if err = c.ProcessMetrics[ct.PID].CounterStats[counterKey].AddNewDelta(val); err != nil {
 					klog.V(5).Infoln(err)
 				}
@@ -145,6 +148,9 @@ func (c *Collector) updateBPFMetrics() {
 	}
 	c.resetBPFTables()
 	c.handleInactiveContainers(foundContainer)
+	if config.EnableProcessMetrics {
+		c.handleInactiveProcesses(foundProcess)
+	}
 }
 
 // handleInactiveContainers
@@ -167,4 +173,14 @@ func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 	}
 }
 
-// TODO: remove inactive processes
+// handleInactiveProcesses
+func (c *Collector) handleInactiveProcesses(foundProcess map[uint64]bool) {
+	numOfInactive := len(c.ProcessMetrics) - len(foundProcess)
+	if numOfInactive > maxInactiveProcesses {
+		for pid := range c.ProcessMetrics {
+			if _, found := foundProcess[pid]; !found {
+				delete(c.ProcessMetrics, pid)
+			}
+		}
+	}
+}
