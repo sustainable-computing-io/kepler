@@ -9,6 +9,8 @@ ADD hack/baseImage.sh .
 RUN ls
 RUN ./baseImage.sh
 RUN /usr/local/go/bin/go version
+RUN strings /lib64/libc.so.6 | grep GLIBC_
+RUN strings /usr/lib64/libstdc++.so.6 | grep GLIBCXX
 RUN yum list installed | grep bcc
 #docker.io/nvidia/cuda:11.8.0-base-ubi8
 
