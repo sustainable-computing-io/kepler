@@ -22,7 +22,6 @@ import (
 
 const (
 	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
 	CPUInstructionLabel = config.CPUInstruction
 	CacheMissLabel      = config.CacheMiss
 
