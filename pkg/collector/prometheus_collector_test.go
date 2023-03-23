@@ -78,7 +78,6 @@ func newMockPrometheusExporter() *PrometheusCollector {
 		Expect(err).NotTo(HaveOccurred())
 	}
 	exporter := NewPrometheusExporter()
-	exporter.NodeCPUFrequency = &map[int32]uint64{}
 	exporter.NodeMetrics = collector_metric.NewNodeMetrics()
 	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
 	exporter.ProcessMetrics = &map[uint64]*collector_metric.ProcessMetrics{}

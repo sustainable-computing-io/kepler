@@ -41,7 +41,6 @@ func New() *CollectorManager {
 	manager.MetricCollector = collector.NewCollector()
 	manager.PrometheusCollector = collector.NewPrometheusExporter()
 	// the collector and prometheusExporter share structures and collections
-	manager.PrometheusCollector.NodeCPUFrequency = &manager.MetricCollector.NodeMetrics.CPUFrequency
 	manager.PrometheusCollector.NodeMetrics = &manager.MetricCollector.NodeMetrics
 	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
 	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
