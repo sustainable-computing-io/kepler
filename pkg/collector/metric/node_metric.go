@@ -42,7 +42,6 @@ var (
 	NodeName            = getNodeName()
 	NodeCPUArchitecture = getCPUArch()
 
-	// TODO: the metada should be a map and not two slices
 	// NodeMetricNames holds the name of the system metadata information.
 	NodeMetadataNames []string = []string{"cpu_architecture"}
 	// SystemMetadata holds the metadata regarding the system information
