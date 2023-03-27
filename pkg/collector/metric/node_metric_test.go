@@ -103,4 +103,24 @@ var _ = Describe("Test Node Metric", func() {
 		gpuEnergy := make([]uint32, 1)
 		nodeMetrics.AddNodeGPUEnergy(gpuEnergy)
 	})
+
+	It("test ResetDeltaValues", func() {
+		nodeMetrics.ResetDeltaValues()
+		Expect("0 (15)").To(Equal(nodeMetrics.TotalEnergyInCore.String()))
+	})
+
+	It("test UpdateIdleEnergy", func() {
+		nodeMetrics.UpdateIdleEnergy()
+		Expect(nodeMetrics.FoundNewIdleState).To(BeFalse())
+	})
+
+	It("test String", func() {
+		str := nodeMetrics.String()
+		Expect("node delta energy (mJ):").To(Equal(str[0:len("node delta energy (mJ):")]))
+	})
+
+	It("test GetNodeResUsagePerResType", func() {
+		val := nodeMetrics.GetNodeResUsagePerResType("")
+		Expect(float64(0)).To(Equal(val))
+	})
 })

@@ -24,6 +24,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
@@ -84,6 +85,7 @@ type NodeMetrics struct {
 
 func NewNodeMetrics() *NodeMetrics {
 	return &NodeMetrics{
+		ResourceUsage: make(map[string]float64),
 		TotalEnergyInCore: &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		},
@@ -153,7 +155,6 @@ func NewNodeMetrics() *NodeMetrics {
 }
 
 func (ne *NodeMetrics) ResetDeltaValues() {
-	ne.ResourceUsage = make(map[string]float64)
 	ne.TotalEnergyInCore.ResetDeltaValues()
 	ne.TotalEnergyInDRAM.ResetDeltaValues()
 	ne.TotalEnergyInUncore.ResetDeltaValues()
@@ -164,8 +165,12 @@ func (ne *NodeMetrics) ResetDeltaValues() {
 	ne.DynEnergyInDRAM.ResetDeltaValues()
 	ne.DynEnergyInUncore.ResetDeltaValues()
 	ne.DynEnergyInPkg.ResetDeltaValues()
-	ne.DynEnergyInGPU.ResetDeltaValues()
+	// gpu metric
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		ne.DynEnergyInGPU.ResetDeltaValues()
+	}
 	ne.DynEnergyInPlatform.ResetDeltaValues()
+	ne.ResourceUsage = make(map[string]float64)
 }
 
 // AddNodeResResourceUsageFromContainerResResourceUsage adds the sum of all container resource usage as the node resource usage
@@ -221,7 +226,10 @@ func (ne *NodeMetrics) UpdateIdleEnergy() {
 	ne.CalcIdleEnergy(DRAM)
 	ne.CalcIdleEnergy(UNCORE)
 	ne.CalcIdleEnergy(PKG)
-	ne.CalcIdleEnergy(GPU)
+	// gpu metric
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		ne.CalcIdleEnergy(GPU)
+	}
 	ne.CalcIdleEnergy(PLATFORM)
 	// reset
 	ne.FoundNewIdleState = false
