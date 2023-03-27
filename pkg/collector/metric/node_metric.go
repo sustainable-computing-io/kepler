@@ -170,6 +170,7 @@ func (ne *NodeMetrics) ResetDeltaValues() {
 		ne.DynEnergyInGPU.ResetDeltaValues()
 	}
 	ne.DynEnergyInPlatform.ResetDeltaValues()
+	ne.ResourceUsage = make(map[string]float64)
 }
 
 // AddNodeResResourceUsageFromContainerResResourceUsage adds the sum of all container resource usage as the node resource usage
