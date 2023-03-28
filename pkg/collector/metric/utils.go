@@ -64,14 +64,13 @@ func getcontainerUintFeatureNames() []string {
 	return metrics
 }
 
-func setEnabledMetrics() []string {
+func setEnabledMetrics() {
 	ContainerFeaturesNames = []string{}
 
 	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerFloatFeatureNames...)
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
 	ContainerMetricNames = getEstimatorMetrics()
-	return ContainerMetricNames
 }
 
 func getPrometheusMetrics() []string {
