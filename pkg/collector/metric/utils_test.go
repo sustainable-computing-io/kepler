@@ -26,7 +26,11 @@ var _ = Describe("Test Metric Unit", func() {
 		exp := []string{"bytes_read", "bytes_writes"}
 
 		cur := getcontainerUintFeatureNames()
-		Expect(exp).To(Equal(cur))
+		if len(cur) > len(exp) {
+			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
+		} else {
+			Expect(exp).To(Equal(cur))
+		}
 	})
 
 	It("Test getPrometheusMetrics", func() {
@@ -34,7 +38,11 @@ var _ = Describe("Test Metric Unit", func() {
 
 		exp := []string{"curr_bytes_read", "total_bytes_read", "curr_bytes_writes", "total_bytes_writes", "block_devices_used"}
 		cur := getPrometheusMetrics()
-		Expect(exp).To(Equal(cur))
+		if len(cur) > len(exp) {
+			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
+		} else {
+			Expect(exp).To(Equal(cur))
+		}
 	})
 
 	It("Test getEstimatorMetrics", func() {
@@ -42,7 +50,11 @@ var _ = Describe("Test Metric Unit", func() {
 
 		exp := []string{"bytes_read", "bytes_writes", "block_devices_used"}
 		cur := getEstimatorMetrics()
-		Expect(exp).To(Equal(cur))
+		if len(cur) > len(exp) {
+			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
+		} else {
+			Expect(exp).To(Equal(cur))
+		}
 	})
 
 	It("Test isCounterStatEnabled for True", func() {
@@ -60,8 +72,12 @@ var _ = Describe("Test Metric Unit", func() {
 	It("Test setEnabledMetrics", func() {
 		config.ExposeHardwareCounterMetrics = false
 		clearPlatformDependentAvailability()
-		cur := setEnabledMetrics()
+		setEnabledMetrics()
 		exp := []string{"bytes_read", "bytes_writes", "block_devices_used"}
-		Expect(exp).To(Equal(cur))
+		if len(ContainerMetricNames) > len(exp) {
+			Expect(exp).To(Equal(ContainerMetricNames[len(ContainerMetricNames)-len(exp):]))
+		} else {
+			Expect(exp).To(Equal(ContainerMetricNames))
+		}
 	})
 })

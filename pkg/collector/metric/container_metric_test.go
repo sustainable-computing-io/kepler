@@ -92,4 +92,32 @@ var _ = Describe("Test Container Metric", func() {
 		Expect(delta).To(Equal(uint64(23)))
 		Expect(aggr).To(Equal(uint64(24)))
 	})
+
+	It("Test ResetDeltaValues", func() {
+		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance.ResetDeltaValues()
+		Expect(0).To(Equal(instance.CurrProcesses))
+	})
+
+	It("Test GetBasicValues", func() {
+		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance.Command = "12345678901234567890"
+		exp := []string{"PodName", "Namespace", "1234567890"}
+		cur := instance.GetBasicValues()
+		Expect(exp).To(Equal(cur))
+	})
+
+	It("Test SumAllDynDeltaValues", func() {
+		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		exp := instance.DynEnergyInPkg.Delta + instance.DynEnergyInGPU.Delta + instance.DynEnergyInOther.Delta
+		cur := instance.SumAllDynDeltaValues()
+		Expect(exp).To(Equal(cur))
+	})
+
+	It("Test SumAllDynAggrValues", func() {
+		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		exp := instance.DynEnergyInPkg.Aggr + instance.DynEnergyInGPU.Aggr + instance.DynEnergyInOther.Aggr
+		cur := instance.SumAllDynAggrValues()
+		Expect(exp).To(Equal(cur))
+	})
 })

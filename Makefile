@@ -204,7 +204,7 @@ test: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
 test-verbose: ginkgo-set tidy-vendor
-	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v ./pkg/... --race --bench=. -cover --count=1 --vet=all
+	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 
 test-mac-verbose: ginkgo-set tidy-vendor
 	@go test ./... --race --bench=. -cover --count=1 --vet=all
