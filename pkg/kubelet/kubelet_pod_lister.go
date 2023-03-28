@@ -36,7 +36,7 @@ type KubeletPodLister struct{}
 
 const (
 	saPath         = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	nodeEnv        = "NODE_NAME"
+	nodeEnv        = "NODE_IP"
 	kubeletPortEnv = "KUBELET_PORT"
 )
 

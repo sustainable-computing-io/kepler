@@ -84,10 +84,10 @@ spec:
           mountPath: /etc/kepler/kepler.config
           readOnly: true
         env:
-        - name: NODE_NAME
+        - name: NODE_IP
           valueFrom:
             fieldRef:
-              fieldPath: spec.nodeName
+              fieldPath: status.hostIP
       volumes:
       - name: lib-modules
         hostPath:
