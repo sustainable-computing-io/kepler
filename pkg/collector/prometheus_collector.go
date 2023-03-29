@@ -162,9 +162,6 @@ type PrometheusCollector struct {
 	podDesc       *PodDesc
 	processDesc   *processDesc
 
-	// TODO: fix me: these metrics should be in NodeMetrics structure
-	NodeCPUFrequency *map[int32]uint64
-
 	// NodeMetrics holds all node energy and resource usage metrics
 	NodeMetrics *collector_metric.NodeMetrics
 
@@ -534,7 +531,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 	go func() {
 		defer wg.Done()
 		// TODO: remove this metric if we don't need, reporting this can be an expensive process
-		for cpuID, freq := range *p.NodeCPUFrequency {
+		for cpuID, freq := range p.NodeMetrics.CPUFrequency {
 			ch <- prometheus.MustNewConstMetric(
 				p.nodeDesc.NodeCPUFrequency,
 				prometheus.GaugeValue,
