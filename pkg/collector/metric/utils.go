@@ -231,3 +231,20 @@ func getCPUArchitecture() (string, error) {
 
 	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
 }
+
+func getCPUPackageMap() (cpuPackageMap map[int32]string) {
+	cpuPackageMap = make(map[int32]string)
+	// check if mapping available
+	numCPU := int32(runtime.NumCPU())
+	for cpu := int32(0); cpu < numCPU; cpu++ {
+		targetFileName := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/topology/physical_package_id", cpu)
+		value, err := os.ReadFile(targetFileName)
+		if err != nil {
+			klog.Errorf("cannot get CPU-Package map: %v", err)
+			return
+		}
+		cpuPackageMap[cpu] = strings.TrimSpace(string(value))
+	}
+	klog.V(3).Infof("CPU-Package Map: %v\n", cpuPackageMap)
+	return
+}

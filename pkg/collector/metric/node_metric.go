@@ -42,6 +42,7 @@ const (
 var (
 	NodeName            = getNodeName()
 	NodeCPUArchitecture = getCPUArch()
+	NodeCPUPackageMap   = getCPUPackageMap()
 
 	// NodeMetricNames holds the name of the system metadata information.
 	NodeMetadataNames []string = []string{"cpu_architecture"}
