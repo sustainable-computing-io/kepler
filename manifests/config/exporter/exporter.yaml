@@ -78,11 +78,30 @@ spec:
           name: lib-modules
         - mountPath: /sys
           name: tracing
+          mountPropagation: HostToContainer
         - mountPath: /proc
           name: proc
+          mountPropagation: HostToContainer
         - name: cfm
           mountPath: /etc/kepler/kepler.config
           readOnly: true
+        - name: dockershim-sock
+          mountPath: /var/run/dockershim.sock
+          mountPropagation: HostToContainer
+        # if containerd directory does not exist, the pod will fail, so we prevent the error
+        - name: containerd-dir
+          mountPath: /run/containerd
+          mountPropagation: HostToContainer
+        - name: containerd-sock
+          mountPath: /run/containerd/containerd.sock
+          mountPropagation: HostToContainer
+        # if crio directory does not exist, the pod will fail, so we prevent the error
+        - name: crio-dir
+          mountPath: /run/crio
+          mountPropagation: HostToContainer
+        - name: crio-sock
+          mountPath: /run/crio/crio.sock
+          mountPropagation: HostToContainer
         env:
         - name: NODE_IP
           valueFrom:
@@ -104,6 +123,28 @@ spec:
       - name: cfm
         configMap:
           name: kepler-cfm
+      - name: dockershim-sock
+        hostPath:
+          # Ensure the file is created if does not exit
+          path: /var/run/dockershim.sock
+      - name: containerd-dir
+        hostPath:
+          # Ensure the file directory is created if does not exit
+          path: /run/containerd
+          type: DirectoryOrCreate
+      - name: containerd-sock
+        hostPath:
+          # Ensure the file is created if does not exit
+          path: /run/containerd/containerd.sock
+      - name: crio-dir
+        hostPath:
+          # Ensure the file directory is created if does not exit
+          path: /run/crio
+          type: DirectoryOrCreate
+      - name: crio-sock
+        hostPath:
+          # Ensure the file is created if does not exit
+          path: /run/crio/crio.sock
 ---
 kind: Service
 apiVersion: v1
