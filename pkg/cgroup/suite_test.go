@@ -29,5 +29,5 @@ func TestPodLoader(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	_, _ = Init()
+	_, _ = ListPodsAndUpdateCache()
 })

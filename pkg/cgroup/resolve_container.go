@@ -25,6 +25,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+
+	internalapi "k8s.io/cri-api/pkg/apis"
+	v1 "k8s.io/cri-api/pkg/apis/runtime/v1"
+	kuberuntime "k8s.io/kubernetes/pkg/kubelet/cri/remote"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
@@ -45,6 +50,14 @@ const (
 
 	procPath   string = "/proc/%d/cgroup"
 	cgroupPath string = "/sys/fs/cgroup"
+
+	defaultTimeout                    = 5 * time.Second
+	dockerShimSock             string = "unix:///var/run/dockershim.sock"
+	containerdSock             string = "unix:///run/containerd/containerd.sock"
+	crioSock                   string = "unix:///run/crio/crio.sock"
+	containerLabelName         string = "io.kubernetes.container.name"
+	containerLabelPodName      string = "io.kubernetes.pod.name"
+	containerLabelPodNamespace string = "io.kubernetes.pod.namespace"
 )
 
 var (
@@ -64,10 +77,34 @@ var (
 
 	regexReplaceContainerIDPathSufix = regexp.MustCompile(`\..*`)
 	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
+
+	containerRuntime internalapi.RuntimeService
 )
 
-func Init() (*[]corev1.Pod, error) {
-	return updateListPodCache("", false)
+func init() {
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			klog.V(10).Infoln(err)
+		}
+	}() // disable the anoying error printing when trying different runtimes
+	var endPoint string
+	for _, endPoint = range []string{dockerShimSock, containerdSock, crioSock} {
+		r, err := kuberuntime.NewRemoteRuntimeService(endPoint, defaultTimeout)
+		if err != nil {
+			klog.V(5).Infof("Creation of container runtime %s failed: %v", endPoint, err)
+			continue
+		}
+		_, err = r.Status()
+		if err != nil {
+			klog.V(5).Infof("Status from container runtime service failed: %v", err)
+			continue
+		}
+
+		klog.Infof("Successfully connected to runtime %s", endPoint)
+		containerRuntime = r
+		break
+	}
 }
 
 func GetPodName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
@@ -107,38 +144,45 @@ func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 		PodName:       utils.SystemProcessName,
 		Namespace:     utils.SystemProcessNamespace,
 	}
-
+	// pid 0 means kernel processes
+	if pid == 0 {
+		return info, nil
+	}
 	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
 		return info, err
 	}
-
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	}
-
-	// update cache info and stop loop if container id found
-	_, _ = updateListPodCache(containerID, true)
-	if cinfo, ok := containerIDToContainerInfo[containerID]; ok {
+	if cinfo, err := getContainerInfoFromRuntime(containerID); (err == nil) && (cinfo != nil) {
 		return cinfo, nil
 	}
-
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
 		containerIDToContainerInfo[containerID] = info
-		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
-		if info.ContainerName == utils.SystemProcessName {
-			containerID = utils.SystemProcessName
-			// in addition to the system container ID, add also the system process name to the cache
-			if _, ok := containerIDToContainerInfo[containerID]; !ok {
-				containerIDToContainerInfo[containerID] = info
-			}
-		}
 	}
-	return containerIDToContainerInfo[containerID], nil
+	return info, nil
 }
 
-// updateListPodCache updates cache info with all pods and optionally
-// stops the loop when a given container ID is found
-func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1.Pod, error) {
+func getContainerInfoFromRuntime(containerID string) (*ContainerInfo, error) {
+	var err error
+	var cstatus *v1.ContainerStats
+	if containerID == "unknown" {
+		return nil, fmt.Errorf("could not find the container")
+	}
+	if cstatus, err = containerRuntime.ContainerStats(containerID); err == nil {
+		containerIDToContainerInfo[containerID] = &ContainerInfo{
+			ContainerID:   containerID,
+			ContainerName: cstatus.Attributes.Labels[containerLabelName],
+			PodName:       cstatus.Attributes.Labels[containerLabelPodName],
+			Namespace:     cstatus.Attributes.Labels[containerLabelPodNamespace],
+		}
+		return containerIDToContainerInfo[containerID], nil
+	}
+	return nil, fmt.Errorf("could not find the container")
+}
+
+// ListPodsAndUpdateCache updates cache info with all pods and optionally
+func ListPodsAndUpdateCache() (*[]corev1.Pod, error) {
 	pods, err := podLister.ListPods()
 	if err != nil {
 		klog.V(4).Infof("%v", err)
@@ -154,9 +198,6 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1
 				PodName:       (*pods)[i].Name,
 				Namespace:     (*pods)[i].Namespace,
 			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
-			}
 		}
 		containers = (*pods)[i].Status.InitContainerStatuses
 		for j := 0; j < len(containers); j++ {
@@ -166,9 +207,6 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1
 				ContainerName: containers[j].Name,
 				PodName:       (*pods)[i].Name,
 				Namespace:     (*pods)[i].Namespace,
-			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
 			}
 		}
 		containers = (*pods)[i].Status.EphemeralContainerStatuses
@@ -180,12 +218,9 @@ func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1
 				PodName:       (*pods)[i].Name,
 				Namespace:     (*pods)[i].Namespace,
 			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
-			}
 		}
 	}
-	return pods, err
+	return pods, nil
 }
 
 func ParseContainerIDFromPodStatus(containerID string) string {

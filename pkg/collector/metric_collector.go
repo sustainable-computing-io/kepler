@@ -77,7 +77,7 @@ func (c *Collector) Initialize() error {
 	}
 	c.bpfHCMeter = m
 
-	pods, err := cgroup.Init()
+	pods, err := cgroup.ListPodsAndUpdateCache()
 	if err != nil && !config.EnableProcessMetrics {
 		klog.V(5).Infoln(err)
 		return err
