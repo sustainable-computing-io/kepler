@@ -26,8 +26,8 @@ var (
 	AvailableEBPFCounters []string
 	// AvailableHWCounters holds a list of hardware counters that might be collected
 	AvailableHWCounters []string
-	// AvailableCgroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
-	AvailableCgroupMetrics []string
+	// AvailableCGroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
+	AvailableCGroupMetrics []string
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
 	AvailableKubeletMetrics []string
 
@@ -38,7 +38,7 @@ var (
 func InitAvailableParamAndMetrics() {
 	AvailableHWCounters = attacher.GetEnabledHWCounters()
 	AvailableEBPFCounters = attacher.GetEnabledBPFCounters()
-	AvailableCgroupMetrics = cgroup.GetAvailableCgroupMetrics()
+	AvailableCGroupMetrics = cgroup.GetAvailableCGroupMetrics()
 	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
 	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 

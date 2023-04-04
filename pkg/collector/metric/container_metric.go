@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
@@ -32,8 +33,6 @@ var (
 	ContainerMetricNames []string
 	// ContainerFloatFeatureNames holds the feature name of the container float collector_metric. This is specific for the machine-learning based models.
 	ContainerFloatFeatureNames []string = []string{}
-	// ContainerIOStatMetricsNames holds the cgroup IO metric name
-	ContainerIOStatMetricsNames []string = []string{ByteReadLabel, ByteWriteLabel}
 	// ContainerUintFeaturesNames holds the feature name of the container utint collector_metric. This is specific for the machine-learning based models.
 	ContainerUintFeaturesNames []string
 	// ContainerFeaturesNames holds all the feature name of the container collector_metric. This is specific for the machine-learning based models.
@@ -50,12 +49,11 @@ type ContainerMetrics struct {
 	Namespace     string
 
 	CurrProcesses int
-	Disks         int
 
-	CgroupFSStats map[string]*UInt64StatCollection
-	KubeletStats  map[string]*UInt64Stat
-	BytesRead     *UInt64StatCollection
-	BytesWrite    *UInt64StatCollection
+	CgroupStatHandler *cgroup.CCgroupStatHandler
+	CgroupStatMap     map[string]*UInt64StatCollection
+	// TODO: kubelet stat metrics is deprecated since it duplicates the cgroup metrics. We will remove it soon.
+	KubeletStats map[string]*UInt64Stat
 }
 
 // NewContainerMetrics creates a new ContainerMetrics instance
@@ -81,14 +79,8 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 			IdleEnergyInOther:  &UInt64Stat{},
 			IdleEnergyInGPU:    &UInt64Stat{},
 		},
-		CgroupFSStats: make(map[string]*UInt64StatCollection),
+		CgroupStatMap: make(map[string]*UInt64StatCollection),
 		KubeletStats:  make(map[string]*UInt64Stat),
-		BytesRead: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		BytesWrite: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
 	}
 	for _, metricName := range AvailableHWCounters {
 		c.CounterStats[metricName] = &UInt64Stat{}
@@ -98,8 +90,8 @@ func NewContainerMetrics(containerName, podName, podNamespace string) *Container
 		c.CounterStats[config.GPUSMUtilization] = &UInt64Stat{}
 		c.CounterStats[config.GPUMemUtilization] = &UInt64Stat{}
 	}
-	for _, metricName := range AvailableCgroupMetrics {
-		c.CgroupFSStats[metricName] = &UInt64StatCollection{
+	for _, metricName := range AvailableCGroupMetrics {
+		c.CgroupStatMap[metricName] = &UInt64StatCollection{
 			Stat: make(map[string]*UInt64Stat),
 		}
 	}
@@ -119,11 +111,9 @@ func (c *ContainerMetrics) ResetDeltaValues() {
 	for counterKey := range c.CounterStats {
 		c.CounterStats[counterKey].ResetDeltaValues()
 	}
-	for cgroupFSKey := range c.CgroupFSStats {
-		c.CgroupFSStats[cgroupFSKey].ResetDeltaValues()
+	for cgroupFSKey := range c.CgroupStatMap {
+		c.CgroupStatMap[cgroupFSKey].ResetDeltaValues()
 	}
-	c.BytesRead.ResetDeltaValues()
-	c.BytesWrite.ResetDeltaValues()
 	for kubeletKey := range c.KubeletStats {
 		c.KubeletStats[kubeletKey].ResetDeltaValues()
 	}
@@ -171,7 +161,7 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	if val, exists := c.CounterStats[metric]; exists {
 		return val.Delta, val.Aggr, nil
 	}
-	if val, exists := c.CgroupFSStats[metric]; exists {
+	if val, exists := c.CgroupStatMap[metric]; exists {
 		return val.SumAllDeltaValues(), val.SumAllAggrValues(), nil
 	}
 	if val, exists := c.KubeletStats[metric]; exists {
@@ -188,14 +178,6 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 		return c.SoftIRQCount[attacher.IRQNetTX].Delta, c.SoftIRQCount[attacher.IRQNetTX].Aggr, nil
 	case config.IRQNetRXLabel:
 		return c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr, nil
-	// hardcode cgroup metrics
-	// TO-DO: merge to cgroup stat
-	case config.BlockDevicesIO:
-		return uint64(c.Disks), uint64(c.Disks), nil
-	case ByteReadLabel:
-		return c.BytesRead.SumAllDeltaValues(), c.BytesRead.SumAllAggrValues(), nil
-	case ByteWriteLabel:
-		return c.BytesWrite.SumAllDeltaValues(), c.BytesWrite.SumAllAggrValues(), nil
 	}
 
 	klog.V(4).Infof("cannot extract: %s", metric)
@@ -212,8 +194,6 @@ func (c *ContainerMetrics) ToEstimatorValues() (values []float64) {
 		curr, _, _ := c.getIntDeltaAndAggrValue(metric)
 		values = append(values, float64(curr))
 	}
-	// TO-DO: remove this hard code metric
-	values = append(values, float64(c.Disks))
 	return
 }
 
@@ -240,9 +220,6 @@ func (c *ContainerMetrics) ToPrometheusValue(metric string) string {
 			return strconv.FormatUint(curr, 10)
 		}
 		return strconv.FormatUint(aggr, 10)
-	}
-	if metric == "block_devices_used" {
-		return strconv.FormatUint(uint64(c.Disks), 10)
 	}
 	if curr, aggr, err := c.getFloatCurrAndAggrValue(metric); err == nil {
 		if currentValue {
@@ -283,6 +260,6 @@ func (c *ContainerMetrics) String() string {
 		c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr,
 		c.SoftIRQCount[attacher.IRQBlock].Delta, c.SoftIRQCount[attacher.IRQBlock].Aggr,
 		c.CounterStats,
-		c.CgroupFSStats,
+		c.CgroupStatMap,
 		c.KubeletStats)
 }

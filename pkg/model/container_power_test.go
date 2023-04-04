@@ -34,14 +34,13 @@ func setCollectorMetrics() {
 	}
 	// initialize the Available metrics since they are used to create a new containersMetrics instance
 	collector_metric.AvailableHWCounters = []string{config.CPUCycle, config.CPUInstruction, config.CacheMiss}
-	collector_metric.AvailableCgroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory, config.CgroupfsCPU,
+	collector_metric.AvailableCGroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory, config.CgroupfsCPU,
 		config.CgroupfsSystemCPU, config.CgroupfsUserCPU, config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO}
 	collector_metric.AvailableKubeletMetrics = []string{config.KubeletContainerCPU, config.KubeletContainerMemory, config.KubeletNodeCPU, config.KubeletNodeMemory}
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableEBPFCounters...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableHWCounters...)
-	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableCgroupMetrics...)
+	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableCGroupMetrics...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableKubeletMetrics...)
-	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.ContainerIOStatMetricsNames...)
 	// ContainerMetricNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ContainerMetricNames will be used.
 	collector_metric.ContainerMetricNames = collector_metric.ContainerUintFeaturesNames
 }
@@ -70,29 +69,24 @@ func createMockContainerMetrics(containerName, podName, namespace string) *colle
 	Expect(err).NotTo(HaveOccurred())
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 10) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 20) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 10)    // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 20)    // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsCPU].SetAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsCPU].SetAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].SetAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsSystemCPU].SetAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].SetAggrStat(containerName, 10)
-	containerMetrics.CgroupFSStats[config.CgroupfsUserCPU].SetAggrStat(containerName, 20)
-	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].SetAggrStat(containerName, 10)  // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsReadIO].SetAggrStat(containerName, 20)  // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].SetAggrStat(containerName, 10) // not used
-	containerMetrics.CgroupFSStats[config.CgroupfsWriteIO].SetAggrStat(containerName, 20) // not used
-	containerMetrics.CgroupFSStats[config.BlockDevicesIO].SetAggrStat(containerName, 10)  // not used
-	containerMetrics.CgroupFSStats[config.BlockDevicesIO].SetAggrStat(containerName, 20)  // not used
-	// cgroup - I/O stat metrics
-	containerMetrics.BytesRead.SetAggrStat(containerName, 10)  // config.BytesReadIO
-	containerMetrics.BytesRead.SetAggrStat(containerName, 20)  // config.BytesReadIO
-	containerMetrics.BytesWrite.SetAggrStat(containerName, 10) // config.BytesWriteIO
-	containerMetrics.BytesWrite.SetAggrStat(containerName, 20) // config.BytesWriteIO
+	containerMetrics.CgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerName, 10) // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerName, 20) // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerName, 10)    // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerName, 20)    // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerName, 10)
+	containerMetrics.CgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerName, 20)
+	containerMetrics.CgroupStatMap[config.CgroupfsReadIO].SetAggrStat(containerName, 10)  // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsReadIO].SetAggrStat(containerName, 20)  // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsWriteIO].SetAggrStat(containerName, 10) // not used
+	containerMetrics.CgroupStatMap[config.CgroupfsWriteIO].SetAggrStat(containerName, 20) // not used
+	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 10)  // not used
+	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 20)  // not used
 	// kubelet - cgroup package
 	err = containerMetrics.KubeletStats[config.KubeletContainerCPU].SetNewAggr(10) // not used
 	Expect(err).NotTo(HaveOccurred())

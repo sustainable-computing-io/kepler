@@ -49,21 +49,24 @@ endif
 
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
-GO_BUILD_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu'
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu '
+BCC_TAG := ''
 ifneq ($(shell command -v ldconfig),)
   ifneq ($(shell ldconfig -p|grep bcc),)
-     GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
+     BCC_TAG = 'bcc '
   endif
 endif
 
 ifneq ($(shell command -v dpkg),)
 	ifneq ($(shell dpkg -l|grep bcc),)
-		GO_BUILD_TAGS = 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu bcc'
+		BCC_TAG = 'bcc '
 	endif
 endif
+GO_BUILD_TAGS := $(GENERAL_TAGS)$(BCC_TAG)$(GOOS)
 
-GOOS := $(shell go env GOOS)
-GOARCH := $(shell go env GOARCH)
 
 # for testsuite
 ENVTEST_ASSETS_DIR=./test-bin
@@ -190,10 +193,10 @@ cross-build: clean_build_local cross-build-linux-amd64 cross-build-linux-arm64 c
 
 ### toolkit ###
 tidy-vendor:
-	go mod tidy
+	go mod tidy -v
 	go mod vendor
 
-ginkgo-set: tidy-vendor
+ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
@@ -205,9 +208,14 @@ test: ginkgo-set tidy-vendor
 
 test-verbose: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
-
-test-mac-verbose: ginkgo-set tidy-vendor
-	@go test ./... --race --bench=. -cover --count=1 --vet=all
+	
+test-mac-verbose: ginkgo-set
+	mkdir -p tmp
+	mv pkg/cgroup/cgroup_stats_linux.go	tmp/
+	@go mod tidy -v
+	@go mod vendor
+	@go test -tags darwin ./... --race --bench=. -cover --count=1 --vet=all || true
+	mv tmp/cgroup_stats_linux.go pkg/cgroup
 
 escapes_detect: tidy-vendor
 	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true

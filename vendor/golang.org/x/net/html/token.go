@@ -598,11 +598,6 @@ scriptDataDoubleEscapeEnd:
 // readComment reads the next comment token starting with "<!--". The opening
 // "<!--" has already been consumed.
 func (z *Tokenizer) readComment() {
-	// When modifying this function, consider manually increasing the suffixLen
-	// constant in func TestComments, from 6 to e.g. 9 or more. That increase
-	// should only be temporary, not committed, as it exponentially affects the
-	// test running time.
-
 	z.data.start = z.raw.end
 	defer func() {
 		if z.data.end < z.data.start {
@@ -610,13 +605,14 @@ func (z *Tokenizer) readComment() {
 			z.data.end = z.data.start
 		}
 	}()
-
-	var dashCount int
-	beginning := true
-	for {
+	for dashCount := 2; ; {
 		c := z.readByte()
 		if z.err != nil {
-			z.data.end = z.calculateAbruptCommentDataEnd()
+			// Ignore up to two dashes at EOF.
+			if dashCount > 2 {
+				dashCount = 2
+			}
+			z.data.end = z.raw.end - dashCount
 			return
 		}
 		switch c {
@@ -624,7 +620,7 @@ func (z *Tokenizer) readComment() {
 			dashCount++
 			continue
 		case '>':
-			if dashCount >= 2 || beginning {
+			if dashCount >= 2 {
 				z.data.end = z.raw.end - len("-->")
 				return
 			}
@@ -632,50 +628,17 @@ func (z *Tokenizer) readComment() {
 			if dashCount >= 2 {
 				c = z.readByte()
 				if z.err != nil {
-					z.data.end = z.calculateAbruptCommentDataEnd()
+					z.data.end = z.raw.end
 					return
-				} else if c == '>' {
+				}
+				if c == '>' {
 					z.data.end = z.raw.end - len("--!>")
 					return
-				} else if c == '-' {
-					dashCount = 1
-					beginning = false
-					continue
 				}
 			}
 		}
 		dashCount = 0
-		beginning = false
 	}
-}
-
-func (z *Tokenizer) calculateAbruptCommentDataEnd() int {
-	raw := z.Raw()
-	const prefixLen = len("<!--")
-	if len(raw) >= prefixLen {
-		raw = raw[prefixLen:]
-		if hasSuffix(raw, "--!") {
-			return z.raw.end - 3
-		} else if hasSuffix(raw, "--") {
-			return z.raw.end - 2
-		} else if hasSuffix(raw, "-") {
-			return z.raw.end - 1
-		}
-	}
-	return z.raw.end
-}
-
-func hasSuffix(b []byte, suffix string) bool {
-	if len(b) < len(suffix) {
-		return false
-	}
-	b = b[len(b)-len(suffix):]
-	for i := range b {
-		if b[i] != suffix[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // readUntilCloseAngle reads until the next ">".

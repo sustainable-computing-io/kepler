@@ -32,7 +32,7 @@ var _ = Describe("Test Container Metric", func() {
 			DynEnergyInGPU:    &UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
 			DynEnergyInOther:  &UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
 		},
-		CgroupFSStats: map[string]*UInt64StatCollection{
+		CgroupStatMap: map[string]*UInt64StatCollection{
 			CORE: {
 				Stat: map[string]*UInt64Stat{
 					"usage": {Delta: uint64(13), Aggr: uint64(14)},

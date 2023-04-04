@@ -25,15 +25,34 @@ import (
 
 // updateCgroupMetrics adds container-level cgroup data
 func (c *Collector) updateCgroupMetrics() {
-	klog.V(5).Infof("overall cgroup stats %v", cgroup.SliceHandlerInstance)
+	for key := range c.ContainersMetrics {
+		if c.ContainersMetrics[key].PID == 0 {
+			klog.V(3).Infof("PID 0 does not have cgroup metrics since there is no /proc/0/cgroup")
+			continue
+		}
+		if c.ContainersMetrics[key].CgroupStatHandler == nil {
+			handler, err := cgroup.NewCGroupStatHandler(int(c.ContainersMetrics[key].PID))
+			if err != nil {
+				klog.V(3).Infoln("Error: could not start cgroup stat handler for PID:", c.ContainersMetrics[key].PID)
+				continue
+			}
+			c.ContainersMetrics[key].CgroupStatHandler = handler
+		}
 
-	for containerID := range c.ContainersMetrics {
-		cgroup.TryInitStatReaders(containerID)
-		cgroupFSStandardStats := cgroup.GetStandardStat(containerID)
-		for cgroupFSKey, cgroupFSValue := range cgroupFSStandardStats {
-			readVal := cgroupFSValue.(uint64)
-			if _, ok := c.ContainersMetrics[containerID].CgroupFSStats[cgroupFSKey]; ok {
-				c.ContainersMetrics[containerID].CgroupFSStats[cgroupFSKey].SetAggrStat(containerID, readVal)
+		// we need to check again if CgroupStatHandler is not nil because on darwin OS the handler will always be nil
+		if c.ContainersMetrics[key].CgroupStatHandler != nil {
+			cGroupMetrics, err := c.ContainersMetrics[key].CgroupStatHandler.GetCGroupStat()
+			if err != nil {
+				klog.V(3).Infoln("Error: could not red cgroup manager for PID:", c.ContainersMetrics[key].PID)
+				continue
+			}
+			// cGroupMetrics contains all cgroups metrics listed in the config/types.go
+			for metricName, value := range cGroupMetrics {
+				if _, ok := c.ContainersMetrics[key].CgroupStatMap[metricName]; ok {
+					c.ContainersMetrics[key].CgroupStatMap[metricName].SetAggrStat(key, value)
+				} else {
+					klog.Infoln(metricName, " does not exist for container", key)
+				}
 			}
 		}
 	}

@@ -28,7 +28,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -155,8 +154,6 @@ func main() {
 	config.EnabledMSR = *enabledMSR
 
 	config.LogConfigs()
-
-	cgroup.SetSliceHandler()
 
 	components.InitPowerImpl()
 

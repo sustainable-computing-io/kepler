@@ -18,8 +18,6 @@ package metric
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -164,31 +162,6 @@ func (p *ProcessMetrics) GetBasicValues() []string {
 		command = command[:10]
 	}
 	return []string{command}
-}
-
-// ToPrometheusValue return the value regarding metric label
-func (p *ProcessMetrics) ToPrometheusValue(metric string) string {
-	currentValue := false
-	if strings.Contains(metric, "curr_") {
-		currentValue = true
-		metric = strings.ReplaceAll(metric, "curr_", "")
-	}
-	metric = strings.ReplaceAll(metric, "total_", "")
-
-	if curr, aggr, err := p.getIntDeltaAndAggrValue(metric); err == nil {
-		if currentValue {
-			return strconv.FormatUint(curr, 10)
-		}
-		return strconv.FormatUint(aggr, 10)
-	}
-	if curr, aggr, err := p.getFloatCurrAndAggrValue(metric); err == nil {
-		if currentValue {
-			return fmt.Sprintf("%f", curr)
-		}
-		return fmt.Sprintf("%f", aggr)
-	}
-	klog.Errorf("cannot extract metric: %s", metric)
-	return ""
 }
 
 func (p *ProcessMetrics) SumAllDynDeltaValues() uint64 {
