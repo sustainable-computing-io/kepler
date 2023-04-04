@@ -19,44 +19,11 @@ package source
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
-
-	"k8s.io/klog/v2"
 )
 
-func getNumCPUs() int {
-	data, err := os.ReadFile(cpuInfoPath)
-	if err != nil {
-		klog.V(2).Infoln(err)
-	}
-	return strings.Count(string(data), "processor")
-}
-
-func getNumPackage() int {
-	var numPackage int
-	pkgMap := map[int]bool{}
-	numCPUs := getNumCPUs()
-	for i := 0; i < numCPUs; i++ {
-		path := fmt.Sprintf(numPkgPathTemplate, i)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			break
-		}
-
-		if id, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
-			if _, exist := pkgMap[id]; !exist {
-				numPackage++
-				pkgMap[id] = true
-			}
-		}
-	}
-	return numPackage
-}
-
 func detectEventPaths() {
-	numPackage := getNumPackage()
-	for i := 0; i < numPackage; i++ {
+	for i := 0; i < numPackages; i++ {
 		packagePath := fmt.Sprintf(packageNamePathTemplate, i)
 		data, err := os.ReadFile(packagePath + "name")
 		packageName := strings.TrimSpace(string(data))
@@ -80,7 +47,7 @@ func detectEventPaths() {
 func hasEvent(event string) bool {
 	for _, subTree := range eventPaths {
 		for e := range subTree {
-			if e == event {
+			if strings.Index(e, event) == 0 {
 				return true
 			}
 		}

@@ -26,11 +26,11 @@ import (
 type powerInterface interface {
 	// GetEnergyFromDram returns mJ in DRAM
 	GetEnergyFromDram() (uint64, error)
-	// GetEnergyFromDram returns mJ in CPU cores
+	// GetEnergyFromCore returns mJ in CPU cores
 	GetEnergyFromCore() (uint64, error)
-	// GetEnergyFromDram returns mJ in uncore (i.e. iGPU)
+	// GetEnergyFromUncore returns mJ not in CPU cores (i.e. iGPU)
 	GetEnergyFromUncore() (uint64, error)
-	// GetEnergyFromDram returns mJ in package
+	// GetEnergyFromPackage returns mJ in CPU package
 	GetEnergyFromPackage() (uint64, error)
 	// GetNodeComponentsEnergy returns set of mJ per RAPL components
 	GetNodeComponentsEnergy() map[int]source.NodeComponentsEnergy

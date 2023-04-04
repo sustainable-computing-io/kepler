@@ -27,10 +27,8 @@ import (
 
 const (
 	// sysfs path templates
-	numPkgPathTemplate      = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
 	packageNamePathTemplate = "/sys/class/powercap/intel-rapl/intel-rapl:%d/"
 	eventNamePathTemplate   = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:%d/"
-	cpuInfoPath             = "/proc/cpuinfo"
 	energyFile              = "energy_uj"
 
 	// RAPL number of events (core, dram and uncore)
