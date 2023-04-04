@@ -27,8 +27,8 @@ import (
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func setCollectorMetrics() {
 	// initialize the Available metrics since they are used to create a new containersMetrics instance
-	AvailableCgroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory}
-	ContainerUintFeaturesNames = append(ContainerUintFeaturesNames, AvailableCgroupMetrics...)
+	AvailableCGroupMetrics = []string{config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory}
+	ContainerUintFeaturesNames = append(ContainerUintFeaturesNames, AvailableCGroupMetrics...)
 	// ContainerMetricNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ContainerMetricNames will be used.
 	ContainerMetricNames = ContainerUintFeaturesNames
 }
@@ -46,12 +46,12 @@ func createMockContainerMetrics(containerName, podName, namespace string) *Conta
 	containerMetrics := NewContainerMetrics(containerName, podName, namespace)
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 100)
-	containerMetrics.CgroupFSStats[config.CgroupfsMemory].SetAggrStat(containerName, 110)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 200)
-	containerMetrics.CgroupFSStats[config.CgroupfsKernelMemory].SetAggrStat(containerName, 220)
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 300)
-	containerMetrics.CgroupFSStats[config.CgroupfsTCPMemory].SetAggrStat(containerName, 330)
+	containerMetrics.CgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerName, 100)
+	containerMetrics.CgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerName, 110)
+	containerMetrics.CgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerName, 200)
+	containerMetrics.CgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerName, 220)
+	containerMetrics.CgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerName, 300)
+	containerMetrics.CgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerName, 330)
 	return containerMetrics
 }
 

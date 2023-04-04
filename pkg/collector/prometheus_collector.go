@@ -24,7 +24,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
@@ -242,13 +241,10 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 
 	// container cGroups Counters (counter)
 	if config.ExposeCgroupMetrics {
-		p.HavecGroupsMetric = cgroup.HasCgroupExportMetric(collector_metric.AvailableCgroupMetrics)
-		if p.HavecGroupsMetric {
-			ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
-			ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
-			ch <- p.containerDesc.containerCgroupSystemCPUUsageUsTotal
-			ch <- p.containerDesc.containerCgroupUserCPUUsageUsTotal
-		}
+		ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
+		ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
+		ch <- p.containerDesc.containerCgroupSystemCPUUsageUsTotal
+		ch <- p.containerDesc.containerCgroupUserCPUUsageUsTotal
 	}
 
 	// container Kubelet Counters (counter)
@@ -836,25 +832,25 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupCPUUsageUsTotal,
 					prometheus.CounterValue,
-					float64(container.CgroupFSStats[config.CgroupfsCPU].SumAllAggrValues()),
+					float64(container.CgroupStatMap[config.CgroupfsCPU].SumAllAggrValues()),
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupMemoryUsageBytesTotal,
 					prometheus.CounterValue,
-					float64(container.CgroupFSStats[config.CgroupfsMemory].SumAllAggrValues()),
+					float64(container.CgroupStatMap[config.CgroupfsMemory].SumAllAggrValues()),
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupSystemCPUUsageUsTotal,
 					prometheus.CounterValue,
-					float64(container.CgroupFSStats[config.CgroupfsSystemCPU].SumAllAggrValues()),
+					float64(container.CgroupStatMap[config.CgroupfsSystemCPU].SumAllAggrValues()),
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupUserCPUUsageUsTotal,
 					prometheus.CounterValue,
-					float64(container.CgroupFSStats[config.CgroupfsUserCPU].SumAllAggrValues()),
+					float64(container.CgroupStatMap[config.CgroupfsUserCPU].SumAllAggrValues()),
 					container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 			}

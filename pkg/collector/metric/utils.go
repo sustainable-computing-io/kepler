@@ -45,11 +45,9 @@ func getcontainerUintFeatureNames() []string {
 	// counter metric
 	metrics = append(metrics, AvailableHWCounters...)
 	// cgroup metric
-	metrics = append(metrics, AvailableCgroupMetrics...)
+	metrics = append(metrics, AvailableCGroupMetrics...)
 	// cgroup kubelet metric
 	metrics = append(metrics, AvailableKubeletMetrics...)
-	// cgroup I/O metric
-	metrics = append(metrics, ContainerIOStatMetricsNames...)
 	// gpu metric
 	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
 		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
@@ -57,9 +55,8 @@ func getcontainerUintFeatureNames() []string {
 
 	klog.V(3).Infof("Available ebpf metrics: %v", AvailableEBPFCounters)
 	klog.V(3).Infof("Available counter metrics: %v", AvailableHWCounters)
-	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCgroupMetrics)
+	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
 	klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
-	klog.V(3).Infof("Available I/O metrics: %v", ContainerIOStatMetricsNames)
 
 	return metrics
 }

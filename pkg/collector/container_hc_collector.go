@@ -55,19 +55,22 @@ func (c *Collector) resetBPFTables() {
 func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, isSystemProcess bool) {
 	// update ebpf metrics
 	// first update CPU time
-	if err := c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
+	err := c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime)
+	if err != nil {
 		klog.V(5).Infoln(err)
 	}
 	// update IRQ vector
 	for i := 0; i < config.MaxIRQ; i++ {
-		if err := c.ContainersMetrics[containerID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+		err := c.ContainersMetrics[containerID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i]))
+		if err != nil {
 			klog.V(5).Infoln(err)
 		}
 	}
 	// track system process metrics
 	if isSystemProcess && config.EnableProcessMetrics {
 		for i := 0; i < config.MaxIRQ; i++ {
-			if err := c.ProcessMetrics[ct.PID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i])); err != nil {
+			err := c.ProcessMetrics[ct.PID].SoftIRQCount[i].AddNewDelta(uint64(ct.VecNR[i]))
+			if err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
@@ -89,12 +92,14 @@ func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, 
 		default:
 			val = 0
 		}
-		if err := c.ContainersMetrics[containerID].CounterStats[counterKey].AddNewDelta(val); err != nil {
+		err := c.ContainersMetrics[containerID].CounterStats[counterKey].AddNewDelta(val)
+		if err != nil {
 			klog.V(5).Infoln(err)
 		}
 		// track system process metrics
 		if isSystemProcess && config.EnableProcessMetrics {
-			if err := c.ProcessMetrics[ct.PID].CounterStats[counterKey].AddNewDelta(val); err != nil {
+			err := c.ProcessMetrics[ct.PID].CounterStats[counterKey].AddNewDelta(val)
+			if err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
@@ -125,6 +130,7 @@ func (c *Collector) updateBPFMetrics() {
 		isSystemProcess := containerID == c.systemProcessName
 
 		c.createContainersMetricsIfNotExist(containerID, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
+		c.ContainersMetrics[containerID].PID = ct.PID
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
@@ -132,24 +138,13 @@ func (c *Collector) updateBPFMetrics() {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, comm)
 		} else if config.EnableProcessMetrics {
 			c.createProcessMetricsIfNotExist(ct.PID, comm)
-			if err := c.ProcessMetrics[ct.PID].CPUTime.AddNewDelta(ct.ProcessRunTime); err != nil {
+			err := c.ProcessMetrics[ct.PID].CPUTime.AddNewDelta(ct.ProcessRunTime)
+			if err != nil {
 				klog.V(5).Infoln(err)
 			}
 		}
 
 		c.ContainersMetrics[containerID].CurrProcesses++
-		// system process should not include container event
-		if !isSystemProcess {
-			// TODO: move to container-level section
-			rBytes, wBytes, disks, err := cgroup.ReadCgroupIOStat(ct.CGroupID, ct.PID)
-			if err == nil {
-				if disks > c.ContainersMetrics[containerID].Disks {
-					c.ContainersMetrics[containerID].Disks = disks
-				}
-				c.ContainersMetrics[containerID].BytesRead.SetAggrStat(containerID, rBytes)
-				c.ContainersMetrics[containerID].BytesWrite.SetAggrStat(containerID, wBytes)
-			}
-		}
 
 		c.updateBasicBPF(containerID, &ct, isSystemProcess)
 		c.updateHWCounters(containerID, &ct, isSystemProcess)
