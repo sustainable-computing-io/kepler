@@ -1,6 +1,3 @@
-//go:build darwin
-// +build darwin
-
 /*
 Copyright 2023.
 
@@ -19,7 +16,6 @@ limitations under the License.
 
 package cgroup
 
-// If Kepler in not running in Linux OS the cgroup stat handler is nil
-func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
-	return nil, nil
+type CCgroupStatHandler interface {
+	GetCGroupStat() (stats map[string]uint64, err error)
 }

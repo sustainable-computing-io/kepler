@@ -31,24 +31,18 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
-type CCgroupStatHandler struct {
-	cgroupV1StatHandler *statsv1.Metrics
-	cgroupV2StatHandler *statsv2.Metrics
+type CCgroupV1StatHandler struct {
+	statsHandler *statsv1.Metrics
 }
 
-var (
-	AvailableCGroupMetrics = []string{
-		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
-		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
-		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
-	}
-)
+type CCgroupV2StatHandler struct {
+	statsHandler *statsv2.Metrics
+}
 
 // NewCGroupStatHandler creates a new cgroup stat object that can return the current metrics of the cgroup
 // To avoid casting of interfaces, the CCgroupStatHandler has a handler for cgroup V1 or V2.
 // See comments here: https://github.com/sustainable-computing-io/kepler/pull/609#discussion_r1155043868
-func NewCGroupStatHandler(pid int) (*CCgroupStatHandler, error) {
-	hander := CCgroupStatHandler{}
+func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 	p := fmt.Sprintf(procPath, pid)
 	_, path, err := cgroups.ParseCgroupFileUnified(p)
 	if err != nil {
@@ -58,13 +52,15 @@ func NewCGroupStatHandler(pid int) (*CCgroupStatHandler, error) {
 	if config.GetCGroupVersion() == 1 {
 		manager, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(path))
 		if err != nil {
-			return &hander, err
+			return nil, err
 		}
 		v1StatHandler, err := manager.Stat(cgroups.IgnoreNotExist)
 		if err != nil {
-			return &hander, err
+			return nil, err
 		}
-		hander.cgroupV1StatHandler = v1StatHandler
+		return CCgroupV1StatHandler{
+			statsHandler: v1StatHandler,
+		}, nil
 	} else {
 		str := strings.Split(path, "/")
 		size := len(str)
@@ -72,32 +68,31 @@ func NewCGroupStatHandler(pid int) (*CCgroupStatHandler, error) {
 		group := str[size-1]
 		manager, err := cgroup2.LoadSystemd(slice, group)
 		if err != nil {
-			return &hander, err
+			return nil, err
 		}
 		v2StatHandler, err := manager.Stat()
 		if err != nil {
-			return &hander, err
+			return nil, err
 		}
-		hander.cgroupV2StatHandler = v2StatHandler
+		return CCgroupV2StatHandler{
+			statsHandler: v2StatHandler,
+		}, nil
 	}
-	return &hander, nil
 }
 
-func GetAvailableCGroupMetrics() []string {
-	return AvailableCGroupMetrics
-}
-
-func (hander *CCgroupStatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
+func (hander CCgroupV1StatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
 	statsMap := make(map[string]uint64)
-	if config.GetCGroupVersion() == 1 {
-		readCgroupV1MemoryStat(hander.cgroupV1StatHandler, statsMap)
-		readCgroupV1CPUStat(hander.cgroupV1StatHandler, statsMap)
-		readCgroupV1IOStat(hander.cgroupV1StatHandler, statsMap)
-	} else {
-		readCgroupV2MemoryStat(hander.cgroupV2StatHandler, statsMap)
-		readCgroupV2CPUStat(hander.cgroupV2StatHandler, statsMap)
-		readCgroupV2IOStat(hander.cgroupV2StatHandler, statsMap)
-	}
+	readCgroupV1MemoryStat(hander.statsHandler, statsMap)
+	readCgroupV1CPUStat(hander.statsHandler, statsMap)
+	readCgroupV1IOStat(hander.statsHandler, statsMap)
+	return statsMap, nil
+}
+
+func (hander CCgroupV2StatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
+	statsMap := make(map[string]uint64)
+	readCgroupV2MemoryStat(hander.statsHandler, statsMap)
+	readCgroupV2CPUStat(hander.statsHandler, statsMap)
+	readCgroupV2IOStat(hander.statsHandler, statsMap)
 	return statsMap, nil
 }
 
