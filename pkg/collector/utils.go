@@ -43,7 +43,7 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 			}
 		}
 
-		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(containerName, podName, namespace)
+		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(containerName, podName, namespace, containerID)
 	}
 }
 

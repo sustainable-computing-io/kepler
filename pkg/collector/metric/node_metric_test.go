@@ -43,7 +43,7 @@ func createMockContainersMetrics() map[string]*ContainerMetrics {
 
 // see usageMetrics for the list of used metrics. For the sake of visibility we add all metrics, but only few of them will be used.
 func createMockContainerMetrics(containerName, podName, namespace string) *ContainerMetrics {
-	containerMetrics := NewContainerMetrics(containerName, podName, namespace)
+	containerMetrics := NewContainerMetrics(containerName, podName, namespace, containerName)
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)
 	containerMetrics.CgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerName, 100)

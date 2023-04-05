@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
@@ -53,29 +54,29 @@ var (
 type NodeMetrics struct {
 	ResourceUsage map[string]float64
 
-	TotalEnergyInCore     *UInt64StatCollection
-	TotalEnergyInDRAM     *UInt64StatCollection
-	TotalEnergyInUncore   *UInt64StatCollection
-	TotalEnergyInPkg      *UInt64StatCollection
-	TotalEnergyInGPU      *UInt64StatCollection
-	TotalEnergyInOther    *UInt64StatCollection
-	TotalEnergyInPlatform *UInt64StatCollection
+	TotalEnergyInCore     *types.UInt64StatCollection
+	TotalEnergyInDRAM     *types.UInt64StatCollection
+	TotalEnergyInUncore   *types.UInt64StatCollection
+	TotalEnergyInPkg      *types.UInt64StatCollection
+	TotalEnergyInGPU      *types.UInt64StatCollection
+	TotalEnergyInOther    *types.UInt64StatCollection
+	TotalEnergyInPlatform *types.UInt64StatCollection
 
-	DynEnergyInCore     *UInt64StatCollection
-	DynEnergyInDRAM     *UInt64StatCollection
-	DynEnergyInUncore   *UInt64StatCollection
-	DynEnergyInPkg      *UInt64StatCollection
-	DynEnergyInGPU      *UInt64StatCollection
-	DynEnergyInOther    *UInt64StatCollection
-	DynEnergyInPlatform *UInt64StatCollection
+	DynEnergyInCore     *types.UInt64StatCollection
+	DynEnergyInDRAM     *types.UInt64StatCollection
+	DynEnergyInUncore   *types.UInt64StatCollection
+	DynEnergyInPkg      *types.UInt64StatCollection
+	DynEnergyInGPU      *types.UInt64StatCollection
+	DynEnergyInOther    *types.UInt64StatCollection
+	DynEnergyInPlatform *types.UInt64StatCollection
 
-	IdleEnergyInCore     *UInt64StatCollection
-	IdleEnergyInDRAM     *UInt64StatCollection
-	IdleEnergyInUncore   *UInt64StatCollection
-	IdleEnergyInPkg      *UInt64StatCollection
-	IdleEnergyInGPU      *UInt64StatCollection
-	IdleEnergyInOther    *UInt64StatCollection
-	IdleEnergyInPlatform *UInt64StatCollection
+	IdleEnergyInCore     *types.UInt64StatCollection
+	IdleEnergyInDRAM     *types.UInt64StatCollection
+	IdleEnergyInUncore   *types.UInt64StatCollection
+	IdleEnergyInPkg      *types.UInt64StatCollection
+	IdleEnergyInGPU      *types.UInt64StatCollection
+	IdleEnergyInOther    *types.UInt64StatCollection
+	IdleEnergyInPlatform *types.UInt64StatCollection
 
 	CPUFrequency map[int32]uint64
 
@@ -87,70 +88,70 @@ type NodeMetrics struct {
 func NewNodeMetrics() *NodeMetrics {
 	return &NodeMetrics{
 		ResourceUsage: make(map[string]float64),
-		TotalEnergyInCore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInCore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInDRAM: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInDRAM: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInUncore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInUncore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInPkg: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInPkg: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInGPU: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInGPU: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInOther: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInOther: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		TotalEnergyInPlatform: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-
-		DynEnergyInCore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInDRAM: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInUncore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInPkg: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInGPU: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInOther: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
-		},
-		DynEnergyInPlatform: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		TotalEnergyInPlatform: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
 
-		IdleEnergyInCore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInCore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInDRAM: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInDRAM: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInUncore: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInUncore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInPkg: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInPkg: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInGPU: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInGPU: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInOther: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInOther: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
-		IdleEnergyInPlatform: &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		DynEnergyInPlatform: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+
+		IdleEnergyInCore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInDRAM: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInUncore: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInPkg: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInGPU: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInOther: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
+		},
+		IdleEnergyInPlatform: &types.UInt64StatCollection{
+			Stat: make(map[string]*types.UInt64Stat),
 		},
 	}
 }
@@ -390,7 +391,7 @@ func (ne *NodeMetrics) GetSumAggrIdleEnergyromAllSources(component string) uint6
 	return idleEnergy
 }
 
-func (ne *NodeMetrics) getTotalEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+func (ne *NodeMetrics) getTotalEnergyStatCollection(component string) (energyStat *types.UInt64StatCollection) {
 	switch component {
 	case PKG:
 		return ne.TotalEnergyInPkg
@@ -412,7 +413,7 @@ func (ne *NodeMetrics) getTotalEnergyStatCollection(component string) (energySta
 	return
 }
 
-func (ne *NodeMetrics) getDynEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+func (ne *NodeMetrics) getDynEnergyStatCollection(component string) (energyStat *types.UInt64StatCollection) {
 	switch component {
 	case PKG:
 		return ne.DynEnergyInPkg
@@ -434,7 +435,7 @@ func (ne *NodeMetrics) getDynEnergyStatCollection(component string) (energyStat 
 	return
 }
 
-func (ne *NodeMetrics) getIdleEnergyStatCollection(component string) (energyStat *UInt64StatCollection) {
+func (ne *NodeMetrics) getIdleEnergyStatCollection(component string) (energyStat *types.UInt64StatCollection) {
 	switch component {
 	case PKG:
 		return ne.IdleEnergyInPkg

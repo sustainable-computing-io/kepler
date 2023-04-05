@@ -28,6 +28,7 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup2"
 	statsv2 "github.com/containerd/cgroups/v3/cgroup2/stats"
 
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -80,64 +81,40 @@ func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 	}
 }
 
-func (hander CCgroupV1StatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
-	statsMap := make(map[string]uint64)
-	readCgroupV1MemoryStat(hander.statsHandler, statsMap)
-	readCgroupV1CPUStat(hander.statsHandler, statsMap)
-	readCgroupV1IOStat(hander.statsHandler, statsMap)
-	return statsMap, nil
-}
-
-func (hander CCgroupV2StatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
-	statsMap := make(map[string]uint64)
-	readCgroupV2MemoryStat(hander.statsHandler, statsMap)
-	readCgroupV2CPUStat(hander.statsHandler, statsMap)
-	readCgroupV2IOStat(hander.statsHandler, statsMap)
-	return statsMap, nil
-}
-
-func readCgroupV1MemoryStat(handler *statsv1.Metrics, statsMap map[string]uint64) {
-	statsMap[config.CgroupfsMemory] = handler.Memory.Usage.Usage
-	statsMap[config.CgroupfsKernelMemory] = handler.Memory.Kernel.Usage
-	statsMap[config.CgroupfsTCPMemory] = handler.Memory.KernelTCP.Usage
-}
-
-func readCgroupV2MemoryStat(handler *statsv2.Metrics, statsMap map[string]uint64) {
-	statsMap[config.CgroupfsMemory] = handler.Memory.Usage
-	statsMap[config.CgroupfsKernelMemory] = handler.Memory.KernelStack
-	statsMap[config.CgroupfsTCPMemory] = handler.Memory.Sock
-}
-
-func readCgroupV1CPUStat(handler *statsv1.Metrics, statsMap map[string]uint64) {
-	statsMap[config.CgroupfsCPU] = handler.CPU.Usage.Total / 1000        // Usec
-	statsMap[config.CgroupfsSystemCPU] = handler.CPU.Usage.Kernel / 1000 // Usec
-	statsMap[config.CgroupfsUserCPU] = handler.CPU.Usage.User / 1000     // Usec
-}
-
-func readCgroupV2CPUStat(handler *statsv2.Metrics, statsMap map[string]uint64) {
-	statsMap[config.CgroupfsCPU] = handler.CPU.UsageUsec
-	statsMap[config.CgroupfsSystemCPU] = handler.CPU.SystemUsec
-	statsMap[config.CgroupfsUserCPU] = handler.CPU.UserUsec
-}
-
-func readCgroupV1IOStat(handler *statsv1.Metrics, statsMap map[string]uint64) {
-	// Each ioEntry is an io device.
-	for _, ioEntry := range handler.Blkio.IoServiceBytesRecursive {
+func (handler CCgroupV1StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
+	// cgroup v1 memory
+	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage.Usage)
+	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Kernel.Usage)
+	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, handler.statsHandler.Memory.KernelTCP.Usage)
+	// cgroup v1 cpu
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.Total/1000)        // Usec
+	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.Kernel/1000) // Usec
+	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.User/1000)     // Usec
+	// cgroup v1 IO
+	for _, ioEntry := range handler.statsHandler.Blkio.IoServiceBytesRecursive {
 		if ioEntry.Op == "Read" {
-			statsMap[config.CgroupfsReadIO] += ioEntry.Value
+			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
 		}
 		if ioEntry.Op == "Write" {
-			statsMap[config.CgroupfsWriteIO] += ioEntry.Value
+			cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Value)
 		}
-		statsMap[config.BlockDevicesIO] += 1
+		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 	}
 }
 
-func readCgroupV2IOStat(handler *statsv2.Metrics, statsMap map[string]uint64) {
-	// Each ioEntry is an io device.
-	for _, ioEntry := range handler.Io.GetUsage() {
-		statsMap[config.CgroupfsReadIO] += ioEntry.Rbytes
-		statsMap[config.CgroupfsWriteIO] += ioEntry.Wbytes
-		statsMap[config.BlockDevicesIO] += 1
+func (handler CCgroupV2StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
+	// memory
+	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage)
+	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.KernelStack)
+	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Sock)
+	// cpu
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, handler.statsHandler.CPU.UsageUsec)
+	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, handler.statsHandler.CPU.SystemUsec)
+	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, handler.statsHandler.CPU.UserUsec)
+	// IO
+	for _, ioEntry := range handler.statsHandler.Io.GetUsage() {
+		cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Rbytes)
+		cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Wbytes)
+		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 	}
 }

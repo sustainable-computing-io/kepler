@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 )
@@ -29,8 +30,8 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 	collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
 	b.ReportAllocs()
 	for n := 0; n < continerNumber; n++ {
-		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test")
-		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &collector_metric.UInt64Stat{}
+		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test", "container"+strconv.Itoa(n))
+		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		_ = containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 	}
 	b.ResetTimer()

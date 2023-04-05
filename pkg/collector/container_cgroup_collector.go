@@ -38,23 +38,7 @@ func (c *Collector) updateCgroupMetrics() {
 			}
 			c.ContainersMetrics[key].CgroupStatHandler = handler
 		}
-
-		// we need to check again if CgroupStatHandler is not nil because on darwin OS the handler will always be nil
-		if c.ContainersMetrics[key].CgroupStatHandler != nil {
-			cGroupMetrics, err := c.ContainersMetrics[key].CgroupStatHandler.GetCGroupStat()
-			if err != nil {
-				klog.V(3).Infoln("Error: could not red cgroup manager for PID:", c.ContainersMetrics[key].PID)
-				continue
-			}
-			// cGroupMetrics contains all cgroups metrics listed in the config/types.go
-			for metricName, value := range cGroupMetrics {
-				if _, ok := c.ContainersMetrics[key].CgroupStatMap[metricName]; ok {
-					c.ContainersMetrics[key].CgroupStatMap[metricName].SetAggrStat(key, value)
-				} else {
-					klog.Infoln(metricName, " does not exist for container", key)
-				}
-			}
-		}
+		c.ContainersMetrics[key].UpdateCgroupMetrics()
 	}
 }
 

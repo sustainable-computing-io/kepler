@@ -53,7 +53,7 @@ func BenchmarkAddNodeResUsageFromContainerResUsageWith10000Contianer(b *testing.
 
 // see usageMetrics for the list of used metrics. For the sake of visibility we add all metrics, but only few of them will be used.
 func createMockContainerMetrics(containerName, podName, namespace string) *metric.ContainerMetrics {
-	containerMetrics := metric.NewContainerMetrics(containerName, podName, namespace)
+	containerMetrics := metric.NewContainerMetrics(containerName, podName, namespace, containerName)
 	// bpf - cpu time
 	_ = containerMetrics.CPUTime.AddNewDelta(10) // config.CPUTime
 	return containerMetrics

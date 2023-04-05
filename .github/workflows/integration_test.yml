@@ -10,8 +10,8 @@ jobs:
       matrix:
         kube_provider: [kind]
     steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-go@main
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: 1.18
 

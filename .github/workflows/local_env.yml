@@ -10,7 +10,7 @@ jobs:
       matrix:
         kube_provider: [kind]
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v3
       - name: kubectl
         run: curl -LO https://dl.k8s.io/release/v1.25.4/bin/linux/amd64/kubectl
       - name: local cluster set up
