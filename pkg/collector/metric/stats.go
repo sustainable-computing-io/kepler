@@ -38,7 +38,11 @@ var (
 func InitAvailableParamAndMetrics() {
 	AvailableHWCounters = attacher.GetEnabledHWCounters()
 	AvailableEBPFCounters = attacher.GetEnabledBPFCounters()
-	AvailableCGroupMetrics = cgroup.GetAvailableCGroupMetrics()
+	AvailableCGroupMetrics = []string{
+		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
+		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
+		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
+	}
 	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
 	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 

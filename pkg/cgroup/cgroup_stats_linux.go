@@ -39,18 +39,6 @@ type CCgroupV2StatHandler struct {
 	statsHandler *statsv2.Metrics
 }
 
-type CCgroupStatHandler interface {
-	GetCGroupStat() (stats map[string]uint64, err error)
-}
-
-var (
-	AvailableCGroupMetrics = []string{
-		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
-		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
-		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
-	}
-)
-
 // NewCGroupStatHandler creates a new cgroup stat object that can return the current metrics of the cgroup
 // To avoid casting of interfaces, the CCgroupStatHandler has a handler for cgroup V1 or V2.
 // See comments here: https://github.com/sustainable-computing-io/kepler/pull/609#discussion_r1155043868
@@ -90,10 +78,6 @@ func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 			statsHandler: v2StatHandler,
 		}, nil
 	}
-}
-
-func GetAvailableCGroupMetrics() []string {
-	return AvailableCGroupMetrics
 }
 
 func (hander CCgroupV1StatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
