@@ -19,22 +19,19 @@ limitations under the License.
 
 package cgroup
 
-type CCgroupStatHandler struct{}
+type CCgroupStatHandler interface {
+	GetCGroupStat() (stats map[string]uint64, err error)
+}
 
 var (
 	AvailableCGroupMetrics = []string{}
 )
 
 // If Kepler in not running in Linux OS the cgroup stat handler is nil
-func NewCGroupStatHandler(pid int) (*CCgroupStatHandler, error) {
+func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 	return nil, nil
 }
 
 func GetAvailableCGroupMetrics() []string {
 	return AvailableCGroupMetrics
-}
-
-func (hander *CCgroupStatHandler) GetCGroupStat() (stats map[string]uint64, err error) {
-	statsMap := make(map[string]uint64)
-	return statsMap, nil
 }

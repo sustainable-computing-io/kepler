@@ -210,12 +210,7 @@ test-verbose: ginkgo-set tidy-vendor
 	@go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
-	mkdir -p tmp
-	mv pkg/cgroup/cgroup_stats_linux.go	tmp/
-	@go mod tidy -v
-	@go mod vendor
-	@go test -tags darwin ./... --race --bench=. -cover --count=1 --vet=all || true
-	mv tmp/cgroup_stats_linux.go pkg/cgroup
+	@go test -tags darwin $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 
 escapes_detect: tidy-vendor
 	@go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true

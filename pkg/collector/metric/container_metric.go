@@ -50,7 +50,7 @@ type ContainerMetrics struct {
 
 	CurrProcesses int
 
-	CgroupStatHandler *cgroup.CCgroupStatHandler
+	CgroupStatHandler cgroup.CCgroupStatHandler
 	CgroupStatMap     map[string]*UInt64StatCollection
 	// TODO: kubelet stat metrics is deprecated since it duplicates the cgroup metrics. We will remove it soon.
 	KubeletStats map[string]*UInt64Stat

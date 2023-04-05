@@ -1,6 +1,8 @@
 package metric
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -13,7 +15,13 @@ var _ = Describe("Stats", func() {
 		// why metric depends on cgroup?
 		// why here is a null pointer?
 		InitAvailableParamAndMetrics()
-		exp := []string{"bytes_read", "bytes_writes", "block_devices_used"}
-		Expect(len(ContainerMetricNames) >= len(exp)).To(BeTrue())
+		if runtime.GOOS == "linux" {
+			exp := []string{"bytes_read", "bytes_writes", "block_devices_used"}
+			Expect(len(ContainerMetricNames) >= len(exp)).To(BeTrue())
+		}
+		if runtime.GOOS == "darwin" {
+			exp := []string{"block_devices_used"}
+			Expect(len(ContainerMetricNames) >= len(exp)).To(BeTrue())
+		}
 	})
 })
