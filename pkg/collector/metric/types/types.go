@@ -1,4 +1,4 @@
-package metricdefine
+package types
 
 import (
 	"fmt"

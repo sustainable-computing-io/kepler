@@ -32,7 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	model "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
@@ -92,11 +92,11 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		// add container mock values
 		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
-		(*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		(*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		err := (*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
 		(*exporter.ContainersMetrics)["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
-		(*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		(*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		err = (*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
 		exporter.NodeMetrics.AddNodeResUsageFromContainerResUsage(*exporter.ContainersMetrics)

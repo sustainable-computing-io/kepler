@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
@@ -71,7 +71,7 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 	b.ReportAllocs()
 	for n := 0; n < continerNumber; n++ {
 		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test", "container"+strconv.Itoa(n))
-		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		_ = containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 	}
 	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)

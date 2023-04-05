@@ -28,7 +28,7 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup2"
 	statsv2 "github.com/containerd/cgroups/v3/cgroup2/stats"
 
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -81,7 +81,7 @@ func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 	}
 }
 
-func (handler CCgroupV1StatHandler) GetCGroupStat(containerID string, cgroupStatMap map[string]*metricdefine.UInt64StatCollection) {
+func (handler CCgroupV1StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
 	// cgroup v1 memory
 	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage.Usage)
 	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Kernel.Usage)
@@ -102,7 +102,7 @@ func (handler CCgroupV1StatHandler) GetCGroupStat(containerID string, cgroupStat
 	}
 }
 
-func (handler CCgroupV2StatHandler) GetCGroupStat(containerID string, cgroupStatMap map[string]*metricdefine.UInt64StatCollection) {
+func (handler CCgroupV2StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
 	// memory
 	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage)
 	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.KernelStack)

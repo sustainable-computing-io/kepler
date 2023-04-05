@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
@@ -44,15 +44,15 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		containersMetrics := map[string]*collector_metric.ContainerMetrics{}
 		containersMetrics["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
-		containersMetrics["containerA"].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		containersMetrics["containerA"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		err := containersMetrics["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
 		containersMetrics["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
-		containersMetrics["containerB"].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		containersMetrics["containerB"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		err = containersMetrics["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
 		containersMetrics["containerC"] = collector_metric.NewContainerMetrics("containerC", "podC", "test", "containerC")
-		containersMetrics["containerC"].CounterStats[config.CoreUsageMetric] = &metricdefine.UInt64Stat{}
+		containersMetrics["containerC"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
 		err = containersMetrics["containerC"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
 		Expect(err).NotTo(HaveOccurred())
 

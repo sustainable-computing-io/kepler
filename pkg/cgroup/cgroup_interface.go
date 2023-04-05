@@ -16,8 +16,8 @@ limitations under the License.
 
 package cgroup
 
-import "github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
+import "github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 
 type CCgroupStatHandler interface {
-	GetCGroupStat(containerID string, CgroupStatMap map[string]*metricdefine.UInt64StatCollection)
+	SetCGroupStat(containerID string, CgroupStatMap map[string]*types.UInt64StatCollection)
 }
