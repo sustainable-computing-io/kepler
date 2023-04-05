@@ -19,47 +19,48 @@ package metric
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
 )
 
 var _ = Describe("Test Container Metric", func() {
 
 	c := ContainerMetrics{
 		ProcessMetrics: ProcessMetrics{
-			DynEnergyInCore:   &UInt64Stat{Delta: uint64(1), Aggr: uint64(2)},
-			DynEnergyInDRAM:   &UInt64Stat{Delta: uint64(3), Aggr: uint64(4)},
-			DynEnergyInUncore: &UInt64Stat{Delta: uint64(5), Aggr: uint64(6)},
-			DynEnergyInPkg:    &UInt64Stat{Delta: uint64(7), Aggr: uint64(8)},
-			DynEnergyInGPU:    &UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
-			DynEnergyInOther:  &UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
+			DynEnergyInCore:   &metricdefine.UInt64Stat{Delta: uint64(1), Aggr: uint64(2)},
+			DynEnergyInDRAM:   &metricdefine.UInt64Stat{Delta: uint64(3), Aggr: uint64(4)},
+			DynEnergyInUncore: &metricdefine.UInt64Stat{Delta: uint64(5), Aggr: uint64(6)},
+			DynEnergyInPkg:    &metricdefine.UInt64Stat{Delta: uint64(7), Aggr: uint64(8)},
+			DynEnergyInGPU:    &metricdefine.UInt64Stat{Delta: uint64(9), Aggr: uint64(10)},
+			DynEnergyInOther:  &metricdefine.UInt64Stat{Delta: uint64(11), Aggr: uint64(12)},
 		},
-		CgroupStatMap: map[string]*UInt64StatCollection{
+		CgroupStatMap: map[string]*metricdefine.UInt64StatCollection{
 			CORE: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(13), Aggr: uint64(14)},
 				},
 			},
 			DRAM: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(15), Aggr: uint64(16)},
 				},
 			},
 			UNCORE: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(17), Aggr: uint64(18)},
 				},
 			},
 			PKG: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(19), Aggr: uint64(20)},
 				},
 			},
 			GPU: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(21), Aggr: uint64(22)},
 				},
 			},
 			OTHER: {
-				Stat: map[string]*UInt64Stat{
+				Stat: map[string]*metricdefine.UInt64Stat{
 					"usage": {Delta: uint64(23), Aggr: uint64(24)},
 				},
 			},
@@ -94,13 +95,13 @@ var _ = Describe("Test Container Metric", func() {
 	})
 
 	It("Test ResetDeltaValues", func() {
-		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
 		instance.ResetDeltaValues()
 		Expect(0).To(Equal(instance.CurrProcesses))
 	})
 
 	It("Test GetBasicValues", func() {
-		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
 		instance.Command = "12345678901234567890"
 		exp := []string{"PodName", "Namespace", "1234567890"}
 		cur := instance.GetBasicValues()
@@ -108,14 +109,14 @@ var _ = Describe("Test Container Metric", func() {
 	})
 
 	It("Test SumAllDynDeltaValues", func() {
-		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
 		exp := instance.DynEnergyInPkg.Delta + instance.DynEnergyInGPU.Delta + instance.DynEnergyInOther.Delta
 		cur := instance.SumAllDynDeltaValues()
 		Expect(exp).To(Equal(cur))
 	})
 
 	It("Test SumAllDynAggrValues", func() {
-		instance := NewContainerMetrics("container", "PodName", "Namespace")
+		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
 		exp := instance.DynEnergyInPkg.Aggr + instance.DynEnergyInGPU.Aggr + instance.DynEnergyInOther.Aggr
 		cur := instance.SumAllDynAggrValues()
 		Expect(exp).To(Equal(cur))

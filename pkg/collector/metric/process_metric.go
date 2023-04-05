@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
@@ -39,24 +40,24 @@ var (
 type ProcessMetrics struct {
 	PID          uint64
 	Command      string
-	CounterStats map[string]*UInt64Stat
+	CounterStats map[string]*metricdefine.UInt64Stat
 	// ebpf metrics
-	CPUTime           *UInt64Stat
-	SoftIRQCount      []UInt64Stat
-	GPUStats          map[string]*UInt64Stat
-	DynEnergyInCore   *UInt64Stat
-	DynEnergyInDRAM   *UInt64Stat
-	DynEnergyInUncore *UInt64Stat
-	DynEnergyInPkg    *UInt64Stat
-	DynEnergyInGPU    *UInt64Stat
-	DynEnergyInOther  *UInt64Stat
+	CPUTime           *metricdefine.UInt64Stat
+	SoftIRQCount      []metricdefine.UInt64Stat
+	GPUStats          map[string]*metricdefine.UInt64Stat
+	DynEnergyInCore   *metricdefine.UInt64Stat
+	DynEnergyInDRAM   *metricdefine.UInt64Stat
+	DynEnergyInUncore *metricdefine.UInt64Stat
+	DynEnergyInPkg    *metricdefine.UInt64Stat
+	DynEnergyInGPU    *metricdefine.UInt64Stat
+	DynEnergyInOther  *metricdefine.UInt64Stat
 
-	IdleEnergyInCore   *UInt64Stat
-	IdleEnergyInDRAM   *UInt64Stat
-	IdleEnergyInUncore *UInt64Stat
-	IdleEnergyInPkg    *UInt64Stat
-	IdleEnergyInGPU    *UInt64Stat
-	IdleEnergyInOther  *UInt64Stat
+	IdleEnergyInCore   *metricdefine.UInt64Stat
+	IdleEnergyInDRAM   *metricdefine.UInt64Stat
+	IdleEnergyInUncore *metricdefine.UInt64Stat
+	IdleEnergyInPkg    *metricdefine.UInt64Stat
+	IdleEnergyInGPU    *metricdefine.UInt64Stat
+	IdleEnergyInOther  *metricdefine.UInt64Stat
 }
 
 // NewProcessMetrics creates a new ProcessMetrics instance
@@ -64,30 +65,30 @@ func NewProcessMetrics(pid uint64, command string) *ProcessMetrics {
 	p := &ProcessMetrics{
 		PID:                pid,
 		Command:            command,
-		CPUTime:            &UInt64Stat{},
-		CounterStats:       make(map[string]*UInt64Stat),
-		SoftIRQCount:       make([]UInt64Stat, config.MaxIRQ),
-		DynEnergyInCore:    &UInt64Stat{},
-		DynEnergyInDRAM:    &UInt64Stat{},
-		DynEnergyInUncore:  &UInt64Stat{},
-		DynEnergyInPkg:     &UInt64Stat{},
-		DynEnergyInOther:   &UInt64Stat{},
-		DynEnergyInGPU:     &UInt64Stat{},
-		IdleEnergyInCore:   &UInt64Stat{},
-		IdleEnergyInDRAM:   &UInt64Stat{},
-		IdleEnergyInUncore: &UInt64Stat{},
-		IdleEnergyInPkg:    &UInt64Stat{},
-		IdleEnergyInOther:  &UInt64Stat{},
-		IdleEnergyInGPU:    &UInt64Stat{},
+		CPUTime:            &metricdefine.UInt64Stat{},
+		CounterStats:       make(map[string]*metricdefine.UInt64Stat),
+		SoftIRQCount:       make([]metricdefine.UInt64Stat, config.MaxIRQ),
+		DynEnergyInCore:    &metricdefine.UInt64Stat{},
+		DynEnergyInDRAM:    &metricdefine.UInt64Stat{},
+		DynEnergyInUncore:  &metricdefine.UInt64Stat{},
+		DynEnergyInPkg:     &metricdefine.UInt64Stat{},
+		DynEnergyInOther:   &metricdefine.UInt64Stat{},
+		DynEnergyInGPU:     &metricdefine.UInt64Stat{},
+		IdleEnergyInCore:   &metricdefine.UInt64Stat{},
+		IdleEnergyInDRAM:   &metricdefine.UInt64Stat{},
+		IdleEnergyInUncore: &metricdefine.UInt64Stat{},
+		IdleEnergyInPkg:    &metricdefine.UInt64Stat{},
+		IdleEnergyInOther:  &metricdefine.UInt64Stat{},
+		IdleEnergyInGPU:    &metricdefine.UInt64Stat{},
 	}
 
 	for _, metricName := range AvailableHWCounters {
-		p.CounterStats[metricName] = &UInt64Stat{}
+		p.CounterStats[metricName] = &metricdefine.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
 	if accelerator.IsGPUCollectionSupported() {
-		p.CounterStats[config.GPUSMUtilization] = &UInt64Stat{}
-		p.CounterStats[config.GPUMemUtilization] = &UInt64Stat{}
+		p.CounterStats[config.GPUSMUtilization] = &metricdefine.UInt64Stat{}
+		p.CounterStats[config.GPUMemUtilization] = &metricdefine.UInt64Stat{}
 	}
 	return p
 }

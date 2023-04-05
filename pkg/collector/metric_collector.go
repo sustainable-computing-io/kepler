@@ -165,17 +165,17 @@ func (c *Collector) prePopulateContainerMetrics(pods *[]corev1.Pod) {
 		for j := 0; j < len(pod.Status.InitContainerStatuses); j++ {
 			container := pod.Status.InitContainerStatuses[j]
 			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace, containerID)
 		}
 		for j := 0; j < len(pod.Status.ContainerStatuses); j++ {
 			container := pod.Status.ContainerStatuses[j]
 			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace, containerID)
 		}
 		for j := 0; j < len(pod.Status.EphemeralContainerStatuses); j++ {
 			container := pod.Status.EphemeralContainerStatuses[j]
 			containerID := cgroup.ParseContainerIDFromPodStatus(container.ContainerID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace)
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(container.Name, pod.Name, pod.Namespace, containerID)
 		}
 	}
 }

@@ -56,7 +56,7 @@ func createMockContainersMetrics() map[string]*collector_metric.ContainerMetrics
 
 // see usageMetrics for the list of used metrics. For the sake of visibility we add all metrics, but only few of them will be used.
 func createMockContainerMetrics(containerName, podName, namespace string) *collector_metric.ContainerMetrics {
-	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace)
+	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace, containerName)
 	// counter - attacher package
 	err := containerMetrics.CounterStats[config.CPUCycle].AddNewDelta(10)
 	Expect(err).NotTo(HaveOccurred())

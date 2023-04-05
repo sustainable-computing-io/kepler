@@ -23,6 +23,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/metricdefine"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
@@ -47,56 +48,58 @@ type ContainerMetrics struct {
 	ContainerName string
 	PodName       string
 	Namespace     string
+	ContainerID   string
 
 	CurrProcesses int
 
 	CgroupStatHandler cgroup.CCgroupStatHandler
-	CgroupStatMap     map[string]*UInt64StatCollection
+	CgroupStatMap     map[string]*metricdefine.UInt64StatCollection
 	// TODO: kubelet stat metrics is deprecated since it duplicates the cgroup metrics. We will remove it soon.
-	KubeletStats map[string]*UInt64Stat
+	KubeletStats map[string]*metricdefine.UInt64Stat
 }
 
 // NewContainerMetrics creates a new ContainerMetrics instance
-func NewContainerMetrics(containerName, podName, podNamespace string) *ContainerMetrics {
+func NewContainerMetrics(containerName, podName, podNamespace, containerID string) *ContainerMetrics {
 	c := &ContainerMetrics{
 		PodName:       podName,
 		ContainerName: containerName,
 		Namespace:     podNamespace,
+		ContainerID:   containerID,
 		ProcessMetrics: ProcessMetrics{
-			CPUTime:            &UInt64Stat{},
-			CounterStats:       make(map[string]*UInt64Stat),
-			SoftIRQCount:       make([]UInt64Stat, config.MaxIRQ),
-			DynEnergyInCore:    &UInt64Stat{},
-			DynEnergyInDRAM:    &UInt64Stat{},
-			DynEnergyInUncore:  &UInt64Stat{},
-			DynEnergyInPkg:     &UInt64Stat{},
-			DynEnergyInOther:   &UInt64Stat{},
-			DynEnergyInGPU:     &UInt64Stat{},
-			IdleEnergyInCore:   &UInt64Stat{},
-			IdleEnergyInDRAM:   &UInt64Stat{},
-			IdleEnergyInUncore: &UInt64Stat{},
-			IdleEnergyInPkg:    &UInt64Stat{},
-			IdleEnergyInOther:  &UInt64Stat{},
-			IdleEnergyInGPU:    &UInt64Stat{},
+			CPUTime:            &metricdefine.UInt64Stat{},
+			CounterStats:       make(map[string]*metricdefine.UInt64Stat),
+			SoftIRQCount:       make([]metricdefine.UInt64Stat, config.MaxIRQ),
+			DynEnergyInCore:    &metricdefine.UInt64Stat{},
+			DynEnergyInDRAM:    &metricdefine.UInt64Stat{},
+			DynEnergyInUncore:  &metricdefine.UInt64Stat{},
+			DynEnergyInPkg:     &metricdefine.UInt64Stat{},
+			DynEnergyInOther:   &metricdefine.UInt64Stat{},
+			DynEnergyInGPU:     &metricdefine.UInt64Stat{},
+			IdleEnergyInCore:   &metricdefine.UInt64Stat{},
+			IdleEnergyInDRAM:   &metricdefine.UInt64Stat{},
+			IdleEnergyInUncore: &metricdefine.UInt64Stat{},
+			IdleEnergyInPkg:    &metricdefine.UInt64Stat{},
+			IdleEnergyInOther:  &metricdefine.UInt64Stat{},
+			IdleEnergyInGPU:    &metricdefine.UInt64Stat{},
 		},
-		CgroupStatMap: make(map[string]*UInt64StatCollection),
-		KubeletStats:  make(map[string]*UInt64Stat),
+		CgroupStatMap: make(map[string]*metricdefine.UInt64StatCollection),
+		KubeletStats:  make(map[string]*metricdefine.UInt64Stat),
 	}
 	for _, metricName := range AvailableHWCounters {
-		c.CounterStats[metricName] = &UInt64Stat{}
+		c.CounterStats[metricName] = &metricdefine.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
 	if accelerator.IsGPUCollectionSupported() {
-		c.CounterStats[config.GPUSMUtilization] = &UInt64Stat{}
-		c.CounterStats[config.GPUMemUtilization] = &UInt64Stat{}
+		c.CounterStats[config.GPUSMUtilization] = &metricdefine.UInt64Stat{}
+		c.CounterStats[config.GPUMemUtilization] = &metricdefine.UInt64Stat{}
 	}
 	for _, metricName := range AvailableCGroupMetrics {
-		c.CgroupStatMap[metricName] = &UInt64StatCollection{
-			Stat: make(map[string]*UInt64Stat),
+		c.CgroupStatMap[metricName] = &metricdefine.UInt64StatCollection{
+			Stat: make(map[string]*metricdefine.UInt64Stat),
 		}
 	}
 	for _, metricName := range AvailableKubeletMetrics {
-		c.KubeletStats[metricName] = &UInt64Stat{}
+		c.KubeletStats[metricName] = &metricdefine.UInt64Stat{}
 	}
 	return c
 }
@@ -262,4 +265,11 @@ func (c *ContainerMetrics) String() string {
 		c.CounterStats,
 		c.CgroupStatMap,
 		c.KubeletStats)
+}
+
+func (c *ContainerMetrics) UpdateCgroupMetrics() {
+	if c.CgroupStatHandler == nil {
+		return
+	}
+	c.CgroupStatHandler.GetCGroupStat(c.ContainerID, c.CgroupStatMap)
 }
