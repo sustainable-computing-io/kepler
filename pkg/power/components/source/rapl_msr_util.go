@@ -25,19 +25,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
 	"syscall"
 
+	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"k8s.io/klog/v2"
 )
 
 const (
-	msrPath      = "/dev/cpu/%d/msr"
-	topologyPath = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
+	msrPath = "/dev/cpu/%d/msr"
 
 	msrRaplPowerUnit    = 0x00000606
 	msrPkgEnergyStatus  = 0x00000611
@@ -47,57 +43,43 @@ const (
 )
 
 var (
+	cpu       *ghw.CPUInfo
 	fds       []int
 	byteOrder binary.ByteOrder
 
-	// package - core
-	packageMap  map[int]int
-	packageList []int
+	numPackages, numCores int
 
-	powerUnits, timeUnits           float64
-	cpuEnergyUnits, dramEnergyUnits []float64
+	// powerUnits and timeUnits not used yet in Kepler, annotate here for future use.
+	// powerUnits, timeUnits float64
+	// energyStatusUnits should be package specific, but normally the same among packages
+	energyStatusUnits []float64
 )
 
 func init() {
 	byteOrder = utils.DetermineHostByteOrder()
-}
-
-func mapPackageAndCore() error {
-	cores := runtime.NumCPU()
-	packageMap = make(map[int]int, cores)
-	packageList = make([]int, cores)
-
-	for i := 0; i < cores; {
-		path := fmt.Sprintf(topologyPath, i)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read topology %s: %v", path, err)
-		}
-		id, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil {
-			return err
-		}
-
-		packageMap[id] = i
-		packageList = append(packageList, id)
-
-		i++
+	var err error
+	cpu, err = ghw.CPU()
+	if cpu == nil || err != nil {
+		fmt.Printf("Error getting CPU info: %v", err)
+		// For ghw lib not applicable platform or other corner cases, simply keep the numPackages and numCores as 0.
+	} else {
+		numPackages = len(cpu.Processors)
+		numCores = int(cpu.TotalThreads)
 	}
-	return nil
 }
 
 func OpenAllMSR() error {
-	fds = make([]int, len(packageList))
-	var i int = 0
-	for packid := range packageList {
-		core := packageMap[packid]
-		path := fmt.Sprintf(msrPath, core)
+	if numCores == 0 {
+		return fmt.Errorf("failed to initialze cpu info")
+	}
+	fds = make([]int, numCores)
+	for c := 0; c < numCores; c++ {
+		path := fmt.Sprintf(msrPath, c)
 		fd, err := syscall.Open(path, syscall.O_RDONLY, 777)
 		if err != nil {
 			return fmt.Errorf("failed to open path %s: %v", path, err)
 		}
-		fds[i] = fd
-		i++
+		fds[c] = fd
 	}
 	return nil
 }
@@ -111,15 +93,16 @@ func CloseAllMSR() {
 }
 
 func ReadMSR(packageID int, msr int64) (uint64, error) {
-	if packageID > len(packageList) {
-		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageID, len(packageList))
+	if packageID >= numPackages {
+		return 0, fmt.Errorf("package Id %d greater than max package id %d", packageID, numPackages-1)
 	}
+	if cpu.Processors[packageID].NumCores == 0 || cpu.Processors[packageID].NumThreads == 0 {
+		return 0, fmt.Errorf("no cpu core/hardware thread in package %d", packageID)
+	}
+	// Currently the cores in the same CPU Package(Socket) have the same RAPL MSR value
+	core := cpu.Processors[packageID].Cores[0].LogicalProcessors[0]
 	buf := make([]byte, 8)
-	core := packageMap[packageID]
-	if core == -1 || fds[packageID] == 0 {
-		return 0, fmt.Errorf("no cpu core or msr found in package %d", packageID)
-	}
-	bytes, err := syscall.Pread(fds[packageID], buf, msr)
+	bytes, err := syscall.Pread(fds[core], buf, msr)
 
 	if err != nil {
 		return 0, err
@@ -135,27 +118,22 @@ func ReadMSR(packageID int, msr int64) (uint64, error) {
 }
 
 func InitUnits() error {
-	if err := mapPackageAndCore(); err != nil {
-		klog.V(1).Info(err)
-		return err
-	}
 	if err := OpenAllMSR(); err != nil {
 		klog.V(1).Info(err)
 		return err
 	}
-	cpuEnergyUnits = make([]float64, len(packageList))
-	dramEnergyUnits = make([]float64, len(packageList))
-	for i := 0; i < len(packageList); {
+	energyStatusUnits = make([]float64, numPackages)
+	for i := 0; i < numPackages; i++ {
 		result, err := ReadMSR(i, msrRaplPowerUnit)
 		if err != nil {
 			klog.V(1).Info(err)
 			return fmt.Errorf("failed to read power unit: %v", err)
 		}
-		powerUnits = math.Pow(0.5, float64((result & 0xf)))
-		timeUnits = math.Pow(0.5, float64(((result >> 16) & 0xf)))
-		cpuEnergyUnits[i] = 1 / math.Pow(2, float64((result&0x1f00)>>8))
-		dramEnergyUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
-		i++
+		// See definition in "Intel® 64 and IA-32 Architectures Software Developer’s Manual" Section 15.10.1, Figure 15-35
+		// powerUnits and timeUnits not used yet in Kepler, annotate here for future use.
+		// powerUnits = math.Pow(0.5, float64((result & 0xf)))
+		// timeUnits = math.Pow(0.5, float64(((result >> 16) & 0xf)))
+		energyStatusUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
 	}
 	return nil
 }
@@ -165,7 +143,7 @@ func ReadPkgPower(packageID int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pkg energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageID] * float64(result)), nil
+	return uint64(energyStatusUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadCorePower(packageID int) (uint64, error) {
@@ -173,7 +151,7 @@ func ReadCorePower(packageID int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp0 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(energyStatusUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadUncorePower(packageID int) (uint64, error) {
@@ -181,7 +159,7 @@ func ReadUncorePower(packageID int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read pp1 energy: %v", err)
 	}
-	return uint64(cpuEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(energyStatusUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadDramPower(packageID int) (uint64, error) {
@@ -189,25 +167,24 @@ func ReadDramPower(packageID int) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read dram energy: %v", err)
 	}
-	return uint64(dramEnergyUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
+	return uint64(energyStatusUnits[packageID] * float64(result) * 1000 /*mJ*/), nil
 }
 
 func ReadAllPower(f func(n int) (uint64, error)) (uint64, error) {
 	energy := uint64(0)
-	for i := 0; i < len(packageList); {
+	for i := 0; i < numPackages; i++ {
 		result, err := f(i)
 		if err != nil {
 			return 0, err
 		}
 		energy += result
-		i++
 	}
 	return energy, nil
 }
 
 func GetRAPLEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uint64, error)) map[int]NodeComponentsEnergy {
 	packageEnergies := make(map[int]NodeComponentsEnergy)
-	for i := 0; i < len(packageList); {
+	for i := 0; i < numPackages; i++ {
 		coreEnergy, _ := coreFunc(i)
 		dramEnergy, _ := dramFunc(i)
 		uncoreEnergy, _ := uncoreFunc(i)
@@ -218,7 +195,6 @@ func GetRAPLEnergyByMSR(coreFunc, dramFunc, uncoreFunc, pkgFunc func(n int) (uin
 			Uncore: uncoreEnergy,
 			Pkg:    pkgEnergy,
 		}
-		i++
 	}
 	return packageEnergies
 }
