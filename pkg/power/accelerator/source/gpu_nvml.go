@@ -41,8 +41,7 @@ type GPUNvml struct {
 func (n *GPUNvml) Init() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("could not init nvml: %v", err)
-			klog.Infoln(err)
+			err = fmt.Errorf("could not init nvml: %v", r)
 		}
 	}()
 	if ret := nvml.Init(); ret != nvml.SUCCESS {
@@ -58,7 +57,7 @@ func (n *GPUNvml) Init() (err error) {
 		err = fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 		return err
 	}
-	fmt.Printf("found %d gpu devices\n", count)
+	klog.Infof("found %d gpu devices\n", count)
 	devices = make([]interface{}, count)
 	for i := 0; i < count; i++ {
 		device, ret := nvml.DeviceGetHandleByIndex(i)

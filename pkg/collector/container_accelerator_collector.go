@@ -38,7 +38,7 @@ func (c *Collector) updateAcceleratorMetrics() {
 	// calculate the gpu's processes energy consumption for each gpu
 	for _, device := range accelerator.GetGpus() {
 		if processesUtilization, err = accelerator.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
-			klog.V(2).Infoln(err)
+			continue
 		}
 
 		var containerID string
