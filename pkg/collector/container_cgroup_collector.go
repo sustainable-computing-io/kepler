@@ -31,9 +31,13 @@ func (c *Collector) updateCgroupMetrics() {
 			continue
 		}
 		if c.ContainersMetrics[key].CgroupStatHandler == nil {
-			handler, err := cgroup.NewCGroupStatHandler(int(c.ContainersMetrics[key].PID))
+			handler, err := cgroup.NewCGroupStatManager(int(c.ContainersMetrics[key].PID))
 			if err != nil {
 				klog.V(3).Infoln("Error: could not start cgroup stat handler for PID:", c.ContainersMetrics[key].PID)
+				if key != c.systemProcessName {
+					// if cgroup handler does not exist, it means that the container was deleted
+					delete(c.ContainersMetrics, key)
+				}
 				continue
 			}
 			c.ContainersMetrics[key].CgroupStatHandler = handler

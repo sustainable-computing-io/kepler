@@ -24,26 +24,25 @@ import (
 	"strings"
 
 	"github.com/containerd/cgroups"
-	statsv1 "github.com/containerd/cgroups/stats/v1"
 	"github.com/containerd/cgroups/v3/cgroup2"
-	statsv2 "github.com/containerd/cgroups/v3/cgroup2/stats"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"k8s.io/klog/v2"
 )
 
-type CCgroupV1StatHandler struct {
-	statsHandler *statsv1.Metrics
+type CCgroupV1StatManager struct {
+	manager cgroups.Cgroup
 }
 
-type CCgroupV2StatHandler struct {
-	statsHandler *statsv2.Metrics
+type CCgroupV12StatManager struct {
+	manager *cgroup2.Manager
 }
 
-// NewCGroupStatHandler creates a new cgroup stat object that can return the current metrics of the cgroup
+// NewCGroupStatManager creates a new cgroup stat object that can return the current metrics of the cgroup
 // To avoid casting of interfaces, the CCgroupStatHandler has a handler for cgroup V1 or V2.
 // See comments here: https://github.com/sustainable-computing-io/kepler/pull/609#discussion_r1155043868
-func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
+func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 	p := fmt.Sprintf(procPath, pid)
 	_, path, err := cgroups.ParseCgroupFileUnified(p)
 	if err != nil {
@@ -55,12 +54,8 @@ func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 		if err != nil {
 			return nil, err
 		}
-		v1StatHandler, err := manager.Stat(cgroups.IgnoreNotExist)
-		if err != nil {
-			return nil, err
-		}
-		return CCgroupV1StatHandler{
-			statsHandler: v1StatHandler,
+		return CCgroupV1StatManager{
+			manager: manager,
 		}, nil
 	} else {
 		str := strings.Split(path, "/")
@@ -71,27 +66,29 @@ func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
 		if err != nil {
 			return nil, err
 		}
-		v2StatHandler, err := manager.Stat()
-		if err != nil {
-			return nil, err
-		}
-		return CCgroupV2StatHandler{
-			statsHandler: v2StatHandler,
+		return CCgroupV12StatManager{
+			manager: manager,
 		}, nil
 	}
 }
 
-func (handler CCgroupV1StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
+func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
+	stat, err := c.manager.Stat(cgroups.IgnoreNotExist)
+	if err != nil {
+		return err
+	}
 	// cgroup v1 memory
-	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage.Usage)
-	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Kernel.Usage)
-	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, handler.statsHandler.Memory.KernelTCP.Usage)
+	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage.Usage)
+	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.Kernel.Usage)
+	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.KernelTCP.Usage)
 	// cgroup v1 cpu
-	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.Total/1000)        // Usec
-	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.Kernel/1000) // Usec
-	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, handler.statsHandler.CPU.Usage.User/1000)     // Usec
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000) // Usec
+
+	klog.Infoln(containerID, stat.CPU.Usage.Total/1000)
+	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.Usage.Kernel/1000) // Usec
+	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.Usage.User/1000)     // Usec
 	// cgroup v1 IO
-	for _, ioEntry := range handler.statsHandler.Blkio.IoServiceBytesRecursive {
+	for _, ioEntry := range stat.Blkio.IoServiceBytesRecursive {
 		if ioEntry.Op == "Read" {
 			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
 		}
@@ -100,21 +97,27 @@ func (handler CCgroupV1StatHandler) SetCGroupStat(containerID string, cgroupStat
 		}
 		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 	}
+	return nil
 }
 
-func (handler CCgroupV2StatHandler) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) {
+func (c CCgroupV12StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
+	stat, err := c.manager.Stat()
+	if err != nil {
+		return err
+	}
 	// memory
-	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Usage)
-	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, handler.statsHandler.Memory.KernelStack)
-	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, handler.statsHandler.Memory.Sock)
+	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage)
+	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.KernelStack)
+	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.Sock)
 	// cpu
-	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, handler.statsHandler.CPU.UsageUsec)
-	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, handler.statsHandler.CPU.SystemUsec)
-	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, handler.statsHandler.CPU.UserUsec)
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.UsageUsec)
+	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.SystemUsec)
+	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.UserUsec)
 	// IO
-	for _, ioEntry := range handler.statsHandler.Io.GetUsage() {
+	for _, ioEntry := range stat.Io.GetUsage() {
 		cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Rbytes)
 		cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Wbytes)
 		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 	}
+	return nil
 }
