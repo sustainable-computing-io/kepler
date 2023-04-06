@@ -1,5 +1,5 @@
-//go:build darwin
-// +build darwin
+//go:build darwin && !linux
+// +build darwin,!linux
 
 /*
 Copyright 2023.
@@ -20,6 +20,6 @@ limitations under the License.
 package cgroup
 
 // If Kepler in not running in Linux OS the cgroup stat handler is nil
-func NewCGroupStatHandler(pid int) (CCgroupStatHandler, error) {
+func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 	return nil, nil
 }
