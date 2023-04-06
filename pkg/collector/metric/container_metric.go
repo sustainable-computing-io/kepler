@@ -267,13 +267,13 @@ func (c *ContainerMetrics) String() string {
 		c.KubeletStats)
 }
 
-func (c *ContainerMetrics) UpdateCgroupMetrics() {
+func (c *ContainerMetrics) UpdateCgroupMetrics() error {
 	if c.CgroupStatHandler == nil {
-		return
+		return nil
 	}
-	klog.Infoln(c.PodName, c.ContainerID)
 	err := c.CgroupStatHandler.SetCGroupStat(c.ContainerID, c.CgroupStatMap)
 	if err != nil {
 		klog.V(3).Infof("Error reading cgroup stats for container %s (%s): %v", c.ContainerName, c.ContainerID, err)
 	}
+	return err
 }

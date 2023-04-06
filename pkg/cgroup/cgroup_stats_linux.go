@@ -28,7 +28,6 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"k8s.io/klog/v2"
 )
 
 type CCgroupV1StatManager struct {
@@ -84,7 +83,6 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 	// cgroup v1 cpu
 	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000) // Usec
 
-	klog.Infoln(containerID, stat.CPU.Usage.Total/1000)
 	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.Usage.Kernel/1000) // Usec
 	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.Usage.User/1000)     // Usec
 	// cgroup v1 IO
