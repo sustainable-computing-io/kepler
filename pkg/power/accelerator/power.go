@@ -22,11 +22,12 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	accelerator_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/source"
+	"k8s.io/klog/v2"
 )
 
 var (
 	acceleratorImpl acceleratorInterface
-	err             = fmt.Errorf("could not start accelerator collector")
+	errLib          = fmt.Errorf("could not start accelerator collector")
 )
 
 type acceleratorInterface interface {
@@ -51,7 +52,7 @@ type acceleratorInterface interface {
 // However this file is only included in the build if kepler is run with gpus support.
 // This is necessary because nvidia libraries are not available on all systems
 func Init() error {
-	return err
+	return errLib
 }
 
 func Shutdown() bool {
@@ -75,11 +76,23 @@ func GetGpuEnergyPerGPU() []uint32 {
 	return []uint32{}
 }
 
+// GetProcessResourceUtilizationPerDevice tries to collect the GPU metrics.
+// There is a known issue that some clusters the nvidia GPU can stop to respod and we need to start it again.
+// See https://github.com/sustainable-computing-io/kepler/issues/610.
 func GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]accelerator_source.ProcessUtilizationSample, error) {
 	if acceleratorImpl != nil && config.EnabledGPU {
-		return acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
+		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
+		if err != nil {
+			klog.Infof("Failed to collect GPU metrics, trying to initizalize again: %v\n", err)
+			err = acceleratorImpl.Init()
+			if err != nil {
+				klog.Infof("Failed to init nvml: %v\n", err)
+				return map[uint32]accelerator_source.ProcessUtilizationSample{}, err
+			}
+		}
+		return processesUtilization, err
 	}
-	return map[uint32]accelerator_source.ProcessUtilizationSample{}, err
+	return map[uint32]accelerator_source.ProcessUtilizationSample{}, errLib
 }
 
 func IsGPUCollectionSupported() bool {
