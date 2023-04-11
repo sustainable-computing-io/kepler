@@ -241,10 +241,15 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 
 	// container cGroups Counters (counter)
 	if config.ExposeCgroupMetrics {
-		ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
-		ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
-		ch <- p.containerDesc.containerCgroupSystemCPUUsageUsTotal
-		ch <- p.containerDesc.containerCgroupUserCPUUsageUsTotal
+		if len(collector_metric.AvailableCGroupMetrics) != 0 {
+			ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
+			ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
+			ch <- p.containerDesc.containerCgroupSystemCPUUsageUsTotal
+			ch <- p.containerDesc.containerCgroupUserCPUUsageUsTotal
+			p.HavecGroupsMetric = true
+		} else {
+			p.HavecGroupsMetric = false
+		}
 	}
 
 	// container Kubelet Counters (counter)
