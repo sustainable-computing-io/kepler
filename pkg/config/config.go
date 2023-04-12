@@ -60,7 +60,7 @@ var (
 
 	EnabledMSR = false
 
-	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
+	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
