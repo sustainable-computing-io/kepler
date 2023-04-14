@@ -19,35 +19,10 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"k8s.io/klog/v2"
 )
 
 func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroupID, pid uint64, withCGroupID bool) {
 	if _, ok := c.ContainersMetrics[containerID]; !ok {
-		var err error
-		var podName, containerName string
-
-		// the acceletator package does not get the cgroup ID, then we need to verify if we can call the cgroup with cGroupID or not
-		podName, _ = cgroup.GetPodName(cGroupID, pid, withCGroupID)
-		containerName, _ = cgroup.GetContainerName(cGroupID, pid, withCGroupID)
-
-		namespace := c.systemProcessNamespace
-
-		if containerName == c.systemProcessName {
-			// if the systemProcess already exist in ContainersMetrics do not overwrite the data
-			if _, exist := c.ContainersMetrics[containerID]; exist {
-				return
-			}
-			containerID = c.systemProcessName
-		} else {
-			namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, withCGroupID)
-			if err != nil {
-				klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", cGroupID, err)
-				namespace = "unknown"
-			}
-		}
-
-		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(containerName, podName, namespace, containerID)
 		info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
 		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
 	}

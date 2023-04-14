@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -51,6 +52,8 @@ var (
 	podNameTag       = "pod"
 	containerNameTag = "container"
 	namespaceTag     = "namespace"
+	once             sync.Once
+	kubeletMetric    []string
 )
 
 func init() {
@@ -168,12 +171,20 @@ func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float6
 }
 
 // GetAvailableMetrics returns containerCPUUsageMetricName and containerMemUsageMetricName if kubelet is connected
+// and this function just need do a once init when kepler started without analysis kubelet returns
 func (k *KubeletPodLister) GetAvailableMetrics() []string {
-	_, _, retErr := k.ListMetrics()
-	if retErr != nil {
-		return []string{}
-	}
-	return []string{containerCPUUsageMetricName, containerMemUsageMetricName}
+	once.Do(func() {
+		resp, err := httpGet(metricsURL)
+		if err != nil {
+			kubeletMetric = []string{}
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			kubeletMetric = []string{containerCPUUsageMetricName, containerMemUsageMetricName}
+		}
+	})
+	return kubeletMetric
 }
 
 func parseLabels(labels []*dto.LabelPair) (namespace, pod, container string) {
