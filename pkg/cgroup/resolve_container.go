@@ -30,7 +30,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 )
 
 type ContainerInfo struct {
@@ -67,7 +66,12 @@ var (
 )
 
 func Init() (*[]corev1.Pod, error) {
-	return updateListPodCache("", false)
+	pods, err := podLister.ListPods()
+	if err != nil {
+		return nil, err
+	}
+	getAliveContainers(pods)
+	return pods, nil
 }
 
 func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
@@ -75,7 +79,7 @@ func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
 	return info.ContainerID, err
 }
 
-func GetContainerMetrics() (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
+func GetContainerMetrics() (containerCPU, containerMem map[string]float64, retErr error) {
 	return podLister.ListMetrics()
 }
 
@@ -86,6 +90,7 @@ func GetAvailableKubeletMetrics() []string {
 func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
+
 	info := &ContainerInfo{
 		ContainerID:   utils.SystemProcessName,
 		ContainerName: utils.SystemProcessName,
@@ -99,15 +104,7 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
-	}
-
-	// update cache info and stop loop if container id found
-	_, _ = updateListPodCache(containerID, true)
-	if cinfo, ok := containerIDToContainerInfo[containerID]; ok {
-		return cinfo, nil
-	}
-
-	if _, ok := containerIDToContainerInfo[containerID]; !ok {
+	} else {
 		containerIDToContainerInfo[containerID] = info
 		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
 		if info.ContainerName == utils.SystemProcessName {
@@ -119,58 +116,6 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 		}
 	}
 	return containerIDToContainerInfo[containerID], nil
-}
-
-// updateListPodCache updates cache info with all pods and optionally
-// stops the loop when a given container ID is found
-func updateListPodCache(targetContainerID string, stopWhenFound bool) (*[]corev1.Pod, error) {
-	pods, err := podLister.ListPods()
-	if err != nil {
-		klog.V(4).Infof("%v", err)
-		return pods, err
-	}
-	for i := 0; i < len(*pods); i++ {
-		containers := (*pods)[i].Status.ContainerStatuses
-		for j := 0; j < len(containers); j++ {
-			containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
-				ContainerID:   containerID,
-				ContainerName: containers[j].Name,
-				PodName:       (*pods)[i].Name,
-				Namespace:     (*pods)[i].Namespace,
-			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
-			}
-		}
-		containers = (*pods)[i].Status.InitContainerStatuses
-		for j := 0; j < len(containers); j++ {
-			containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
-				ContainerID:   containerID,
-				ContainerName: containers[j].Name,
-				PodName:       (*pods)[i].Name,
-				Namespace:     (*pods)[i].Namespace,
-			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
-			}
-		}
-		containers = (*pods)[i].Status.EphemeralContainerStatuses
-		for j := 0; j < len(containers); j++ {
-			containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
-				ContainerID:   containerID,
-				ContainerName: containers[j].Name,
-				PodName:       (*pods)[i].Name,
-				Namespace:     (*pods)[i].Namespace,
-			}
-			if stopWhenFound && containers[j].ContainerID == targetContainerID {
-				return pods, err
-			}
-		}
-	}
-	return pods, err
 }
 
 func ParseContainerIDFromPodStatus(containerID string) string {
@@ -311,7 +256,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
 
-func getAliveContainers(pods *[]corev1.Pod) (map[string]bool, error) {
+func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 	aliveContainers := make(map[string]bool)
 
 	for i := 0; i < len(*pods); i++ {
@@ -319,19 +264,37 @@ func getAliveContainers(pods *[]corev1.Pod) (map[string]bool, error) {
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
+			containerIDToContainerInfo[containerID] = &ContainerInfo{
+				ContainerID:   containerID,
+				ContainerName: statuses[j].Name,
+				PodName:       (*pods)[i].Name,
+				Namespace:     (*pods)[i].Namespace,
+			}
 		}
 		statuses = (*pods)[i].Status.ContainerStatuses
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
+			containerIDToContainerInfo[containerID] = &ContainerInfo{
+				ContainerID:   containerID,
+				ContainerName: statuses[j].Name,
+				PodName:       (*pods)[i].Name,
+				Namespace:     (*pods)[i].Namespace,
+			}
 		}
 		statuses = (*pods)[i].Status.EphemeralContainerStatuses
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
+			containerIDToContainerInfo[containerID] = &ContainerInfo{
+				ContainerID:   containerID,
+				ContainerName: statuses[j].Name,
+				PodName:       (*pods)[i].Name,
+				Namespace:     (*pods)[i].Namespace,
+			}
 		}
 	}
-	return aliveContainers, nil
+	return aliveContainers
 }
 
 // GetAliveContainers returns alive pod map
@@ -341,5 +304,5 @@ func GetAliveContainers() (map[string]bool, error) {
 		return nil, err
 	}
 
-	return getAliveContainers(pods)
+	return getAliveContainers(pods), nil
 }
