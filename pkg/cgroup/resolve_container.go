@@ -70,23 +70,8 @@ func Init() (*[]corev1.Pod, error) {
 	return updateListPodCache("", false)
 }
 
-func GetPodName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
-	return info.PodName, err
-}
-
-func GetPodNameSpace(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
-	return info.Namespace, err
-}
-
-func GetContainerName(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
-	return info.ContainerName, err
-}
-
 func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	info, err := getContainerInfo(cGroupID, pid, withCGroupID)
+	info, err := GetContainerInfo(cGroupID, pid, withCGroupID)
 	return info.ContainerID, err
 }
 
@@ -98,7 +83,7 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
-func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
+func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 	info := &ContainerInfo{
