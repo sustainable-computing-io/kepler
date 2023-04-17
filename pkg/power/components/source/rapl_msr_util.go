@@ -49,6 +49,8 @@ var (
 
 	numPackages, numCores int
 
+	initCompleted bool
+
 	// powerUnits and timeUnits not used yet in Kepler, annotate here for future use.
 	// powerUnits, timeUnits float64
 	// energyStatusUnits should be package specific, but normally the same among packages
@@ -66,6 +68,7 @@ func init() {
 		numPackages = len(cpu.Processors)
 		numCores = int(cpu.TotalThreads)
 	}
+	initCompleted = false
 }
 
 func OpenAllMSR() error {
@@ -118,6 +121,10 @@ func ReadMSR(packageID int, msr int64) (uint64, error) {
 }
 
 func InitUnits() error {
+	if initCompleted {
+		return nil
+	}
+
 	if err := OpenAllMSR(); err != nil {
 		klog.V(1).Info(err)
 		return err
@@ -135,6 +142,7 @@ func InitUnits() error {
 		// timeUnits = math.Pow(0.5, float64(((result >> 16) & 0xf)))
 		energyStatusUnits[i] = math.Pow(0.5, float64(((result >> 8) & 0x1f)))
 	}
+	initCompleted = true
 	return nil
 }
 
