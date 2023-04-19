@@ -76,6 +76,9 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 	if err != nil {
 		return err
 	}
+	if stat.Memory == nil {
+		return fmt.Errorf("cgroup metrics does not exist, the cgroup might be deleted")
+	}
 	// cgroup v1 memory
 	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage.Usage)
 	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.Kernel.Usage)
@@ -102,6 +105,9 @@ func (c CCgroupV12StatManager) SetCGroupStat(containerID string, cgroupStatMap m
 	stat, err := c.manager.Stat()
 	if err != nil {
 		return err
+	}
+	if stat.Memory == nil {
+		return fmt.Errorf("cgroup metrics does not exist, the cgroup might be deleted")
 	}
 	// memory
 	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage)

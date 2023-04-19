@@ -103,6 +103,9 @@ var (
 	FixedModelNameKey   = "MODEL"
 	ModelFiltersKey     = "FILTERS"
 	////////////////////////////////////
+
+	// KubeConfig is used to start k8s client with the pod running outside the cluster
+	KubeConfig = ""
 )
 
 func logBoolConfigs() {
@@ -185,6 +188,11 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+}
+
+// SetKubeConfig set kubeconfig file
+func SetKubeConfig(k string) {
+	KubeConfig = k
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {
