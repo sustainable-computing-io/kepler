@@ -59,6 +59,7 @@ var (
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
+	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -152,6 +153,7 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
+	config.SetKubeConfig(*kubeconfig)
 
 	config.LogConfigs()
 
