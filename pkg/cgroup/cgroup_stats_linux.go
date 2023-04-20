@@ -71,8 +71,12 @@ func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 	}
 }
 
+func errPassthrough(err error) error {
+	return err
+}
+
 func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
-	stat, err := c.manager.Stat(cgroups.IgnoreNotExist)
+	stat, err := c.manager.Stat(errPassthrough)
 	if err != nil {
 		return err
 	}
@@ -81,8 +85,7 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.Kernel.Usage)
 	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.KernelTCP.Usage)
 	// cgroup v1 cpu
-	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000) // Usec
-
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000)        // Usec
 	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.Usage.Kernel/1000) // Usec
 	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.Usage.User/1000)     // Usec
 	// cgroup v1 IO
