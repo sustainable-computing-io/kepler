@@ -17,6 +17,8 @@ limitations under the License.
 package components
 
 import (
+	"runtime"
+
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -45,10 +47,21 @@ var (
 	sysfsImpl                        = &source.PowerSysfs{}
 	msrImpl                          = &source.PowerMSR{}
 	apmXgeneSysfsImpl                = &source.ApmXgeneSysfs{}
+	hmcImpl                          = &source.PowerHMC{}
 	powerImpl         powerInterface = sysfsImpl
 )
 
-func InitPowerImpl() {
+func initPowerImpls390x() {
+	if hmcImpl.IsSystemCollectionSupported() {
+		klog.V(1).Infoln("use hmc to obtain power")
+		powerImpl = hmcImpl
+	} else {
+		klog.V(1).Infoln("Not able to obtain power, use estimate method")
+		powerImpl = estimateImpl
+	}
+}
+
+func initPowerImpl() {
 	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
@@ -65,6 +78,14 @@ func InitPowerImpl() {
 				powerImpl = estimateImpl
 			}
 		}
+	}
+}
+
+func InitPowerImpl() {
+	if runtime.GOARCH == "s390x" {
+		initPowerImpls390x()
+	} else {
+		initPowerImpl()
 	}
 }
 
