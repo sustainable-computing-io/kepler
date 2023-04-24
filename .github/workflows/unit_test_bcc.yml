@@ -8,5 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: install linux headers
+      run: sudo apt-get install linux-headers-$(uname -r)
     - name: test bcc in docker container
       run: sudo podman run --privileged -v $(pwd):/home -v /sys:/sys -v /lib/modules:/lib/modules -v /usr/src:/usr/src quay.io/sustainable_computing_io/kepler_builder:go1.18 bash -c "cd /home; export PATH=/usr/local/go/bin:$PATH; make test-verbose"
