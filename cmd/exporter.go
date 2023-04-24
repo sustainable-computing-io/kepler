@@ -59,6 +59,7 @@ var (
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
+	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", false, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -152,6 +153,13 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
+
+	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
+	// but the user can enable it if the kernel has backported this functionality.
+	config.EnabledBPFBatchDelete = *enabledBPFBatchDelete
+	if config.KernelVersion >= 5.6 {
+		config.EnabledBPFBatchDelete = true
+	}
 
 	config.LogConfigs()
 
