@@ -27,8 +27,8 @@ jobs:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
     - name: install bcc
-        uses: sustainable-computing-io/kepler-action@main
-        with:
+      uses: sustainable-computing-io/kepler-action@main
+      with:
           runningBranch: bcc
     - name: Run 
       run: |
