@@ -267,6 +267,12 @@ func (ne *NodeMetrics) UpdateDynEnergy() {
 	for sensorID := range ne.TotalEnergyInPlatform.Stat {
 		ne.CalcDynEnergy(PLATFORM, sensorID)
 	}
+	// gpu metric
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		for gpuID := range ne.TotalEnergyInGPU.Stat {
+			ne.CalcDynEnergy(GPU, gpuID)
+		}
+	}
 }
 
 func (ne *NodeMetrics) CalcDynEnergy(component, id string) {
