@@ -21,7 +21,7 @@ RUN ls ./_output/bin
 # RUN make test
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:cuda-11.8.0-base-ubi8-bcc-0.24
+FROM quay.io/sustainable_computing_io/kepler_base:cuda-12.1.0-base-ubi8-bcc-0.24
 
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 
