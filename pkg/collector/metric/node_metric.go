@@ -219,7 +219,7 @@ func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.N
 func (ne *NodeMetrics) AddNodeGPUEnergy(gpuEnergy []uint32) {
 	for gpuID, energy := range gpuEnergy {
 		key := strconv.Itoa(gpuID)
-		ne.TotalEnergyInGPU.AddDeltaStat(key, uint64(energy))
+		ne.TotalEnergyInGPU.SetDeltaStat(key, uint64(energy))
 	}
 }
 
