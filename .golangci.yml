@@ -58,7 +58,7 @@ linters:
     - unconvert
     - unparam
     - whitespace
-    - varcheck
+    - unused
     - asciicheck
 
   # don't enable:

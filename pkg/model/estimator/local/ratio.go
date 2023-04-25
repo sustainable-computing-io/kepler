@@ -31,19 +31,6 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-func getSumMetricValues(metricValues [][]float64) (sumMetricValues []float64) {
-	if len(metricValues) == 0 {
-		return
-	}
-	sumMetricValues = make([]float64, len(metricValues[0]))
-	for _, values := range metricValues {
-		for index, metricValue := range values {
-			sumMetricValues[index] += metricValue
-		}
-	}
-	return
-}
-
 func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumber float64) uint64 {
 	var power float64
 	if totalResUsage > 0 {

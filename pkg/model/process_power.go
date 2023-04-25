@@ -63,18 +63,6 @@ func InitProcessPowerEstimator(usageMetrics, systemFeatures, systemValues []stri
 	}
 }
 
-// The current implementation from the model server returns a list of the Process energy.
-// The list follows the order of the Process ProcessMetricValuesOnly for the Process id...
-// TODO: make model server return a list of elemets that also contains the ProcessID to enforce consistency
-func getProcessMetricsList(processsMetrics map[string]*collector_metric.ProcessMetrics) (processMetricValuesOnly [][]float64) {
-	// convert to pod metrics to array
-	for _, c := range processsMetrics {
-		values := c.ToEstimatorValues()
-		processMetricValuesOnly = append(processMetricValuesOnly, values)
-	}
-	return
-}
-
 // updateProcessEnergy returns Process energy consumption for each node component
 func UpdateProcessEnergy(processMetrics map[uint64]*collector_metric.ProcessMetrics, systemContainerMetrics *collector_metric.ContainerMetrics) {
 	// If the node can expose power measurement per component, we can use the RATIO power model
