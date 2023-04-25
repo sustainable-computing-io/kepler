@@ -47,7 +47,6 @@ func (c *Collector) updateCgroupMetrics() {
 		if key != c.systemProcessName && err != nil {
 			delete(c.ContainersMetrics, key)
 		}
-		klog.V(5).Infoln(c.ContainersMetrics[key])
 	}
 }
 

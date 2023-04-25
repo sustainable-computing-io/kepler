@@ -81,22 +81,28 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 		return err
 	}
 	// cgroup v1 memory
-	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage.Usage)
-	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.Kernel.Usage)
-	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.KernelTCP.Usage)
+	if stat.Memory != nil {
+		cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage.Usage)
+		cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.Kernel.Usage)
+		cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.KernelTCP.Usage)
+	}
 	// cgroup v1 cpu
-	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000)        // Usec
-	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.Usage.Kernel/1000) // Usec
-	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.Usage.User/1000)     // Usec
+	if stat.CPU != nil {
+		cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.Usage.Total/1000)        // Usec
+		cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.Usage.Kernel/1000) // Usec
+		cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.Usage.User/1000)     // Usec
+	}
 	// cgroup v1 IO
-	for _, ioEntry := range stat.Blkio.IoServiceBytesRecursive {
-		if ioEntry.Op == "Read" {
-			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
+	if stat.Blkio != nil {
+		for _, ioEntry := range stat.Blkio.IoServiceBytesRecursive {
+			if ioEntry.Op == "Read" {
+				cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
+			}
+			if ioEntry.Op == "Write" {
+				cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Value)
+			}
+			cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 		}
-		if ioEntry.Op == "Write" {
-			cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Value)
-		}
-		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 	}
 	return nil
 }
@@ -107,18 +113,24 @@ func (c CCgroupV12StatManager) SetCGroupStat(containerID string, cgroupStatMap m
 		return err
 	}
 	// memory
-	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage)
-	cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.KernelStack)
-	cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.Sock)
+	if stat.Memory != nil {
+		cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage)
+		cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.KernelStack)
+		cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.Sock)
+	}
 	// cpu
-	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.UsageUsec)
-	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.SystemUsec)
-	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.UserUsec)
+	if stat.CPU != nil {
+		cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.UsageUsec)
+		cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.SystemUsec)
+		cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.UserUsec)
+	}
 	// IO
-	for _, ioEntry := range stat.Io.GetUsage() {
-		cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Rbytes)
-		cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Wbytes)
-		cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
+	if stat.Io != nil {
+		for _, ioEntry := range stat.Io.GetUsage() {
+			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Rbytes)
+			cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Wbytes)
+			cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
+		}
 	}
 	return nil
 }
