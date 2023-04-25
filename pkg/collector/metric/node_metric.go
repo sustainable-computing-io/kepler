@@ -219,7 +219,7 @@ func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.N
 func (ne *NodeMetrics) AddNodeGPUEnergy(gpuEnergy []uint32) {
 	for gpuID, energy := range gpuEnergy {
 		key := strconv.Itoa(gpuID)
-		ne.TotalEnergyInGPU.AddDeltaStat(key, uint64(energy))
+		ne.TotalEnergyInGPU.SetDeltaStat(key, uint64(energy))
 	}
 }
 
@@ -266,6 +266,12 @@ func (ne *NodeMetrics) UpdateDynEnergy() {
 	}
 	for sensorID := range ne.TotalEnergyInPlatform.Stat {
 		ne.CalcDynEnergy(PLATFORM, sensorID)
+	}
+	// gpu metric
+	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+		for gpuID := range ne.TotalEnergyInGPU.Stat {
+			ne.CalcDynEnergy(GPU, gpuID)
+		}
 	}
 }
 
