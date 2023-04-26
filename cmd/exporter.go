@@ -59,7 +59,7 @@ var (
 	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
 	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
-	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", false, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
+	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", true, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -160,6 +160,7 @@ func main() {
 	if config.KernelVersion >= 5.6 {
 		config.EnabledBPFBatchDelete = true
 	}
+	klog.Infof("EnabledBPFBatchDelete: %v", config.EnabledBPFBatchDelete)
 
 	config.LogConfigs()
 
