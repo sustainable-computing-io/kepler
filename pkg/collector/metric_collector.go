@@ -25,6 +25,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -112,7 +113,10 @@ func (c *Collector) Update() {
 	c.updateBPFMetrics() // collect new hardware counter metrics if possible
 
 	// TODO: collect cgroup metrics only from cgroup to avoid unnecessary overhead to kubelet
-	c.updateCgroupMetrics()  // collect new cgroup metrics from cgroup
+	// collect cgroup metrics only if no power meter is available or if cgroup metrics are exported
+	if !components.IsSystemCollectionSupported() || config.ExposeCgroupMetrics {
+		c.updateCgroupMetrics() // collect new cgroup metrics from cgroup
+	}
 	c.updateKubeletMetrics() // collect new cgroup metrics from kubelet
 
 	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
