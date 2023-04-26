@@ -27,6 +27,7 @@ package attacher
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"unsafe"
 
 	bpf "github.com/iovisor/gobpf/bcc"
@@ -119,7 +120,8 @@ func TableDeleteBatch(module *bpf.Module, tableName string, keys [][]byte) error
 	cKeysPtr := unsafe.Pointer(cKeys)
 
 	_, err := C.bpf_delete_batch(fd, cKeysPtr, &size)
-	if err != nil {
+	// If the table is empty or keys are partially deleted, bpf_delete_batch will return errno ENOENT
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil

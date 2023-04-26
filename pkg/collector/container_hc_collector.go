@@ -167,6 +167,9 @@ func (c *Collector) updateBPFMetrics() {
 		// if the kernel does not support delete batch we delete all keys one by one
 		if err != nil {
 			c.bpfHCMeter.Table.DeleteAll()
+			// if batch delete is not supported we disable it for the next time
+			config.EnabledBPFBatchDelete = false
+			klog.Infof("resetting EnabledBPFBatchDelete to %v", config.EnabledBPFBatchDelete)
 		}
 	}
 	c.handleInactiveContainers(foundContainer)
