@@ -53,6 +53,33 @@ func (s *UInt64Stat) SetNewDeltaValue(newDelta uint64, sum bool) error {
 	return nil
 }
 
+func InitNewAggr(newAggr uint64) *UInt64Stat {
+	// verify aggregated value overflow
+	if newAggr == math.MaxUint64 {
+		return &UInt64Stat{
+			Aggr: 0,
+		}
+	} else {
+		return &UInt64Stat{
+			Aggr:  newAggr,
+			Delta: newAggr,
+		}
+	}
+}
+
+func (s *UInt64Stat) SetNewAggrWithOutErr(newAggr uint64) {
+	// verify aggregated value overflow
+	if newAggr == math.MaxUint64 {
+		// we must set the the value to 0 when overflow, so that prometheus will handle it
+		s.Aggr = 0
+	}
+	// calcualte delta, but just postive?
+	if newAggr > s.Aggr {
+		s.Delta = newAggr - s.Aggr
+	}
+	s.Aggr = newAggr
+}
+
 // SetNewAggr set new read aggregated value (e.g., from cgroup, energy files)
 func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 	if newAggr == 0 {
@@ -70,12 +97,11 @@ func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 		return fmt.Errorf("the aggregated value has overflowed")
 	}
 
-	oldAggr := s.Aggr
-	s.Aggr = newAggr
-
-	if (oldAggr > 0) && (newAggr > oldAggr) {
-		s.Delta = newAggr - oldAggr
+	// calcualte delta, but just postive?
+	if newAggr > s.Aggr {
+		s.Delta = newAggr - s.Aggr
 	}
+	s.Aggr = newAggr
 	return nil
 }
 
@@ -85,11 +111,10 @@ type UInt64StatCollection struct {
 }
 
 func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
-	if _, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{}
-	}
-	if err := s.Stat[key].SetNewAggr(newAggr); err != nil {
-		klog.V(3).Infoln(err)
+	if instance, found := s.Stat[key]; !found {
+		s.Stat[key] = InitNewAggr(newAggr)
+	} else {
+		instance.SetNewAggrWithOutErr(newAggr)
 	}
 }
 
