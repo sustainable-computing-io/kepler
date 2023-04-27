@@ -1,7 +1,7 @@
 <img align="right" width="250px" src="https://user-images.githubusercontent.com/17484350/138557170-d8079b94-a517-4366-ade8-8d473e3f3f1d.jpg">
 
 ![GitHub Workflow Status (event)](https://img.shields.io/github/actions/workflow/status/sustainable-computing-io/kepler/unit_test.yml?branch=main&label=CI)
-![Coverage](https://img.shields.io/badge/Coverage-43.9%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-43.8%25-yellow)
 <!--
 [![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)
 -->
