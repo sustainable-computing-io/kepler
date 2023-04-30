@@ -80,8 +80,8 @@ type UInt64StatCollection struct {
 func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
 	if instance, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{
-			Aggr:  uint64(newAggr),
-			Delta: uint64(newAggr),
+			Aggr:  newAggr,
+			Delta: newAggr,
 		}
 	} else {
 		if err := instance.SetNewAggr(newAggr); err != nil {
@@ -93,8 +93,8 @@ func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
 func (s *UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
 	if instance, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{
-			Aggr:  uint64(newDelta),
-			Delta: uint64(newDelta),
+			Aggr:  newDelta,
+			Delta: newDelta,
 		}
 	} else {
 		if err := instance.AddNewDelta(newDelta); err != nil {
@@ -105,8 +105,8 @@ func (s *UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
 func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
 	if instance, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{
-			Aggr:  uint64(newDelta),
-			Delta: uint64(newDelta),
+			Aggr:  newDelta,
+			Delta: newDelta,
 		}
 	} else {
 		if err := instance.SetNewDelta(newDelta); err != nil {
