@@ -6,6 +6,7 @@ require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/containerd/cgroups v1.1.0
 	github.com/containerd/cgroups/v3 v3.0.1
+	github.com/google/uuid v1.3.0
 	github.com/iovisor/gobpf v0.2.0
 	github.com/jaypipes/ghw v0.10.0
 	github.com/jszwec/csvutil v1.7.1
