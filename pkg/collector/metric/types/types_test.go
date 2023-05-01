@@ -94,10 +94,14 @@ var _ = Describe("Types", func() {
 		})
 	})
 	Context("UInt64StatCollection", func() {
-		It("SetAggrStat", func() {
-			instance := types.UInt64StatCollection{
+		var instance types.UInt64StatCollection
+
+		BeforeEach(func() {
+			instance = types.UInt64StatCollection{
 				Stat: make(map[string]*types.UInt64Stat),
 			}
+		})
+		It("SetAggrStat", func() {
 			instance.SetAggrStat("SetAggrStat", uint64(1))
 			Expect(instance.Stat["SetAggrStat"].Aggr).To(Equal(uint64(1)))
 			instance.SetAggrStat("SetAggrStat", uint64(2))
@@ -108,9 +112,6 @@ var _ = Describe("Types", func() {
 			Expect(instance.Stat["SetAggrStat"].Delta).To(Equal(uint64(1)))
 		})
 		It("AddDeltaStat", func() {
-			instance := types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
 			instance.AddDeltaStat("AddDeltaStat", uint64(1))
 			Expect(instance.Stat["AddDeltaStat"].Aggr).To(Equal(uint64(1)))
 			instance.AddDeltaStat("AddDeltaStat", uint64(2))
@@ -121,9 +122,6 @@ var _ = Describe("Types", func() {
 			Expect(instance.Stat["AddDeltaStat"].Delta).To(Equal(uint64(3)))
 		})
 		It("SetDeltaStat", func() {
-			instance := types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
 			instance.SetDeltaStat("SetDeltaStat", uint64(1))
 			Expect(instance.Stat["SetDeltaStat"].Aggr).To(Equal(uint64(1)))
 			instance.SetDeltaStat("SetDeltaStat", uint64(2))
@@ -134,9 +132,6 @@ var _ = Describe("Types", func() {
 			Expect(instance.Stat["SetDeltaStat"].Delta).To(Equal(uint64(2)))
 		})
 		It("SumAllDeltaValues", func() {
-			instance := types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
 			value := instance.SumAllDeltaValues()
 			Expect(value).To(Equal(uint64(0)))
 			instance.SetDeltaStat("SumAllDeltaValues", uint64(2))
@@ -150,9 +145,6 @@ var _ = Describe("Types", func() {
 			Expect(value).To(Equal(uint64(4)))
 		})
 		It("SumAllAggrValues", func() {
-			instance := types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
 			value := instance.SumAllAggrValues()
 			Expect(value).To(Equal(uint64(0)))
 			instance.SetAggrStat("SumAllAggrValues", uint64(2))
@@ -166,9 +158,6 @@ var _ = Describe("Types", func() {
 			Expect(value).To(Equal(uint64(4)))
 		})
 		It("ResetDeltaValues", func() {
-			instance := types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
 			instance.SetDeltaStat("ResetDeltaValues", uint64(1))
 			Expect(instance.Stat["ResetDeltaValues"].Aggr).To(Equal(uint64(1)))
 			instance.SetDeltaStat("ResetDeltaValues1", uint64(1))
