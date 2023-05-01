@@ -81,7 +81,7 @@ func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
 	if instance, found := s.Stat[key]; !found {
 		s.Stat[key] = &UInt64Stat{
 			Aggr:  newAggr,
-			Delta: newAggr,
+			Delta: 0,
 		}
 	} else {
 		if err := instance.SetNewAggr(newAggr); err != nil {
