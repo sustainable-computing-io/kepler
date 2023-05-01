@@ -16,10 +16,9 @@ package types_test
 
 import (
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 )
@@ -35,8 +34,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatMissed(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.SetAggrStat(key, 1)
 		instance.SetAggrStat(key, 2)
 	}
@@ -50,8 +48,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatBothRandom(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.SetAggrStat(key, uint64(seededRand.Intn(10)+1))
 		instance.SetAggrStat(key, uint64(seededRand.Intn(100)+1))
 	}
@@ -90,8 +87,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatMissed(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.AddDeltaStat(key, 1)
 		instance.AddDeltaStat(key, 2)
 	}
@@ -105,8 +101,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatBothRandom(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.AddDeltaStat(key, uint64(seededRand.Intn(10)+1))
 		instance.AddDeltaStat(key, uint64(seededRand.Intn(100)+1))
 	}
@@ -145,8 +140,7 @@ func BenchmarkUInt64StatCollectionSetDeltaStatMissed(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.SetDeltaStat(key, 1)
 		instance.SetDeltaStat(key, 2)
 	}
@@ -160,8 +154,7 @@ func BenchmarkUInt64StatCollectionSetDeltaStatBothRandom(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		uuidStr, _ := uuid.NewRandom()
-		key := uuidStr.String()
+		key := strconv.Itoa(i)
 		instance.SetDeltaStat(key, uint64(seededRand.Intn(10)+1))
 		instance.SetDeltaStat(key, uint64(seededRand.Intn(100)+1))
 	}
