@@ -34,6 +34,10 @@ import (
 // #define CPU_VECTOR_SIZE 128
 import "C"
 
+var (
+	ebpfBatchGet = true
+)
+
 // TODO in sync with bpf program
 type ProcessBPFMetrics struct {
 	CGroupID       uint64
@@ -109,23 +113,51 @@ func (c *Collector) updateBPFMetrics() {
 	foundContainer := make(map[string]bool)
 	foundProcess := make(map[uint64]bool)
 	keysToDelete := [][]byte{}
-	var ct ProcessBPFMetrics
-	for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
-		key := it.Key()
-		data := it.Leaf()
+	keys := [][]byte{}
+	values := [][]byte{}
+
+	var (
+		ct ProcessBPFMetrics
+	)
+	// if ebpf map batch get operation is supported we use it
+	if ebpfBatchGet {
+		var batchGetErr error
+		keys, values, batchGetErr = c.bpfHCMeter.Table.BatchGet(uint32(unsafe.Sizeof(ct)) /* delete after get */, true)
+		if batchGetErr != nil {
+			klog.V(1).Infof("failed to get bpf table elemets, err: %v", batchGetErr)
+			ebpfBatchGet = false
+		}
+	}
+	// if ebpf map batch get operation is not supported we iterate over the map
+	if !ebpfBatchGet {
+		for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
+			key := it.Key()
+			value := it.Leaf()
+			keys = append(keys, key)
+			values = append(values, value)
+		}
+	}
+
+	// iterate over the keys and values
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
+		data := values[i]
+
 		err := binary.Read(bytes.NewBuffer(data), utils.DetermineHostByteOrder(), &ct)
 		if err != nil {
 			klog.V(5).Infof("failed to decode received data: %v", err)
 			continue // this only happens if there is a problem in the bpf code
 		}
-
-		// if ebpf map batch deletion operation is supported we add the key to the list otherwise we delete the key
-		if config.EnabledBPFBatchDelete {
-			keysToDelete = append(keysToDelete, key)
-		} else {
-			err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
-			if err != nil {
-				klog.Infof("could not delete bpf table elemets, err: %v", err)
+		// if not deleted during get, delete it now
+		if ebpfBatchGet {
+			// if ebpf map batch deletion operation is supported we add the key to the list otherwise we delete the key
+			if config.EnabledBPFBatchDelete {
+				keysToDelete = append(keysToDelete, key)
+			} else {
+				err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
+				if err != nil {
+					klog.Infof("could not delete bpf table elemets, err: %v", err)
+				}
 			}
 		}
 
@@ -162,14 +194,17 @@ func (c *Collector) updateBPFMetrics() {
 			foundProcess[ct.PID] = true
 		}
 	}
-	if config.EnabledBPFBatchDelete {
-		err := attacher.TableDeleteBatch(c.bpfHCMeter.Module, c.bpfHCMeter.TableName, keysToDelete)
-		// if the kernel does not support delete batch we delete all keys one by one
-		if err != nil {
-			c.bpfHCMeter.Table.DeleteAll()
-			// if batch delete is not supported we disable it for the next time
-			config.EnabledBPFBatchDelete = false
-			klog.Infof("resetting EnabledBPFBatchDelete to %v", config.EnabledBPFBatchDelete)
+	// if not deleted during get, delete it now
+	if ebpfBatchGet {
+		if config.EnabledBPFBatchDelete {
+			err := attacher.TableDeleteBatch(c.bpfHCMeter.Module, c.bpfHCMeter.TableName, keysToDelete)
+			// if the kernel does not support delete batch we delete all keys one by one
+			if err != nil {
+				c.bpfHCMeter.Table.DeleteAll()
+				// if batch delete is not supported we disable it for the next time
+				config.EnabledBPFBatchDelete = false
+				klog.Infof("resetting EnabledBPFBatchDelete to %v", config.EnabledBPFBatchDelete)
+			}
 		}
 	}
 	c.handleInactiveContainers(foundContainer)
