@@ -2,7 +2,7 @@ module github.com/sustainable-computing-io/kepler
 
 go 1.18
 
-replace github.com/iovisor/gobpf => github.com/rootfs/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
+replace github.com/iovisor/gobpf => github.com/rootfs/gobpf v0.2.1-0.20230501231255-cb9cf9f81504
 
 require (
 	github.com/NVIDIA/go-nvml v0.11.6-0

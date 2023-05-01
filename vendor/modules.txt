@@ -112,7 +112,7 @@ github.com/grafana/regexp/syntax
 # github.com/imdario/mergo v0.3.12
 ## explicit; go 1.13
 github.com/imdario/mergo
-# github.com/iovisor/gobpf v0.2.0 => github.com/rootfs/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
+# github.com/iovisor/gobpf v0.2.0 => github.com/rootfs/gobpf v0.2.1-0.20230501231255-cb9cf9f81504
 ## explicit; go 1.15
 github.com/iovisor/gobpf/bcc
 github.com/iovisor/gobpf/pkg/cpuonline
@@ -585,4 +585,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/iovisor/gobpf => github.com/rootfs/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
+# github.com/iovisor/gobpf => github.com/rootfs/gobpf v0.2.1-0.20230501231255-cb9cf9f81504

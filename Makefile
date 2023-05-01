@@ -134,7 +134,7 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local: 
+_build_local: tidy-vendor format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@GOOS=$(GOOS) GOARCH=$(GOARCH) go build -v -tags ${GO_BUILD_TAGS} \
 		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
