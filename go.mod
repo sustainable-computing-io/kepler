@@ -2,6 +2,8 @@ module github.com/sustainable-computing-io/kepler
 
 go 1.18
 
+replace github.com/iovisor/gobpf => github.com/rootfs/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
+
 require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/containerd/cgroups v1.1.0
