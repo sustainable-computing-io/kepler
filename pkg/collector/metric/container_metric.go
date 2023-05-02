@@ -66,21 +66,23 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 		Namespace:     podNamespace,
 		ContainerID:   containerID,
 		ProcessMetrics: ProcessMetrics{
-			CPUTime:            &types.UInt64Stat{},
-			CounterStats:       make(map[string]*types.UInt64Stat),
-			SoftIRQCount:       make([]types.UInt64Stat, config.MaxIRQ),
-			DynEnergyInCore:    &types.UInt64Stat{},
-			DynEnergyInDRAM:    &types.UInt64Stat{},
-			DynEnergyInUncore:  &types.UInt64Stat{},
-			DynEnergyInPkg:     &types.UInt64Stat{},
-			DynEnergyInOther:   &types.UInt64Stat{},
-			DynEnergyInGPU:     &types.UInt64Stat{},
-			IdleEnergyInCore:   &types.UInt64Stat{},
-			IdleEnergyInDRAM:   &types.UInt64Stat{},
-			IdleEnergyInUncore: &types.UInt64Stat{},
-			IdleEnergyInPkg:    &types.UInt64Stat{},
-			IdleEnergyInOther:  &types.UInt64Stat{},
-			IdleEnergyInGPU:    &types.UInt64Stat{},
+			CPUTime:              &types.UInt64Stat{},
+			CounterStats:         make(map[string]*types.UInt64Stat),
+			SoftIRQCount:         make([]types.UInt64Stat, config.MaxIRQ),
+			DynEnergyInCore:      &types.UInt64Stat{},
+			DynEnergyInDRAM:      &types.UInt64Stat{},
+			DynEnergyInUncore:    &types.UInt64Stat{},
+			DynEnergyInPkg:       &types.UInt64Stat{},
+			DynEnergyInOther:     &types.UInt64Stat{},
+			DynEnergyInGPU:       &types.UInt64Stat{},
+			DynEnergyInPlatform:  &types.UInt64Stat{},
+			IdleEnergyInCore:     &types.UInt64Stat{},
+			IdleEnergyInDRAM:     &types.UInt64Stat{},
+			IdleEnergyInUncore:   &types.UInt64Stat{},
+			IdleEnergyInPkg:      &types.UInt64Stat{},
+			IdleEnergyInOther:    &types.UInt64Stat{},
+			IdleEnergyInGPU:      &types.UInt64Stat{},
+			IdleEnergyInPlatform: &types.UInt64Stat{},
 		},
 		CgroupStatMap: make(map[string]*types.UInt64StatCollection),
 		KubeletStats:  make(map[string]*types.UInt64Stat),
@@ -126,12 +128,14 @@ func (c *ContainerMetrics) ResetDeltaValues() {
 	c.DynEnergyInPkg.ResetDeltaValues()
 	c.DynEnergyInOther.ResetDeltaValues()
 	c.DynEnergyInGPU.ResetDeltaValues()
+	c.DynEnergyInPlatform.ResetDeltaValues()
 	c.IdleEnergyInCore.ResetDeltaValues()
 	c.IdleEnergyInDRAM.ResetDeltaValues()
 	c.IdleEnergyInUncore.ResetDeltaValues()
 	c.IdleEnergyInPkg.ResetDeltaValues()
 	c.IdleEnergyInOther.ResetDeltaValues()
 	c.IdleEnergyInGPU.ResetDeltaValues()
+	c.IdleEnergyInPlatform.ResetDeltaValues()
 }
 
 // SetLatestProcess set cgroupPID, PID, and command to the latest captured process
@@ -198,15 +202,6 @@ func (c *ContainerMetrics) ToEstimatorValues() (values []float64) {
 		values = append(values, float64(curr))
 	}
 	return
-}
-
-// GetBasicValues return basic label balues
-func (c *ContainerMetrics) GetBasicValues() []string {
-	command := c.Command
-	if len(command) > 10 {
-		command = command[:10]
-	}
-	return []string{c.PodName, c.Namespace, command}
 }
 
 // ToPrometheusValue return the value regarding metric label
@@ -276,4 +271,48 @@ func (c *ContainerMetrics) UpdateCgroupMetrics() error {
 		klog.V(3).Infof("Error reading cgroup stats for container %s (%s): %v", c.ContainerName, c.ContainerID, err)
 	}
 	return err
+}
+
+func (c *ContainerMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
+	switch component {
+	case PKG:
+		return c.DynEnergyInPkg
+	case CORE:
+		return c.DynEnergyInCore
+	case DRAM:
+		return c.DynEnergyInDRAM
+	case UNCORE:
+		return c.DynEnergyInUncore
+	case GPU:
+		return c.DynEnergyInGPU
+	case OTHER:
+		return c.DynEnergyInOther
+	case PLATFORM:
+		return c.DynEnergyInPlatform
+	default:
+		klog.Fatalf("DynEnergy component type %s is unknown\n", component)
+	}
+	return
+}
+
+func (c *ContainerMetrics) GetIdleEnergyStat(component string) (energyStat *types.UInt64Stat) {
+	switch component {
+	case PKG:
+		return c.IdleEnergyInPkg
+	case CORE:
+		return c.IdleEnergyInCore
+	case DRAM:
+		return c.IdleEnergyInDRAM
+	case UNCORE:
+		return c.IdleEnergyInUncore
+	case GPU:
+		return c.IdleEnergyInGPU
+	case OTHER:
+		return c.IdleEnergyInOther
+	case PLATFORM:
+		return c.IdleEnergyInPlatform
+	default:
+		klog.Fatalf("IdleEnergy component type %s is unknown\n", component)
+	}
+	return
 }

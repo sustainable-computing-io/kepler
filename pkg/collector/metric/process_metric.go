@@ -42,44 +42,48 @@ type ProcessMetrics struct {
 	Command      string
 	CounterStats map[string]*types.UInt64Stat
 	// ebpf metrics
-	CPUTime           *types.UInt64Stat
-	SoftIRQCount      []types.UInt64Stat
-	GPUStats          map[string]*types.UInt64Stat
-	DynEnergyInCore   *types.UInt64Stat
-	DynEnergyInDRAM   *types.UInt64Stat
-	DynEnergyInUncore *types.UInt64Stat
-	DynEnergyInPkg    *types.UInt64Stat
-	DynEnergyInGPU    *types.UInt64Stat
-	DynEnergyInOther  *types.UInt64Stat
+	CPUTime             *types.UInt64Stat
+	SoftIRQCount        []types.UInt64Stat
+	GPUStats            map[string]*types.UInt64Stat
+	DynEnergyInCore     *types.UInt64Stat
+	DynEnergyInDRAM     *types.UInt64Stat
+	DynEnergyInUncore   *types.UInt64Stat
+	DynEnergyInPkg      *types.UInt64Stat
+	DynEnergyInGPU      *types.UInt64Stat
+	DynEnergyInOther    *types.UInt64Stat
+	DynEnergyInPlatform *types.UInt64Stat
 
-	IdleEnergyInCore   *types.UInt64Stat
-	IdleEnergyInDRAM   *types.UInt64Stat
-	IdleEnergyInUncore *types.UInt64Stat
-	IdleEnergyInPkg    *types.UInt64Stat
-	IdleEnergyInGPU    *types.UInt64Stat
-	IdleEnergyInOther  *types.UInt64Stat
+	IdleEnergyInCore     *types.UInt64Stat
+	IdleEnergyInDRAM     *types.UInt64Stat
+	IdleEnergyInUncore   *types.UInt64Stat
+	IdleEnergyInPkg      *types.UInt64Stat
+	IdleEnergyInGPU      *types.UInt64Stat
+	IdleEnergyInOther    *types.UInt64Stat
+	IdleEnergyInPlatform *types.UInt64Stat
 }
 
 // NewProcessMetrics creates a new ProcessMetrics instance
 func NewProcessMetrics(pid uint64, command string) *ProcessMetrics {
 	p := &ProcessMetrics{
-		PID:                pid,
-		Command:            command,
-		CPUTime:            &types.UInt64Stat{},
-		CounterStats:       make(map[string]*types.UInt64Stat),
-		SoftIRQCount:       make([]types.UInt64Stat, config.MaxIRQ),
-		DynEnergyInCore:    &types.UInt64Stat{},
-		DynEnergyInDRAM:    &types.UInt64Stat{},
-		DynEnergyInUncore:  &types.UInt64Stat{},
-		DynEnergyInPkg:     &types.UInt64Stat{},
-		DynEnergyInOther:   &types.UInt64Stat{},
-		DynEnergyInGPU:     &types.UInt64Stat{},
-		IdleEnergyInCore:   &types.UInt64Stat{},
-		IdleEnergyInDRAM:   &types.UInt64Stat{},
-		IdleEnergyInUncore: &types.UInt64Stat{},
-		IdleEnergyInPkg:    &types.UInt64Stat{},
-		IdleEnergyInOther:  &types.UInt64Stat{},
-		IdleEnergyInGPU:    &types.UInt64Stat{},
+		PID:                  pid,
+		Command:              command,
+		CPUTime:              &types.UInt64Stat{},
+		CounterStats:         make(map[string]*types.UInt64Stat),
+		SoftIRQCount:         make([]types.UInt64Stat, config.MaxIRQ),
+		DynEnergyInCore:      &types.UInt64Stat{},
+		DynEnergyInDRAM:      &types.UInt64Stat{},
+		DynEnergyInUncore:    &types.UInt64Stat{},
+		DynEnergyInPkg:       &types.UInt64Stat{},
+		DynEnergyInOther:     &types.UInt64Stat{},
+		DynEnergyInGPU:       &types.UInt64Stat{},
+		DynEnergyInPlatform:  &types.UInt64Stat{},
+		IdleEnergyInCore:     &types.UInt64Stat{},
+		IdleEnergyInDRAM:     &types.UInt64Stat{},
+		IdleEnergyInUncore:   &types.UInt64Stat{},
+		IdleEnergyInPkg:      &types.UInt64Stat{},
+		IdleEnergyInOther:    &types.UInt64Stat{},
+		IdleEnergyInGPU:      &types.UInt64Stat{},
+		IdleEnergyInPlatform: &types.UInt64Stat{},
 	}
 
 	for _, metricName := range AvailableHWCounters {
@@ -108,12 +112,14 @@ func (p *ProcessMetrics) ResetDeltaValues() {
 	p.DynEnergyInPkg.ResetDeltaValues()
 	p.DynEnergyInOther.ResetDeltaValues()
 	p.DynEnergyInGPU.ResetDeltaValues()
+	p.DynEnergyInPlatform.ResetDeltaValues()
 	p.IdleEnergyInCore.ResetDeltaValues()
 	p.IdleEnergyInDRAM.ResetDeltaValues()
 	p.IdleEnergyInUncore.ResetDeltaValues()
 	p.IdleEnergyInPkg.ResetDeltaValues()
 	p.IdleEnergyInOther.ResetDeltaValues()
 	p.IdleEnergyInGPU.ResetDeltaValues()
+	p.IdleEnergyInPlatform.ResetDeltaValues()
 }
 
 // getFloatCurrAndAggrValue return curr, aggr float64 values of specific uint metric
@@ -156,15 +162,6 @@ func (p *ProcessMetrics) ToEstimatorValues() (values []float64) {
 	return
 }
 
-// GetBasicValues return basic label balues
-func (p *ProcessMetrics) GetBasicValues() []string {
-	command := p.Command
-	if len(command) > 10 {
-		command = command[:10]
-	}
-	return []string{command}
-}
-
 func (p *ProcessMetrics) SumAllDynDeltaValues() uint64 {
 	return p.DynEnergyInPkg.Delta + p.DynEnergyInGPU.Delta + p.DynEnergyInOther.Delta
 }
@@ -184,4 +181,48 @@ func (p *ProcessMetrics) String() string {
 		p.IdleEnergyInPkg, p.IdleEnergyInCore, p.IdleEnergyInDRAM, p.IdleEnergyInUncore, p.IdleEnergyInGPU, p.IdleEnergyInOther,
 		p.CPUTime.Delta, p.CPUTime.Aggr,
 		p.CounterStats)
+}
+
+func (c *ProcessMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
+	switch component {
+	case PKG:
+		return c.DynEnergyInPkg
+	case CORE:
+		return c.DynEnergyInCore
+	case DRAM:
+		return c.DynEnergyInDRAM
+	case UNCORE:
+		return c.DynEnergyInUncore
+	case GPU:
+		return c.DynEnergyInGPU
+	case OTHER:
+		return c.DynEnergyInOther
+	case PLATFORM:
+		return c.DynEnergyInPlatform
+	default:
+		klog.Fatalf("DynEnergy component type %s is unknown\n", component)
+	}
+	return
+}
+
+func (c *ProcessMetrics) GetIdleEnergyStat(component string) (energyStat *types.UInt64Stat) {
+	switch component {
+	case PKG:
+		return c.IdleEnergyInPkg
+	case CORE:
+		return c.IdleEnergyInCore
+	case DRAM:
+		return c.IdleEnergyInDRAM
+	case UNCORE:
+		return c.IdleEnergyInUncore
+	case GPU:
+		return c.IdleEnergyInGPU
+	case OTHER:
+		return c.IdleEnergyInOther
+	case PLATFORM:
+		return c.IdleEnergyInPlatform
+	default:
+		klog.Fatalf("IdleEnergy component type %s is unknown\n", component)
+	}
+	return
 }
