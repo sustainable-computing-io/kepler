@@ -61,18 +61,6 @@ func InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues []st
 	}
 }
 
-// The current implementation from the model server returns a list of the container energy.
-// The list follows the order of the container containerMetricValuesOnly for the container id...
-// TODO: make model server return a list of elemets that also contains the containerID to enforce consistency
-func getContainerMetricsList(containersMetrics map[string]*collector_metric.ContainerMetrics) (containerMetricValuesOnly [][]float64) {
-	// convert to pod metrics to array
-	for _, c := range containersMetrics {
-		values := c.ToEstimatorValues()
-		containerMetricValuesOnly = append(containerMetricValuesOnly, values)
-	}
-	return
-}
-
 // UpdateContainerEnergy returns container energy consumption for each node component
 func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics *collector_metric.NodeMetrics) {
 	// If the node can expose power measurement per component, we can use the RATIO power model

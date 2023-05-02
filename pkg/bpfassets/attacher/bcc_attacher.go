@@ -37,6 +37,7 @@ import (
 type BpfModuleTables struct {
 	Module       *bpf.Module
 	Table        *bpf.Table
+	TableName    string
 	CPUFreqTable *bpf.Table
 }
 
@@ -45,6 +46,11 @@ type perfCounter struct {
 	evConfig int
 	enabled  bool
 }
+
+const (
+	tableProcessName = "processes"
+	tableCPUFreqName = "cpu_freq_array"
+)
 
 var (
 	Counters = map[string]perfCounter{
@@ -125,11 +131,13 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 		return nil, err
 	}
 
-	table := bpf.NewTable(m.TableId("processes"), m)
-	cpuFreqTable := bpf.NewTable(m.TableId("cpu_freq_array"), m)
+	tableId := m.TableId(tableProcessName)
+	table := bpf.NewTable(tableId, m)
+	cpuFreqTable := bpf.NewTable(m.TableId(tableCPUFreqName), m)
 
 	bpfModules.Module = m
 	bpfModules.Table = table
+	bpfModules.TableName = tableProcessName
 	bpfModules.CPUFreqTable = cpuFreqTable
 
 	klog.Infof("Successfully load eBPF module with option: %s", options)

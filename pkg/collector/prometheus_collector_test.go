@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,21 +46,6 @@ const (
 	SampleCurr = 100
 	SampleAggr = 1000
 )
-
-func convertPromMetricToMap(body []byte, metric string) map[string]string {
-	regStr := fmt.Sprintf(`%s{[^{}]*}`, metric)
-	r := regexp.MustCompile(regStr)
-	match := r.FindString(string(body))
-	match = strings.Replace(match, metric, "", 1)
-	match = strings.ReplaceAll(match, "=", `"=`)
-	match = strings.ReplaceAll(match, ",", `,"`)
-	match = strings.ReplaceAll(match, "{", `{"`)
-	match = strings.ReplaceAll(match, "=", `:`)
-	var response map[string]string
-	err := json.Unmarshal([]byte(match), &response)
-	Expect(err).NotTo(HaveOccurred())
-	return response
-}
 
 func convertPromToValue(body []byte, metric string) (float64, error) {
 	regStr := fmt.Sprintf(`%s{[^{}]*}.*`, metric)

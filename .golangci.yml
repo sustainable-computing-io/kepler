@@ -58,7 +58,7 @@ linters:
     - unconvert
     - unparam
     - whitespace
-    - varcheck
+    - unused
     - asciicheck
 
   # don't enable:
@@ -92,3 +92,6 @@ issues:
     - linters:
         - typecheck
       text: "could not import C"
+    - linters:
+        - dupl
+      text: ".*pkg/collector/metric/types/types_test.go.*" # false positive, https://github.com/mibk/dupl/issues/20

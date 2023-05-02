@@ -26,11 +26,10 @@ jobs:
       env:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
-    - name: Build bcc
-      run: |
-          wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.25.0/bcc_v0.25.0.tar.gz
-          tar -zxvf bcc_v0.25.0.tar.gz
-          sudo dpkg -i libbcc_0.25.0-1_amd64.deb
+    - name: install bcc
+      uses: sustainable-computing-io/kepler-action@main
+      with:
+          runningBranch: bcc
     - name: Run 
       run: |
           make test-verbose

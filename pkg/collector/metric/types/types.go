@@ -37,6 +37,12 @@ func (s *UInt64Stat) SetNewDeltaValue(newDelta uint64, sum bool) error {
 		// if a counter has overflowed we skip it
 		return nil
 	}
+	// verify overflow
+	if s.Aggr >= (math.MaxUint64 - newDelta) {
+		// we must set the the value to 0 when overflow, so that prometheus will handle it
+		s.Aggr = 0
+		return fmt.Errorf("the aggregated value has overflowed")
+	}
 	if sum {
 		// sum is used to accumulate metrics from different processes
 		s.Delta += newDelta
@@ -44,22 +50,12 @@ func (s *UInt64Stat) SetNewDeltaValue(newDelta uint64, sum bool) error {
 		s.Delta = newDelta
 	}
 	s.Aggr += newDelta
-	// verify overflow
-	if s.Aggr == math.MaxUint64 {
-		// we must set the the value to 0 when overflow, so that prometheus will handle it
-		s.Aggr = 0
-		return fmt.Errorf("the aggregated value has overflowed")
-	}
 	return nil
 }
 
 // SetNewAggr set new read aggregated value (e.g., from cgroup, energy files)
 func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
-	if newAggr == 0 {
-		// if a counter has overflowed we skip it
-		return nil
-	}
-	if newAggr == s.Aggr {
+	if newAggr == 0 || newAggr == s.Aggr {
 		// if a counter has not changed, we skip it
 		return nil
 	}
@@ -69,13 +65,10 @@ func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 		s.Aggr = 0
 		return fmt.Errorf("the aggregated value has overflowed")
 	}
-
-	oldAggr := s.Aggr
-	s.Aggr = newAggr
-
-	if (oldAggr > 0) && (newAggr > oldAggr) {
-		s.Delta = newAggr - oldAggr
+	if (s.Aggr > 0) && (newAggr > s.Aggr) {
+		s.Delta = newAggr - s.Aggr
 	}
+	s.Aggr = newAggr
 	return nil
 }
 
@@ -85,28 +78,40 @@ type UInt64StatCollection struct {
 }
 
 func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
-	if _, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{}
-	}
-	if err := s.Stat[key].SetNewAggr(newAggr); err != nil {
-		klog.V(3).Infoln(err)
+	if instance, found := s.Stat[key]; !found {
+		s.Stat[key] = &UInt64Stat{
+			Aggr:  newAggr,
+			Delta: 0,
+		}
+	} else {
+		if err := instance.SetNewAggr(newAggr); err != nil {
+			klog.V(3).Infoln(err)
+		}
 	}
 }
 
 func (s *UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
-	if _, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{}
-	}
-	if err := s.Stat[key].AddNewDelta(newDelta); err != nil {
-		klog.V(3).Infoln(err)
+	if instance, found := s.Stat[key]; !found {
+		s.Stat[key] = &UInt64Stat{
+			Aggr:  newDelta,
+			Delta: newDelta,
+		}
+	} else {
+		if err := instance.AddNewDelta(newDelta); err != nil {
+			klog.V(3).Infoln(err)
+		}
 	}
 }
 func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
-	if _, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{}
-	}
-	if err := s.Stat[key].SetNewDelta(newDelta); err != nil {
-		klog.V(3).Infoln(err)
+	if instance, found := s.Stat[key]; !found {
+		s.Stat[key] = &UInt64Stat{
+			Aggr:  newDelta,
+			Delta: newDelta,
+		}
+	} else {
+		if err := instance.SetNewDelta(newDelta); err != nil {
+			klog.V(3).Infoln(err)
+		}
 	}
 }
 

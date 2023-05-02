@@ -58,7 +58,10 @@ const (
 var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
-	EnabledMSR = false
+	EnabledMSR            = false
+	EnabledBPFBatchDelete = false
+
+	KernelVersion = float32(0)
 
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
@@ -170,8 +173,9 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 	// set to false if any config source set it to false
 	enabled = enabled && EnabledEBPFCgroupID
 	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
-	klog.Infoln("kernel version:", getKernelVersion(c))
-	if (enabled) && (getKernelVersion(c) >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
+	KernelVersion = getKernelVersion(c)
+	klog.Infoln("kernel version:")
+	if (enabled) && (KernelVersion >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	} else {
 		EnabledEBPFCgroupID = false

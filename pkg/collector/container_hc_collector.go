@@ -46,11 +46,6 @@ type ProcessBPFMetrics struct {
 	Command        [16]byte
 }
 
-// resetBPFTables reset BPF module's tables
-func (c *Collector) resetBPFTables() {
-	c.bpfHCMeter.Table.DeleteAll()
-}
-
 // updateBasicBPF
 func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, isSystemProcess bool) {
 	// update ebpf metrics
@@ -113,13 +108,25 @@ func (c *Collector) updateBPFMetrics() {
 	}
 	foundContainer := make(map[string]bool)
 	foundProcess := make(map[uint64]bool)
+	keysToDelete := [][]byte{}
 	var ct ProcessBPFMetrics
 	for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
+		key := it.Key()
 		data := it.Leaf()
 		err := binary.Read(bytes.NewBuffer(data), utils.DetermineHostByteOrder(), &ct)
 		if err != nil {
 			klog.V(5).Infof("failed to decode received data: %v", err)
-			continue
+			continue // this only happens if there is a problem in the bpf code
+		}
+
+		// if ebpf map batch deletion operation is supported we add the key to the list otherwise we delete the key
+		if config.EnabledBPFBatchDelete {
+			keysToDelete = append(keysToDelete, key)
+		} else {
+			err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
+			if err != nil {
+				klog.Infof("could not delete bpf table elemets, err: %v", err)
+			}
 		}
 
 		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
@@ -155,7 +162,16 @@ func (c *Collector) updateBPFMetrics() {
 			foundProcess[ct.PID] = true
 		}
 	}
-	c.resetBPFTables()
+	if config.EnabledBPFBatchDelete {
+		err := attacher.TableDeleteBatch(c.bpfHCMeter.Module, c.bpfHCMeter.TableName, keysToDelete)
+		// if the kernel does not support delete batch we delete all keys one by one
+		if err != nil {
+			c.bpfHCMeter.Table.DeleteAll()
+			// if batch delete is not supported we disable it for the next time
+			config.EnabledBPFBatchDelete = false
+			klog.Infof("resetting EnabledBPFBatchDelete to %v", config.EnabledBPFBatchDelete)
+		}
+	}
 	c.handleInactiveContainers(foundContainer)
 	if config.EnableProcessMetrics {
 		c.handleInactiveProcesses(foundProcess)

@@ -59,12 +59,27 @@ func (it *TableIterator) Leaf() []byte {
 	return it.leaf
 }
 
+// ID returns the table id.
+func (table *Table) ID() string {
+	return ""
+}
+
+// Delete a key.
+func (table *Table) Delete(key []byte) error {
+	return nil
+}
+
 func (table *Table) DeleteAll() {
+}
+
+func TableDeleteBatch(module ModuleStub, tableName string, keys [][]byte) error {
+	return nil
 }
 
 type BpfModuleTables struct {
 	Module       ModuleStub
 	Table        *Table
+	TableName    string
 	CPUFreqTable *Table
 }
 

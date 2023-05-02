@@ -137,7 +137,7 @@ func (w *ObjListWatcher) Stop() {
 
 func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 	switch w.ResourceKind {
-	case "pods":
+	case podResourceType:
 		pod, ok := obj.(*k8sv1.Pod)
 		if !ok {
 			klog.Infof("Could not convert obj: %v", w.ResourceKind)
@@ -183,7 +183,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 
 func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 	switch w.ResourceKind {
-	case "pods":
+	case podResourceType:
 		pod, ok := obj.(*k8sv1.Pod)
 		if !ok {
 			klog.Fatalf("Could not convert obj: %v", w.ResourceKind)

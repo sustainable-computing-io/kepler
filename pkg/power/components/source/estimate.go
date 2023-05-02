@@ -17,20 +17,13 @@ limitations under the License.
 package source
 
 import (
-	"fmt"
-	"os"
-	"regexp"
 	"runtime"
-	"strconv"
-	"strings"
 	"time"
 )
 
 type PowerEstimate struct{}
 
 var (
-	dramRegex = "^MemTotal:[\\s]+([0-9]+)"
-
 	dramInGB                                                                 int
 	cpuCores                                                                 = runtime.NumCPU()
 	startTime                                                                = time.Now()
@@ -42,23 +35,6 @@ type PowerEstimateData struct {
 	MinWatts     float64 `csv:"Min Watts"`
 	MaxWatts     float64 `csv:"Max Watts"`
 	PerGBWatts   float64 `csv:"GB/Chip"`
-}
-
-func getDram() (int, error) {
-	b, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0, err
-	}
-	re := regexp.MustCompile(dramRegex)
-	matches := re.FindAllStringSubmatch(string(b), -1)
-	if len(matches) > 0 {
-		dram, err := strconv.Atoi(strings.TrimSpace(matches[0][1]))
-		if err != nil {
-			return 0, err
-		}
-		return dram / (1024 * 1024) /*kB to GB*/, nil
-	}
-	return 0, fmt.Errorf("no memory info found")
 }
 
 // If the Estimated Power is being used, it means that the system does not support Components Power Measurement
