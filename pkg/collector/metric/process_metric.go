@@ -183,44 +183,44 @@ func (p *ProcessMetrics) String() string {
 		p.CounterStats)
 }
 
-func (c *ProcessMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
+func (p *ProcessMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
 	switch component {
 	case PKG:
-		return c.DynEnergyInPkg
+		return p.DynEnergyInPkg
 	case CORE:
-		return c.DynEnergyInCore
+		return p.DynEnergyInCore
 	case DRAM:
-		return c.DynEnergyInDRAM
+		return p.DynEnergyInDRAM
 	case UNCORE:
-		return c.DynEnergyInUncore
+		return p.DynEnergyInUncore
 	case GPU:
-		return c.DynEnergyInGPU
+		return p.DynEnergyInGPU
 	case OTHER:
-		return c.DynEnergyInOther
+		return p.DynEnergyInOther
 	case PLATFORM:
-		return c.DynEnergyInPlatform
+		return p.DynEnergyInPlatform
 	default:
 		klog.Fatalf("DynEnergy component type %s is unknown\n", component)
 	}
 	return
 }
 
-func (c *ProcessMetrics) GetIdleEnergyStat(component string) (energyStat *types.UInt64Stat) {
+func (p *ProcessMetrics) GetIdleEnergyStat(component string) (energyStat *types.UInt64Stat) {
 	switch component {
 	case PKG:
-		return c.IdleEnergyInPkg
+		return p.IdleEnergyInPkg
 	case CORE:
-		return c.IdleEnergyInCore
+		return p.IdleEnergyInCore
 	case DRAM:
-		return c.IdleEnergyInDRAM
+		return p.IdleEnergyInDRAM
 	case UNCORE:
-		return c.IdleEnergyInUncore
+		return p.IdleEnergyInUncore
 	case GPU:
-		return c.IdleEnergyInGPU
+		return p.IdleEnergyInGPU
 	case OTHER:
-		return c.IdleEnergyInOther
+		return p.IdleEnergyInOther
 	case PLATFORM:
-		return c.IdleEnergyInPlatform
+		return p.IdleEnergyInPlatform
 	default:
 		klog.Fatalf("IdleEnergy component type %s is unknown\n", component)
 	}

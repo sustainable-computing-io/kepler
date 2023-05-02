@@ -18,6 +18,7 @@ package local_test
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -76,22 +77,25 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 	}
 	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
 	b.ResetTimer()
-	local.UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+	wg.Wait()
 	b.StopTimer()
 }
 
-func BenchmarkUpdateContainerEnergyByRatioPowerModelWith1000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith1000Contianer(b *testing.B) {
 	benchmarkNtesting(b, 1000)
 }
 
-func BenchmarkUpdateContainerEnergyByRatioPowerModelWith2000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith2000Contianer(b *testing.B) {
 	benchmarkNtesting(b, 2000)
 }
 
-func BenchmarkUpdateContainerEnergyByRatioPowerModelWith5000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith5000Contianer(b *testing.B) {
 	benchmarkNtesting(b, 5000)
 }
 
-func BenchmarkUpdateContainerEnergyByRatioPowerModelWith10000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith10000Contianer(b *testing.B) {
 	benchmarkNtesting(b, 10000)
 }

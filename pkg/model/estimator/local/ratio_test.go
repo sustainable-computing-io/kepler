@@ -17,6 +17,8 @@ limitations under the License.
 package local
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -99,7 +101,10 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		Expect(nodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(20))
 
-		UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+		wg.Wait()
 		// The pkg dynamic energy is 5mJ, the container cpu usage is 50%, so the dynamic energy is 2.5mJ = ~3mJ
 		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))
 		Expect(containersMetrics["containerB"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))

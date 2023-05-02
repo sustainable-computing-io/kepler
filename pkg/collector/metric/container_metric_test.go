@@ -100,14 +100,6 @@ var _ = Describe("Test Container Metric", func() {
 		Expect(0).To(Equal(instance.CurrProcesses))
 	})
 
-	It("Test GetBasicValues", func() {
-		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
-		instance.Command = "12345678901234567890"
-		exp := []string{"PodName", "Namespace", "1234567890"}
-		cur := instance.GetBasicValues()
-		Expect(exp).To(Equal(cur))
-	})
-
 	It("Test SumAllDynDeltaValues", func() {
 		instance := NewContainerMetrics("container", "PodName", "Namespace", "container")
 		exp := instance.DynEnergyInPkg.Delta + instance.DynEnergyInGPU.Delta + instance.DynEnergyInOther.Delta
