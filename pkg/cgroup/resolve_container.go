@@ -45,6 +45,8 @@ const (
 
 	procPath   string = "/proc/%d/cgroup"
 	cgroupPath string = "/sys/fs/cgroup"
+
+	kubletUpdateCacheRetryCount int = 3
 )
 
 var (
@@ -55,6 +57,11 @@ var (
 	containerIDCache           = map[uint64]string{}
 	containerIDToContainerInfo = map[string]*ContainerInfo{}
 	cGroupIDToPath             = map[uint64]string{}
+
+	// map for newly created containers for pod resolution. Each entry is initialized with retries
+	// if container is not found in cache, it will be added to this map and will be retried for
+	// kubletUpdateCacheRetryCount times
+	newContainerIDCache = map[string]int{}
 
 	// regex to extract container ID from path
 	regexFindContainerIDPath          = regexp.MustCompile(`.*-(.*?)\.scope`)
@@ -112,6 +119,10 @@ func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 		return info, err
 	}
 
+	if containerID == "" {
+		return info, nil
+	}
+
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	}
@@ -120,6 +131,21 @@ func getContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 	_, _ = updateListPodCache(containerID, true)
 	if cinfo, ok := containerIDToContainerInfo[containerID]; ok {
 		return cinfo, nil
+	}
+
+	// if the containerID is not found, check newContainerIDCache and see if there are retries left
+	if retries, ok := newContainerIDCache[containerID]; ok {
+		if retries > 0 {
+			newContainerIDCache[containerID] = retries - 1
+			klog.V(5).Infof("container ID %s not found in kubelet query, retrying", containerID)
+			return info, nil
+		} else {
+			klog.V(1).Infof("container ID %s not found in kubelet query. Adding it to system process", containerID)
+		}
+	} else {
+		newContainerIDCache[containerID] = kubletUpdateCacheRetryCount
+		klog.V(5).Infof("container ID %s not found in kubelet query, will retry", containerID)
+		return info, nil
 	}
 
 	if _, ok := containerIDToContainerInfo[containerID]; !ok {
