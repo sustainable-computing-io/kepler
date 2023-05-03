@@ -123,6 +123,7 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_node_package_joules_total"),               // node levelcheck by instance
 		Entry(nil, "kepler_node_platform_joules_total"),              // node levelcheck by instance
 		Entry(nil, "kepler_node_uncore_joules_total"),                // node levelcheck by instance
+		Entry(nil, "kepler_node_gco2_total"),                         // node levelcheck by instance
 	)
 
 	var _ = DescribeTable("Check pod level metrics for details",
@@ -149,5 +150,6 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_container_kubelet_cpu_usage_total"),            // pod level
 		Entry(nil, "kepler_container_kubelet_memory_bytes_total"),         // pod level
 		Entry(nil, "kepler_pod_energy_stat"),                              // pod level
+		Entry(nil, "kepler_container_gco2_total"),                         // pod level
 	)
 })

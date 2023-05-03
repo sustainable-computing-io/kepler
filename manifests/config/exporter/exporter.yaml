@@ -14,6 +14,7 @@ data:
   METRIC_PATH: "/metrics"
   BIND_ADDRESS: "0.0.0.0:9102"
   ENABLE_GPU: "true"
+  ENABLE_CO2: "true"
   ENABLE_EBPF_CGROUPID: "true"
   EXPOSE_IRQ_COUNTER_METRICS: "true"
   EXPOSE_KUBELET_METRICS: "true"

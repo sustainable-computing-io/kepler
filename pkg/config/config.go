@@ -63,6 +63,7 @@ var (
 	KeplerNamespace              = getConfig("KELPER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	EnabledCO2                   = getBoolConfig("ENABLE_CO2", false)
 	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
 	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
@@ -109,6 +110,7 @@ func logBoolConfigs() {
 	if klog.V(5).Enabled() {
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
+		klog.V(5).Infof("ENABLE_CO2: %t", EnabledCO2)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessMetrics)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
@@ -185,6 +187,12 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+}
+
+// SetEnabledCO2 enables the exposure of CO2 intensity
+func SetEnabledCO2(enabled bool) {
+	// set to true if any config source set it to true
+	EnabledCO2 = enabled || EnabledCO2
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {

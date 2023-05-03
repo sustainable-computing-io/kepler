@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/co2"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -53,6 +54,7 @@ var (
 	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
 	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
 	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	enableCO2                    = flag.Bool("enable-co2", false, "whether enable co2 intensisty")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
@@ -151,6 +153,7 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
+	config.SetEnabledCO2(*enableCO2)
 	config.EnabledMSR = *enabledMSR
 
 	config.LogConfigs()
@@ -173,6 +176,15 @@ func main() {
 		}
 	}
 
+	if config.EnabledCO2 {
+		klog.Infof("Initializing the CO2 collector")
+		err := co2.Init()
+		if err == nil {
+			defer co2.Shutdown()
+		} else {
+			klog.Infof("Failed to initialize the CO2 collector: %v", err)
+		}
+	}
 	m := manager.New()
 	prometheus.MustRegister(version.NewCollector("kepler_exporter"))
 	prometheus.MustRegister(m.PrometheusCollector)
