@@ -145,8 +145,6 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
-	startProfiling(*cpuProfile, *memProfile)
-
 	klog.Infof("Kepler running on version: %s", kversion.Version)
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
@@ -209,6 +207,8 @@ func main() {
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
+
+	startProfiling(*cpuProfile, *memProfile)
 
 	ch := make(chan error)
 	go func() {
