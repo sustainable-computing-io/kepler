@@ -275,8 +275,8 @@ github.com/prometheus/prometheus v0.40.3 h1:oMw1vVyrxHTigXAcFY6QHrGUnQEbKEOKo737
 github.com/prometheus/prometheus v0.40.3/go.mod h1:/UhsWkOXkO11wqTW2Bx5YDOwRweSDcaFBlTIzFe7P0Y=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
-github.com/rootfs/gobpf v0.2.1-0.20230501231255-cb9cf9f81504 h1:/M0h61I8Z8vyREqb5/Zimv03ANjtbT4Zp2dj9AEQZ/U=
-github.com/rootfs/gobpf v0.2.1-0.20230501231255-cb9cf9f81504/go.mod h1:WSY9Jj5RhdgC3ci1QaacvbFdQ8cbrEjrpiZbLHLt2s4=
+github.com/rootfs/gobpf v0.2.1-0.20230504125914-559d032738be h1:KHSwnuL3aUUi15BqJy63R733jxXMeUuay0O9sWGgulQ=
+github.com/rootfs/gobpf v0.2.1-0.20230504125914-559d032738be/go.mod h1:WSY9Jj5RhdgC3ci1QaacvbFdQ8cbrEjrpiZbLHLt2s4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=

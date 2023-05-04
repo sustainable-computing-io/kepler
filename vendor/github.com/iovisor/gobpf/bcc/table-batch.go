@@ -41,35 +41,53 @@ func (table *Table) BatchGet(leafSize uint32, deleteAfterGet bool) ([][]byte, []
 	// So we set entries to max entries / leafSize
 	entries := uint32(uint32(C.bpf_table_max_entries_id(mod, table.id)) / leafSize)
 	entriesInt := C.uint(entries)
+	var (
+		key  [][]byte
+		leaf [][]byte
+	)
 
 	keySize := C.bpf_table_key_size_id(mod, table.id)
-	keyArray := C.malloc(C.size_t(entries) * C.size_t(keySize))
-	defer C.free(keyArray)
-
-	leafArray := C.malloc(C.size_t(entries) * C.size_t(leafSize))
-	defer C.free(leafArray)
 	nextKey := C.uint(0)
-	r, err := C.bpf_lookup_batch(fd, &nextKey, &nextKey, keyArray, leafArray, &(entriesInt))
-	if printResult {
-		fmt.Printf("batch get table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
-	}
-	if r != 0 && err != os.ErrNotExist {
-		return nil, nil, fmt.Errorf("failed to batch get: %v", err)
-	}
-	if r == 0 && deleteAfterGet {
-		r, err = C.bpf_delete_batch(fd, keyArray, &(entriesInt))
+	isEnd := false
+	for !isEnd {
+		keyArray := C.malloc(C.size_t(entries) * C.size_t(keySize))
+		defer C.free(keyArray)
+
+		leafArray := C.malloc(C.size_t(entries) * C.size_t(leafSize))
+		defer C.free(leafArray)
+
+		r, err := C.bpf_lookup_batch(fd, &nextKey, &nextKey, keyArray, leafArray, &(entriesInt))
 		if printResult {
-			fmt.Printf("batch delete table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
+			fmt.Printf("batch get table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
 		}
-		if r != 0 {
-			return nil, nil, fmt.Errorf("failed to batch delete: %v", err)
+		if err != nil {
+			// r !=0 and os.IsNotExist means we reached the end of the table
+			if os.IsNotExist(err) {
+				isEnd = true
+			} else {
+				if r != 0 {
+					return key, leaf, fmt.Errorf("failed to batch get: %v", err)
+				}
+			}
+		}
+		for i := 0; i < int(entriesInt); i++ {
+			k := C.GoBytes(unsafe.Pointer(uintptr(keyArray)+uintptr(i)*uintptr(keySize)), C.int(keySize))
+			v := C.GoBytes(unsafe.Pointer(uintptr(leafArray)+uintptr(i)*uintptr(leafSize)), C.int(leafSize))
+			key = append(key, k)
+			leaf = append(leaf, v)
+		}
+		if int(entriesInt) > 0 && deleteAfterGet {
+			r, err = C.bpf_delete_batch(fd, keyArray, &(entriesInt))
+			if printResult {
+				fmt.Printf("batch delete table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
+			}
+			if r != 0 {
+				return key, leaf, fmt.Errorf("failed to batch delete: %v", err)
+			}
 		}
 	}
-	key := make([][]byte, entriesInt)
-	leaf := make([][]byte, entriesInt)
-	for i := 0; i < int(entriesInt); i++ {
-		key[i] = C.GoBytes(unsafe.Pointer(uintptr(keyArray)+uintptr(i)*uintptr(keySize)), C.int(keySize))
-		leaf[i] = C.GoBytes(unsafe.Pointer(uintptr(leafArray)+uintptr(i)*uintptr(leafSize)), C.int(leafSize))
+	if printResult {
+		fmt.Printf("batch get table requested/returned: %v/%v\n", entries, len(key))
 	}
 	return key, leaf, nil
 }
