@@ -72,8 +72,8 @@ func (table *Table) Delete(key []byte) error {
 func (table *Table) DeleteAll() {
 }
 
-func (table *Table) BatchGet(leafSize uint32, deleteAfterGet bool) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+func (table *Table) BatchGet(leafSize uint32, deleteAfterGet bool) (keys, leaf [][]byte, err error) {
+	return
 }
 
 func TableDeleteBatch(module ModuleStub, tableName string, keys [][]byte) error {
