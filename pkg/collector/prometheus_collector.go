@@ -763,28 +763,26 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerOtherComponentsJoulesTotal,
 				prometheus.CounterValue,
-				float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
-			)
-			ch <- prometheus.MustNewConstMetric(
-				p.containerDesc.containerOtherComponentsJoulesTotal,
-				prometheus.CounterValue,
 				float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule,
 				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
 			if config.EnabledGPU {
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerGPUJoulesTotal,
-					prometheus.CounterValue,
-					float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerGPUJoulesTotal,
-					prometheus.CounterValue,
-					float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
-				)
+				if container.DynEnergyInGPU.Aggr > 0 {
+					ch <- prometheus.MustNewConstMetric(
+						p.containerDesc.containerGPUJoulesTotal,
+						prometheus.CounterValue,
+						float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule,
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+					)
+				}
+				if container.IdleEnergyInGPU.Aggr > 0 {
+					ch <- prometheus.MustNewConstMetric(
+						p.containerDesc.containerGPUJoulesTotal,
+						prometheus.CounterValue,
+						float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule,
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					)
+				}
 			}
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerJoulesTotal,

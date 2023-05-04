@@ -7,13 +7,6 @@ import (
 
 var _ = Describe("ProcessMetric", func() {
 
-	It("Test GetBasicValues", func() {
-		p := NewProcessMetrics(0, "12345678901234567890")
-		exp := []string{"1234567890"}
-		cur := p.GetBasicValues()
-		Expect(exp).To(Equal(cur))
-	})
-
 	It("Test ResetDeltaValues", func() {
 		p := NewProcessMetrics(0, "command")
 		p.ResetDeltaValues()

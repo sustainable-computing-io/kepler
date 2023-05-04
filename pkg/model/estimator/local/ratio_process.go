@@ -22,100 +22,39 @@ calculate processess' component and other power by ratio approach when node powe
 package local
 
 import (
-	"math"
+	"sync"
 
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-// UpdateProcessEnergyByRatioPowerModel calculates the process energy consumption based on the energy consumption of the container that contains all the processes
-func UpdateProcessEnergyByRatioPowerModel(processMetrics map[uint64]*collector_metric.ProcessMetrics, containerMetrics *collector_metric.ContainerMetrics) {
-	pkgDynPower := float64(containerMetrics.DynEnergyInPkg.Delta)
-	coreDynPower := float64(containerMetrics.DynEnergyInCore.Delta)
-	uncoreDynPower := float64(containerMetrics.DynEnergyInUncore.Delta)
-	dramDynPower := float64(containerMetrics.DynEnergyInDRAM.Delta)
-	otherDynPower := float64(containerMetrics.DynEnergyInOther.Delta)
-	gpuDynPower := float64(containerMetrics.DynEnergyInGPU.Delta)
+// TODO: we should not calculate the process power based on the container power. Instead of using the container metrics we should use the system metrics and we do in the container power model.
+// UpdateProcessComponentEnergyByRatioPowerModel calculates the process energy consumption based on the energy consumption of the container that contains all the processes
+func UpdateProcessComponentEnergyByRatioPowerModel(processMetrics map[uint64]*collector_metric.ProcessMetrics, containerMetrics *collector_metric.ContainerMetrics, component, usageMetric string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	nodeTotalResourceUsage := float64(-1)
+	processesNumber := float64(len(processMetrics))
+	totalDynPower := float64(containerMetrics.GetDynEnergyStat(component).Delta)
 
-	processNumber := float64(len(processMetrics))
-	// evenly divide the idle power to all processes. TODO: use the process resource request
-	pkgIdlePowerPerProcess := containerMetrics.IdleEnergyInPkg.Delta / uint64(processNumber)
-	coreIdlePowerPerProcess := containerMetrics.IdleEnergyInCore.Delta / uint64(processNumber)
-	uncoreIdlePowerPerProcess := containerMetrics.IdleEnergyInUncore.Delta / uint64(processNumber)
-	dramIdlePowerPerProcess := containerMetrics.IdleEnergyInDRAM.Delta / uint64(processNumber)
-	otherIdlePowerPerProcess := containerMetrics.IdleEnergyInOther.Delta / uint64(processNumber)
+	// evenly divide the idle power to all containers. TODO: use the container resource request
+	idlePowerPerProcess := containerMetrics.GetIdleEnergyStat(component).Delta / uint64(processesNumber)
+
+	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
+	if usageMetric != "" {
+		nodeTotalResourceUsage = float64(containerMetrics.CounterStats[usageMetric].Delta)
+	}
 
 	for pid, process := range processMetrics {
-		var processResUsage, containerTotalResUsage float64
-
-		// calculate the process package/socket energy consumption
-		if _, ok := process.CounterStats[config.CoreUsageMetric]; ok {
-			processResUsage = float64(process.CounterStats[config.CoreUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.CoreUsageMetric].Delta)
-			processPkgEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, pkgDynPower, processNumber)
-			if err := processMetrics[pid].DynEnergyInPkg.AddNewDelta(processPkgEnergy); err != nil {
+		if _, ok := process.CounterStats[usageMetric]; ok {
+			processResUsage := float64(process.CounterStats[usageMetric].Delta)
+			processPkgEnergy := getEnergyRatio(processResUsage, nodeTotalResourceUsage, totalDynPower, processesNumber)
+			if err := processMetrics[pid].GetDynEnergyStat(component).AddNewDelta(processPkgEnergy); err != nil {
 				klog.Infoln(err)
 			}
-			// calculate the process core energy consumption
-			processCoreEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, coreDynPower, processNumber)
-			if err := processMetrics[pid].DynEnergyInCore.AddNewDelta(processCoreEnergy); err != nil {
+			if err := processMetrics[pid].GetIdleEnergyStat(component).AddNewDelta(idlePowerPerProcess); err != nil {
 				klog.Infoln(err)
 			}
-		}
-
-		// calculate the process uncore energy consumption
-		processUncoreEnergy := uint64(math.Ceil(uncoreDynPower / processNumber))
-		if err := processMetrics[pid].DynEnergyInUncore.AddNewDelta(processUncoreEnergy); err != nil {
-			klog.Infoln(err)
-		}
-
-		// calculate the process dram energy consumption
-		if _, ok := process.CounterStats[config.DRAMUsageMetric]; ok {
-			processResUsage = float64(process.CounterStats[config.DRAMUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.DRAMUsageMetric].Delta)
-			processDramEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, dramDynPower, processNumber)
-			if err := processMetrics[pid].DynEnergyInDRAM.AddNewDelta(processDramEnergy); err != nil {
-				klog.Infoln(err)
-			}
-		}
-
-		// calculate the process gpu energy consumption
-		if accelerator.IsGPUCollectionSupported() {
-			processResUsage = float64(process.CounterStats[config.GpuUsageMetric].Delta)
-			containerTotalResUsage = float64(containerMetrics.CounterStats[config.GpuUsageMetric].Delta)
-			processGPUEnergy := getEnergyRatio(processResUsage, containerTotalResUsage, gpuDynPower, processNumber)
-			if err := processMetrics[pid].DynEnergyInGPU.AddNewDelta(processGPUEnergy); err != nil {
-				klog.Infoln(err)
-			} else {
-				klog.V(5).Infof("gpu power ratio: pid %v processResUsage: %f, nodeTotalResUsage: %f, nodeResEnergyUtilization: %f, processNumber: %f processGPUEnergy: %v",
-					pid, processResUsage, containerTotalResUsage, gpuDynPower, processNumber, processMetrics[pid].DynEnergyInGPU.Delta)
-			}
-		}
-
-		// calculate the process host other components energy consumption
-		processOtherHostComponentsEnergy := uint64(math.Ceil(otherDynPower / processNumber))
-		if err := processMetrics[pid].DynEnergyInOther.AddNewDelta(processOtherHostComponentsEnergy); err != nil {
-			klog.Infoln(err)
-		}
-
-		// Idle energy
-		if err := processMetrics[pid].IdleEnergyInPkg.AddNewDelta(pkgIdlePowerPerProcess); err != nil {
-			klog.Infoln(err)
-		}
-		if err := processMetrics[pid].IdleEnergyInCore.AddNewDelta(coreIdlePowerPerProcess); err != nil {
-			klog.Infoln(err)
-		}
-		if err := processMetrics[pid].IdleEnergyInUncore.AddNewDelta(uncoreIdlePowerPerProcess); err != nil {
-			klog.Infoln(err)
-		}
-		if err := processMetrics[pid].IdleEnergyInDRAM.AddNewDelta(dramIdlePowerPerProcess); err != nil {
-			klog.Infoln(err)
-		}
-		if err := processMetrics[pid].IdleEnergyInOther.AddNewDelta(otherIdlePowerPerProcess); err != nil {
-			klog.Infoln(err)
 		}
 	}
 }

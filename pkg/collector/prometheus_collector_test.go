@@ -17,6 +17,8 @@ limitations under the License.
 package collector
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -33,9 +35,10 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	model "github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+
+	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 )
 
 const (
@@ -127,7 +130,10 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 		exporter.NodeMetrics.UpdateIdleEnergy()
 		exporter.NodeMetrics.UpdateDynEnergy()
-		model.UpdateContainerEnergyByRatioPowerModel(*exporter.ContainersMetrics, exporter.NodeMetrics)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(*exporter.ContainersMetrics, exporter.NodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+		wg.Wait()
 
 		// get metrics from prometheus
 		err = prometheus.Register(exporter)
