@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumber float64) uint64 {
@@ -47,9 +48,9 @@ func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[strin
 	nodeTotalResourceUsage := float64(0)
 	containerNumber := float64(len(containersMetrics))
 	totalDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(component))
-
+	totalIdlePower := float64(nodeMetrics.GetSumDeltaIdleEnergyromAllSources(component))
 	// evenly divide the idle power to all containers. TODO: use the container resource limit
-	idlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(component) / uint64(containerNumber)
+	idlePowerPerContainer := uint64(totalIdlePower / containerNumber)
 
 	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
 	if usageMetric != "" {
@@ -57,13 +58,16 @@ func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[strin
 	}
 
 	for containerID, container := range containersMetrics {
+		containerResUsage := float64(0)
 		if _, ok := container.CounterStats[usageMetric]; ok {
-			containerResUsage := float64(container.CounterStats[usageMetric].Delta)
-			if containerResUsage > 0 {
-				containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
-				if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
-					klog.Infoln(err)
-				}
+			containerResUsage = float64(container.CounterStats[usageMetric].Delta)
+		} else if usageMetric == config.CPUTime {
+			containerResUsage = float64(container.CPUTime.Delta)
+		}
+		if containerResUsage > 0 {
+			containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
+			if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
+				klog.Infoln(err)
 			}
 		}
 		if err := containersMetrics[containerID].GetIdleEnergyStat(component).AddNewDelta(idlePowerPerContainer); err != nil {
