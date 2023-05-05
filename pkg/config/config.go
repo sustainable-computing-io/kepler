@@ -68,6 +68,7 @@ var (
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
+	EnableHardwareCounterMetrics = getBoolConfig("ENABLE_HW_COUNTER_METRICS", true)
 	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", false)
 	ExposeKubeletMetrics         = getBoolConfig("EXPOSE_KUBELET_METRICS", true)
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)

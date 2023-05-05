@@ -94,18 +94,22 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + bpfPerfArrayPrefix
-		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)
-		if t == nil {
-			return nil, fmt.Errorf("failed to find perf array: %s", bpfPerfArrayName)
-		}
-		perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
-		if perfErr != nil {
-			// some hypervisors don't expose perf counters
-			klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			counter.enabled = false
+		if config.EnableHardwareCounterMetrics {
+			t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)
+			if t == nil {
+				return nil, fmt.Errorf("failed to find perf array: %s", bpfPerfArrayName)
+			}
+			perfErr := openPerfEvent(t, counter.evType, counter.evConfig)
+			if perfErr != nil {
+				// some hypervisors don't expose perf counters
+				klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
+				counter.enabled = false
 
-			// if any counter is not enabled, we need disable HardwareCountersEnabled
-			HardwareCountersEnabled = false
+				// if any counter is not enabled, we need disable HardwareCountersEnabled
+				HardwareCountersEnabled = false
+			}
+		} else {
+			counter.enabled = false
 		}
 	}
 	return m, err
@@ -120,6 +124,9 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 	options := []string{
 		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
+	}
+	if config.EnableHardwareCounterMetrics {
+		options = append(options, "-DUSE_PERF_EVENT")
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")

@@ -260,12 +260,19 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
     u32 cpu_id = bpf_get_smp_processor_id();
     u64 prev_pid = prev->pid;
     u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cpu_id, cur_ts);
+#ifdef USE_PERF_EVENT    
     u64 on_cpu_cycles_delta = get_on_cpu_cycles(&cpu_id);
     u64 on_cpu_ref_cycles_delta = get_on_cpu_ref_cycles(&cpu_id);
     u64 on_cpu_instr_delta = get_on_cpu_instr(&cpu_id);
     u64 on_cpu_cache_miss_delta = get_on_cpu_cache_miss(&cpu_id);
     u64 on_cpu_avg_freq = get_on_cpu_avg_freq(&cpu_id, on_cpu_cycles_delta, on_cpu_ref_cycles_delta);
-
+#else
+    u64 on_cpu_cycles_delta;
+    u64 on_cpu_ref_cycles_delta;
+    u64 on_cpu_instr_delta;
+    u64 on_cpu_cache_miss_delta;
+    u64 on_cpu_avg_freq;
+#endif
     // store process metrics
     struct process_metrics_t *process_metrics;
     process_metrics = processes.lookup(&prev_pid);
