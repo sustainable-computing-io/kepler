@@ -140,7 +140,7 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u32 cpu_id, u64 cur
         // But do not return, since the hardware counters can be collected.
         if (cur_ts > *prev_ts)
         {
-            cpu_time = (cur_ts - *prev_ts) / 1000000; /*milisecond*/
+            cpu_time = (cur_ts - *prev_ts) / 1000; /*usecs*/
             pid_time.delete(&prev_pid_key);
         }
     }
