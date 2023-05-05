@@ -53,4 +53,12 @@ const (
 	// GPU
 	GPUSMUtilization  = "gpu_sm_util"
 	GPUMemUtilization = "gpu_mem_util"
+
+	// idle power calculation method
+	IdlePowerMethodAvg   = "idle_power_method_avg"   // average metrics usage
+	IdlePowerMethodMax   = "idle_power_method_max"   // max metrics usage
+	IdlePowerMethodMin   = "idle_power_method_min"   // min metrics usage
+	IdlePowerMethodCurr  = "idle_power_method_curr"  // curr metrics usage
+	IdlePowerMethodCount = "idle_power_method_count" // number of containers
+	IdlePowerMethodNone  = "idle_power_method_none"  // not calculate idle power
 )

@@ -84,6 +84,9 @@ var (
 	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)      // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", CPUInstruction)    // for uncategorized energy; pkg - core - uncore
 
+	// idle power calculation method
+	IdlePowerMethod = getConfig("IDLE_POWER_METHOD", IdlePowerMethodCount)
+
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
 	configPath = "/etc/kepler/kepler.config"

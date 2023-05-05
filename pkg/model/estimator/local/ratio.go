@@ -50,7 +50,17 @@ func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[strin
 	totalDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(component))
 	totalIdlePower := float64(nodeMetrics.GetSumDeltaIdleEnergyromAllSources(component))
 	// evenly divide the idle power to all containers. TODO: use the container resource limit
-	idlePowerPerContainer := uint64(totalIdlePower / containerNumber)
+	idlePowerPerContainer := uint64(0)
+	switch config.IdlePowerMethod {
+	case config.IdlePowerMethodCount:
+		idlePowerPerContainer = uint64(totalIdlePower / containerNumber)
+	case config.IdlePowerMethodNone:
+		// if idle power is not calculated, we should add it to the total power
+		totalDynPower += totalIdlePower
+		idlePowerPerContainer = 0
+	default:
+		klog.Infof("Idle power method %s is not supported", config.IdlePowerMethod)
+	}
 
 	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
 	if usageMetric != "" {
