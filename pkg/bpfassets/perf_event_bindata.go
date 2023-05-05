@@ -279,9 +279,11 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
     if (process_metrics != 0)
     {
         // update process time
-        process_metrics->process_run_time += on_cpu_time_delta;
-
-        process_metrics->cpu_cycles += on_cpu_cycles_delta;
+        // ignore pid 0, since prev pid could be in idle state
+        if (prev_pid != 0) {
+            process_metrics->process_run_time += on_cpu_time_delta;
+            process_metrics->cpu_cycles += on_cpu_cycles_delta;
+        }
         process_metrics->cpu_instr += on_cpu_instr_delta;
         process_metrics->cache_miss += on_cpu_cache_miss_delta;
     }
