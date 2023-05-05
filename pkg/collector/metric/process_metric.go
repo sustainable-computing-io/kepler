@@ -145,7 +145,7 @@ func (p *ProcessMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr uint
 	case config.IRQNetRXLabel:
 		return p.SoftIRQCount[attacher.IRQNetRX].Delta, p.SoftIRQCount[attacher.IRQNetRX].Aggr, nil
 	}
-	klog.V(4).Infof("cannot extract: %s", metric)
+	klog.V(6).Infof("cannot extract: %s", metric)
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)
 }
 

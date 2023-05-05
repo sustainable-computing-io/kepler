@@ -122,9 +122,14 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program %q: %v", program, err)
 	}
-	options := []string{
-		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
+	cpus := strconv.Itoa(runtime.NumCPU())
+	if config.NumCPU != "" {
+		cpus = config.NumCPU
 	}
+	options := []string{
+		"-DNUM_CPUS=" + cpus,
+	}
+
 	if config.EnableHardwareCounterMetrics {
 		options = append(options, "-DUSE_PERF_EVENT")
 	}

@@ -75,6 +75,7 @@ var (
 	MetricPathKey                = "METRIC_PATH"
 	BindAddressKey               = "BIND_ADDRESS"
 	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
+	NumCPU                       = getConfig("NUM_CPU", "")
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
