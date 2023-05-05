@@ -102,13 +102,13 @@ typedef struct process_metrics_t
 
 typedef struct pid_time_t
 {
-    u32 pid;
+    pid_t pid;
     u32 cpu;
 } pid_time_t;
 
 // processes and pid time
-BPF_HASH(processes, u64, process_metrics_t);
-BPF_HASH(pid_time, pid_time_t);
+BPF_HASH(processes, pid_t, process_metrics_t);
+BPF_HASH(pid_time, pid_t);
 
 // perf counters
 BPF_PERF_ARRAY(cpu_cycles_hc_reader, NUM_CPUS);
@@ -126,13 +126,13 @@ BPF_ARRAY(cache_miss, u64, NUM_CPUS);
 // cpu freq counters
 BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
 
-static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u32 cpu_id, u64 cur_ts)
+static inline u64 get_on_cpu_time(pid_t cur_pid, pid_t prev_pid, u32 cpu_id, u64 cur_ts)
 {
     u64 cpu_time = 0;
 
     // get pid time
     pid_time_t prev_pid_key = {.pid = prev_pid, .cpu = cpu_id};
-    u64 *prev_ts = pid_time.lookup(&prev_pid_key);
+    u64 *prev_ts = pid_time.lookup(&prev_pid);
     if (prev_ts != 0)
     {
         // Probably a clock issue where the recorded on-CPU event had a
@@ -140,12 +140,12 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u32 cpu_id, u64 cur
         // But do not return, since the hardware counters can be collected.
         if (cur_ts > *prev_ts)
         {
-            cpu_time = (cur_ts - *prev_ts) / 1000; /*usecs*/
-            pid_time.delete(&prev_pid_key);
+            cpu_time = (cur_ts - *prev_ts) / 1000000; /*msecs*/
+            pid_time.delete(&prev_pid);
         }
     }
     pid_time_t new_pid_key = {.pid = cur_pid, .cpu = cpu_id};
-    pid_time.update(&new_pid_key, &cur_ts);
+    pid_time.update(&cur_pid, &cur_ts);
 
     return cpu_time;
 }
@@ -249,7 +249,7 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 // int kprobe__finish_task_switch(switch_args *ctx)
 int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 {
-    u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+    pid_t cur_pid = bpf_get_current_pid_tgid() ;// >> 32;
 #ifdef SET_GROUP_ID
     u64 cgroup_id = bpf_get_current_cgroup_id();
 #else
@@ -258,7 +258,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
-    u64 prev_pid = prev->pid;
+    pid_t prev_pid = prev->pid;
     u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cpu_id, cur_ts);
 #ifdef USE_PERF_EVENT    
     u64 on_cpu_cycles_delta = get_on_cpu_cycles(&cpu_id);
@@ -304,7 +304,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 // per https://www.kernel.org/doc/html/latest/core-api/tracepoint.html#c.trace_softirq_entry
 TRACEPOINT_PROBE(irq, softirq_entry)
 {
-    u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+    pid_t cur_pid = bpf_get_current_pid_tgid() ;// >> 32;
     struct process_metrics_t *process_metrics;
     process_metrics = processes.lookup(&cur_pid);
     if (process_metrics != 0)
