@@ -27,6 +27,7 @@ package attacher
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"unsafe"
 
 	bpf "github.com/iovisor/gobpf/bcc"
@@ -38,6 +39,7 @@ import (
 #cgo LDFLAGS: -lbcc
 #include <bcc/bcc_common.h>
 #include <bcc/libbpf.h>
+#include <string.h>
 */
 import "C"
 
@@ -95,4 +97,32 @@ func closePerfEvent() {
 			C.bpf_close_perf_event_fd((C.int)(v))
 		}
 	}
+}
+
+func TableDeleteBatch(module *bpf.Module, tableName string, keys [][]byte) error {
+	// Allocate memory in C for the key pointers
+	cKeys := C.malloc(C.size_t(len(keys)) * C.size_t(unsafe.Sizeof(uintptr(0))))
+	defer C.free(cKeys)
+
+	// Copy the key pointers from Go to C
+	for i, key := range keys {
+		ptr := C.malloc(C.size_t(len(key)))
+		defer C.free(ptr)
+		C.memcpy(ptr, unsafe.Pointer(&key[0]), C.size_t(len(key)))
+		cKeyPtr := (**C.char)(unsafe.Pointer(uintptr(cKeys) + uintptr(i)*unsafe.Sizeof(uintptr(0))))
+		*cKeyPtr = (*C.char)(ptr)
+	}
+
+	id := uint64(module.TableId(tableName))
+	tableDesc := module.TableDesc(id)
+	fd := C.int(tableDesc["fd"].(int))
+	size := C.uint(len(keys))
+	cKeysPtr := unsafe.Pointer(cKeys)
+
+	_, err := C.bpf_delete_batch(fd, cKeysPtr, &size)
+	// If the table is empty or keys are partially deleted, bpf_delete_batch will return errno ENOENT
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }

@@ -17,6 +17,8 @@ limitations under the License.
 package local
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -25,19 +27,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
-
-func getSumDelta(corePower, dramPower, uncorePower, pkgPower, gpuPower []float64) (totalCorePower, totalDRAMPower, totalUncorePower, totalPkgPower, totalGPUPower uint64) {
-	for i, val := range pkgPower {
-		totalCorePower += uint64(corePower[i])
-		totalDRAMPower += uint64(dramPower[i])
-		totalUncorePower += uint64(uncorePower[i])
-		totalPkgPower += uint64(val)
-	}
-	for _, val := range gpuPower {
-		totalGPUPower += uint64(val)
-	}
-	return
-}
 
 var _ = Describe("Test Ratio Unit", func() {
 	It("GetContainerEnergyRatio", func() {
@@ -112,7 +101,10 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		Expect(nodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(20))
 
-		UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+		wg.Wait()
 		// The pkg dynamic energy is 5mJ, the container cpu usage is 50%, so the dynamic energy is 2.5mJ = ~3mJ
 		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))
 		Expect(containersMetrics["containerB"].DynEnergyInPkg.Delta).Should(BeEquivalentTo(uint64(9)))

@@ -32,15 +32,15 @@ func setCollectorMetrics() {
 // add two containers with all metrics initialized
 func createMockContainersMetrics() map[string]*collector_metric.ContainerMetrics {
 	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
-	containersMetrics["containerA"] = createMockContainerMetrics("containerA", "podA", "test")
-	containersMetrics["containerB"] = createMockContainerMetrics("containerB", "podB", "test")
+	containersMetrics["containerA"] = createMockContainerMetrics("podAID", "containerA", "podA", "test")
+	containersMetrics["containerB"] = createMockContainerMetrics("podBID", "containerB", "podB", "test")
 
 	return containersMetrics
 }
 
 // see usageMetrics for the list of used metrics. For the sake of visibility we add all metrics, but only few of them will be used.
-func createMockContainerMetrics(containerName, podName, namespace string) *collector_metric.ContainerMetrics {
-	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace, containerName)
+func createMockContainerMetrics(containerID, containerName, podName, namespace string) *collector_metric.ContainerMetrics {
+	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace, containerID)
 	// counter - attacher package
 	err := containerMetrics.CounterStats[config.CPUCycle].AddNewDelta(10)
 	Expect(err).NotTo(HaveOccurred())

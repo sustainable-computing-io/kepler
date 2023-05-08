@@ -38,8 +38,11 @@ func init() {
 	err := acceleratorImpl.Init()
 	if err == nil {
 		klog.Infoln("Using nvml to obtain gpu power")
+		// If the library was successfully initialized, we don't need to return an error in the Init() function
+		errLib = nil
 		return
 	}
+	// If the library was not successfully initialized, we use the dummy implementation
 	klog.Infof("Failed to init nvml, err: %v\n", err)
 	acceleratorImpl = &accelerator_source.GPUDummy{}
 	errLib = acceleratorImpl.Init()

@@ -23,26 +23,12 @@ package local
 
 import (
 	"math"
+	"sync"
 
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"k8s.io/klog/v2"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
-
-func getSumMetricValues(metricValues [][]float64) (sumMetricValues []float64) {
-	if len(metricValues) == 0 {
-		return
-	}
-	sumMetricValues = make([]float64, len(metricValues[0]))
-	for _, values := range metricValues {
-		for index, metricValue := range values {
-			sumMetricValues[index] += metricValue
-		}
-	}
-	return
-}
 
 func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumber float64) uint64 {
 	var power float64
@@ -55,93 +41,32 @@ func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumb
 	return uint64(math.Ceil(power))
 }
 
-// UpdateContainerEnergyByRatioPowerModel calculates the container energy consumption based on the resource utilization ratio
-func UpdateContainerEnergyByRatioPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics *collector_metric.NodeMetrics) {
-	pkgDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PKG))
-	coreDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.CORE))
-	uncoreDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.UNCORE))
-	dramDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.DRAM))
-	otherDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.OTHER))
-	gpuDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.GPU))
-
+// UpdateContainerComponentEnergyByRatioPowerModel calculates the container energy consumption based on the resource utilization ratio
+func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics *collector_metric.NodeMetrics, component, usageMetric string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	nodeTotalResourceUsage := float64(0)
 	containerNumber := float64(len(containersMetrics))
-	// evenly divide the idle power to all containers. TODO: use the container resource request
-	pkgIdlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(collector_metric.PKG) / uint64(containerNumber)
-	coreIdlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(collector_metric.CORE) / uint64(containerNumber)
-	uncoreIdlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(collector_metric.UNCORE) / uint64(containerNumber)
-	dramIdlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(collector_metric.DRAM) / uint64(containerNumber)
-	otherIdlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(collector_metric.OTHER) / uint64(containerNumber)
+	totalDynPower := float64(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(component))
 
-	containerUncoreEnergy := uint64(math.Ceil(uncoreDynPower / containerNumber))
-	containerOtherHostComponentsEnergy := uint64(math.Ceil(otherDynPower / containerNumber))
-	NodeCoreUsageMetric := nodeMetrics.GetNodeResUsagePerResType(config.CoreUsageMetric)
-	NodeDRAMUsageMetric := nodeMetrics.GetNodeResUsagePerResType(config.DRAMUsageMetric)
-	NodeGpuUsageMetric := nodeMetrics.GetNodeResUsagePerResType(config.GpuUsageMetric)
+	// evenly divide the idle power to all containers. TODO: use the container resource limit
+	idlePowerPerContainer := nodeMetrics.GetSumDeltaIdleEnergyromAllSources(component) / uint64(containerNumber)
+
+	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
+	if usageMetric != "" {
+		nodeTotalResourceUsage = nodeMetrics.GetNodeResUsagePerResType(usageMetric)
+	}
+
 	for containerID, container := range containersMetrics {
-		var containerResUsage, nodeTotalResUsage float64
-
-		// calculate the container package/socket energy consumption
-		if _, ok := container.CounterStats[config.CoreUsageMetric]; ok {
-			containerResUsage = float64(container.CounterStats[config.CoreUsageMetric].Delta)
-			nodeTotalResUsage = NodeCoreUsageMetric
-			containerPkgEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, pkgDynPower, containerNumber)
-			if err := containersMetrics[containerID].DynEnergyInPkg.AddNewDelta(containerPkgEnergy); err != nil {
-				klog.Infoln(err)
-			}
-
-			// calculate the container core energy consumption
-			containerCoreEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, coreDynPower, containerNumber)
-			if err := containersMetrics[containerID].DynEnergyInCore.AddNewDelta(containerCoreEnergy); err != nil {
-				klog.Infoln(err)
+		if _, ok := container.CounterStats[usageMetric]; ok {
+			containerResUsage := float64(container.CounterStats[usageMetric].Delta)
+			if containerResUsage > 0 {
+				containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
+				if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
+					klog.Infoln(err)
+				}
 			}
 		}
-
-		// calculate the container uncore energy consumption
-		if err := containersMetrics[containerID].DynEnergyInUncore.AddNewDelta(containerUncoreEnergy); err != nil {
-			klog.Infoln(err)
-		}
-
-		// calculate the container dram energy consumption
-		if _, ok := container.CounterStats[config.DRAMUsageMetric]; ok {
-			containerResUsage = float64(container.CounterStats[config.DRAMUsageMetric].Delta)
-			nodeTotalResUsage = NodeDRAMUsageMetric
-			containerDramEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, dramDynPower, containerNumber)
-			if err := containersMetrics[containerID].DynEnergyInDRAM.AddNewDelta(containerDramEnergy); err != nil {
-				klog.Infoln(err)
-			}
-		}
-
-		// calculate the container gpu energy consumption
-		if accelerator.IsGPUCollectionSupported() {
-			containerResUsage = float64(container.CounterStats[config.GpuUsageMetric].Delta)
-			nodeTotalResUsage = NodeGpuUsageMetric
-			containerGPUEnergy := getEnergyRatio(containerResUsage, nodeTotalResUsage, gpuDynPower, containerNumber)
-			if err := containersMetrics[containerID].DynEnergyInGPU.AddNewDelta(containerGPUEnergy); err != nil {
-				klog.Infoln(err)
-			} else {
-				klog.V(5).Infof("gpu power ratio: containerID %v containerResUsage: %f, nodeTotalResUsage: %f, nodeResEnergyUtilization: %f, containerNumber: %f containerGPUEnergy: %v",
-					containerID, containerResUsage, nodeTotalResUsage, gpuDynPower, containerNumber, containersMetrics[containerID].DynEnergyInGPU.Delta)
-			}
-		}
-
-		// calculate the container host other components energy consumption
-		if err := containersMetrics[containerID].DynEnergyInOther.AddNewDelta(containerOtherHostComponentsEnergy); err != nil {
-			klog.Infoln(err)
-		}
-		// Idle energy
-		if err := containersMetrics[containerID].IdleEnergyInPkg.AddNewDelta(pkgIdlePowerPerContainer); err != nil {
-			klog.Infoln(err)
-		}
-		if err := containersMetrics[containerID].IdleEnergyInCore.AddNewDelta(coreIdlePowerPerContainer); err != nil {
-			klog.Infoln(err)
-		}
-		if err := containersMetrics[containerID].IdleEnergyInUncore.AddNewDelta(uncoreIdlePowerPerContainer); err != nil {
-			klog.Infoln(err)
-		}
-		if err := containersMetrics[containerID].IdleEnergyInDRAM.AddNewDelta(dramIdlePowerPerContainer); err != nil {
-			klog.Infoln(err)
-		}
-		if err := containersMetrics[containerID].IdleEnergyInOther.AddNewDelta(otherIdlePowerPerContainer); err != nil {
+		if err := containersMetrics[containerID].GetIdleEnergyStat(component).AddNewDelta(idlePowerPerContainer); err != nil {
 			klog.Infoln(err)
 		}
 	}

@@ -18,10 +18,13 @@ limitations under the License.
 package model
 
 import (
+	"sync"
+
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
@@ -63,27 +66,31 @@ func InitProcessPowerEstimator(usageMetrics, systemFeatures, systemValues []stri
 	}
 }
 
-// The current implementation from the model server returns a list of the Process energy.
-// The list follows the order of the Process ProcessMetricValuesOnly for the Process id...
-// TODO: make model server return a list of elemets that also contains the ProcessID to enforce consistency
-func getProcessMetricsList(processsMetrics map[string]*collector_metric.ProcessMetrics) (processMetricValuesOnly [][]float64) {
-	// convert to pod metrics to array
-	for _, c := range processsMetrics {
-		values := c.ToEstimatorValues()
-		processMetricValuesOnly = append(processMetricValuesOnly, values)
-	}
-	return
-}
-
 // updateProcessEnergy returns Process energy consumption for each node component
 func UpdateProcessEnergy(processMetrics map[uint64]*collector_metric.ProcessMetrics, systemContainerMetrics *collector_metric.ContainerMetrics) {
+	var wg sync.WaitGroup
 	// If the node can expose power measurement per component, we can use the RATIO power model
 	// Otherwise, we estimate it from trained power model
 	if components.IsSystemCollectionSupported() {
-		local.UpdateProcessEnergyByRatioPowerModel(processMetrics, systemContainerMetrics)
+		wg.Add(6)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.CORE, config.CoreUsageMetric, &wg)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.PLATFORM, config.CoreUsageMetric, &wg)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.DRAM, config.DRAMUsageMetric, &wg)
+		// If the resource usage metrics is empty, we evenly divide the power consumption of the resource across all processes
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.UNCORE, "", &wg)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.OTHER, "", &wg)
 	} else {
 		updateProcessEnergyByTrainedPowerModel(processMetrics)
 	}
+
+	// Currently, we do not have a power model that can forecast GPU power in the absence of real-time power metrics.
+	// Generally, if we can obtain GPU metrics, we can also acquire GPU power metrics.
+	if accelerator.IsGPUCollectionSupported() {
+		wg.Add(1)
+		go local.UpdateProcessComponentEnergyByRatioPowerModel(processMetrics, systemContainerMetrics, collector_metric.GPU, config.GpuUsageMetric, &wg)
+	}
+	wg.Wait()
 }
 
 func updateProcessEnergyByTrainedPowerModel(processsMetrics map[uint64]*collector_metric.ProcessMetrics) {

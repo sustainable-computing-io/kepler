@@ -38,6 +38,7 @@ func (c *Collector) updateAcceleratorMetrics() {
 	// calculate the gpu's processes energy consumption for each gpu
 	for _, device := range accelerator.GetGpus() {
 		if processesUtilization, err = accelerator.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
+			klog.Infoln(err)
 			continue
 		}
 
@@ -53,7 +54,14 @@ func (c *Collector) updateAcceleratorMetrics() {
 				c.createProcessMetricsIfNotExist(uint64(pid), "")
 			}
 
-			// update container metrics
+			// When a container or pod is deleted, the associated process data may still exist for some time. However, the createContainersMetricsIfNotExist function
+			// will not create an entry in the c.ContainersMetrics map if the container or pod no longer exists. Therefore, even if the function attempted to initialize
+			// the map with the deleted containerID, it may not have been added to the map due to the absence of container information. As a result, these processes
+			// may be classified as system processes rather than being attributed to the deleted container or pod.
+			if _, exist := c.ContainersMetrics[containerID]; !exist {
+				continue
+			}
+			klog.Infoln("DEBUG: pod", c.ContainersMetrics[containerID].PodName, "processUtilizationSample", processUtilization)
 			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewDelta(uint64(processUtilization.SmUtil)); err != nil {
 				klog.V(5).Infoln(err)
 			}

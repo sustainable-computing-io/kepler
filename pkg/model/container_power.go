@@ -18,10 +18,13 @@ limitations under the License.
 package model
 
 import (
+	"sync"
+
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
@@ -61,27 +64,32 @@ func InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues []st
 	}
 }
 
-// The current implementation from the model server returns a list of the container energy.
-// The list follows the order of the container containerMetricValuesOnly for the container id...
-// TODO: make model server return a list of elemets that also contains the containerID to enforce consistency
-func getContainerMetricsList(containersMetrics map[string]*collector_metric.ContainerMetrics) (containerMetricValuesOnly [][]float64) {
-	// convert to pod metrics to array
-	for _, c := range containersMetrics {
-		values := c.ToEstimatorValues()
-		containerMetricValuesOnly = append(containerMetricValuesOnly, values)
-	}
-	return
-}
-
 // UpdateContainerEnergy returns container energy consumption for each node component
 func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.ContainerMetrics, nodeMetrics *collector_metric.NodeMetrics) {
+	var wg sync.WaitGroup
 	// If the node can expose power measurement per component, we can use the RATIO power model
 	// Otherwise, we estimate it from trained power model
 	if components.IsSystemCollectionSupported() {
-		local.UpdateContainerEnergyByRatioPowerModel(containersMetrics, nodeMetrics)
+		wg.Add(6)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.CORE, config.CoreUsageMetric, &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.DRAM, config.DRAMUsageMetric, &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PLATFORM, config.CoreUsageMetric, &wg)
+		// If the resource usage metrics is empty, we evenly divide the power consumption of the resource across all containers
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.UNCORE, "", &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.OTHER, "", &wg)
 	} else {
+		// The estimator power model updates the power consumption of Pkg, Core, Dram, Uncore and Other
 		UpdateContainerEnergyByTrainedPowerModel(containersMetrics)
 	}
+
+	// Currently, we do not have a power model that can forecast GPU power in the absence of real-time power metrics.
+	// Generally, if we can obtain GPU metrics, we can also acquire GPU power metrics.
+	if accelerator.IsGPUCollectionSupported() {
+		wg.Add(1)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.GPU, config.GpuUsageMetric, &wg)
+	}
+	wg.Wait()
 }
 
 func UpdateContainerEnergyByTrainedPowerModel(containersMetrics map[string]*collector_metric.ContainerMetrics) {
