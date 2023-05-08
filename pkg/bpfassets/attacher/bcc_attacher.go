@@ -31,6 +31,8 @@ import (
 
 	bpf "github.com/iovisor/gobpf/bcc"
 
+	"github.com/jaypipes/ghw"
+
 	"k8s.io/klog/v2"
 )
 
@@ -118,8 +120,16 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program %q: %v", program, err)
 	}
+	// builtin runtime.NumCPU() returns the number of logical CPUs usable by the current process
+	cores := runtime.NumCPU()
+	if cpu, err := ghw.CPU(); err == nil {
+		// we need to get the number of all CPUs,
+		// so if /proc/cpuinfo is available, we can get the number of all CPUs
+		cores = int(cpu.TotalThreads)
+	}
+
 	options := []string{
-		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
+		"-DNUM_CPUS=" + strconv.Itoa(cores),
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")
