@@ -15,7 +15,7 @@ func TestCarbonIntensity(t *testing.T) {
 }
 
 var _ = Describe("CO2 Test Configuration", func() {
-	var co2_response = `{ 
+	var co2Response = `{ 
 		"data":[{ 
 			"from": "2023-05-03T19:30Z",
 			"to": "2023-05-03T20:00Z",
@@ -35,7 +35,10 @@ var _ = Describe("CO2 Test Configuration", func() {
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusCreated)
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(co2_response))
+			_, err := w.Write([]byte(co2Response))
+			if err != nil {
+				panic(err)
+			}
 		})
 	})
 	JustBeforeEach(func() {

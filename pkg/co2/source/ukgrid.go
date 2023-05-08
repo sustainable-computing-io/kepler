@@ -17,6 +17,7 @@ limitations under the License.
 package source
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -52,7 +53,7 @@ func (d *UKGrid) Shutdown() bool {
 func (d *UKGrid) GetCarbonIntensity(url string) (int64, error) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", url, http.NoBody)
 	if err != nil {
 		fmt.Println(err)
 		return 0, err
