@@ -30,6 +30,10 @@ limitations under the License.
 #define HZ 1000
 #endif
 
+#ifndef MAP_SIZE
+#define MAP_SIZE 10240
+#endif
+
 typedef struct process_metrics_t
 {
     u64 cgroup_id;
@@ -49,7 +53,7 @@ typedef struct pid_time_t
 } pid_time_t;
 
 // processes and pid time
-BPF_HASH(processes, u64, process_metrics_t);
+BPF_HASH(processes, u64, process_metrics_t, MAP_SIZE);
 BPF_HASH(pid_time, pid_time_t);
 
 // perf counters
