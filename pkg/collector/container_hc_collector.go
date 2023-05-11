@@ -125,11 +125,11 @@ func (c *Collector) updateBPFMetrics() {
 		} else {
 			err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
 			if err != nil {
-				klog.Infof("could not delete bpf table elemets, err: %v", err)
+				klog.Infof("could not delete bpf table elements, err: %v", err)
 			}
 		}
 
-		containerID, _ := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
+		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
 			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupID, err, c.systemProcessName)
 		}
