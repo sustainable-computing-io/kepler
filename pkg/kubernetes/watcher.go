@@ -155,11 +155,14 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 				continue
 			}
 			w.Mx.Lock()
-			w.fillInfo(pod, pod.Status.ContainerStatuses)
-			w.fillInfo(pod, pod.Status.InitContainerStatuses)
-			w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
+			err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
+			err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
+			err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
 			w.Mx.Unlock()
-			managedPods[podID] = true
+			// only add pod to cache if all containers successfully added to map
+			if err1 == nil && err2 == nil && err3 == nil {
+				managedPods[podID] = true
+			}
 		}
 
 	default:
@@ -168,10 +171,16 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 	}
 }
 
-func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerStatus) {
+func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerStatus) error {
+	var err error
 	var exist bool
 	for j := 0; j < len(containers); j++ {
 		containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
+		// verify if container ID was already initialized
+		if containerID == "" {
+			err = fmt.Errorf("container %s did not start yet", containers[j].Name)
+			continue
+		}
 		if _, exist = (*w.ContainersMetrics)[containerID]; !exist {
 			(*w.ContainersMetrics)[containerID] = collector_metric.NewContainerMetrics(containers[j].Name, pod.Name, pod.Namespace, containerID)
 		}
@@ -179,6 +188,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 		(*w.ContainersMetrics)[containerID].PodName = pod.Name
 		(*w.ContainersMetrics)[containerID].Namespace = pod.Namespace
 	}
+	return err
 }
 
 func (w *ObjListWatcher) handleDeleted(obj interface{}) {

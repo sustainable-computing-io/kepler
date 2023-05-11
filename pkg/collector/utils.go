@@ -43,6 +43,10 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 			containerName, _ = cgroup.GetContainerName(cGroupID, pid, withCGroupID)
 			if containerName == c.systemProcessName {
 				containerID = c.systemProcessName
+				// if the systemProcess already exist in ContainersMetrics do not overwrite the data
+				if _, exist := c.ContainersMetrics[containerID]; exist {
+					return
+				}
 			} else {
 				var err error
 				namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, withCGroupID)

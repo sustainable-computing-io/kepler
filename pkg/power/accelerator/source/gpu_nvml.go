@@ -67,6 +67,8 @@ func (n *GPUNvml) Init() (err error) {
 			err = fmt.Errorf("failed to get nvml device %d: %v ", i, nvml.ErrorString(ret))
 			return err
 		}
+		name, _ := device.GetName()
+		klog.Infoln("GPU", i, name)
 		devices[i] = device
 	}
 	n.collectionSupported = true
@@ -111,13 +113,16 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, sin
 	}
 
 	for _, pinfo := range processUtilizationSample {
-		processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
-			Pid:       pinfo.Pid,
-			TimeStamp: pinfo.TimeStamp,
-			SmUtil:    pinfo.SmUtil,
-			MemUtil:   pinfo.MemUtil,
-			EncUtil:   pinfo.EncUtil,
-			DecUtil:   pinfo.DecUtil,
+		// pid 0 means no data.
+		if pinfo.Pid != 0 {
+			processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
+				Pid:       pinfo.Pid,
+				TimeStamp: pinfo.TimeStamp,
+				SmUtil:    pinfo.SmUtil,
+				MemUtil:   pinfo.MemUtil,
+				EncUtil:   pinfo.EncUtil,
+				DecUtil:   pinfo.DecUtil,
+			}
 		}
 	}
 
