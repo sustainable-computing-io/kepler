@@ -120,7 +120,7 @@ var _ = Describe("Test Node Metric", func() {
 	})
 
 	It("test GetNodeResUsagePerResType", func() {
-		val := nodeMetrics.GetNodeResUsagePerResType("")
+		val, _ := nodeMetrics.GetNodeResUsagePerResType("")
 		Expect(float64(0)).To(Equal(val))
 	})
 })

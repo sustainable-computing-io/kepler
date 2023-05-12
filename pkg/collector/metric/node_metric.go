@@ -311,12 +311,12 @@ func (ne *NodeMetrics) SetNodeOtherComponentsEnergy() {
 	}
 }
 
-func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
+func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) (float64, error) {
 	data, ok := ne.ResourceUsage[resource]
 	if ok {
-		return data
+		return data, nil
 	}
-	return 0
+	return 0, fmt.Errorf("resource %s not found", resource)
 }
 
 func (ne *NodeMetrics) String() string {
