@@ -174,7 +174,7 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 	enabled = enabled && EnabledEBPFCgroupID
 	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
 	KernelVersion = getKernelVersion(c)
-	klog.Infoln("kernel version:")
+	klog.Infoln("kernel version:", KernelVersion)
 	if (enabled) && (KernelVersion >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
 		EnabledEBPFCgroupID = true
 	} else {

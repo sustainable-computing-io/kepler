@@ -20,9 +20,8 @@ limitations under the License.
 package utils
 
 import (
-	"fmt"
-
 	"encoding/binary"
+	"fmt"
 
 	"golang.org/x/sys/unix"
 )
