@@ -317,6 +317,12 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 			return containerID, nil
 		}
 	}
+	// some systems, such as minikube, create a different path that has only the kubepods keyword
+	if strings.Contains(path, "kubepods") {
+		tmp := strings.Split(path, "/")
+		containerID := tmp[len(tmp)-1]
+		return containerID, nil
+	}
 	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
 
