@@ -71,12 +71,8 @@ func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 	}
 }
 
-func errPassthrough(err error) error {
-	return err
-}
-
 func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
-	stat, err := c.manager.Stat(errPassthrough)
+	stat, err := c.manager.Stat(cgroups.IgnoreNotExist)
 	if err != nil {
 		return err
 	}
