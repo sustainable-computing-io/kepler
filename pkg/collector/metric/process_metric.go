@@ -44,7 +44,6 @@ type ProcessMetrics struct {
 	// ebpf metrics
 	CPUTime             *types.UInt64Stat
 	SoftIRQCount        []types.UInt64Stat
-	GPUStats            map[string]*types.UInt64Stat
 	DynEnergyInCore     *types.UInt64Stat
 	DynEnergyInDRAM     *types.UInt64Stat
 	DynEnergyInUncore   *types.UInt64Stat
