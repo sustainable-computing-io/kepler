@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumber float64) uint64 {
@@ -39,6 +40,35 @@ func getEnergyRatio(unitResUsage, totalResUsage, resEnergyUtilization, totalNumb
 		power = resEnergyUtilization / totalNumber
 	}
 	return uint64(math.Ceil(power))
+}
+
+func getNodeTotalContainerResourceUsage(nodeMetrics *collector_metric.NodeMetrics, usageMetric string) float64 {
+	// We try given metrics first
+	nodeTotalResourceUsage, err := nodeMetrics.GetNodeResUsagePerResType(usageMetric)
+	if err != nil {
+		if usageMetric == config.CoreUsageMetric || usageMetric == config.DRAMUsageMetric {
+			// if not, HW counter is not there and we are looking for DRAM/Core, try CPUTime
+			nodeTotalResourceUsage, err = nodeMetrics.GetNodeResUsagePerResType(config.CPUTime)
+		}
+
+		if err != nil {
+			return 0
+		}
+	}
+	return nodeTotalResourceUsage
+}
+
+func getContainerResUsage(container *collector_metric.ContainerMetrics, usageMetric string) float64 {
+	var containerResUsage float64
+	if _, ok := container.CounterStats[usageMetric]; ok {
+		containerResUsage = float64(container.CounterStats[usageMetric].Delta)
+	} else if usageMetric == config.CoreUsageMetric || usageMetric == config.DRAMUsageMetric {
+		// Given there is no HW counter, we have to use cgroup data, and Only CPUTime is available today
+		// So busy CPU is more likely to be accessing memory. Although CPU utilization (CPUTime) does not
+		// directly represent memory access, it remains the only viable proxy available to approximate such information reliably.
+		containerResUsage = float64(container.CPUTime.Delta)
+	}
+	return containerResUsage
 }
 
 // UpdateContainerComponentEnergyByRatioPowerModel calculates the container energy consumption based on the resource utilization ratio
@@ -53,17 +83,15 @@ func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[strin
 
 	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
 	if usageMetric != "" {
-		nodeTotalResourceUsage = nodeMetrics.GetNodeResUsagePerResType(usageMetric)
+		nodeTotalResourceUsage = getNodeTotalContainerResourceUsage(nodeMetrics, usageMetric)
 	}
 
 	for containerID, container := range containersMetrics {
-		if _, ok := container.CounterStats[usageMetric]; ok {
-			containerResUsage := float64(container.CounterStats[usageMetric].Delta)
-			if containerResUsage > 0 {
-				containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
-				if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
-					klog.Infoln(err)
-				}
+		containerResUsage := getContainerResUsage(container, usageMetric)
+		if containerResUsage > 0 {
+			containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
+			if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
+				klog.Infoln(err)
 			}
 		}
 		if err := containersMetrics[containerID].GetIdleEnergyStat(component).AddNewDelta(idlePowerPerContainer); err != nil {
