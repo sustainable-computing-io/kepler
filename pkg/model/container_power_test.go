@@ -156,17 +156,17 @@ var _ = Describe("ContainerPower", func() {
 				Core: 10,
 				DRAM: 10,
 			}
-			nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+			nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 			componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 				Pkg:  18,
 				Core: 15,
 				DRAM: 11,
 			}
-			nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+			nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 
 			nodePlatformEnergy := map[string]float64{}
 			nodePlatformEnergy[machineSensorID] = 0 // empty
-			nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+			nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 
 			// calculate container energy consumption
 			UpdateContainerEnergy(containersMetrics, &nodeMetrics)

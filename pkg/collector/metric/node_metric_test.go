@@ -70,13 +70,13 @@ func createMockNodeMetrics(containersMetrics map[string]*ContainerMetrics) *Node
 		Core: 10,
 		DRAM: 10,
 	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 	componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 		Pkg:  18,
 		Core: 15,
 		DRAM: 11,
 	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 
 	return nodeMetrics
 }

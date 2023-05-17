@@ -55,11 +55,11 @@ var _ = Describe("Test Ratio Unit", func() {
 		nodePlatformEnergy := map[string]float64{}
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		nodePlatformEnergy["sensor0"] = 10
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 		nodeMetrics.UpdateIdleEnergy()
 		// the second node energy will represent the idle and dynamic power
 		nodePlatformEnergy["sensor0"] = 20 // 5J idle, 5J dynamic power
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 		nodeMetrics.UpdateIdleEnergy()
 		nodeMetrics.UpdateDynEnergy()
 
@@ -72,7 +72,7 @@ var _ = Describe("Test Ratio Unit", func() {
 			DRAM:   5,
 			Uncore: 5,
 		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
 			Pkg:    10,
 			Core:   10,
@@ -80,7 +80,7 @@ var _ = Describe("Test Ratio Unit", func() {
 			Uncore: 10,
 		}
 		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		nodeMetrics.UpdateIdleEnergy()
 		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		componentsEnergies[0] = source.NodeComponentsEnergy{
@@ -89,7 +89,7 @@ var _ = Describe("Test Ratio Unit", func() {
 			DRAM:   40, // 10J delta, which is 5J idle, 5J dynamic power
 			Uncore: 40, // 10J delta, which is 5J idle, 5J dynamic power
 		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		nodeMetrics.UpdateIdleEnergy()
 		nodeMetrics.UpdateDynEnergy()
 
