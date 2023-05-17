@@ -197,20 +197,31 @@ func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics ma
 }
 
 // SetLastestPlatformEnergy adds the lastest energy consumption from the node sensor
-func (ne *NodeMetrics) SetLastestPlatformEnergy(platformEnergy map[string]float64) {
+func (ne *NodeMetrics) SetLastestPlatformEnergy(platformEnergy map[string]float64, gauge bool) {
 	for sensorID, energy := range platformEnergy {
-		ne.TotalEnergyInPlatform.SetDeltaStat(sensorID, uint64(math.Ceil(energy)))
+		if gauge {
+			ne.TotalEnergyInPlatform.SetDeltaStat(sensorID, uint64(math.Ceil(energy)))
+		} else {
+			ne.TotalEnergyInPlatform.SetAggrStat(sensorID, uint64(math.Ceil(energy)))
+		}
 	}
 }
 
 // SetNodeComponentsEnergy adds the lastest energy consumption collected from the node's components (e.g., using RAPL)
-func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy) {
+func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy, gauge bool) {
 	for pkgID, energy := range componentsEnergy {
 		key := strconv.Itoa(pkgID)
-		ne.TotalEnergyInCore.SetAggrStat(key, energy.Core)
-		ne.TotalEnergyInDRAM.SetAggrStat(key, energy.DRAM)
-		ne.TotalEnergyInUncore.SetAggrStat(key, energy.Uncore)
-		ne.TotalEnergyInPkg.SetAggrStat(key, energy.Pkg)
+		if gauge {
+			ne.TotalEnergyInCore.SetDeltaStat(key, energy.Core)
+			ne.TotalEnergyInDRAM.SetDeltaStat(key, energy.DRAM)
+			ne.TotalEnergyInUncore.SetDeltaStat(key, energy.Uncore)
+			ne.TotalEnergyInPkg.SetDeltaStat(key, energy.Pkg)
+		} else {
+			ne.TotalEnergyInCore.SetAggrStat(key, energy.Core)
+			ne.TotalEnergyInDRAM.SetAggrStat(key, energy.DRAM)
+			ne.TotalEnergyInUncore.SetAggrStat(key, energy.Uncore)
+			ne.TotalEnergyInPkg.SetAggrStat(key, energy.Pkg)
+		}
 	}
 }
 

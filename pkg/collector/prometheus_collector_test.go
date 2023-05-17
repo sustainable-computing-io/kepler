@@ -93,11 +93,11 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		nodePlatformEnergy := map[string]float64{}
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		nodePlatformEnergy["sensor0"] = 5
-		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 		exporter.NodeMetrics.UpdateIdleEnergy()
 		// the second node energy will represent the idle and dynamic power
 		nodePlatformEnergy["sensor0"] = 10 // 5J idle, 5J dynamic power
-		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 		exporter.NodeMetrics.UpdateIdleEnergy()
 		exporter.NodeMetrics.UpdateDynEnergy()
 
@@ -110,7 +110,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 			DRAM:   5,
 			Uncore: 5,
 		}
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
 			Pkg:    10,
 			Core:   10,
@@ -118,7 +118,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 			Uncore: 10,
 		}
 		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		exporter.NodeMetrics.UpdateIdleEnergy()
 		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		componentsEnergies[0] = source.NodeComponentsEnergy{
@@ -127,7 +127,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 			DRAM:   20, // 10J delta, which is 5J idle, 5J dynamic power
 			Uncore: 20, // 10J delta, which is 5J idle, 5J dynamic power
 		}
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 		exporter.NodeMetrics.UpdateIdleEnergy()
 		exporter.NodeMetrics.UpdateDynEnergy()
 		var wg sync.WaitGroup
