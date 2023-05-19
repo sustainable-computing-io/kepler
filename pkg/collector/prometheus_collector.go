@@ -639,7 +639,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			dynPower,
 			collector_metric.NodeName, "dynamic",
 		)
-		idlePower := (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.OTHER)) / miliJouleToJoule)
+		idlePower := (float64(p.NodeMetrics.GetSumAggrIdleEnergyromAllSources(collector_metric.OTHER)) / miliJouleToJoule)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodeOtherComponentsJoulesTotal,
 			prometheus.CounterValue,
@@ -654,7 +654,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			dynPower,
 			collector_metric.NodeName, "acpi", "dynamic",
 		)
-		idlePower = (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
+		idlePower = (float64(p.NodeMetrics.GetSumAggrIdleEnergyromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodePlatformJoulesTotal,
 			prometheus.CounterValue,
