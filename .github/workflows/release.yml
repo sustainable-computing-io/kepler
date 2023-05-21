@@ -133,3 +133,16 @@ jobs:
           tags: quay.io/sustainable_computing_io/kepler
           labels: latest, ${{ github.event.inputs.release }}
           file: build/Dockerfile
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0.14.2
+      with:
+        image: quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
+        artifact-name: sbom-kepler-${{ github.event.inputs.release }}.json
+        output-file: ./sbom-kepler-${{ github.event.inputs.release }}.spdx.json
+
+    - name: Attach SBOM to release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.event.inputs.tag }}
+        files: ./sbom-kepler-${{ github.event.inputs.release }}.spdx.json
