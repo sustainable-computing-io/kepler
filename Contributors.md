@@ -1,23 +1,20 @@
-# Maintainers
-| Name | GH ID | Expertise | Affiliation | Location |
-|---|---|---|---|---|
-| Huamin Chen | rootfs | Kepler Core | Red Hat | USA |
-| Marcelo Carneiro do Amaral | marceloamaral | Kepler Core | IBM | Japan |
-| Sunyanan Choochotkaew (Pang) | sunya-ch | Kepler Core | IBM | Japan |
-| Ji Chen | jichenjc | Testing | IBM | China |
-| Sam Yuan | SamYuan1990 | CI | IBM | China |
-| William Caban Babilonia | williamcaban | Kepler Deployment | Red Hat | USA |
-| Kayi Liu | KaiyiLiu1234 | Kepler Model Server | Red Hat | Canada |
-| Parul Singh | husky-parul  | Kepler Deployment and Documentation | Red Hat | USA |
-| Chen Wang | wangchen615 | Kepler Core | IBM | USA |
+# Maintainers 
+(as of May, 22nd, 2023)
 
-# Reviewers
-| Name | GH ID | Expertise | Affiliation | Location |
-|---|---|---|---|---|
-| Huo Qi Feng | huoqifeng | Kepler Deployment | IBM | China |
-| Filip Skirtun | Feelas | Kepler Deployment | Intel | Poland |
-| Lu Ken | kenplusplus | Kepler Deployment | Intel | China |
-| Sally O'Malley | sallyom | Kepler Deployment | Red Hat | USA |
-| Ruomeng Hao | ruomengh | Kepler Deployment | Intel | China |
-| Niki Manoledaki | nikimanoledaki | Kepler Documentation | WeaveWorks | Spain |
-| Peng Hui Jiang | jiangphcn | Kepler Deployment | IBM | China |
+|  Name  |  Company  | Github ID  | Email   |
+|---|---|---|---|
+| Huamin Chen  | Red Hat  | rootfs  | hchen@redhat.com  |
+| Ji Chen | IBM | jichenjc | jichenjc@cn.ibm.com |
+| Parul Singh | Red Hat | husky-parul | parsingh@redhat.com |
+| Kaiyi Liu | Red Hat | KaiyiLiu1234 | kaliu@redhat.com |
+| Peng Hui Jiang | IBM | jiangphcn | jiangph@cn.ibm.com |
+| William Caban | Red Hat | williamcaban | wcabanba@redhat.com |
+| Yi Yuan | IBM | SamYuan1990 | yy19902439@126.com |
+| Qi Feng Huo | IBM | huoqifeng | huoqif@cn.ibm.com |
+| Ken Lu | Intel | kenplusplus | ken.lu@intel.com |
+| Marcelo Amaral | IBM | marceloamaral | marcelo.amaral1@ibm.com |
+| Niki Manoledaki | Weaveworks | nikimanoledaki | niki@weave.works |
+| Brad McCoy | Basiq | bradmccoydev | bradmccoydev@gmail.com |
+| Sunyanan Choochotkaew | IBM |  sunya-ch | sunyanan.choochotkaew1@ibm.com | 
+| Ruomeng Hao | Intel | ruomengh | ruomengh@intel.com | 
+Chen Wang | IBM | wangchen615 | chen.wang1@ibm.com |
