@@ -249,10 +249,10 @@ func (ne *NodeMetrics) UpdateIdleEnergy() {
 }
 
 func (ne *NodeMetrics) CalcIdleEnergy(component string) {
-	toalStatCollection := ne.getTotalEnergyStatCollection(component)
+	totalStatCollection := ne.getTotalEnergyStatCollection(component)
 	idleStatCollection := ne.getIdleEnergyStatCollection(component)
-	for id := range toalStatCollection.Stat {
-		delta := toalStatCollection.Stat[id].Delta
+	for id := range totalStatCollection.Stat {
+		delta := totalStatCollection.Stat[id].Delta
 		if _, exist := idleStatCollection.Stat[id]; !exist {
 			idleStatCollection.SetDeltaStat(id, delta)
 		} else {
