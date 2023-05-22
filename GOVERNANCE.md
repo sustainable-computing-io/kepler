@@ -1,5 +1,9 @@
 # Governance
 
+## Leadership Election
+
+Qualified new maintainers are approved via consensus by the group of existing maintainers. 
+
 ## Technical Committee
 
 Technical committee provides technical oversight for the overall architectural design and project development.
