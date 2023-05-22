@@ -2,6 +2,7 @@
 
 ![GitHub Workflow Status (event)](https://img.shields.io/github/actions/workflow/status/sustainable-computing-io/kepler/unit_test.yml?branch=main&label=CI)
 ![Coverage](https://img.shields.io/badge/Coverage-44.5%25-yellow)
+[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/7391/badge)](https://bestpractices.coreinfrastructure.org/projects/7391)
 <!--
 [![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)
 -->
@@ -13,6 +14,7 @@
 # Kepler
 Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy-related system stats and exports them as Prometheus metrics.
 
+Kepler is a CNCF Sandbox project. We use [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md)
 ## Architecture
 Kepler Exporter exposes a variety of [metrics](https://sustainable-computing.io/design/metrics/) about the energy consumption of Kubernetes components such as Pods and Nodes. 
 
