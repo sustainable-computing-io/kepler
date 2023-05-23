@@ -265,3 +265,5 @@ cluster-up:
 	cd local-dev-cluster && ./main.sh
 .PHONY: cluster-up
 
+check: tidy-vendor set_govulncheck govulncheck format golint test
+.PHONY: check
