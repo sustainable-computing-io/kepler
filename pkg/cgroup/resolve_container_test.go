@@ -116,8 +116,7 @@ func TestGetAliveContainers(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			res, err := getAliveContainers(&testcase.pods)
-			g.Expect(err).NotTo(HaveOccurred())
+			res := getAliveContainers(&testcase.pods)
 			g.Expect(res).To(Equal(testcase.expectResults))
 		})
 	}

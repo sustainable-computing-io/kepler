@@ -58,7 +58,7 @@ func (c *Collector) updateCgroupMetrics() {
 // updateKubeletMetrics adds kubelet data (resident mem)
 func (c *Collector) updateKubeletMetrics() {
 	if len(collector_metric.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _, _, _ := cgroup.GetContainerMetrics()
+		containerCPU, containerMem, _ := cgroup.GetContainerMetrics()
 		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
 		for _, c := range c.ContainersMetrics {
 			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName

@@ -122,12 +122,8 @@ func TestListMetrics(t *testing.T) {
 			g.Expect(err).NotTo(HaveOccurred())
 			defer f.Close()
 
-			cCPU, cMem, nodeCPU, nodeMem, err := parseMetrics(f)
+			cCPU, cMem, err := parseMetrics(f)
 			g.Expect(err).NotTo(HaveOccurred())
-
-			// See above simulated output
-			g.Expect(531271.893651).To(Equal(nodeCPU))
-			g.Expect(5.871231414e+09).To(Equal(nodeMem))
 
 			// 3 includes system container
 			g.Expect(3).To(Equal(len(cCPU)))

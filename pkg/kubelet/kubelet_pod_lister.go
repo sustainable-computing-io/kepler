@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -51,6 +52,8 @@ var (
 	podNameTag       = "pod"
 	containerNameTag = "container"
 	namespaceTag     = "namespace"
+	once             sync.Once
+	kubeletMetric    []string
 )
 
 func init() {
@@ -111,21 +114,22 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 }
 
 // ListMetrics accesses Kubelet's metrics and obtain pods and node metrics
-func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
+func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]float64, retErr error) {
 	resp, err := httpGet(metricsURL)
 	if err != nil {
-		return nil, nil, 0, 0, fmt.Errorf("failed to get response: %v", err)
+		return nil, nil, fmt.Errorf("failed to get response: %v", err)
 	}
 	defer resp.Body.Close()
 
 	return parseMetrics(resp.Body)
 }
 
-func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float64, nodeCPU, nodeMem float64, retErr error) {
+func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float64, retErr error) {
 	var parser expfmt.TextParser
+	var nodeCPU, nodeMem float64
 	mf, err := parser.TextToMetricFamilies(r)
 	if err != nil {
-		return nil, nil, 0, 0, fmt.Errorf("failed to parse: %v", err)
+		return nil, nil, fmt.Errorf("failed to parse: %v", err)
 	}
 	containerCPU = make(map[string]float64)
 	containerMem = make(map[string]float64)
@@ -163,16 +167,24 @@ func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float6
 	systemContainerName := utils.SystemProcessNamespace + "/" + utils.SystemProcessName
 	containerCPU[systemContainerName] = systemContainerCPU
 	containerMem[systemContainerName] = systemContainerMem
-	return containerCPU, containerMem, nodeCPU, nodeMem, retErr
+	return containerCPU, containerMem, retErr
 }
 
 // GetAvailableMetrics returns containerCPUUsageMetricName and containerMemUsageMetricName if kubelet is connected
+// and this function just need do a once init when kepler started without analysis kubelet returns
 func (k *KubeletPodLister) GetAvailableMetrics() []string {
-	_, _, _, _, retErr := k.ListMetrics()
-	if retErr != nil {
-		return []string{}
-	}
-	return []string{containerCPUUsageMetricName, containerMemUsageMetricName}
+	once.Do(func() {
+		resp, err := httpGet(metricsURL)
+		if err != nil {
+			kubeletMetric = []string{}
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			kubeletMetric = []string{containerCPUUsageMetricName, containerMemUsageMetricName}
+		}
+	})
+	return kubeletMetric
 }
 
 func parseLabels(labels []*dto.LabelPair) (namespace, pod, container string) {
