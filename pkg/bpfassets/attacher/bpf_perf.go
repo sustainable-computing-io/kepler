@@ -158,10 +158,11 @@ func TableBatchGet(mod *bpf.Module, tableName string, leafSize uint32, deleteAft
 		r, err := C.bpf_lookup_batch(fd, &nextKey, &nextKey, keyArray, leafArray, &(entriesInt))
 		klog.V(6).Infof("batch get table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
 		if err != nil {
-			// r !=0 and os.IsNotExist means we reached the end of the table
+			// os.IsNotExist means we reached the end of the table
 			if os.IsNotExist(err) {
 				isEnd = true
 			} else {
+				// r !=0 and other errors are unexpected
 				if r != 0 {
 					return key, leaf, fmt.Errorf("failed to batch get: %v", err)
 				}

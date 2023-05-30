@@ -129,6 +129,7 @@ func (c *Collector) updateBPFMetrics() {
 		if batchGetErr != nil {
 			klog.V(1).Infof("failed to get bpf table elemets, err: %v", batchGetErr)
 			ebpfBatchGet = false
+			// if batch get is not supported we disable it for the next time
 			ebpfBatchGetAndDelete = false
 		}
 	}
@@ -152,7 +153,7 @@ func (c *Collector) updateBPFMetrics() {
 			continue // this only happens if there is a problem in the bpf code
 		}
 
-		// if not deleted during get, delete it now
+		// if not deleted during get, prepare the keys for delete
 		if !ebpfBatchGetAndDelete {
 			// if ebpf map batch deletion operation is supported we add the key to the list otherwise we delete the key
 			if config.EnabledBPFBatchDelete {
