@@ -119,15 +119,6 @@ func createMockContainerMetrics(containerName, podName, namespace string) *colle
 	containerMetrics.CgroupStatMap[config.CgroupfsWriteIO].SetAggrStat(containerName, 40000)
 	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 1)
 	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 1)
-	// kubelet - cgroup package
-	err = containerMetrics.KubeletStats[config.KubeletCPUUsage].SetNewAggr(10000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletCPUUsage].SetNewAggr(40000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletMemoryUsage].SetNewAggr(1000000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletMemoryUsage].SetNewAggr(4000000)
-	Expect(err).NotTo(HaveOccurred())
 	return containerMetrics
 }
 

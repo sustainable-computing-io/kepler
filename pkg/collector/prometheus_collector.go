@@ -123,9 +123,6 @@ type PrometheusCollector struct {
 	// Lock to syncronize the collector update with prometheus exporter
 	Mx sync.Mutex
 
-	// Record whether we have KubletMetrics
-	HaveKubletMetric bool
-
 	// Record whether we have cGroupsMetrics
 	HavecGroupsMetric bool
 }
@@ -203,17 +200,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		}
 	}
 
-	// container Kubelet Counters (counter)
-	if config.IsKubeletMetricsEnabled() {
-		if len(collector_metric.AvailableKubeletMetrics) != 0 {
-			ch <- p.containerDesc.containerKubeletCPUUsageTotal
-			ch <- p.containerDesc.containerKubeletMemoryBytesTotal
-			p.HaveKubletMetric = true
-		} else {
-			p.HaveKubletMetric = false
-		}
-	}
-
+	// Old Node metric
 	ch <- p.containerDesc.containerCPUTime
 	ch <- p.containerDesc.containerPageCacheHit
 
@@ -825,21 +812,6 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					p.containerDesc.containerCgroupUserCPUUsageUsTotal,
 					prometheus.CounterValue,
 					float64(container.CgroupStatMap[config.CgroupfsUserCPU].SumAllAggrValues()),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-				)
-			}
-
-			if config.ExposeKubeletMetrics && p.HaveKubletMetric {
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerKubeletCPUUsageTotal,
-					prometheus.CounterValue,
-					float64(container.KubeletStats[config.KubeletCPUUsage].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerKubeletMemoryBytesTotal,
-					prometheus.CounterValue,
-					float64(container.KubeletStats[config.KubeletMemoryUsage].Aggr),
 					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 			}

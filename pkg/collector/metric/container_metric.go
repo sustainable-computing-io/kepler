@@ -51,8 +51,6 @@ type ContainerMetrics struct {
 
 	CgroupStatHandler cgroup.CCgroupStatHandler
 	CgroupStatMap     map[string]*types.UInt64StatCollection
-	// TODO: kubelet stat metrics is deprecated since it duplicates the cgroup metrics. We will remove it soon.
-	KubeletStats map[string]*types.UInt64Stat
 }
 
 // NewContainerMetrics creates a new ContainerMetrics instance
@@ -80,7 +78,6 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 			IdleEnergyInPlatform: &types.UInt64Stat{},
 		},
 		CgroupStatMap: make(map[string]*types.UInt64StatCollection),
-		KubeletStats:  make(map[string]*types.UInt64Stat),
 	}
 	for _, metricName := range AvailableBPFSWCounters {
 		c.BPFStats[metricName] = &types.UInt64Stat{}
@@ -98,9 +95,6 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 			Stat: make(map[string]*types.UInt64Stat),
 		}
 	}
-	for _, metricName := range AvailableKubeletMetrics {
-		c.KubeletStats[metricName] = &types.UInt64Stat{}
-	}
 	return c
 }
 
@@ -113,9 +107,6 @@ func (c *ContainerMetrics) ResetDeltaValues() {
 	}
 	for cgroupFSKey := range c.CgroupStatMap {
 		c.CgroupStatMap[cgroupFSKey].ResetDeltaValues()
-	}
-	for kubeletKey := range c.KubeletStats {
-		c.KubeletStats[kubeletKey].ResetDeltaValues()
 	}
 	c.DynEnergyInCore.ResetDeltaValues()
 	c.DynEnergyInDRAM.ResetDeltaValues()
@@ -165,9 +156,6 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	}
 	if val, exists := c.CgroupStatMap[metric]; exists {
 		return val.SumAllDeltaValues(), val.SumAllAggrValues(), nil
-	}
-	if val, exists := c.KubeletStats[metric]; exists {
-		return val.Delta, val.Aggr, nil
 	}
 	klog.V(4).Infof("cannot extract: %s", metric)
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)
@@ -223,15 +211,13 @@ func (c *ContainerMetrics) String() string {
 		"\tDyn ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tIdle ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tcounters: %v\n"+
-		"\tcgroupfs: %v\n"+
-		"\tkubelets: %v\n",
+		"\tcgroupfs: %v\n",
 		c.CurrProcesses, c.PodName, c.ContainerName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command, c.ContainerID,
 		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
 		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
 		c.BPFStats,
-		c.CgroupStatMap,
-		c.KubeletStats)
+		c.CgroupStatMap)
 }
 
 func (c *ContainerMetrics) UpdateCgroupMetrics() error {
