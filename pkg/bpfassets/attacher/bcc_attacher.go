@@ -131,7 +131,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 
 	options := []string{
 		"-DMAP_SIZE=" + strconv.Itoa(mapSize),
-		"-DNUM_CPUS=" + strconv.Itoa(runtime.NumCPU()),
+		"-DNUM_CPUS=" + strconv.Itoa(cores),
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")
