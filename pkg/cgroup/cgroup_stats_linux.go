@@ -34,7 +34,7 @@ type CCgroupV1StatManager struct {
 	manager cgroups.Cgroup
 }
 
-type CCgroupV12StatManager struct {
+type CCgroupV2StatManager struct {
 	manager *cgroup2.Manager
 }
 
@@ -68,7 +68,7 @@ func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 		if err != nil {
 			return nil, err
 		}
-		return CCgroupV12StatManager{
+		return CCgroupV2StatManager{
 			manager: manager,
 		}, nil
 	}
@@ -106,7 +106,7 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 	return nil
 }
 
-func (c CCgroupV12StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
+func (c CCgroupV2StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
 	stat, err := c.manager.Stat()
 	if err != nil {
 		return err
