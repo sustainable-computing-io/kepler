@@ -52,6 +52,7 @@ type perfCounter struct {
 const (
 	tableProcessName = "processes"
 	tableCPUFreqName = "cpu_freq_array"
+	mapSize          = 10240
 )
 
 var (
@@ -129,6 +130,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 
 	options := []string{
+		"-DMAP_SIZE=" + strconv.Itoa(mapSize),
 		"-DNUM_CPUS=" + strconv.Itoa(cores),
 	}
 	if config.EnabledEBPFCgroupID {

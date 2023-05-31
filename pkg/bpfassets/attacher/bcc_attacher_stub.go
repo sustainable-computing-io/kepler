@@ -76,6 +76,10 @@ func TableDeleteBatch(module ModuleStub, tableName string, keys [][]byte) error 
 	return nil
 }
 
+func TableBatchGet(module ModuleStub, tableName string, leafSize uint32, deleteAfterGet bool) (keys, leaf [][]byte, err error) {
+	return
+}
+
 type BpfModuleTables struct {
 	Module       ModuleStub
 	Table        *Table
