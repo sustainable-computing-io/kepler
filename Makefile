@@ -261,7 +261,7 @@ cluster-sync:
 
 cluster-up:
 	rm -rf local-dev-cluster
-	git clone https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
+	git clone -b v0.0.0 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
 	cd local-dev-cluster && ./main.sh
 .PHONY: cluster-up
 
