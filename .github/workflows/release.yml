@@ -130,7 +130,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: quay.io/sustainable_computing_io/kepler
+          tags: quay.io/sustainable_computing_io/kepler:latest, quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
           labels: latest, ${{ github.event.inputs.release }}
           file: build/Dockerfile
 
