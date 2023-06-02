@@ -37,6 +37,4 @@ Interested in contributing to Kepler? Follow the [Contributing Guide](CONTRIBUTI
 A full list of talks and demos about Kepler can be found [here](https://github.com/sustainable-computing-io/kepler-doc/tree/main/demos).
 
 ## Community Meetings
-Please join the biweekly community meeting, starting on 8-9AM US ET (UTC−05:00) every other Tuesdays. 
-
-[Download](https://us06web.zoom.us/meeting/tZApfumrrzgpHdwUQbkSOj0zpoGveKMMvxaD/ics?icsToken=98tyKuGsqjIqGdWWsx6PRpwIBor4c-nzmHZegqdKqS7nCBN8aFPsJu1lJLdUPfXG) the biweekly community meeting iCalendar file.
+Please join the biweekly community meetings. The meeting calendar and agenda can be found [here](https://github.com/sustainable-computing-io/community/blob/main/community-event.md)
