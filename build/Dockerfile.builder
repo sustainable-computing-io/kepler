@@ -1,4 +1,4 @@
-FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.24 as builder
+FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26 as builder
 
 #USER root
 

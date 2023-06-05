@@ -1,4 +1,4 @@
-FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.24-go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.26-go1.18 as builder
 
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
@@ -21,7 +21,7 @@ RUN ls ./_output/bin
 # RUN make test
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.24
+FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26
 
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 

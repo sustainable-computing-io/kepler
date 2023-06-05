@@ -2,13 +2,6 @@ FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 
 ARG ARCH=amd64
 
-# enable centos appstream
-RUN yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-gpg-keys-9.0-20.el9.noarch.rpm && \
-    yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-stream-repos-9.0-20.el9.noarch.rpm
-
-# don't update yet, this will conflict with protected pkg i.e. redhat-release
-#RUN yum update -y
-
 # enable EPEL and install cpuid
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
     yum install -y cpuid
