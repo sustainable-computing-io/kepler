@@ -1,24 +1,24 @@
-FROM docker.io/nvidia/cuda:12.1.0-base-ubi8
+FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 
 ARG ARCH=amd64
 
 # enable centos appstream
-RUN yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-gpg-keys-8-6.el8.noarch.rpm && \
-    yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-stream-repos-8-6.el8.noarch.rpm
+RUN yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-gpg-keys-9.0-20.el9.noarch.rpm && \
+    yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-stream-repos-9.0-20.el9.noarch.rpm
 
 # don't update yet, this will conflict with protected pkg i.e. redhat-release
 #RUN yum update -y
 
 # enable EPEL and install cpuid
-RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
     yum install -y cpuid
 
 # install less frequently updated pkg first
 RUN yum install -y kmod xz python3 && yum clean all -y
 
 # bcc pkg is updated more frequently
-RUN yum install -y http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/Packages/bcc-0.24.0-2.el8.x86_64.rpm && \
-    yum install -y http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/Packages/bcc-devel-0.24.0-2.el8.x86_64.rpm
+RUN yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/bcc-0.24.0-2.el9.x86_64.rpm && \
+    yum install -y https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/bcc-devel-0.24.0-2.el9.x86_64.rpm
 
 # nvidia driver is updated on a (bi)monthly basis
 # RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
