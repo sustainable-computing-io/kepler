@@ -112,7 +112,7 @@ github.com/grafana/regexp/syntax
 # github.com/imdario/mergo v0.3.12
 ## explicit; go 1.13
 github.com/imdario/mergo
-# github.com/iovisor/gobpf v0.2.0
+# github.com/iovisor/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
 ## explicit; go 1.15
 github.com/iovisor/gobpf/bcc
 github.com/iovisor/gobpf/pkg/cpuonline

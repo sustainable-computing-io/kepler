@@ -17,8 +17,8 @@ RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.n
 RUN yum install -y kmod xz python3 && yum clean all -y
 
 # bcc pkg is updated more frequently
-RUN yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/bcc-0.24.0-2.el9.x86_64.rpm && \
-    yum install -y https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/bcc-devel-0.24.0-2.el9.x86_64.rpm
+RUN yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/bcc-0.26.0-2.el9.x86_64.rpm && \
+    yum install -y https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/bcc-devel-0.26.0-2.el9.x86_64.rpm
 
 # nvidia driver is updated on a (bi)monthly basis
 # RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
