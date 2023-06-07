@@ -61,7 +61,7 @@ func (c *Collector) updateAcceleratorMetrics() {
 			if _, exist := c.ContainersMetrics[containerID]; !exist {
 				continue
 			}
-			klog.Infoln("DEBUG: pod", c.ContainersMetrics[containerID].PodName, "processUtilizationSample", processUtilization)
+
 			if err = c.ContainersMetrics[containerID].CounterStats[config.GPUSMUtilization].AddNewDelta(uint64(processUtilization.SmUtil)); err != nil {
 				klog.V(5).Infoln(err)
 			}
