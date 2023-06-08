@@ -19,7 +19,6 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 )
@@ -39,22 +38,8 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 		// for performance reasons. Therefore, if the kubelet API delay the information of the
 		// containerID (which occasionally occurs), the container will be wrongly identified for its entire lifetime.
 		if !kubernetes.IsWatcherEnabled {
-			podName, _ = cgroup.GetPodName(cGroupID, pid, withCGroupID)
-			containerName, _ = cgroup.GetContainerName(cGroupID, pid, withCGroupID)
-			if containerName == c.systemProcessName {
-				containerID = c.systemProcessName
-				// if the systemProcess already exist in ContainersMetrics do not overwrite the data
-				if _, exist := c.ContainersMetrics[containerID]; exist {
-					return
-				}
-			} else {
-				var err error
-				namespace, err = cgroup.GetPodNameSpace(cGroupID, pid, withCGroupID)
-				if err != nil {
-					klog.V(5).Infof("failed to find namespace for cGroup ID %v: %v", cGroupID, err)
-					namespace = "unknown"
-				}
-			}
+			info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
 		}
 		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(
 			podName, containerName, namespace, containerID)

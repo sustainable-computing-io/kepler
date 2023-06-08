@@ -88,7 +88,7 @@ func NewObjListWatcher() *ObjListWatcher {
 		k8sCli:       newK8sClient(),
 		ResourceKind: podResourceType,
 	}
-	if w.k8sCli == nil {
+	if w.k8sCli == nil || !config.EnableAPIServer {
 		return w
 	}
 

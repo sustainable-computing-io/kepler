@@ -25,7 +25,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 
 	"k8s.io/klog/v2"
 )
@@ -40,29 +39,31 @@ func (c *Collector) updateNodeResourceUsage() {
 // updateMeasuredNodeEnergy updates the node platfomr power consumption, i.e, the node total power consumption
 func (c *Collector) updatePlatformEnergy(wg *sync.WaitGroup) {
 	defer wg.Done()
-	nodePlatformEnergy := map[string]float64{}
 	if c.acpiPowerMeter.IsPowerSupported() {
-		nodePlatformEnergy, _ = c.acpiPowerMeter.GetEnergyFromHost()
+		nodePlatformEnergy, _ := c.acpiPowerMeter.GetEnergyFromHost()
+		c.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 	} else if model.IsNodePlatformPowerModelEnabled() {
-		nodePlatformEnergy = model.GetEstimatedNodePlatformPower(&c.NodeMetrics)
+		nodePlatformEnergy := model.GetEstimatedNodePlatformPower(&c.NodeMetrics)
+		c.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 	}
-	c.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
 }
 
 // updateMeasuredNodeEnergy updates each node component power consumption, i.e., the CPU core, uncore, package/socket and DRAM
 func (c *Collector) updateNodeComponentsEnergy(wg *sync.WaitGroup) {
 	defer wg.Done()
-	nodeComponentsEnergy := map[int]source.NodeComponentsEnergy{}
 	if components.IsSystemCollectionSupported() {
 		klog.V(5).Info("System energy collection is supported")
-		nodeComponentsEnergy = components.GetNodeComponentsEnergy()
+		nodeComponentsEnergy := components.GetNodeComponentsEnergy()
+		// the RAPL metrics return counter metrics not gauge
+		c.NodeMetrics.SetNodeComponentsEnergy(nodeComponentsEnergy, false)
 	} else if model.IsNodeComponentPowerModelEnabled() {
 		klog.V(5).Info("Node components power model collection is supported")
-		nodeComponentsEnergy = model.GetNodeComponentPowers(&c.NodeMetrics)
+		nodeComponentsEnergy := model.GetNodeComponentPowers(&c.NodeMetrics)
+		// the node components power model returns gauge mentrics
+		c.NodeMetrics.SetNodeComponentsEnergy(nodeComponentsEnergy, true)
 	} else {
 		klog.V(1).Info("No nodeComponentsEnergy found, node components energy metrics is not exposed ")
 	}
-	c.NodeMetrics.SetNodeComponentsEnergy(nodeComponentsEnergy)
 }
 
 // updateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators

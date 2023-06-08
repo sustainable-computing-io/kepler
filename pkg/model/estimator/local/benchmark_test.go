@@ -36,13 +36,14 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 	nodePlatformEnergy := map[string]float64{}
 
 	nodePlatformEnergy["sensor0"] = 10
-	nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+	nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 	nodeMetrics.UpdateIdleEnergy()
 
 	nodePlatformEnergy["sensor0"] = 20
-	nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy)
+	nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 	nodeMetrics.UpdateIdleEnergy()
 	nodeMetrics.UpdateDynEnergy()
+
 	componentsEnergies := make(map[int]source.NodeComponentsEnergy)
 	componentsEnergies[0] = source.NodeComponentsEnergy{
 		Pkg:    5,
@@ -50,14 +51,14 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 		DRAM:   5,
 		Uncore: 5,
 	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 	componentsEnergies[0] = source.NodeComponentsEnergy{
 		Pkg:    10,
 		Core:   10,
 		DRAM:   10,
 		Uncore: 10,
 	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 	nodeMetrics.UpdateIdleEnergy()
 	componentsEnergies[0] = source.NodeComponentsEnergy{
 		Pkg:    uint64(continerNumber),
@@ -65,8 +66,8 @@ func benchmarkNtesting(b *testing.B, continerNumber int) {
 		DRAM:   uint64(continerNumber),
 		Uncore: uint64(continerNumber),
 	}
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
 
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies)
 	nodeMetrics.UpdateIdleEnergy()
 	nodeMetrics.UpdateDynEnergy()
 	b.ReportAllocs()

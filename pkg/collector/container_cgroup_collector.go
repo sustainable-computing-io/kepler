@@ -17,6 +17,8 @@ limitations under the License.
 package collector
 
 import (
+	"strings"
+
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
@@ -42,10 +44,13 @@ func (c *Collector) updateCgroupMetrics() {
 			}
 			c.ContainersMetrics[key].CgroupStatHandler = handler
 		}
-		err := c.ContainersMetrics[key].UpdateCgroupMetrics()
-		// if the cgroup metrics of a container does not exist, it means that the container was deleted
-		if key != c.systemProcessName && err != nil {
-			delete(c.ContainersMetrics, key)
+		if err := c.ContainersMetrics[key].UpdateCgroupMetrics(); err != nil {
+			// if the cgroup metrics of a container does not exist, it means that the container was deleted
+			if key != c.systemProcessName && strings.Contains(err.Error(), "cgroup deleted") {
+				delete(c.ContainersMetrics, key)
+				klog.V(1).Infof("Container/Pod %s/%s was removed from the map because the cgroup was deleted",
+					c.ContainersMetrics[key].ContainerName, c.ContainersMetrics[key].PodName)
+			}
 		}
 	}
 }
@@ -53,7 +58,7 @@ func (c *Collector) updateCgroupMetrics() {
 // updateKubeletMetrics adds kubelet data (resident mem)
 func (c *Collector) updateKubeletMetrics() {
 	if len(collector_metric.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _, _, _ := cgroup.GetContainerMetrics()
+		containerCPU, containerMem, _ := cgroup.GetContainerMetrics()
 		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
 		for _, c := range c.ContainersMetrics {
 			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName

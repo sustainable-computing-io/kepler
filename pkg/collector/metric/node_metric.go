@@ -197,20 +197,31 @@ func (ne *NodeMetrics) AddNodeResUsageFromContainerResUsage(containersMetrics ma
 }
 
 // SetLastestPlatformEnergy adds the lastest energy consumption from the node sensor
-func (ne *NodeMetrics) SetLastestPlatformEnergy(platformEnergy map[string]float64) {
+func (ne *NodeMetrics) SetLastestPlatformEnergy(platformEnergy map[string]float64, gauge bool) {
 	for sensorID, energy := range platformEnergy {
-		ne.TotalEnergyInPlatform.SetDeltaStat(sensorID, uint64(math.Ceil(energy)))
+		if gauge {
+			ne.TotalEnergyInPlatform.SetDeltaStat(sensorID, uint64(math.Ceil(energy)))
+		} else {
+			ne.TotalEnergyInPlatform.SetAggrStat(sensorID, uint64(math.Ceil(energy)))
+		}
 	}
 }
 
 // SetNodeComponentsEnergy adds the lastest energy consumption collected from the node's components (e.g., using RAPL)
-func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy) {
+func (ne *NodeMetrics) SetNodeComponentsEnergy(componentsEnergy map[int]source.NodeComponentsEnergy, gauge bool) {
 	for pkgID, energy := range componentsEnergy {
 		key := strconv.Itoa(pkgID)
-		ne.TotalEnergyInCore.SetAggrStat(key, energy.Core)
-		ne.TotalEnergyInDRAM.SetAggrStat(key, energy.DRAM)
-		ne.TotalEnergyInUncore.SetAggrStat(key, energy.Uncore)
-		ne.TotalEnergyInPkg.SetAggrStat(key, energy.Pkg)
+		if gauge {
+			ne.TotalEnergyInCore.SetDeltaStat(key, energy.Core)
+			ne.TotalEnergyInDRAM.SetDeltaStat(key, energy.DRAM)
+			ne.TotalEnergyInUncore.SetDeltaStat(key, energy.Uncore)
+			ne.TotalEnergyInPkg.SetDeltaStat(key, energy.Pkg)
+		} else {
+			ne.TotalEnergyInCore.SetAggrStat(key, energy.Core)
+			ne.TotalEnergyInDRAM.SetAggrStat(key, energy.DRAM)
+			ne.TotalEnergyInUncore.SetAggrStat(key, energy.Uncore)
+			ne.TotalEnergyInPkg.SetAggrStat(key, energy.Pkg)
+		}
 	}
 }
 
@@ -238,10 +249,10 @@ func (ne *NodeMetrics) UpdateIdleEnergy() {
 }
 
 func (ne *NodeMetrics) CalcIdleEnergy(component string) {
-	toalStatCollection := ne.getTotalEnergyStatCollection(component)
+	totalStatCollection := ne.getTotalEnergyStatCollection(component)
 	idleStatCollection := ne.getIdleEnergyStatCollection(component)
-	for id := range toalStatCollection.Stat {
-		delta := toalStatCollection.Stat[id].Delta
+	for id := range totalStatCollection.Stat {
+		delta := totalStatCollection.Stat[id].Delta
 		if _, exist := idleStatCollection.Stat[id]; !exist {
 			idleStatCollection.SetDeltaStat(id, delta)
 		} else {
@@ -311,12 +322,12 @@ func (ne *NodeMetrics) SetNodeOtherComponentsEnergy() {
 	}
 }
 
-func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) float64 {
+func (ne *NodeMetrics) GetNodeResUsagePerResType(resource string) (float64, error) {
 	data, ok := ne.ResourceUsage[resource]
 	if ok {
-		return data
+		return data, nil
 	}
-	return 0
+	return 0, fmt.Errorf("resource %s not found", resource)
 }
 
 func (ne *NodeMetrics) String() string {
@@ -325,7 +336,7 @@ func (ne *NodeMetrics) String() string {
 		ne.TotalEnergyInPkg.SumAllDeltaValues(), ne.TotalEnergyInCore.SumAllDeltaValues(), ne.TotalEnergyInDRAM.SumAllDeltaValues(), ne.TotalEnergyInUncore.SumAllDeltaValues(), ne.TotalEnergyInGPU.SumAllDeltaValues(), ne.TotalEnergyInOther.SumAllDeltaValues())
 }
 
-// GetAggrDynEnergyPerID returns the delta dynamic energy from all source (e.g. package or gpu ids)
+// GetAggrDynEnergyPerID returns the aggr dynamic energy from all source (e.g. package or gpu ids)
 func (ne *NodeMetrics) GetAggrDynEnergyPerID(component, id string) uint64 {
 	statCollection := ne.getDynEnergyStatCollection(component)
 	if _, exist := statCollection.Stat[id]; exist {
@@ -343,7 +354,7 @@ func (ne *NodeMetrics) GetDeltaDynEnergyPerID(component, id string) uint64 {
 	return uint64(0)
 }
 
-// GetSumAggrDynEnergyFromAllSources returns the sum of delta dynamic energy of all source (e.g. package or gpu ids)
+// GetSumAggrDynEnergyFromAllSources returns the sum of aggr dynamic energy of all source (e.g. package or gpu ids)
 func (ne *NodeMetrics) GetSumAggrDynEnergyFromAllSources(component string) uint64 {
 	var dynamicEnergy uint64
 	for _, val := range ne.getDynEnergyStatCollection(component).Stat {
@@ -388,7 +399,7 @@ func (ne *NodeMetrics) GetSumDeltaIdleEnergyromAllSources(component string) uint
 	return idleEnergy
 }
 
-// GetSumAggrIdleEnergyromAllSources returns the sum of delta idle energy of all source (e.g. package or gpu ids)
+// GetSumAggrIdleEnergyromAllSources returns the sum of aggr idle energy of all source (e.g. package or gpu ids)
 func (ne *NodeMetrics) GetSumAggrIdleEnergyromAllSources(component string) uint64 {
 	var idleEnergy uint64
 	for _, val := range ne.getIdleEnergyStatCollection(component).Stat {

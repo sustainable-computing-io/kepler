@@ -59,7 +59,7 @@ var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
 	EnabledMSR            = false
-	EnabledBPFBatchDelete = false
+	EnabledBPFBatchDelete = true
 
 	KernelVersion = float32(0)
 
@@ -108,7 +108,8 @@ var (
 	////////////////////////////////////
 
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
-	KubeConfig = ""
+	KubeConfig      = ""
+	EnableAPIServer = false
 )
 
 func logBoolConfigs() {
@@ -197,6 +198,11 @@ func SetEnabledGPU(enabled bool) {
 // SetKubeConfig set kubeconfig file
 func SetKubeConfig(k string) {
 	KubeConfig = k
+}
+
+// SetEnableAPIServer enables Kepler to watch apiserver
+func SetEnableAPIServer(enabled bool) {
+	EnableAPIServer = enabled
 }
 
 func (c config) getUnixName() (unix.Utsname, error) {

@@ -34,7 +34,7 @@ type CCgroupV1StatManager struct {
 	manager cgroups.Cgroup
 }
 
-type CCgroupV12StatManager struct {
+type CCgroupV2StatManager struct {
 	manager *cgroup2.Manager
 }
 
@@ -43,11 +43,14 @@ type CCgroupV12StatManager struct {
 // See comments here: https://github.com/sustainable-computing-io/kepler/pull/609#discussion_r1155043868
 func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 	p := fmt.Sprintf(procPath, pid)
-	_, path, err := cgroups.ParseCgroupFileUnified(p)
+	cgroupMap, path, err := cgroups.ParseCgroupFileUnified(p)
 	if err != nil {
 		return nil, err
 	}
-
+	if path == "" {
+		// if there is no subsystem (<controller>::<cgrouppath>), use common path from pids subsystem
+		path = cgroupMap["pids"]
+	}
 	if config.GetCGroupVersion() == 1 {
 		manager, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(path))
 		if err != nil {
@@ -65,18 +68,14 @@ func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 		if err != nil {
 			return nil, err
 		}
-		return CCgroupV12StatManager{
+		return CCgroupV2StatManager{
 			manager: manager,
 		}, nil
 	}
 }
 
-func errPassthrough(err error) error {
-	return err
-}
-
 func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
-	stat, err := c.manager.Stat(errPassthrough)
+	stat, err := c.manager.Stat(cgroups.IgnoreNotExist)
 	if err != nil {
 		return err
 	}
@@ -110,7 +109,7 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 	return nil
 }
 
-func (c CCgroupV12StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
+func (c CCgroupV2StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
 	stat, err := c.manager.Stat()
 	if err != nil {
 		return err

@@ -260,8 +260,8 @@ cluster-sync:
 .PHONY: cluster-sync
 
 cluster-up:
-	rm -rf local-dev-cluster
-	git clone https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
-	cd local-dev-cluster && ./main.sh
+	./hack/cluster-up.sh
 .PHONY: cluster-up
 
+check: tidy-vendor set_govulncheck govulncheck format golint test
+.PHONY: check
