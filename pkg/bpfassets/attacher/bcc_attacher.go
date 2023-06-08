@@ -130,6 +130,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	}
 
 	options := []string{
+		"-D__BCC__",
 		"-DMAP_SIZE=" + strconv.Itoa(mapSize),
 		"-DNUM_CPUS=" + strconv.Itoa(cores),
 	}
