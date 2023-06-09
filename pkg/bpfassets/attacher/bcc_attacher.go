@@ -30,6 +30,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 
 	bpf "github.com/iovisor/gobpf/bcc"
+	elf "github.com/iovisor/gobpf/elf"
 
 	"github.com/jaypipes/ghw"
 
@@ -50,9 +51,10 @@ type perfCounter struct {
 }
 
 const (
-	tableProcessName = "processes"
-	tableCPUFreqName = "cpu_freq_array"
-	mapSize          = 10240
+	tableProcessName  = "processes"
+	tableCPUFreqName  = "cpu_freq_array"
+	mapSize           = 10240
+	skipCompileModule = true
 )
 
 var (
@@ -116,44 +118,72 @@ func loadModule(objProg []byte, options []string) (m *bpf.Module, err error) {
 
 func AttachBPFAssets() (*BpfModuleTables, error) {
 	bpfModules := &BpfModuleTables{}
-	program := assets.Program
-	objProg, err := assets.Asset(program)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get program %q: %v", program, err)
-	}
-	// builtin runtime.NumCPU() returns the number of logical CPUs usable by the current process
-	cores := runtime.NumCPU()
-	if cpu, err := ghw.CPU(); err == nil {
-		// we need to get the number of all CPUs,
-		// so if /proc/cpuinfo is available, we can get the number of all CPUs
-		cores = int(cpu.TotalThreads)
-	}
 
-	options := []string{
-		"-D__BCC__",
-		"-DMAP_SIZE=" + strconv.Itoa(mapSize),
-		"-DNUM_CPUS=" + strconv.Itoa(cores),
-	}
-	if config.EnabledEBPFCgroupID {
-		options = append(options, "-DSET_GROUP_ID")
-	}
-	// TODO: verify if ebpf can run in the VM without hardware counter support, if not, we can disable the HC part and only collect the cpu time
-	m, err := loadModule(objProg, options)
-	if err != nil {
-		klog.Infof("failed to attach perf module with options %v: %v, not able to load eBPF modules\n", options, err)
-		return nil, err
-	}
+	loadPreCompiled := false
+	if skipCompileModule {
+		loadPreCompiled = true
+	} else {
+		// first try to compile the eBPF module
+		program := assets.Program
+		objProg, err := assets.Asset(program)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get program %q: %v", program, err)
+		}
+		// builtin runtime.NumCPU() returns the number of logical CPUs usable by the current process
+		cores := runtime.NumCPU()
+		if cpu, err := ghw.CPU(); err == nil {
+			// we need to get the number of all CPUs,
+			// so if /proc/cpuinfo is available, we can get the number of all CPUs
+			cores = int(cpu.TotalThreads)
+		}
 
+		options := []string{
+			"-D__BCC__",
+			"-DMAP_SIZE=" + strconv.Itoa(mapSize),
+			"-DNUM_CPUS=" + strconv.Itoa(cores),
+		}
+		if config.EnabledEBPFCgroupID {
+			options = append(options, "-DSET_GROUP_ID")
+		}
+		// TODO: verify if ebpf can run in the VM without hardware counter support, if not, we can disable the HC part and only collect the cpu time
+		m, err := loadModule(objProg, options)
+		if err == nil {
+			bpfModules.Module = m
+			klog.Infof("Successfully load eBPF module with option: %s", options)
+		} else {
+			klog.Infof("failed to attach perf module with options %v: %v, not able to compile and load eBPF modules\n", options, err)
+			// if we failed to load the eBPF module, we will try to load the pre-compiled eBPF module
+			loadPreCompiled = true
+		}
+	}
+	if loadPreCompiled {
+		// load pre-compiled eBPF module if exists
+		modules := config.GetPreCompiledModules()
+		loaded := false
+		for _, module := range modules {
+			if module != "" {
+				m := elf.NewModule(module)
+				if err := m.Load(nil); err != nil {
+					klog.Infof("failed to load pre-compiled eBPF module %s: %v\n", module, err)
+					continue
+				}
+				loaded = true
+				//bpfModules.Module = m
+				break
+			}
+		}
+		if !loaded {
+			return nil, fmt.Errorf("failed to load pre-compiled eBPF module")
+		}
+	}
+	m := bpfModules.Module
 	tableId := m.TableId(tableProcessName)
 	table := bpf.NewTable(tableId, m)
 	cpuFreqTable := bpf.NewTable(m.TableId(tableCPUFreqName), m)
 
-	bpfModules.Module = m
 	bpfModules.Table = table
 	bpfModules.TableName = tableProcessName
 	bpfModules.CPUFreqTable = cpuFreqTable
-
-	klog.Infof("Successfully load eBPF module with option: %s", options)
 
 	return bpfModules, nil
 }

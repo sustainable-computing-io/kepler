@@ -87,6 +87,8 @@ var (
 
 	configPath = "/etc/kepler/kepler.config"
 
+	preCompiledModules = []string{}
+
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
@@ -146,6 +148,30 @@ func getConfig(configKey, defaultValue string) (result string) {
 		}
 	}
 	return
+}
+
+// SetPreCompiledModuleDir sets the directory for pre-compiled eBPF module and return all the pre-complied module file path
+func SetPreCompiledModuleDir(dir string) {
+	// read all the module file path
+	if dir != "" {
+		// walk through the directory and get all the pre-compiled module file path and store them in preCompiledModules
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				preCompiledModules = append(preCompiledModules, path)
+			}
+			return nil
+		})
+		if err != nil {
+			klog.V(5).Infof("failed to walk through the directory %s: %v", dir, err)
+		}
+	}
+}
+
+func GetPreCompiledModules() []string {
+	return preCompiledModules
 }
 
 func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
