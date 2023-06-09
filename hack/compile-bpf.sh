@@ -2,6 +2,7 @@
 UNAME=$(uname -r)
 ARCH=x86
 DIR=$(dirname $0)
+CFILE=${CFILE:-"${DIR}/../bpfassets/perf_event/perf_event.c"}
 OUTPUT=${OUTPUT:-"main.bc"}
 VMLINUX_H=${VMLINUX_H:-"https://raw.githubusercontent.com/iovisor/bcc/master/libbpf-tools/x86/vmlinux_518.h"}
 if [ ! -f ${DIR}/../bpfassets/perf_event/perf_event.c ]; then
@@ -31,4 +32,5 @@ clang -cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -emit-llvm-uselists -d
  -Wno-address-of-packed-member -Wno-unknown-warning-option -Wno-unused-value -Wno-pointer-sign \
  -fdebug-compilation-dir=/usr/src/kernels/${UNAME} -ferror-limit 19 -fgnuc-version=4.2.1 \
  -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 \
--main-file-name perf_event.c -x c ${DIR}/../bpfassets/perf_event/perf_event.c -o ${OUTPUT}
+ -main-file-name perf_event.c -x c ${CFILE} -o - | \
+	llc -march=bpf -mcpu=probe -filetype=obj -o ${OUTPUT}

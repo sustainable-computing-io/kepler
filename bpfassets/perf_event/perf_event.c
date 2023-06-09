@@ -62,19 +62,19 @@ typedef struct pid_time_t
 
 // processes and pid time
 #ifndef __BCC__
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, process_metrics_t);
-	__type(value, u64);
-	__uint(max_entries, MAP_SIZE);
-} processes SEC(".maps");
+struct bpf_map_def SEC("maps/processes") processes = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(process_metrics_t),
+	.value_size = sizeof(u64),
+	.max_entries = MAP_SIZE,
+} ;
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, pid_time_t);
-	__type(value, u64);
-	__uint(max_entries, MAP_SIZE);
-} pid_time SEC(".maps");
+struct bpf_map_def SEC("maps/pid_time") pid_time = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(pid_time_t),
+	.value_size = sizeof(u64),
+	.max_entries = MAP_SIZE,
+} ;
 #else
 BPF_HASH(processes, u64, process_metrics_t, MAP_SIZE);
 BPF_HASH(pid_time, pid_time_t);
@@ -82,67 +82,68 @@ BPF_HASH(pid_time, pid_time_t);
 
 // perf counters
 #ifndef __BCC__
-struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u32));
-	__uint(max_entries, NUM_CPUS);
-} cpu_cycles_hc_reader SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_cycles_hc_reader") cpu_cycles_hc_reader = {
+	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u32),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u64));
-	__uint(max_entries, NUM_CPUS);
-} cpu_cycles SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_cycles") cpu_cycles = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u64),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u32));
-	__uint(max_entries, NUM_CPUS);
-} cpu_ref_cycles_hc_reader SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_ref_cycles_hc_reader") cpu_ref_cycles_hc_reader = {
+	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u32),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u64));
-	__uint(max_entries, NUM_CPUS);
-} cpu_ref_cycles SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_ref_cycles") cpu_ref_cycles = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u64),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u32));
-	__uint(max_entries, NUM_CPUS);
-} cpu_instr_hc_reader SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_instr_hc_reader") cpu_instr_hc_reader = {
+	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u32),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u64));
-	__uint(max_entries, NUM_CPUS);
-} cpu_instr SEC(".maps");
-struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u32));
-	__uint(max_entries, NUM_CPUS);
-} cache_miss_hc_reader SEC(".maps");
+struct bpf_map_def SEC("maps/cpu_instr") cpu_instr = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u64),
+	.max_entries = NUM_CPUS,
+};
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, sizeof(u64));
-	__uint(max_entries, NUM_CPUS);
-} cache_miss SEC(".maps");
+struct bpf_map_def SEC("maps/cache_miss_hc_reader") cache_miss_hc_reader = {
+	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u32),
+	.max_entries = NUM_CPUS,
+};
 
-struct cpu_freq_array_t {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, int);
-    __type(value, u32);
-    __uint(max_entries, NUM_CPUS);
-} cpu_freq_array SEC(".maps");
+struct bpf_map_def SEC("maps/cache_miss")  cache_miss = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u64),
+	.max_entries = NUM_CPUS,
+};
+
+struct bpf_map_def SEC("maps/cpu_freq_array") cpu_freq_array = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(int),
+	.value_size = sizeof(u64),
+	.max_entries = NUM_CPUS,
+};
 
 #else
 BPF_PERF_ARRAY(cpu_cycles_hc_reader, NUM_CPUS);
