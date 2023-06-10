@@ -78,8 +78,10 @@ limitations under the License.
 // need to install libbpf-devel to get bpf_helpers.h
 
 #ifndef __BCC__
+#define BPF_NO_PRESERVE_ACCESS_INDEX 0
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 #endif
 #include <linux/sched.h>
 
@@ -122,8 +124,8 @@ typedef struct pid_time_t
 #ifndef __BCC__
 struct bpf_map_def SEC("maps/processes") processes = {
 	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(process_metrics_t),
-	.value_size = sizeof(u64),
+	.key_size = sizeof(u64),
+	.value_size = sizeof(process_metrics_t),
 	.max_entries = MAP_SIZE,
 } ;
 
@@ -420,11 +422,29 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 }
 
 #ifndef __BCC__
-SEC("kprobe/finish_task_switch")
-#endif
+#define TASK_COMM_LEN 16
+struct sched_switch_args {
+	unsigned long long pad;
+	char prev_comm[TASK_COMM_LEN];
+	int prev_pid;
+	int prev_prio;
+	long long prev_state;
+	char next_comm[TASK_COMM_LEN];
+	int next_pid;
+	int next_prio;
+};
+SEC("tracepoint/sched/sched_switch")
+int kprobe__finish_task_switch(struct sched_switch_args *ctx)
+{
+	/* record previous thread sleep time */
+	u64 prev_pid = ctx->prev_pid;
+#else
 int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 {
+    u64 prev_pid = prev->pid;
+#endif
     u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+
 #ifdef SET_GROUP_ID
     u64 cgroup_id = bpf_get_current_cgroup_id();
 #else
@@ -433,7 +453,6 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
-    u64 prev_pid = prev->pid;
     u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cpu_id, cur_ts);
     u64 on_cpu_cycles_delta = get_on_cpu_cycles(&cpu_id);
     u64 on_cpu_ref_cycles_delta = get_on_cpu_ref_cycles(&cpu_id);
@@ -510,6 +529,7 @@ TRACEPOINT_PROBE(irq, softirq_entry) // BCC
 }
 #ifndef __BCC__
 char _license[] SEC("license") = "GPL";
+__u32 _version SEC("version") = 0xFFFFFFFE;
 #endif`)
 
 func bpfassetsPerf_eventPerf_eventCBytes() ([]byte, error) {
