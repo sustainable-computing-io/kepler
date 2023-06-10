@@ -3,7 +3,9 @@
 A quick start guide to get Kepler up and running inside your container-based development cluster.
 
 ## Create a new emphemeral local kubernetes cluster
-Bring the cluster up with following [repo](https://github.com/sustainable-computing-io/local-dev-cluster) or just `make cluster-up`
+If you want to use default local dev cluster running up by KIND, you can bring the cluster up just `make cluster-up`.
+It works with following [repo](https://github.com/sustainable-computing-io/local-dev-cluster). Considering that your local envrinonment is different with CI environment, we strongly recommand you check [pre-request](https://github.com/sustainable-computing-io/local-dev-cluster#pre-request) and [start up](https://github.com/sustainable-computing-io/local-dev-cluster#start-up) to set up/costumer your own local development environment.
+The technolocal discussion among community can be found [here](../../enhancements/CICDv1.md) and [here](https://github.com/sustainable-computing-io/kepler/issues/721).
 
 ## Deploying kepler in the cluster
 ```bash
