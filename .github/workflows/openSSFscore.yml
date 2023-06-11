@@ -16,20 +16,23 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    permissions:
+    #permissions:
       # Needed if using Code scanning alerts
-      security-events: write
+      #security-events: write
       # Needed for GitHub OIDC token if publish_results is true
-      id-token: write
+      #id-token: write
 
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@v3.5.2
-      - name: "Run analysis"
-        uses: ossf/scorecard-action@v2.1.3
-        with:
-          results_file: results.sarif
-          results_format: sarif
+      - name: "before we switch to GHA, run docker instead"
+        run: |
+          docker run gcr.io/openssf/scorecard:stable --show-details --repo=https://github.com/sustainable-computing-io/kepler
+      #- name: "Checkout code"
+      #  uses: actions/checkout@v3.5.2
+      #- name: "Run analysis"
+      #  uses: ossf/scorecard-action@v2.1.3
+      #  with:
+      #    results_file: results.sarif
+      #    results_format: sarif
           # (Optional) "write" PAT token. Uncomment the `repo_token` line below if:
           # - you want to enable the Branch-Protection check on a *public* repository, or
           # - you are installing Scorecards on a *private* repository
@@ -40,19 +43,19 @@ jobs:
           # https://github.com/ossf/scorecard-action#publishing-results.
           # For private repositories, `publish_results` will automatically be set to `false`, regardless
           # of the value entered here.
-          publish_results: false
+          #publish_results: false
 
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
-      - name: "Upload artifact"
-        uses: actions/upload-artifact@v3.1.2
-        with:
-          name: SARIF file
-          path: results.sarif
-          retention-days: 5
+      #- name: "Upload artifact"
+      #  uses: actions/upload-artifact@v3.1.2
+      #  with:
+      #    name: SARIF file
+      #    path: results.sarif
+      #    retention-days: 5
 
       # required for Code scanning alerts
-      - name: "Upload SARIF results to code scanning"
-        uses: github/codeql-action/upload-sarif@v2.3.6
-        with:
-          sarif_file: results.sarif
+      #- name: "Upload SARIF results to code scanning"
+      #  uses: github/codeql-action/upload-sarif@v2.3.6
+      #  with:
+      #    sarif_file: results.sarif
