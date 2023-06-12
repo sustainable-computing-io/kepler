@@ -87,6 +87,9 @@ var (
 
 	configPath = "/etc/kepler/kepler.config"
 
+	// dir of kernel sources for bcc
+	kernelSourceDir = []string{}
+
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
@@ -146,6 +149,30 @@ func getConfig(configKey, defaultValue string) (result string) {
 		}
 	}
 	return
+}
+
+// SetKernelSourceDir sets the directory for all kernel source. This is used for bcc. Only the top level directory is needed.
+func SetKernelSourceDir(dir string) {
+	// read all the kernel source directories
+	if dir != "" {
+		// list all the directories under `dir` and store in kernelSourceDir
+		klog.V(4).Infoln("kernel source dir is set to", dir)
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			klog.Warning("failed to read kernel source dir", err)
+		}
+		kernelVers := fmt.Sprintf("%v", getKernelVersion(c))
+		for _, file := range files {
+			// only store directories and the directory name should contain the kernel version
+			if strings.Contains(file.Name(), kernelVers) && file.IsDir() {
+				kernelSourceDir = append(kernelSourceDir, filepath.Join(dir, file.Name()))
+			}
+		}
+	}
+}
+
+func GetKernelSourceDir() []string {
+	return kernelSourceDir
 }
 
 func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
