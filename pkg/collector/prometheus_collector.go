@@ -210,6 +210,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- p.nodeDesc.nodePackageJoulesTotal
 	ch <- p.nodeDesc.nodePlatformJoulesTotal
 	ch <- p.nodeDesc.nodeOtherComponentsJoulesTotal
+
 	if config.EnabledGPU {
 		ch <- p.nodeDesc.nodeGPUJoulesTotal
 	}

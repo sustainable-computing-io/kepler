@@ -17,6 +17,7 @@ limitations under the License.
 package platform
 
 import (
+	"fmt"
 	"runtime"
 
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform/source"
@@ -33,8 +34,9 @@ type powerInterface interface {
 }
 
 var (
-	powerImpl powerInterface = source.NewACPIPowerMeter()
-	hmcImpl                  = &source.PowerHMC{}
+	powerImpl   powerInterface
+	redfishImpl *source.RedFishClient
+	hmcImpl     = &source.PowerHMC{}
 )
 
 func InitPowerImpl() {
@@ -43,17 +45,31 @@ func InitPowerImpl() {
 	if runtime.GOARCH == "s390x" {
 		klog.V(1).Infoln("use hmc to obtain power")
 		powerImpl = hmcImpl
+	} else if redfishImpl = source.NewRedfishClient(); redfishImpl != nil && redfishImpl.IsSystemCollectionSupported() {
+		klog.V(1).Infoln("use redfish to obtain power")
+		powerImpl = redfishImpl
+	} else {
+		klog.V(1).Infoln("use acpi to obtain power")
+		powerImpl = source.NewACPIPowerMeter()
 	}
 }
 
 func GetEnergyFromPlatform() (map[string]float64, error) {
-	return powerImpl.GetEnergyFromPlatform()
+	if powerImpl != nil {
+		return powerImpl.GetEnergyFromPlatform()
+	}
+	return nil, fmt.Errorf("powerImpl is nil")
 }
 
 func IsSystemCollectionSupported() bool {
-	return powerImpl.IsSystemCollectionSupported()
+	if powerImpl != nil {
+		return powerImpl.IsSystemCollectionSupported()
+	}
+	return false
 }
 
 func StopPower() {
-	powerImpl.StopPower()
+	if powerImpl != nil {
+		powerImpl.StopPower()
+	}
 }
