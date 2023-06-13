@@ -34,6 +34,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,6 +64,7 @@ var (
 	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	kernelSourceDirPath          = flag.String("kernel-source-dir", "", "path to the kernel source directory")
+	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -154,9 +156,10 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
+
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
-	if *kernelSourceDirPath != "" {
+	if kernelSourceDirPath != nil && len(*kernelSourceDirPath) > 0 {
 		if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
 			klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
 		}
@@ -170,9 +173,15 @@ func main() {
 	}
 	klog.Infof("EnabledBPFBatchDelete: %v", config.EnabledBPFBatchDelete)
 
+	// set redfish credential file path
+	if *redfishCredFilePath != "" {
+		config.SetRedfishCredFilePath(*redfishCredFilePath)
+	}
+
 	config.LogConfigs()
 
 	components.InitPowerImpl()
+	platform.InitPowerImpl()
 
 	collector_metric.InitAvailableParamAndMetrics()
 
