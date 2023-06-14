@@ -34,13 +34,13 @@ DEBUG_DEPLOY|patch KEPLER_LOG_LEVEL for debugging|
     -  kubectl v1.21+
     -  make
     -  go
- -  manifest sources and outputs will be in  `_output/generated-manifests` by default
+ -  manifest sources and outputs will be in  `_output/generated-manifest` by default
 ## Installing Kepler on Kubernetes
 
 Deploy kustomized manifest
 
  ```bash
- kubectl create -f _output/generated-manifests/deployment.yaml
+ kubectl create -f _output/generated-manifest/deployment.yaml
  ```
 
 # Kepler on OpenShift
@@ -58,7 +58,7 @@ Kepler requires the nodes to support cgroup-v2 and kernel-devel extensions. In O
 # NOTE: The manifest must be built with CLUSTER_PREREQ_DEPLOY option
 # If it is not built with BM_DEPLOY, the cgroupv2 installation will be also applied.
 # WARNING: THIS WILL TRIGGER A ROLLING UPGRADE/REBOOT OF THE NODES
-kubectl apply -k _output/generated-manifests/cluster-prereqs
+kubectl apply -k _output/generated-manifest/cluster-prereqs
 ```
 
 - Wait for this step to be completed before trying to install and configure Kepler. You may track the progress with `kubectl get mcp` and `kubectl get nodes`.
@@ -82,7 +82,7 @@ kubectl label node worker1 sustainable-computing.io/kepler=''
 ```bash
 # NOTE: The manifest must be built with OPENSHIFT_DEPLOY option
 # These manifest take care of creating the namespace, SCC and Kepler exporter
-kubectl create -f _output/generated-manifests/deployment.yaml
+kubectl create -f _output/generated-manifest/deployment.yaml
 
 # Note: During the initialization of `kepler-exporter` Pods or after rebooting the nodes, 
 # it could take a while for the metrics to be stable.
