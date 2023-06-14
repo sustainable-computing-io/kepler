@@ -149,7 +149,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 			if err != nil {
 				klog.Infof("failed to attach perf module with options %v: %v, from kernel source %q\n", options, err, dir)
 			} else {
-				klog.Infof("Successfully load eBPF module with option: %s from kernel source %q", options, dir)
+				klog.Infof("Successfully loaded eBPF module with options: %v from kernel source %q", options, dir)
 				break
 			}
 		}
