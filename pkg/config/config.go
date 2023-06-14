@@ -152,7 +152,16 @@ func getConfig(configKey, defaultValue string) (result string) {
 }
 
 // SetKernelSourceDir sets the directory for all kernel source. This is used for bcc. Only the top level directory is needed.
-func SetKernelSourceDir(dir string) {
+func SetKernelSourceDir(dir string) error {
+
+fileInfo, err := os.Stat(path)
+if err != nil {
+  return err
+}
+
+if !fileInfo.IsDir() {
+   return fmt.Errorf("expected  kernel root path %s to be a directory", dir)
+}
 	// read all the kernel source directories
 	if dir != "" {
 		// list all the directories under `dir` and store in kernelSourceDir
