@@ -152,7 +152,9 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
-	config.SetKernelSourceDir(*kernelSourceDirPath)
+	if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
+		klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+	}
 
 	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
 	// but the user can enable it if the kernel has backported this functionality.

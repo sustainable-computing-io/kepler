@@ -88,7 +88,7 @@ var (
 	configPath = "/etc/kepler/kepler.config"
 
 	// dir of kernel sources for bcc
-	kernelSourceDir = []string{}
+	kernelSourceDirs = []string{}
 
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
@@ -153,35 +153,30 @@ func getConfig(configKey, defaultValue string) (result string) {
 
 // SetKernelSourceDir sets the directory for all kernel source. This is used for bcc. Only the top level directory is needed.
 func SetKernelSourceDir(dir string) error {
+	fileInfo, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
 
-fileInfo, err := os.Stat(path)
-if err != nil {
-  return err
-}
-
-if !fileInfo.IsDir() {
-   return fmt.Errorf("expected  kernel root path %s to be a directory", dir)
-}
-	// read all the kernel source directories
-	if dir != "" {
-		// list all the directories under `dir` and store in kernelSourceDir
-		klog.V(4).Infoln("kernel source dir is set to", dir)
-		files, err := os.ReadDir(dir)
-		if err != nil {
-			klog.Warning("failed to read kernel source dir", err)
-		}
-		kernelVers := fmt.Sprintf("%v", getKernelVersion(c))
-		for _, file := range files {
-			// only store directories and the directory name should contain the kernel version
-			if strings.Contains(file.Name(), kernelVers) && file.IsDir() {
-				kernelSourceDir = append(kernelSourceDir, filepath.Join(dir, file.Name()))
-			}
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("expected  kernel root path %s to be a directory", dir)
+	}
+	// list all the directories under dir and store in kernelSourceDir
+	klog.Infoln("kernel source dir is set to", dir)
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		klog.Warning("failed to read kernel source dir", err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			kernelSourceDirs = append(kernelSourceDirs, filepath.Join(dir, file.Name()))
 		}
 	}
+	return nil
 }
 
-func GetKernelSourceDir() []string {
-	return kernelSourceDir
+func GetKernelSourceDirs() []string {
+	return kernelSourceDirs
 }
 
 func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
