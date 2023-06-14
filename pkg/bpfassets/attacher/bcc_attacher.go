@@ -143,7 +143,7 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 		klog.Infof("failed to attach perf module with options %v: %v, from default kernel source.\n", options, err)
 		dirs := config.GetKernelSourceDir()
 		for _, dir := range dirs {
-			klog.Infof("try to load eBPF module with kernel source dir %s\n", dir)
+			klog.Infof("trying to load eBPF module with kernel source dir %s", dir)
 			os.Setenv("BCC_KERNEL_SOURCE", dir)
 			m, err = loadModule(objProg, options)
 			if err != nil {
