@@ -32,9 +32,13 @@ endif
 
 ifdef CTR_CMD
 	CTR_CMD := $(CTR_CMD)
-else 
+else
 	CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 endif
+
+# use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
+# E.g. --tls-verify=false for local develop when using podman
+CTR_CMD_PUSH_OPTIONS ?=
 
 
 ifeq ($(DEBUG),true)
@@ -121,7 +125,7 @@ build_containerized: genbpfassets tidy-vendor format
 .PHONY: build_containerized
 
 push-image:
-	$(CTR_CMD) push $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
+	$(CTR_CMD) push $(CTR_CMD_PUSH_OPTIONS) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
 .PHONY: push-image
 
 clean-cross-build:
