@@ -32,4 +32,10 @@ ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-serv
 
 ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json /var/lib/kepler/data/KerasCompWeightFullPipeline.json
 
+# pre install kernel sources
+RUN mkdir -p /usr/share/kepler/kernel_sources
+
+COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi8 /usr/src/kernels /usr/share/kepler/kernel_sources
+COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi9 /usr/src/kernels /usr/share/kepler/kernel_sources
+
 ENTRYPOINT ["/usr/bin/kepler"]

@@ -21,6 +21,7 @@ package attacher
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"strconv"
 
@@ -139,8 +140,23 @@ func AttachBPFAssets() (*BpfModuleTables, error) {
 	// TODO: verify if ebpf can run in the VM without hardware counter support, if not, we can disable the HC part and only collect the cpu time
 	m, err := loadModule(objProg, options)
 	if err != nil {
+		klog.Infof("failed to attach perf module with options %v: %v, from default kernel source.\n", options, err)
+		dirs := config.GetKernelSourceDirs()
+		for _, dir := range dirs {
+			klog.Infof("trying to load eBPF module with kernel source dir %s", dir)
+			os.Setenv("BCC_KERNEL_SOURCE", dir)
+			m, err = loadModule(objProg, options)
+			if err != nil {
+				klog.Infof("failed to attach perf module with options %v: %v, from kernel source %q\n", options, err, dir)
+			} else {
+				klog.Infof("Successfully loaded eBPF module with options: %v from kernel source %q", options, dir)
+				break
+			}
+		}
+	}
+	if err != nil {
 		klog.Infof("failed to attach perf module with options %v: %v, not able to load eBPF modules\n", options, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to attach perf module with options %v: %v, not able to load eBPF modules", options, err)
 	}
 
 	tableId := m.TableId(tableProcessName)
