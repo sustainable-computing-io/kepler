@@ -19,12 +19,30 @@ package collector
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+
+	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 )
 
+// this function is only called with the watcher delayed to sync and update the container info or if the watcher is not enabled
 func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroupID, pid uint64, withCGroupID bool) {
 	if _, ok := c.ContainersMetrics[containerID]; !ok {
-		info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
-		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
+		// We feel the info with generic values because the watcher will eventually update it.
+		podName := c.systemProcessName
+		containerName := c.systemProcessName
+		namespace := c.systemProcessNamespace
+
+		// In case the pod watcher is not enabled, we need to retrieve the information about the
+		// pod and container from the kubelet API. However, we prefer to use the watcher approach
+		// as accessing the kubelet API might be restricted in certain systems.
+		// Additionally, the code that fetches the information from the kubelet API utilizes cache
+		// for performance reasons. Therefore, if the kubelet API delay the information of the
+		// containerID (which occasionally occurs), the container will be wrongly identified for its entire lifetime.
+		if !kubernetes.IsWatcherEnabled {
+			info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
+		}
+		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(
+			podName, containerName, namespace, containerID)
 	}
 }
 

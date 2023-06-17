@@ -99,6 +99,9 @@ func isCounterStatEnabled(label string) bool {
 }
 
 func getNodeName() string {
+	if nodeName := os.Getenv("NODE_NAME"); nodeName != "" {
+		return nodeName
+	}
 	nodeName, err := os.Hostname()
 	if err != nil {
 		klog.Fatalf("could not get the node name: %s", err)

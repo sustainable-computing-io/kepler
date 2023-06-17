@@ -6,8 +6,9 @@ rules:
 - apiGroups: [""]
   resources:
   - nodes/metrics # access /metrics/resource
-  - nodes/proxy # access /pods
-  - nodes/stats # access /pods
+  - nodes/proxy
+  - nodes/stats
+  - pods
   verbs:
   - 'get'
   - 'watch'

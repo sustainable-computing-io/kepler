@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 )
 
 const (
@@ -34,6 +35,9 @@ type CollectorManager struct {
 
 	// PrometheusCollector implements the external Collector interface provided by the Prometheus client
 	PrometheusCollector *collector.PrometheusCollector
+
+	// Watcher register in the kubernetes apiserver to watch for pod events to add or remove it from the ContainersMetrics map
+	Watcher *kubernetes.ObjListWatcher
 }
 
 func New() *CollectorManager {
@@ -45,6 +49,11 @@ func New() *CollectorManager {
 	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
 	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
 	manager.PrometheusCollector.SamplePeriodSec = SamplePeriodSec
+	// configure the wather
+	manager.Watcher = kubernetes.NewObjListWatcher()
+	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
+	manager.Watcher.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
+	manager.Watcher.Run()
 	return manager
 }
 
