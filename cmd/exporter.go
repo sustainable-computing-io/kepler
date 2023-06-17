@@ -62,6 +62,7 @@ var (
 	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", true, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
+	kernelSourceDirPath          = flag.String("kernel-source-dir", "", "path to the kernel source directory")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -155,6 +156,9 @@ func main() {
 	config.EnabledMSR = *enabledMSR
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
+	if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
+		klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+	}
 
 	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
 	// but the user can enable it if the kernel has backported this functionality.

@@ -61,7 +61,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL)
+        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources
         ports:
         - containerPort: 9102
           name: http

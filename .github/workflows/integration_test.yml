@@ -16,7 +16,7 @@ jobs:
           go-version: 1.18
 
       - name: use kepler action for kind cluster build
-        uses: sustainable-computing-io/kepler-action@main
+        uses: sustainable-computing-io/kepler-action@v0.0.0
         with:
           runningBranch: kind
 

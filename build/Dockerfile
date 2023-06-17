@@ -1,4 +1,4 @@
-FROM quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.26-go1.18 as builder
 
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
@@ -21,7 +21,7 @@ RUN ls ./_output/bin
 # RUN make test
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:cuda-12.1.0-base-ubi8-bcc-0.24
+FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26
 
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 
@@ -31,5 +31,11 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json /var/lib/kepler/data/ScikitMixed.json
 
 ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json /var/lib/kepler/data/KerasCompWeightFullPipeline.json
+
+# pre install kernel sources
+RUN mkdir -p /usr/share/kepler/kernel_sources
+
+COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi8 /usr/src/kernels /usr/share/kepler/kernel_sources
+COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi9 /usr/src/kernels /usr/share/kepler/kernel_sources
 
 ENTRYPOINT ["/usr/bin/kepler"]
