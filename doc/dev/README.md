@@ -21,7 +21,7 @@ following [this enhancements propsal](../../enhancements/CICDv1.md) and
 
 ## Deploying kepler in the cluster
 ```bash
-export CLUSTER_PROVIDER=`kind`
+export CLUSTER_PROVIDER='kind'
 IMAGE_REPO="localhost:5001" IMAGE_TAG="devel" make cluster-sync
 ```
 
