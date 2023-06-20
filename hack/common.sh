@@ -60,6 +60,6 @@ s390x*)
 esac
 
 # the cluster kind is a kubernetes cluster
-if [ ${CLUSTER_PROVIDER} = "kind" ]; then
+if [[ ${CLUSTER_PROVIDER} = "kind" ]]; then
     CLUSTER_PROVIDER="kubernetes"
 fi

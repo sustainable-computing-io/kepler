@@ -128,7 +128,7 @@ func getX86Architecture() (string, error) {
 	defer pipe.Close()
 
 	grep.Stdin = pipe
-	err = output.Start()
+	err = output.Run()
 	if err != nil {
 		return "", err
 	}
