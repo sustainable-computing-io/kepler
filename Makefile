@@ -238,7 +238,7 @@ golint:
 		golangci-lint run --verbose
 
 genbpfassets:
-	GO111MODULE=off go get -d github.com/go-bindata/go-bindata/...
+	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/...
 	./hack/bindata.sh
 .PHONY: genbpfassets
 
