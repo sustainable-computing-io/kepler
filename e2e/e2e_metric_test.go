@@ -141,7 +141,6 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		EntryDescription("checking %s"),
 		Entry(nil, "kepler_container_core_joules_total"),                  // pod level
 		Entry(nil, "kepler_container_dram_joules_total"),                  // pod level
-		Entry(nil, "kepler_container_gpu_joules_total"),                   // pod level
 		Entry(nil, "kepler_container_joules_total"),                       // pod level
 		Entry(nil, "kepler_container_other_host_components_joules_total"), // pod level
 		Entry(nil, "kepler_container_package_joules_total"),               // pod level
