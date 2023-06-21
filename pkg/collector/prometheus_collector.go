@@ -278,7 +278,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (p *PrometheusCollector) newNodeMetrics() {
 	nodeInfo := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "nodeInfo"),
+		prometheus.BuildFQName(namespace, "node", "info"),
 		"Labeled node information",
 		[]string{"cpu_architecture"}, nil,
 	)
