@@ -17,4 +17,5 @@
 | Brad McCoy | Basiq | bradmccoydev | bradmccoydev@gmail.com |
 | Sunyanan Choochotkaew | IBM |  sunya-ch | sunyanan.choochotkaew1@ibm.com | 
 | Ruomeng Hao | Intel | ruomengh | ruomengh@intel.com | 
-Chen Wang | IBM | wangchen615 | chen.wang1@ibm.com |
+| Chen Wang | IBM | wangchen615 | chen.wang1@ibm.com |
+
