@@ -34,17 +34,11 @@ var (
 	ContainerTotalPowerModelValid, ContainerComponentPowerModelValid bool
 	ContainerTotalPowerModelFunc                                     func([][]float64, []string) ([]float64, error)
 	ContainerComponentPowerModelFunc                                 func([][]float64, []string) (map[string][]float64, error)
-
-	// cgroupOnly
-	defaultDynCompURL = "/var/lib/kepler/data/ScikitMixed.json"
 )
 
 // initContainerComponentPowerModelConfig: the container component power model must be set by default.
 func initContainerComponentPowerModelConfig() types.ModelConfig {
 	modelConfig := InitModelConfig(config.ContainerComponentsKey)
-	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelURL = defaultDynCompURL
-	}
 	return modelConfig
 }
 
