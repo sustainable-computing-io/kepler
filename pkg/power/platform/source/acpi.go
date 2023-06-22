@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package acpi
+package source
 
 import (
 	"fmt"
@@ -24,9 +24,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/klog/v2"
 )
 
@@ -42,37 +42,27 @@ const (
 )
 
 var (
-	numCPUS   int32 = int32(runtime.NumCPU())
-	powerPath       = hwmonPowerPath
+	numCPUS int32 = int32(runtime.NumCPU())
 )
 
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
 // information available to the operating system via hwmon in sysfs.
 type ACPI struct {
-	// systemEnergy is the system accumulated energy consumption in Joule
-	systemEnergy     map[string]float64 /*sensorID:value*/
-	collectEnergy    bool
-	cpuCoreFrequency map[int32]uint64 /*cpuID:value*/
-	stopChannel      chan bool
-
-	mu sync.Mutex
+	collectEnergy bool
+	powerPath     string
 }
 
 func NewACPIPowerMeter() *ACPI {
-	acpi := &ACPI{
-		systemEnergy:     map[string]float64{},
-		cpuCoreFrequency: map[int32]uint64{},
-		stopChannel:      make(chan bool),
-	}
-	if acpi.IsPowerSupported() {
+	acpi := &ACPI{powerPath: hwmonPowerPath}
+	if acpi.IsHWMONCollectionSupported() {
 		acpi.collectEnergy = true
-		klog.V(5).Infof("Using the HWMON power meter path: %s\n", powerPath)
+		klog.V(5).Infof("Using the HWMON power meter path: %s\n", acpi.powerPath)
 	} else {
 		// if the acpi power_average file is not in the hwmon path, try to find the acpi path
-		powerPath = findACPIPowerPath()
-		if powerPath != "" {
+		acpi.powerPath = findACPIPowerPath()
+		if acpi.powerPath != "" {
 			acpi.collectEnergy = true
-			klog.V(5).Infof("Using the ACPI power meter path: %s\n", powerPath)
+			klog.V(5).Infof("Using the ACPI power meter path: %s\n", acpi.powerPath)
 		} else {
 			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
 		}
@@ -81,6 +71,7 @@ func NewACPIPowerMeter() *ACPI {
 }
 
 func findACPIPowerPath() string {
+	var powerPath string
 	err := filepath.WalkDir(acpiPowerPath, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -105,67 +96,10 @@ func findACPIPowerPath() string {
 	return powerPath
 }
 
-func (a *ACPI) Run(isEBPFEnabled bool) {
-	go func() {
-		for {
-			select {
-			case <-a.stopChannel:
-				return
-			default:
-				// in the case we cannot collect the cpu frequency using EBPF
-				if !isEBPFEnabled {
-					cpuCoreFrequency := getCPUCoreFrequency()
-					a.mu.Lock()
-					for cpu, freq := range cpuCoreFrequency {
-						// average cpu frequency
-						a.cpuCoreFrequency[cpu] = (cpuCoreFrequency[cpu] + freq) / 2
-					}
-					a.mu.Unlock()
-				}
-
-				if a.collectEnergy {
-					if sensorPower, err := getPowerFromSensor(); err == nil {
-						a.mu.Lock()
-						for sensorID, power := range sensorPower {
-							// energy (mJ) is equal to miliwatts*time(second)
-							a.systemEnergy[sensorID] += power * float64(poolingInterval/time.Second)
-						}
-						a.mu.Unlock()
-					} else {
-						// There is a kernel bug that does not allow us to collect metrics in /sys/devices/LNXSYSTM:00/device:00/ACPI000D:00/power1_average
-						// More info is here: https://www.suse.com/support/kb/doc/?id=000017865
-						// Therefore, when we cannot read the powerPath, we stop the collection.
-						klog.Infof("Disabling the ACPI power meter collection. This might be related to a kernel bug.\n")
-						a.collectEnergy = false
-					}
-				}
-
-				// stop the gorotime if there is nothing to do
-				if (isEBPFEnabled) && (!a.collectEnergy) {
-					return
-				}
-
-				time.Sleep(poolingInterval)
-			}
-		}
-	}()
-}
-
-func (a *ACPI) Stop() {
-	close(a.stopChannel)
+func (a *ACPI) StopPower() {
 }
 
 func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	shallowClone := make(map[int32]uint64)
-	for k, v := range a.cpuCoreFrequency {
-		shallowClone[k] = v
-	}
-	return shallowClone
-}
-
-func getCPUCoreFrequency() map[int32]uint64 {
 	files, err := os.ReadDir(freqPathDir)
 	cpuCoreFrequency := map[int32]uint64{}
 	if err != nil {
@@ -203,31 +137,23 @@ func getCPUCoreFrequency() map[int32]uint64 {
 	return cpuCoreFrequency
 }
 
-func (a *ACPI) IsPowerSupported() bool {
+func (a *ACPI) IsSystemCollectionSupported() bool {
+	return a.collectEnergy
+}
+
+func (a *ACPI) IsHWMONCollectionSupported() bool {
 	// we do not use fmt.Sprintf because it is expensive in the performance standpoint
-	file := powerPath + acpiPowerFilePrefix + "1" + acpiPowerFileSuffix
+	file := a.powerPath + acpiPowerFilePrefix + "1" + acpiPowerFileSuffix
 	_, err := os.ReadFile(file)
 	return err == nil
 }
 
-// GetEnergyFromHost returns the accumulated energy consumption and reset the counter
-func (a *ACPI) GetEnergyFromHost() (map[string]float64, error) {
-	power := map[string]float64{}
-	a.mu.Lock()
-	// reset counter when readed to prevent overflow
-	for sensorID := range a.systemEnergy {
-		power[sensorID] = a.systemEnergy[sensorID]
-		a.systemEnergy[sensorID] = 0
-	}
-	a.mu.Unlock()
-	return power, nil
-}
-
-func getPowerFromSensor() (map[string]float64, error) {
+// GetEnergyFromHost returns the accumulated energy consumption
+func (a *ACPI) GetEnergyFromPlatform() (map[string]float64, error) {
 	power := map[string]float64{}
 
 	for i := int32(1); i <= numCPUS; i++ {
-		path := powerPath + acpiPowerFilePrefix + strconv.Itoa(int(i)) + acpiPowerFileSuffix
+		path := a.powerPath + acpiPowerFilePrefix + strconv.Itoa(int(i)) + acpiPowerFileSuffix
 		data, err := os.ReadFile(path)
 		if err != nil {
 			break
@@ -235,7 +161,9 @@ func getPowerFromSensor() (map[string]float64, error) {
 		// currPower is in microWatt
 		currPower, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err == nil {
-			power[sensorIDPrefix+strconv.Itoa(int(i))] = float64(currPower) / 1000 /*miliWatts*/
+			// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
+			// necessary to calculate the energy consumption for the entire waiting period
+			power[sensorIDPrefix+strconv.Itoa(int(i))] = float64(currPower) / 1000 * config.SamplePeriodSec /*miliJoules*/
 		} else {
 			return power, err
 		}

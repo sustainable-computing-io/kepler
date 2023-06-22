@@ -24,7 +24,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
-	"github.com/sustainable-computing-io/kepler/pkg/power/acpi"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -41,8 +40,6 @@ const (
 type Collector struct {
 	// instance that collects the bpf metrics
 	bpfHCMeter *attacher.BpfModuleTables
-	// instance that collects the node energy consumption
-	acpiPowerMeter *acpi.ACPI
 
 	// NodeMetrics holds all node energy and resource usage metrics
 	NodeMetrics collector_metric.NodeMetrics
@@ -60,7 +57,6 @@ type Collector struct {
 
 func NewCollector() *Collector {
 	c := &Collector{
-		acpiPowerMeter:         acpi.NewACPIPowerMeter(),
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
 		ProcessMetrics:         map[uint64]*collector_metric.ProcessMetrics{},
@@ -85,7 +81,6 @@ func (c *Collector) Initialize() error {
 
 	c.prePopulateContainerMetrics(pods)
 	c.updateNodeEnergyMetrics()
-	c.acpiPowerMeter.Run(attacher.HardwareCountersEnabled)
 
 	return nil
 }

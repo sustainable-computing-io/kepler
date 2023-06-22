@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2022.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,30 +18,15 @@ package source
 
 type PowerHMC struct{}
 
-func (r *PowerHMC) IsSystemCollectionSupported() bool {
+func (a *PowerHMC) StopPower() {
+}
+
+func (a *PowerHMC) IsSystemCollectionSupported() bool {
 	return false
 }
 
-func (r *PowerHMC) StopPower() {
-}
-
-func (r *PowerHMC) GetEnergyFromDram() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerHMC) GetEnergyFromCore() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerHMC) GetEnergyFromUncore() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerHMC) GetEnergyFromPackage() (uint64, error) {
-	return 0, nil
-}
-
-func (r *PowerHMC) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
-	packageEnergies := make(map[int]NodeComponentsEnergy)
-	return packageEnergies
+// GetEnergyFromHost returns the accumulated energy consumption
+func (a *PowerHMC) GetEnergyFromPlatform() (map[string]float64, error) {
+	power := map[string]float64{}
+	return power, nil
 }

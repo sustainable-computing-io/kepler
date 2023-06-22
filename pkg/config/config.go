@@ -53,6 +53,9 @@ const (
 	defaultModelRequestPath = "/model"
 	// MaxIRQ is the maximum number of IRQs to be monitored
 	MaxIRQ = 10
+
+	// SamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
+	SamplePeriodSec = 3
 )
 
 var (
