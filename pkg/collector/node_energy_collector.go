@@ -25,6 +25,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 
 	"k8s.io/klog/v2"
 )
@@ -39,8 +40,8 @@ func (c *Collector) updateNodeResourceUsage() {
 // updateMeasuredNodeEnergy updates the node platfomr power consumption, i.e, the node total power consumption
 func (c *Collector) updatePlatformEnergy(wg *sync.WaitGroup) {
 	defer wg.Done()
-	if c.acpiPowerMeter.IsPowerSupported() {
-		nodePlatformEnergy, _ := c.acpiPowerMeter.GetEnergyFromHost()
+	if platform.IsSystemCollectionSupported() {
+		nodePlatformEnergy, _ := platform.GetEnergyFromPlatform()
 		c.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
 	} else if model.IsNodePlatformPowerModelEnabled() {
 		nodePlatformEnergy := model.GetEstimatedNodePlatformPower(&c.NodeMetrics)
@@ -89,7 +90,6 @@ func (c *Collector) updateNodeAvgCPUFrequency(wg *sync.WaitGroup) {
 		c.NodeMetrics.CPUFrequency = cpuFreq
 		return
 	}
-	c.NodeMetrics.CPUFrequency = c.acpiPowerMeter.GetCPUCoreFrequency()
 }
 
 // updateNodeEnergyMetrics updates the node energy consumption of each component
