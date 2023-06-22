@@ -117,7 +117,7 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_node_core_joules_total"),                  // node level check by instance
 		Entry(nil, "kepler_node_dram_joules_total"),                  // node level check by instance
 		Entry(nil, "kepler_node_energy_stat"),                        // node level missing instance label but node_name
-		Entry(nil, "kepler_node_nodeInfo"),                           // node level missing labels
+		Entry(nil, "kepler_node_info"),                               // node level missing labels
 		Entry(nil, "kepler_node_other_host_components_joules_total"), // node level check by instance
 		Entry(nil, "kepler_node_package_energy_millijoule"),          // node level missing instance label
 		Entry(nil, "kepler_node_package_joules_total"),               // node levelcheck by instance
