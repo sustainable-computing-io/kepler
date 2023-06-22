@@ -1,0 +1,18 @@
+name: Documentation Issue
+description: Provide supporting details for documentation issue
+labels: kind/documentation
+body:
+  - type: textarea
+    id: document
+    attributes:
+      label: Which document would you like to be mentioned?
+      description: Place the link to the document if application
+    validations:
+      required: true
+
+  - type: textarea
+    id: documentFixDetail
+    attributes:
+      label: Why is this needed?
+    validations:
+      required: true
