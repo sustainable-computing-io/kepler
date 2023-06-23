@@ -99,11 +99,11 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 		for _, ioEntry := range stat.Blkio.IoServiceBytesRecursive {
 			if ioEntry.Op == "Read" {
 				cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
+				cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 			}
 			if ioEntry.Op == "Write" {
 				cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Value)
 			}
-			cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
 		}
 	}
 	return nil
