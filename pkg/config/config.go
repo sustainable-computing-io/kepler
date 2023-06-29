@@ -116,6 +116,8 @@ var (
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
 	KubeConfig      = ""
 	EnableAPIServer = false
+
+	DefaultDynCompURL = "/var/lib/kepler/data/ScikitMixed.json"
 )
 
 func logBoolConfigs() {

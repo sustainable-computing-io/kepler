@@ -31,7 +31,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
@@ -158,7 +157,7 @@ func (r *LinearRegressor) Init() bool {
 		weight, err = r.getWeightFromServer()
 		klog.V(3).Infof("LR Model (%s): getWeightFromServer: %v", outputStr, weight)
 	}
-	if weight == nil && r.InitModelURL != "" {
+	if weight == nil {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURLorLocal()
 		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v", outputStr, r.InitModelURL, weight)
@@ -232,13 +231,12 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
 	var body []byte
 	var err error
 
-	if strings.HasPrefix(r.InitModelURL, "/") {
-		body, err = r.loadWeightFromLocal()
-	} else {
-		body, err = r.loadWeightFromURL()
-	}
+	body, err = r.loadWeightFromURL()
 	if err != nil {
-		return nil, err
+		body, err = r.loadWeightFromLocal()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if types.IsComponentType(r.OutputType) {
@@ -260,7 +258,7 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
 
 // loadWeightFromLocal tries loading weights from local file given by r.InitModelURL
 func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
-	data, err := os.ReadFile(r.InitModelURL)
+	data, err := os.ReadFile(config.DefaultDynCompURL)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +267,9 @@ func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
 
 // loadWeightFromURL tries loading weights from initial model URL
 func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
+	if r.InitModelURL == "" {
+		return nil, fmt.Errorf("InitModelURL is empty")
+	}
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, r.InitModelURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("connection error: %s (%v)", r.InitModelURL, err)
