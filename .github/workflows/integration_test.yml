@@ -40,7 +40,7 @@ jobs:
           docker ps -a
           mkdir -p /tmp/.kube
           kind get kubeconfig --name=kind > /tmp/.kube/config
-          kubectl port-forward --address localhost $(kubectl -n kepler get pods -o name) 9102:9102 -n kepler -v7 &
+          while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
           kubectl logs -n kepler daemonset/kepler-exporter
           kubectl get pods -n kepler -o yaml
           go test ./e2e/... --tags bcc -v --race --bench=. -cover --count=1 --vet=all
