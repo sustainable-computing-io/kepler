@@ -156,8 +156,10 @@ func main() {
 	config.EnabledMSR = *enabledMSR
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
-	if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
-		klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+	if *kernelSourceDirPath != "" {
+		if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
+			klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+		}
 	}
 
 	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
