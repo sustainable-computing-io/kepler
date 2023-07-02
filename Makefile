@@ -267,5 +267,9 @@ cluster-up:
 	./hack/cluster-up.sh
 .PHONY: cluster-up
 
+integration-test:
+	./hack/verify.sh test
+.PHONY: integration-test
+
 check: tidy-vendor set_govulncheck govulncheck format golint test
 .PHONY: check
