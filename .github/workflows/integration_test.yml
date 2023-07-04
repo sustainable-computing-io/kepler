@@ -2,6 +2,8 @@ name: Integration test
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   integration_test:

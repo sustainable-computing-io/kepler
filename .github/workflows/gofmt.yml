@@ -2,6 +2,8 @@ name: gofmt
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   gofmt_test:

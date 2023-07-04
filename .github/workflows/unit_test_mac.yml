@@ -2,6 +2,8 @@ name: Unit test Mac
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   unit_test_mac:

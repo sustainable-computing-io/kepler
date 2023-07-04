@@ -2,6 +2,8 @@ name: local env set up
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   integration_test:

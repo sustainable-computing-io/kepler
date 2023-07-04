@@ -2,6 +2,8 @@ name: go escapes detect
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   escapes_detect:
