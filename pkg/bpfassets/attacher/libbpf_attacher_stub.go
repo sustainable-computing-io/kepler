@@ -1,5 +1,5 @@
-//go:build !bcc
-// +build !bcc
+//go:build !libbpf
+// +build !libbpf
 
 /*
 Copyright 2021.
@@ -24,22 +24,22 @@ import (
 )
 
 const (
-	BccBuilt = false
+	LibbpfBuilt = false
 )
 
-func attachBccModule() (interface{}, error) {
-	return nil, fmt.Errorf("no bcc build tag")
+func attachLibbpfModule() (interface{}, error) {
+	return nil, fmt.Errorf("no libbpf build tag")
 }
 
-func detachBccModule() {
+func detachLibbpfModule() {
 }
 
-func bccCollectProcess() (processesData []ProcessBPFMetrics, err error) {
+func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	processesData = []ProcessBPFMetrics{}
 	return
 }
 
-func bccCollectFreq() (cpuFreqData map[int32]uint64, err error) {
+func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 	cpuFreqData = make(map[int32]uint64)
 	return
 }
