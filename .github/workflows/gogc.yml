@@ -3,7 +3,8 @@ name: go escapes detect
 on:
   pull_request:
     paths-ignore:
-      - 'docs/**'
+      - 'doc/**'
+      - 'enhancements/**'
 
 jobs:
   escapes_detect:

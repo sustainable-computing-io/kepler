@@ -3,11 +3,13 @@ name: Unit test
 on:
   pull_request:
     paths-ignore:
-      - 'docs/**'
+      - 'doc/**'
+      - 'enhancements/**'
   push:
     branches: [ main ]
     paths-ignore:
-      - 'docs/**'
+      - 'doc/**'
+      - 'enhancements/**'
 
 permissions:
   pull-requests: write

@@ -3,7 +3,8 @@ name: gofmt
 on:
   pull_request:
     paths-ignore:
-      - 'docs/**'
+      - 'doc/**'
+      - 'enhancements/**'
 
 jobs:
   gofmt_test:
