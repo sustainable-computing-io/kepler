@@ -1,0 +1,18 @@
+FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
+
+ARG ARCH=$(uname -m)
+
+# enable EPEL and install cpuid
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \ 
+    yum install -y cpuid
+
+# install less frequently updated pkg first
+RUN yum install -y kmod xz python3 && yum clean all -y
+
+# dependencies for libbpf
+RUN yum install -y clang llvm llvm-devel zlib-devel elfutils-libelf-devel make libbpf
+RUN curl -LO https://github.com/libbpf/libbpf/archive/refs/tags/v0.5.0.tar.gz; mkdir -p /usr/local; tar -C /usr/local -xvzf v0.5.0.tar.gz; rm -f v0.5.0.tar.gz; cd /usr/local/libbpf-0.5.0/src && OBJDIR=/usr/lib/$(uname -m)-linux-gnu make install
+
+# nvidia driver is updated on a (bi)monthly basis
+# RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
+
