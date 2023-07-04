@@ -107,6 +107,8 @@ cd dev/
 
 Then run the Kepler binary at `_output/bin/_/kepler`
 
+Kepler metrics are available under <host_ip>:8888/metrics by default
+
 ## Build kepler and base multi-arch images
 ```bash
 ./hack/build-images.sh help
