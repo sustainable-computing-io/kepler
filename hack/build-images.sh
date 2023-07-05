@@ -9,6 +9,7 @@ script_dir=$(dirname "$(readlink -f "$0")")
 registry="quay.io/sustainable_computing_io"
 
 supported_arches=("linux/amd64" "linux/s390x" "linux/arm64")
+supported_attacher=("bcc", "libbpf")
 
 function install_packages() {
 	sudo apt install -y qemu-user-static binfmt-support build-essential
@@ -71,20 +72,26 @@ function build_image_base() {
 
 	tag=$(date +%Y%m%d%H%M%s)
 
-	for arch in ${supported_arches[@]}; do
-		setup_env_for_arch "${arch}"
+	for attacher in ${supported_attacher[@]}; do 
+		for arch in ${supported_arches[@]}; do
+			if [ -e  ./build/Dockerfile.${attacher}.base.${kernel_arch} ];
+			then
+				setup_env_for_arch "${arch}"
 
-		echo "Building ${image} image for ${arch}"
-		docker buildx build \
-			-f ./build/Dockerfile.base.${kernel_arch} \
-			-t "${registry}/${image}:${kernel_arch}-${tag}" \
-			--platform="${arch}" \
-			--load \
-			.
-		docker tag "${registry}/${image}:${kernel_arch}-${tag}" "${registry}/${image}:latest-${kernel_arch}"
-		docker push "${registry}/${image}:${kernel_arch}-${tag}"
-		docker push "${registry}/${image}:latest-${kernel_arch}"
+				echo "Building ${image} image for ${arch}"
+				docker buildx build \
+					-f ./build/Dockerfile.${attacher}.base.${kernel_arch} \
+					-t "${registry}/${image}:${kernel_arch}-${attacher}-${tag}" \
+					--platform="${arch}" \
+					--load \
+					.
+				docker tag "${registry}/${image}:${kernel_arch}-${attacher}-${tag}" "${registry}/${image}:latest-${kernel_arch}-${attacher}"
+				docker push "${registry}/${image}:${kernel_arch}-${attacher}-${tag}"
+				docker push "${registry}/${image}:latest-${kernel_arch}-${attacher}"
+			fi
+		done
 	done
+
 	popd
 
 	create_image_manifest_base
@@ -93,9 +100,10 @@ function build_image_base() {
 function create_image_manifest_base () {
 	docker manifest create \
 		${registry}/${image}:latest \
-		${registry}/${image}:latest-amd64 \
-		${registry}/${image}:latest-s390x \
-		${registry}/${image}:latest-arm64
+		${registry}/${image}:latest-amd64-bcc \
+		${registry}/${image}:latest-s390x-bcc \
+		${registry}/${image}:latest-arm64-bcc \
+		${registry}/${image}:latest-amd64-libbpf
 
 	docker manifest push ${registry}/${image}:latest
 }

@@ -1,9 +1,9 @@
 FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 
-ARG ARCH=amd64
+ARG ARCH=$(uname -m)
 
 # enable EPEL and install cpuid
-RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \ 
     yum install -y cpuid
 
 # install less frequently updated pkg first
@@ -15,4 +15,3 @@ RUN yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os
 
 # nvidia driver is updated on a (bi)monthly basis
 # RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
-

@@ -1,4 +1,4 @@
-FROM docker.io/nvidia/cuda:12.1.0-base-ubi8
+FROM --platform=linux/arm64 docker.io/nvidia/cuda:12.1.0-base-ubi8
 
 ARG ARCH=aarch64
 
