@@ -2,8 +2,14 @@ name: Unit test
 
 on:
   pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
 
 permissions:
   pull-requests: write

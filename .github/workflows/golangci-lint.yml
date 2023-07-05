@@ -1,6 +1,9 @@
 name: golangci-lint
 on:
   pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
 
 permissions:
   contents: read

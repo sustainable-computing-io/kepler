@@ -2,6 +2,9 @@ name: local env set up
 
 on:
   pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
 
 jobs:
   integration_test:

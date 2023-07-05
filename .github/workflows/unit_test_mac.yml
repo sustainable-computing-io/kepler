@@ -2,6 +2,9 @@ name: Unit test Mac
 
 on:
   pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
 
 jobs:
   unit_test_mac:

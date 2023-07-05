@@ -3,6 +3,9 @@ name: image
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
 
 jobs:
   image_build:
