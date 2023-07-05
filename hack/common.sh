@@ -32,7 +32,6 @@ CLUSTER_NAME=${KIND_CLUSTER_NAME:-kind}
 REGISTRY_NAME=${REGISTRY_NAME:-kind-registry}
 REGISTRY_PORT=${REGISTRY_PORT:-5001}
 KIND_DEFAULT_NETWORK="kind"
-MICROSHIFT_CONTAINER_NAME="microshift"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001}
 ESTIMATOR_REPO=${ESTIMATOR_REPO:-quay.io/sustainable_computing_io}
@@ -65,40 +64,7 @@ if [[ ${CLUSTER_PROVIDER} = "kind" ]]; then
     CLUSTER_PROVIDER="kubernetes"
 fi
 
-function get_pods() {
-     kubectl get pods --all-namespaces --no-headers
-}
-
 function wait_containers_ready {
      echo "waiting for all containers to become ready ..."
      kubectl wait --for=condition=Ready pod --all --all-namespaces --timeout 5m
 }
-
-function stop_microshift_container() {
-    $CTR_CMD stop "${MICROSHIFT_CONTAINER_NAME}"
-}
-
-function wait_microshift_up {
-    # wait till container is in running state
-    while [ "$(${CTR_CMD} inspect -f '{{.State.Status}}' "${MICROSHIFT_CONTAINER_NAME}")" != "running" ]; do
-        echo "waiting for container ${MICROSHIFT_CONTAINER_NAME} to start..."
-        sleep 5
-    done
-    echo "container ${MICROSHIFT_CONTAINER_NAME} is now running!"
-
-    echo "waiting for cluster to be ready ..."
-
-    while [ -z "$($CTR_CMD exec --privileged "${MICROSHIFT_CONTAINER_NAME}" \
-        kubectl --kubeconfig=/var/lib/microshift/resources/kubeadmin/kubeconfig \
-        get nodes -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
-        echo "waiting for microshift cluster to be ready ..."
-        sleep 5
-    done
-
-    while [ -n "$(get_pods | grep -v Running)" ]; do
-        echo "waiting for all pods to enter the Running state ..."
-        get_pods | >&2 grep -v Running || true
-        sleep 5
-    done
-     wait_containers_ready
- }

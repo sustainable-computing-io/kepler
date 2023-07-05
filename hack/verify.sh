@@ -27,10 +27,7 @@ CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
 function check_deployment_status() {
-    # round for 3 times and each for 60s
-    # check if the rollout status is running
     deploy_status=1
-    echo "check deployment status for round $i"
     kubectl rollout status daemonset kepler-exporter -n kepler --timeout 5m
     #check rollout status
     if [ $? -eq 0 ]
@@ -61,7 +58,7 @@ function intergration_test() {
     else
         kind get kubeconfig --name=kind > /tmp/.kube/config
     fi
-    kubectl port-forward --address localhost $(kubectl -n kepler get pods -o name) 9102:9102 -n kepler -v7 &
+    while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
     kubectl logs -n kepler daemonset/kepler-exporter
     kubectl get pods -n kepler -o yaml
     go test ./e2e/... --tags bcc -v --race --bench=. -cover --count=1 --vet=all

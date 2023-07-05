@@ -20,7 +20,7 @@ if [ -d local-dev-cluster ]
 then
 	echo "use local local-dev-cluster"
 else
-    echo "download local-dev-cluster with latest version"
-	git clone https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
+    echo "download local-dev-cluster with version v0.0.0"
+	git clone -b v0.0.0 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
 fi
-cd local-dev-cluster && ./main.sh up
+cd local-dev-cluster && ./main.sh

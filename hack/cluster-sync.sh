@@ -27,29 +27,23 @@ export IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}
 
 # we do not use `make cluster-clean` and `make cluster-deploy` because they trigger other actions
 function main() {
+    if [ "$CI_ONLY" = true ]
+    then
+        make build-manifest OPTS="CI_DEPLOY"
+    else
+        make build-manifest
+    fi
     
     ./hack/cluster-clean.sh &
     CLEAN_PID=$!
+
+    make build_containerized
+    make push-image
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then
         echo "cluster-clean failed"
     fi
-
-    if [ "$CI_ONLY" == "true" ]
-    then
-        if [ "$CLUSTER_PROVIDER" == "microshift" ]
-        then
-            make build-manifest OPTS="CI_DEPLOY OPENSHIFT_DEPLOY" && $CTR_CMD stop microshift
-        else
-            make build-manifest OPTS="CI_DEPLOY"
-        fi
-    else
-        make build-manifest
-    fi
-
-    make build_containerized
-    make push-image
 
     ./hack/cluster-deploy.sh
 }
