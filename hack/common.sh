@@ -63,3 +63,8 @@ esac
 if [[ ${CLUSTER_PROVIDER} = "kind" ]]; then
     CLUSTER_PROVIDER="kubernetes"
 fi
+
+function wait_containers_ready {
+     echo "waiting for all containers to become ready ..."
+     kubectl wait --for=condition=Ready pod --all --all-namespaces --timeout 5m
+}

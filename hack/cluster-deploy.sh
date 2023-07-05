@@ -27,36 +27,19 @@ MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 function main() {
     [ ! -d "${MANIFESTS_OUT_DIR}" ] && echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
     
+    if [ "$CLUSTER_PROVIDER" == "microshift" ]
+    then
+        sed "s/localhost:5001/registry:5000/g" ${MANIFESTS_OUT_DIR}/deployment.yaml > ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp && \
+            mv ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp ${MANIFESTS_OUT_DIR}/deployment.yaml
+    fi
     echo "Deploying manifests..."
-
     # Ignore errors because some clusters might not have prometheus operator
     echo "Deploying with image:"
     cat ${MANIFESTS_OUT_DIR}/deployment.yaml | grep "image:"
-
     kubectl apply -f ${MANIFESTS_OUT_DIR} || true
     
-    # round for 3 times and each for 60s
-    # check if the rollout status is running
-    deploy_status=1
-    for i in 1 2 3
-    do
-        echo "check deployment status for round $i"
-        kubectl rollout status daemonset kepler-exporter -n kepler --timeout 60s
-        #check rollout status
-        if [ $? -eq 0 ]
-        then
-            deploy_status=0
-            break
-        fi
-    done 
-    # if deployment in error
-    if test $[deploy_status] -eq 1
-    then
-        echo "Check the status of the kepler-exporter"
-        kubectl -n kepler describe daemonset.apps/kepler-exporter
-        echo "Check the logs of the kepler-exporter"
-        kubectl -n kepler logs daemonset.apps/kepler-exporter
-    fi
+    # verify kepler deployment on cluster
+    ./hack/verify.sh kepler
 }
 
 main "$@"

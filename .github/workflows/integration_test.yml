@@ -6,46 +6,94 @@ on:
       - 'doc/**'
       - 'enhancements/**'
 
+env:
+  GO_VERSION: "1.18"
+  OUTPUT_DIR: "_output/"
+  FILE_NAME: "kepler.tar.gz"
+
 jobs:
+  build-kepler:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v3
+
+      - name: install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GO_VERSION}}
+
+      - name: build manifest
+        run: make build-manifest OPTS="CI_DEPLOY"
+
+      - name: build and export Kepler image
+        run: |
+          make build_containerized
+          make save-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+
+      - name: save Kepler image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kepler
+          path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+
   integration_test:
+    needs: [build-kepler]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        kube_provider: [kind]
+        cluster_provider: [kind,microshift]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 1.18
+      - name: checkout source
+        uses: actions/checkout@v3
 
-      - name: use kepler action for kind cluster build
+      - name: download Kepler image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: kepler
+
+      - name: build manifest
+        run: make build-manifest OPTS="CI_DEPLOY"
+
+      - name: import Kepler image
+        run: make load-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+          INPUT_PATH: ${{env.FILE_NAME}}
+
+      - name: use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.0
         with:
-          runningBranch: kind
+          runningBranch: ${{matrix.cluster_provider}}
+          local_dev_cluster_version: main
+          cluster_provider: ${{matrix.cluster_provider}}
 
-      - name: simple test - deploy kepler
-        run: make cluster-sync
+      - name: push Kepler image to load registry
+        run: |
+          make push-image
+          make image-prune
         env:
-            CLUSTER_PROVIDER: ${{matrix.kube_provider}}
-            IMAGE_REPO: "localhost:5001"
-            IMAGE_TAG: "devel"
-            CTR_CMD: docker
-            CI_ONLY: "true"
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
 
-      - name: test if kepler is still alive
-        run: |
-          sleep 60
-          kubectl logs $(kubectl -n kepler get pods -o name) -n kepler
-          kubectl get all -n kepler
-      
-      - name: run integration_test
-        run: |
-          docker ps -a
-          mkdir -p /tmp/.kube
-          kind get kubeconfig --name=kind > /tmp/.kube/config
-          while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
-          kubectl logs -n kepler daemonset/kepler-exporter
-          kubectl get pods -n kepler -o yaml
-          go test ./e2e/... --tags bcc -v --race --bench=. -cover --count=1 --vet=all
+      - name: deploy Kepler on cluster
+        run: make cluster-deploy
         env:
-            kepler_address: localhost:9102
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+
+      - name: run e2e tests
+        run: make e2e
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          kepler_address: localhost:9102
