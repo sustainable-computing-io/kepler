@@ -39,7 +39,7 @@ or
 if runtime.GOOS == "linux" {
 ```
 
-## Testing
+## Testing
 
 ### CI Tests
 The Kepler CI tests perform the following checks:
