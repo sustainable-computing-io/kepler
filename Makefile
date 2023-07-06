@@ -126,8 +126,11 @@ ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
 
 ifndef GOPATH
-  GOPATH := $(HOME)/go
-  GOBIN := $(GOPATH)/bin
+	GOPATH := $(HOME)/go
+endif
+
+ifndef GOBIN
+	GOBIN := $(GOPATH)/bin
 endif
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
