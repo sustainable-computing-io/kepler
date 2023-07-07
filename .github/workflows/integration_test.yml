@@ -41,6 +41,9 @@ jobs:
         with:
           name: kepler
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+          retention-days: 1
+          # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
+          # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
 
   integration_test:
     needs: [build-kepler]
