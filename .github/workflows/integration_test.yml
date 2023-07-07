@@ -69,10 +69,9 @@ jobs:
           INPUT_PATH: ${{env.FILE_NAME}}
 
       - name: use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.0
+        uses: sustainable-computing-io/kepler-action@v0.0.1
         with:
           runningBranch: ${{matrix.cluster_provider}}
-          local_dev_cluster_version: main
           cluster_provider: ${{matrix.cluster_provider}}
 
       - name: push Kepler image to load registry
