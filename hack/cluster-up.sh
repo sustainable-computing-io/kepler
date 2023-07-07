@@ -16,11 +16,21 @@
 #
 # Copyright 2022 The Kepler Contributors
 #
-if [ -d local-dev-cluster ]
-then
-	echo "use local local-dev-cluster"
-else
-    echo "download local-dev-cluster with version v0.0.0"
-	git clone -b v0.0.0 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
-fi
-cd local-dev-cluster && ./main.sh
+set -e
+# Supported CLUSTER_PROVIDER are kind,microshift
+export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
+
+function main() {
+	if [ -d local-dev-cluster ]
+	then
+		echo "using local local-dev-cluster"
+	else
+		echo "downloading local-dev-cluster"
+		git clone -b v0.0.1 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
+	fi
+
+	echo "deploying ${CLUSTER_PROVIDER} cluster"
+	cd local-dev-cluster && ./main.sh up
+}
+
+main "$@"
