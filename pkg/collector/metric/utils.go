@@ -114,9 +114,17 @@ func getCPUArch() string {
 	if err == nil {
 		return arch
 	}
+	klog.Errorf("getCPUArch failure: %s", err)
 	return "unknown"
 }
 
+// getX86Architecture() uses "cpuid" tool to detect the current X86 CPU architecture.
+// Take Intel Xeon 4th Gen Scalable Processor(Codename: Sapphire Rapids) as example:
+// $ cpuid -1 |grep uarch
+//
+//	(uarch synth) = Intel Sapphire Rapids {Golden Cove}, Intel 7
+//
+// In this example, the expected return string should be: "Intel Sapphire Rapids".
 func getX86Architecture() (string, error) {
 	// use cpuid to get CPUArchitecture
 	grep := exec.Command("grep", "uarch")
@@ -128,22 +136,28 @@ func getX86Architecture() (string, error) {
 	defer pipe.Close()
 
 	grep.Stdin = pipe
-	err = output.Run()
+	err = output.Start()
 	if err != nil {
+		klog.Errorf("cpuid command start failure: %s", err)
 		return "", err
 	}
 	res, err := grep.Output()
 	if err != nil {
+		klog.Errorf("grep cpuid command output failure: %s", err)
 		return "", err
 	}
 
 	// format the CPUArchitecture result
 	uarch := strings.Split(string(res), "=")
 	if len(uarch) != 2 {
-		return "", fmt.Errorf("could not get the CPU Architecture")
+		return "", fmt.Errorf("cpuid grep output is unexpected")
 	}
 
-	return strings.Split(uarch[1], "{")[0], nil
+	if err = output.Wait(); err != nil {
+		klog.Errorf("cpuid command is not properly completed: %s", err)
+	}
+
+	return strings.Split(uarch[1], "{")[0], err
 }
 
 func getArm64Architecture() (string, error) {
@@ -167,20 +181,26 @@ func getS390xArchitecture() (string, error) {
 	grep.Stdin = pipe
 	err = output.Start()
 	if err != nil {
+		klog.Errorf("lscpu command start failure: %s", err)
 		return "", err
 	}
 	res, err := grep.Output()
 	if err != nil {
+		klog.Errorf("grep lscpu command output failure: %s", err)
 		return "", err
 	}
 
 	// format the CPUArchitecture result
 	uarch := strings.Split(string(res), ":")
 	if len(uarch) != 2 {
-		return "", fmt.Errorf("could not get the CPU Architecture")
+		return "", fmt.Errorf("lscpu grep output is unexpected")
 	}
 
-	return fmt.Sprintf("zSystems model %s", strings.TrimSpace(uarch[1])), nil
+	if err = output.Wait(); err != nil {
+		klog.Errorf("lscpu command is not properly completed: %s", err)
+	}
+
+	return fmt.Sprintf("zSystems model %s", strings.TrimSpace(uarch[1])), err
 }
 
 func getCPUArchitecture() (string, error) {
