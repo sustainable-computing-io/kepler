@@ -103,7 +103,9 @@ func UpdateContainerEnergyByTrainedPowerModel(containersMetrics map[string]*coll
 	if totalPowerValid {
 		for index, componentPower := range containerComponentPowers {
 			// TODO: include GPU into consideration
-			containerOtherPowers[index] = uint64(totalContainerPowers[index]) - componentPower.Pkg - componentPower.DRAM
+			if uint64(totalContainerPowers[index]) > (componentPower.Pkg + componentPower.DRAM) {
+				containerOtherPowers[index] = uint64(totalContainerPowers[index]) - componentPower.Pkg - componentPower.DRAM
+			}
 		}
 	}
 
