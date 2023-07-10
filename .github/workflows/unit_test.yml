@@ -5,11 +5,13 @@ on:
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
   push:
     branches: [ main ]
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
 
 permissions:
   pull-requests: write

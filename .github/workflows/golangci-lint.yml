@@ -4,6 +4,7 @@ on:
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
 
 permissions:
   contents: read

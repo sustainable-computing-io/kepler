@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
 
 jobs:
   image_build:

@@ -5,6 +5,7 @@ on:
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
 
 env:
   GO_VERSION: "1.18"

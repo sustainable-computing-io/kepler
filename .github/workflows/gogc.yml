@@ -5,6 +5,7 @@ on:
     paths-ignore:
       - 'doc/**'
       - 'enhancements/**'
+      - '*.md'
 
 jobs:
   escapes_detect:
