@@ -37,6 +37,7 @@ var (
 	powerImpl   powerInterface
 	redfishImpl *source.RedFishClient
 	hmcImpl     = &source.PowerHMC{}
+	powerSource = "none"
 )
 
 func InitPowerImpl() {
@@ -45,13 +46,20 @@ func InitPowerImpl() {
 	if runtime.GOARCH == "s390x" {
 		klog.V(1).Infoln("use hmc to obtain power")
 		powerImpl = hmcImpl
+		powerSource = "hmc"
 	} else if redfishImpl = source.NewRedfishClient(); redfishImpl != nil && redfishImpl.IsSystemCollectionSupported() {
 		klog.V(1).Infoln("use redfish to obtain power")
 		powerImpl = redfishImpl
+		powerSource = "redfish"
 	} else {
 		klog.V(1).Infoln("use acpi to obtain power")
 		powerImpl = source.NewACPIPowerMeter()
+		powerSource = "acpi"
 	}
+}
+
+func GetPowerSource() string {
+	return powerSource
 }
 
 func GetEnergyFromPlatform() (map[string]float64, error) {

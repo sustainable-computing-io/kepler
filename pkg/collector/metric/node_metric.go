@@ -306,12 +306,12 @@ func (ne *NodeMetrics) SetNodeOtherComponentsEnergy() {
 	dynCPUComponentsEnergy := ne.DynEnergyInPkg.SumAllDeltaValues() +
 		ne.DynEnergyInDRAM.SumAllDeltaValues() +
 		ne.DynEnergyInGPU.SumAllDeltaValues()
-	// other component can be either platform
 	dynPlatformEnergy := ne.DynEnergyInPlatform.SumAllDeltaValues()
 	if dynPlatformEnergy > dynCPUComponentsEnergy {
 		otherComponentEnergy := dynPlatformEnergy - dynCPUComponentsEnergy
 		ne.DynEnergyInOther.SetDeltaStat(OTHER, otherComponentEnergy)
 	}
+
 	idleCPUComponentsEnergy := ne.IdleEnergyInPkg.SumAllDeltaValues() +
 		ne.IdleEnergyInDRAM.SumAllDeltaValues() +
 		ne.IdleEnergyInGPU.SumAllDeltaValues()
