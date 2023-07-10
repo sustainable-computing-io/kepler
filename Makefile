@@ -1,3 +1,5 @@
+all: kepler
+
 include bpfassets/libbpf/Makefile
 
 ### env define ###
