@@ -238,8 +238,17 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
     return 0;
 }
 
+struct trace_event_raw_softirq_entry {
+        unsigned short common_type;
+        unsigned char common_flags;
+        unsigned char common_preempt_count;
+        int common_pid;
+        unsigned int vec;
+};
+
 // per https://www.kernel.org/doc/html/latest/core-api/tracepoint.html#c.trace_softirq_entry
-TRACEPOINT_PROBE(irq, softirq_entry)
+// TRACEPOINT_PROBE(irq, softirq_entry)
+int tracepoint__irq__softirq_entry(struct trace_event_raw_softirq_entry *args)
 {
     u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
     struct process_metrics_t *process_metrics;
