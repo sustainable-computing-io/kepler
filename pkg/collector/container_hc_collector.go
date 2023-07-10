@@ -19,6 +19,7 @@ package collector
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
 
 	"unsafe"
 
@@ -160,7 +161,7 @@ func (c *Collector) updateBPFMetrics() {
 				keysToDelete = append(keysToDelete, key)
 			} else {
 				err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
-				if err != nil {
+				if err != nil && !os.IsNotExist(err) {
 					klog.Infof("could not delete bpf table elements, err: %v", err)
 				}
 			}
