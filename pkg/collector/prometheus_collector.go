@@ -26,6 +26,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
 const (
@@ -647,20 +648,20 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			idlePower,
 			collector_metric.NodeName, "idle",
 		)
-
+		powerSource := platform.GetPowerSource()
 		dynPower = (float64(p.NodeMetrics.GetSumAggrDynEnergyFromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodePlatformJoulesTotal,
 			prometheus.CounterValue,
 			dynPower,
-			collector_metric.NodeName, "acpi", "dynamic",
+			collector_metric.NodeName, powerSource, "dynamic",
 		)
 		idlePower = (float64(p.NodeMetrics.GetSumAggrIdleEnergyromAllSources(collector_metric.PLATFORM)) / miliJouleToJoule)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodePlatformJoulesTotal,
 			prometheus.CounterValue,
 			idlePower,
-			collector_metric.NodeName, "acpi", "idle",
+			collector_metric.NodeName, powerSource, "idle",
 		)
 
 		if config.EnabledGPU {
