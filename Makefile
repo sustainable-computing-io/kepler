@@ -128,8 +128,11 @@ ENVTEST_ASSETS_DIR=./test-bin
 export PATH := $(PATH):./test-bin
 
 ifndef GOPATH
-  GOPATH := $(HOME)/go
-  GOBIN := $(GOPATH)/bin
+	GOPATH := $(HOME)/go
+endif
+
+ifndef GOBIN
+	GOBIN := $(GOPATH)/bin
 endif
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
@@ -265,7 +268,7 @@ tidy-vendor:
 
 ginkgo-set:
 	mkdir -p $(GOBIN)
-	mkdir -p ${ENVTEST_ASSETS_DIR}
+	mkdir -p $(ENVTEST_ASSETS_DIR)
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
 	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
