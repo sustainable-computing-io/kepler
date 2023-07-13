@@ -42,7 +42,6 @@ const (
 var (
 	regexReplaceContainerIDPrefix = regexp.MustCompile(`.*//`)
 	IsWatcherEnabled              = false
-	managedPods                   = make(map[string]bool)
 )
 
 type ObjListWatcher struct {
@@ -71,7 +70,7 @@ func newK8sClient() *kubernetes.Clientset {
 		klog.Infoln("Using out cluster k8s config: ", config.KubeConfig)
 	}
 	if err != nil {
-		klog.Infoln("%v", err)
+		klog.Infof("%v", err)
 		return nil
 	}
 	// creates the clientset
@@ -143,13 +142,6 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			klog.Infof("Could not convert obj: %v", w.ResourceKind)
 			return
 		}
-		podID := string(pod.GetUID())
-		// Pod object can have many updates such as change in the annotations and labels.
-		// We only add the pod information when all containers are ready, then when the
-		// pod is in our managed list we can skip the informantion update.
-		if _, exist := managedPods[podID]; exist {
-			return
-		}
 		for _, condition := range pod.Status.Conditions {
 			klog.V(5).Infof("Pod %s %s status %s %s", pod.Name, pod.Namespace, condition.Type, condition.Status)
 			if condition.Type == k8sv1.ContainersReady {
@@ -161,10 +153,6 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 				err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
 				w.Mx.Unlock()
 				klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
-				// only add pod to cache if all containers successfully added to map
-				if err1 == nil && err2 == nil && err3 == nil {
-					managedPods[podID] = true
-				}
 			}
 		}
 
@@ -202,7 +190,6 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 		if !ok {
 			klog.Fatalf("Could not convert obj: %v", w.ResourceKind)
 		}
-		delete(managedPods, string(pod.GetUID()))
 		w.Mx.Lock()
 		w.deleteInfo(pod.Status.ContainerStatuses)
 		w.deleteInfo(pod.Status.InitContainerStatuses)
