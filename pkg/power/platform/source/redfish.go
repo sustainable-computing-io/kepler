@@ -213,7 +213,7 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 
 	intervalInMin := 0
 	// iterate each "Members" in the system and get the power info
-	for _, member := range system.Members {
+	for index, member := range system.Members {
 		// split the OdataID by delimiter "/" and get the system ID
 		split := strings.Split(member.OdataID, "/")
 		if len(split) < 2 {
@@ -223,10 +223,14 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 		res := RedfishSystemPowerResult{}
 		power, err := getRedfishPower(rf.accessInfo, id)
 		if err == nil && len(power.PowerControl) > 0 {
-			res.system = id
-			res.consumedWatts = power.PowerControl[0].PowerConsumedWatts
-			res.timestamp = time.Now()
-			rf.systems = append(rf.systems, &res)
+			if index < len(rf.systems) {
+				rf.systems[index].consumedWatts = power.PowerControl[0].PowerConsumedWatts
+			} else {
+				res.system = id
+				res.consumedWatts = power.PowerControl[0].PowerConsumedWatts
+				res.timestamp = time.Now()
+				rf.systems = append(rf.systems, &res)
+			}
 			klog.V(5).Infof("power info: %+v\n", power)
 			if power.PowerControl[0].PowerMetrics.IntervalInMin > intervalInMin {
 				intervalInMin = power.PowerControl[0].PowerMetrics.IntervalInMin
