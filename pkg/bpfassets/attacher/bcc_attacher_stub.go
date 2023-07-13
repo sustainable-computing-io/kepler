@@ -23,23 +23,86 @@ import (
 	"fmt"
 )
 
-const (
-	BccBuilt = false
+type perfCounter struct{}
+
+type ModuleStub struct{}
+
+// Table references a BPF table.
+type Table struct {
+}
+
+// TableIterator contains the current position for iteration over a *bcc.Table and provides methods for iteration.
+type TableIterator struct {
+	leaf []byte
+	key  []byte
+}
+
+// Iter returns an iterator to list all table entries available as raw bytes.
+func (table *Table) Iter() *TableIterator {
+	return &TableIterator{}
+}
+
+// Next looks up the next element and return true if one is available.
+func (it *TableIterator) Next() bool {
+	return false
+}
+
+// Key returns the current key value of the iterator, if the most recent call to Next returned true.
+// The slice is valid only until the next call to Next.
+func (it *TableIterator) Key() []byte {
+	return it.key
+}
+
+// Leaf returns the current leaf value of the iterator, if the most recent call to Next returned true.
+// The slice is valid only until the next call to Next.
+func (it *TableIterator) Leaf() []byte {
+	return it.leaf
+}
+
+// ID returns the table id.
+func (table *Table) ID() string {
+	return ""
+}
+
+// Delete a key.
+func (table *Table) Delete(key []byte) error {
+	return nil
+}
+
+func (table *Table) DeleteAll() {
+}
+
+func TableDeleteBatch(module ModuleStub, tableName string, keys [][]byte) error {
+	return nil
+}
+
+func TableBatchGet(module ModuleStub, tableName string, leafSize uint32, deleteAfterGet bool) (keys, leaf [][]byte, err error) {
+	return
+}
+
+type BpfModuleTables struct {
+	Module       ModuleStub
+	Table        *Table
+	TableName    string
+	CPUFreqTable *Table
+}
+
+var (
+	Counters                = map[string]perfCounter{}
+	HardwareCountersEnabled = true
 )
 
-func attachBccModule() (interface{}, error) {
+func AttachBPFAssets() (*BpfModuleTables, error) {
 	return nil, fmt.Errorf("no bcc build tag")
 }
 
-func detachBccModule() {
+func DetachBPFModules(bpfModules *BpfModuleTables) {
 }
 
-func bccCollectProcess() (processesData []ProcessBPFMetrics, err error) {
-	processesData = []ProcessBPFMetrics{}
-	return
+func GetEnabledHWCounters() []string {
+	return []string{}
 }
 
-func bccCollectFreq() (cpuFreqData map[int32]uint64, err error) {
-	cpuFreqData = make(map[int32]uint64)
-	return
+func GetEnabledBPFCounters() []string {
+	return []string{}
 }
