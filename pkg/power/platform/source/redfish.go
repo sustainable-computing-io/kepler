@@ -241,7 +241,9 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 	}
 
 	// set a timer to check the power info every probeInterval seconds
-	rf.ticker = time.NewTicker(rf.probeInterval)
+	if rf.ticker == nil {
+		rf.ticker = time.NewTicker(rf.probeInterval)
+	}
 	go func() {
 		for {
 			<-rf.ticker.C
