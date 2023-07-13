@@ -270,7 +270,7 @@ func (rf *RedFishClient) GetEnergyFromPlatform() (map[string]float64, error) {
 			elapsed := now.Sub(system.timestamp).Seconds()
 			system.timestamp = time.Now()
 			klog.V(5).Infof("power info: %+v\n", system)
-			power[system.system] = float64(system.consumedWatts * 1000 * int(elapsed)) // convert to mW
+			power[system.system] = float64(system.consumedWatts*1000) * elapsed // convert to mW
 			rf.mutex.Unlock()
 		}
 		return power, nil
