@@ -87,6 +87,10 @@ func GetAvailableKubeletMetrics() []string {
 	return podLister.GetAvailableMetrics()
 }
 
+func CGroupIDToContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	return getContainerIDFromPath(cGroupID, pid, withCGroupID)
+}
+
 func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string

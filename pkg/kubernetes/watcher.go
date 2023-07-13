@@ -151,17 +151,20 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			return
 		}
 		for _, condition := range pod.Status.Conditions {
-			if condition.Type != k8sv1.ContainersReady && condition.Status != k8sv1.ConditionTrue {
-				continue
-			}
-			w.Mx.Lock()
-			err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
-			err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
-			err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
-			w.Mx.Unlock()
-			// only add pod to cache if all containers successfully added to map
-			if err1 == nil && err2 == nil && err3 == nil {
-				managedPods[podID] = true
+			klog.V(5).Infof("Pod %s %s status %s %s", pod.Name, pod.Namespace, condition.Type, condition.Status)
+			if condition.Type == k8sv1.ContainersReady {
+				klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
+					pod.Name, pod.Namespace, len(pod.Status.ContainerStatuses), len(pod.Status.InitContainerStatuses), len(pod.Status.EphemeralContainerStatuses))
+				w.Mx.Lock()
+				err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
+				err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
+				err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
+				w.Mx.Unlock()
+				klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
+				// only add pod to cache if all containers successfully added to map
+				if err1 == nil && err2 == nil && err3 == nil {
+					managedPods[podID] = true
+				}
 			}
 		}
 
@@ -184,6 +187,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 		if _, exist = (*w.ContainersMetrics)[containerID]; !exist {
 			(*w.ContainersMetrics)[containerID] = collector_metric.NewContainerMetrics(containers[j].Name, pod.Name, pod.Namespace, containerID)
 		}
+		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
 		(*w.ContainersMetrics)[containerID].ContainerName = containers[j].Name
 		(*w.ContainersMetrics)[containerID].PodName = pod.Name
 		(*w.ContainersMetrics)[containerID].Namespace = pod.Namespace
