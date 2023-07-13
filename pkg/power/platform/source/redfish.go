@@ -248,7 +248,6 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 					rf.mutex.Lock()
 					klog.V(5).Infof("power info: %+v\n", power)
 					system.consumedWatts = power.PowerControl[0].PowerConsumedWatts
-					system.timestamp = time.Now()
 					rf.mutex.Unlock()
 				} else {
 					klog.V(5).Infof("failed to get power info: %v\n", err)
