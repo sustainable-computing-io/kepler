@@ -38,6 +38,9 @@ const (
 )
 
 type Collector struct {
+	// instance that collects the bpf metrics
+	bpfHCMeter *attacher.BpfModuleTables
+
 	// NodeMetrics holds all node energy and resource usage metrics
 	NodeMetrics collector_metric.NodeMetrics
 
@@ -64,10 +67,11 @@ func NewCollector() *Collector {
 }
 
 func (c *Collector) Initialize() error {
-	_, err := attacher.Attach()
+	m, err := attacher.AttachBPFAssets()
 	if err != nil {
 		return fmt.Errorf("failed to attach bpf assets: %v", err)
 	}
+	c.bpfHCMeter = m
 
 	pods, err := cgroup.Init()
 	if err != nil && !config.EnableProcessMetrics {
@@ -82,7 +86,9 @@ func (c *Collector) Initialize() error {
 }
 
 func (c *Collector) Destroy() {
-	attacher.Detach()
+	if c.bpfHCMeter != nil {
+		attacher.DetachBPFModules(c.bpfHCMeter)
+	}
 }
 
 // Update updates the node and container energy and resource usage metrics
@@ -127,7 +133,7 @@ func (c *Collector) Update() {
 		}
 		klog.V(3).Infoln(c.NodeMetrics.String())
 	}
-	klog.V(5).Infof("Collector Update elapsed time: %s", time.Since(start))
+	klog.V(2).Infof("Collector Update elapsed time: %s", time.Since(start))
 }
 
 // resetDeltaValue reset existing podEnergy previous curr value
