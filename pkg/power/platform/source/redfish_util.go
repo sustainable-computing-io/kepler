@@ -33,7 +33,13 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 	host := access.Host
 
 	// Create a HTTP client and set up the basic authentication header
-	client := &http.Client{}
+	transport := &http.Transport{}
+	if config.GetRedfishSkipSSLVerify() {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	client := &http.Client{
+		Transport: transport,
+	}
 	url := host + endpoint
 	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
