@@ -214,6 +214,13 @@ func GetRedfishProbeIntervalInSeconds() int {
 	}
 	return probeInterval
 }
+func SetRedfishSkipSSLVerify(skipSSLVerify bool) {
+	redfishSkipSSLVerify = skipSSLVerify
+}
+
+func GetRedfishSkipSSLVerify() bool {
+	return redfishSkipSSLVerify
+}
 
 func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 	modelServerURL := getConfig("MODEL_SERVER_URL", modelServerService)
