@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{}) error {
