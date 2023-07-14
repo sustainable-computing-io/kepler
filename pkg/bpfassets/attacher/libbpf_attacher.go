@@ -180,7 +180,7 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 		if getErr != nil {
 			retry += 1
 			if retry > maxRetry {
-				klog.Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
+				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
 				next = iterator.Next()
 				retry = 0
 			}
@@ -188,7 +188,7 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 		}
 		getErr = binary.Read(bytes.NewBuffer(data), ByteOrder, &ct)
 		if getErr != nil {
-			klog.Infof("failed to decode received data: %v\n", getErr)
+			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
 			next = iterator.Next()
 			retry = 0
 			continue
@@ -227,7 +227,7 @@ func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 		if getErr != nil {
 			retry += 1
 			if retry > maxRetry {
-				klog.Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
+				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
 				next = iterator.Next()
 				retry = 0
 			}
@@ -235,7 +235,7 @@ func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 		}
 		getErr = binary.Read(bytes.NewBuffer(data), ByteOrder, &freq)
 		if getErr != nil {
-			klog.Infof("failed to decode received data: %v\n", getErr)
+			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
 			next = iterator.Next()
 			retry = 0
 			continue
