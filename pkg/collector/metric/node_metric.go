@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	NodeName            = getNodeName()
+	NodeName            = GetNodeName()
 	NodeCPUArchitecture = getCPUArch()
 	NodeCPUPackageMap   = getCPUPackageMap()
 

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+
 	"k8s.io/klog/v2"
 )
 
@@ -59,7 +61,7 @@ func (c csvNodeCred) IsSupported(info map[string]string) bool {
 	if filePath == "" {
 		return false
 	} else {
-		nodeName := getNodeName()
+		nodeName := metric_util.GetNodeName()
 		// read file from filePath
 		userName, password, host, err := readCSVFile(filePath, nodeName)
 		if err != nil {
@@ -73,14 +75,6 @@ func (c csvNodeCred) IsSupported(info map[string]string) bool {
 		credMap["redfish_host"] = host
 	}
 	return true
-}
-
-func getNodeName() string {
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		nodeName = "localhost"
-	}
-	return nodeName
 }
 
 func readCSVFile(filePath, nodeName string) (userName, password, host string, err error) {
