@@ -44,7 +44,7 @@ func TestRedFishClient_IsPowerSupported(t *testing.T) {
 			if err := json.NewEncoder(w).Encode(system); err != nil {
 				fmt.Println(err)
 			}
-		} else if r.URL.Path == "/redfish/v1/Chassis/1/Power#/PowerControl" || r.URL.Path == "/redfish/v1/Chassis/2/Power#/PowerControl" {
+		} else if r.URL.Path == "/redfish/v1/Chassis/1/Power" || r.URL.Path == "/redfish/v1/Chassis/2/Power" {
 			power := RedfishPowerModel{
 				Name: "Test Power",
 				PowerControl: []PowerControl{
