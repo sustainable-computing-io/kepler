@@ -96,7 +96,7 @@ var (
 	// redfish cred file path
 	redfishCredFilePath           string
 	redfishProbeIntervalInSeconds = getConfig("REDFISH_PROBE_INTERVAL_IN_SECONDS", "60")
-	redfishSkipSSLVerify          = getBoolConfig("REDFISH_SKIP_SSL_VERIFY", false)
+	redfishSkipSSLVerify          = getBoolConfig("REDFISH_SKIP_SSL_VERIFY", true)
 
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)

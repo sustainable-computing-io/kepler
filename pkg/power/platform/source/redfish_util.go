@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"k8s.io/klog/v2"
 )
 
 func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{}) error {
@@ -49,6 +51,15 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 	defer cancel()
 	req = req.WithContext(ctx)
 
+	// add additional header: 'OData-Version': '4.0'
+	req.Header.Add("OData-Version", "4.0")
+	// add accept header: 'application/json'
+	req.Header.Add("Accept", "application/json")
+	// set User-Agent header
+	req.Header.Set("User-Agent", "kepler")
+	// set keep-alive header
+	req.Header.Set("Connection", "keep-alive")
+	// set basic auth
 	req.SetBasicAuth(username, password)
 
 	// Send the request and check the response
@@ -63,19 +74,33 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 		return fmt.Errorf("server returned status: %v", resp.Status)
 	}
 
+	dec := json.NewDecoder(resp.Body)
+	dec.DisallowUnknownFields()
+
+	var returnErr error
 	// Decode the response body into the provided model struct
-	err = json.NewDecoder(resp.Body).Decode(model)
-	if err != nil {
-		return err
+	decErr := dec.Decode(model)
+
+	// process the error and only return significant ones
+	if decErr != nil {
+		if strings.HasPrefix(decErr.Error(), "json: unknown field ") {
+			// ignore unknown field error
+			fieldName := strings.TrimPrefix(decErr.Error(), "json: unknown field ")
+			klog.V(6).Infof("Request body contains unknown field %s", fieldName)
+		} else {
+			returnErr = decErr
+			klog.V(5).Infof("Failed to decode response: %v", decErr)
+		}
 	}
 
-	return nil
+	return returnErr
 }
 
 func getRedfishSystem(access RedfishAccessInfo) (*RedfishSystemModel, error) {
 	var system RedfishSystemModel
 	err := getRedfishModel(access, "/redfish/v1/Systems", &system)
 	if err != nil {
+		klog.V(1).Infof("Failed to get system: %v", err)
 		return nil, err
 	}
 
@@ -84,8 +109,9 @@ func getRedfishSystem(access RedfishAccessInfo) (*RedfishSystemModel, error) {
 
 func getRedfishPower(access RedfishAccessInfo, system string) (*RedfishPowerModel, error) {
 	var power RedfishPowerModel
-	err := getRedfishModel(access, "/redfish/v1/Chassis/"+system+"/Power%23/PowerControl", &power)
+	err := getRedfishModel(access, "/redfish/v1/Chassis/"+system+"/Power#/PowerControl", &power)
 	if err != nil {
+		klog.V(1).Infof("Failed to get power: %v", err)
 		return nil, err
 	}
 
