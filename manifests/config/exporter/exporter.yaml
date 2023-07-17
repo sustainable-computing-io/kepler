@@ -22,6 +22,8 @@ data:
   ENABLE_PROCESS_METRICS: "false"
   CPU_ARCH_OVERRIDE: ""
   CGROUP_METRICS: '*'
+  REDFISH_PROBE_INTERVAL_IN_SECONDS: "60"
+  REDFISH_SKIP_SSL_VERIFY: "true"
   MODEL_CONFIG: |
     CONTAINER_COMPONENTS_ESTIMATOR=false
     # by default we use buildin weight file
@@ -62,7 +64,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources
+        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources -redfish-cred-file-path=/etc/redfish/redfish.csv
         ports:
         - containerPort: 9102
           name: http
@@ -85,6 +87,9 @@ spec:
           name: proc
         - name: cfm
           mountPath: /etc/kepler/kepler.config
+          readOnly: true
+        - name: redfish
+          mountPath: /etc/redfish
           readOnly: true
         env:
         - name: NODE_IP
@@ -111,6 +116,9 @@ spec:
       - name: cfm
         configMap:
           name: kepler-cfm
+      - name: redfish
+        secret:
+          secretName: redfish
 ---
 kind: Service
 apiVersion: v1
