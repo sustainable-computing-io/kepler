@@ -19,6 +19,8 @@ package nodecred
 import (
 	"os"
 	"testing"
+
+	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
 func TestGetNodeCredByNodeName(t *testing.T) {
@@ -93,7 +95,7 @@ func TestIsSupported(t *testing.T) {
 	// set ENV variable NODE_NAME to "node1"
 	os.Setenv("NODE_NAME", "node1")
 	// check if getNodeName() returns "node1"
-	nodeName := getNodeName()
+	nodeName := metric_util.GetNodeName()
 	if nodeName != "node1" {
 		t.Errorf("Expected nodeName: node1, got: %v", nodeName)
 	}
