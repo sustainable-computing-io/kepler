@@ -1,5 +1,5 @@
-//go:build bcc
-// +build bcc
+//go:build bcc || libbpf
+// +build bcc libbpf
 
 /*
 Copyright 2022.

@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
+	github.com/aquasecurity/tracee/libbpfgo v0.0.0-20210518164823-94530727cde4
 	github.com/containerd/cgroups v1.1.0
 	github.com/containerd/cgroups/v3 v3.0.1
 	github.com/iovisor/gobpf v0.2.1-0.20221005153822-16120a1bf4d4

@@ -50,6 +50,12 @@ function check_deployment_status() {
 }
 
 function intergration_test() {
+    tags=$1
+    if [ "$tags" == "" ]
+    then
+        tags="bcc"
+    fi
+    echo TAGS=$tags
     $CTR_CMD ps -a
     mkdir -p /tmp/.kube
     if [ "$CLUSTER_PROVIDER" == "microshift" ]
@@ -61,7 +67,7 @@ function intergration_test() {
     while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
     kubectl logs -n kepler daemonset/kepler-exporter
     kubectl get pods -n kepler -o yaml
-    go test ./e2e/... --tags bcc -v --race --bench=. -cover --count=1 --vet=all
+    go test ./e2e/... --tags $tags -v --race --bench=. -cover --count=1 --vet=all
 }
 
 function main() {
@@ -71,7 +77,7 @@ function main() {
         check_deployment_status
         ;;
     test)
-        intergration_test
+        intergration_test $2
         ;;
     *)
         check_deployment_status

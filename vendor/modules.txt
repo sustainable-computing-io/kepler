@@ -11,6 +11,10 @@ github.com/PuerkitoBio/urlesc
 # github.com/StackExchange/wmi v1.2.1
 ## explicit; go 1.13
 github.com/StackExchange/wmi
+# github.com/aquasecurity/tracee/libbpfgo v0.0.0-20210518164823-94530727cde4
+## explicit; go 1.16
+github.com/aquasecurity/tracee/libbpfgo
+github.com/aquasecurity/tracee/libbpfgo/helpers
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile

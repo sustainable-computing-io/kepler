@@ -25,7 +25,7 @@ jobs:
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
 
-    - name: Build and push
+    - name: Build and push kepler latest
       uses: docker/build-push-action@v4
       with:
           context: .
@@ -34,3 +34,13 @@ jobs:
           tags: quay.io/sustainable_computing_io/kepler
           labels: latest
           file: build/Dockerfile
+
+    - name: Build and push kepler latest (libbpf)
+      uses: docker/build-push-action@v4
+      with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: quay.io/sustainable_computing_io/kepler
+          labels: latest-libbpf
+          file: build/Dockerfile.libbpf.kepler
