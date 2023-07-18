@@ -25,8 +25,8 @@ limitations under the License.
 #include "kepler.bpf.h"
 
 // processes and pid time
-BPF_HASH(processes, u64, process_metrics_t);
-BPF_HASH(pid_time, pid_time_t, u64);
+BPF_HASH(processes, u32, process_metrics_t);
+BPF_HASH(pid_time, u32, u64);
 
 // perf counters
 BPF_PERF_ARRAY(cpu_cycles_hc_reader, NUM_CPUS);
@@ -44,12 +44,12 @@ BPF_ARRAY(cache_miss, u64, NUM_CPUS);
 // cpu freq counters
 BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
 
-static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u32 cpu_id, u64 cur_ts)
+static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 {
     u64 cpu_time = 0;
 
     // get pid time
-    pid_time_t prev_pid_key = {.pid = prev_pid, .cpu = cpu_id};
+    pid_time_t prev_pid_key = {.pid = prev_pid};
     u64 *prev_ts;
     prev_ts = bpf_map_lookup_elem(&pid_time, &prev_pid_key);
     if (prev_ts)
@@ -63,7 +63,7 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u32 cpu_id, u64 cur
             bpf_map_delete_elem(&pid_time, &prev_pid_key);
         }
     }
-    pid_time_t new_pid_key = {.pid = cur_pid, .cpu = cpu_id};
+    pid_time_t new_pid_key = {.pid = cur_pid};
     bpf_map_update_elem(&pid_time, &new_pid_key, &cur_ts, BPF_NOEXIST);
 
     return cpu_time;
@@ -214,12 +214,12 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 SEC("tracepoint/sched/sched_switch")
 int kepler_trace(struct sched_switch_args *ctx)
 {
-    u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+    u32 cur_pid = bpf_get_current_pid_tgid();
     u64 cgroup_id = bpf_get_current_cgroup_id();
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
-    u64 prev_pid = ctx->prev_pid;
-    u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cpu_id, cur_ts);
+    u32 prev_pid = ctx->prev_pid;
+    u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cur_ts);
     u64 on_cpu_cycles_delta = get_on_cpu_cycles(&cpu_id);
     u64 on_cpu_ref_cycles_delta = get_on_cpu_ref_cycles(&cpu_id);
     u64 on_cpu_instr_delta = get_on_cpu_instr(&cpu_id);
@@ -254,7 +254,7 @@ int kepler_trace(struct sched_switch_args *ctx)
 SEC("tracepoint/irq/softirq_entry")
 int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
 {
-    u64 cur_pid = bpf_get_current_pid_tgid() >> 32;
+    u32 cur_pid = bpf_get_current_pid_tgid();
     struct process_metrics_t *process_metrics;
     process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
     if (process_metrics != 0)
