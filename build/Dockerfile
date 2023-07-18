@@ -1,3 +1,6 @@
+#
+# This Dockerfile is used for building the kepler default image: Dockerfile.bcc.kepler
+#
 FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.26-go1.18 as builder
 
 ARG BIN_TIMESTAMP

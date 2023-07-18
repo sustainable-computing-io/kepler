@@ -1,0 +1,112 @@
+name: Integration test
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
+      - '*.md'
+
+env:
+  GO_VERSION: "1.18"
+  OUTPUT_DIR: "_output/"
+  FILE_NAME: "kepler.tar.gz"
+
+jobs:
+  build-kepler:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v3
+
+      - name: install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GO_VERSION}}
+
+      - name: build manifest
+        run: make build-manifest OPTS="CI_DEPLOY"
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+
+      - name: build and export Kepler image
+        run: |
+          make build_containerized
+          make save-image
+        env:
+          ATTACHER_TAG: libbpf
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+
+      - name: save Kepler image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kepler
+          path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+          retention-days: 1
+          # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
+          # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
+
+  integration_test:
+    needs: [build-kepler]
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        cluster_provider: [kind,microshift]
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v3
+
+      - name: download Kepler image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: kepler
+
+      - name: build manifest
+        run: make build-manifest OPTS="CI_DEPLOY"
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+
+      - name: import Kepler image
+        run: make load-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+          INPUT_PATH: ${{env.FILE_NAME}}
+
+      - name: use Kepler action to deploy cluster
+        uses: sustainable-computing-io/kepler-action@v0.0.1
+        with:
+          runningBranch: ${{matrix.cluster_provider}}
+          cluster_provider: ${{matrix.cluster_provider}}
+
+      - name: push Kepler image to load registry
+        run: |
+          make push-image
+          make image-prune
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+
+      - name: deploy Kepler on cluster
+        run: make cluster-deploy
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "devel"
+          CTR_CMD: docker
+
+      - name: run e2e tests
+        run: make e2e
+        env:
+          ATTACHER_TAG: libbpf
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          kepler_address: localhost:9102

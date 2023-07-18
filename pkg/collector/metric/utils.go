@@ -98,7 +98,7 @@ func isCounterStatEnabled(label string) bool {
 	return false
 }
 
-func getNodeName() string {
+func GetNodeName() string {
 	if nodeName := os.Getenv("NODE_NAME"); nodeName != "" {
 		return nodeName
 	}

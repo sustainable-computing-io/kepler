@@ -70,7 +70,7 @@ func newK8sClient() *kubernetes.Clientset {
 		klog.Infoln("Using out cluster k8s config: ", config.KubeConfig)
 	}
 	if err != nil {
-		klog.Infof("%v", err)
+		klog.Infof("failed to get config: %v", err)
 		return nil
 	}
 	// creates the clientset
