@@ -40,9 +40,10 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 		if !kubernetes.IsWatcherEnabled {
 			info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
 			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
+		} else {
+			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(
+				podName, containerName, namespace, containerID)
 		}
-		c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(
-			podName, containerName, namespace, containerID)
 	}
 }
 
