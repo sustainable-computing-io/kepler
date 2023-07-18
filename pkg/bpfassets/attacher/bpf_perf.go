@@ -1,6 +1,3 @@
-//go:build bcc
-// +build bcc
-
 /*
 Copyright 2021.
 
@@ -26,162 +23,115 @@ package attacher
 
 import (
 	"encoding/binary"
-	"fmt"
-	"os"
-	"unsafe"
 
-	bpf "github.com/iovisor/gobpf/bcc"
-	"github.com/iovisor/gobpf/pkg/cpuonline"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"k8s.io/klog/v2"
 )
 
-/*
-#cgo CFLAGS: -I/usr/include/bcc/compat
-#cgo LDFLAGS: -lbcc
-#include <bcc/bcc_common.h>
-#include <bcc/libbpf.h>
-#include <string.h>
-*/
-import "C"
+type perfCounter struct {
+	EvType   int
+	EvConfig int
+	enabled  bool
+}
 
-var (
-	perfEvents = map[string][]int{}
-	byteOrder  binary.ByteOrder
+const (
+	TableProcessName = "processes"
+	TableCPUFreqName = "cpu_freq_array"
+	MapSize          = 10240
+	CPUNumSize       = 128
 )
 
+var (
+	Counters                = map[string]perfCounter{}
+	HardwareCountersEnabled = true
+	BpfPerfArrayPrefix      = "_hc_reader"
+
+	PerfEvents = map[string][]int{}
+	ByteOrder  binary.ByteOrder
+)
+
+// must be in sync with bpf program
+type ProcessBPFMetrics struct {
+	CGroupID       uint64
+	PID            uint64
+	ProcessRunTime uint64
+	CPUCycles      uint64
+	CPUInstr       uint64
+	CacheMisses    uint64
+	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
+	Command        [16]byte
+}
+
 func init() {
-	byteOrder = bpf.GetHostByteOrder()
+	ByteOrder = utils.DetermineHostByteOrder()
 }
 
-func openPerfEvent(table *bpf.Table, typ, config int) error {
-	perfKey := fmt.Sprintf("%d:%d", typ, config)
-	if _, ok := perfEvents[perfKey]; ok {
-		return nil
+func GetEnabledHWCounters() []string {
+	var metrics []string
+	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
+	if !config.ExposeHardwareCounterMetrics {
+		klog.V(5).Info("hardeware counter metrics not enabled")
+		return metrics
 	}
 
-	cpus, err := cpuonline.Get()
-	if err != nil {
-		return fmt.Errorf("failed to determine online cpus: %v", err)
-	}
-	keySize := table.Config()["key_size"].(uint64)
-	leafSize := table.Config()["leaf_size"].(uint64)
-
-	if keySize != 4 || leafSize != 4 {
-		return fmt.Errorf("passed table has wrong size: key_size=%d, leaf_size=%d", keySize, leafSize)
-	}
-
-	res := []int{}
-
-	for _, i := range cpus {
-		fd, err := C.bpf_open_perf_event(C.uint(typ), C.ulong(config), C.int(-1), C.int(i))
-		if fd < 0 {
-			return fmt.Errorf("failed to open bpf perf event: %v", err)
+	for metric, counter := range Counters {
+		if counter.enabled {
+			metrics = append(metrics, metric)
 		}
-		key := make([]byte, keySize)
-		leaf := make([]byte, leafSize)
-		byteOrder.PutUint32(key, uint32(i))
-		byteOrder.PutUint32(leaf, uint32(fd))
-		keyP := unsafe.Pointer(&key[0])
-		leafP := unsafe.Pointer(&leaf[0])
-		table.SetP(keyP, leafP)
-		res = append(res, int(fd))
 	}
-
-	perfEvents[perfKey] = res
-
-	return nil
+	return metrics
 }
 
-func closePerfEvent() {
-	for _, vs := range perfEvents {
-		for _, v := range vs {
-			C.bpf_close_perf_event_fd((C.int)(v))
-		}
+func GetEnabledBPFCounters() []string {
+	var metrics []string
+	metrics = append(metrics, config.CPUTime)
+
+	klog.V(5).Infof("irq counter metrics config %t", config.ExposeIRQCounterMetrics)
+	if !config.ExposeIRQCounterMetrics {
+		klog.V(5).Info("irq counter metrics not enabled")
+		return metrics
 	}
+	metrics = append(metrics, []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}...)
+	return metrics
 }
 
-func TableDeleteBatch(module *bpf.Module, tableName string, keys [][]byte) error {
-	// Allocate memory in C for the key pointers
-	cKeys := C.malloc(C.size_t(len(keys)) * C.size_t(unsafe.Sizeof(uintptr(0))))
-	defer C.free(cKeys)
-
-	// Copy the key pointers from Go to C
-	for i, key := range keys {
-		ptr := C.malloc(C.size_t(len(key)))
-		defer C.free(ptr)
-		C.memcpy(ptr, unsafe.Pointer(&key[0]), C.size_t(len(key)))
-		cKeyPtr := (**C.char)(unsafe.Pointer(uintptr(cKeys) + uintptr(i)*unsafe.Sizeof(uintptr(0))))
-		*cKeyPtr = (*C.char)(ptr)
+func CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
+	if config.UseLibBPFAttacher {
+		return libbpfCollectProcess()
 	}
-
-	id := uint64(module.TableId(tableName))
-	tableDesc := module.TableDesc(id)
-	fd := C.int(tableDesc["fd"].(int))
-	size := C.uint(len(keys))
-	cKeysPtr := unsafe.Pointer(cKeys)
-
-	_, err := C.bpf_delete_batch(fd, cKeysPtr, &size)
-	klog.V(6).Infof("batch delete table %v size %v err: %v\n", fd, len(keys), err)
-	// If the table is empty or keys are partially deleted, bpf_delete_batch will return errno ENOENT
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return bccCollectProcess()
 }
 
-// Batch get takes a key array and returns the value array or nil, and an 'ok' style indicator.
-func TableBatchGet(mod *bpf.Module, tableName string, leafSize uint32, deleteAfterGet bool) ([][]byte, [][]byte, error) {
-	id := uint64(mod.TableId(tableName))
-	tableDesc := mod.TableDesc(id)
-	tableId := tableDesc["fd"].(int)
-	fd := C.int(tableId)
-	// if setting entries to mapSize, lookup_batch will return -ENOENT and -1.
-	// So we set entries to mapSize / leafSize
-	entries := uint32(mapSize / leafSize)
-	entriesInt := C.uint(entries)
-	var (
-		key  [][]byte
-		leaf [][]byte
-	)
-
-	keySize := tableDesc["key_size"].(uint64)
-	nextKey := C.uint(0)
-	isEnd := false
-	for !isEnd {
-		keyArray := C.malloc(C.size_t(entries) * C.size_t(keySize))
-		defer C.free(keyArray)
-
-		leafArray := C.malloc(C.size_t(entries) * C.size_t(leafSize))
-		defer C.free(leafArray)
-
-		r, err := C.bpf_lookup_batch(fd, &nextKey, &nextKey, keyArray, leafArray, &(entriesInt))
-		klog.V(6).Infof("batch get table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
-		if err != nil {
-			// os.IsNotExist means we reached the end of the table
-			if os.IsNotExist(err) {
-				isEnd = true
-			} else {
-				// r !=0 and other errors are unexpected
-				if r != 0 {
-					return key, leaf, fmt.Errorf("failed to batch get: %v", err)
-				}
-			}
-		}
-		for i := 0; i < int(entriesInt); i++ {
-			k := C.GoBytes(unsafe.Pointer(uintptr(keyArray)+uintptr(i)*uintptr(keySize)), C.int(keySize))
-			v := C.GoBytes(unsafe.Pointer(uintptr(leafArray)+uintptr(i)*uintptr(leafSize)), C.int(leafSize))
-			key = append(key, k)
-			leaf = append(leaf, v)
-		}
-		if int(entriesInt) > 0 && deleteAfterGet {
-			r, err = C.bpf_delete_batch(fd, keyArray, &(entriesInt))
-			klog.V(6).Infof("batch delete table %v ret: %v. requested/returned: %v/%v, err: %v\n", fd, r, entries, entriesInt, err)
-			if r != 0 {
-				return key, leaf, fmt.Errorf("failed to batch delete: %v", err)
-			}
-		}
+func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
+	if config.UseLibBPFAttacher {
+		return libbpfCollectFreq()
 	}
-	klog.V(6).Infof("batch get table requested/returned: %v/%v\n", entries, len(key))
-	return key, leaf, nil
+	return bccCollectFreq()
+}
+
+func Attach() (interface{}, error) {
+	klog.Infof("LibbpfBuilt: %v, BccBuilt: %v", LibbpfBuilt, BccBuilt)
+	if !BccBuilt && LibbpfBuilt {
+		config.UseLibBPFAttacher = true
+	}
+	if config.UseLibBPFAttacher && LibbpfBuilt {
+		m, err := attachLibbpfModule()
+		if err == nil {
+			return m, nil
+		}
+		// err != nil, disable and try using bcc
+		detachLibbpfModule()
+		config.UseLibBPFAttacher = false
+		klog.Infof("failed to attach bpf with libbpf: %v", err)
+	}
+	return attachBccModule()
+}
+
+func Detach() {
+	if config.UseLibBPFAttacher {
+		detachLibbpfModule()
+	}
+	detachBccModule()
 }

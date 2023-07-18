@@ -15,6 +15,13 @@ limitations under the License.
 */
 
 // +build ignore
+
+#include <linux/version.h>
+
+#if (LINUX_KERNEL_VERSION >= KERNEL_VERSION(5, 12, 0))
+#define BPF_PERF_EVENT_READ_VALUE_AVAILABLE 1
+#endif
+
 #include "kepler.bpf.h"
 
 // processes and pid time
@@ -80,10 +87,11 @@ static inline u64 calc_delta(u64 *prev_val, u64 *val)
     return delta;
 }
 
-// altough the "get_on_cpu_counters" has some code duplications, it is inline code and the compiles will improve this
+// although the "get_on_cpu_counters" has some code duplications, it is inline code and the compiles will improve this
 static inline u64 get_on_cpu_cycles(u32 *cpu_id)
 {
     u64 delta = 0;
+#ifdef BPF_PERF_EVENT_READ_VALUE_AVAILABLE
     struct bpf_perf_event_value c = {};
     int error = bpf_perf_event_read_value(&cpu_cycles_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
@@ -93,12 +101,24 @@ static inline u64 get_on_cpu_cycles(u32 *cpu_id)
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_cycles, cpu_id, &val, BPF_ANY);
     }
+#else
+    int ret = bpf_perf_event_read(&cpu_cycles_hc_reader, *cpu_id);
+    if (ret < 0) {
+        return delta;
+    }
+    u64 val = ret;
+    u64 *prev_val = bpf_map_lookup_elem(&cpu_cycles, cpu_id);
+    delta = calc_delta(prev_val, &val);
+    bpf_map_update_elem(&cpu_cycles, cpu_id, &val, BPF_ANY);
+#endif
+
     return delta;
 }
 
 static inline u64 get_on_cpu_ref_cycles(u32 *cpu_id)
 {
     u64 delta = 0;
+#ifdef BPF_PERF_EVENT_READ_VALUE_AVAILABLE
     struct bpf_perf_event_value c = {};
     int error = bpf_perf_event_read_value(&cpu_ref_cycles_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
@@ -108,12 +128,23 @@ static inline u64 get_on_cpu_ref_cycles(u32 *cpu_id)
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_ref_cycles, cpu_id, &val, BPF_ANY);
     }
+#else
+    int ret = bpf_perf_event_read(&cpu_ref_cycles_hc_reader, *cpu_id);
+    if (ret < 0) {
+        return delta;
+    }
+    u64 val = ret;
+    u64 *prev_val = bpf_map_lookup_elem(&cpu_ref_cycles, cpu_id);
+    delta = calc_delta(prev_val, &val);
+    bpf_map_update_elem(&cpu_ref_cycles, cpu_id, &val, BPF_ANY);
+#endif
     return delta;
 }
 
 static inline u64 get_on_cpu_instr(u32 *cpu_id)
 {
     u64 delta = 0;
+#ifdef BPF_PERF_EVENT_READ_VALUE_AVAILABLE
     struct bpf_perf_event_value c = {};
     int error = bpf_perf_event_read_value(&cpu_instr_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
@@ -123,12 +154,23 @@ static inline u64 get_on_cpu_instr(u32 *cpu_id)
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_instr, cpu_id, &val, BPF_ANY);
     }
+#else
+    int ret = bpf_perf_event_read(&cpu_instr_hc_reader, *cpu_id);
+    if (ret < 0) {
+        return delta;
+    }
+    u64 val = ret;
+    u64 *prev_val = bpf_map_lookup_elem(&cpu_instr, cpu_id);
+    delta = calc_delta(prev_val, &val);
+    bpf_map_update_elem(&cpu_instr, cpu_id, &val, BPF_ANY);
+#endif
     return delta;
 }
 
 static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
 {
     u64 delta = 0;
+#ifdef BPF_PERF_EVENT_READ_VALUE_AVAILABLE
     struct bpf_perf_event_value c = {};
     int error = bpf_perf_event_read_value(&cache_miss_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
@@ -138,6 +180,16 @@ static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cache_miss, cpu_id, &val, BPF_ANY);
     }
+#else
+    int ret = bpf_perf_event_read(&cache_miss_hc_reader, *cpu_id);
+    if (ret < 0) {
+        return delta;
+    }
+    u64 val = ret;
+    u64 *prev_val = bpf_map_lookup_elem(&cache_miss, cpu_id);
+    delta = calc_delta(prev_val, &val);
+    bpf_map_update_elem(&cache_miss, cpu_id, &val, BPF_ANY);
+#endif
     return delta;
 }
 

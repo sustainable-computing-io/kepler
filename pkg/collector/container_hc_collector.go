@@ -17,17 +17,12 @@ limitations under the License.
 package collector
 
 import (
-	"bytes"
-	"encoding/binary"
-	"os"
-
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"k8s.io/klog/v2"
 )
@@ -35,24 +30,7 @@ import (
 // #define CPU_VECTOR_SIZE 128
 import "C"
 
-var (
-	// ebpfBatchGet is true if the kernel supports batch get operation
-	ebpfBatchGet = true
-	// ebpfBatchGetAndDelete is true if delete all the keys after batch get
-	ebpfBatchGetAndDelete = ebpfBatchGet
-)
-
-// TODO in sync with bpf program
-type ProcessBPFMetrics struct {
-	CGroupID       uint64
-	PID            uint64
-	ProcessRunTime uint64
-	CPUCycles      uint64
-	CPUInstr       uint64
-	CacheMisses    uint64
-	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
-	Command        [16]byte
-}
+type ProcessBPFMetrics = attacher.ProcessBPFMetrics
 
 // updateBasicBPF
 func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, isSystemProcess bool) {
@@ -111,72 +89,24 @@ func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, 
 
 // updateBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
 func (c *Collector) updateBPFMetrics() {
-	if c.bpfHCMeter == nil {
-		return
-	}
 	foundContainer := make(map[string]bool)
 	foundProcess := make(map[uint64]bool)
-	keysToDelete := [][]byte{}
-	keys := [][]byte{}
-	values := [][]byte{}
-
-	var (
-		ct ProcessBPFMetrics
-	)
-	// if ebpf map batch get operation is supported we use it
-	if ebpfBatchGet {
-		var batchGetErr error
-		keys, values, batchGetErr = attacher.TableBatchGet(c.bpfHCMeter.Module, c.bpfHCMeter.TableName, uint32(unsafe.Sizeof(ct)), ebpfBatchGetAndDelete /* delete after get */)
-		if batchGetErr != nil {
-			klog.V(1).Infof("failed to get bpf table elemets, err: %v", batchGetErr)
-			ebpfBatchGet = false
-			// if batch get is not supported we disable it for the next time
-			ebpfBatchGetAndDelete = false
-		}
+	processesData, err := attacher.CollectProcesses()
+	if err != nil {
+		return
 	}
-	// if ebpf map batch get operation is not supported we iterate over the map
-	if !ebpfBatchGet {
-		for it := c.bpfHCMeter.Table.Iter(); it.Next(); {
-			key := it.Key()
-			value := it.Leaf()
-			keys = append(keys, key)
-			values = append(values, value)
-		}
-	}
-
-	// iterate over the keys and values
-	for i := 0; i < len(keys); i++ {
-		key := keys[i]
-		data := values[i]
-		err := binary.Read(bytes.NewBuffer(data), utils.DetermineHostByteOrder(), &ct)
-		if err != nil {
-			klog.V(5).Infof("failed to decode received data: %v", err)
-			continue // this only happens if there is a problem in the bpf code
-		}
-
-		// if not deleted during get, prepare the keys for delete
-		if !ebpfBatchGetAndDelete {
-			// if ebpf map batch deletion operation is supported we add the key to the list otherwise we delete the key
-			if config.EnabledBPFBatchDelete {
-				keysToDelete = append(keysToDelete, key)
-			} else {
-				err = c.bpfHCMeter.Table.Delete(key) // deleting the element to reset the counter values
-				if err != nil && !os.IsNotExist(err) {
-					klog.Infof("could not delete bpf table elements, err: %v", err)
-				}
-			}
-		}
-
+	for _, ct := range processesData {
+		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
-			klog.V(5).Infof("failed to resolve container for cGroup ID %v: %v, set containerID=%s", ct.CGroupID, err, c.systemProcessName)
+			klog.V(5).Infof("failed to resolve container for cGroup ID %v (command=%s): %v, set containerID=%s", ct.CGroupID, comm, err, c.systemProcessName)
 		}
 
 		isSystemProcess := containerID == c.systemProcessName
 
 		c.createContainersMetricsIfNotExist(containerID, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		c.ContainersMetrics[containerID].PID = ct.PID
-		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
+
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
 		if !isSystemProcess {
@@ -198,19 +128,6 @@ func (c *Collector) updateBPFMetrics() {
 		foundContainer[containerID] = true
 		if isSystemProcess {
 			foundProcess[ct.PID] = true
-		}
-	}
-	// if not deleted during get, delete it now
-	if !ebpfBatchGetAndDelete {
-		if config.EnabledBPFBatchDelete {
-			err := attacher.TableDeleteBatch(c.bpfHCMeter.Module, c.bpfHCMeter.TableName, keysToDelete)
-			// if the kernel does not support delete batch we delete all keys one by one
-			if err != nil {
-				c.bpfHCMeter.Table.DeleteAll()
-				// if batch delete is not supported we disable it for the next time
-				config.EnabledBPFBatchDelete = false
-				klog.Infof("resetting EnabledBPFBatchDelete to %v", config.EnabledBPFBatchDelete)
-			}
 		}
 	}
 	c.handleInactiveContainers(foundContainer)

@@ -17,7 +17,6 @@ limitations under the License.
 package collector
 
 import (
-	"encoding/binary"
 	"sync"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
@@ -81,14 +80,10 @@ func (c *Collector) updateNodeAvgCPUFrequency(wg *sync.WaitGroup) {
 	defer wg.Done()
 	// update the cpu frequency using hardware counters when available because reading files can be very expensive
 	if attacher.HardwareCountersEnabled {
-		cpuFreq := map[int32]uint64{}
-		for it := c.bpfHCMeter.CPUFreqTable.Iter(); it.Next(); {
-			cpu := int32(binary.LittleEndian.Uint32(it.Key()))
-			freq := uint64(binary.LittleEndian.Uint32(it.Leaf()))
-			cpuFreq[cpu] = freq
+		cpuFreq, err := attacher.CollectCPUFreq()
+		if err == nil {
+			c.NodeMetrics.CPUFrequency = cpuFreq
 		}
-		c.NodeMetrics.CPUFrequency = cpuFreq
-		return
 	}
 }
 
