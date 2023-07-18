@@ -17,6 +17,10 @@ patchesStrategicMerge: []
 # add this line for rootless patch
 # - ./patch/patch-rootless.yaml
 
+secretGenerator:
+- name: redfish
+  files:
+  - ./redfish.csv
 
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

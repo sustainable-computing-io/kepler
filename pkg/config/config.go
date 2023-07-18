@@ -94,6 +94,11 @@ var (
 	// dir of kernel sources for bcc
 	kernelSourceDirs = []string{}
 
+	// redfish cred file path
+	redfishCredFilePath           string
+	redfishProbeIntervalInSeconds = getConfig("REDFISH_PROBE_INTERVAL_IN_SECONDS", "60")
+	redfishSkipSSLVerify          = getBoolConfig("REDFISH_SKIP_SSL_VERIFY", true)
+
 	////////////////////////////////////
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
@@ -187,6 +192,35 @@ func SetKernelSourceDir(dir string) error {
 
 func GetKernelSourceDirs() []string {
 	return kernelSourceDirs
+}
+
+func SetRedfishCredFilePath(credFilePath string) {
+	redfishCredFilePath = credFilePath
+}
+
+func GetRedfishCredFilePath() string {
+	return redfishCredFilePath
+}
+
+func SetRedfishProbeIntervalInSeconds(interval string) {
+	redfishProbeIntervalInSeconds = interval
+}
+
+func GetRedfishProbeIntervalInSeconds() int {
+	// convert string "redfishProbeIntervalInSeconds" to int
+	probeInterval, err := strconv.Atoi(redfishProbeIntervalInSeconds)
+	if err != nil {
+		klog.Warning("failed to convert redfishProbeIntervalInSeconds to int", err)
+		return 60
+	}
+	return probeInterval
+}
+func SetRedfishSkipSSLVerify(skipSSLVerify bool) {
+	redfishSkipSSLVerify = skipSSLVerify
+}
+
+func GetRedfishSkipSSLVerify() bool {
+	return redfishSkipSSLVerify
 }
 
 func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
