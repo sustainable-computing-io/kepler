@@ -31,7 +31,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: quay.io/sustainable_computing_io/kepler
+          tags: quay.io/sustainable_computing_io/kepler:latest
           labels: latest
           file: build/Dockerfile
 
@@ -41,6 +41,6 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: quay.io/sustainable_computing_io/kepler
+          tags: quay.io/sustainable_computing_io/kepler:latest-libbpf
           labels: latest-libbpf
           file: build/Dockerfile.libbpf.kepler

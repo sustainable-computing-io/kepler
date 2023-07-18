@@ -123,6 +123,5 @@ typedef struct process_metrics_t
 typedef struct pid_time_t
 {
     u32 pid;
-    u32 cpu;
 } pid_time_t;
 
