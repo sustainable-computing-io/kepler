@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -159,9 +160,12 @@ func main() {
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
-	if kernelSourceDirPath != nil && len(*kernelSourceDirPath) > 0 {
-		if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
-			klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+	// try setting kernel source only for bcc build
+	if attacher.BccBuilt {
+		if kernelSourceDirPath != nil && len(*kernelSourceDirPath) > 0 {
+			if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
+				klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
+			}
 		}
 	}
 

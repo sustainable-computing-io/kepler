@@ -27,6 +27,8 @@ const (
 	BccBuilt = false
 )
 
+var bccCounters = map[string]perfCounter{}
+
 func attachBccModule() (interface{}, error) {
 	return nil, fmt.Errorf("no bcc build tag")
 }

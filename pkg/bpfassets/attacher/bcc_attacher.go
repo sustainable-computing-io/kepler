@@ -111,9 +111,6 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 		klog.Infof("failed to load softirq_entry: %s", err)
 	}
 
-	// set counters
-	Counters = bccCounters
-
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
 		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)

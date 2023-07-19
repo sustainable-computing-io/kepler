@@ -27,6 +27,8 @@ const (
 	LibbpfBuilt = false
 )
 
+var libbpfCounters = map[string]perfCounter{}
+
 func attachLibbpfModule() (interface{}, error) {
 	return nil, fmt.Errorf("no libbpf build tag")
 }
