@@ -8,6 +8,8 @@ resources:
 patchesStrategicMerge: []
 # add this line to allow ci
 # - ./patch/patch-ci.yaml
+# add this for kind provider ci
+# - ./patch/patch-kind.yaml
 # add this line for bm case
 # - ./patch/patch-bm.yaml
 # add this line to enable estimator sidecar

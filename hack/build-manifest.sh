@@ -19,6 +19,8 @@
 
 set -ex
 
+export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
+
 # set options
 # for example: ./build-manifest.sh "ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
 DEPLOY_OPTIONS=$1
@@ -118,8 +120,15 @@ if [ ! -z ${ESTIMATOR_SIDECAR_DEPLOY} ]; then
 fi
 
 if [ ! -z ${CI_DEPLOY} ]; then
-    echo "enable ci"
+    echo "enable ci ${CLUSTER_PROVIDER}"
     uncomment_patch ci ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
+    case ${CLUSTER_PROVIDER} in
+        microshift)
+            ;;
+        *)
+            uncomment_patch kind ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
+            ;;
+    esac
 fi
 
 if [ ! -z ${DEBUG_DEPLOY} ]; then

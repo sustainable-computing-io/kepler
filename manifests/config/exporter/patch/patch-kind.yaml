@@ -8,11 +8,8 @@ spec:
     spec:
       containers:
       - name: kepler-exporter
-        volumeMounts:
-        - mountPath: /usr/src
-          name: usr-src
       volumes:
-      - name: usr-src
+      - name: proc
         hostPath:
-          path: /usr/src
+          path: /proc-host
           type: Directory
