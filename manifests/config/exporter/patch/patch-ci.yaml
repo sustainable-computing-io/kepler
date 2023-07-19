@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-cfm
+  namespace: system
+data:
+  MAX_LOOKUP_RETRY: '1'
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

@@ -15,6 +15,9 @@ env:
 jobs:
   build-kepler_with_libbpf:
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        cluster_provider: [kind,microshift]
     steps:
       - name: checkout source
         uses: actions/checkout@v3
@@ -27,6 +30,7 @@ jobs:
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
         env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
@@ -40,13 +44,13 @@ jobs:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
-          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{matrix.cluster_provider}}_${{env.FILE_NAME}}
 
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v3
         with:
           name: kepler
-          path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
+          path: ${{env.OUTPUT_DIR}}${{matrix.cluster_provider}}_${{env.FILE_NAME}}
           retention-days: 1
           # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
           # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
@@ -69,6 +73,7 @@ jobs:
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
         env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
@@ -79,7 +84,7 @@ jobs:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
-          INPUT_PATH: ${{env.FILE_NAME}}
+          INPUT_PATH: ${{matrix.cluster_provider}}_${{env.FILE_NAME}}
 
       - name: use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.1

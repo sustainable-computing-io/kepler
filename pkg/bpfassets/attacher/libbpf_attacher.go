@@ -39,9 +39,7 @@ const (
 	bpfAssesstsLocation  = "/var/lib/kepler/bpfassets"
 	bpfAssesstsLocalPath = "../../../bpfassets/libbpf/bpf.o"
 	cpuOnline            = "/sys/devices/system/cpu/online"
-
-	LibbpfBuilt = true
-	maxRetry    = 500
+	LibbpfBuilt          = true
 )
 
 var (
@@ -54,6 +52,7 @@ var (
 	}
 	uint32Key uint32
 	uint64Key uint64
+	maxRetry  = config.MaxLookupRetry
 )
 
 func getLibbpfObjectFilePath(arch string) (string, error) {
