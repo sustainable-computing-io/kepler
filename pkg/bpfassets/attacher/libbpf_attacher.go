@@ -274,12 +274,12 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 
 	res := []int{}
 
-	for i := 0; i <= cores; i++ {
+	for i := 0; i < cores; i++ {
 		cloexecFlags := unix.PERF_FLAG_FD_CLOEXEC
 
 		fd, err := unix.PerfEventOpen(sysAttr, -1, int(i), -1, cloexecFlags)
 		if fd < 0 {
-			return fmt.Errorf("failed to open bpf perf event: %v", err)
+			return fmt.Errorf("failed to open bpf perf event on cpu %d: %v", i, err)
 		}
 		err = bpfMap.Update(int32(i), uint32(fd))
 		if err != nil {

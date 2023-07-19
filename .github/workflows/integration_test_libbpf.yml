@@ -1,4 +1,4 @@
-name: Integration test
+name: Integration test with libbpf
 
 on:
   pull_request:
@@ -10,10 +10,10 @@ on:
 env:
   GO_VERSION: "1.18"
   OUTPUT_DIR: "_output/"
-  FILE_NAME: "kepler.tar.gz"
+  FILE_NAME: "kepler_libbpf.tar.gz"
 
 jobs:
-  build-kepler:
+  build-kepler_with_libbpf:
     runs-on: ubuntu-20.04
     steps:
       - name: checkout source
@@ -51,8 +51,8 @@ jobs:
           # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
           # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
 
-  integration_test:
-    needs: [build-kepler]
+  integration_test_with_libbpf:
+    needs: [build-kepler_with_libbpf]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
