@@ -164,14 +164,14 @@ func getIntConfig(configKey string, defaultInt int) int {
 func getConfig(configKey, defaultValue string) (result string) {
 	result = string([]byte(defaultValue))
 	key := string([]byte(configKey))
-	configFile := filepath.Join(configPath, key)
-	value, err := os.ReadFile(configFile)
-	if err == nil {
-		result = bytes.NewBuffer(value).String()
+	strValue, present := os.LookupEnv(key)
+	if present {
+		result = strValue
 	} else {
-		strValue, present := os.LookupEnv(key)
-		if present {
-			result = strValue
+		configFile := filepath.Join(configPath, key)
+		value, err := os.ReadFile(configFile)
+		if err == nil {
+			result = bytes.NewBuffer(value).String()
 		}
 	}
 	return
