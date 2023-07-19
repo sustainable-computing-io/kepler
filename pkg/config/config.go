@@ -51,6 +51,7 @@ const (
 	defaultNamespace        = "kepler"
 	defaultModelServerPort  = "8100"
 	defaultModelRequestPath = "/model"
+	defaultMaxLookupRetry   = 500
 	// MaxIRQ is the maximum number of IRQs to be monitored
 	MaxIRQ = 10
 
@@ -78,6 +79,7 @@ var (
 	MetricPathKey                = "METRIC_PATH"
 	BindAddressKey               = "BIND_ADDRESS"
 	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
+	MaxLookupRetry               = getIntConfig("MAX_LOOKUP_RETRY", defaultMaxLookupRetry)
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -148,6 +150,15 @@ func getBoolConfig(configKey string, defaultBool bool) bool {
 		defaultValue = "true"
 	}
 	return strings.ToLower(getConfig(configKey, defaultValue)) == "true"
+}
+
+func getIntConfig(configKey string, defaultInt int) int {
+	defaultValue := fmt.Sprintf("%d", defaultInt)
+	value, err := strconv.Atoi((getConfig(configKey, defaultValue)))
+	if err == nil {
+		return value
+	}
+	return defaultInt
 }
 
 func getConfig(configKey, defaultValue string) (result string) {
