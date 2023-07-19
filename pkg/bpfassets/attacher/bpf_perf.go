@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	Counters                = map[string]perfCounter{}
+	Counters                = getCounters()
 	HardwareCountersEnabled = true
 	BpfPerfArrayPrefix      = "_hc_reader"
 
@@ -66,6 +66,14 @@ type ProcessBPFMetrics struct {
 
 func init() {
 	ByteOrder = utils.DetermineHostByteOrder()
+}
+
+func getCounters() map[string]perfCounter {
+	if config.UseLibBPFAttacher {
+		return bccCounters
+	} else {
+		return libbpfCounters
+	}
 }
 
 func GetEnabledHWCounters() []string {

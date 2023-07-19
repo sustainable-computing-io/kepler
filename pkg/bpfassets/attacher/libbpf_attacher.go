@@ -121,9 +121,6 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		}
 	}
 
-	// set counters
-	Counters = libbpfCounters
-
 	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
