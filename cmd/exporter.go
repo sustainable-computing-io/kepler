@@ -47,8 +47,9 @@ import (
 
 const (
 	// to change these msg, you also need to update the e2e test
-	finishingMsg = "Exiting..."
-	startedMsg   = "Started Kepler in %s"
+	finishingMsg    = "Exiting..."
+	startedMsg      = "Started Kepler in %s"
+	maxGPUInitRetry = 10
 )
 
 var (
@@ -195,11 +196,20 @@ func main() {
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
-		err := accelerator.Init()
+		var err error
+		// the GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
+		// therefore, we wait up to 1 min to allow the gpu operator initialize
+		for i := 0; i <= maxGPUInitRetry; i++ {
+			time.Sleep(6 * time.Second)
+			err = accelerator.Init()
+			if err == nil {
+				break
+			}
+		}
 		if err == nil {
 			defer accelerator.Shutdown()
 		} else {
-			klog.Infof("Failed to initialize the GPU collector: %v", err)
+			klog.Infof("Failed to initialize the GPU collector: %v. Have the GPU operator initialize?", err)
 		}
 	}
 

@@ -98,7 +98,7 @@ func (n *GPUNvml) GetGpuEnergyPerGPU() []uint32 {
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
 		// necessary to calculate the energy consumption for the entire waiting period
-		energy := float64(power) * config.SamplePeriodSec
+		energy := uint32(float64(power) * config.SamplePeriodSec)
 		gpuEnergy = append(gpuEnergy, energy)
 	}
 	return gpuEnergy
