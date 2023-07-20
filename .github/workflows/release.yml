@@ -124,15 +124,25 @@ jobs:
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
 
-    - name: Build and push
+    - name: Build and push kepler latest bcc image
       uses: docker/build-push-action@v4
       with:
           context: .
           platforms: linux/amd64
           push: true
           tags: quay.io/sustainable_computing_io/kepler:latest, quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
-          labels: latest, ${{ github.event.inputs.release }}
+          labels: latest, ${{ github.event.inputs.release }}, bcc
           file: build/Dockerfile
+
+    - name: Build and push kepler libbpf latest image
+      uses: docker/build-push-action@v4
+      with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: quay.io/sustainable_computing_io/kepler:latest, quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}-libbpf
+          labels: latest, ${{ github.event.inputs.release }}, libbpf
+          file: build/Dockerfile.libbpf.kepler
 
     - name: Generate SBOM
       uses: anchore/sbom-action@v0.14.2
