@@ -24,6 +24,8 @@ import (
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"k8s.io/klog/v2"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 var (
@@ -94,7 +96,10 @@ func (n *GPUNvml) GetGpuEnergyPerGPU() []uint32 {
 			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
-		gpuEnergy = append(gpuEnergy, power)
+		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
+		// necessary to calculate the energy consumption for the entire waiting period
+		energy := float64(power) * config.SamplePeriodSec
+		gpuEnergy = append(gpuEnergy, energy)
 	}
 	return gpuEnergy
 }
