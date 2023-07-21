@@ -765,6 +765,12 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerOtherComponentsJoulesTotal,
 				prometheus.CounterValue,
+				float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule,
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+			)
+			ch <- prometheus.MustNewConstMetric(
+				p.containerDesc.containerOtherComponentsJoulesTotal,
+				prometheus.CounterValue,
 				float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule,
 				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
 			)
