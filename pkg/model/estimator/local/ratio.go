@@ -88,7 +88,8 @@ func UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics map[strin
 
 	for containerID, container := range containersMetrics {
 		containerResUsage := getContainerResUsage(container, usageMetric)
-		if containerResUsage > 0 {
+		// OTHER and UNCORE does not have resource usage and will evenly divide the power acorss all containers.
+		if containerResUsage > 0 || component == collector_metric.OTHER || component == collector_metric.UNCORE {
 			containerEnergy := getEnergyRatio(containerResUsage, nodeTotalResourceUsage, totalDynPower, containerNumber)
 			if err := containersMetrics[containerID].GetDynEnergyStat(component).AddNewDelta(containerEnergy); err != nil {
 				klog.Infoln(err)
