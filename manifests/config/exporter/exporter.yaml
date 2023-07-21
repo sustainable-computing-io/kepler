@@ -31,8 +31,6 @@ data:
   REDFISH_SKIP_SSL_VERIFY: "true"
   MODEL_CONFIG: |
     CONTAINER_COMPONENTS_ESTIMATOR=false
-    # by default we use buildin weight file
-    # CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json
 ---
 apiVersion: apps/v1
 kind: DaemonSet
