@@ -113,3 +113,10 @@ jobs:
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           kepler_address: localhost:9102
+
+      - name: undeploy Kepler and cleanup the cluster
+        run: |
+          make cluster-clean
+          make cluster-down
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
