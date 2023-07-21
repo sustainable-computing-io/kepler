@@ -34,9 +34,6 @@ var (
 	ProcessTotalPowerModelValid, ProcessComponentPowerModelValid bool
 	ProcessTotalPowerModelFunc                                   func([][]float64, []string) ([]float64, error)
 	ProcessComponentPowerModelFunc                               func([][]float64, []string) (map[string][]float64, error)
-
-	// counterOnly
-	defaultCounterDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CounterOnly/ScikitMixed/ScikitMixed.json"
 )
 
 // initProcessComponentPowerModelConfig: the Process component power model must be set by default.
@@ -44,9 +41,6 @@ var (
 //nolint:all
 func initProcessComponentPowerModelConfig() types.ModelConfig {
 	modelConfig := InitModelConfig(config.ProcessComponentsKey)
-	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelURL = defaultCounterDynCompURL
-	}
 	return modelConfig
 }
 
