@@ -59,7 +59,7 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
         // But do not return, since the hardware counters can be collected.
         if (cur_ts > *prev_ts)
         {
-            cpu_time = (cur_ts - *prev_ts) / 1000; /*milisecond*/
+            cpu_time = (cur_ts - *prev_ts) / 1000000; /*milisecond*/
             bpf_map_delete_elem(&pid_time, &prev_pid_key);
         }
     }
@@ -215,17 +215,18 @@ SEC("tracepoint/sched/sched_switch")
 int kepler_trace(struct sched_switch_args *ctx)
 {
     u32 cur_pid = bpf_get_current_pid_tgid();
-    u64 cgroup_id = bpf_get_current_cgroup_id();
+    u32 new_pid = ctx->next_pid; // the new pid that is to be scheduled
+    u64 cgroup_id = bpf_get_current_cgroup_id(); // the cgroup id is the cgroup id of the running process (aka prev_pid)
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
     u32 prev_pid = ctx->prev_pid;
-    u64 on_cpu_time_delta = get_on_cpu_time(cur_pid, prev_pid, cur_ts);
+    
     u64 on_cpu_cycles_delta = get_on_cpu_cycles(&cpu_id);
     u64 on_cpu_ref_cycles_delta = get_on_cpu_ref_cycles(&cpu_id);
     u64 on_cpu_instr_delta = get_on_cpu_instr(&cpu_id);
     u64 on_cpu_cache_miss_delta = get_on_cpu_cache_miss(&cpu_id);
     u64 on_cpu_avg_freq = get_on_cpu_avg_freq(&cpu_id, on_cpu_cycles_delta, on_cpu_ref_cycles_delta);
-
+    u64 on_cpu_time_delta = get_on_cpu_time(new_pid, prev_pid, cur_ts);
     // store process metrics
     struct process_metrics_t *process_metrics;
     process_metrics = bpf_map_lookup_elem(&processes, &prev_pid);
@@ -233,20 +234,21 @@ int kepler_trace(struct sched_switch_args *ctx)
     {
         // update process time
         process_metrics->process_run_time += on_cpu_time_delta;
-
+        // set the cgroup id
+        process_metrics->cgroup_id = cgroup_id;
         process_metrics->cpu_cycles += on_cpu_cycles_delta;
         process_metrics->cpu_instr += on_cpu_instr_delta;
         process_metrics->cache_miss += on_cpu_cache_miss_delta;
     }
 
-    process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
+    process_metrics = bpf_map_lookup_elem(&processes, &new_pid);
     if (process_metrics == 0)
     {
         process_metrics_t new_process = {};
-        new_process.pid = cur_pid;
-        new_process.cgroup_id = cgroup_id;
+        new_process.pid = new_pid;
+        //new_process.cgroup_id = cgroup_id;
         bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
-        bpf_map_update_elem(&processes, &cur_pid, &new_process, BPF_NOEXIST);
+        bpf_map_update_elem(&processes, &new_pid, &new_process, BPF_NOEXIST);
     }
     return 0;
 }
