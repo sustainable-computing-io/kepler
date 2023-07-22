@@ -1,0 +1,3 @@
+FROM quay.io/centos/centos:stream8
+
+RUN yum install -y stress-ng; yum clean all

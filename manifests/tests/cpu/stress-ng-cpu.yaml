@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-ng-cpu
+spec:
+  selector:
+    matchLabels:
+      app: stress-ng-cpu
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: stress-ng-cpu
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534 # nobody
+      containers:
+        - name: stressn-ng
+          image: quay.io/sustainable_computing_io/stress-ng:latest
+          resources:
+            requests:
+              cpu: 1
+              memory: 500Mi
+          command: ["/bin/sh"]
+          args:
+            - "-c"
+            - "stress-ng --cpu 1 --temp-path /tmp --cpu-load 20"
