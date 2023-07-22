@@ -9,6 +9,7 @@ require (
 	github.com/containerd/cgroups/v3 v3.0.1
 	github.com/iovisor/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
 	github.com/jaypipes/ghw v0.10.0
+	github.com/joho/godotenv v1.5.1
 	github.com/jszwec/csvutil v1.7.1
 	github.com/onsi/ginkgo/v2 v2.4.0
 	github.com/onsi/gomega v1.22.1

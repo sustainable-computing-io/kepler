@@ -1,0 +1,205 @@
+name: Platform Validation
+
+on:
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.18"
+  OUTPUT_DIR: "_output/"
+  KEPLER_FILE_NAME: "kepler.tar.gz"
+  VALIDATOR_FILE_NAME: "validator.tar.gz"
+  ARTIFACT_DIR: "/tmp/artifacts"
+
+jobs:
+  build-artifacts:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Quay
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io/sustainable_computing_io
+          username: ${{ secrets.BOT_NAME }}
+          password: ${{ secrets.BOT_TOKEN }}
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GO_VERSION}}
+
+      - name: Build and export Kepler image with test specific tag
+        run: |
+          make build_containerized
+          make save-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
+          IMAGE_TAG: "platform-validation"
+          CTR_CMD: docker
+          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
+
+      - name: Save Kepler image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kepler
+          path: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
+          retention-days: 1
+
+      - name: Build and push kepler-validator to official group repo with latest tag
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: quay.io/sustainable_computing_io/kepler-validator:latest
+          labels: latest
+          file: build/Dockerfile.kepler-validator
+
+      - name: Build and export kepler-validator image with test specific tag
+        run: |
+          make build-validation-container
+          make save-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+          IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
+
+      - name: Save kepler-validator test image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: validator
+          path: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
+          retention-days: 1
+
+  platform_validation_test:
+    needs: [build-artifacts]
+    runs-on: [self-hosted, linux, x64]
+    strategy:
+      matrix:
+        cluster_provider: [kind]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download Kepler test image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: kepler
+
+      - name: Download kepler-validator test image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: validator
+
+      - name: Build manifest
+        run: make build-manifest OPTS="CI_DEPLOY PROMETHEUS_DEPLOY"
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "platform-validation"
+          CTR_CMD: docker
+
+      - name: Import Kepler test image
+        run: make load-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
+          IMAGE_TAG: "platform-validation"
+          CTR_CMD: docker
+          INPUT_PATH: ${{env.KEPLER_FILE_NAME}}
+
+      - name: Import kepler-validator test image
+        run: make load-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+          INPUT_PATH: ${{env.VALIDATOR_FILE_NAME}}
+
+      - name: Get Node component power before deploy kind cluster
+        run: |
+          make get-power
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+
+      - name: Use Kepler action to deploy cluster
+        uses: sustainable-computing-io/kepler-action@v0.0.1
+        with:
+          runningBranch: ${{matrix.cluster_provider}}
+          cluster_provider: ${{matrix.cluster_provider}}
+          local_dev_cluster_version: v0.0.3
+          prometheus_enable: true
+          grafana_enable: true
+
+      - name: Push Kepler test image to local registry
+        run: |
+          make push-image
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
+          IMAGE_TAG: "platform-validation"
+          CTR_CMD: docker
+
+      - name: Push kepler-validator test image to local registry
+        run: |
+          make push-image
+          make image-prune
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+
+      - name: Get Node component power before deploy kepler
+        run: |
+          make get-power
+        env:
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+
+      - name: Deploy Kepler on cluster
+        run: make cluster-deploy
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_TAG: "platform-validation"
+          CTR_CMD: docker
+
+      - name: Save artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts
+          path: ${{env.ARTIFACT_DIR}}
+          retention-days: 10
+
+      - name: Run platform validation test cases
+        run: make platform-validation
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler-validator"
+          IMAGE_TAG: "x86-rapl"
+          CTR_CMD: docker
+          kepler_address: localhost:9102
+          prometheus_address: localhost:9090
+
+      - name: Undeploy Kepler and cleanup the cluster
+        run: |
+          make cluster-clean
+          make cluster-down
+        env:
+          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}

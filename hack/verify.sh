@@ -79,7 +79,47 @@ function intergration_test() {
     while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
     kubectl logs -n kepler daemonset/kepler-exporter
     kubectl get pods -n kepler -o yaml
-    go test ./e2e/... --tags $tags -v --race --bench=. -cover --count=1 --vet=all
+    go test ./e2e/integration-test/... --tags $tags -v --race --bench=. -cover --count=1 --vet=all
+}
+
+function platform_validation() {
+    tags=$1
+    if [ "$tags" == "" ]
+    then
+        tags="bcc"
+    fi
+    echo TAGS=$tags
+    kepler_ready=false
+    $CTR_CMD ps -a
+    mkdir -p /tmp/.kube
+    if [ "$CLUSTER_PROVIDER" == "microshift" ]
+    then
+        $CTR_CMD exec -i microshift cat /var/lib/microshift/resources/kubeadmin/kubeconfig > /tmp/.kube/config
+    else
+        kind get kubeconfig --name=kind > /tmp/.kube/config
+    fi
+    until ${kepler_ready} ; do
+        kubectl logs $(kubectl -n kepler get pods -o name) -n kepler > kepler.log
+	if [ `grep -c "Started Kepler in" kepler.log` -ne '0' ]; then
+		echo "Kepler start finish"
+		kepler_ready=true
+	else
+		sleep 10
+	fi
+    done
+    rm -f kepler.log
+    kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102 &
+    kubectl port-forward --address localhost -n monitoring service/prometheus-k8s 9090:9090 &
+    #kubectl get pods -n kepler -o yaml
+    cd ./e2e/platform-validation
+    ginkgo --tags $tags -v --json-report=platform_validation_report.json --race -cover --vet=all
+    kill -9 $(pgrep kubectl)
+    echo "Dump platform-validation.env..."
+    cat platform-validation.env
+    echo "Dump power.csv..."
+    cat power.csv
+    # cleanup
+    rm -f platform-validation.env power.csv
 }
 
 function main() {
@@ -88,8 +128,11 @@ function main() {
     kepler)
         check_deployment_status
         ;;
-    test)
+    integration)
         intergration_test $2
+        ;;
+    platform)
+        platform_validation $2
         ;;
     *)
         check_deployment_status

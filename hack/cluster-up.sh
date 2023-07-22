@@ -26,7 +26,7 @@ function main() {
 		echo "using local local-dev-cluster"
 	else
 		echo "downloading local-dev-cluster"
-		git clone -b v0.0.1 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
+		git clone -b v0.0.3 https://github.com/sustainable-computing-io/local-dev-cluster.git --depth=1
 	fi
 
 	echo "deploying ${CLUSTER_PROVIDER} cluster"
