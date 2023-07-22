@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -38,13 +39,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var kMetric map[string]float64
+var kMetric map[string][]float64
 var podlists []string
 var pods *v1.PodList
 
-var _ = Describe("metrics check should pass", Ordered, func() {
+func updateMetricMap(key string, value float64) {
+	_, ok := kMetric[key]
+	if !ok {
+		kMetric[key] = make([]float64, 0)
+	}
+	kMetric[key] = append(kMetric[key], value)
+}
+
+var _ = Describe("Metrics check should pass", Ordered, func() {
 	var _ = BeforeAll(func() {
-		kMetric = make(map[string]float64)
+		kMetric = make(map[string][]float64)
 		podlists = make([]string, 0)
 
 		kubeconfig := flag.String("kubeconfig", "/tmp/.kube/config", "location to your kubeconfig file")
@@ -62,7 +71,6 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 				podlists = append(podlists, pod.Name)
 			}
 		}
-
 		reader := bytes.NewReader([]byte{})
 		req, err := http.NewRequest("GET", "http://"+address+"/metrics", reader)
 		Expect(err).NotTo(HaveOccurred())
@@ -76,9 +84,12 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		// ref https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse_test.go
 		var res labels.Labels
 		p := textparse.NewPromParser(body)
+		fmt.Println("=============================================")
+		fmt.Println("Parsing Metrics...")
 		for {
 			et, err := p.Next()
 			if errors.Is(err, io.EOF) {
+				fmt.Printf("error: %v\n", err)
 				break
 			}
 			switch et {
@@ -86,18 +97,25 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 				m, _, v := p.Series()
 				p.Metric(&res)
 				if res.Has("pod_name") {
-					kMetric[res.Get("__name__")+res.Get("pod_name")] = v
+					updateMetricMap(res.Get("__name__")+" @ "+res.Get("pod_name"), v)
 				} else {
-					kMetric[string(m)] = v
+					updateMetricMap(res.Get("__name__"), v)
 				}
+				fmt.Printf("metric(with lables): %s\nvalue: %f\n", m, v)
 				res = res[:0]
 			case textparse.EntryType:
-				m, _ := p.Type()
-				kMetric[string(m)] = 0
+				_, t := p.Type()
+				fmt.Printf("type: %s\n", t)
 			case textparse.EntryHelp:
-				m, _ := p.Help()
-				kMetric[string(m)] = 0
+				m, h := p.Help()
+				fmt.Println("\n------------------------------------------")
+				fmt.Printf("metric: %s\nhelp: %s\n", m, h)
 			}
+		}
+		fmt.Println("=============================================")
+		fmt.Println("Dump saved metrics...")
+		for k, v := range kMetric {
+			fmt.Printf("metric: %s, value: %v\n", k, v)
 		}
 	})
 
@@ -105,14 +123,22 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 		func(metrics string) {
 			v, ok := kMetric[metrics]
 			Expect(ok).To(BeTrue())
+			nonzero_found := false
+			for _, val := range v {
+				if val > 0 {
+					nonzero_found = true
+					break
+				}
+			}
+			if !nonzero_found {
+				Skip("Skip as " + metrics + " is zero")
+			}
+			Expect(nonzero_found).To(BeTrue())
+
 			// TODO: check value in details base on cgroup and gpu etc...
 			// so far just base check as compare with zero by default
-			if v == 0 {
-				Skip("skip as " + metrics + " is zero")
-			}
-			Expect(v).To(BeNumerically(">", 0))
 		},
-		EntryDescription("checking %s"),
+		EntryDescription("Checking %s"),
 		Entry(nil, "kepler_exporter_build_info"),                     // only one
 		Entry(nil, "kepler_node_core_joules_total"),                  // node level check by instance
 		Entry(nil, "kepler_node_dram_joules_total"),                  // node level check by instance
@@ -127,18 +153,32 @@ var _ = Describe("metrics check should pass", Ordered, func() {
 
 	var _ = DescribeTable("Check pod level metrics for details",
 		func(metrics string) {
+			nonzero_found := false
+			var value float64
 			for _, podname := range podlists {
-				v, ok := kMetric[metrics+podname]
+				v, ok := kMetric[metrics+" @ "+podname]
 				Expect(ok).To(BeTrue())
+				for _, val := range v {
+					if val > 0 {
+						nonzero_found = true
+						value = val
+						break
+					}
+				}
+				if !nonzero_found {
+					fmt.Printf("Skip as %s for %s is zero\n", metrics, podname)
+				} else {
+					break
+				}
 				// TODO: check value in details base on cgroup and gpu etc...
 				// so far just base check as compare with zero by default
-				if v == 0 {
-					Skip("skip as " + metrics + " for " + podname + " is zero")
-				}
-				Expect(v).To(BeNumerically(">", 0))
 			}
+			if !nonzero_found {
+				Skip("skip as " + metrics + " for all pods are zero")
+			}
+			Expect(value).To(BeNumerically(">", 0))
 		},
-		EntryDescription("checking %s"),
+		EntryDescription("Checking %s"),
 		Entry(nil, "kepler_container_core_joules_total"),                  // pod level
 		Entry(nil, "kepler_container_dram_joules_total"),                  // pod level
 		Entry(nil, "kepler_container_joules_total"),                       // pod level
