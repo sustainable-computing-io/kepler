@@ -56,6 +56,7 @@ function intergration_test() {
         tags="bcc"
     fi
     echo TAGS=$tags
+    kepler_ready=false
     $CTR_CMD ps -a
     mkdir -p /tmp/.kube
     if [ "$CLUSTER_PROVIDER" == "microshift" ]
@@ -64,6 +65,16 @@ function intergration_test() {
     else
         kind get kubeconfig --name=kind > /tmp/.kube/config
     fi
+    until ${kepler_ready} ; do
+        kubectl logs $(kubectl -n kepler get pods -o name) -n kepler > kepler.log
+	if [ `grep -c "Started Kepler in" kepler.log` -ne '0' ]; then
+		echo "Kepler start finish"
+		kepler_ready=true
+	else
+		sleep 10
+	fi
+    done
+    rm -f kepler.log
     while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
     kubectl logs -n kepler daemonset/kepler-exporter
     kubectl get pods -n kepler -o yaml

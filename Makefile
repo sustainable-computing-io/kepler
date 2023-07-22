@@ -343,6 +343,10 @@ cluster-up:
 	./hack/cluster-up.sh
 .PHONY: cluster-up
 
+cluster-down:
+	./hack/cluster-down.sh
+.PHONY: cluster-down
+
 e2e:
 	./hack/verify.sh test ${ATTACHER_TAG}
 .PHONY: e2e
