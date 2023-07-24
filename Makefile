@@ -158,7 +158,7 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-base_dir := $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+base_dir := $(patsubst %/,%,$(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 ### Default ###
 kepler: build_containerized
