@@ -1,4 +1,4 @@
-package helpers
+package libbpfgo
 
 import (
 	"sync"
@@ -9,7 +9,7 @@ type slot struct {
 	used  bool
 }
 
-// RWArray allows for multiple concurrent readers but
+// rwArray allows for multiple concurrent readers but
 // only a single writer. The writers lock a mutex while the readers
 // are lock free.
 // It is implemented as an array of slots where each slot holds a
@@ -18,18 +18,18 @@ type slot struct {
 // looking for an available slot as indicated by the in-use marker.
 // While probing, it is not touching the value itself, as it's
 // being read without a lock by the readers.
-type RWArray struct {
+type rwArray struct {
 	slots []slot
 	mux   sync.Mutex
 }
 
-func NewRWArray(capacity uint) RWArray {
-	return RWArray{
+func newRWArray(capacity uint) rwArray {
+	return rwArray{
 		slots: make([]slot, capacity),
 	}
 }
 
-func (a *RWArray) Put(v interface{}) int {
+func (a *rwArray) put(v interface{}) int {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
@@ -39,6 +39,7 @@ func (a *RWArray) Put(v interface{}) int {
 		if !a.slots[i].used {
 			a.slots[i].value = v
 			a.slots[i].used = true
+
 			return i
 		}
 	}
@@ -46,7 +47,7 @@ func (a *RWArray) Put(v interface{}) int {
 	return -1
 }
 
-func (a *RWArray) Remove(index uint) {
+func (a *rwArray) remove(index uint) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
@@ -58,17 +59,17 @@ func (a *RWArray) Remove(index uint) {
 	a.slots[index].used = false
 }
 
-func (a *RWArray) Get(index uint) interface{} {
+func (a *rwArray) get(index uint) interface{} {
 	if int(index) >= len(a.slots) {
 		return nil
 	}
 
 	// N.B. If slot[index].used == false, this is technically
-	// a race since Put() might be putting the value in there
+	// a race since put() might be putting the value in there
 	// at the same time.
 	return a.slots[index].value
 }
 
-func (a *RWArray) Capacity() uint {
+func (a *rwArray) capacity() uint {
 	return uint(len(a.slots))
 }

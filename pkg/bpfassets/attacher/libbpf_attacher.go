@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	bpf "github.com/aquasecurity/tracee/libbpfgo"
+	bpf "github.com/aquasecurity/libbpfgo"
 	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
@@ -162,17 +162,17 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	if err != nil {
 		return
 	}
-	processKeySize := int(unsafe.Sizeof(uint64Key))
-	iterator := processes.Iterator(processKeySize)
+	//processKeySize := int(unsafe.Sizeof(uint64Key))
+	iterator := processes.Iterator()
 	var ct ProcessBPFMetrics
-	valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
+	//valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
 	keys := []uint32{}
 	retry := 0
 	next := iterator.Next()
 	for next {
 		keyBytes := iterator.Key()
 		key := ByteOrder.Uint32(keyBytes)
-		data, getErr := processes.GetValue(key, valueSize)
+		data, getErr := processes.GetValue(unsafe.Pointer(&key))
 		if getErr != nil {
 			retry += 1
 			if retry > maxRetry {
@@ -198,7 +198,8 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 		retry = 0
 	}
 	for _, key := range keys {
-		processes.DeleteKey(key)
+		// TODO delete keys in batch
+		processes.DeleteKey(unsafe.Pointer(&key))
 	}
 	return
 }
@@ -210,16 +211,16 @@ func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 	if err != nil {
 		return
 	}
-	cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
-	iterator := cpuFreq.Iterator(cpuFreqkeySize)
+	//cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
+	iterator := cpuFreq.Iterator()
 	var freq uint32
-	valueSize := int(unsafe.Sizeof(freq))
+	// valueSize := int(unsafe.Sizeof(freq))
 	retry := 0
 	next := iterator.Next()
 	for next {
 		keyBytes := iterator.Key()
 		cpu := int32(ByteOrder.Uint32(keyBytes))
-		data, getErr := cpuFreq.GetValue(cpu, valueSize)
+		data, getErr := cpuFreq.GetValue(unsafe.Pointer(&cpu))
 		if getErr != nil {
 			retry += 1
 			if retry > maxRetry {
@@ -277,7 +278,7 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 		if fd < 0 {
 			return fmt.Errorf("failed to open bpf perf event on cpu %d: %v", i, err)
 		}
-		err = bpfMap.Update(int32(i), uint32(fd))
+		err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
 		if err != nil {
 			return fmt.Errorf("failed to update bpf map: %v", err)
 		}
