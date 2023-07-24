@@ -141,10 +141,11 @@ func attachBccModule() (*BccModuleTables, error) {
 		// so if /proc/cpuinfo is available, we can get the number of all CPUs
 		cores = int(cpu.TotalThreads)
 	}
-
+	bpfSampleRate := config.BPFSampleRate
 	options := []string{
 		"-DMAP_SIZE=" + strconv.Itoa(MapSize),
 		"-DNUM_CPUS=" + strconv.Itoa(cores),
+		"-DSAMPLE_RATE=" + strconv.Itoa(bpfSampleRate),
 	}
 	if config.EnabledEBPFCgroupID {
 		options = append(options, "-DSET_GROUP_ID")

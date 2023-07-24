@@ -106,7 +106,13 @@ func attachLibbpfModule() (*bpf.Module, error) {
 			klog.Infof("failed to resize array %s: %v\n", arrayName, err)
 		}
 	}
+	// set the sample rate, this must be done before loading the object
+	sampleRate := config.BPFSampleRate
 
+	err = libbpfModule.InitGlobalVariable("sample_rate", int32(sampleRate))
+	if err != nil {
+		return nil, fmt.Errorf("failed to set sample rate: %v", err)
+	}
 	err = libbpfModule.BPFLoadObject()
 
 	// attach sched_switch tracepoint to kepler_trace function
