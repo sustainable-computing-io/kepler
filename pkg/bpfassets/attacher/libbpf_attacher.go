@@ -99,7 +99,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	if err != nil {
 		return libbpfModule, fmt.Errorf("failed to get kepler_trace: %v", err)
 	} else {
-		_, err = prog.AttachTracepoint("sched:sched_switch")
+		_, err = prog.AttachTracepoint("sched", "sched_switch")
 		if err != nil {
 			return libbpfModule, fmt.Errorf("failed to attach sched/sched_switch: %v", err)
 		}
@@ -112,7 +112,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		// disable IRQ metric
 		config.ExposeIRQCounterMetrics = false
 	} else {
-		_, err = irq_prog.AttachTracepoint("irq:softirq_entry")
+		_, err = irq_prog.AttachTracepoint("irq", "softirq_entry")
 		if err != nil {
 			klog.Infof("failed to attach irq/softirq_entry: %v", err)
 			// disable IRQ metric
