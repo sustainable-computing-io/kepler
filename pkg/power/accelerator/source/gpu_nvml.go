@@ -114,6 +114,10 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, sin
 
 	processUtilizationSample, ret := device.(nvml.Device).GetProcessUtilization(lastUtilizationTimestamp)
 	if ret != nvml.SUCCESS {
+		if ret == nvml.ERROR_NOT_FOUND {
+			// ignore the error if there is no process running in the GPU
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to get processes' utilization on device %v: %v", device, nvml.ErrorString(ret))
 	}
 
