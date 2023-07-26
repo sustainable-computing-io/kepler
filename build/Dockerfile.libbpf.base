@@ -17,7 +17,10 @@ RUN yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Pa
     yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/elfutils-libelf-devel-0.188-3.el9.x86_64.rpm && \ 
     yum install -y clang llvm llvm-devel zlib-devel make libbpf && yum clean all -y
 
-RUN curl -LO https://github.com/libbpf/libbpf/archive/refs/tags/v0.5.0.tar.gz; mkdir -p /usr/local; tar -C /usr/local -xvzf v0.5.0.tar.gz; rm -f v0.5.0.tar.gz; cd /usr/local/libbpf-0.5.0/src && OBJDIR=/usr/lib/$(uname -m)-linux-gnu make install
+ENV LIBBPF_VERSION=1.2.0
+RUN curl -LO https://github.com/libbpf/libbpf/archive/refs/tags/v${LIBBPF_VERSION}.tar.gz; mkdir -p /usr/local; \
+    tar -C /usr/local -xvzf v${LIBBPF_VERSION}.tar.gz; rm -f v${LIBBPF_VERSION}.tar.gz; \
+    cd /usr/local/libbpf-${LIBBPF_VERSION}/src && OBJDIR=/usr/lib/$(uname -m)-linux-gnu make BUILD_STATIC_ONLY=y install install_uapi_headers
 
 # nvidia driver is updated on a (bi)monthly basis
 # RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda

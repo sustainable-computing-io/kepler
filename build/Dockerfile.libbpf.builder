@@ -1,7 +1,7 @@
 #
 # This Dockerfile is used for building the image `quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-0.5-go1.18`
 #
-FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-0.5 as builder
+FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-1.2.0 as builder
 
 #USER root
 
