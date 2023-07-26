@@ -59,12 +59,12 @@ typedef __u16 u16;
 #endif
 
 #define BPF_MAP(_name, _type, _key_type, _value_type, _max_entries) \
-    struct bpf_map_def SEC("maps") _name = {                        \
-        .type = _type,                                              \
-        .key_size = sizeof(_key_type),                              \
-        .value_size = sizeof(_value_type),                          \
-        .max_entries = _max_entries,                                \
-    };
+    struct {                                                        \
+        __uint(type, _type);                                        \
+        __type(key, _key_type);                             \
+        __type(value, _value_type);                         \
+        __uint(max_entries, _max_entries);                          \
+    } _name SEC(".maps");
 
 #define BPF_HASH(_name, _key_type, _value_type) \
     BPF_MAP(_name, BPF_MAP_TYPE_HASH, _key_type, _value_type, MAP_SIZE);
