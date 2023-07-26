@@ -173,44 +173,14 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	if err != nil {
 		return
 	}
-	//processKeySize := int(unsafe.Sizeof(uint64Key))
-	iterator := processes.Iterator()
-	var ct ProcessBPFMetrics
-	//valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
-	keys := []uint32{}
-	retry := 0
-	next := iterator.Next()
-	for next {
-		keyBytes := iterator.Key()
-		key := ByteOrder.Uint32(keyBytes)
-		data, getErr := processes.GetValue(unsafe.Pointer(&key))
-		if getErr != nil {
-			retry += 1
-			if retry > maxRetry {
-				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
-				next = iterator.Next()
-				retry = 0
-			}
-			continue
-		}
-		getErr = binary.Read(bytes.NewBuffer(data), ByteOrder, &ct)
-		if getErr != nil {
-			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
-			next = iterator.Next()
-			retry = 0
-			continue
-		}
-		if retry > 0 {
-			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
-		}
-		processesData = append(processesData, ct)
-		keys = append(keys, key)
-		next = iterator.Next()
-		retry = 0
+	if ebpfBatchGetAndDelete {
+		processesData, err = libbpfCollectProcessBatch(processes)
 	}
-	for _, key := range keys {
-		// TODO delete keys in batch
-		processes.DeleteKey(unsafe.Pointer(&key))
+	if err == nil {
+		return
+	} else {
+		ebpfBatchGetAndDelete = false
+		processesData, err = libbpfCollectProcessSingle(processes)
 	}
 	return
 }
@@ -302,32 +272,4 @@ func unixClosePerfEvent() {
 		}
 	}
 	PerfEvents = map[string][]int{}
-}
-
-func getCPUCores() int {
-	cores := runtime.NumCPU()
-	if cpu, err := ghw.CPU(); err == nil {
-		// we need to get the number of all CPUs,
-		// so if /proc/cpuinfo is available, we can get the number of all CPUs
-		cores = int(cpu.TotalThreads)
-	}
-	return cores
-
-}
-
-func resizeArrayEntries(name string, size int) error {
-	m, err := libbpfModule.GetMap(name)
-	if err != nil {
-		return err
-	}
-
-	if err = m.Resize(uint32(size)); err != nil {
-		return err
-	}
-
-	if current := m.GetMaxEntries(); current != uint32(size) {
-		return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
-	}
-
-	return nil
 }

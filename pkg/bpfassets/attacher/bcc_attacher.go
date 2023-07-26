@@ -67,13 +67,6 @@ var (
 	}
 )
 
-var (
-	// ebpfBatchGet is true if the kernel supports batch get operation
-	ebpfBatchGet = true
-	// ebpfBatchGetAndDelete is true if delete all the keys after batch get
-	ebpfBatchGetAndDelete = ebpfBatchGet
-)
-
 const (
 	BccBuilt = true
 
