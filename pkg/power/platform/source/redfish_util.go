@@ -21,6 +21,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -67,7 +69,10 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 
 	// Check the response status code
 	if resp.StatusCode != http.StatusOK {
