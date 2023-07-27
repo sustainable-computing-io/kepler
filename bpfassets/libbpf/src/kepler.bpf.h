@@ -58,22 +58,28 @@ typedef __u16 u16;
 #define MAP_SIZE 10240
 #endif
 
-#define BPF_MAP(_name, _type, _key_type, _value_type, _max_entries) \
-    struct {                                                        \
-        __uint(type, _type);                                        \
-        __type(key, _key_type);                             \
-        __type(value, _value_type);                         \
-        __uint(max_entries, _max_entries);                          \
+// array size is to be reset in userspace
+#define BPF_ARRARY_MAP(_name, _type, _key_type, _value_type) \
+    struct {                                                 \
+        __uint(type, _type);                                 \
+        __type(key, _key_type);                              \
+        __type(value, _value_type);                          \
+        __uint(max_entries, NUM_CPUS);                       \
     } _name SEC(".maps");
 
 #define BPF_HASH(_name, _key_type, _value_type) \
-    BPF_MAP(_name, BPF_MAP_TYPE_HASH, _key_type, _value_type, MAP_SIZE);
+    struct {                                    \
+        __uint(type, BPF_MAP_TYPE_HASH);        \
+        __type(key, _key_type);                 \
+        __type(value, _value_type);             \
+        __uint(max_entries, MAP_SIZE);          \
+    } _name SEC(".maps");
 
-#define BPF_ARRAY(_name, _leaf_type, _size) \
-    BPF_MAP(_name, BPF_MAP_TYPE_ARRAY, u32, _leaf_type, _size);
+#define BPF_ARRAY(_name, _leaf_type) \
+    BPF_ARRARY_MAP(_name, BPF_MAP_TYPE_ARRAY, u32, _leaf_type);
 
-#define BPF_PERF_ARRAY(_name, _max_entries) \
-    BPF_MAP(_name, BPF_MAP_TYPE_PERF_EVENT_ARRAY, int, u32, _max_entries)
+#define BPF_PERF_ARRAY(_name) \
+    BPF_ARRARY_MAP(_name, BPF_MAP_TYPE_PERF_EVENT_ARRAY, int, u32)
 
 static __always_inline void *
 bpf_map_lookup_or_try_init(void *map, const void *key, const void *init)

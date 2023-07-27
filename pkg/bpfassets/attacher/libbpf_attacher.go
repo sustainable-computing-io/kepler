@@ -53,6 +53,10 @@ var (
 	uint32Key uint32
 	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
+	bpfArrays = []string{
+		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instr_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instr", "cache_miss", "cpu_freq_array",
+	}
+	cpuCores = getCPUCores()
 )
 
 func getLibbpfObjectFilePath(arch string) (string, error) {
@@ -90,6 +94,13 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load module: %v", err)
+	}
+	// resize array entries
+	for _, arrayName := range bpfArrays {
+		err = resizeArrayEntries(arrayName, cpuCores)
+		if err != nil {
+			klog.Infof("failed to resize array %s: %v\n", arrayName, err)
+		}
 	}
 
 	err = libbpfModule.BPFLoadObject()
@@ -262,16 +273,9 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 		return nil
 	}
 
-	cores := runtime.NumCPU()
-	if cpu, err := ghw.CPU(); err == nil {
-		// we need to get the number of all CPUs,
-		// so if /proc/cpuinfo is available, we can get the number of all CPUs
-		cores = int(cpu.TotalThreads)
-	}
-
 	res := []int{}
 
-	for i := 0; i < cores; i++ {
+	for i := 0; i < cpuCores; i++ {
 		cloexecFlags := unix.PERF_FLAG_FD_CLOEXEC
 
 		fd, err := unix.PerfEventOpen(sysAttr, -1, int(i), -1, cloexecFlags)
@@ -298,4 +302,32 @@ func unixClosePerfEvent() {
 		}
 	}
 	PerfEvents = map[string][]int{}
+}
+
+func getCPUCores() int {
+	cores := runtime.NumCPU()
+	if cpu, err := ghw.CPU(); err == nil {
+		// we need to get the number of all CPUs,
+		// so if /proc/cpuinfo is available, we can get the number of all CPUs
+		cores = int(cpu.TotalThreads)
+	}
+	return cores
+
+}
+
+func resizeArrayEntries(name string, size int) error {
+	m, err := libbpfModule.GetMap(name)
+	if err != nil {
+		return err
+	}
+
+	if err = m.Resize(uint32(size)); err != nil {
+		return err
+	}
+
+	if current := m.GetMaxEntries(); current != uint32(size) {
+		return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
+	}
+
+	return nil
 }
