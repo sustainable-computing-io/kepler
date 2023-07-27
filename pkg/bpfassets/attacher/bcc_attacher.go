@@ -24,6 +24,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"bytes"
 	"encoding/binary"
@@ -75,6 +76,8 @@ var (
 
 const (
 	BccBuilt = true
+
+	notFound = "no such file or directory"
 )
 
 func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) {
@@ -249,7 +252,7 @@ func bccCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 				keysToDelete = append(keysToDelete, key)
 			} else {
 				err = bccModule.Table.Delete(key) // deleting the element to reset the counter values
-				if err != nil && !os.IsNotExist(err) {
+				if err != nil && !strings.Contains(err, notFound) {
 					klog.Infof("could not delete bpf table elements, err: %v", err)
 				}
 			}
