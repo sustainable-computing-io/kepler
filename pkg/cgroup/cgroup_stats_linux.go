@@ -21,10 +21,12 @@ package cgroup
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/containerd/cgroups"
-	"github.com/containerd/cgroups/v3/cgroup2"
+
+	runccgroups "github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fs2"
+	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -35,7 +37,7 @@ type CCgroupV1StatManager struct {
 }
 
 type CCgroupV2StatManager struct {
-	manager *cgroup2.Manager
+	manager runccgroups.Manager
 }
 
 // NewCGroupStatManager creates a new cgroup stat object that can return the current metrics of the cgroup
@@ -60,11 +62,11 @@ func NewCGroupStatManager(pid int) (CCgroupStatHandler, error) {
 			manager: manager,
 		}, nil
 	} else {
-		str := strings.Split(path, "/")
-		size := len(str)
-		slice := strings.Join(str[0:size-1], "/") + "/"
-		group := str[size-1]
-		manager, err := cgroup2.LoadSystemd(slice, group)
+		cg := &configs.Cgroup{
+			Path:      path,
+			Resources: &configs.Resources{},
+		}
+		manager, err := fs2.NewManager(cg, "")
 		if err != nil {
 			return nil, err
 		}
@@ -110,31 +112,27 @@ func (c CCgroupV1StatManager) SetCGroupStat(containerID string, cgroupStatMap ma
 }
 
 func (c CCgroupV2StatManager) SetCGroupStat(containerID string, cgroupStatMap map[string]*types.UInt64StatCollection) error {
-	stat, err := c.manager.Stat()
+	stat, err := c.manager.GetStats()
 	if err != nil {
 		return err
 	}
-	if stat.Memory == nil {
-		return fmt.Errorf("cgroup metrics does not exist, the cgroup might be deleted")
-	}
 	// memory
-	if stat.Memory != nil {
-		cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.Memory.Usage)
-		cgroupStatMap[config.CgroupfsKernelMemory].SetAggrStat(containerID, stat.Memory.KernelStack)
-		cgroupStatMap[config.CgroupfsTCPMemory].SetAggrStat(containerID, stat.Memory.Sock)
-	}
+	cgroupStatMap[config.CgroupfsMemory].SetAggrStat(containerID, stat.MemoryStats.Usage.Usage)
+	// Note: CgroupfsKernelMemory and CgroupfsTCPMemory are not currently collected by runc for v2 cgroups
+
 	// cpu
-	if stat.CPU != nil {
-		cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CPU.UsageUsec)
-		cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CPU.SystemUsec)
-		cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CPU.UserUsec)
-	}
+	cgroupStatMap[config.CgroupfsCPU].SetAggrStat(containerID, stat.CpuStats.CpuUsage.TotalUsage/1000)              // Usec
+	cgroupStatMap[config.CgroupfsSystemCPU].SetAggrStat(containerID, stat.CpuStats.CpuUsage.UsageInKernelmode/1000) // Usec
+	cgroupStatMap[config.CgroupfsUserCPU].SetAggrStat(containerID, stat.CpuStats.CpuUsage.UsageInUsermode/1000)     // Usec
+
 	// IO
-	if stat.Io != nil {
-		for _, ioEntry := range stat.Io.GetUsage() {
-			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Rbytes)
-			cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Wbytes)
+	for _, ioEntry := range stat.BlkioStats.IoServiceBytesRecursive {
+		if ioEntry.Op == "Read" {
+			cgroupStatMap[config.CgroupfsReadIO].AddDeltaStat(containerID, ioEntry.Value)
 			cgroupStatMap[config.BlockDevicesIO].AddDeltaStat(containerID, 1)
+		}
+		if ioEntry.Op == "Write" {
+			cgroupStatMap[config.CgroupfsWriteIO].AddDeltaStat(containerID, ioEntry.Value)
 		}
 	}
 	return nil
