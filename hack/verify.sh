@@ -25,28 +25,29 @@ source ./hack/common.sh
 
 CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+ARTIFACT_DIR="${ARTIFACT_DIR:-/tmp/artifacts}"
+
+function must_gather() {
+    mkdir -p $ARTIFACT_DIR
+    kubectl describe nodes > "$ARTIFACT_DIR/nodes"
+    kubectl get pods --all-namespaces > "$ARTIFACT_DIR/pods"
+    kubectl get deployment --all-namespaces > "$ARTIFACT_DIR/deployments"
+    kubectl get daemonsets --all-namespaces > "$ARTIFACT_DIR/daemonsets"
+    kubectl get services --all-namespaces > "$ARTIFACT_DIR/services"
+    kubectl get endpoints --all-namespaces > "$ARTIFACT_DIR/endpoints"
+    kubectl describe daemonset kepler-exporter -n kepler > "$ARTIFACT_DIR/kepler-daemonset-describe"
+    kubectl get pods -n kepler -o yaml > "$ARTIFACT_DIR/kepler-pod-yaml"
+    kubectl logs $(kubectl -n kepler get pods -o name) -n kepler > "$ARTIFACT_DIR/kepler-pod-logs"
+}
 
 function check_deployment_status() {
-    deploy_status=1
-    kubectl rollout status daemonset kepler-exporter -n kepler --timeout 5m
-    #check rollout status
-    if [ $? -eq 0 ]
-    then
-        deploy_status=0
-    fi
-    # if deployment in error
-    if test $[deploy_status] -eq 1
-    then
-        echo "check the status of the kepler-exporter"
-        kubectl -n kepler describe daemonset.apps/kepler-exporter
-        echo "check the logs of the kepler-exporter"
-        kubectl -n kepler logs daemonset.apps/kepler-exporter
-    else
-        wait_containers_ready
-        echo "check if kepler is still alive"
-        kubectl logs $(kubectl -n kepler get pods -o name) -n kepler
-        kubectl get all -n kepler
-    fi
+    kubectl rollout status daemonset kepler-exporter -n kepler --timeout 5m || {
+        must_gather
+        exit 1
+    }
+    echo "check if kepler is still alive"
+    kubectl logs $(kubectl -n kepler get pods -o name) -n kepler
+    kubectl get all -n kepler
 }
 
 function intergration_test() {

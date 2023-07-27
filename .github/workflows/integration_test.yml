@@ -11,6 +11,7 @@ env:
   GO_VERSION: "1.18"
   OUTPUT_DIR: "_output/"
   FILE_NAME: "kepler.tar.gz"
+  ARTIFACT_DIR: "/tmp/artifacts"
 
 jobs:
   build-kepler:
@@ -91,7 +92,7 @@ jobs:
           runningBranch: ${{matrix.cluster_provider}}
           cluster_provider: ${{matrix.cluster_provider}}
 
-      - name: push Kepler image to load registry
+      - name: push Kepler image to local registry
         run: |
           make push-image
           make image-prune
@@ -107,6 +108,14 @@ jobs:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
+
+      - name: Save artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts
+          path: ${{env.ARTIFACT_DIR}}
+          retention-days: 10
 
       - name: run e2e tests
         run: make e2e
