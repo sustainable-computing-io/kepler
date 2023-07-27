@@ -252,7 +252,7 @@ func bccCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 				keysToDelete = append(keysToDelete, key)
 			} else {
 				err = bccModule.Table.Delete(key) // deleting the element to reset the counter values
-				if err != nil && !strings.Contains(err, notFound) {
+				if err != nil && !strings.Contains(err.Error(), notFound) {
 					klog.Infof("could not delete bpf table elements, err: %v", err)
 				}
 			}
