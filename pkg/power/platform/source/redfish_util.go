@@ -70,7 +70,9 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 		return err
 	}
 	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
+		if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
+			klog.V(0).Infof("Failed to discard response body: %v", err)
+		}
 		resp.Body.Close()
 	}()
 
