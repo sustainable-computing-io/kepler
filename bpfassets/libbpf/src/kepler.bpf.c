@@ -29,20 +29,20 @@ BPF_HASH(processes, u32, process_metrics_t);
 BPF_HASH(pid_time, u32, u64);
 
 // perf counters
-BPF_PERF_ARRAY(cpu_cycles_hc_reader, NUM_CPUS);
-BPF_ARRAY(cpu_cycles, u64, NUM_CPUS);
+BPF_PERF_ARRAY(cpu_cycles_hc_reader);
+BPF_ARRAY(cpu_cycles, u64);
 
-BPF_PERF_ARRAY(cpu_ref_cycles_hc_reader, NUM_CPUS);
-BPF_ARRAY(cpu_ref_cycles, u64, NUM_CPUS);
+BPF_PERF_ARRAY(cpu_ref_cycles_hc_reader);
+BPF_ARRAY(cpu_ref_cycles, u64);
 
-BPF_PERF_ARRAY(cpu_instr_hc_reader, NUM_CPUS);
-BPF_ARRAY(cpu_instr, u64, NUM_CPUS);
+BPF_PERF_ARRAY(cpu_instr_hc_reader);
+BPF_ARRAY(cpu_instr, u64);
 
-BPF_PERF_ARRAY(cache_miss_hc_reader, NUM_CPUS);
-BPF_ARRAY(cache_miss, u64, NUM_CPUS);
+BPF_PERF_ARRAY(cache_miss_hc_reader);
+BPF_ARRAY(cache_miss, u64);
 
 // cpu freq counters
-BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
+BPF_ARRAY(cpu_freq_array, u32);
 
 static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 {
