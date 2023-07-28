@@ -70,8 +70,8 @@ func UpdateContainerEnergy(containersMetrics map[string]*collector_metric.Contai
 		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.DRAM, config.DRAMUsageMetric, &wg)
 		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.PLATFORM, config.CoreUsageMetric, &wg)
 		// If the resource usage metrics is empty, we evenly divide the power consumption of the resource across all containers
-		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.UNCORE, "", &wg)
-		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.OTHER, "", &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.UNCORE, config.UncoreUsageMetric, &wg)
+		go local.UpdateContainerComponentEnergyByRatioPowerModel(containersMetrics, nodeMetrics, collector_metric.OTHER, config.GeneralUsageMetric, &wg)
 	} else {
 		// The estimator power model updates the power consumption of Pkg, Core, Dram, Uncore and Other
 		UpdateContainerEnergyByTrainedPowerModel(containersMetrics)
