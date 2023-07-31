@@ -98,6 +98,7 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 	}
 	err = m.AttachKprobe("finish_task_switch", ftswitch, -1)
 	if err != nil {
+		klog.Infof("attaching kprobe to finish_task_switch failed, trying finish_task_switch.isra.0 instead")
 		err = m.AttachKprobe("finish_task_switch.isra.0", ftswitch, -1)
 		if err != nil {
 			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
