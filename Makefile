@@ -15,6 +15,7 @@ GIT_VERSION     := $(shell git describe --dirty --tags --always --match='v*')
 VERSION         ?= $(GIT_VERSION)
 LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 ROOTLESS	?= false
+KPROBE_SYM_NAME = $(shell grep finish_task_switch /proc/kallsyms | awk -F' ' '{print $$3}')
 
 ifdef IMAGE_REPO
 	IMAGE_REPO := $(IMAGE_REPO)
@@ -209,7 +210,12 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local: tidy-vendor format
+_kprobe_sym_name:
+	@echo -n $(KPROBE_SYM_NAME) > pkg/bpfassets/attacher/kprobe-sym-name
+.PHONY: _kprobe_sym_name
+	
+
+_build_local: _kprobe_sym_name tidy-vendor format
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go

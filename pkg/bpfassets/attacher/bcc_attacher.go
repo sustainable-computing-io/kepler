@@ -20,6 +20,7 @@ limitations under the License.
 package attacher
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"runtime"
@@ -72,6 +73,9 @@ var (
 	ebpfBatchGet = true
 	// ebpfBatchGetAndDelete is true if delete all the keys after batch get
 	ebpfBatchGetAndDelete = ebpfBatchGet
+
+	//go:embed kprobe-sym-name
+	finish_task_switch_sym_name string
 )
 
 const (
@@ -96,13 +100,9 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load kprobe__finish_task_switch: %s", err)
 	}
-	err = m.AttachKprobe("finish_task_switch", ftswitch, -1)
+	err = m.AttachKprobe(finish_task_switch_sym_name, ftswitch, -1)
 	if err != nil {
-		klog.Infof("attaching kprobe to finish_task_switch failed, trying finish_task_switch.isra.0 instead")
-		err = m.AttachKprobe("finish_task_switch.isra.0", ftswitch, -1)
-		if err != nil {
-			return nil, fmt.Errorf("failed to attach finish_task_switch: %s", err)
-		}
+		return nil, fmt.Errorf("failed to attach kprobe to finish_task_switch. Err: %s", err)
 	}
 
 	softirqEntry, err := m.LoadTracepoint("tracepoint__irq__softirq_entry")
