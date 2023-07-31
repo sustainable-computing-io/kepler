@@ -52,20 +52,23 @@ func InitPowerImpl() {
 	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
-	} else {
-		if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
-			klog.V(1).Infoln("use MSR to obtain power")
-			powerImpl = msrImpl
-		} else {
-			if apmXgeneSysfsImpl.IsSystemCollectionSupported() {
-				klog.V(1).Infoln("use Ampere Xgene sysfs to obtain power")
-				powerImpl = apmXgeneSysfsImpl
-			} else {
-				klog.V(1).Infoln("Not able to obtain power, use estimate method")
-				powerImpl = estimateImpl
-			}
-		}
+		return
 	}
+
+	if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
+		klog.V(1).Infoln("use MSR to obtain power")
+		powerImpl = msrImpl
+		return
+	}
+
+	if apmXgeneSysfsImpl.IsSystemCollectionSupported() {
+		klog.V(1).Infoln("use Ampere Xgene sysfs to obtain power")
+		powerImpl = apmXgeneSysfsImpl
+		return
+	}
+
+	klog.V(1).Infoln("Unable to obtain power, use estimate method")
+	powerImpl = estimateImpl
 }
 
 func GetEnergyFromDram() (uint64, error) {
