@@ -91,6 +91,7 @@ jobs:
         with:
           runningBranch: ${{matrix.cluster_provider}}
           cluster_provider: ${{matrix.cluster_provider}}
+          local_dev_cluster_version: v0.0.3
 
       - name: push Kepler image to local registry
         run: |
