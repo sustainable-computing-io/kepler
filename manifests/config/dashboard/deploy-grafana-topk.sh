@@ -53,4 +53,4 @@ do
     echo waiting for grafandashboard custom resource definition to register
 done
 
-oc apply -f $(pwd)/manifests/config/dashboard/04-grafana-topk-dashboard.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/04-grafana-dashboard-topk.yaml

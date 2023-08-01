@@ -1,5 +1,6 @@
 #!/bin/sh
 
+
 # Applying dashboard/kustomization.yaml does the following:
 ## Enables dashboard for Kepler on OpenShift
 ## Setup service monitor policy
