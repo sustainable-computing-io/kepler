@@ -141,7 +141,7 @@ spec:
               "refId": "C"
             }
           ],
-          "title": "Carbon Footprint (pounds per kWh per day) in Top 10 Namespace:s $namespace  (PKG+DRAM)",
+          "title": "Carbon Footprint (pounds per kWh per day) in $namespace or Top 10 Namespaces is ALL Namespaces selected (PKG+DRAM)",
           "transparent": true,
           "type": "gauge"
         },
@@ -495,7 +495,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(irate(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1m]))",
+              "expr": "topk(10, sum(irate(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1m])))",
               "hide": false,
               "interval": "",
               "legendFormat": "PKG",
@@ -508,7 +508,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(irate(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1m]))",
+              "expr": "topk(10, sum(irate(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1m])))",
               "hide": false,
               "interval": "",
               "legendFormat": "DRAM",
@@ -521,7 +521,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(irate(kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1m]))",
+              "expr": "topk(10,sum(irate(kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1m])))",
               "hide": false,
               "legendFormat": "OTHER",
               "range": true,
@@ -533,14 +533,14 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(irate(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1m]))",
+              "expr": "topk(10, sum(irate(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1m])))",
               "hide": false,
               "legendFormat": " GPU",
               "range": true,
               "refId": "D"
             }
           ],
-          "title": "Total Power Consumption (W) in Top 10 Namespace: $namespace",
+          "title": "Power Consumption (W) of Top10 processes in Namespace: $namespace or Top 10 Namespace if ALL namespaces selected",
           "type": "timeseries"
         },
         {
@@ -691,7 +691,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(\n  (increase(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)",
+              "expr": "topk(10, sum(\n  (increase(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n))",
               "hide": false,
               "interval": "",
               "legendFormat": "PKG (CORE+UNCORE)",
@@ -704,7 +704,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(\n  (increase(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)",
+              "expr": "topk(10, sum(\n  (increase(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n))",
               "hide": false,
               "interval": "",
               "legendFormat": "DRAM",
@@ -717,7 +717,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(\n  (increase(\n    kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(\n    kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(\n      kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)",
+              "expr": "topk(10, sum(\n  (increase(\n    kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(\n    kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(\n      kepler_container_other_host_components_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n))",
               "hide": false,
               "legendFormat": "OTHER",
               "range": true,
@@ -729,14 +729,14 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum(\n  (increase(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)",
+              "expr": "topk(10, sum(\n  (increase(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_gpu_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n))",
               "hide": false,
               "legendFormat": " GPU",
               "range": true,
               "refId": "D"
             }
           ],
-          "title": "Total Power Consumption (kWh per day) in Namespace: $namespace",
+          "title": "Total Power Consumption (kWh per day) of Top10 processes in Namespace: $namespace or Top10 Namesapces if All Namespaces selected",
           "type": "timeseries"
         },
         {
@@ -795,14 +795,14 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (container_namespace) (\n  (increase(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)\n+\nsum by (container_namespace) (\n  (increase(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)",
+              "expr": "topk(10, sum by (container_namespace) (\n  (increase(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_package_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n)\n+\nsum by (container_namespace) (\n  (increase(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n    *$watt_per_second_to_kWh\n  ) *\n  (count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[24h])/\n    count_over_time(kepler_container_dram_joules_total{container_namespace=~\"$namespace\"}[1h])\n  )\n))",
               "interval": "",
               "legendFormat": "{{container_namespace}}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Total Power Consumption (PKG+DRAM) by Namespace (kWh per day)",
+          "title": "Total Power Consumption (PKG+DRAM) for Top 10 Namespaces (kWh per day)",
           "type": "bargauge"
         }
       ],
