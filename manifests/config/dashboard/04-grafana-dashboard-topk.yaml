@@ -141,7 +141,7 @@ spec:
               "refId": "C"
             }
           ],
-          "title": "Carbon Footprint (pounds per kWh per day) in $namespace or Top 10 Namespaces is ALL Namespaces selected (PKG+DRAM)",
+          "title": "Carbon Footprint (pounds per kWh per day) in Namespace: $namespace or Top 10 Namespaces if ALL Namespaces is selected (PKG+DRAM)",
           "transparent": true,
           "type": "gauge"
         },
