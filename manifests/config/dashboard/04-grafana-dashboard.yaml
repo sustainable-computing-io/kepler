@@ -540,7 +540,7 @@ spec:
               "refId": "D"
             }
           ],
-          "title": "Power Consumption (W) of Top10 processes in Namespace: $namespace or Top 10 Namespace if ALL namespaces selected",
+          "title": "Power Consumption (W) of Top10 processes in Namespace: $namespace or Top 10 Namespace if ALL namespaces is selected",
           "type": "timeseries"
         },
         {
@@ -802,7 +802,7 @@ spec:
               "refId": "A"
             }
           ],
-          "title": "Total Power Consumption (PKG+DRAM) for Top 10 Namespaces (kWh per day)",
+          "title": "Total Power Consumption (PKG+DRAM) for Namespace: $namespace or Top 10 Namespaces is ALL Namesapces is selected (kWh per day)",
           "type": "bargauge"
         }
       ],
