@@ -184,6 +184,7 @@ build_containerized: genbpfassets tidy-vendor format
 .PHONY: build_containerized
 
 save-image:
+	@mkdir -p _output
 	$(CTR_CMD) save $(IMAGE_REPO)/kepler:$(IMAGE_TAG) | gzip > "${IMAGE_OUTPUT_PATH}"
 .PHONY: save-image
 
