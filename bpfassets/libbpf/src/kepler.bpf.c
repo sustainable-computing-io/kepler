@@ -227,6 +227,7 @@ int kepler_trace(struct sched_switch_args *ctx)
     u64 on_cpu_cache_miss_delta = get_on_cpu_cache_miss(&cpu_id);
     u64 on_cpu_avg_freq = get_on_cpu_avg_freq(&cpu_id, on_cpu_cycles_delta, on_cpu_ref_cycles_delta);
     u64 on_cpu_time_delta = get_on_cpu_time(new_pid, prev_pid, cur_ts);
+
     // store process metrics
     struct process_metrics_t *process_metrics;
     process_metrics = bpf_map_lookup_elem(&processes, &prev_pid);
@@ -247,7 +248,8 @@ int kepler_trace(struct sched_switch_args *ctx)
         process_metrics_t new_process = {};
         new_process.pid = new_pid;
         //new_process.cgroup_id = cgroup_id;
-        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+        //bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+        bpf_probe_read_kernel_str(&new_process.comm, sizeof(new_process.comm), (void *)ctx->next_comm);
         bpf_map_update_elem(&processes, &new_pid, &new_process, BPF_NOEXIST);
     }
     return 0;
