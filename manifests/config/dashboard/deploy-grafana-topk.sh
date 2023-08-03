@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 # Applying dashboard/kustomization.yaml does the following:
 ## Enables dashboard for Kepler on OpenShift
 ## Setup service monitor policy
@@ -54,4 +53,4 @@ do
     echo waiting for grafandashboard custom resource definition to register
 done
 
-oc apply -f $(pwd)/manifests/config/dashboard/04-grafana-dashboard.yaml
+oc apply -f $(pwd)/manifests/config/dashboard/04-grafana-dashboard-topk.yaml
