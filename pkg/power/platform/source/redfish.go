@@ -204,6 +204,11 @@ func NewRedfishClient() *RedFishClient {
 }
 
 func (rf *RedFishClient) IsSystemCollectionSupported() bool {
+	// goroutine for collecting power info from Redfish already exists
+	if rf.ticker != nil {
+		return true
+	}
+
 	system, err := getRedfishSystem(rf.accessInfo)
 
 	if err != nil {
