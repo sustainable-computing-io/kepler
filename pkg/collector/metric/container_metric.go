@@ -238,7 +238,7 @@ func (c *ContainerMetrics) SumAllDynAggrValues() uint64 {
 }
 
 func (c *ContainerMetrics) String() string {
-	return fmt.Sprintf("energy from pod/container (%d active processes): name: %s/%s namespace: %s \n"+
+	return fmt.Sprintf("energy from pod/container (%d of %d active processes): name: %s/%s namespace: %s \n"+
 		"\tcgrouppid: %d pid: %d comm: %s containerid:%s\n"+
 		"\tDyn ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tIdle ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
@@ -249,7 +249,7 @@ func (c *ContainerMetrics) String() string {
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
-		c.CurrProcesses, c.PodName, c.ContainerName, c.Namespace,
+		c.CurrProcesses, len(c.PIDS), c.PodName, c.ContainerName, c.Namespace,
 		c.CGroupPID, c.PIDS, c.Command, c.ContainerID,
 		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
 		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
