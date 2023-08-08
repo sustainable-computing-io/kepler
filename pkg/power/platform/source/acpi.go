@@ -48,20 +48,20 @@ var (
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
 // information available to the operating system via hwmon in sysfs.
 type ACPI struct {
-	collectEnergy bool
+	CollectEnergy bool
 	powerPath     string
 }
 
 func NewACPIPowerMeter() *ACPI {
 	acpi := &ACPI{powerPath: hwmonPowerPath}
 	if acpi.IsHWMONCollectionSupported() {
-		acpi.collectEnergy = true
+		acpi.CollectEnergy = true
 		klog.V(5).Infof("Using the HWMON power meter path: %s\n", acpi.powerPath)
 	} else {
 		// if the acpi power_average file is not in the hwmon path, try to find the acpi path
 		acpi.powerPath = findACPIPowerPath()
 		if acpi.powerPath != "" {
-			acpi.collectEnergy = true
+			acpi.CollectEnergy = true
 			klog.V(5).Infof("Using the ACPI power meter path: %s\n", acpi.powerPath)
 		} else {
 			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
@@ -138,7 +138,7 @@ func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
 }
 
 func (a *ACPI) IsSystemCollectionSupported() bool {
-	return a.collectEnergy
+	return a.CollectEnergy
 }
 
 func (a *ACPI) IsHWMONCollectionSupported() bool {
@@ -149,7 +149,7 @@ func (a *ACPI) IsHWMONCollectionSupported() bool {
 }
 
 // GetEnergyFromHost returns the accumulated energy consumption
-func (a *ACPI) GetEnergyFromPlatform() (map[string]float64, error) {
+func (a *ACPI) GetAbsEnergyFromPlatform() (map[string]float64, error) {
 	power := map[string]float64{}
 
 	for i := int32(1); i <= numCPUS; i++ {

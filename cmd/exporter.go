@@ -67,6 +67,7 @@ var (
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	kernelSourceDirPath          = flag.String("kernel-source-dir", "", "path to the kernel source directory")
 	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
+	exposeEstimatedIdlePower     = flag.Bool("expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -158,6 +159,7 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
 	config.EnabledMSR = *enabledMSR
+	config.SetEnabledEstimatedIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
@@ -192,7 +194,11 @@ func main() {
 
 	// For local estimator, there is endpoint provided, thus we should let
 	// model component decide whether/how to init
-	model.InitEstimateFunctions(collector_metric.ContainerMetricNames, collector_metric.NodeMetadataNames, collector_metric.NodeMetadataValues)
+	model.CreatePowerEstimatorModels(
+		collector_metric.ContainerFeaturesNames,
+		collector_metric.NodeMetadataFeatureNames,
+		collector_metric.NodeMetadataFeatureValues,
+	)
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")

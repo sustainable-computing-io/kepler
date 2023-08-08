@@ -25,8 +25,8 @@ import (
 )
 
 type powerInterface interface {
-	// GetEnergyFromPlatform returns mJ in DRAM
-	GetEnergyFromPlatform() (map[string]float64, error)
+	// GetAbsEnergyFromPlatform returns mJ in DRAM. Absolute energy is the sum of Idle + Dynamic energy.
+	GetAbsEnergyFromPlatform() (map[string]float64, error)
 	// StopPower stops the collection
 	StopPower()
 	// IsSystemCollectionSupported returns if it is possible to use this collector
@@ -38,6 +38,7 @@ var (
 	redfishImpl *source.RedFishClient
 	hmcImpl     = &source.PowerHMC{}
 	powerSource = "none"
+	enabled     = true
 )
 
 func InitPowerImpl() {
@@ -62,18 +63,25 @@ func GetPowerSource() string {
 	return powerSource
 }
 
-func GetEnergyFromPlatform() (map[string]float64, error) {
+// GetAbsEnergyFromPlatform returns the absolute energy, which is the sum of Idle + Dynamic energy.
+func GetAbsEnergyFromPlatform() (map[string]float64, error) {
 	if powerImpl != nil {
-		return powerImpl.GetEnergyFromPlatform()
+		return powerImpl.GetAbsEnergyFromPlatform()
 	}
 	return nil, fmt.Errorf("powerImpl is nil")
 }
 
 func IsSystemCollectionSupported() bool {
-	if powerImpl != nil {
+	if powerImpl != nil && enabled {
 		return powerImpl.IsSystemCollectionSupported()
 	}
 	return false
+}
+
+// SetIsSystemCollectionSupported is used to enable or disable the system power collection.
+// This is used for testing purpose or to enable power estimation in system that has real-time power metrics.
+func SetIsSystemCollectionSupported(enable bool) {
+	enabled = enable
 }
 
 func StopPower() {

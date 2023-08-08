@@ -16,12 +16,16 @@ var _ = Describe("Stats", func() {
 		// why here is a null pointer?
 		InitAvailableParamAndMetrics()
 		if runtime.GOOS == "linux" {
-			exp := []string{"bytes_read", "bytes_writes", "block_devices_used"}
-			Expect(len(ContainerMetricNames) >= len(exp)).To(BeTrue())
+			exp := []string{
+				config.BytesReadIO,
+				config.BytesWriteIO,
+				config.BlockDevicesIO,
+			}
+			Expect(len(ContainerFeaturesNames) >= len(exp)).To(BeTrue())
 		}
 		if runtime.GOOS == "darwin" {
-			exp := []string{"block_devices_used"}
-			Expect(len(ContainerMetricNames) >= len(exp)).To(BeTrue())
+			exp := []string{config.BlockDevicesIO}
+			Expect(len(ContainerFeaturesNames) >= len(exp)).To(BeTrue())
 		}
 	})
 })

@@ -39,7 +39,7 @@ func (d *GPUDummy) Shutdown() bool {
 	return true
 }
 
-func (d *GPUDummy) GetGpuEnergyPerGPU() []uint32 {
+func (d *GPUDummy) GetAbsEnergyFromGPU() []uint32 {
 	return []uint32{}
 }
 

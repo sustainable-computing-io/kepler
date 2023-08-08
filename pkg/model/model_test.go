@@ -17,126 +17,39 @@ limitations under the License.
 package model
 
 import (
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
 var _ = Describe("Test Model Unit", func() {
-	var (
-		containersMetrics map[string]*collector_metric.ContainerMetrics
-		nodeMetrics       collector_metric.NodeMetrics
-
-		machineSensorID = "sensor0"
-		machineSocketID = 0
-
-		systemFeatures = []string{"cpu_architecture"}
-		systemValues   = []string{"Sandy Bridge"}
-	)
 
 	BeforeEach(func() {
 		source.SystemCollectionSupported = false // disable the system power collection to use the prediction power model
 		setCollectorMetrics()
-		containersMetrics = createMockContainersMetrics()
-		nodeMetrics = createMockNodeMetrics(containersMetrics)
 
-		// we need update this in order to let CI happy, the reason is
-		// we have to run on mac, linux etc, the UT not running on container
-		// so we have to consider the URL to get the file instead of finding local file
-		defaultAbsCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
-		// defaultDynCompURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
 		configStr := "CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
 		os.Setenv("MODEL_CONFIG", configStr)
+		// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
+		components.SetIsSystemCollectionSupported(false)
+		platform.SetIsSystemCollectionSupported(false)
 	})
 
-	// Currently, the model server test models only have data for the DynComponentModelWeight. We cannot get weights for the AbsModelWeight, AbsComponentModelWeight and DynModelWeight
-	// Therefore, we can only test this the DynComponentModelWeight component
-	// TODO: the make the usage of this different models more transparent, it is currently very hard to know what is going on...
-	It("Get container power with no dependency and no node power ", func() {
-		// getEstimatorMetrics
-		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(ContainerComponentPowerModelValid).To(Equal(true))
-
-		// update container and node metrics
-		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
-			Pkg:  0,
-			Core: 0,
-			DRAM: 0,
-		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		nodePlatformEnergy := map[string]float64{}
-		nodePlatformEnergy[machineSensorID] = 0 // empty
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, false)
-
-		// calculate container energy consumption
-		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
-		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Delta will be 9512
-		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
-	})
-
-	It("Get container power with no dependency but with total node power ", func() {
-		// getEstimatorMetrics
-		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(ContainerComponentPowerModelValid).To(Equal(true))
-
-		// update container and node metrics
-		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
-			Pkg:  0,
-			Core: 0,
-			DRAM: 0,
-		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		nodePlatformEnergy := map[string]float64{}
-		nodePlatformEnergy[machineSensorID] = 10
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
-
-		// calculate container energy consumption
-		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
-		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Delta will be 9512
-		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
-	})
-
-	It("Get container power with no dependency but with all node power ", func() {
-		// getEstimatorMetrics
-		InitEstimateFunctions(usageMetrics, systemFeatures, systemValues)
-		Expect(ContainerComponentPowerModelValid).To(Equal(true))
-
-		// update container and node metrics
-		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-		// the NodeComponentsEnergy is the aggregated energy consumption of the node components
-		// then, the components energy consumption is added to the in the nodeMetrics as Agg data
-		// this means that, to have a Curr value, we must have at least two Agg data (to have Agg diff)
-		// therefore, we need to add two values for NodeComponentsEnergy to have energy values to test
-		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
-			Pkg:  10,
-			Core: 10,
-			DRAM: 10,
-		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
-			Pkg:  18,
-			Core: 15,
-			DRAM: 11,
-		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		nodePlatformEnergy := map[string]float64{}
-		nodePlatformEnergy[machineSensorID] = 10
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
-		nodePlatformEnergy[machineSensorID] = 15
-		nodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
-
-		// calculate container energy consumption
-
-		UpdateContainerEnergy(containersMetrics, &nodeMetrics)
-		// Unit test use is reported by default settings through LR model
-		// and following will be reported so EnergyInPkg.Delta will be 9512
-		Expect(containersMetrics["containerA"].DynEnergyInPkg.Delta).To(Equal(uint64(9512)))
+	It("Test GetModelConfigMap()", func() {
+		configStr := "CONTAINER_COMPONENTS_ESTIMATOR=true\nCONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
+		os.Setenv("MODEL_CONFIG", configStr)
+		configValues := config.GetModelConfigMap()
+		modelItem := "CONTAINER_COMPONENTS"
+		fmt.Printf("%s: %s", getModelConfigKey(modelItem, config.EstimatorEnabledKey), configValues[getModelConfigKey(modelItem, config.EstimatorEnabledKey)])
+		useEstimatorSidecarStr := configValues[getModelConfigKey(modelItem, config.EstimatorEnabledKey)]
+		Expect(useEstimatorSidecarStr).To(Equal("true"))
+		initModelURL := configValues[getModelConfigKey(modelItem, config.InitModelURLKey)]
+		Expect(initModelURL).NotTo(Equal(""))
 	})
 })

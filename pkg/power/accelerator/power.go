@@ -37,8 +37,8 @@ type acceleratorInterface interface {
 	Shutdown() bool
 	// GetGpus returns a map with gpu device
 	GetGpus() []interface{}
-	// GetGpuEnergyPerGPU returns a map with mJ in each gpu device
-	GetGpuEnergyPerGPU() []uint32
+	// GetAbsEnergyFromGPU returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
+	GetAbsEnergyFromGPU() []uint32
 	// GetProcessResourceUtilization returns a map of ProcessUtilizationSample where the key is the process pid
 	GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]accelerator_source.ProcessUtilizationSample, error)
 	// IsGPUCollectionSupported returns if it is possible to use this collector
@@ -69,9 +69,9 @@ func GetGpus() []interface{} {
 	return []interface{}{}
 }
 
-func GetGpuEnergyPerGPU() []uint32 {
+func GetAbsEnergyFromGPU() []uint32 {
 	if acceleratorImpl != nil && config.EnabledGPU {
-		return acceleratorImpl.GetGpuEnergyPerGPU()
+		return acceleratorImpl.GetAbsEnergyFromGPU()
 	}
 	return []uint32{}
 }

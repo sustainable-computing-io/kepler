@@ -67,19 +67,21 @@ var (
 
 	KernelVersion = float32(0)
 
-	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
-	UseLibBPFAttacher            = getBoolConfig("LIBBPF_ATTACH", false)
-	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
-	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
-	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
-	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
-	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
-	ExposeKubeletMetrics         = getBoolConfig("EXPOSE_KUBELET_METRICS", true)
-	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
-	MetricPathKey                = "METRIC_PATH"
-	BindAddressKey               = "BIND_ADDRESS"
-	CPUArchOverride              = getConfig("CPU_ARCH_OVERRIDE", "")
-	MaxLookupRetry               = getIntConfig("MAX_LOOKUP_RETRY", defaultMaxLookupRetry)
+	KeplerNamespace                 = getConfig("KEPLER_NAMESPACE", defaultNamespace)
+	UseLibBPFAttacher               = getBoolConfig("LIBBPF_ATTACH", false)
+	EnabledEBPFCgroupID             = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
+	EnabledGPU                      = getBoolConfig("ENABLE_GPU", false)
+	EnableProcessMetrics            = getBoolConfig("ENABLE_PROCESS_METRICS", false)
+	ExposeHardwareCounterMetrics    = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
+	ExposeCgroupMetrics             = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
+	ExposeKubeletMetrics            = getBoolConfig("EXPOSE_KUBELET_METRICS", true)
+	ExposeIRQCounterMetrics         = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
+	ExposeEstimatedIdlePowerMetrics = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
+
+	MetricPathKey   = "METRIC_PATH"
+	BindAddressKey  = "BIND_ADDRESS"
+	CPUArchOverride = getConfig("CPU_ARCH_OVERRIDE", "")
+	MaxLookupRetry  = getIntConfig("MAX_LOOKUP_RETRY", defaultMaxLookupRetry)
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -105,20 +107,22 @@ var (
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
 	// for model config
-	modelConfigValues map[string]string
-	// model_item
-	NodeTotalKey           = "NODE_TOTAL"
-	NodeComponentsKey      = "NODE_COMPONENTS"
-	ContainerTotalKey      = "CONTAINER_TOTAL"
-	ContainerComponentsKey = "CONTAINER_COMPONENTS"
-	ProcessTotalKey        = "PROCESS_TOTAL"
-	ProcessComponentsKey   = "PROCESS_COMPONENTS"
+	ModelConfigValues map[string]string
+	// model_parameter_prefix
+	NodePlatformPowerKey        = "NODE_TOTAL"
+	NodeComponentsPowerKey      = "NODE_COMPONENTS"
+	ContainerPlatformPowerKey   = "CONTAINER_TOTAL"
+	ContainerComponentsPowerKey = "CONTAINER_COMPONENTS"
+	ProcessPlatformPowerKey     = "PROCESS_TOTAL"
+	ProcessComponentsPowerKey   = "PROCESS_COMPONENTS"
 
-	//  attribute
-	EstimatorEnabledKey = "ESTIMATOR"
-	InitModelURLKey     = "INIT_URL"
-	FixedModelNameKey   = "MODEL"
-	ModelFiltersKey     = "FILTERS"
+	// model_parameter_attribute
+	RatioEnabledKey            = "RATIO" // the default container power model is RATIO but ESTIMATOR or LINEAR_REGRESSION can be used
+	EstimatorEnabledKey        = "ESTIMATOR"
+	LinearRegressionEnabledKey = "LINEAR_REGRESSION"
+	InitModelURLKey            = "INIT_URL"
+	FixedModelNameKey          = "MODEL"
+	ModelFiltersKey            = "FILTERS"
 	////////////////////////////////////
 
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
@@ -137,6 +141,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
 		klog.V(5).Infof("EXPOSE_KUBELET_METRICS: %t", ExposeKubeletMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
+		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeEstimatedIdlePowerMetrics)
 	}
 }
 
@@ -248,7 +253,7 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
 func InitModelConfigMap() {
-	modelConfigValues = getModelConfigMap()
+	ModelConfigValues = GetModelConfigMap()
 }
 
 // SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
@@ -269,6 +274,27 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 func SetEnabledHardwareCounterMetrics(enabled bool) {
 	// set to false is any config source set it to false
 	ExposeHardwareCounterMetrics = enabled && ExposeHardwareCounterMetrics
+}
+
+// SetEnabledEstimatedIdlePower allows enabling idle power exposure in Kepler's metrics. When direct power metrics access is available,
+// idle power exposure is automatic. With pre-trained power models, awareness of implications is crucial.
+// Estimated idle power is useful for bare-metal or single VM setups. In VM environments, accurately distributing idle power is tough due
+// to unknown co-running VMs. Wrong division results in significant accuracy errors, duplicatiing the host idle power across all VMs.
+// Container pre-trained models focus on dynamic power. Estimating idle power in limited information scenarios (like VMs) is complex.
+// Idle power prediction is limited to bare-metal or single VM setups.
+// Know the number of runnign VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
+func SetEnabledEstimatedIdlePower(enabled bool) {
+	// set to true is any config source set it to true or if system power metrics are available
+	ExposeHardwareCounterMetrics = enabled || ExposeEstimatedIdlePowerMetrics
+	if ExposeHardwareCounterMetrics {
+		klog.Infoln("The Idle power will be exposed. Are you running on Baremetal or using single VM per node?")
+	}
+}
+
+// IsEstimatedIdlePowerEnabled always return true if Kepler has access to system power metrics.
+// However, if pre-trained power models are being used, Kepler should only expose metrics if the user is aware of the implications.
+func IsEstimatedIdlePowerEnabled() bool {
+	return ExposeHardwareCounterMetrics
 }
 
 // SetEnabledGPU enables the exposure of gpu metrics
@@ -363,7 +389,7 @@ func GetBindAddress(cmdSet string) string {
 	return getConfig(BindAddressKey, cmdSet)
 }
 
-func getModelConfigMap() map[string]string {
+func GetModelConfigMap() map[string]string {
 	configMap := make(map[string]string)
 	modelConfigStr := getConfig("MODEL_CONFIG", "")
 	lines := strings.Fields(modelConfigStr)
@@ -374,19 +400,4 @@ func getModelConfigMap() map[string]string {
 		}
 	}
 	return configMap
-}
-
-func getModelConfigKey(modelItem, attribute string) string {
-	return fmt.Sprintf("%s_%s", modelItem, attribute)
-}
-
-func GetModelConfig(modelItem string) (useEstimatorSidecar bool, selectedModel, selectFilter, initModelURL string) {
-	useEstimatorSidecarStr := modelConfigValues[getModelConfigKey(modelItem, EstimatorEnabledKey)]
-	if strings.EqualFold(useEstimatorSidecarStr, "true") {
-		useEstimatorSidecar = true
-	}
-	selectedModel = modelConfigValues[getModelConfigKey(modelItem, FixedModelNameKey)]
-	selectFilter = modelConfigValues[getModelConfigKey(modelItem, ModelFiltersKey)]
-	initModelURL = modelConfigValues[getModelConfigKey(modelItem, InitModelURLKey)]
-	return
 }

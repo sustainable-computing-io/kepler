@@ -17,72 +17,227 @@ limitations under the License.
 package model
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
+)
+
+const (
+	idlePower = true
+	absPower  = false
+	gauge     = true
+	counter   = false
 )
 
 var (
 	EstimatorSidecarSocket = "/tmp/estimator.sock"
 )
 
-// InitEstimateFunctions checks validity of power model and set estimate functions
-func InitEstimateFunctions(usageMetrics, systemFeatures, systemValues []string) {
+// PowerMoldelInterface defines the power model sckeleton
+type PowerMoldelInterface interface {
+	// AddContainerFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
+	// x values are added to a sliding window with circular list for dynamic data flow
+	AddContainerFeatureValues(x []float64)
+	// AddNodeFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
+	AddNodeFeatureValues(x []float64)
+	// AddDesiredOutValue adds the new y as a point for trainning. Where y the response variable (or the dependent variable).
+	AddDesiredOutValue(y float64)
+	// ResetSampleIdx set the sample sliding window index, setting to 0 to overwrite the old samples with new ones for trainning or prediction.
+	ResetSampleIdx()
+	// Train triggers the regressiong fit after adding data points to create a new power model
+	Train() error
+	// IsEnabled returns true if the power model was trained and is active
+	IsEnabled() bool
+	// GetModelType returns if the model is Ratio, LinearRegressor or EstimatorSidecar
+	GetModelType() types.ModelType
+	// GetContainerFeatureNamesList returns the list of container features that the model was configured to use
+	GetContainerFeatureNamesList() []string
+	// GetNodeFeatureNamesList returns the list of node features that the model was configured to use
+	GetNodeFeatureNamesList() []string
+	// GetPlatformPower returns the total Platform Power in Watts associated to each process/container/pod
+	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
+	GetPlatformPower(isIdlePower bool) ([]float64, error)
+	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/container/pod
+	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
+	GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+	// GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
+	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
+	GetGPUPower(isIdlePower bool) ([]float64, error)
+}
+
+// CreatePowerEstimatorModels checks validity of power model and set estimate functions
+func CreatePowerEstimatorModels(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	config.InitModelConfigMap()
-	InitNodeTotalPowerEstimator(usageMetrics, systemFeatures, systemValues)
-	InitNodeComponentPowerEstimator(usageMetrics, systemFeatures, systemValues)
-	InitContainerPowerEstimator(usageMetrics, systemFeatures, systemValues)
-	InitProcessPowerEstimator(usageMetrics, systemFeatures, systemValues)
+	CreateContainerPowerEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateProcessPowerEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	// Node power estimator uses the container features to estimate node power, expect for the Ratio power model that contains additional metrics.
+	CreateNodePlatformPoweEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateNodeComponentPoweEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 }
 
-// initEstimateFunction called by InitEstimateFunctions to initiate estimate function for each power model
-func initEstimateFunction(modelConfig types.ModelConfig, archiveType, modelWeightType types.ModelOutputType, usageMetrics, systemFeatures, systemValues []string, isTotalPower bool) (valid bool, estimateFunc interface{}) {
-	if modelConfig.UseEstimatorSidecar {
-		// init EstimatorSidecarConnector
-		c := sidecar.EstimatorSidecarConnector{
-			Socket:         EstimatorSidecarSocket,
-			UsageMetrics:   usageMetrics,
-			OutputType:     archiveType,
-			SystemFeatures: systemFeatures,
-			ModelName:      modelConfig.SelectedModel,
-			SelectFilter:   modelConfig.SelectFilter,
+// createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
+// To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the LinearRegressor.
+// For the built-in Power Model, we have the option to use the Ratio power model.
+func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInterface, error) {
+	switch modelConfig.ModelType {
+	case types.Ratio:
+		model := &local.RatioPowerModel{
+			ContainerFeatureNames: modelConfig.ContainerFeatureNames,
+			NodeFeatureNames:      modelConfig.NodeFeatureNames,
 		}
-		valid = c.Init(systemValues)
-		if valid {
-			if isTotalPower {
-				estimateFunc = c.GetTotalPower
-			} else {
-				estimateFunc = c.GetComponentPower
-			}
-		}
-		klog.V(3).Infof("Model %s initiated (%v)", archiveType.String(), valid)
-	} else {
-		// init LinearRegressor
-		r := local.LinearRegressor{
-			Endpoint:       config.ModelServerEndpoint,
-			UsageMetrics:   usageMetrics,
-			OutputType:     modelWeightType,
-			SystemFeatures: systemFeatures,
-			ModelName:      modelConfig.SelectedModel,
-			SelectFilter:   modelConfig.SelectFilter,
-			InitModelURL:   modelConfig.InitModelURL,
-		}
-		valid = r.Init()
-		if isTotalPower {
-			estimateFunc = r.GetTotalPower
+		klog.V(3).Infof("Using Power Model Ratio")
+		return model, nil
+
+	case types.LinearRegressor:
+		var featuresNames []string
+		if modelConfig.IsNodePowerModel {
+			featuresNames = modelConfig.NodeFeatureNames
 		} else {
-			estimateFunc = r.GetComponentPower
+			featuresNames = modelConfig.ContainerFeatureNames
 		}
-		klog.V(3).Infof("Model %s initiated (%v)", modelWeightType.String(), valid)
+		model := &local.LinearRegressor{
+			ModelServerEndpoint:         config.ModelServerEndpoint,
+			OutputType:                  modelConfig.ModelOutputType,
+			ModelName:                   modelConfig.ModelName,
+			SelectFilter:                modelConfig.SelectFilter,
+			ModelWeightsURL:             modelConfig.InitModelURL,
+			FloatFeatureNames:           featuresNames,
+			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
+			SystemMetaDataFeatureValues: modelConfig.SystemMetaDataFeatureValues,
+		}
+		err := model.Start()
+		if err != nil {
+			return nil, err
+		}
+		klog.V(3).Infof("Using Power Model %s", modelConfig.ModelOutputType.String())
+		return model, nil
+
+	case types.EstimatorSidecar:
+		var featuresNames []string
+		if modelConfig.IsNodePowerModel {
+			featuresNames = modelConfig.NodeFeatureNames
+		} else {
+			featuresNames = modelConfig.ContainerFeatureNames
+		}
+		model := &sidecar.EstimatorSidecar{
+			Socket:                      EstimatorSidecarSocket,
+			OutputType:                  modelConfig.ModelOutputType,
+			ModelName:                   modelConfig.ModelName,
+			SelectFilter:                modelConfig.SelectFilter,
+			FloatFeatureNames:           featuresNames,
+			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
+			SystemMetaDataFeatureValues: modelConfig.SystemMetaDataFeatureValues,
+		}
+		err := model.Start()
+		if err != nil {
+			return nil, err
+		}
+		klog.V(3).Infof("Using Power Model %s", modelConfig.ModelOutputType.String())
+		return model, nil
 	}
-	return valid, estimateFunc
+
+	err := fmt.Errorf("power Model %s is not supported", modelConfig.ModelType.String())
+	klog.V(3).Infof("%v", err)
+	return nil, err
 }
 
-func InitModelConfig(modelItem string) types.ModelConfig {
-	useEstimatorSidecar, selectedModel, selectFilter, initModelURL := config.GetModelConfig(modelItem)
-	modelConfig := types.ModelConfig{UseEstimatorSidecar: useEstimatorSidecar, SelectedModel: selectedModel, SelectFilter: selectFilter, InitModelURL: initModelURL}
-	klog.V(3).Infof("Model Config %s: %+v", modelItem, modelConfig)
-	return modelConfig
+// CreatePowerModelConfig loads the power model configurations from the ConfigMap, including the Model type, name, filter, URL to download data, and model output type.
+// The powerSourceTarget parameter acts as a prefix, which can have values like NODE_TOTAL, NODE_COMPONENTS, CONTAINER_COMPONENTS, etc.
+// The complete variable name is created by combining the prefix with the specific attribute.
+// For example, if the model name (which the key is MODEL) is under NODE_TOTAL, it will be called NODE_TOTAL_MODEL.
+func CreatePowerModelConfig(powerSourceTarget string) *types.ModelConfig {
+	modelConfig := types.ModelConfig{
+		ModelType:        getPowerModelType(powerSourceTarget),
+		ModelName:        getPowerModelName(powerSourceTarget),
+		SelectFilter:     getPowerModelFilter(powerSourceTarget),
+		InitModelURL:     getPowerModelDownloadURL(powerSourceTarget),
+		NodeFeatureNames: []string{},
+	}
+	modelConfig.ModelOutputType = getPowerModelOutputType(powerSourceTarget, modelConfig.ModelType)
+
+	klog.V(3).Infof("Model Config %s: %+v", powerSourceTarget, modelConfig)
+	return &modelConfig
+}
+
+func getModelConfigKey(modelItem, attribute string) string {
+	return fmt.Sprintf("%s_%s", modelItem, attribute)
+}
+
+// getPowerModelType return the model type for a given power source, such as platform or components power sources
+// The default power model type is Ratio
+func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
+	useEstimatorSidecarStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.EstimatorEnabledKey)]
+	if strings.EqualFold(useEstimatorSidecarStr, "true") {
+		modelType = types.EstimatorSidecar
+		return
+	}
+	useLinearRegressionStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LinearRegressionEnabledKey)]
+	if strings.EqualFold(useLinearRegressionStr, "true") {
+		modelType = types.LinearRegressor
+		return
+	}
+	// set the default node power model as LinearRegressor
+	if powerSourceTarget == config.NodePlatformPowerKey || powerSourceTarget == config.NodeComponentsPowerKey {
+		modelType = types.LinearRegressor
+		return
+	}
+	// set the default container power model as Ratio
+	modelType = types.Ratio
+	return
+}
+
+// getPowerModelName return the model name for a given power source, such as platform or components power sources
+func getPowerModelName(powerSourceTarget string) (modelName string) {
+	modelName = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.FixedModelNameKey)]
+	return
+}
+
+// getPowerModelFilter return the model filter for a given power source, such as platform or components power sources
+// The model filter is used to select a model, for example selecting a model with the acceptable error: 'mae:0.5'
+func getPowerModelFilter(powerSourceTarget string) (selectFilter string) {
+	selectFilter = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.ModelFiltersKey)]
+	return
+}
+
+// getPowerModelDownloadURL return the url to download the pre-trained power model for a given power source, such as platform or components power sources
+func getPowerModelDownloadURL(powerSourceTarget string) (url string) {
+	url = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.InitModelURLKey)]
+	return
+}
+
+// getPowerModelOutputType return the model output type for a given power source, such as platform, components, container or node power sources.
+// getPowerModelOutputType only affects LinearRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
+func getPowerModelOutputType(powerSourceTarget string, modelType types.ModelType) types.ModelOutputType {
+	// Linear regression power model downloads the model weights
+	if modelType == types.LinearRegressor {
+		switch powerSourceTarget {
+		case config.ContainerPlatformPowerKey:
+			return types.DynModelWeight
+		case config.ContainerComponentsPowerKey:
+			return types.DynComponentModelWeight
+		case config.NodePlatformPowerKey:
+			return types.AbsModelWeight
+		case config.NodeComponentsPowerKey:
+			return types.AbsComponentModelWeight
+		}
+		// Estimator power model downloads the pre-trained model metadata
+	} else if modelType == types.EstimatorSidecar {
+		switch powerSourceTarget {
+		case config.ContainerPlatformPowerKey:
+			return types.DynPower
+		case config.ContainerComponentsPowerKey:
+			return types.DynComponentPower
+		case config.NodePlatformPowerKey:
+			return types.AbsPower
+		case config.NodeComponentsPowerKey:
+			return types.AbsComponentPower
+		}
+	}
+	return types.AbsPower
 }

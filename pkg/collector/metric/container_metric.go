@@ -30,14 +30,12 @@ import (
 )
 
 var (
-	// ContainerMetricNames holds the list of names of the container metric
-	ContainerMetricNames []string
 	// ContainerFloatFeatureNames holds the feature name of the container float collector_metric. This is specific for the machine-learning based models.
 	ContainerFloatFeatureNames []string = []string{}
 	// ContainerUintFeaturesNames holds the feature name of the container utint collector_metric. This is specific for the machine-learning based models.
-	ContainerUintFeaturesNames []string
+	ContainerUintFeaturesNames []string = []string{}
 	// ContainerFeaturesNames holds all the feature name of the container collector_metric. This is specific for the machine-learning based models.
-	ContainerFeaturesNames []string
+	ContainerFeaturesNames []string = []string{}
 )
 
 type ContainerMetrics struct {
@@ -191,15 +189,13 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)
 }
 
-// ToEstimatorValues return values regarding metricNames
-func (c *ContainerMetrics) ToEstimatorValues() (values []float64) {
-	for _, metric := range ContainerFloatFeatureNames {
-		curr, _, _ := c.getFloatCurrAndAggrValue(metric)
-		values = append(values, curr)
-	}
-	for _, metric := range ContainerUintFeaturesNames {
+// ToEstimatorValues return values regarding metricNames.
+// Since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, and the power models are trained to estimate power in 1 second interval.
+// It is necessary to normalize the resource utilization by the SamplePeriodSec. Note that this is important because the power curve can be different for higher or lower resource usage within 1 second interval.
+func (c *ContainerMetrics) ToEstimatorValues(featuresName []string, shouldNormalize bool) (values []float64) {
+	for _, metric := range featuresName {
 		curr, _, _ := c.getIntDeltaAndAggrValue(metric)
-		values = append(values, float64(curr))
+		values = append(values, normalize(float64(curr), shouldNormalize))
 	}
 	return
 }

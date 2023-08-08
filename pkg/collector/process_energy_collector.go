@@ -22,5 +22,5 @@ import (
 
 // updateProcessEnergy matches the process resource usage with the node energy consumption
 func (c *Collector) updateProcessEnergy() {
-	model.UpdateProcessEnergy(c.ProcessMetrics, c.ContainersMetrics[c.systemProcessName])
+	model.UpdateProcessEnergy(c.ProcessMetrics, &c.NodeMetrics)
 }

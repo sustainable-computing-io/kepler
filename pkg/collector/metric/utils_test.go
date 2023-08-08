@@ -15,7 +15,7 @@ func clearPlatformDependentAvailability() {
 	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
 	ContainerFeaturesNames = []string{}
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
-	ContainerMetricNames = getEstimatorMetrics()
+	ContainerFeaturesNames = append(ContainerFeaturesNames, blockDeviceLabel)
 }
 
 var _ = Describe("Test Metric Unit", func() {
@@ -23,7 +23,7 @@ var _ = Describe("Test Metric Unit", func() {
 	It("Test getPrometheusMetrics", func() {
 		clearPlatformDependentAvailability()
 
-		exp := []string{"block_devices_used"}
+		exp := []string{config.BlockDevicesIO}
 		cur := getPrometheusMetrics()
 		if len(cur) > len(exp) {
 			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
@@ -32,26 +32,14 @@ var _ = Describe("Test Metric Unit", func() {
 		}
 	})
 
-	It("Test getEstimatorMetrics", func() {
-		clearPlatformDependentAvailability()
-
-		exp := []string{"block_devices_used"}
-		cur := getEstimatorMetrics()
-		if len(cur) > len(exp) {
-			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
-		} else {
-			Expect(exp).To(Equal(cur))
-		}
-	})
-
 	It("Test isCounterStatEnabled for True", func() {
-		AvailableHWCounters = []string{"block_devices_used"}
-		exp := isCounterStatEnabled("cpu_time")
+		AvailableHWCounters = []string{config.BlockDevicesIO}
+		exp := isCounterStatEnabled(config.CPUTime)
 		Expect(exp).To(BeFalse())
 	})
 
 	It("Test isCounterStatEnabled for False", func() {
-		AvailableHWCounters = []string{"block_devices_used"}
+		AvailableHWCounters = []string{config.BlockDevicesIO}
 		exp := isCounterStatEnabled("")
 		Expect(exp).To(BeFalse())
 	})
@@ -60,11 +48,11 @@ var _ = Describe("Test Metric Unit", func() {
 		config.ExposeHardwareCounterMetrics = false
 		clearPlatformDependentAvailability()
 		setEnabledMetrics()
-		exp := []string{"block_devices_used"}
-		if len(ContainerMetricNames) > len(exp) {
-			Expect(exp).To(Equal(ContainerMetricNames[len(ContainerMetricNames)-len(exp):]))
+		exp := []string{config.BlockDevicesIO}
+		if len(ContainerFeaturesNames) > len(exp) {
+			Expect(exp).To(Equal(ContainerFeaturesNames[len(ContainerFeaturesNames)-len(exp):]))
 		} else {
-			Expect(exp).To(Equal(ContainerMetricNames))
+			Expect(exp).To(Equal(ContainerFeaturesNames))
 		}
 	})
 })

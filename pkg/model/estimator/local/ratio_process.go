@@ -15,85 +15,212 @@ limitations under the License.
 */
 
 /*
-ratio_process.go
-calculate processess' component and other power by ratio approach when node power is available.
+ratio.go
+calculate Processs' component and other power by ratio approach when node power is available.
 */
 
+//nolint:dupl // the ratio process should be removed
 package local
 
 import (
-	"sync"
+	"math"
 
-	"k8s.io/klog/v2"
-
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
-// getDataFromAlternativeMetric is used when there is no Hardware counter so we have to use cgroup or eBPF (CPUTime)
-func getDataFromAlternativeMetric(cputime *types.UInt64Stat, usageMetrics string) float64 {
-	// Given there is no HW counter, we have to use cgroup data, and Only CPUTime is available today
-	// So busy CPU is more likely to be accessing memory. Although CPU utilization (CPUTime) does not
-	// directly represent memory access, it remains the only viable proxy available to approximate such information reliably.
-	switch usageMetrics {
-	case config.CoreUsageMetric:
-	case config.DRAMUsageMetric:
-		return float64(cputime.Delta)
-	case config.GpuUsageMetric:
-		// FIXME: find cgroup data in cgroup
-		return 0
-	default:
-		return 0
-	}
-	return 0
+const MaxProcesss = 2000
+
+// RatioProcessPowerModel stores the feature samples of each process for prediction
+// The feature will added ordered from cycles, instructions and cache-misses
+type RatioProcessPowerModel struct {
+	NodeFeatureNames    []string
+	ProcessFeatureNames []string
+
+	processFeatureValues [][]float64 // metrics per process/process/pod
+	nodeFeatureValues    []float64   // metrics per process/process/pod
+	// xidx represents the features slide window position
+	xidx int
 }
 
-func getNodeTotalProcessResourceUsage(containerMetrics *collector_metric.ContainerMetrics, usageMetric string) float64 {
-	var nodeTotalResourceUsage float64
-	if _, ok := containerMetrics.CounterStats[usageMetric]; ok {
-		nodeTotalResourceUsage = float64(containerMetrics.CounterStats[usageMetric].Delta)
+func (r *RatioProcessPowerModel) getPowerByRatio(processIdx, resUsageFeature, nodePowerFeature int, numProcesss float64) float64 {
+	var power float64
+	nodeResUsage := r.nodeFeatureValues[resUsageFeature]
+	nodePower := r.nodeFeatureValues[nodePowerFeature]
+	if nodeResUsage == 0 || resUsageFeature == int(UncoreUsageMetric) {
+		power = nodePower / numProcesss
 	} else {
-		// this will be system container (all processes's CPU Time)
-		nodeTotalResourceUsage = getDataFromAlternativeMetric(containerMetrics.CPUTime, usageMetric)
+		processResUsage := r.processFeatureValues[processIdx][resUsageFeature]
+		power = (processResUsage / nodeResUsage) * nodePower
 	}
-	return nodeTotalResourceUsage
+	return math.Ceil(power)
 }
 
-func getProcessResUsage(process *collector_metric.ProcessMetrics, usageMetric string) float64 {
-	var processResUsage float64
-	if _, ok := process.CounterStats[usageMetric]; ok {
-		processResUsage = float64(process.CounterStats[usageMetric].Delta)
-	} else {
-		processResUsage = getDataFromAlternativeMetric(process.CPUTime, usageMetric)
+// GetPlatformPower applies ModelWeight prediction and return a list of total powers
+func (r *RatioProcessPowerModel) GetPlatformPower(isIdlePower bool) ([]float64, error) {
+	var processPlatformPower []float64
+
+	// the number of processes is used to evernly divide the power consumption for OTHER and UNCORE
+	// we do not use CPU utilization for OTHER and UNCORE because they are not necessarily directly
+	numProcesss := float64(r.xidx)
+
+	// estimate the power for each process
+	for processIdx := 0; processIdx < r.xidx; processIdx++ {
+		var processPower float64
+		if isIdlePower {
+			// TODO: idle power should be divided accordinly to the process requested resource
+			processPower = r.getPowerByRatio(processIdx, int(PlatformUsageMetric), int(PlatformIdlePower), numProcesss)
+		} else {
+			processPower = r.getPowerByRatio(processIdx, int(PlatformUsageMetric), int(PlatformDynPower), numProcesss)
+		}
+		processPlatformPower = append(processPlatformPower, processPower)
 	}
-	return processResUsage
+	return processPlatformPower, nil
 }
 
-// TODO: we should not calculate the process power based on the container power. Instead of using the container metrics we should use the system metrics and we do in the container power model.
-// UpdateProcessComponentEnergyByRatioPowerModel calculates the process energy consumption based on the energy consumption of the container that contains all the processes
-func UpdateProcessComponentEnergyByRatioPowerModel(processMetrics map[uint64]*collector_metric.ProcessMetrics, containerMetrics *collector_metric.ContainerMetrics, component, usageMetric string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	nodeTotalResourceUsage := float64(-1)
-	processesNumber := float64(len(processMetrics))
-	totalDynPower := float64(containerMetrics.GetDynEnergyStat(component).Delta)
+// GetComponentsPower applies each component's ModelWeight prediction and return a map of component powers
+func (r *RatioProcessPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error) {
+	nodeComponentsPowerOfAllProcesss := []source.NodeComponentsEnergy{}
 
-	// evenly divide the idle power to all containers. TODO: use the container resource request
-	idlePowerPerProcess := containerMetrics.GetIdleEnergyStat(component).Delta / uint64(processesNumber)
+	// the number of processes is used to evernly divide the power consumption for OTHER and UNCORE
+	// we do not use CPU utilization for OTHER and UNCORE because they are not necessarily directly
+	numProcesss := float64(r.xidx)
 
-	// if usageMetric exist, divide the power using the ratio. Otherwise, evenly divide the power.
-	if usageMetric != "" {
-		nodeTotalResourceUsage = getNodeTotalProcessResourceUsage(containerMetrics, usageMetric)
-	}
+	// estimate the power for each process
+	for processIdx := 0; processIdx < r.xidx; processIdx++ {
+		var processPower uint64
+		processNodeComponentsPower := source.NodeComponentsEnergy{}
 
-	for pid, process := range processMetrics {
-		processResUsage := getProcessResUsage(process, usageMetric)
-		processPkgEnergy := getEnergyRatio(processResUsage, nodeTotalResourceUsage, totalDynPower, processesNumber)
-		if err := processMetrics[pid].GetDynEnergyStat(component).AddNewDelta(processPkgEnergy); err != nil {
-			klog.Infoln(err)
+		// PKG power
+		// TODO: idle power should be divided accordinly to the process requested resource
+		if isIdlePower {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(PkgUsageMetric), int(PkgIdlePower), numProcesss))
+		} else {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(PkgUsageMetric), int(PkgDynPower), numProcesss))
 		}
-		if err := processMetrics[pid].GetIdleEnergyStat(component).AddNewDelta(idlePowerPerProcess); err != nil {
-			klog.Infoln(err)
+		processNodeComponentsPower.Pkg = processPower
+
+		// CORE power
+		if isIdlePower {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(CoreUsageMetric), int(CoreIdlePower), numProcesss))
+		} else {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(CoreUsageMetric), int(CoreDynPower), numProcesss))
+		}
+		processNodeComponentsPower.Core = processPower
+
+		// DRAM power
+		if isIdlePower {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(DramUsageMetric), int(DramIdlePower), numProcesss))
+		} else {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(DramUsageMetric), int(DramDynPower), numProcesss))
+		}
+		processNodeComponentsPower.DRAM = processPower
+
+		// UNCORE power
+		if isIdlePower {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(UncoreUsageMetric), int(UncoreIdlePower), numProcesss))
+		} else {
+			processPower = uint64(r.getPowerByRatio(processIdx, int(UncoreUsageMetric), int(UncoreDynPower), numProcesss))
+		}
+		processNodeComponentsPower.Uncore = processPower
+
+		nodeComponentsPowerOfAllProcesss = append(nodeComponentsPowerOfAllProcesss, processNodeComponentsPower)
+	}
+	return nodeComponentsPowerOfAllProcesss, nil
+}
+
+// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
+func (r *RatioProcessPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error) {
+	nodeComponentsPowerOfAllProcesss := []float64{}
+
+	// the number of processes is used to evernly divide the power consumption for OTHER and UNCORE
+	// we do not use CPU utilization for OTHER and UNCORE because they are not necessarily directly
+	numProcesss := float64(r.xidx)
+
+	// estimate the power for each process
+	for processIdx := 0; processIdx < r.xidx; processIdx++ {
+		var processPower float64
+
+		// TODO: idle power should be divided accordinly to the process requested resource
+		if isIdlePower {
+			processPower = r.getPowerByRatio(processIdx, int(GpuDynPower), int(GpuIdlePower), numProcesss)
+		} else {
+			processPower = r.getPowerByRatio(processIdx, int(GpuDynPower), int(GpuDynPower), numProcesss)
+		}
+		nodeComponentsPowerOfAllProcesss = append(nodeComponentsPowerOfAllProcesss, processPower)
+	}
+	return nodeComponentsPowerOfAllProcesss, nil
+}
+
+// AddProcessFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
+// RatioProcessPowerModel is not trained, then we cannot Add training samples, only samples for prediction.
+func (r *RatioProcessPowerModel) AddProcessFeatureValues(x []float64) {
+	for i, feature := range x {
+		// processFeatureValues is a cyclic list, where we only append a new value if it is necessary.
+		if r.xidx < len(r.processFeatureValues) {
+			if i < len(r.processFeatureValues[r.xidx]) {
+				r.processFeatureValues[r.xidx][i] = feature
+			} else {
+				r.processFeatureValues[r.xidx] = append(r.processFeatureValues[r.xidx], feature)
+			}
+		} else {
+			// add new process
+			r.processFeatureValues = append(r.processFeatureValues, []float64{})
+			// add feature of new process
+			r.processFeatureValues[r.xidx] = append(r.processFeatureValues[r.xidx], feature)
 		}
 	}
+	r.xidx += 1 // mode pointer to next process
+}
+
+// AddNodeFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
+// RatioProcessPowerModel is not trained, then we cannot Add training samples, only samples for prediction.
+func (r *RatioProcessPowerModel) AddNodeFeatureValues(x []float64) {
+	for i, feature := range x {
+		if i < len(r.nodeFeatureValues) {
+			r.nodeFeatureValues[i] = feature
+		} else {
+			r.nodeFeatureValues = append(r.nodeFeatureValues, feature)
+		}
+	}
+}
+
+// AddDesiredOutValue adds the the y, which is the response variable (or the dependent variable) of regression.
+// RatioProcessPowerModel is not trained, then we cannot Add training samples.
+func (r *RatioProcessPowerModel) AddDesiredOutValue(y float64) {
+}
+
+// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
+func (r *RatioProcessPowerModel) ResetSampleIdx() {
+	r.xidx = 0
+	// reset the list if the size is very high to avoid use too much memory
+	// we should not reset the list too often to do not put pressure in the garbage collector
+	if len(r.processFeatureValues) > MaxProcesss {
+		r.processFeatureValues = [][]float64{}
+	}
+}
+
+// RatioProcessPowerModel is not trained, then this function does nothing.
+func (r *RatioProcessPowerModel) Train() error {
+	return nil
+}
+
+// IsEnabled returns true as Ratio Power model is always active
+func (r *RatioProcessPowerModel) IsEnabled() bool {
+	return true
+}
+
+// GetModelType returns the model type
+func (r *RatioProcessPowerModel) GetModelType() types.ModelType {
+	return types.Ratio
+}
+
+// GetprocessFeatureNamesList returns the list of process features that the model was configured to use
+func (r *RatioProcessPowerModel) GetProcessFeatureNamesList() []string {
+	return r.ProcessFeatureNames
+}
+
+// GetNodeFeatureNamesList returns the list of process features that the model was configured to use
+func (r *RatioProcessPowerModel) GetNodeFeatureNamesList() []string {
+	return r.NodeFeatureNames
 }

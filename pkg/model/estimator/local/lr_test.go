@@ -27,11 +27,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"encoding/json"
-	"fmt"
 	"io"
-	"log"
-	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -41,11 +39,31 @@ import (
 var (
 	SampleDynPowerValue float64 = 100.0
 
-	usageMetrics   = []string{"bytes_read", "bytes_writes", "cache_miss", "cgroupfs_cpu_usage_us", "cgroupfs_memory_usage_bytes", "cgroupfs_system_cpu_usage_us", "cgroupfs_user_cpu_usage_us", "cpu_cycles", "cpu_instr", "cpu_time"}
-	systemFeatures = []string{"cpu_architecture"}
-	usageValues    = [][]float64{{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}}
-	nodeUsageValue = usageValues[0]
-	systemValues   = []string{"Sandy Bridge"}
+	containerFeatureNames = []string{
+		config.CPUCycle,
+		config.CPUInstruction,
+		config.CacheMiss,
+		config.CgroupfsMemory,
+		config.CgroupfsKernelMemory,
+		config.CgroupfsTCPMemory,
+		config.CgroupfsCPU,
+		config.CgroupfsSystemCPU,
+		config.CgroupfsUserCPU,
+		config.CgroupfsReadIO,
+		config.CgroupfsWriteIO,
+		config.BlockDevicesIO,
+		config.KubeletContainerCPU,
+		config.KubeletContainerMemory,
+		config.KubeletNodeCPU,
+		config.KubeletNodeMemory,
+	}
+	systemMetaDataFeatureNames = []string{"cpu_architecture"}
+	containerFeatureValues     = [][]float64{
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container A
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container B
+	}
+	nodeFeatureValues           = []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
+	systemMetaDataFeatureValues = []string{"Sandy Bridge"}
 )
 
 var (
@@ -65,8 +83,6 @@ var (
 		"dram": genWeights(SampleDramNumbericalVars),
 	}
 	SamplePowerWeightResponse = genWeights(SampleCoreNumericalVars)
-
-	modelServerPort = 8100
 )
 
 func genWeights(numericalVars map[string]NormalizedNumericalFeature) ModelWeights {
@@ -99,102 +115,109 @@ func getDummyWeights(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler.ServeHTTP(w, r)
-	})
-}
-
-func dummyModelWeightServer(start, quit chan bool) {
-	http.HandleFunc("/model", getDummyWeights)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", modelServerPort))
-	if err != nil {
-		panic(err)
-	}
-	defer listener.Close()
-	go func() {
-		<-quit
-		listener.Close()
-	}()
-	start <- true
-	log.Printf("Server ends: %v\n", http.Serve(listener, getHandler(http.DefaultServeMux)))
-}
-
-func genLinearRegressor(outputType types.ModelOutputType, endpoint, initModelURL string) LinearRegressor {
+func genLinearRegressor(outputType types.ModelOutputType, modelServerEndpoint, modelWeightsURL string) LinearRegressor {
 	config.ModelServerEnable = true
-	config.ModelServerEndpoint = endpoint
+	config.ModelServerEndpoint = modelServerEndpoint
 	return LinearRegressor{
-		Endpoint:       endpoint,
-		UsageMetrics:   usageMetrics,
-		OutputType:     outputType,
-		SystemFeatures: systemFeatures,
-		InitModelURL:   initModelURL,
+		ModelServerEndpoint:         modelServerEndpoint,
+		OutputType:                  outputType,
+		FloatFeatureNames:           containerFeatureNames,
+		SystemMetaDataFeatureNames:  systemMetaDataFeatureNames,
+		SystemMetaDataFeatureValues: systemMetaDataFeatureValues,
+		ModelWeightsURL:             modelWeightsURL,
 	}
 }
 
 var _ = Describe("Test LR Weight Unit", func() {
-	It("UseWeightFromModelServer", func() {
-		start := make(chan bool)
-		quit := make(chan bool)
-		defer close(quit)
-		defer close(start)
-		go dummyModelWeightServer(start, quit)
-		<-start
+	Context("with dummy model server", func() {
+		It("Get Node Platform Power By Linear Regression with ModelServerEndpoint", func() {
+			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
+			r := genLinearRegressor(types.AbsModelWeight, testServer.URL, "")
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
+			powers, err := r.GetPlatformPower(false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(powers)).Should(Equal(1))
+			// TODO: verify if the power makes sense
+			Expect(powers[0]).Should(BeEquivalentTo(4))
+		})
 
-		// NodeTotalPower
-		endpoint := "http://127.0.0.1:8100/model"
-		r := genLinearRegressor(types.AbsModelWeight, endpoint, "")
-		valid := r.Init()
-		Expect(valid).To(Equal(true))
-		powers, err := r.GetTotalPower([][]float64{nodeUsageValue}, systemValues)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(powers)).Should(Equal(1))
-		Expect(powers[0]).Should(BeEquivalentTo(3))
+		It("Get Node Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
+			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
+			r := genLinearRegressor(types.AbsComponentModelWeight, testServer.URL, "ComponentModelWeight")
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
+			compPowers, err := r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(compPowers)).Should(Equal(1))
+			// TODO: verify if the power makes sense
+			Expect(compPowers[0].Core).Should(BeEquivalentTo(4000))
+		})
 
-		// NodeComponentPower
-		r = genLinearRegressor(types.AbsComponentModelWeight, endpoint, "")
-		valid = r.Init()
-		Expect(valid).To(Equal(true))
-		compPowers, err := r.GetComponentPower([][]float64{nodeUsageValue}, systemValues)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(compPowers["core"])).Should(Equal(1))
-		Expect(compPowers["core"][0]).Should(BeEquivalentTo(3))
+		It("Get Container Platform Power By Linear Regression Estimator with ModelServerEndpoint", func() {
+			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
+			r := genLinearRegressor(types.DynModelWeight, testServer.URL, "")
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			for _, containerFeatureValues := range containerFeatureValues {
+				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			}
+			powers, err := r.GetPlatformPower(false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(powers)).Should(Equal(len(containerFeatureValues)))
+			// TODO: verify if the power makes sense
+			Expect(powers[0]).Should(BeEquivalentTo(3))
+		})
 
-		// PodTotalPower
-		r = genLinearRegressor(types.DynModelWeight, endpoint, "")
-		valid = r.Init()
-		Expect(valid).To(Equal(true))
-		powers, err = r.GetTotalPower(usageValues, systemValues)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(powers)).Should(Equal(len(usageValues)))
-		Expect(powers[0]).Should(BeEquivalentTo(3))
-
-		// PodComponentPower
-		r = genLinearRegressor(types.DynComponentModelWeight, endpoint, "")
-		valid = r.Init()
-		Expect(valid).To(Equal(true))
-		compPowers, err = r.GetComponentPower(usageValues, systemValues)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(compPowers["core"])).Should(Equal(len(usageValues)))
-		Expect(compPowers["core"][0]).Should(BeEquivalentTo(3))
-
-		quit <- true
+		It("Get Container Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
+			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
+			r := genLinearRegressor(types.DynComponentModelWeight, testServer.URL, "ComponentModelWeight")
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			for _, containerFeatureValues := range containerFeatureValues {
+				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			}
+			compPowers, err := r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(compPowers)).Should(Equal(len(containerFeatureValues)))
+			// TODO: verify if the power makes sense
+			Expect(compPowers[0].Core).Should(BeEquivalentTo(3000))
+		})
 	})
-	It("UseInitModelURL", func() {
-		// NodeComponentPower
-		initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
-		r := genLinearRegressor(types.AbsComponentModelWeight, "", initModelURL)
-		valid := r.Init()
-		Expect(valid).To(Equal(true))
-		_, err := r.GetComponentPower([][]float64{nodeUsageValue}, systemValues)
-		Expect(err).NotTo(HaveOccurred())
 
-		// PodComponentPower
-		initModelURL = "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
-		r = genLinearRegressor(types.DynComponentModelWeight, "", initModelURL)
-		valid = r.Init()
-		Expect(valid).To(Equal(true))
-		_, err = r.GetComponentPower(usageValues, systemValues)
-		Expect(err).NotTo(HaveOccurred())
+	Context("without model server", func() {
+		It("Get Node Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			/// Estimate Node Components Absolute Power using Linear Regression
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
+			r := genLinearRegressor(types.AbsComponentModelWeight, "", initModelURL)
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
+			_, err = r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			// Estimate Container Components Absolute Power using Linear Regression
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
+			r := genLinearRegressor(types.DynComponentModelWeight, "", initModelURL)
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			for _, containerFeatureValues := range containerFeatureValues {
+				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			}
+			_, err = r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
+
+	// TODO: right now we don't have a pre-trained power model for node platform power, we should create a test when it is available.
 })

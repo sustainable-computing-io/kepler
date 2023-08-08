@@ -87,8 +87,8 @@ func (n *GPUNvml) GetGpus() []interface{} {
 	return devices
 }
 
-// GetGpuEnergyPerGPU returns a map with mJ in each gpu device
-func (n *GPUNvml) GetGpuEnergyPerGPU() []uint32 {
+// GetAbsEnergyFromGPU returns a map with mJ in each gpu device
+func (n *GPUNvml) GetAbsEnergyFromGPU() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, device := range devices {
 		power, ret := device.(nvml.Device).GetPowerUsage()

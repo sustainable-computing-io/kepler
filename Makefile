@@ -23,9 +23,9 @@ else
 endif
 
 ifdef BUILDER_IMAGE
-	BUILDER_IMAGE := $(BUILD_IMAGE)
+	BUILDER_IMAGE := $(BUILDER_IMAGE)
 else
-	BUILDER_IMAGE := quay.io/sustainable_computing_io/kepler_builder:ubi-8.6-bcc-0.24-go1.18
+	BUILDER_IMAGE := quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
 endif
 
 ifdef IMAGE_TAG
@@ -174,6 +174,7 @@ build_containerized: genbpfassets tidy-vendor format
 
 	$(CTR_CMD) build -t $(IMAGE_REPO)/kepler:$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
+		--network host \
 		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
 		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
 		--platform="linux/$(GOARCH)" \
@@ -277,6 +278,22 @@ ginkgo-set:
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
 	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+
+container_test:
+	$(CTR_CMD) run --rm \
+		-v $(base_dir):/kepler:Z\
+		-v ~/.kube/config:/tmp/.kube/config \
+		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
+		--network host \
+		-w /kepler \
+		--privileged \
+		$(BUILDER_IMAGE) \
+		/bin/sh -c ' \
+			yum install -y cpuid && \
+			cd doc/ && \
+			./dev/prepare_dev_env.sh && \
+			cd - && git config --global --add safe.directory /kepler && \
+			make test-verbose'
 
 test: ginkgo-set tidy-vendor
 	@echo TAGS=$(GO_BUILD_TAGS)

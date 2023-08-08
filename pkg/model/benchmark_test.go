@@ -16,6 +16,7 @@ limitations under the License.
 package model_test
 
 import (
+	"os"
 	"strconv"
 	"testing"
 
@@ -23,34 +24,92 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
-func benchmarkNtesting(b *testing.B, continerNumber int) {
-	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
-	collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
+const (
+	configStrEstimator = "CONTAINER_COMPONENTS_ESTIMATOR=false\n"
+)
+
+func benchmarkNtesting(b *testing.B, containerNumber int) {
+	nodeMetrics := collector_metric.NewNodeMetrics()
+	collector_metric.ContainerFeaturesNames = []string{config.CoreUsageMetric}
+	collector_metric.NodeMetadataFeatureNames = []string{"cpu_architecture"}
+	collector_metric.NodeMetadataFeatureValues = []string{"Sandy Bridge"}
+	// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
+	components.SetIsSystemCollectionSupported(false)
+	platform.SetIsSystemCollectionSupported(false)
+
+	nodePlatformEnergy := map[string]float64{}
+
+	nodePlatformEnergy["sensor0"] = 10
+	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
+	nodeMetrics.UpdateIdleEnergyWithMinValue()
+
+	nodePlatformEnergy["sensor0"] = 20
+	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
+	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateDynEnergy()
+
+	componentsEnergies := make(map[int]source.NodeComponentsEnergy)
+	componentsEnergies[0] = source.NodeComponentsEnergy{
+		Pkg:    5,
+		Core:   5,
+		DRAM:   5,
+		Uncore: 5,
+	}
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
+	componentsEnergies[0] = source.NodeComponentsEnergy{
+		Pkg:    10,
+		Core:   10,
+		DRAM:   10,
+		Uncore: 10,
+	}
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
+	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	componentsEnergies[0] = source.NodeComponentsEnergy{
+		Pkg:    uint64(containerNumber),
+		Core:   uint64(containerNumber),
+		DRAM:   uint64(containerNumber),
+		Uncore: uint64(containerNumber),
+	}
+	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
+
+	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateDynEnergy()
 	b.ReportAllocs()
-	for n := 0; n < continerNumber; n++ {
+	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
+	for n := 0; n < containerNumber; n++ {
 		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test", "container"+strconv.Itoa(n))
 		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		_ = containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		_ = containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
 	}
+	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
 	b.ResetTimer()
-	model.UpdateContainerEnergyByTrainedPowerModel(containersMetrics)
+	model.CreatePowerEstimatorModels(collector_metric.ContainerFeaturesNames, collector_metric.NodeMetadataFeatureNames, collector_metric.NodeMetadataFeatureValues)
+	model.UpdateContainerEnergy(containersMetrics, nodeMetrics)
 	b.StopTimer()
 }
 
-func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith1000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerWith1000Container(b *testing.B) {
+	// disable side car estimator
+	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 1000)
 }
 
-func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith2000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerWith2000Container(b *testing.B) {
+	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 2000)
 }
 
-func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith5000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerWith5000Container(b *testing.B) {
+	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 5000)
 }
 
-func BenchmarkUpdateContainerEnergyByTrainedPowerModelWith10000Contianer(b *testing.B) {
+func BenchmarkUpdateContainerWith10000Container(b *testing.B) {
+	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 10000)
 }

@@ -30,23 +30,23 @@ func (r *PowerDummy) IsSystemCollectionSupported() bool {
 func (r *PowerDummy) StopPower() {
 }
 
-func (r *PowerDummy) GetEnergyFromDram() (uint64, error) {
+func (r *PowerDummy) GetAbsEnergyFromDram() (uint64, error) {
 	return 1, nil
 }
 
-func (r *PowerDummy) GetEnergyFromCore() (uint64, error) {
+func (r *PowerDummy) GetAbsEnergyFromCore() (uint64, error) {
 	return 5, nil
 }
 
-func (r *PowerDummy) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerDummy) GetAbsEnergyFromUncore() (uint64, error) {
 	return 0, nil
 }
 
-func (r *PowerDummy) GetEnergyFromPackage() (uint64, error) {
+func (r *PowerDummy) GetAbsEnergyFromPackage() (uint64, error) {
 	return 8, nil
 }
 
-func (r *PowerDummy) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
+func (r *PowerDummy) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEnergy {
 	componentsEnergies := make(map[int]NodeComponentsEnergy)
 	machineSocketID := 0
 	componentsEnergies[machineSocketID] = NodeComponentsEnergy{

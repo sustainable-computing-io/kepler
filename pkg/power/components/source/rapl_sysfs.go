@@ -97,23 +97,23 @@ func (r *PowerSysfs) IsSystemCollectionSupported() bool {
 	return err == nil
 }
 
-func (r *PowerSysfs) GetEnergyFromDram() (uint64, error) {
+func (r *PowerSysfs) GetAbsEnergyFromDram() (uint64, error) {
 	return getEnergy(dramEvent)
 }
 
-func (r *PowerSysfs) GetEnergyFromCore() (uint64, error) {
+func (r *PowerSysfs) GetAbsEnergyFromCore() (uint64, error) {
 	return getEnergy(coreEvent)
 }
 
-func (r *PowerSysfs) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerSysfs) GetAbsEnergyFromUncore() (uint64, error) {
 	return getEnergy(uncoreEvent)
 }
 
-func (r *PowerSysfs) GetEnergyFromPackage() (uint64, error) {
+func (r *PowerSysfs) GetAbsEnergyFromPackage() (uint64, error) {
 	return getEnergy(packageEvent)
 }
 
-func (r *PowerSysfs) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
+func (r *PowerSysfs) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEnergy {
 	packageEnergies := make(map[int]NodeComponentsEnergy)
 
 	pkgEnergies := readEventEnergy(packageEvent)

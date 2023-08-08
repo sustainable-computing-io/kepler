@@ -148,15 +148,17 @@ func (p *ProcessMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr uint
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)
 }
 
-// ToEstimatorValues return values regarding metricNames
-func (p *ProcessMetrics) ToEstimatorValues() (values []float64) {
-	for _, metric := range ContainerFloatFeatureNames {
+// ToEstimatorValues return values regarding metricNames.
+// Since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, and the power models are trained to estimate power in 1 second interval.
+// It is necessary to normalize the resource utilization by the SamplePeriodSec. Note that this is important because the power curve can be different for higher or lower resource usage within 1 second interval.
+func (p *ProcessMetrics) ToEstimatorValues(featuresName []string, shouldNormalize bool) (values []float64) {
+	for _, metric := range featuresName {
 		curr, _, _ := p.getFloatCurrAndAggrValue(metric)
-		values = append(values, curr)
+		values = append(values, normalize(curr, shouldNormalize))
 	}
-	for _, metric := range ContainerUintFeaturesNames {
+	for _, metric := range featuresName {
 		curr, _, _ := p.getIntDeltaAndAggrValue(metric)
-		values = append(values, float64(curr))
+		values = append(values, normalize(float64(curr), shouldNormalize))
 	}
 	return
 }
@@ -182,7 +184,7 @@ func (p *ProcessMetrics) String() string {
 		p.CounterStats)
 }
 
-func (p *ProcessMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
+func (p *ProcessMetrics) GetDynEnergyStat(component string) *types.UInt64Stat {
 	switch component {
 	case PKG:
 		return p.DynEnergyInPkg
@@ -201,10 +203,11 @@ func (p *ProcessMetrics) GetDynEnergyStat(component string) (energyStat *types.U
 	default:
 		klog.Fatalf("DynEnergy component type %s is unknown\n", component)
 	}
-	return
+	energyStat := types.UInt64Stat{}
+	return &energyStat
 }
 
-func (p *ProcessMetrics) GetIdleEnergyStat(component string) (energyStat *types.UInt64Stat) {
+func (p *ProcessMetrics) GetIdleEnergyStat(component string) *types.UInt64Stat {
 	switch component {
 	case PKG:
 		return p.IdleEnergyInPkg
@@ -223,5 +226,6 @@ func (p *ProcessMetrics) GetIdleEnergyStat(component string) (energyStat *types.
 	default:
 		klog.Fatalf("IdleEnergy component type %s is unknown\n", component)
 	}
-	return
+	energyStat := types.UInt64Stat{}
+	return &energyStat
 }
