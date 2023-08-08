@@ -173,44 +173,14 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	if err != nil {
 		return
 	}
-	//processKeySize := int(unsafe.Sizeof(uint64Key))
-	iterator := processes.Iterator()
-	var ct ProcessBPFMetrics
-	//valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
-	keys := []uint32{}
-	retry := 0
-	next := iterator.Next()
-	for next {
-		keyBytes := iterator.Key()
-		key := ByteOrder.Uint32(keyBytes)
-		data, getErr := processes.GetValue(unsafe.Pointer(&key))
-		if getErr != nil {
-			retry += 1
-			if retry > maxRetry {
-				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
-				next = iterator.Next()
-				retry = 0
-			}
-			continue
-		}
-		getErr = binary.Read(bytes.NewBuffer(data), ByteOrder, &ct)
-		if getErr != nil {
-			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
-			next = iterator.Next()
-			retry = 0
-			continue
-		}
-		if retry > 0 {
-			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
-		}
-		processesData = append(processesData, ct)
-		keys = append(keys, key)
-		next = iterator.Next()
-		retry = 0
+	if ebpfBatchGetAndDelete {
+		processesData, err = libbpfCollectProcessBatch(processes)
 	}
-	for _, key := range keys {
-		// TODO delete keys in batch
-		processes.DeleteKey(unsafe.Pointer(&key))
+	if err == nil {
+		return
+	} else {
+		ebpfBatchGetAndDelete = false
+		processesData, err = libbpfCollectProcessSingle(processes)
 	}
 	return
 }
@@ -330,4 +300,84 @@ func resizeArrayEntries(name string, size int) error {
 	}
 
 	return nil
+}
+
+func libbpfCollectProcessBatch(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+	processesData := []ProcessBPFMetrics{}
+	var err error
+	valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
+	entries := MapSize / valueSize
+	isEnd := false
+	for !isEnd {
+
+		keys := make([]uint32, entries)
+		nextKey := uint32(0)
+
+		val, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
+		// os.IsNotExist means we reached the end of the table
+		if err != nil {
+			if os.IsNotExist(err) {
+				isEnd = true
+			} else {
+				klog.V(1).Infof("GetValueAndDeleteBatch failed: %v", err)
+				return processesData, err
+			}
+		}
+		processedCount := len(val)
+		if entries != processedCount {
+			isEnd = true
+			klog.V(5).Infof("GetValueAndDeleteBatch request and processed: %d!=%d", entries, processedCount)
+		}
+		for _, value := range val {
+			var ct ProcessBPFMetrics
+			getErr := binary.Read(bytes.NewBuffer(value), ByteOrder, &ct)
+			if getErr != nil {
+				klog.V(1).Infof("failed to decode received data: %v\n", getErr)
+				continue
+			}
+			processesData = append(processesData, ct)
+		}
+	}
+	klog.V(5).Infof("successfully get data with batch get and delete with %d entries", len(processesData))
+	return processesData, err
+}
+func libbpfCollectProcessSingle(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+	iterator := processes.Iterator()
+	var ct ProcessBPFMetrics
+	keys := []uint32{}
+	retry := 0
+	next := iterator.Next()
+	for next {
+		keyBytes := iterator.Key()
+		key := ByteOrder.Uint32(keyBytes)
+		data, getErr := processes.GetValue(unsafe.Pointer(&key))
+		if getErr != nil {
+			retry += 1
+			if retry > maxRetry {
+				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
+				next = iterator.Next()
+				retry = 0
+			}
+			continue
+		}
+		getErr = binary.Read(bytes.NewBuffer(data), ByteOrder, &ct)
+		if getErr != nil {
+			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
+			next = iterator.Next()
+			retry = 0
+			continue
+		}
+		if retry > 0 {
+			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
+		}
+		processesData = append(processesData, ct)
+		keys = append(keys, key)
+		next = iterator.Next()
+		retry = 0
+	}
+	for _, key := range keys {
+		// TODO delete keys in batch
+		processes.DeleteKey(unsafe.Pointer(&key))
+	}
+	return
 }
