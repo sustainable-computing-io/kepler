@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	idlePower = true
-	absPower  = false
-	gauge     = true
-	counter   = false
+	idlePower = true  // idlePower is used to define if the a function will update idle power
+	absPower  = false // absPower is used to define if the a function will NOT update idle power, but instead an absulute power
+	gauge     = true  // gauge is used to define if the a function will update a gauge value
+	counter   = false // gauge is used to define if the a function will NOT update a gauge value, but instead a counter value
 )
 
 var (
