@@ -17,6 +17,7 @@ permissions:
   pull-requests: write
   contents: write
   repository-projects: write
+  packages: write
 
 jobs:
   unit_test:
@@ -38,6 +39,11 @@ jobs:
       uses: sustainable-computing-io/kepler-action@v0.0.0
       with:
           runningBranch: bcc
+    - name: Prepare environment 
+      run: |
+          sudo apt-get install -y cpuid
+          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
+          git config --global --add safe.directory /kepler
     - name: Run 
       run: |
           make test-verbose

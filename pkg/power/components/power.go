@@ -24,16 +24,16 @@ import (
 )
 
 type powerInterface interface {
-	// GetEnergyFromDram returns mJ in DRAM
-	GetEnergyFromDram() (uint64, error)
-	// GetEnergyFromCore returns mJ in CPU cores
-	GetEnergyFromCore() (uint64, error)
-	// GetEnergyFromUncore returns mJ not in CPU cores (i.e. iGPU)
-	GetEnergyFromUncore() (uint64, error)
-	// GetEnergyFromPackage returns mJ in CPU package
-	GetEnergyFromPackage() (uint64, error)
-	// GetNodeComponentsEnergy returns set of mJ per RAPL components
-	GetNodeComponentsEnergy() map[int]source.NodeComponentsEnergy
+	// GetAbsEnergyFromDram returns mJ in DRAM. Absolute energy is the sum of Idle + Dynamic energy.
+	GetAbsEnergyFromDram() (uint64, error)
+	// GetAbsEnergyFromCore returns mJ in CPU cores
+	GetAbsEnergyFromCore() (uint64, error)
+	// GetAbsEnergyFromUncore returns mJ not in CPU cores (i.e. iGPU)
+	GetAbsEnergyFromUncore() (uint64, error)
+	// GetAbsEnergyFromPackage returns mJ in CPU package
+	GetAbsEnergyFromPackage() (uint64, error)
+	// GetAbsEnergyFromNodeComponents returns set of mJ per RAPL components
+	GetAbsEnergyFromNodeComponents() map[int]source.NodeComponentsEnergy
 	// StopPower stops the collection
 	StopPower()
 	// IsSystemCollectionSupported returns if it is possible to use this collector
@@ -46,6 +46,7 @@ var (
 	msrImpl                          = &source.PowerMSR{}
 	apmXgeneSysfsImpl                = &source.ApmXgeneSysfs{}
 	powerImpl         powerInterface = sysfsImpl
+	enabled                          = true
 )
 
 func InitPowerImpl() {
@@ -71,28 +72,34 @@ func InitPowerImpl() {
 	powerImpl = estimateImpl
 }
 
-func GetEnergyFromDram() (uint64, error) {
-	return powerImpl.GetEnergyFromDram()
+func GetAbsEnergyFromDram() (uint64, error) {
+	return powerImpl.GetAbsEnergyFromDram()
 }
 
-func GetEnergyFromCore() (uint64, error) {
-	return powerImpl.GetEnergyFromCore()
+func GetAbsEnergyFromCore() (uint64, error) {
+	return powerImpl.GetAbsEnergyFromCore()
 }
 
-func GetEnergyFromUncore() (uint64, error) {
-	return powerImpl.GetEnergyFromUncore()
+func GetAbsEnergyFromUncore() (uint64, error) {
+	return powerImpl.GetAbsEnergyFromUncore()
 }
 
-func GetEnergyFromPackage() (uint64, error) {
-	return powerImpl.GetEnergyFromPackage()
+func GetAbsEnergyFromPackage() (uint64, error) {
+	return powerImpl.GetAbsEnergyFromPackage()
 }
 
-func GetNodeComponentsEnergy() map[int]source.NodeComponentsEnergy {
-	return powerImpl.GetNodeComponentsEnergy()
+func GetAbsEnergyFromNodeComponents() map[int]source.NodeComponentsEnergy {
+	return powerImpl.GetAbsEnergyFromNodeComponents()
 }
 
 func IsSystemCollectionSupported() bool {
-	return powerImpl.IsSystemCollectionSupported()
+	return powerImpl.IsSystemCollectionSupported() && enabled
+}
+
+// SetIsSystemCollectionSupported is used to enable or disable the system power collection.
+// This is used for testing purpose or to enable power estimation in system that has real-time power metrics.
+func SetIsSystemCollectionSupported(enable bool) {
+	enabled = enable
 }
 
 func StopPower() {

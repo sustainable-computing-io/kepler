@@ -61,11 +61,11 @@ func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
 	return false
 }
 
-func (r *ApmXgeneSysfs) GetEnergyFromDram() (uint64, error) {
+func (r *ApmXgeneSysfs) GetAbsEnergyFromDram() (uint64, error) {
 	return 0, nil
 }
 
-func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
+func (r *ApmXgeneSysfs) GetAbsEnergyFromCore() (uint64, error) {
 	if r.currTime.IsZero() {
 		r.currTime = time.Now()
 		return 0, nil
@@ -88,17 +88,17 @@ func (r *ApmXgeneSysfs) GetEnergyFromCore() (uint64, error) {
 	return uint64(power*seconds) / uJTomJ, nil
 }
 
-func (r *ApmXgeneSysfs) GetEnergyFromUncore() (uint64, error) {
+func (r *ApmXgeneSysfs) GetAbsEnergyFromUncore() (uint64, error) {
 	return 0, nil
 }
 
-func (r *ApmXgeneSysfs) GetEnergyFromPackage() (uint64, error) {
+func (r *ApmXgeneSysfs) GetAbsEnergyFromPackage() (uint64, error) {
 	return 0, nil
 }
 
-func (r *ApmXgeneSysfs) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
-	coreEnergy, _ := r.GetEnergyFromCore()
-	dramEnergy, _ := r.GetEnergyFromDram()
+func (r *ApmXgeneSysfs) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEnergy {
+	coreEnergy, _ := r.GetAbsEnergyFromCore()
+	dramEnergy, _ := r.GetAbsEnergyFromDram()
 	componentsEnergies := make(map[int]NodeComponentsEnergy)
 	componentsEnergies[0] = NodeComponentsEnergy{
 		Core:   coreEnergy,

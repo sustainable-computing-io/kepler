@@ -46,14 +46,14 @@ func (r *PowerEstimate) StopPower() {
 	startTime = time.Now()
 }
 
-func (r *PowerEstimate) GetEnergyFromDram() (uint64, error) {
+func (r *PowerEstimate) GetAbsEnergyFromDram() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
 	return uint64(float64(dramInGB)*perGBPowerEstimate*seconds) * 1000 / 3600, nil
 }
 
-func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
+func (r *PowerEstimate) GetAbsEnergyFromCore() (uint64, error) {
 	now := time.Now()
 	diff := now.Sub(startTime)
 	seconds := diff.Seconds()
@@ -61,18 +61,18 @@ func (r *PowerEstimate) GetEnergyFromCore() (uint64, error) {
 	return uint64(float64(cpuCores)*seconds*(perThreadMinPowerEstimate+perThreadMaxPowerEstimate)/2) * 1000 / 3600, nil
 }
 
-func (r *PowerEstimate) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerEstimate) GetAbsEnergyFromUncore() (uint64, error) {
 	return 0, nil
 }
 
-func (r *PowerEstimate) GetEnergyFromPackage() (uint64, error) {
-	return r.GetEnergyFromCore()
+func (r *PowerEstimate) GetAbsEnergyFromPackage() (uint64, error) {
+	return r.GetAbsEnergyFromCore()
 }
 
 // No node components information, consider as 1 socket
-func (r *PowerEstimate) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
-	coreEnergy, _ := r.GetEnergyFromCore()
-	dramEnergy, _ := r.GetEnergyFromDram()
+func (r *PowerEstimate) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEnergy {
+	coreEnergy, _ := r.GetAbsEnergyFromCore()
+	dramEnergy, _ := r.GetAbsEnergyFromDram()
 	componentsEnergies := make(map[int]NodeComponentsEnergy)
 	componentsEnergies[0] = NodeComponentsEnergy{
 		Core:   coreEnergy,

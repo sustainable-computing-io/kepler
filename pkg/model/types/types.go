@@ -16,15 +16,28 @@ limitations under the License.
 
 package types
 
+type ModelType int
 type ModelOutputType int
 
 var (
 	ModelOutputTypeConverter = []string{
 		"AbsPower", "AbsModelWeight", "AbsComponentPower", "AbsComponentModelWeight", "DynPower", "DynModelWeight", "DynComponentPower", "DynComponentModelWeight",
 	}
+	ModelTypeConverter = []string{
+		"Ratio", "LinearRegressor", "EstimatorSidecar",
+	}
 )
 
 const (
+	// Power Model types
+	Ratio            ModelType = iota + 1 // estimation happens within kepler without using Model Server
+	LinearRegressor                       // estimation happens within kepler, but pre-trained model parameters are downloaded externally
+	EstimatorSidecar                      // estimation happens in the sidecar with a loaded pre-trained power model
+)
+const (
+	// Power Model Output types
+	// Absolute Power Model (AbsPower): is the power model trained by measured power (including the idle power)
+	// Dynamic Power Model (DynPower): is the power model trained by dynamic power (AbsPower - idle power)
 	AbsPower ModelOutputType = iota + 1
 	AbsModelWeight
 	AbsComponentPower
@@ -38,6 +51,13 @@ const (
 func (s ModelOutputType) String() string {
 	if int(s) <= len(ModelOutputTypeConverter) {
 		return ModelOutputTypeConverter[s-1]
+	}
+	return "unknown"
+}
+
+func (s ModelType) String() string {
+	if int(s) <= len(ModelTypeConverter) {
+		return ModelTypeConverter[s-1]
 	}
 	return "unknown"
 }
@@ -59,8 +79,18 @@ func IsComponentType(outputType ModelOutputType) bool {
 }
 
 type ModelConfig struct {
-	UseEstimatorSidecar bool
-	SelectedModel       string
-	SelectFilter        string
-	InitModelURL        string
+	// model configuration
+	ModelType       ModelType
+	ModelOutputType ModelOutputType
+	ModelName       string
+	SelectFilter    string
+	InitModelURL    string
+
+	IsNodePowerModel bool
+
+	// initial samples to start the model
+	ContainerFeatureNames       []string
+	NodeFeatureNames            []string
+	SystemMetaDataFeatureNames  []string
+	SystemMetaDataFeatureValues []string
 }

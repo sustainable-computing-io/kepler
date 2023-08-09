@@ -264,8 +264,8 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 	return rf.systems != nil && len(rf.systems) > 0
 }
 
-// GetEnergyFromPlatform returns the power consumption in Watt
-func (rf *RedFishClient) GetEnergyFromPlatform() (map[string]float64, error) {
+// GetAbsEnergyFromPlatform returns the power consumption in Watt
+func (rf *RedFishClient) GetAbsEnergyFromPlatform() (map[string]float64, error) {
 	if rf.systems != nil {
 		power := make(map[string]float64)
 		for _, system := range rf.systems {

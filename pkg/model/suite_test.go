@@ -21,10 +21,28 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 var (
-	usageMetrics = []string{"bytes_read", "bytes_writes", "cache_miss", "cgroupfs_cpu_usage_us", "cgroupfs_memory_usage_bytes", "cgroupfs_system_cpu_usage_us", "cgroupfs_user_cpu_usage_us", "cpu_cycles", "cpu_instr", "cpu_time"}
+	containerFeatureNames = []string{
+		config.CPUCycle,
+		config.CPUInstruction,
+		config.CacheMiss,
+		config.CgroupfsMemory,
+		config.CgroupfsKernelMemory,
+		config.CgroupfsTCPMemory,
+		config.CgroupfsCPU,
+		config.CgroupfsSystemCPU,
+		config.CgroupfsUserCPU,
+		config.CgroupfsReadIO,
+		config.CgroupfsWriteIO,
+		config.BlockDevicesIO,
+		config.KubeletContainerCPU,
+		config.KubeletContainerMemory,
+		config.KubeletNodeCPU,
+		config.KubeletNodeMemory,
+	}
 )
 
 func TestModels(t *testing.T) {

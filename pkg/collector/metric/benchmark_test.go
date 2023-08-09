@@ -22,11 +22,11 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-func benchmarkNtesting(b *testing.B, continerNumber int) {
+func benchmarkNtesting(b *testing.B, containerNumber int) {
 	var containerMetrics map[string]*metric.ContainerMetrics
 	nodeMetrics := metric.NewNodeMetrics()
 	containerMetrics = make(map[string]*metric.ContainerMetrics)
-	for i := 0; i < continerNumber; i++ {
+	for i := 0; i < containerNumber; i++ {
 		containerMetrics["container"+strconv.Itoa(i)] = createMockContainerMetrics("container"+strconv.Itoa(i), "podA", "test")
 	}
 	b.ReportAllocs()
@@ -55,6 +55,6 @@ func BenchmarkAddNodeResUsageFromContainerResUsageWith10000Contianer(b *testing.
 func createMockContainerMetrics(containerName, podName, namespace string) *metric.ContainerMetrics {
 	containerMetrics := metric.NewContainerMetrics(containerName, podName, namespace, containerName)
 	// bpf - cpu time
-	_ = containerMetrics.CPUTime.AddNewDelta(10) // config.CPUTime
+	_ = containerMetrics.CPUTime.AddNewDelta(30000) // config.CPUTime
 	return containerMetrics
 }

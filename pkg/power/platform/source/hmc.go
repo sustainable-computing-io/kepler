@@ -26,7 +26,7 @@ func (a *PowerHMC) IsSystemCollectionSupported() bool {
 }
 
 // GetEnergyFromHost returns the accumulated energy consumption
-func (a *PowerHMC) GetEnergyFromPlatform() (map[string]float64, error) {
+func (a *PowerHMC) GetAbsEnergyFromPlatform() (map[string]float64, error) {
 	power := map[string]float64{}
 	return power, nil
 }

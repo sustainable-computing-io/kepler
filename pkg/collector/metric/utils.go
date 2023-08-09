@@ -67,7 +67,7 @@ func setEnabledMetrics() {
 	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerFloatFeatureNames...)
 	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
-	ContainerMetricNames = getEstimatorMetrics()
+	ContainerFeaturesNames = append(ContainerFeaturesNames, blockDeviceLabel)
 }
 
 func getPrometheusMetrics() []string {
@@ -78,15 +78,6 @@ func getPrometheusMetrics() []string {
 	// TO-DO: remove this hard code metric
 	labels = append(labels, blockDeviceLabel)
 	return labels
-}
-
-func getEstimatorMetrics() []string {
-	var metricNames []string
-	metricNames = append(metricNames, ContainerFeaturesNames...)
-	// TO-DO: remove this hard code metric
-	metricNames = append(metricNames, blockDeviceLabel)
-
-	return metricNames
 }
 
 func isCounterStatEnabled(label string) bool {

@@ -34,7 +34,11 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
+
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
 // ModelRequest defines a request to Kepler Model Server to get model weights
@@ -86,21 +90,21 @@ func (weights ModelWeights) getIndexedWeights(usageMetrics, systemFeatures []str
 	return
 }
 
-// predict applies normalization and linear regression to usageValues and systemValues
-func (weights ModelWeights) predict(usageMetrics []string, usageValues [][]float64, systemFeatures, systemValues []string) []float64 {
-	categoricalWeights, numericalWeights := weights.getIndexedWeights(usageMetrics, systemFeatures)
+// predict applies normalization and linear regression to usageMetricValues and systemMetaDataFeatureValues
+func (weights ModelWeights) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
+	categoricalWeights, numericalWeights := weights.getIndexedWeights(usageMetricNames, systemMetaDataFeatureNames)
 	basePower := weights.AllWeights.BiasWeight
 	for index, coeffMap := range categoricalWeights {
-		basePower += coeffMap[systemValues[index]].Weight
+		basePower += coeffMap[systemMetaDataFeatureValues[index]].Weight
 	}
 	var powers []float64
-	for _, vals := range usageValues {
+	for _, vals := range usageMetricValues {
 		power := basePower
 		for index, coeff := range numericalWeights {
 			if coeff.Weight == 0 {
 				continue
 			}
-			// Normalize each Numerical Feature's prediction given Keras calculated Mean and Variance.
+			// TODO: review this normalization, when the mean is higher than the val, the normalized value will be negative. We probably do not want this.
 			normalizedX := (vals[index] - coeff.Mean) / math.Sqrt(coeff.Variance)
 			power += coeff.Weight * normalizedX
 		}
@@ -136,22 +140,33 @@ type ComponentModelWeights map[string]ModelWeights
 
 // LinearRegressor defines power estimator with linear regression approach
 type LinearRegressor struct {
-	Endpoint       string
-	UsageMetrics   []string
-	OutputType     types.ModelOutputType
-	SystemFeatures []string
-	ModelName      string
-	SelectFilter   string
-	InitModelURL   string
-	valid          bool
-	modelWeight    interface{}
+	ModelServerEndpoint string
+	OutputType          types.ModelOutputType
+	ModelName           string
+	SelectFilter        string
+	ModelWeightsURL     string
+
+	FloatFeatureNames           []string
+	SystemMetaDataFeatureNames  []string
+	SystemMetaDataFeatureValues []string
+
+	floatFeatureValues [][]float64 // metrics per process/container/pod/node
+	// idle power is calculated with the minimal resource utilization, which means that the system is at rest
+	// due to performance reasons, we keep a shadow copy of the floatFeatureValues with 1 values
+	floatFeatureValuesForIdlePower [][]float64 // metrics per process/container/pod/node
+	// xidx represents the instance slide window position, where an instance can be process/container/pod/node
+	xidx int
+
+	enabled     bool
+	modelWeight interface{}
 }
 
-// Init returns valid if model weight is obtainable
-func (r *LinearRegressor) Init() bool {
+// Start returns nil if model weight is obtainable
+func (r *LinearRegressor) Start() error {
 	var err error
 	var weight interface{}
 	outputStr := r.OutputType.String()
+	r.enabled = false
 	// try getting weight from model server if it is enabled
 	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
 		weight, err = r.getWeightFromServer()
@@ -160,27 +175,26 @@ func (r *LinearRegressor) Init() bool {
 	if weight == nil {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURLorLocal()
-		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v", outputStr, r.InitModelURL, weight)
+		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v", outputStr, r.ModelWeightsURL, weight)
 	}
 	if weight != nil {
-		r.valid = true
+		r.enabled = true
 		r.modelWeight = weight
+		return nil
 	} else {
 		if err == nil {
-			klog.V(3).Infof("LR Model (%s): no config", outputStr)
-		} else {
-			klog.V(3).Infof("LR Model (%s): %v", outputStr, err)
+			err = fmt.Errorf("the model LR (%s): has no config", outputStr)
 		}
-		r.valid = false
+		klog.V(3).Infof("LR Model (%s): %v", outputStr, err)
 	}
-	return r.valid
+	return err
 }
 
 // getWeightFromServer tries getting weights for Kepler Model Server
 func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
 	modelRequest := ModelRequest{
 		ModelName:    r.ModelName,
-		MetricNames:  append(r.UsageMetrics, r.SystemFeatures...),
+		MetricNames:  append(r.FloatFeatureNames, r.SystemMetaDataFeatureNames...),
 		SelectFilter: r.SelectFilter,
 		OutputType:   r.OutputType.String(),
 	}
@@ -189,9 +203,9 @@ func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
 		return nil, fmt.Errorf("marshal error: %v (%v)", err, modelRequest)
 	}
 
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, r.Endpoint, bytes.NewBuffer(modelRequestJSON))
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, r.ModelServerEndpoint, bytes.NewBuffer(modelRequestJSON))
 	if err != nil {
-		return nil, fmt.Errorf("connection error: %s (%v)", r.Endpoint, err)
+		return nil, fmt.Errorf("connection error: %s (%v)", r.ModelServerEndpoint, err)
 	}
 
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -199,7 +213,7 @@ func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("connection error: %v (%v)", err, r.Endpoint)
+		return nil, fmt.Errorf("connection error: %v (%v)", err, r.ModelServerEndpoint)
 	}
 	defer response.Body.Close()
 
@@ -256,7 +270,7 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
 	}
 }
 
-// loadWeightFromLocal tries loading weights from local file given by r.InitModelURL
+// loadWeightFromLocal tries loading weights from local file given by r.ModelWeightsURL
 func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
 	data, err := os.ReadFile(config.DefaultDynCompURL)
 	if err != nil {
@@ -267,17 +281,17 @@ func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
 
 // loadWeightFromURL tries loading weights from initial model URL
 func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
-	if r.InitModelURL == "" {
-		return nil, fmt.Errorf("InitModelURL is empty")
+	if r.ModelWeightsURL == "" {
+		return nil, fmt.Errorf("ModelWeightsURL is empty")
 	}
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, r.InitModelURL, http.NoBody)
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, r.ModelWeightsURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("connection error: %s (%v)", r.InitModelURL, err)
+		return nil, fmt.Errorf("connection error: %s (%v)", r.ModelWeightsURL, err)
 	}
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("connection error: %v (%v)", err, r.InitModelURL)
+		return nil, fmt.Errorf("connection error: %v (%v)", err, r.ModelWeightsURL)
 	}
 
 	defer response.Body.Close()
@@ -289,25 +303,129 @@ func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
 	return body, nil
 }
 
-// GetTotalPower applies ModelWeight prediction and return a list of total powers
-func (r *LinearRegressor) GetTotalPower(usageValues [][]float64, systemValues []string) ([]float64, error) {
-	if !r.valid {
-		return []float64{}, fmt.Errorf("invalid power model call: %s", r.OutputType.String())
+// GetPlatformPower applies ModelWeight prediction and return a list of power associated to each process/container/pod
+func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
+	if !r.enabled {
+		return []float64{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
 	if r.modelWeight != nil {
-		return r.modelWeight.(ModelWeights).predict(r.UsageMetrics, usageValues, r.SystemFeatures, systemValues), nil
+		floatFeatureValues := r.floatFeatureValues[0:r.xidx]
+		if isIdlePower {
+			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
+		}
+		power := r.modelWeight.(ModelWeights).predict(
+			r.FloatFeatureNames, floatFeatureValues,
+			r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
+		return power, nil
 	}
 	return []float64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
 }
 
-// GetComponentPower applies each component's ModelWeight prediction and return a map of component powers
-func (r *LinearRegressor) GetComponentPower(usageValues [][]float64, systemValues []string) (map[string][]float64, error) {
-	if !r.valid {
-		return map[string][]float64{}, fmt.Errorf("invalid power model call: %s", r.OutputType.String())
+// GetComponentsPower applies each component's ModelWeight prediction and return a map of component power associated to each process/container/pod
+func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error) {
+	if !r.enabled {
+		return []source.NodeComponentsEnergy{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
 	compPowers := make(map[string][]float64)
 	for comp, weight := range r.modelWeight.(ComponentModelWeights) {
-		compPowers[comp] = weight.predict(r.UsageMetrics, usageValues, r.SystemFeatures, systemValues)
+		floatFeatureValues := r.floatFeatureValues[0:r.xidx]
+		if isIdlePower {
+			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
+		}
+		compPowers[comp] = weight.predict(
+			r.FloatFeatureNames, floatFeatureValues,
+			r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
 	}
-	return compPowers, nil
+
+	nodeComponentsPower := []source.NodeComponentsEnergy{}
+	num := r.xidx // number of processes/containers/pods
+	for index := 0; index < num; index++ {
+		pkgPower := utils.GetComponentPower(compPowers, collector_metric.PKG, index)
+		corePower := utils.GetComponentPower(compPowers, collector_metric.CORE, index)
+		uncorePower := utils.GetComponentPower(compPowers, collector_metric.UNCORE, index)
+		dramPower := utils.GetComponentPower(compPowers, collector_metric.DRAM, index)
+		nodeComponentsPower = append(nodeComponentsPower, utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower))
+	}
+
+	return nodeComponentsPower, nil
+}
+
+// GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
+func (r *LinearRegressor) GetGPUPower(isIdlePower bool) ([]float64, error) {
+	return []float64{}, fmt.Errorf("current power model does not support GPUs")
+}
+
+func (r *LinearRegressor) addFloatFeatureValues(x []float64) {
+	for i, feature := range x {
+		// floatFeatureValues is a cyclic list, where we only append a new value if it is necessary.
+		if r.xidx < len(r.floatFeatureValues) {
+			if i < len(r.floatFeatureValues[r.xidx]) {
+				r.floatFeatureValues[r.xidx][i] = feature
+				// we don't need to add idle power since it is already set as 0
+			} else {
+				r.floatFeatureValues[r.xidx] = append(r.floatFeatureValues[r.xidx], feature)
+				r.floatFeatureValuesForIdlePower[r.xidx] = append(r.floatFeatureValuesForIdlePower[r.xidx], 0)
+			}
+		} else {
+			// add new container
+			r.floatFeatureValues = append(r.floatFeatureValues, []float64{})
+			r.floatFeatureValuesForIdlePower = append(r.floatFeatureValuesForIdlePower, []float64{})
+			// add feature of new container
+			r.floatFeatureValues[r.xidx] = append(r.floatFeatureValues[r.xidx], feature)
+			r.floatFeatureValuesForIdlePower[r.xidx] = append(r.floatFeatureValuesForIdlePower[r.xidx], 0)
+		}
+	}
+	r.xidx += 1 // mode pointer to next container
+}
+
+// AddContainerFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
+// LinearRegressor is trained off-line then we cannot Add training samples. We might implement it in the future.
+// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) AddContainerFeatureValues(x []float64) {
+	r.addFloatFeatureValues(x)
+}
+
+// AddNodeFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
+// LinearRegressor is not trained, then we cannot Add training samples, only samples for prediction.
+// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) AddNodeFeatureValues(x []float64) {
+	r.addFloatFeatureValues(x)
+}
+
+// AddDesiredOutValue adds the the y, which is the response variable (or the dependent variable) of regression.
+// LinearRegressor is trained off-line then we do not add Y for trainning. We might implement it in the future.
+func (r *LinearRegressor) AddDesiredOutValue(y float64) {
+}
+
+// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
+func (r *LinearRegressor) ResetSampleIdx() {
+	r.xidx = 0
+}
+
+// Train triggers the regressiong fit after adding data points to create a new power model.
+// LinearRegressor is trained off-line then we cannot trigger the trainning. We might implement it in the future.
+func (r *LinearRegressor) Train() error {
+	return nil
+}
+
+// IsEnabled returns true if the power model was trained and is active
+func (r *LinearRegressor) IsEnabled() bool {
+	return r.enabled
+}
+
+// GetModelType returns the model type
+func (r *LinearRegressor) GetModelType() types.ModelType {
+	return types.LinearRegressor
+}
+
+// GetContainerFeatureNamesList returns the list of float features that the model was configured to use
+// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) GetContainerFeatureNamesList() []string {
+	return r.FloatFeatureNames
+}
+
+// GetNodeFeatureNamesList returns the list of float features that the model was configured to use
+// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) GetNodeFeatureNamesList() []string {
+	return r.FloatFeatureNames
 }

@@ -22,23 +22,23 @@ func (r *PowerMSR) IsSystemCollectionSupported() bool {
 	return InitUnits() == nil
 }
 
-func (r *PowerMSR) GetEnergyFromDram() (uint64, error) {
+func (r *PowerMSR) GetAbsEnergyFromDram() (uint64, error) {
 	return ReadAllPower(ReadDramPower)
 }
 
-func (r *PowerMSR) GetEnergyFromCore() (uint64, error) {
+func (r *PowerMSR) GetAbsEnergyFromCore() (uint64, error) {
 	return ReadAllPower(ReadCorePower)
 }
 
-func (r *PowerMSR) GetEnergyFromUncore() (uint64, error) {
+func (r *PowerMSR) GetAbsEnergyFromUncore() (uint64, error) {
 	return ReadAllPower(ReadUncorePower)
 }
 
-func (r *PowerMSR) GetEnergyFromPackage() (uint64, error) {
+func (r *PowerMSR) GetAbsEnergyFromPackage() (uint64, error) {
 	return ReadAllPower(ReadPkgPower)
 }
 
-func (r *PowerMSR) GetNodeComponentsEnergy() map[int]NodeComponentsEnergy {
+func (r *PowerMSR) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEnergy {
 	return GetRAPLEnergyByMSR(ReadCorePower, ReadDramPower, ReadUncorePower, ReadPkgPower)
 }
 

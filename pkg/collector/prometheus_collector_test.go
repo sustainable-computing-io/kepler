@@ -17,8 +17,6 @@ limitations under the License.
 package collector
 
 import (
-	"sync"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -35,10 +33,11 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
-
-	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
+	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
 const (
@@ -69,22 +68,27 @@ func newMockPrometheusExporter() *PrometheusCollector {
 	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
 	exporter.ProcessMetrics = &map[uint64]*collector_metric.ProcessMetrics{}
 	exporter.SamplePeriodSec = 3.0
-	collector_metric.ContainerMetricNames = []string{config.CoreUsageMetric}
+	collector_metric.ContainerFeaturesNames = []string{config.CoreUsageMetric}
+	collector_metric.NodeMetadataFeatureNames = []string{"cpu_architecture"}
+	collector_metric.NodeMetadataFeatureValues = []string{"Sandy Bridge"}
 	return exporter
 }
 
 var _ = Describe("Test Prometheus Collector Unit", func() {
 	It("Init and Run", func() {
 		exporter := newMockPrometheusExporter()
+		// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
+		components.SetIsSystemCollectionSupported(false)
+		platform.SetIsSystemCollectionSupported(false)
 
 		// add container mock values
 		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
 		(*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err := (*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		err := (*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		(*exporter.ContainersMetrics)["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
 		(*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = (*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(100)
+		err = (*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		exporter.NodeMetrics.AddNodeResUsageFromContainerResUsage(*exporter.ContainersMetrics)
 
@@ -92,48 +96,45 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		nodePlatformEnergy := map[string]float64{}
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
-		nodePlatformEnergy["sensor0"] = 5
-		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
-		exporter.NodeMetrics.UpdateIdleEnergy()
-		// the second node energy will represent the idle and dynamic power
-		nodePlatformEnergy["sensor0"] = 10 // 5J idle, 5J dynamic power
-		exporter.NodeMetrics.SetLastestPlatformEnergy(nodePlatformEnergy, true)
-		exporter.NodeMetrics.UpdateIdleEnergy()
+		nodePlatformEnergy["sensor0"] = 5000 // mJ
+		exporter.NodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
+		exporter.NodeMetrics.UpdateIdleEnergyWithMinValue()
+		// the second node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
+		nodePlatformEnergy["sensor0"] = 35000
+		exporter.NodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
 		exporter.NodeMetrics.UpdateDynEnergy()
 
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		// note that NodeComponentsEnergy contains aggregated energy over time
 		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    5,
-			Core:   5,
-			DRAM:   5,
-			Uncore: 5,
+			Pkg:    5000, // mJ
+			Core:   5000,
+			DRAM:   5000,
+			Uncore: 5000,
 		}
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
 		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    10,
-			Core:   10,
-			DRAM:   10,
-			Uncore: 10,
+			Pkg:    10000, // mJ
+			Core:   10000,
+			DRAM:   10000,
+			Uncore: 10000,
 		}
 		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		exporter.NodeMetrics.UpdateIdleEnergy()
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
+		exporter.NodeMetrics.UpdateIdleEnergyWithMinValue()
 		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    20, // 10J delta, which is 5J idle, 5J dynamic power
-			Core:   20, // 10J delta, which is 5J idle, 5J dynamic power
-			DRAM:   20, // 10J delta, which is 5J idle, 5J dynamic power
-			Uncore: 20, // 10J delta, which is 5J idle, 5J dynamic power
+			Pkg:    45000, // 35000mJ delta, which is 5000mJ idle, 30000mJ dynamic power
+			Core:   45000,
+			DRAM:   45000,
+			Uncore: 45000,
 		}
-		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false)
-		exporter.NodeMetrics.UpdateIdleEnergy()
+		exporter.NodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
 		exporter.NodeMetrics.UpdateDynEnergy()
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go local.UpdateContainerComponentEnergyByRatioPowerModel(*exporter.ContainersMetrics, exporter.NodeMetrics, collector_metric.PKG, config.CoreUsageMetric, &wg)
-		wg.Wait()
+
+		model.CreatePowerEstimatorModels(collector_metric.ContainerFeaturesNames, collector_metric.NodeMetadataFeatureNames, collector_metric.NodeMetadataFeatureValues)
+		model.UpdateContainerEnergy((*exporter.ContainersMetrics), exporter.NodeMetrics)
 
 		// get metrics from prometheus
 		err = prometheus.Register(exporter)
@@ -146,22 +147,22 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		handler.ServeHTTP(res, req)
 		body, _ := io.ReadAll(res.Body)
 		Expect(len(body)).Should(BeNumerically(">", 0))
-		fmt.Printf("Result:\n %s\n", body)
+		fmt.Fprintf(GinkgoWriter, "Result:\n %s\n", body)
 
 		// check pkg energy
 		val, err := convertPromToValue(body, nodePackageEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).Should(BeEquivalentTo(0.005)) // J
+		Expect(val).Should(BeEquivalentTo(30)) // J
 
 		// check sample node energy
 		val, err = convertPromToValue(body, nodeEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(val).To(Equal(0.01)) //J
+		Expect(val).To(Equal(float64(60))) // J
 
 		// check sample pod
 		val, err = convertPromToValue(body, containerCPUCoreEnergyMetric)
 		Expect(err).NotTo(HaveOccurred())
-		// The pkg dynamic energy is 5mJ, the container cpu usage is 50%, so the dynamic energy is 2.5mJ = ~3mJ
-		Expect(val).To(Equal(0.003)) //J
+		// The pkg dynamic energy is 30J, the container cpu usage is 50%, so the dynamic energy is 15J
+		Expect(val).To(Equal(float64(15))) // J
 	})
 })

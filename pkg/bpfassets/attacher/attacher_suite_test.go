@@ -1,3 +1,6 @@
+//go:build bcc
+// +build bcc
+
 package attacher
 
 import (

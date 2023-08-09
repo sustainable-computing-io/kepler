@@ -25,5 +25,5 @@ import (
 
 func TestSidecar(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Sidecar Suite")
+	RunSpecs(t, "EstimatorSidecar Suite")
 }
