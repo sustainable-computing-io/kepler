@@ -14,20 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package accelerator
+package gpu
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	accelerator_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/source"
+	gpu_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu/source"
 	"k8s.io/klog/v2"
 )
 
 var (
 	acceleratorImpl acceleratorInterface
-	errLib          = fmt.Errorf("could not start accelerator collector")
+	errLib          = fmt.Errorf("could not start accelerator-gpu collector")
 )
 
 type acceleratorInterface interface {
@@ -40,7 +40,7 @@ type acceleratorInterface interface {
 	// GetAbsEnergyFromGPU returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
 	GetAbsEnergyFromGPU() []uint32
 	// GetProcessResourceUtilization returns a map of ProcessUtilizationSample where the key is the process pid
-	GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]accelerator_source.ProcessUtilizationSample, error)
+	GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error)
 	// IsGPUCollectionSupported returns if it is possible to use this collector
 	IsGPUCollectionSupported() bool
 	// SetGPUCollectionSupported manually set if it is possible to use this collector. This is for testing purpose only.
@@ -79,7 +79,7 @@ func GetAbsEnergyFromGPU() []uint32 {
 // GetProcessResourceUtilizationPerDevice tries to collect the GPU metrics.
 // There is a known issue that some clusters the nvidia GPU can stop to respod and we need to start it again.
 // See https://github.com/sustainable-computing-io/kepler/issues/610.
-func GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]accelerator_source.ProcessUtilizationSample, error) {
+func GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
 	if acceleratorImpl != nil && config.EnabledGPU {
 		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
 		if err != nil {
@@ -87,12 +87,12 @@ func GetProcessResourceUtilizationPerDevice(device interface{}, since time.Durat
 			err = acceleratorImpl.Init()
 			if err != nil {
 				klog.Infof("Failed to init nvml: %v\n", err)
-				return map[uint32]accelerator_source.ProcessUtilizationSample{}, err
+				return map[uint32]gpu_source.ProcessUtilizationSample{}, err
 			}
 		}
 		return processesUtilization, err
 	}
-	return map[uint32]accelerator_source.ProcessUtilizationSample{}, errLib
+	return map[uint32]gpu_source.ProcessUtilizationSample{}, errLib
 }
 
 func IsGPUCollectionSupported() bool {

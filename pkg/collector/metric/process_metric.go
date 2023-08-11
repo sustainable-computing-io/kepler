@@ -22,7 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -89,7 +89,7 @@ func NewProcessMetrics(pid uint64, command string) *ProcessMetrics {
 		p.CounterStats[metricName] = &types.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
-	if accelerator.IsGPUCollectionSupported() {
+	if gpu.IsGPUCollectionSupported() {
 		p.CounterStats[config.GPUSMUtilization] = &types.UInt64Stat{}
 		p.CounterStats[config.GPUMemUtilization] = &types.UInt64Stat{}
 	}

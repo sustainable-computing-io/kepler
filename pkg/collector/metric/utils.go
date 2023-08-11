@@ -27,7 +27,7 @@ import (
 
 	"github.com/jszwec/csvutil"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 
 	"k8s.io/klog/v2"
 )
@@ -49,7 +49,7 @@ func getcontainerUintFeatureNames() []string {
 	// cgroup kubelet metric
 	metrics = append(metrics, AvailableKubeletMetrics...)
 	// gpu metric
-	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
 	}
 

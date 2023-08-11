@@ -34,7 +34,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
@@ -59,8 +59,8 @@ func convertPromToValue(body []byte, metric string) (float64, error) {
 }
 
 func newMockPrometheusExporter() *PrometheusCollector {
-	if accelerator.IsGPUCollectionSupported() {
-		err := accelerator.Init() // create structure instances that will be accessed to create a containerMetric
+	if gpu.IsGPUCollectionSupported() {
+		err := gpu.Init() // create structure instances that will be accessed to create a containerMetric
 		Expect(err).NotTo(HaveOccurred())
 	}
 	exporter := NewPrometheusExporter()

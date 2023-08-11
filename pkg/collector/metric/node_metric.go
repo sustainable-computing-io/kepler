@@ -25,7 +25,8 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
+	qat "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat/source"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 )
 
@@ -84,6 +85,9 @@ type NodeMetrics struct {
 	// IdleCPUUtilization is used to determine idle periods
 	IdleCPUUtilization uint64
 	FoundNewIdleState  bool
+
+	// Accelerator-QAT Utilization
+	QATUtilization map[string]qat.DeviceUtilizationSample
 }
 
 func NewNodeMetrics() *NodeMetrics {
@@ -169,7 +173,7 @@ func (ne *NodeMetrics) ResetDeltaValues() {
 	ne.DynEnergyInUncore.ResetDeltaValues()
 	ne.DynEnergyInPkg.ResetDeltaValues()
 	// gpu metric
-	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		ne.DynEnergyInGPU.ResetDeltaValues()
 	}
 	ne.DynEnergyInPlatform.ResetDeltaValues()
@@ -346,7 +350,7 @@ func (ne *NodeMetrics) UpdateIdleEnergyWithMinValue() {
 	ne.CalcIdleEnergy(UNCORE)
 	ne.CalcIdleEnergy(PKG)
 	// gpu metric
-	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		ne.CalcIdleEnergy(GPU)
 	}
 	ne.CalcIdleEnergy(PLATFORM)
@@ -385,7 +389,7 @@ func (ne *NodeMetrics) UpdateDynEnergy() {
 		ne.CalcDynEnergy(PLATFORM, sensorID)
 	}
 	// gpu metric
-	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for gpuID := range ne.AbsEnergyInGPU.Stat {
 			ne.CalcDynEnergy(GPU, gpuID)
 		}

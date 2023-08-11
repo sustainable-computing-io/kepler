@@ -153,6 +153,11 @@ if [ ! -z ${MODEL_SERVER_DEPLOY} ]; then
     fi
 fi
 
+if [ ! -z ${QAT_DEPLOY} ]; then
+    echo "enable qat"
+    uncomment_patch qat ${MANIFESTS_OUT_DIR}/exporter/kustomization.yaml
+fi
+
 echo "set manager image"
 EXPORTER_IMG=${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}
 ESTIMATOR_IMG=${ESTIMATOR_REPO}/${ESTIMATOR_IMAGE_NAME}:${ESTIMATOR_IMAGE_TAG}

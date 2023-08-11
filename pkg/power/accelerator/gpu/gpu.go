@@ -17,10 +17,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package accelerator
+package gpu
 
 import (
-	accelerator_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/source"
+	gpu_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu/source"
 	"k8s.io/klog/v2"
 )
 
@@ -34,7 +34,7 @@ Then, we use gpu.go file to initialize the acceleratorImpl from power.go when gp
 
 // init initialize the acceleratorImpl and start it
 func init() {
-	acceleratorImpl = &accelerator_source.GPUNvml{}
+	acceleratorImpl = &gpu_source.GPUNvml{}
 	err := acceleratorImpl.Init()
 	if err == nil {
 		klog.Infoln("Using nvml to obtain gpu power")
@@ -44,6 +44,6 @@ func init() {
 	}
 	// If the library was not successfully initialized, we use the dummy implementation
 	klog.Infof("Failed to init nvml, err: %v\n", err)
-	acceleratorImpl = &accelerator_source.GPUDummy{}
+	acceleratorImpl = &gpu_source.GPUDummy{}
 	errLib = acceleratorImpl.Init()
 }

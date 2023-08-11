@@ -24,7 +24,7 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
 )
@@ -189,7 +189,7 @@ func addProcessEstimatedEnergy(processIDList []uint64, processMetrics map[uint64
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
 		// estimate the associated power comsumption of GPU for each process
-		if accelerator.IsGPUCollectionSupported() {
+		if gpu.IsGPUCollectionSupported() {
 			processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
 			if errGPU != nil {
 				klog.V(5).Infoln("Could not estimate the Process GPU Power")

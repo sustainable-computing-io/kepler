@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-cfm
+  namespace: system
+data:
+  ENABLE_QAT: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler-exporter
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: kepler-exporter
+        volumeMounts:
+        - mountPath: /usr/local/bin/adf_ctl
+          name: qat
+      volumes:
+      - name: qat
+        hostPath:
+          path: /usr/local/bin/adf_ctl

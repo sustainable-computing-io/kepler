@@ -21,8 +21,8 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
-	accelerator_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/source"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
+	gpu_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu/source"
 	"k8s.io/klog/v2"
 )
 
@@ -32,12 +32,12 @@ var (
 )
 
 // updateBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func (c *Collector) updateAcceleratorMetrics() {
+func (c *Collector) updateGPUMetrics() {
 	var err error
-	var processesUtilization map[uint32]accelerator_source.ProcessUtilizationSample
+	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
-	for _, device := range accelerator.GetGpus() {
-		if processesUtilization, err = accelerator.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
+	for _, device := range gpu.GetGpus() {
+		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
 			klog.Infoln(err)
 			continue
 		}

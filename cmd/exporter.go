@@ -33,7 +33,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
@@ -56,6 +57,7 @@ var (
 	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
 	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
 	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	enableQAT                    = flag.Bool("enable-qat", false, "whether enable qat (need to have Intel QAT driver installed)")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
@@ -158,6 +160,7 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
+	config.SetEnabledQAT(*enableQAT)
 	config.EnabledMSR = *enabledMSR
 	config.SetEnabledEstimatedIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
@@ -207,15 +210,25 @@ func main() {
 		// therefore, we wait up to 1 min to allow the gpu operator initialize
 		for i := 0; i <= maxGPUInitRetry; i++ {
 			time.Sleep(6 * time.Second)
-			err = accelerator.Init()
+			err = gpu.Init()
 			if err == nil {
 				break
 			}
 		}
 		if err == nil {
-			defer accelerator.Shutdown()
+			defer gpu.Shutdown()
 		} else {
 			klog.Infof("Failed to initialize the GPU collector: %v. Have the GPU operator initialize?", err)
+		}
+	}
+
+	if config.EnabledQAT {
+		klog.Infof("Initializing the QAT collector")
+		err := qat.Init()
+		if err == nil {
+			defer qat.Shutdown()
+		} else {
+			klog.Infof("Failed to initialize the QAT collector: %v", err)
 		}
 	}
 
