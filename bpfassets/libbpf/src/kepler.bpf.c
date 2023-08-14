@@ -247,9 +247,7 @@ int kepler_trace(struct sched_switch_args *ctx)
     {
         process_metrics_t new_process = {};
         new_process.pid = new_pid;
-        //new_process.cgroup_id = cgroup_id;
-        //bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
-        bpf_probe_read_kernel_str(&new_process.comm, sizeof(new_process.comm), (void *)ctx->next_comm);
+        bpf_probe_read(&new_process.comm, sizeof(new_process.comm), (void *)ctx->next_comm);
         bpf_map_update_elem(&processes, &new_pid, &new_process, BPF_NOEXIST);
     }
     return 0;
