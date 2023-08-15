@@ -194,7 +194,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 	Context("without model server", func() {
 		It("Get Node Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
 			/// Estimate Node Components Absolute Power using Linear Regression
-			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json"
 			r := genLinearRegressor(types.AbsComponentModelWeight, "", initModelURL)
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -206,7 +206,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 
 		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
 			// Estimate Container Components Absolute Power using Linear Regression
-			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json"
 			r := genLinearRegressor(types.DynComponentModelWeight, "", initModelURL)
 			err := r.Start()
 			Expect(err).To(BeNil())

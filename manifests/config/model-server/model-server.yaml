@@ -5,7 +5,7 @@ metadata:
   namespace: system
 data:
   MODEL_PATH: /data/models
-  INITIAL_MODELS_LOC: https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models
+  INITIAL_MODELS_LOC: https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models
   INITIAL_MODEL_NAMES: |
     AbsComponentModelWeight=KerasCompWeightFullPipeline
     AbsComponentPower=KerasCompFullPipeline
