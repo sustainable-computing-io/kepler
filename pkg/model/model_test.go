@@ -34,7 +34,7 @@ var _ = Describe("Test Model Unit", func() {
 		source.SystemCollectionSupported = false // disable the system power collection to use the prediction power model
 		setCollectorMetrics()
 
-		configStr := "CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
+		configStr := "CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
 		os.Setenv("MODEL_CONFIG", configStr)
 		// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 		components.SetIsSystemCollectionSupported(false)
@@ -42,7 +42,7 @@ var _ = Describe("Test Model Unit", func() {
 	})
 
 	It("Test GetModelConfigMap()", func() {
-		configStr := "CONTAINER_COMPONENTS_ESTIMATOR=true\nCONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/main/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
+		configStr := "CONTAINER_COMPONENTS_ESTIMATOR=true\nCONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
 		os.Setenv("MODEL_CONFIG", configStr)
 		configValues := config.GetModelConfigMap()
 		modelItem := "CONTAINER_COMPONENTS"
