@@ -9,7 +9,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
@@ -156,11 +156,11 @@ func newMockCollector() *Collector {
 
 var _ = Describe("Test Collector Unit", func() {
 	BeforeEach(func() {
-		if accelerator.IsGPUCollectionSupported() {
-			err := accelerator.Init() // create structure instances that will be accessed to create a containerMetric
+		if gpu.IsGPUCollectionSupported() {
+			err := gpu.Init() // create structure instances that will be accessed to create a containerMetric
 			Expect(err).NotTo(HaveOccurred())
 		}
-		accelerator.SetGPUCollectionSupported(true)
+		gpu.SetGPUCollectionSupported(true)
 		cgroup.AddContainerIDToCache(0, "containerA")
 		cgroup.AddContainerIDToCache(1, "containerB")
 		setCollectorMetrics()
@@ -175,7 +175,7 @@ var _ = Describe("Test Collector Unit", func() {
 		// The default estimator model is the ratio
 		model.CreatePowerEstimatorModels(collector_metric.ContainerFeaturesNames, collector_metric.NodeMetadataFeatureNames, collector_metric.NodeMetadataFeatureValues)
 		// update container and node metrics
-		metricCollector.updateAcceleratorMetrics()
+		metricCollector.updateGPUMetrics()
 		metricCollector.updateNodeResourceUsage()
 		metricCollector.updateNodeEnergyMetrics()
 		metricCollector.updateContainerEnergy()

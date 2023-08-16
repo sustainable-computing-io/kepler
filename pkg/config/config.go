@@ -71,6 +71,7 @@ var (
 	UseLibBPFAttacher               = getBoolConfig("LIBBPF_ATTACH", false)
 	EnabledEBPFCgroupID             = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                      = getBoolConfig("ENABLE_GPU", false)
+	EnabledQAT                      = getBoolConfig("ENABLE_QAT", false)
 	EnableProcessMetrics            = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeHardwareCounterMetrics    = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
 	ExposeCgroupMetrics             = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
@@ -136,6 +137,7 @@ func logBoolConfigs() {
 	if klog.V(5).Enabled() {
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
+		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessMetrics)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
@@ -301,6 +303,12 @@ func IsEstimatedIdlePowerEnabled() bool {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+}
+
+// SetEnabledQAT enables the exposure of qat metrics
+func SetEnabledQAT(enabled bool) {
+	// set to true if any config source set it to true
+	EnabledQAT = enabled || EnabledQAT
 }
 
 // SetKubeConfig set kubeconfig file

@@ -23,7 +23,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
@@ -104,8 +105,12 @@ func (c *Collector) Update() {
 	c.updateCgroupMetrics()  // collect new cgroup metrics from cgroup
 	c.updateKubeletMetrics() // collect new cgroup metrics from kubelet
 
-	if config.EnabledGPU && accelerator.IsGPUCollectionSupported() {
-		c.updateAcceleratorMetrics()
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		c.updateGPUMetrics()
+	}
+
+	if config.EnabledQAT && qat.IsQATCollectionSupported() {
+		c.updateQATMetrics()
 	}
 
 	// use the container's resource usage metrics to update the node metrics

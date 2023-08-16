@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
@@ -32,8 +32,8 @@ import (
 // we need to add all metric to a container, otherwise it will not create the right usageMetric with all elements. The usageMetric is used in the Prediction Power Models
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func setCollectorMetrics() {
-	if accelerator.IsGPUCollectionSupported() {
-		err := accelerator.Init() // create structure instances that will be accessed to create a containerMetric
+	if gpu.IsGPUCollectionSupported() {
+		err := gpu.Init() // create structure instances that will be accessed to create a containerMetric
 		Expect(err).NotTo(HaveOccurred())
 	}
 	// initialize the Available metrics since they are used to create a new containersMetrics instance

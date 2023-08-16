@@ -24,7 +24,7 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"k8s.io/klog/v2"
 )
@@ -190,7 +190,7 @@ func addEstimatedEnergy(containerIDList []string, containersMetrics map[string]*
 			klog.V(5).Infoln("Could not estimate the Container Components Power")
 		}
 		// estimate the associated power comsumption of GPU for each container
-		if accelerator.IsGPUCollectionSupported() {
+		if gpu.IsGPUCollectionSupported() {
 			containerGPUPower, errGPU = ContainerComponentPowerModel.GetGPUPower(isIdlePower)
 			if errGPU != nil {
 				klog.V(5).Infoln("Could not estimate the Container GPU Power")

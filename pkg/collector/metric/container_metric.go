@@ -25,7 +25,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -89,7 +89,7 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 		c.CounterStats[metricName] = &types.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
-	if accelerator.IsGPUCollectionSupported() {
+	if gpu.IsGPUCollectionSupported() {
 		c.CounterStats[config.GPUSMUtilization] = &types.UInt64Stat{}
 		c.CounterStats[config.GPUMemUtilization] = &types.UInt64Stat{}
 	}

@@ -108,6 +108,9 @@ type NodeDesc struct {
 	nodePackageMiliJoulesTotal *prometheus.Desc // deprecated
 	// the NodeMetricsStat does not follow the prometheus metrics standard guideline, and this is only used by the model server.
 	NodeMetricsStat *prometheus.Desc
+
+	// QAT metrics
+	NodeQATUtilization *prometheus.Desc
 }
 
 type ContainerDesc struct {
@@ -216,6 +219,11 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		ch <- p.nodeDesc.nodeGPUJoulesTotal
 	}
 
+	// Additional Node metrics from QAT
+	if config.EnabledQAT {
+		ch <- p.nodeDesc.NodeQATUtilization
+	}
+
 	// Additional Node metrics (gauge)
 	ch <- p.nodeDesc.NodeCPUFrequency
 
@@ -322,6 +330,13 @@ func (p *PrometheusCollector) newNodeMetrics() {
 		[]string{"index", "instance", "source", "mode"}, nil,
 	)
 
+	// Additional metrics from QAT
+	NodeQATUtilization := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "node", "accelerator_intel_qat"),
+		"Current Intel QAT Utilization",
+		[]string{"qatDevID", "instance", "source", "type"}, nil,
+	)
+
 	// Additional metrics (gauge)
 	NodeCPUFrequency := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "node", "cpu_scaling_frequency_hertz"),
@@ -351,6 +366,7 @@ func (p *PrometheusCollector) newNodeMetrics() {
 		nodeOtherComponentsJoulesTotal: nodeOtherComponentsJoulesTotal,
 		nodeGPUJoulesTotal:             nodeGPUJoulesTotal,
 		NodeCPUFrequency:               NodeCPUFrequency,
+		NodeQATUtilization:             NodeQATUtilization,
 		nodePackageMiliJoulesTotal:     nodePackageMiliJoulesTotal, // deprecated
 		NodeMetricsStat:                NodeMetricsStat,
 	}
@@ -687,6 +703,17 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 					prometheus.CounterValue,
 					idlePower,
 					gpuID, collector_metric.NodeName, "nvidia", "idle",
+				)
+			}
+		}
+
+		if config.EnabledQAT {
+			for device, util := range p.NodeMetrics.QATUtilization {
+				ch <- prometheus.MustNewConstMetric(
+					p.nodeDesc.NodeQATUtilization,
+					prometheus.CounterValue,
+					float64(util.Latency),
+					device, collector_metric.NodeName, "intel-qat", "latency",
 				)
 			}
 		}

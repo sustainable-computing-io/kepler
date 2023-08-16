@@ -22,7 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 
@@ -71,7 +71,7 @@ func (c *Collector) updateNodeComponentsEnergy(wg *sync.WaitGroup) {
 func (c *Collector) updateNodeGPUEnergy(wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.EnabledGPU {
-		gpuEnergy := accelerator.GetAbsEnergyFromGPU()
+		gpuEnergy := gpu.GetAbsEnergyFromGPU()
 		c.NodeMetrics.SetNodeGPUEnergy(gpuEnergy, absPower)
 	}
 }
