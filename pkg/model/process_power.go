@@ -101,7 +101,7 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 
 func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	var err error
-	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, defaultDynCompURL)
+	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
 	modelConfig.IsNodePowerModel = false
 	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -110,7 +110,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
 
-	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, defaultDynCompURL)
+	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
 	modelConfig.IsNodePowerModel = false
 	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {

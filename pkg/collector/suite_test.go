@@ -27,3 +27,6 @@ func TestCollector(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Collector Suite")
 }
+
+var _ = BeforeSuite(func() {
+})

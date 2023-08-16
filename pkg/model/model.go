@@ -104,7 +104,8 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 		model := &local.LinearRegressor{
 			ModelServerEndpoint:         config.ModelServerEndpoint,
 			OutputType:                  modelConfig.ModelOutputType,
-			ModelName:                   modelConfig.ModelName,
+			EnergySource:                modelConfig.EnergySource,
+			TrainerName:                 modelConfig.TrainerName,
 			SelectFilter:                modelConfig.SelectFilter,
 			ModelWeightsURL:             modelConfig.InitModelURL,
 			FloatFeatureNames:           featuresNames,
@@ -128,7 +129,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 		model := &sidecar.EstimatorSidecar{
 			Socket:                      EstimatorSidecarSocket,
 			OutputType:                  modelConfig.ModelOutputType,
-			ModelName:                   modelConfig.ModelName,
+			TrainerName:                 modelConfig.TrainerName,
 			SelectFilter:                modelConfig.SelectFilter,
 			FloatFeatureNames:           featuresNames,
 			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
@@ -152,14 +153,23 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 // The complete variable name is created by combining the prefix with the specific attribute.
 // For example, if the model name (which the key is MODEL) is under NODE_TOTAL, it will be called NODE_TOTAL_MODEL.
 func CreatePowerModelConfig(powerSourceTarget string) *types.ModelConfig {
+	modelType := getPowerModelType(powerSourceTarget)
+	modelOutputType := getPowerModelOutputType(powerSourceTarget)
+	energySource := getPowerModelEnergySource(powerSourceTarget)
+	if modelOutputType == types.Unsupported || energySource == "" {
+		klog.V(3).Infof("unsupported power source target %s", powerSourceTarget)
+		return nil
+	}
+
 	modelConfig := types.ModelConfig{
-		ModelType:        getPowerModelType(powerSourceTarget),
-		ModelName:        getPowerModelName(powerSourceTarget),
+		ModelType:        modelType,
+		ModelOutputType:  modelOutputType,
+		TrainerName:      getPowerModelTrainerName(powerSourceTarget),
 		SelectFilter:     getPowerModelFilter(powerSourceTarget),
 		InitModelURL:     getPowerModelDownloadURL(powerSourceTarget),
+		EnergySource:     energySource,
 		NodeFeatureNames: []string{},
 	}
-	modelConfig.ModelOutputType = getPowerModelOutputType(powerSourceTarget, modelConfig.ModelType)
 
 	klog.V(3).Infof("Model Config %s: %+v", powerSourceTarget, modelConfig)
 	return &modelConfig
@@ -192,9 +202,9 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 	return
 }
 
-// getPowerModelName return the model name for a given power source, such as platform or components power sources
-func getPowerModelName(powerSourceTarget string) (modelName string) {
-	modelName = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.FixedModelNameKey)]
+// getPowerModelTrainerName return the trainer name for a given power source, such as platform or components power sources
+func getPowerModelTrainerName(powerSourceTarget string) (trainerName string) {
+	trainerName = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.FixedTrainerNameKey)]
 	return
 }
 
@@ -211,33 +221,42 @@ func getPowerModelDownloadURL(powerSourceTarget string) (url string) {
 	return
 }
 
+// getPowerModelEnergySource return
+func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
+	switch powerSourceTarget {
+	case config.ContainerPlatformPowerKey:
+		return types.PlatformEnergySource
+	case config.ContainerComponentsPowerKey:
+		return types.ComponentEnergySource
+	case config.ProcessPlatformPowerKey:
+		return types.PlatformEnergySource
+	case config.ProcessComponentsPowerKey:
+		return types.ComponentEnergySource
+	case config.NodePlatformPowerKey:
+		return types.PlatformEnergySource
+	case config.NodeComponentsPowerKey:
+		return types.ComponentEnergySource
+	}
+	return ""
+}
+
 // getPowerModelOutputType return the model output type for a given power source, such as platform, components, container or node power sources.
 // getPowerModelOutputType only affects LinearRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
-func getPowerModelOutputType(powerSourceTarget string, modelType types.ModelType) types.ModelOutputType {
-	// Linear regression power model downloads the model weights
-	if modelType == types.LinearRegressor {
-		switch powerSourceTarget {
-		case config.ContainerPlatformPowerKey:
-			return types.DynModelWeight
-		case config.ContainerComponentsPowerKey:
-			return types.DynComponentModelWeight
-		case config.NodePlatformPowerKey:
-			return types.AbsModelWeight
-		case config.NodeComponentsPowerKey:
-			return types.AbsComponentModelWeight
-		}
-		// Estimator power model downloads the pre-trained model metadata
-	} else if modelType == types.EstimatorSidecar {
-		switch powerSourceTarget {
-		case config.ContainerPlatformPowerKey:
-			return types.DynPower
-		case config.ContainerComponentsPowerKey:
-			return types.DynComponentPower
-		case config.NodePlatformPowerKey:
-			return types.AbsPower
-		case config.NodeComponentsPowerKey:
-			return types.AbsComponentPower
-		}
+// AbsPower for Node, DynPower for container and process
+func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
+	switch powerSourceTarget {
+	case config.ContainerPlatformPowerKey:
+		return types.DynPower
+	case config.ContainerComponentsPowerKey:
+		return types.DynPower
+	case config.ProcessPlatformPowerKey:
+		return types.DynPower
+	case config.ProcessComponentsPowerKey:
+		return types.DynPower
+	case config.NodePlatformPowerKey:
+		return types.AbsPower
+	case config.NodeComponentsPowerKey:
+		return types.AbsPower
 	}
-	return types.AbsPower
+	return types.Unsupported
 }

@@ -31,9 +31,9 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
 
-ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json /var/lib/kepler/data/ScikitMixed.json
-
-ADD https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/AbsComponentModelWeight/Full/KerasCompWeightFullPipeline/KerasCompWeightFullPipeline.json /var/lib/kepler/data/KerasCompWeightFullPipeline.json
+# copy model weight
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/AbsPowerModel.json /var/lib/kepler/data/AbsPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/DynPowerModel.json /var/lib/kepler/data/DynPowerModel.json
 
 # pre install kernel sources
 RUN mkdir -p /usr/share/kepler/kernel_sources

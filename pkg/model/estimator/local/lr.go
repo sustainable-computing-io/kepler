@@ -41,12 +41,20 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
+const (
+	// TODO: determine node type dynamically
+	defaultNodeType int = 1
+)
+
 // ModelRequest defines a request to Kepler Model Server to get model weights
 type ModelRequest struct {
-	ModelName    string   `json:"model_name"`
 	MetricNames  []string `json:"metrics"`
-	SelectFilter string   `json:"filter"`
 	OutputType   string   `json:"output_type"`
+	EnergySource string   `json:"source"`
+	NodeType     int      `json:"node_type"`
+	Weight       bool     `json:"weight"`
+	TrainerName  string   `json:"trainer_name"`
+	SelectFilter string   `json:"filter"`
 }
 
 /*
@@ -142,7 +150,8 @@ type ComponentModelWeights map[string]ModelWeights
 type LinearRegressor struct {
 	ModelServerEndpoint string
 	OutputType          types.ModelOutputType
-	ModelName           string
+	EnergySource        string
+	TrainerName         string
 	SelectFilter        string
 	ModelWeightsURL     string
 
@@ -158,13 +167,13 @@ type LinearRegressor struct {
 	xidx int
 
 	enabled     bool
-	modelWeight interface{}
+	modelWeight *ComponentModelWeights
 }
 
 // Start returns nil if model weight is obtainable
 func (r *LinearRegressor) Start() error {
 	var err error
-	var weight interface{}
+	var weight *ComponentModelWeights
 	outputStr := r.OutputType.String()
 	r.enabled = false
 	// try getting weight from model server if it is enabled
@@ -191,12 +200,15 @@ func (r *LinearRegressor) Start() error {
 }
 
 // getWeightFromServer tries getting weights for Kepler Model Server
-func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
+func (r *LinearRegressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	modelRequest := ModelRequest{
-		ModelName:    r.ModelName,
 		MetricNames:  append(r.FloatFeatureNames, r.SystemMetaDataFeatureNames...),
-		SelectFilter: r.SelectFilter,
 		OutputType:   r.OutputType.String(),
+		EnergySource: r.EnergySource,
+		TrainerName:  r.TrainerName,
+		SelectFilter: r.SelectFilter,
+		NodeType:     defaultNodeType,
+		Weight:       true,
 	}
 	modelRequestJSON, err := json.Marshal(modelRequest)
 	if err != nil {
@@ -222,26 +234,17 @@ func (r *LinearRegressor) getWeightFromServer() (interface{}, error) {
 	}
 	body, _ := io.ReadAll(response.Body)
 
-	if types.IsComponentType(r.OutputType) {
-		var response ComponentModelWeights
-		err = json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
-		}
-		return response, nil
-	} else {
-		var response ModelWeights
-		err = json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
-		}
-		return response, nil
+	var powerResonse ComponentModelWeights
+	err = json.Unmarshal(body, &powerResonse)
+	if err != nil {
+		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
+	return &powerResonse, nil
 }
 
 // loadWeightFromURLorLocal get weight from either local or URL
 // if string start with '/', we take it as local file
-func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
+func (r *LinearRegressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
 	var body []byte
 	var err error
 
@@ -252,27 +255,17 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (interface{}, error) {
 			return nil, err
 		}
 	}
-
-	if types.IsComponentType(r.OutputType) {
-		var content ComponentModelWeights
-		err = json.Unmarshal(body, &content)
-		if err != nil {
-			return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
-		}
-		return content, nil
-	} else {
-		var content ModelWeights
-		err = json.Unmarshal(body, &content)
-		if err != nil {
-			return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
-		}
-		return content, nil
+	var content ComponentModelWeights
+	err = json.Unmarshal(body, &content)
+	if err != nil {
+		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
+	return &content, nil
 }
 
 // loadWeightFromLocal tries loading weights from local file given by r.ModelWeightsURL
 func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
-	data, err := os.ReadFile(config.DefaultDynCompURL)
+	data, err := os.ReadFile(config.DefaultDynPowerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -313,10 +306,13 @@ func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 		if isIdlePower {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
 		}
-		power := r.modelWeight.(ModelWeights).predict(
-			r.FloatFeatureNames, floatFeatureValues,
-			r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
-		return power, nil
+		if modelWeight, found := (*r.modelWeight)[collector_metric.PLATFORM]; found {
+			power := modelWeight.predict(
+				r.FloatFeatureNames, floatFeatureValues,
+				r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
+			return power, nil
+		}
+		return []float64{}, fmt.Errorf("model Weight for model type %s is not valid: %v", r.OutputType.String(), r.modelWeight)
 	}
 	return []float64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
 }
@@ -326,8 +322,12 @@ func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 	if !r.enabled {
 		return []source.NodeComponentsEnergy{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
+	if r.modelWeight == nil {
+		r.enabled = false
+		return []source.NodeComponentsEnergy{}, fmt.Errorf("model weight is not set")
+	}
 	compPowers := make(map[string][]float64)
-	for comp, weight := range r.modelWeight.(ComponentModelWeights) {
+	for comp, weight := range *r.modelWeight {
 		floatFeatureValues := r.floatFeatureValues[0:r.xidx]
 		if isIdlePower {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
