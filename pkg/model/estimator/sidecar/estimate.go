@@ -41,9 +41,10 @@ type PowerRequest struct {
 	FloatFeatureNames           []string    `json:"metrics"`
 	UsageValues                 [][]float64 `json:"values"`
 	OutputType                  string      `json:"output_type"`
+	EnergySource                string      `json:"source"`
 	SystemMetaDataFeatureNames  []string    `json:"system_features"`
 	SystemMetaDataFeatureValues []string    `json:"system_values"`
-	ModelName                   string      `json:"model_name"`
+	TrainerName                 string      `json:"trainer_name"`
 	SelectFilter                string      `json:"filter"`
 }
 
@@ -63,7 +64,8 @@ type ComponentPowerResponse struct {
 type EstimatorSidecar struct {
 	Socket       string
 	OutputType   types.ModelOutputType
-	ModelName    string
+	EnergySource string
+	TrainerName  string
 	SelectFilter string
 
 	FloatFeatureNames           []string
@@ -77,8 +79,7 @@ type EstimatorSidecar struct {
 	// xidx represents the instance slide window position, where an instance can be process/container/pod/node
 	xidx int
 
-	enabled     bool
-	isComponent bool
+	enabled bool
 }
 
 // Start returns nil if estimator is connected and has compatible power model
@@ -86,7 +87,6 @@ func (c *EstimatorSidecar) Start() error {
 	zeros := make([]float64, len(c.FloatFeatureNames))
 	usageValues := [][]float64{zeros}
 	c.enabled = false
-	c.isComponent = types.IsComponentType(c.OutputType)
 	_, err := c.makeRequest(usageValues, c.SystemMetaDataFeatureValues)
 	if err == nil {
 		c.enabled = true
@@ -98,10 +98,11 @@ func (c *EstimatorSidecar) Start() error {
 // makeRequest makes a request to Kepler Estimator EstimatorSidecar to apply archived model and get predicted powers
 func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []string) (interface{}, error) {
 	powerRequest := PowerRequest{
-		ModelName:                   c.ModelName,
+		TrainerName:                 c.TrainerName,
 		FloatFeatureNames:           c.FloatFeatureNames,
 		UsageValues:                 usageValues,
 		OutputType:                  c.OutputType.String(),
+		EnergySource:                c.EnergySource,
 		SystemMetaDataFeatureNames:  c.SystemMetaDataFeatureNames,
 		SystemMetaDataFeatureValues: systemValues,
 		SelectFilter:                c.SelectFilter,
@@ -132,15 +133,9 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 		return nil, err
 	}
 	var powers interface{}
-	if c.isComponent {
-		var powerResponse ComponentPowerResponse
-		err = json.Unmarshal(buf[0:n], &powerResponse)
-		powers = powerResponse.Powers
-	} else {
-		var powerResponse PlatformPowerResponse
-		err = json.Unmarshal(buf[0:n], &powerResponse)
-		powers = powerResponse.Powers
-	}
+	var powerResponse ComponentPowerResponse
+	err = json.Unmarshal(buf[0:n], &powerResponse)
+	powers = powerResponse.Powers
 	if err != nil {
 		klog.V(4).Infof("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
 		return nil, err
@@ -157,11 +152,19 @@ func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]float64, error)
 	if isIdlePower {
 		featuresValues = c.floatFeatureValuesForIdlePower[0:c.xidx]
 	}
-	powers, err := c.makeRequest(featuresValues, c.SystemMetaDataFeatureValues)
+	compPowers, err := c.makeRequest(featuresValues, c.SystemMetaDataFeatureValues)
 	if err != nil {
 		return []float64{}, err
 	}
-	return powers.([]float64), err
+	power := compPowers.(map[string][]float64)
+	if len(power) == 0 {
+		return []float64{}, err
+	}
+	if powers, found := power[collector_metric.PLATFORM]; !found {
+		return []float64{}, fmt.Errorf("not found %s in response %v", collector_metric.PLATFORM, power)
+	} else {
+		return powers, nil
+	}
 }
 
 // GetComponentsPower makes a request to Kepler Estimator EstimatorSidecar and return a list of total powers

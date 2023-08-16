@@ -39,13 +39,14 @@ const (
 	// Absolute Power Model (AbsPower): is the power model trained by measured power (including the idle power)
 	// Dynamic Power Model (DynPower): is the power model trained by dynamic power (AbsPower - idle power)
 	AbsPower ModelOutputType = iota + 1
-	AbsModelWeight
-	AbsComponentPower
-	AbsComponentModelWeight
 	DynPower
-	DynModelWeight
-	DynComponentPower
-	DynComponentModelWeight
+	Unsupported
+)
+
+var (
+	// Define energy source
+	PlatformEnergySource  = "acpi"
+	ComponentEnergySource = "rapl"
 )
 
 func (s ModelOutputType) String() string {
@@ -62,27 +63,12 @@ func (s ModelType) String() string {
 	return "unknown"
 }
 
-func IsWeightType(outputType ModelOutputType) bool {
-	switch outputType {
-	case AbsModelWeight, AbsComponentModelWeight, DynModelWeight, DynComponentModelWeight:
-		return true
-	}
-	return false
-}
-
-func IsComponentType(outputType ModelOutputType) bool {
-	switch outputType {
-	case AbsComponentModelWeight, AbsComponentPower, DynComponentModelWeight, DynComponentPower:
-		return true
-	}
-	return false
-}
-
 type ModelConfig struct {
 	// model configuration
 	ModelType       ModelType
 	ModelOutputType ModelOutputType
-	ModelName       string
+	TrainerName     string
+	EnergySource    string
 	SelectFilter    string
 	InitModelURL    string
 

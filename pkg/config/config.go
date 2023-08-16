@@ -122,7 +122,8 @@ var (
 	EstimatorEnabledKey        = "ESTIMATOR"
 	LinearRegressionEnabledKey = "LINEAR_REGRESSION"
 	InitModelURLKey            = "INIT_URL"
-	FixedModelNameKey          = "MODEL"
+	FixedTrainerNameKey        = "TRAINER"
+	FixedNodeTypeKey           = "NODE_TYPE"
 	ModelFiltersKey            = "FILTERS"
 	////////////////////////////////////
 
@@ -130,7 +131,8 @@ var (
 	KubeConfig      = ""
 	EnableAPIServer = false
 
-	DefaultDynCompURL = "/var/lib/kepler/data/ScikitMixed.json"
+	DefaultDynPowerURL = "/var/lib/kepler/data/DynPowerModel.json"
+	DefaultAbsPowerURL = "/var/lib/kepler/data/AbsPowerModel.json"
 )
 
 func logBoolConfigs() {

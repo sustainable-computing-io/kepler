@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
@@ -104,19 +104,19 @@ func dummyEstimator(serveSocket string, start, quit chan bool) {
 		powers[0] = SampleDynEnergyValue
 		msg := ""
 		var powerResponseJSON []byte
-		if strings.Contains(powerRequest.OutputType, "Component") {
-			powerResponse := ComponentPowerResponse{
-				Powers:  map[string][]float64{"pkg": powers},
+		var powerResponse ComponentPowerResponse
+		if powerRequest.EnergySource == types.ComponentEnergySource {
+			powerResponse = ComponentPowerResponse{
+				Powers:  map[string][]float64{collector_metric.PKG: powers},
 				Message: msg,
 			}
-			powerResponseJSON, err = json.Marshal(powerResponse)
 		} else {
-			powerResponse := PlatformPowerResponse{
-				Powers:  powers,
+			powerResponse = ComponentPowerResponse{
+				Powers:  map[string][]float64{collector_metric.PLATFORM: powers},
 				Message: msg,
 			}
-			powerResponseJSON, err = json.Marshal(powerResponse)
 		}
+		powerResponseJSON, err = json.Marshal(powerResponse)
 		if err != nil {
 			panic(err)
 		}
@@ -128,13 +128,14 @@ func dummyEstimator(serveSocket string, start, quit chan bool) {
 	}
 }
 
-func createEstimatorSidecarPowerModel(serveSocket string, outputType types.ModelOutputType) EstimatorSidecar {
+func createEstimatorSidecarPowerModel(serveSocket string, outputType types.ModelOutputType, energySource string) EstimatorSidecar {
 	return EstimatorSidecar{
 		Socket:                      serveSocket,
 		OutputType:                  outputType,
 		FloatFeatureNames:           featureNames,
 		SystemMetaDataFeatureNames:  systemMetaDataFeatureNames,
 		SystemMetaDataFeatureValues: systemMetaDataFeatureValues,
+		EnergySource:                energySource,
 	}
 }
 
@@ -147,7 +148,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		defer close(start)
 		go dummyEstimator(serveSocket, start, quit)
 		<-start
-		c := createEstimatorSidecarPowerModel(serveSocket, types.AbsPower)
+		c := createEstimatorSidecarPowerModel(serveSocket, types.AbsPower, types.PlatformEnergySource)
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()
@@ -167,7 +168,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		defer close(start)
 		go dummyEstimator(serveSocket, start, quit)
 		<-start
-		c := createEstimatorSidecarPowerModel(serveSocket, types.DynPower)
+		c := createEstimatorSidecarPowerModel(serveSocket, types.DynPower, types.PlatformEnergySource)
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()
@@ -188,7 +189,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		defer close(start)
 		go dummyEstimator(serveSocket, start, quit)
 		<-start
-		c := createEstimatorSidecarPowerModel(serveSocket, types.AbsComponentPower)
+		c := createEstimatorSidecarPowerModel(serveSocket, types.AbsPower, types.ComponentEnergySource)
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()
@@ -211,7 +212,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		defer close(start)
 		go dummyEstimator(serveSocket, start, quit)
 		<-start
-		c := createEstimatorSidecarPowerModel(serveSocket, types.DynComponentPower)
+		c := createEstimatorSidecarPowerModel(serveSocket, types.DynPower, types.ComponentEnergySource)
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()

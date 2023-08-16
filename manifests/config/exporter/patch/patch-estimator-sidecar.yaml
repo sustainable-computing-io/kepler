@@ -4,10 +4,9 @@ metadata:
   name: kepler-cfm
   namespace: system
 data:
-  CGROUP_METRICS: '*'
   MODEL_CONFIG: |
-    CONTAINER_COMPONENTS_ESTIMATOR=true
-    CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentPower/CgroupOnly/ScikitMixed.zip
+    NODE_COMPONENTS_ESTIMATOR=true
+    NODE_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/Linux-4.15.0-213-generic-x86_64_v0.6/rapl/AbsPower/KubeletOnly/GradientBoostingRegressorTrainer_1.zip
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -22,13 +21,15 @@ spec:
         - /bin/sh
         - -c
         args:
-        - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL)
+        - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources -redfish-cred-file-path=/etc/redfish/redfish.csv
         volumeMounts:
         - mountPath: /tmp
           name: tmp
         name: kepler-exporter
-      - image: kepler-estimator:latest
-        imagePullPolicy: Always
+      - image: kepler_model_server
+        imagePullPolicy: IfNotPresent
+        command: [ "python3.8" ]
+        args: ["-u", "src/estimate/estimator.py" ]
         name: estimator
         volumeMounts:
         - name: cfm
