@@ -45,10 +45,8 @@ var (
 		config.CgroupfsReadIO,
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
-		config.KubeletContainerCPU,
-		config.KubeletContainerMemory,
-		config.KubeletNodeCPU,
-		config.KubeletNodeMemory,
+		config.KubeletCPUUsage,
+		config.KubeletMemoryUsage,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
 	featureNames               = append(containerFeatureNames, systemMetaDataFeatureNames...) // to predict node power, we will need the resource usage and metadata metrics

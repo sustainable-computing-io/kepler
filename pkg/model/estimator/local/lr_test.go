@@ -52,17 +52,15 @@ var (
 		config.CgroupfsReadIO,
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
-		config.KubeletContainerCPU,
-		config.KubeletContainerMemory,
-		config.KubeletNodeCPU,
-		config.KubeletNodeMemory,
+		config.KubeletCPUUsage,
+		config.KubeletMemoryUsage,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
 	containerFeatureValues     = [][]float64{
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container A
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container B
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container A
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container B
 	}
-	nodeFeatureValues           = []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
+	nodeFeatureValues           = []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
 	systemMetaDataFeatureValues = []string{"Sandy Bridge"}
 )
 

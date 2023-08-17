@@ -18,7 +18,6 @@ package collector
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,58 +31,6 @@ import (
 const (
 	namespace        = "kepler"
 	miliJouleToJoule = 1000
-)
-
-var (
-	// The energy stat metrics are meat to be only used by the model server for training purpose
-	// These metris report the following labels, we have the full list here to make it more transparent
-	// TODO: review these metrics, they might be deprecated
-	NodeMetricsStatLabels = []string{
-		"node_name",
-		"cpu_architecture",
-		"node_curr_cpu_time",
-		"node_curr_cpu_cycles",
-		"node_curr_cpu_instr",
-		"node_curr_cache_miss",
-		"node_curr_container_cpu_usage_seconds_total",
-		"node_curr_container_memory_working_set_bytes",
-		"node_curr_bytes_read",
-		"node_curr_bytes_writes",
-		"node_block_devices_used",
-		"node_curr_energy_in_core_joule",
-		"node_curr_energy_in_dram_joule",
-		"node_curr_energy_in_gpu_joule",
-		"node_curr_energy_in_other_joule",
-		"node_curr_energy_in_pkg_joule",
-		"node_curr_energy_in_uncore_joule"}
-	podEnergyStatLabels = []string{
-		"pod_name",
-		"container_name",
-		"pod_namespace",
-		"command",
-		"curr_cpu_time",
-		"total_cpu_time",
-		"curr_cpu_cycles",
-		"total_cpu_cycles",
-		"curr_cpu_instr",
-		"total_cpu_instr",
-		"curr_cache_miss",
-		"total_cache_miss",
-		"curr_container_cpu_usage_seconds_total",
-		"total_container_cpu_usage_seconds_total",
-		"curr_container_memory_working_set_bytes",
-		"total_container_memory_working_set_bytes",
-		"curr_bytes_read",
-		"total_bytes_read",
-		"curr_bytes_writes",
-		"total_bytes_writes",
-		"block_devices_used",
-		"curr_irq_net_rx",
-		"total_irq_net_rx",
-		"curr_irq_net_tx",
-		"total_irq_net_tx",
-		"curr_irq_block",
-		"total_irq_block"}
 )
 
 type NodeDesc struct {
@@ -102,12 +49,6 @@ type NodeDesc struct {
 	// Additional metrics (gauge)
 	// TODO: review if we really need to expose this metric.
 	NodeCPUFrequency *prometheus.Desc
-
-	// Old metric
-	// TODO: remove these metrics in the next release. The dependent components must stop to use this.
-	nodePackageMiliJoulesTotal *prometheus.Desc // deprecated
-	// the NodeMetricsStat does not follow the prometheus metrics standard guideline, and this is only used by the model server.
-	NodeMetricsStat *prometheus.Desc
 
 	// QAT metrics
 	NodeQATUtilization *prometheus.Desc
@@ -150,9 +91,6 @@ type ContainerDesc struct {
 
 // metric used by the model server to train the model
 type PodDesc struct {
-	// TODO: review if we need to remove this metric
-	// the NodeMetricsStat does not follow the prometheus metrics standard guideline, and this is only used by the model server.
-	podEnergyStat *prometheus.Desc
 	// Hardware Counters (counter)
 	// The clever dashboard use the pod_cpu_instructions but should be updated later to container_cpu_instructions
 	podCPUInstrTotal *prometheus.Desc
@@ -227,10 +165,6 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	// Additional Node metrics (gauge)
 	ch <- p.nodeDesc.NodeCPUFrequency
 
-	// Old Node metric
-	ch <- p.nodeDesc.nodePackageMiliJoulesTotal
-	ch <- p.nodeDesc.NodeMetricsStat
-
 	// Container Energy (counter)
 	ch <- p.containerDesc.containerCoreJoulesTotal
 	ch <- p.containerDesc.containerUncoreJoulesTotal
@@ -273,9 +207,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		}
 	}
 
-	// Old Node metric
 	ch <- p.containerDesc.containerCPUTime
-	ch <- p.podDesc.podEnergyStat
 
 	// IRQ counter
 	if config.ExposeIRQCounterMetrics {
@@ -295,37 +227,37 @@ func (p *PrometheusCollector) newNodeMetrics() {
 	// Energy (counter)
 	// TODO: separate the energy consumption per CPU, including the label cpu
 	nodeCoreJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "core_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.CORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in core in joules",
 		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodeUncoreJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "uncore_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.UNCORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in uncore in joules",
 		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodeDramJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "dram_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.DRAM, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in dram in joules",
 		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodePackageJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "package_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.PKG, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in package (socket) in joules",
 		[]string{"package", "instance", "source", "mode"}, nil,
 	)
 	nodePlatformJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "platform_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.PLATFORM, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in platform (entire node) in joules",
 		[]string{"instance", "source", "mode"}, nil,
 	)
 	nodeOtherComponentsJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "other_host_components_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.OTHER, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in other components (platform - package - dram) in joules",
 		[]string{"instance", "mode"}, nil,
 	)
 	nodeGPUJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "gpu_joules_total"),
+		prometheus.BuildFQName(namespace, "node", addSuffix(collector_metric.GPU, config.AggregatedEnergySuffix)),
 		"Current GPU value in joules",
 		[]string{"index", "instance", "source", "mode"}, nil,
 	)
@@ -344,18 +276,6 @@ func (p *PrometheusCollector) newNodeMetrics() {
 		[]string{"cpu", "instance"}, nil,
 	)
 
-	// Old metrics
-	nodePackageMiliJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "package_energy_millijoule"),
-		"Aggregated RAPL value in package (socket) in milijoules (deprecated)",
-		[]string{"instance", "pkg_id", "core", "dram", "uncore"}, nil,
-	)
-	NodeMetricsStat := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "node", "energy_stat"),
-		"Several labeled node metrics",
-		NodeMetricsStatLabels, nil,
-	)
-
 	p.nodeDesc = &NodeDesc{
 		nodeInfo:                       nodeInfo,
 		nodeCoreJoulesTotal:            nodeCoreJoulesTotal,
@@ -367,124 +287,122 @@ func (p *PrometheusCollector) newNodeMetrics() {
 		nodeGPUJoulesTotal:             nodeGPUJoulesTotal,
 		NodeCPUFrequency:               NodeCPUFrequency,
 		NodeQATUtilization:             NodeQATUtilization,
-		nodePackageMiliJoulesTotal:     nodePackageMiliJoulesTotal, // deprecated
-		NodeMetricsStat:                NodeMetricsStat,
 	}
 }
 
 func (p *PrometheusCollector) newContainerMetrics() {
 	// Energy (counter)
 	containerCoreJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "core_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.CORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in core in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerUncoreJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "uncore_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.UNCORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in uncore in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerDramJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "dram_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.DRAM, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in dram in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerPackageJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "package_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.PKG, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in package (socket) in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerOtherComponentsJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "other_host_components_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.OTHER, config.AggregatedEnergySuffix)),
 		"Aggregated value in other host components (platform - package - dram) in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerGPUJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "gpu_joules_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.GPU, config.AggregatedEnergySuffix)),
 		"Aggregated GPU value in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 	containerJoulesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "joules_total"),
+		prometheus.BuildFQName(namespace, "container", config.AggregatedEnergySuffix),
 		"Aggregated RAPL Package + Uncore + DRAM + GPU + other host components (platform - package - dram) in joules",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
 	)
 
 	// Hardware Counters (counter)
 	containerCPUCyclesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cpu_cycles_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUCycle, config.AggregatedUsageSuffix)),
 		"Aggregated CPU cycle value",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 	containerCPUInstrTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cpu_instructions_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUInstruction, config.AggregatedUsageSuffix)),
 		"Aggregated CPU instruction value",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 	containerCacheMissTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cache_miss_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CacheMiss, config.AggregatedUsageSuffix)),
 		"Aggregated cache miss value",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	// cGroups Counters (counter)
 	containerCgroupCPUUsageUsTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cgroupfs_cpu_usage_us_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsCPU, config.AggregatedUsageSuffix)),
 		"Aggregated cpu usage obtained from cGroups",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	containerCgroupMemoryUsageBytesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cgroupfs_memory_usage_bytes_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsMemory, config.AggregatedUsageSuffix)),
 		"Aggregated memory bytes obtained from cGroups",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	containerCgroupSystemCPUUsageUsTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cgroupfs_system_cpu_usage_us_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsSystemCPU, config.AggregatedUsageSuffix)),
 		"Aggregated system cpu usage obtained from cGroups",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	containerCgroupUserCPUUsageUsTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "cgroupfs_user_cpu_usage_us_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsUserCPU, config.AggregatedUsageSuffix)),
 		"Aggregated user cpu usage obtained from cGroups",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	// Kubelet Counters (counter)
 	containerKubeletCPUUsageTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "kubelet_cpu_usage_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.KubeletCPUUsage, config.AggregatedUsageSuffix)),
 		"Aggregated cpu usage obtained from kubelet",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	containerKubeletMemoryBytesTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "kubelet_memory_bytes_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.KubeletMemoryUsage, config.AggregatedUsageSuffix)),
 		"Aggregated memory bytes obtained from kubelet",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
 	// Additional metrics (gauge)
 	containerCPUTime := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "bpf_cpu_time_us_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUTime, config.AggregatedUsageSuffix)),
 		"Aggregated CPU time obtained from BPF",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	// network irq metrics
 	containerNetTxIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "bpf_net_tx_irq_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.IRQNetTXLabel, config.AggregatedUsageSuffix)),
 		"Aggregated network tx irq value obtained from BPF",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerNetRxIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "bpf_net_rx_irq_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.IRQNetRXLabel, config.AggregatedUsageSuffix)),
 		"Aggregated network rx irq value obtained from BPF",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerBlockIRQTotal := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "container", "bpf_block_irq_total"),
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.IRQBlockLabel, config.AggregatedUsageSuffix)),
 		"Aggregated block irq value obtained from BPF",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
@@ -514,12 +432,6 @@ func (p *PrometheusCollector) newContainerMetrics() {
 }
 
 func (p *PrometheusCollector) newPodMetrics() {
-	// Old metrics
-	podEnergyStat := prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "pod", "energy_stat"),
-		"Several labeled pod metrics",
-		podEnergyStatLabels, nil,
-	)
 	podCPUInstrTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "pod", "cpu_instructions"),
 		"Aggregated CPU instruction value (deprecated)",
@@ -527,7 +439,6 @@ func (p *PrometheusCollector) newPodMetrics() {
 	)
 
 	p.podDesc = &PodDesc{
-		podEnergyStat:    podEnergyStat,
 		podCPUInstrTotal: podCPUInstrTotal,
 	}
 }
@@ -558,30 +469,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 				fmt.Sprintf("%d", cpuID), collector_metric.NodeName,
 			)
 		}
-		for pkgID, val := range p.NodeMetrics.AbsEnergyInPkg.Stat {
-			coreEnergy := strconv.FormatUint(p.NodeMetrics.AbsEnergyInCore.Stat[pkgID].Delta, 10)
-			dramEnergy := strconv.FormatUint(p.NodeMetrics.AbsEnergyInDRAM.Stat[pkgID].Delta, 10)
-			uncoreEnergy := strconv.FormatUint(p.NodeMetrics.AbsEnergyInUncore.Stat[pkgID].Delta, 10)
-			ch <- prometheus.MustNewConstMetric(
-				p.nodeDesc.nodePackageMiliJoulesTotal,
-				prometheus.CounterValue,
-				float64(val.Delta),
-				collector_metric.NodeName, pkgID, coreEnergy, dramEnergy, uncoreEnergy,
-			) // deprecated metric
-		}
 
-		NodeMetricsStatusLabelValues := []string{collector_metric.NodeName, collector_metric.NodeCPUArchitecture}
-		for _, label := range NodeMetricsStatLabels[2:] {
-			val := uint64(p.NodeMetrics.ResourceUsage[label])
-			valStr := strconv.FormatUint(val, 10)
-			NodeMetricsStatusLabelValues = append(NodeMetricsStatusLabelValues, valStr)
-		}
-		ch <- prometheus.MustNewConstMetric(
-			p.nodeDesc.NodeMetricsStat,
-			prometheus.CounterValue,
-			(float64(p.NodeMetrics.AbsEnergyInPlatform.SumAllDeltaValues())/miliJouleToJoule)/p.SamplePeriodSec,
-			NodeMetricsStatusLabelValues...,
-		)
 		ch <- prometheus.MustNewConstMetric(
 			p.nodeDesc.nodeInfo,
 			prometheus.CounterValue,
@@ -731,18 +619,6 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			if len(containerCommand) > commandLenLimit {
 				containerCommand = container.Command[:commandLenLimit]
 			}
-			// TODO: After removing this metric in the next release, we need to refactor and remove the ToPrometheusValues function
-			podEnergyStatusLabelValues := []string{container.PodName, container.ContainerName, container.Namespace, containerCommand}
-			for _, label := range podEnergyStatLabels[4:] {
-				val := container.ToPrometheusValue(label)
-				podEnergyStatusLabelValues = append(podEnergyStatusLabelValues, val)
-			}
-			ch <- prometheus.MustNewConstMetric(
-				p.podDesc.podEnergyStat,
-				prometheus.GaugeValue,
-				float64(container.SumAllDynDeltaValues()),
-				podEnergyStatusLabelValues...,
-			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerCPUTime,
 				prometheus.CounterValue,
@@ -910,13 +786,13 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerKubeletCPUUsageTotal,
 					prometheus.CounterValue,
-					float64(container.KubeletStats[config.KubeletContainerCPU].Aggr),
+					float64(container.KubeletStats[config.KubeletCPUUsage].Aggr),
 					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerKubeletMemoryBytesTotal,
 					prometheus.CounterValue,
-					float64(container.KubeletStats[config.KubeletContainerMemory].Aggr),
+					float64(container.KubeletStats[config.KubeletMemoryUsage].Aggr),
 					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
 				)
 			}

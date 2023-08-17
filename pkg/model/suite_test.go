@@ -38,10 +38,8 @@ var (
 		config.CgroupfsReadIO,
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
-		config.KubeletContainerCPU,
-		config.KubeletContainerMemory,
-		config.KubeletNodeCPU,
-		config.KubeletNodeMemory,
+		config.KubeletCPUUsage,
+		config.KubeletMemoryUsage,
 	}
 )
 

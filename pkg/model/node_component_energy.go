@@ -29,7 +29,7 @@ var (
 	// the absulute power model includes both the absolute and idle power consumption
 	NodeComponentPowerModel PowerMoldelInterface
 
-	defaultAbsCompURL = "/var/lib/kepler/data/KerasCompWeightFullPipeline.json"
+	defaultAbsCompURL = "/var/lib/kepler/data/AbsPowerModel.json"
 )
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.

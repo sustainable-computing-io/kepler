@@ -54,10 +54,8 @@ func setCollectorMetrics() {
 		config.BlockDevicesIO,
 	}
 	collector_metric.AvailableKubeletMetrics = []string{
-		config.KubeletContainerCPU,
-		config.KubeletContainerMemory,
-		config.KubeletNodeCPU,
-		config.KubeletNodeMemory,
+		config.KubeletCPUUsage,
+		config.KubeletMemoryUsage,
 	}
 	collector_metric.ContainerUintFeaturesNames = []string{}
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableEBPFCounters...)
@@ -118,21 +116,13 @@ func createMockContainerMetrics(containerName, podName, namespace string) *colle
 	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 1)
 	containerMetrics.CgroupStatMap[config.BlockDevicesIO].SetAggrStat(containerName, 1)
 	// kubelet - cgroup package
-	err = containerMetrics.KubeletStats[config.KubeletContainerCPU].SetNewAggr(10000)
+	err = containerMetrics.KubeletStats[config.KubeletCPUUsage].SetNewAggr(10000)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletContainerCPU].SetNewAggr(40000)
+	err = containerMetrics.KubeletStats[config.KubeletCPUUsage].SetNewAggr(40000)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletContainerMemory].SetNewAggr(1000000)
+	err = containerMetrics.KubeletStats[config.KubeletMemoryUsage].SetNewAggr(1000000)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletContainerMemory].SetNewAggr(4000000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletNodeCPU].SetNewAggr(10000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletNodeCPU].SetNewAggr(40000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletNodeMemory].SetNewAggr(1000000)
-	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.KubeletStats[config.KubeletNodeMemory].SetNewAggr(4000000)
+	err = containerMetrics.KubeletStats[config.KubeletMemoryUsage].SetNewAggr(4000000)
 	Expect(err).NotTo(HaveOccurred())
 	return containerMetrics
 }

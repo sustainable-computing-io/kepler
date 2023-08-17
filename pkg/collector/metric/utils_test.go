@@ -19,19 +19,6 @@ func clearPlatformDependentAvailability() {
 }
 
 var _ = Describe("Test Metric Unit", func() {
-
-	It("Test getPrometheusMetrics", func() {
-		clearPlatformDependentAvailability()
-
-		exp := []string{config.BlockDevicesIO}
-		cur := getPrometheusMetrics()
-		if len(cur) > len(exp) {
-			Expect(exp).To(Equal(cur[len(cur)-len(exp):]))
-		} else {
-			Expect(exp).To(Equal(cur))
-		}
-	})
-
 	It("Test isCounterStatEnabled for True", func() {
 		AvailableHWCounters = []string{config.BlockDevicesIO}
 		exp := isCounterStatEnabled(config.CPUTime)
