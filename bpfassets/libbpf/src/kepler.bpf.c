@@ -56,7 +56,6 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
     {
         // Probably a clock issue where the recorded on-CPU event had a
         // timestamp later than the recorded off-CPU event, or vice versa.
-        // But do not return, since the hardware counters can be collected.
         if (cur_ts > *prev_ts)
         {
             cpu_time = (cur_ts - *prev_ts) / 1000000; /*milisecond*/
@@ -67,13 +66,6 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
     bpf_map_update_elem(&pid_time, &new_pid_key, &cur_ts, BPF_NOEXIST);
 
     return cpu_time;
-}
-
-static inline u64 normalize(u64 *counter, u64 *enabled, u64 *running)
-{
-    if (*running > 0)
-        return *counter * *enabled / *running;
-    return *counter;
 }
 
 static inline u64 calc_delta(u64 *prev_val, u64 *val)
@@ -96,7 +88,7 @@ static inline u64 get_on_cpu_cycles(u32 *cpu_id)
     int error = bpf_perf_event_read_value(&cpu_cycles_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
-        u64 val = normalize(&c.counter, &c.enabled, &c.running);
+        u64 val = c.counter;
         u64 *prev_val = bpf_map_lookup_elem(&cpu_cycles, cpu_id);
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_cycles, cpu_id, &val, BPF_ANY);
@@ -123,7 +115,7 @@ static inline u64 get_on_cpu_ref_cycles(u32 *cpu_id)
     int error = bpf_perf_event_read_value(&cpu_ref_cycles_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
-        u64 val = normalize(&c.counter, &c.enabled, &c.running);
+        u64 val = c.counter;
         u64 *prev_val = bpf_map_lookup_elem(&cpu_ref_cycles, cpu_id);
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_ref_cycles, cpu_id, &val, BPF_ANY);
@@ -149,7 +141,7 @@ static inline u64 get_on_cpu_instr(u32 *cpu_id)
     int error = bpf_perf_event_read_value(&cpu_instr_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
-        u64 val = normalize(&c.counter, &c.enabled, &c.running);
+        u64 val = c.counter;
         u64 *prev_val = bpf_map_lookup_elem(&cpu_instr, cpu_id);
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cpu_instr, cpu_id, &val, BPF_ANY);
@@ -175,7 +167,7 @@ static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
     int error = bpf_perf_event_read_value(&cache_miss_hc_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
-        u64 val = normalize(&c.counter, &c.enabled, &c.running);
+        u64 val = c.counter;
         u64 *prev_val = bpf_map_lookup_elem(&cache_miss, cpu_id);
         delta = calc_delta(prev_val, &val);
         bpf_map_update_elem(&cache_miss, cpu_id, &val, BPF_ANY);
@@ -214,9 +206,9 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 SEC("tracepoint/sched/sched_switch")
 int kepler_trace(struct sched_switch_args *ctx)
 {
+    u32 next_pid = ctx->next_pid; // the new pid that is to be scheduled
     u32 cur_pid = bpf_get_current_pid_tgid();
-    u32 new_pid = ctx->next_pid; // the new pid that is to be scheduled
-    u64 cgroup_id = bpf_get_current_cgroup_id(); // the cgroup id is the cgroup id of the running process (aka prev_pid)
+    u64 cgroup_id = bpf_get_current_cgroup_id(); // the cgroup id is the cgroup id of the running process (this is not next_pid or prev_pid)
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
     u32 prev_pid = ctx->prev_pid;
@@ -226,7 +218,7 @@ int kepler_trace(struct sched_switch_args *ctx)
     u64 on_cpu_instr_delta = get_on_cpu_instr(&cpu_id);
     u64 on_cpu_cache_miss_delta = get_on_cpu_cache_miss(&cpu_id);
     u64 on_cpu_avg_freq = get_on_cpu_avg_freq(&cpu_id, on_cpu_cycles_delta, on_cpu_ref_cycles_delta);
-    u64 on_cpu_time_delta = get_on_cpu_time(new_pid, prev_pid, cur_ts);
+    u64 on_cpu_time_delta = get_on_cpu_time(next_pid, prev_pid, cur_ts);
 
     // store process metrics
     struct process_metrics_t *process_metrics;
@@ -235,20 +227,20 @@ int kepler_trace(struct sched_switch_args *ctx)
     {
         // update process time
         process_metrics->process_run_time += on_cpu_time_delta;
-        // set the cgroup id
-        process_metrics->cgroup_id = cgroup_id;
         process_metrics->cpu_cycles += on_cpu_cycles_delta;
         process_metrics->cpu_instr += on_cpu_instr_delta;
         process_metrics->cache_miss += on_cpu_cache_miss_delta;
     }
 
-    process_metrics = bpf_map_lookup_elem(&processes, &new_pid);
+    process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
     if (process_metrics == 0)
     {
         process_metrics_t new_process = {};
-        new_process.pid = new_pid;
-        bpf_probe_read(&new_process.comm, sizeof(new_process.comm), (void *)ctx->next_comm);
-        bpf_map_update_elem(&processes, &new_pid, &new_process, BPF_NOEXIST);
+        new_process.pid = cur_pid;
+        new_process.cgroup_id = cgroup_id;
+        // bpf_probe_read(&new_process.comm, sizeof(new_process.comm), (void *)ctx->next_comm);
+        bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
+        bpf_map_update_elem(&processes, &cur_pid, &new_process, BPF_NOEXIST);
     }
     return 0;
 }
