@@ -216,12 +216,13 @@ _build_local: tidy-vendor format
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
 
-container_build: tidy-vendor format
+container_build:
 	$(CTR_CMD) run --rm \
+		--network host \
 		-v $(base_dir):/kepler:Z -w /kepler \
 		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
-		make build
+		git config --global --add safe.directory /kepler && make build
 
 build_rpm:
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
