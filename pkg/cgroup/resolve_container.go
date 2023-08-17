@@ -60,6 +60,7 @@ var (
 	regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*-`)
 	// some platforms (e.g. RHEL) have different cgroup path
 	regexFindContainerIDPath2 = regexp.MustCompile(`[^:]*$`)
+	validPattern              = "^[a-zA-Z0-9]+$"
 
 	regexReplaceContainerIDPathSufix = regexp.MustCompile(`\..*`)
 	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
@@ -105,15 +106,8 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 	if i, ok := containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	} else {
+		info.ContainerID = containerID
 		containerIDToContainerInfo[containerID] = info
-		// some system process might have container ID, but we need to replace it if the container is not a kubernetes container
-		if info.ContainerName == utils.SystemProcessName {
-			containerID = utils.SystemProcessName
-			// in addition to the system container ID, add also the system process name to the cache
-			if _, ok := containerIDToContainerInfo[containerID]; !ok {
-				containerIDToContainerInfo[containerID] = info
-			}
-		}
 	}
 	return containerIDToContainerInfo[containerID], nil
 }
@@ -223,8 +217,19 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 	return cGroupIDToPath[cgroupID], nil
 }
 
+func validContainerID(id string) string {
+	match, _ := regexp.MatchString(validPattern, id)
+	if match {
+		return id
+	}
+	return utils.SystemProcessName
+}
+
 // Get containerID from path. cgroup v1 and cgroup v2 will use different regex
 func extractPodContainerIDfromPath(path string) (string, error) {
+	if path == unknownPath {
+		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
+	}
 	cgroup := config.GetCGroupVersion()
 	if regexFindContainerIDPath.MatchString(path) {
 		sub := regexFindContainerIDPath.FindAllString(path, -1)
@@ -235,7 +240,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 			} else if strings.Contains(element, "crio") || strings.Contains(element, "docker") || strings.Contains(element, "containerd") {
 				containerID := regexReplaceContainerIDPathPrefix.ReplaceAllString(element, "")
 				containerID = regexReplaceContainerIDPathSufix.ReplaceAllString(containerID, "")
-				return containerID, nil
+				return validContainerID(containerID), nil
 			}
 		}
 	}
@@ -244,14 +249,14 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 	if regexFindContainerIDPath2.MatchString(path) {
 		sub := regexFindContainerIDPath2.FindAllString(path, -1)
 		for _, containerID := range sub {
-			return containerID, nil
+			return validContainerID(containerID), nil
 		}
 	}
 	// some systems, such as minikube, create a different path that has only the kubepods keyword
 	if strings.Contains(path, "kubepods") {
 		tmp := strings.Split(path, "/")
 		containerID := tmp[len(tmp)-1]
-		return containerID, nil
+		return validContainerID(containerID), nil
 	}
 	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
