@@ -55,7 +55,7 @@ typedef __u16 u16;
 #endif
 
 #ifndef MAP_SIZE
-#define MAP_SIZE 10240
+#define MAP_SIZE 32768
 #endif
 
 // array size is to be reset in userspace

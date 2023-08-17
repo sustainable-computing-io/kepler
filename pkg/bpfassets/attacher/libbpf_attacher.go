@@ -23,15 +23,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"time"
+	"unsafe"
+
 	bpf "github.com/aquasecurity/libbpfgo"
 	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
-	"os"
-	"path/filepath"
-	"runtime"
-	"unsafe"
 )
 
 const (
@@ -57,6 +59,8 @@ var (
 		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instr_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instr", "cache_miss", "cpu_freq_array",
 	}
 	cpuCores = getCPUCores()
+	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
+	ctsize   = int(unsafe.Sizeof(emptyct))
 )
 
 func getLibbpfObjectFilePath(arch string) (string, error) {
@@ -174,13 +178,13 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 		return
 	}
 	if ebpfBatchGetAndDelete {
-		processesData, err = libbpfCollectProcessBatch(processes)
+		processesData, err = libbpfCollectProcessBatchSingleHash(processes)
 	}
 	if err == nil {
 		return
 	} else {
 		ebpfBatchGetAndDelete = false
-		processesData, err = libbpfCollectProcessSingle(processes)
+		processesData, err = libbpfCollectProcessSingleHash(processes)
 	}
 	return
 }
@@ -195,7 +199,7 @@ func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 	//cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
 	iterator := cpuFreq.Iterator()
 	var freq uint32
-	// valueSize := int(unsafe.Sizeof(freq))
+	// keySize := int(unsafe.Sizeof(freq))
 	retry := 0
 	next := iterator.Next()
 	for next {
@@ -302,46 +306,46 @@ func resizeArrayEntries(name string, size int) error {
 	return nil
 }
 
-func libbpfCollectProcessBatch(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+// for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
+// but it is not a big problem since we request all possible keys that the map can store in a single request
+func libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+	start := time.Now()
 	processesData := []ProcessBPFMetrics{}
 	var err error
-	valueSize := int(unsafe.Sizeof(ProcessBPFMetrics{}))
-	entries := MapSize / valueSize
-	isEnd := false
-	for !isEnd {
+	keySize := 4 // the map key is uint32,  has 4 bytes
+	entries := MapSize / keySize
 
-		keys := make([]uint32, entries)
-		nextKey := uint32(0)
+	keys := make([]uint32, entries)
+	nextKey := uint32(0)
 
-		val, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
+	val, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
+	if err != nil {
 		// os.IsNotExist means we reached the end of the table
-		if err != nil {
-			if os.IsNotExist(err) {
-				isEnd = true
-			} else {
-				klog.V(1).Infof("GetValueAndDeleteBatch failed: %v", err)
-				return processesData, err
-			}
+		if !os.IsNotExist(err) {
+			klog.V(5).Infof("GetValueAndDeleteBatch failed: %v. A partial value might have been collected.", err)
 		}
-		processedCount := len(val)
-		if entries != processedCount {
-			isEnd = true
-			klog.V(5).Infof("GetValueAndDeleteBatch request and processed: %d!=%d", entries, processedCount)
+	}
+	for _, value := range val {
+		buff := bytes.NewBuffer(value)
+		if buff == nil {
+			klog.V(4).Infof("failed to get data: buffer EOF\n")
+			continue
 		}
-		for _, value := range val {
-			var ct ProcessBPFMetrics
-			getErr := binary.Read(bytes.NewBuffer(value), ByteOrder, &ct)
-			if getErr != nil {
-				klog.V(1).Infof("failed to decode received data: %v\n", getErr)
-				continue
-			}
+		var ct ProcessBPFMetrics
+		getErr := binary.Read(buff, ByteOrder, &ct)
+		if getErr != nil {
+			klog.V(1).Infof("failed to decode received data: %v\n", getErr)
+			continue
+		}
+		if ct != emptyct {
 			processesData = append(processesData, ct)
 		}
 	}
-	klog.V(5).Infof("successfully get data with batch get and delete with %d entries", len(processesData))
+	klog.V(5).Infof("successfully get data with batch get and delete with %d pids in %v", len(processesData), time.Since(start))
 	return processesData, err
 }
-func libbpfCollectProcessSingle(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+
+func libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
 	iterator := processes.Iterator()
 	var ct ProcessBPFMetrics
 	keys := []uint32{}

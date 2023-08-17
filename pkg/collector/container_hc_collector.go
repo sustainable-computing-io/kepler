@@ -95,20 +95,19 @@ func (c *Collector) updateBPFMetrics() {
 	if err != nil {
 		return
 	}
+	// TODO(mamaral): instead of aggregate the process data per container ID, keep the data per cgroup, so that we can show cgroup metrics of system processes
+	// this will also help to expose metrics per processes without code duplication
 	for _, ct := range processesData {
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
 			klog.V(5).Infof("failed to resolve container for cGroup ID %v (command=%s): %v, set containerID=%s", ct.CGroupID, comm, err, c.systemProcessName)
 		}
-
-		isSystemProcess := containerID == c.systemProcessName
-
 		c.createContainersMetricsIfNotExist(containerID, ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
-		c.ContainersMetrics[containerID].PID = ct.PID
 
 		// System process is the aggregation of all background process running outside kubernetes
 		// this means that the list of process might be very large, so we will not add this information to the cache
+		isSystemProcess := containerID == c.systemProcessName
 		if !isSystemProcess {
 			c.ContainersMetrics[containerID].SetLatestProcess(ct.CGroupID, ct.PID, comm)
 		} else if config.EnableProcessMetrics {
