@@ -28,28 +28,30 @@ import (
 // updateCgroupMetrics adds container-level cgroup data
 func (c *Collector) updateCgroupMetrics() {
 	for key := range c.ContainersMetrics {
-		if c.ContainersMetrics[key].PID == 0 {
-			klog.V(3).Infof("PID 0 does not have cgroup metrics since there is no /proc/0/cgroup")
-			continue
-		}
 		if c.ContainersMetrics[key].CgroupStatHandler == nil {
-			handler, err := cgroup.NewCGroupStatManager(int(c.ContainersMetrics[key].PID))
-			if err != nil {
-				klog.V(3).Infof("Error: could not start cgroup stat handler for PID %d: %v", c.ContainersMetrics[key].PID, err)
-				if key != c.systemProcessName {
-					// if cgroup manager does not exist, it means that the container was deleted
-					delete(c.ContainersMetrics, key)
+			for pid := range c.ContainersMetrics[key].PIDS {
+				if pid == 0 {
+					klog.V(3).Infof("PID 0 does not have cgroup metrics since there is no /proc/0/cgroup")
+					continue
 				}
-				continue
+				handler, err := cgroup.NewCGroupStatManager(pid)
+				if err != nil {
+					klog.V(3).Infof("Error: could not start cgroup stat handler for PID %d: %v", pid, err)
+					continue
+				}
+				c.ContainersMetrics[key].CgroupStatHandler = handler
+				break
 			}
-			c.ContainersMetrics[key].CgroupStatHandler = handler
 		}
-		if err := c.ContainersMetrics[key].UpdateCgroupMetrics(); err != nil {
-			// if the cgroup metrics of a container does not exist, it means that the container was deleted
-			if key != c.systemProcessName && strings.Contains(err.Error(), "cgroup deleted") {
-				delete(c.ContainersMetrics, key)
-				klog.V(1).Infof("Container/Pod %s/%s was removed from the map because the cgroup was deleted",
-					c.ContainersMetrics[key].ContainerName, c.ContainersMetrics[key].PodName)
+		// we need to test again in case the cgroup handler could not be created, e.g., for system processes
+		if c.ContainersMetrics[key].CgroupStatHandler != nil {
+			if err := c.ContainersMetrics[key].UpdateCgroupMetrics(); err != nil {
+				// if the cgroup metrics of a container does not exist, it means that the container was deleted
+				if key != c.systemProcessName && strings.Contains(err.Error(), "cgroup deleted") {
+					delete(c.ContainersMetrics, key)
+					klog.V(1).Infof("Container/Pod %s/%s was removed from the map because the cgroup was deleted",
+						c.ContainersMetrics[key].ContainerName, c.ContainersMetrics[key].PodName)
+				}
 			}
 		}
 	}
