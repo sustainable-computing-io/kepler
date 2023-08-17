@@ -179,12 +179,12 @@ func (r *LinearRegressor) Start() error {
 	// try getting weight from model server if it is enabled
 	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
 		weight, err = r.getWeightFromServer()
-		klog.V(3).Infof("LR Model (%s): getWeightFromServer: %v", outputStr, weight)
+		klog.V(3).Infof("LR Model (%s): getWeightFromServer: %v (error: %v)", outputStr, weight, err)
 	}
 	if weight == nil {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURLorLocal()
-		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v", outputStr, r.ModelWeightsURL, weight)
+		klog.V(3).Infof("LR Model (%s): loadWeightFromURLorLocal(%v): %v (error: %v)", outputStr, r.ModelWeightsURL, weight, err)
 	}
 	if weight != nil {
 		r.enabled = true

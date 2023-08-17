@@ -34,7 +34,7 @@ const (
 	CORE      = "core"
 	DRAM      = "dram"
 	UNCORE    = "uncore"
-	PKG       = "pkg"
+	PKG       = "package"
 	GPU       = "gpu"
 	OTHER     = "other"
 	PLATFORM  = "platform"

@@ -7,5 +7,5 @@ The metrics used by Pod are:
 kepler_container_package_joules_total{}
 kepler_container_dram_joules_total{}
 kepler_container_gpu_joules_total{}
-kepler_container_other_host_components_joules_total{}
+kepler_container_other_joules_total{}
 ```

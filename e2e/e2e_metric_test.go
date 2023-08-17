@@ -139,16 +139,14 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 			// so far just base check as compare with zero by default
 		},
 		EntryDescription("Checking %s"),
-		Entry(nil, "kepler_exporter_build_info"),                     // only one
-		Entry(nil, "kepler_node_core_joules_total"),                  // node level check by instance
-		Entry(nil, "kepler_node_dram_joules_total"),                  // node level check by instance
-		Entry(nil, "kepler_node_energy_stat"),                        // node level missing instance label but node_name
-		Entry(nil, "kepler_node_info"),                               // node level missing labels
-		Entry(nil, "kepler_node_other_host_components_joules_total"), // node level check by instance
-		Entry(nil, "kepler_node_package_energy_millijoule"),          // node level missing instance label
-		Entry(nil, "kepler_node_package_joules_total"),               // node levelcheck by instance
-		Entry(nil, "kepler_node_platform_joules_total"),              // node levelcheck by instance
-		Entry(nil, "kepler_node_uncore_joules_total"),                // node levelcheck by instance
+		Entry(nil, "kepler_exporter_build_info"),        // only one
+		Entry(nil, "kepler_node_core_joules_total"),     // node level check by instance
+		Entry(nil, "kepler_node_dram_joules_total"),     // node level check by instance
+		Entry(nil, "kepler_node_info"),                  // node level missing labels
+		Entry(nil, "kepler_node_other_joules_total"),    // node level check by instance
+		Entry(nil, "kepler_node_package_joules_total"),  // node levelcheck by instance
+		Entry(nil, "kepler_node_platform_joules_total"), // node levelcheck by instance
+		Entry(nil, "kepler_node_uncore_joules_total"),   // node levelcheck by instance
 	)
 
 	var _ = DescribeTable("Check pod level metrics for details",
@@ -179,14 +177,13 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 			Expect(value).To(BeNumerically(">", 0))
 		},
 		EntryDescription("Checking %s"),
-		Entry(nil, "kepler_container_core_joules_total"),                  // pod level
-		Entry(nil, "kepler_container_dram_joules_total"),                  // pod level
-		Entry(nil, "kepler_container_joules_total"),                       // pod level
-		Entry(nil, "kepler_container_other_host_components_joules_total"), // pod level
-		Entry(nil, "kepler_container_package_joules_total"),               // pod level
-		Entry(nil, "kepler_container_uncore_joules_total"),                // pod level
-		Entry(nil, "kepler_container_kubelet_cpu_usage_total"),            // pod level
-		Entry(nil, "kepler_container_kubelet_memory_bytes_total"),         // pod level
-		Entry(nil, "kepler_pod_energy_stat"),                              // pod level
+		Entry(nil, "kepler_container_core_joules_total"),          // pod level
+		Entry(nil, "kepler_container_dram_joules_total"),          // pod level
+		Entry(nil, "kepler_container_joules_total"),               // pod level
+		Entry(nil, "kepler_container_other_joules_total"),         // pod level
+		Entry(nil, "kepler_container_package_joules_total"),       // pod level
+		Entry(nil, "kepler_container_uncore_joules_total"),        // pod level
+		Entry(nil, "kepler_container_kubelet_cpu_usage_total"),    // pod level
+		Entry(nil, "kepler_container_kubelet_memory_bytes_total"), // pod level
 	)
 })

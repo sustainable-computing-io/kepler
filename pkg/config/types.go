@@ -20,14 +20,14 @@ const (
 	// counter - attacher package
 	CPUCycle       = "cpu_cycles"
 	CPURefCycle    = "cpu_ref_cycles"
-	CPUInstruction = "cpu_instr"
+	CPUInstruction = "cpu_instructions"
 	CacheMiss      = "cache_miss"
 
 	// bpf - attacher package
-	CPUTime       = "cpu_time"
-	IRQNetTXLabel = "irq_net_tx"
-	IRQNetRXLabel = "irq_net_rx"
-	IRQBlockLabel = "irq_block"
+	CPUTime       = "bpf_cpu_time_us"
+	IRQNetTXLabel = "bpf_net_tx_irq"
+	IRQNetRXLabel = "bpf_net_rx_irq"
+	IRQBlockLabel = "bpf_block_irq"
 
 	// cgroup - cgroup package
 	CgroupfsMemory       = "cgroupfs_memory_usage_bytes"
@@ -42,6 +42,8 @@ const (
 	BytesWriteIO         = "bytes_writes"
 	BlockDevicesIO       = "block_devices_used"
 	// kubelet - package
+	KubeletCPUUsage        = "kubelet_cpu_usage"
+	KubeletMemoryUsage     = "kubelet_memory_bytes"
 	KubeletContainerCPU    = "container_cpu_usage_seconds_total"
 	KubeletContainerMemory = "container_memory_working_set_bytes"
 	KubeletNodeCPU         = "node_cpu_usage_seconds_total"
@@ -53,4 +55,8 @@ const (
 	// GPU
 	GPUSMUtilization  = "gpu_sm_util"
 	GPUMemUtilization = "gpu_mem_util"
+
+	// Metric suffix
+	AggregatedUsageSuffix  = "total"
+	AggregatedEnergySuffix = "joules_total"
 )

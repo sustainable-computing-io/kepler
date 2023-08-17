@@ -17,6 +17,8 @@ limitations under the License.
 package collector
 
 import (
+	"fmt"
+
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
@@ -53,4 +55,8 @@ func (c *Collector) createProcessMetricsIfNotExist(pid uint64, command string) {
 	} else if p.Command == "" {
 		p.Command = command
 	}
+}
+
+func addSuffix(name, suffix string) string {
+	return fmt.Sprintf("%s_%s", name, suffix)
 }

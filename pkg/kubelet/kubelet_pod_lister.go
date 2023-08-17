@@ -181,7 +181,7 @@ func (k *KubeletPodLister) GetAvailableMetrics() []string {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			kubeletMetric = []string{containerCPUUsageMetricName, containerMemUsageMetricName}
+			kubeletMetric = []string{config.KubeletCPUUsage, config.KubeletMemoryUsage}
 		}
 	})
 	return kubeletMetric

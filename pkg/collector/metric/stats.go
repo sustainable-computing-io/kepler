@@ -25,7 +25,10 @@ var (
 	AvailableCGroupMetrics []string
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
 	AvailableKubeletMetrics []string
-
+	// AvailableContainerKubeletMetrics holds a list of cgrpup metrics exposed by kubelet specific to container
+	AvailableContainerKubeletMetrics []string
+	// AvailableNodeKubeletMetrics holds a list of cgroup metrics exposed by kubelet specific to node
+	AvailableNodeKubeletMetrics []string
 	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
 	CPUHardwareCounterEnabled = false
 )
