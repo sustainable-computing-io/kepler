@@ -147,7 +147,7 @@ func addProcessSamplesToPowerModels(processMetrics map[uint64]*collector_metric.
 		// add samples to estimate the platform power
 		if ProcessPlatformPowerModel.IsEnabled() {
 			featureValues := c.ToEstimatorValues(ProcessPlatformPowerModel.GetContainerFeatureNamesList(), true) // add process features with normalized values
-			ContainerPlatformPowerModel.AddContainerFeatureValues(featureValues)
+			ProcessPlatformPowerModel.AddContainerFeatureValues(featureValues)
 		}
 
 		// add samples to estimate the components (CPU and DRAM) power
