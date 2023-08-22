@@ -47,7 +47,7 @@ func (c *Collector) updateNodeResourceUsage() {
 func (c *Collector) updatePlatformEnergy() {
 	if platform.IsSystemCollectionSupported() {
 		nodePlatformEnergy, _ := platform.GetAbsEnergyFromPlatform()
-		c.NodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, counter, absPower)
+		c.NodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, gauge, absPower)
 	} else if model.IsNodePlatformPowerModelEnabled() {
 		model.UpdateNodePlatformEnergy(&c.NodeMetrics)
 	}
