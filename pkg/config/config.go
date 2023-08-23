@@ -411,3 +411,11 @@ func GetModelConfigMap() map[string]string {
 	}
 	return configMap
 }
+
+func IsExposeCgroupMetricsEnabled() bool {
+	return ExposeCgroupMetrics
+}
+
+func IsExposeKubeletMetricsEnabled() bool {
+	return ExposeKubeletMetrics
+}
