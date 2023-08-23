@@ -24,8 +24,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+
+	//"strings"
 	"time"
 	"unsafe"
 
@@ -58,9 +61,10 @@ var (
 	bpfArrays = []string{
 		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instr_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instr", "cache_miss", "cpu_freq_array",
 	}
-	cpuCores = getCPUCores()
-	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
-	ctsize   = int(unsafe.Sizeof(emptyct))
+	cpuCores       = getCPUCores()
+	emptyct        = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
+	ctsize         = int(unsafe.Sizeof(emptyct))
+	PidTimeMapName = "pid_time"
 )
 
 func getLibbpfObjectFilePath(arch string) (string, error) {
@@ -101,39 +105,94 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 	// resize array entries
 	for _, arrayName := range bpfArrays {
+		// sets pin path
 		err = resizeArrayEntries(arrayName, cpuCores)
 		if err != nil {
 			klog.Infof("failed to resize array %s: %v\n", arrayName, err)
 		}
 	}
 
+	klog.Infof("Programs and maps are loaded via bpfd, using libbpf-go to interact with them")
+
+	processMap, err := libbpfModule.GetMap(TableProcessName)
+	if err != nil {
+		return nil, fmt.Errorf("Can't get map")
+	}
+
+	klog.Infof("setting pin path for map %s", TableProcessName)
+	if err := processMap.SetPinPath(path.Join("/run/bpfd/fs/maps/5ef54022-f0a7-42d1-afd7-4868686edff6", TableProcessName)); err != nil {
+		return nil, fmt.Errorf("error pinning map %s: %w", TableProcessName, err)
+	}
+
+	pidTimeMap, err := libbpfModule.GetMap(PidTimeMapName)
+	if err != nil {
+		return nil, fmt.Errorf("Can't get map")
+	}
+	klog.Infof("setting pin path for map %s", PidTimeMapName)
+	if err := pidTimeMap.SetPinPath(path.Join("/run/bpfd/fs/maps/5ef54022-f0a7-42d1-afd7-4868686edff6", PidTimeMapName)); err != nil {
+		return nil, fmt.Errorf("error pinning map %s: %w", PidTimeMapName, err)
+	}
+
+	// bpfd will handle loading and attaching however we need to load here with specified map
+	// pin paths to trick libbpf into using what's already there from bpfd
+
+	// for m, err := libbpfModule.FirstMap(); m != nil && err == nil; m, err = libbpfModule.NextMap() {
+	// 	// In case of global variables, libbpf creates an internal map <prog_name>.rodata
+	// 	// The values are read only for the BPF programs, but can be set to a value from
+	// 	// userspace before the program is loaded.
+	// 	mapName := m.Name()
+	// 	if m.IsMapInternal() {
+	// 		if strings.HasPrefix(mapName, ".rodata") {
+	// 			continue
+	// 		}
+	// 		continue
+	// 	}
+	// 	klog.Infof("setting pin path for map %s", mapName)
+	// 	if err := m.SetPinPath(path.Join("/run/bpfd/fs/maps/5ef54022-f0a7-42d1-afd7-4868686edff6", mapName)); err != nil {
+	// 		return nil, fmt.Errorf("error pinning map %s: %w", mapName, err)
+	// 	}
+	// }
+
 	err = libbpfModule.BPFLoadObject()
-
-	// attach sched_switch tracepoint to kepler_trace function
-	prog, err := libbpfModule.GetProgram("kepler_trace")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kepler_trace: %v", err)
-	} else {
-		_, err = prog.AttachTracepoint("sched", "sched_switch")
-		if err != nil {
-			return libbpfModule, fmt.Errorf("failed to attach sched/sched_switch: %v", err)
-		}
+		return nil, fmt.Errorf("Failed to load maps %v", err)
 	}
 
-	// attach softirq_entry tracepoint to kepler_irq_trace function
-	irq_prog, err := libbpfModule.GetProgram("kepler_irq_trace")
+	// // attach sched_switch tracepoint to kepler_trace function
+	// prog, err := libbpfModule.GetProgram("kepler_trace")
+	// if err != nil {
+	// 	return libbpfModule, fmt.Errorf("failed to get kepler_trace: %v", err)
+	// } else {
+	// 	_, err = prog.AttachTracepoint("sched", "sched_switch")
+	// 	if err != nil {
+	// 		return libbpfModule, fmt.Errorf("failed to attach sched/sched_switch: %v", err)
+	// 	}
+	// }
+
+	// // attach softirq_entry tracepoint to kepler_irq_trace function
+	// irq_prog, err := libbpfModule.GetProgram("kepler_irq_trace")
+	// if err != nil {
+	// 	klog.Infof("failed to get kepler_irq_trace: %v", err)
+	// 	// disable IRQ metric
+	// 	config.ExposeIRQCounterMetrics = false
+	// } else {
+	// 	_, err = irq_prog.AttachTracepoint("irq", "softirq_entry")
+	// 	if err != nil {
+	// 		klog.Infof("failed to attach irq/softirq_entry: %v", err)
+	// 		// disable IRQ metric
+	// 		config.ExposeIRQCounterMetrics = false
+	// 	}
+	// }
+
+	// Sanity check to ensure the program's and maps were loaded
+	processMetrics, err := libbpfCollectProcess()
 	if err != nil {
-		klog.Infof("failed to get kepler_irq_trace: %v", err)
-		// disable IRQ metric
-		config.ExposeIRQCounterMetrics = false
-	} else {
-		_, err = irq_prog.AttachTracepoint("irq", "softirq_entry")
-		if err != nil {
-			klog.Infof("failed to attach irq/softirq_entry: %v", err)
-			// disable IRQ metric
-			config.ExposeIRQCounterMetrics = false
-		}
+		return nil, fmt.Errorf("Failed to get process data %v", err)
 	}
+
+	klog.Infof("Collected Process data from for %d processes", len(processMetrics))
+
+	klog.Infof("Sample Process Info %+v", processMetrics[50])
 
 	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
 	for arrayName, counter := range Counters {
@@ -196,7 +255,7 @@ func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
 	if err != nil {
 		return
 	}
-	//cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
+	// cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
 	iterator := cpuFreq.Iterator()
 	var freq uint32
 	// keySize := int(unsafe.Sizeof(freq))
@@ -295,13 +354,20 @@ func resizeArrayEntries(name string, size int) error {
 		return err
 	}
 
-	if err = m.Resize(uint32(size)); err != nil {
-		return err
+	klog.Infof("setting pin path for map %s", name)
+	if err := m.SetPinPath(path.Join("/run/bpfd/fs/maps/5ef54022-f0a7-42d1-afd7-4868686edff6", name)); err != nil {
+		return fmt.Errorf("error pinning map %s: %w", name, err)
 	}
 
-	if current := m.GetMaxEntries(); current != uint32(size) {
-		return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
-	}
+	// BPFD HACK don't resize for now or else libbpf can't reuse pins
+	// This will be incorporated into GLOBAL_DATA within the TracepointProgram Yamk.
+	// if err = m.Resize(uint32(size)); err != nil {
+	// 	return err
+	// }
+
+	// if current := m.GetMaxEntries(); current != uint32(size) {
+	// 	return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
+	// }
 
 	return nil
 }

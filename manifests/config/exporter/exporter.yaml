@@ -32,6 +32,7 @@ data:
   REDFISH_SKIP_SSL_VERIFY: "true"
   MODEL_CONFIG: |
     CONTAINER_COMPONENTS_ESTIMATOR=false
+  LIBBPF_ATTACH: "true"
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -95,6 +96,8 @@ spec:
         - name: redfish
           mountPath: /etc/redfish
           readOnly: true
+        - name: bpfd-fs
+          mountPath: /run/bpfd/fs
         env:
         - name: NODE_IP
           valueFrom:
@@ -123,6 +126,10 @@ spec:
       - name: redfish
         secret:
           secretName: redfish
+      - name: bpfd-fs
+        hostPath:
+          path: /run/bpfd/fs
+          type: Directory
 ---
 kind: Service
 apiVersion: v1

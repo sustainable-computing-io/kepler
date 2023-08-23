@@ -65,6 +65,7 @@ typedef __u16 u16;
         __type(key, _key_type);                              \
         __type(value, _value_type);                          \
         __uint(max_entries, NUM_CPUS);                       \
+        __uint(pinning, LIBBPF_PIN_BY_NAME);                 \
     } _name SEC(".maps");
 
 #define BPF_HASH(_name, _key_type, _value_type) \
@@ -73,6 +74,7 @@ typedef __u16 u16;
         __type(key, _key_type);                 \
         __type(value, _value_type);             \
         __uint(max_entries, MAP_SIZE);          \
+        __uint(pinning, LIBBPF_PIN_BY_NAME);    \
     } _name SEC(".maps");
 
 #define BPF_ARRAY(_name, _leaf_type) \

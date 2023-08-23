@@ -10,3 +10,29 @@ subjects:
 - kind: ServiceAccount
   name: kepler-sa
   namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kepler-bpfd-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bpfd-bpfprogramconfig-editor-role
+subjects:
+- kind: ServiceAccount
+  name: kepler-sa
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kepler-bpfd-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bpfd-bpfprogramconfig-editor-role
+subjects:
+- kind: ServiceAccount
+  name: kepler-sa
+  namespace: system

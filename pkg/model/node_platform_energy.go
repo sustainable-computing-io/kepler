@@ -78,7 +78,8 @@ func GetNodePlatformPower(nodeMetrics *collector_metric.NodeMetrics, isIdlePower
 	NodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
 	powers, err := NodePlatformPowerModel.GetPlatformPower(isIdlePower)
 	if err != nil {
-		klog.Infof("Failed to get node platform power %v\n", err)
+		// BPFD HACK this was clogging up logs, experienced with and without bpfd
+		// klog.Infof("Failed to get node platform power %v\n", err)
 		return
 	}
 	// TODO: Estimate the power per socket. Right now we send the aggregated values for all sockets

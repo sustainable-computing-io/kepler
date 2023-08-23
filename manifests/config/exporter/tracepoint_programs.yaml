@@ -1,0 +1,36 @@
+apiVersion: bpfd.dev/v1alpha1
+kind: TracepointProgram
+metadata:
+  labels:
+    app.kubernetes.io/name: tracepointprogram
+  name: kepler-trace
+spec:
+  sectionname: kepler_trace
+  # Select all nodes
+  nodeselector: {}
+  names:
+  - sched/sched_switch
+  bytecode:
+    image:
+      url: quay.io/bpfd-bytecode/kepler_trace:latest
+      imagepullpolicy: Always
+---
+apiVersion: bpfd.dev/v1alpha1
+kind: TracepointProgram
+metadata:
+  labels:
+    app.kubernetes.io/name: tracepointprogram
+  name: kepler-irq-trace
+spec:
+  sectionname: kepler_irq_trace
+  # Select all nodes
+  nodeselector: {}
+  names:
+  - irq/softirq_entry
+  bytecode:
+    image:
+      url: quay.io/bpfd-bytecode/kepler_irq_trace:latest
+      imagepullpolicy: Always
+  mapownerselector:
+    matchLabels:
+      bpfd.dev/ownedByProgram: kepler-trace
