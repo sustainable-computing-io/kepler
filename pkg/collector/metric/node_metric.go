@@ -398,7 +398,7 @@ func (ne *NodeMetrics) UpdateDynEnergy() {
 
 func (ne *NodeMetrics) CalcDynEnergy(component, id string) {
 	total := ne.getAbsoluteEnergyStatCollection(component).Stat[id].Delta
-	fmt.Printf("Energy stat: %v (%s)", ne.getIdleEnergyStatCollection(component).Stat, id)
+	klog.V(5).Infof("Energy stat: %v (%s)", ne.getIdleEnergyStatCollection(component).Stat, id)
 	idle := ne.getIdleEnergyStatCollection(component).Stat[id].Delta
 	dyn := calcDynEnergy(total, idle)
 	ne.getDynEnergyStatCollection(component).SetDeltaStat(id, dyn)
