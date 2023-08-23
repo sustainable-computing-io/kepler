@@ -134,6 +134,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 			FloatFeatureNames:           featuresNames,
 			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
 			SystemMetaDataFeatureValues: modelConfig.SystemMetaDataFeatureValues,
+			EnergySource:                modelConfig.EnergySource,
 		}
 		err := model.Start()
 		if err != nil {
