@@ -33,7 +33,8 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/bpfassets/libbpf/bpf.o /var/lib/kepler/bpfassets
 
 # copy model weight
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/AbsPowerModel.json /var/lib/kepler/data/AbsPowerModel.json
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/DynPowerModel.json /var/lib/kepler/data/DynPowerModel.json
-
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_DynPowerModel.json /var/lib/kepler/data/acpi_DynPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/rapl_AbsPowerModel.json /var/lib/kepler/data/rapl_AbsPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/rapl_DynPowerModel.json /var/lib/kepler/data/rapl_DynPowerModel.json
 ENTRYPOINT ["/usr/bin/kepler"]

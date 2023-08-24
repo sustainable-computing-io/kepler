@@ -130,10 +130,13 @@ var (
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
 	KubeConfig      = ""
 	EnableAPIServer = false
-
-	DefaultDynPowerURL = "/var/lib/kepler/data/DynPowerModel.json"
-	DefaultAbsPowerURL = "/var/lib/kepler/data/AbsPowerModel.json"
 )
+
+// return local path to power model weight
+// e.g., /var/lib/kepler/data/acpi_AbsPowerModel.json
+func GetDefaultPowerModelURL(modelOutputType, energySource string) string {
+	return fmt.Sprintf("/var/lib/kepler/data/%s_%sModel.json", energySource, modelOutputType)
+}
 
 func logBoolConfigs() {
 	if klog.V(5).Enabled() {

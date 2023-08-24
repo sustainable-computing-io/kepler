@@ -148,12 +148,13 @@ type ComponentModelWeights map[string]ModelWeights
 
 // LinearRegressor defines power estimator with linear regression approach
 type LinearRegressor struct {
-	ModelServerEndpoint string
-	OutputType          types.ModelOutputType
-	EnergySource        string
-	TrainerName         string
-	SelectFilter        string
-	ModelWeightsURL     string
+	ModelServerEndpoint  string
+	OutputType           types.ModelOutputType
+	EnergySource         string
+	TrainerName          string
+	SelectFilter         string
+	ModelWeightsURL      string
+	ModelWeightsFilepath string
 
 	FloatFeatureNames           []string
 	SystemMetaDataFeatureNames  []string
@@ -265,7 +266,7 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (*ComponentModelWeights, er
 
 // loadWeightFromLocal tries loading weights from local file given by r.ModelWeightsURL
 func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
-	data, err := os.ReadFile(config.DefaultDynPowerURL)
+	data, err := os.ReadFile(r.ModelWeightsFilepath)
 	if err != nil {
 		return nil, err
 	}

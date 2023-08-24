@@ -37,10 +37,10 @@ var (
 )
 
 // createProcessPowerModelConfig: the process component power model must be set by default.
-func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, defaultURL string) *types.ModelConfig {
+func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, energySource string) *types.ModelConfig {
 	modelConfig := CreatePowerModelConfig(powerSourceTarget)
 	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelURL = defaultURL
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), energySource)
 	}
 	modelConfig.ContainerFeatureNames = processFeatureNames
 	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
@@ -101,7 +101,7 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 
 func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	var err error
-	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
+	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource)
 	modelConfig.IsNodePowerModel = false
 	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -110,7 +110,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
 
-	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
+	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource)
 	modelConfig.IsNodePowerModel = false
 	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {

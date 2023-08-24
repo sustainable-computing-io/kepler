@@ -21,7 +21,7 @@ type ModelOutputType int
 
 var (
 	ModelOutputTypeConverter = []string{
-		"AbsPower", "AbsModelWeight", "AbsComponentPower", "AbsComponentModelWeight", "DynPower", "DynModelWeight", "DynComponentPower", "DynComponentModelWeight",
+		"AbsPower", "DynPower",
 	}
 	ModelTypeConverter = []string{
 		"Ratio", "LinearRegressor", "EstimatorSidecar",
@@ -65,12 +65,13 @@ func (s ModelType) String() string {
 
 type ModelConfig struct {
 	// model configuration
-	ModelType       ModelType
-	ModelOutputType ModelOutputType
-	TrainerName     string
-	EnergySource    string
-	SelectFilter    string
-	InitModelURL    string
+	ModelType         ModelType
+	ModelOutputType   ModelOutputType
+	TrainerName       string
+	EnergySource      string
+	SelectFilter      string
+	InitModelURL      string
+	InitModelFilepath string
 
 	IsNodePowerModel bool
 

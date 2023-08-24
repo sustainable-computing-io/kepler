@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 	"k8s.io/klog/v2"
 
@@ -39,7 +40,7 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatur
 	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
 		if modelConfig.InitModelURL == "" {
-			modelConfig.InitModelURL = defaultAbsCompURL
+			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
 		}
 		modelConfig.NodeFeatureNames = nodeFeatureNames
 		modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
