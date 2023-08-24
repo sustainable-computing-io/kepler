@@ -120,10 +120,6 @@ func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 }
 
 func Attach() (interface{}, error) {
-	klog.Infof("LibbpfBuilt: %v, BccBuilt: %v", LibbpfBuilt, BccBuilt)
-	if !BccBuilt && LibbpfBuilt {
-		config.UseLibBPFAttacher = true
-	}
 	if config.UseLibBPFAttacher && LibbpfBuilt {
 		m, err := attachLibbpfModule()
 		if err == nil {
