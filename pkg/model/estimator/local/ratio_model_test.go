@@ -56,7 +56,7 @@ var _ = Describe("Test Ratio Unit", func() {
 		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 		nodePlatformEnergy["sensor0"] = 5000 // mJ
 		nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-		nodeMetrics.UpdateIdleEnergyWithMinValue()
+		nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 		// the second node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		nodePlatformEnergy["sensor0"] = 35000
 		nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
@@ -80,7 +80,7 @@ var _ = Describe("Test Ratio Unit", func() {
 		}
 		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
 		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-		nodeMetrics.UpdateIdleEnergyWithMinValue()
+		nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 		componentsEnergies[0] = source.NodeComponentsEnergy{
 			Pkg:    45000, // 35000mJ delta, which is 5000mJ idle, 30000mJ dynamic power
