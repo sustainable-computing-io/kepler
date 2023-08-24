@@ -91,11 +91,12 @@ func (c *Collector) updateNodeAvgCPUFrequency(wg *sync.WaitGroup) {
 // updateNodeIdleEnergy calculates the node idle energy consumption based on the minimum power consumption when real-time system power metrics are accessible.
 // When the node power model estimator is utilized, the idle power is updated with the estimated power considering minimal resource utilization.
 func (c *Collector) updateNodeIdleEnergy() {
-	if components.IsSystemCollectionSupported() {
-		// the idle energy is only updated if we find the node using less resources than previously observed
-		// TODO: Use regression to estimate the idle power when real-time system power metrics are available, instead of relying on the minimum power consumption.
-		c.NodeMetrics.UpdateIdleEnergyWithMinValue()
-	} else {
+	isComponentsSystemCollectionSupported := components.IsSystemCollectionSupported()
+	// the idle energy is only updated if we find the node using less resources than previously observed
+	// TODO: Use regression to estimate the idle power when real-time system power metrics are available, instead of relying on the minimum power consumption.
+	c.NodeMetrics.UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported)
+	if !isComponentsSystemCollectionSupported {
+		// if power collection on components is not supported, try using estimator to update idle energy
 		if model.IsNodeComponentPowerModelEnabled() {
 			nodeComponentsEnergy := model.GetNodeComponentPowers(&c.NodeMetrics, idlePower)
 			// the node components power model returns gauge mentrics

@@ -46,11 +46,11 @@ func benchmarkNtesting(b *testing.B, containerNumber int) {
 
 	nodePlatformEnergy["sensor0"] = 10
 	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 
 	nodePlatformEnergy["sensor0"] = 20
 	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 	nodeMetrics.UpdateDynEnergy()
 
 	componentsEnergies := make(map[int]source.NodeComponentsEnergy)
@@ -68,7 +68,7 @@ func benchmarkNtesting(b *testing.B, containerNumber int) {
 		Uncore: 10,
 	}
 	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 	componentsEnergies[0] = source.NodeComponentsEnergy{
 		Pkg:    uint64(containerNumber),
 		Core:   uint64(containerNumber),
@@ -77,7 +77,7 @@ func benchmarkNtesting(b *testing.B, containerNumber int) {
 	}
 	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
 
-	nodeMetrics.UpdateIdleEnergyWithMinValue()
+	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 	nodeMetrics.UpdateDynEnergy()
 	b.ReportAllocs()
 	containersMetrics := map[string]*collector_metric.ContainerMetrics{}

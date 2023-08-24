@@ -183,7 +183,7 @@ var _ = Describe("ContainerPower", func() {
 			}
 			// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
 			nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, counter, absPower)
-			nodeMetrics.UpdateIdleEnergyWithMinValue()
+			nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 			// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 			componentsEnergies[machineSocketID] = source.NodeComponentsEnergy{
 				Pkg:    45000, // 35000mJ delta, which is 5000mJ idle, 30000mJ dynamic power
@@ -219,7 +219,7 @@ var _ = Describe("ContainerPower", func() {
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			nodePlatformEnergy[machineSensorID] = 5000 // mJ
 			nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, gauge, absPower)
-			nodeMetrics.UpdateIdleEnergyWithMinValue()
+			nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 			// the second node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
 			nodePlatformEnergy[machineSensorID] = 35000
 			nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, gauge, absPower)

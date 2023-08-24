@@ -107,7 +107,7 @@ var _ = Describe("Test Node Metric", func() {
 	})
 
 	It("test UpdateIdleEnergyWithMinValue", func() {
-		nodeMetrics.UpdateIdleEnergyWithMinValue()
+		nodeMetrics.UpdateIdleEnergyWithMinValue(true)
 		Expect(nodeMetrics.FoundNewIdleState).To(BeFalse())
 	})
 
