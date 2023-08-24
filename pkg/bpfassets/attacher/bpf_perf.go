@@ -70,9 +70,9 @@ func init() {
 
 func getCounters() map[string]perfCounter {
 	if config.UseLibBPFAttacher {
-		return bccCounters
-	} else {
 		return libbpfCounters
+	} else {
+		return bccCounters
 	}
 }
 
