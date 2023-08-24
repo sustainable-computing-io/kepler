@@ -102,10 +102,10 @@ func (c *Collector) Update() {
 	c.updateBPFMetrics() // collect new hardware counter metrics if possible
 
 	// TODO: collect cgroup metrics only from cgroup to avoid unnecessary overhead to kubelet
-	if config.IsExposeCgroupMetricsEnabled() {
+	if config.IsCgroupMetricsEnabled() {
 		c.updateCgroupMetrics() // collect new cgroup metrics from cgroup
 	}
-	if config.IsExposeKubeletMetricsEnabled() {
+	if config.IsKubeletMetricsEnabled() {
 		c.updateKubeletMetrics() // collect new cgroup metrics from kubelet
 	}
 
