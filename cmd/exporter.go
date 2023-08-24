@@ -166,6 +166,8 @@ func main() {
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
+
+	klog.Infof("LibbpfBuilt: %v, BccBuilt: %v", attacher.LibbpfBuilt, attacher.BccBuilt)
 	// try setting kernel source only for bcc build
 	if attacher.BccBuilt {
 		if kernelSourceDirPath != nil && len(*kernelSourceDirPath) > 0 {
@@ -173,6 +175,9 @@ func main() {
 				klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
 			}
 		}
+	} else if attacher.LibbpfBuilt {
+		// set UseLibBPFAttacher config from build option
+		config.UseLibBPFAttacher = true
 	}
 
 	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
@@ -239,6 +244,7 @@ func main() {
 	defer components.StopPower()
 
 	// starting a new gorotine to collect data and report metrics
+	// BPF is attached here
 	if err := m.Start(); err != nil {
 		klog.Infof("%s", fmt.Sprintf("failed to start : %v", err))
 	}
