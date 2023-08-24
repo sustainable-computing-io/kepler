@@ -28,15 +28,13 @@ import (
 var (
 	// the absulute power model includes both the absolute and idle power consumption
 	NodeComponentPowerModel PowerMoldelInterface
-
-	defaultAbsCompURL = "/var/lib/kepler/data/AbsPowerModel.json"
 )
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
 func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) *types.ModelConfig {
 	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey)
 	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelURL = defaultAbsCompURL
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource)
 	}
 	modelConfig.NodeFeatureNames = nodeFeatureNames
 	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames

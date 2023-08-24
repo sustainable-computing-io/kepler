@@ -108,6 +108,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 			TrainerName:                 modelConfig.TrainerName,
 			SelectFilter:                modelConfig.SelectFilter,
 			ModelWeightsURL:             modelConfig.InitModelURL,
+			ModelWeightsFilepath:        modelConfig.InitModelFilepath,
 			FloatFeatureNames:           featuresNames,
 			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
 			SystemMetaDataFeatureValues: modelConfig.SystemMetaDataFeatureValues,

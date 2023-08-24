@@ -29,8 +29,10 @@ RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
 
 # copy model weight
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/AbsPowerModel.json /var/lib/kepler/data/AbsPowerModel.json
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/DynPowerModel.json /var/lib/kepler/data/DynPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_DynPowerModel.json /var/lib/kepler/data/acpi_DynPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/rapl_AbsPowerModel.json /var/lib/kepler/data/rapl_AbsPowerModel.json
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/rapl_DynPowerModel.json /var/lib/kepler/data/rapl_DynPowerModel.json
 
 # pre install kernel sources
 RUN mkdir -p /usr/share/kepler/kernel_sources

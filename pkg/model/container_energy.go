@@ -35,13 +35,13 @@ var (
 )
 
 // createContainerPowerModelConfig: the container component power model must be set by default.
-func createContainerPowerModelConfig(powerSourceTarget string, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, defaultURL string) (modelConfig *types.ModelConfig) {
+func createContainerPowerModelConfig(powerSourceTarget string, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, energySource string) (modelConfig *types.ModelConfig) {
 	modelConfig = CreatePowerModelConfig(powerSourceTarget)
 	if modelConfig == nil {
 		return nil
 	}
 	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelURL = defaultURL
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), energySource)
 	}
 	modelConfig.ContainerFeatureNames = containerFeatureNames
 	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
@@ -102,7 +102,7 @@ func createContainerPowerModelConfig(powerSourceTarget string, containerFeatureN
 
 func CreateContainerPowerEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	var err error
-	modelConfig := createContainerPowerModelConfig(config.ContainerPlatformPowerKey, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
+	modelConfig := createContainerPowerModelConfig(config.ContainerPlatformPowerKey, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource)
 	modelConfig.IsNodePowerModel = false
 	ContainerPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -111,7 +111,7 @@ func CreateContainerPowerEstimatorModel(containerFeatureNames, systemMetaDataFea
 		klog.Infof("Failed to create %s Power Model to estimate Container Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
 
-	modelConfig = createContainerPowerModelConfig(config.ContainerComponentsPowerKey, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, config.DefaultDynPowerURL)
+	modelConfig = createContainerPowerModelConfig(config.ContainerComponentsPowerKey, containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource)
 	modelConfig.IsNodePowerModel = false
 	ContainerComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
