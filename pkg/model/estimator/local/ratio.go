@@ -174,9 +174,9 @@ func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error) {
 
 		// TODO: idle power should be divided accordinly to the container requested resource
 		if isIdlePower {
-			containerPower = r.getPowerByRatio(containerIdx, int(GpuDynPower), int(GpuIdlePower), numContainers)
+			containerPower = r.getPowerByRatio(containerIdx, int(GpuUsageMetric), int(GpuIdlePower), numContainers)
 		} else {
-			containerPower = r.getPowerByRatio(containerIdx, int(GpuDynPower), int(GpuDynPower), numContainers)
+			containerPower = r.getPowerByRatio(containerIdx, int(GpuUsageMetric), int(GpuDynPower), numContainers)
 		}
 		nodeComponentsPowerOfAllContainers = append(nodeComponentsPowerOfAllContainers, containerPower)
 	}
