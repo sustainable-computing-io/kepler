@@ -184,7 +184,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 
 	// container cGroups Counters (counter)
-	if config.ExposeCgroupMetrics {
+	if config.IsCgroupMetricsEnabled() {
 		if len(collector_metric.AvailableCGroupMetrics) != 0 {
 			ch <- p.containerDesc.containerCgroupCPUUsageUsTotal
 			ch <- p.containerDesc.containerCgroupMemoryUsageBytesTotal
@@ -197,7 +197,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 
 	// container Kubelet Counters (counter)
-	if config.ExposeKubeletMetrics {
+	if config.IsKubeletMetricsEnabled() {
 		if len(collector_metric.AvailableKubeletMetrics) != 0 {
 			ch <- p.containerDesc.containerKubeletCPUUsageTotal
 			ch <- p.containerDesc.containerKubeletMemoryBytesTotal
@@ -210,7 +210,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- p.containerDesc.containerCPUTime
 
 	// IRQ counter
-	if config.ExposeIRQCounterMetrics {
+	if config.IsIRQCounterMetricsEnabled() {
 		ch <- p.containerDesc.containerNetTxIRQTotal
 		ch <- p.containerDesc.containerNetRxIRQTotal
 		ch <- p.containerDesc.containerBlockIRQTotal

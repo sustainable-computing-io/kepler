@@ -414,3 +414,15 @@ func GetModelConfigMap() map[string]string {
 	}
 	return configMap
 }
+
+func IsCgroupMetricsEnabled() bool {
+	return ExposeCgroupMetrics
+}
+
+func IsKubeletMetricsEnabled() bool {
+	return ExposeKubeletMetrics
+}
+
+func IsIRQCounterMetricsEnabled() bool {
+	return ExposeIRQCounterMetrics
+}
