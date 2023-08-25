@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	Counters                = getCounters()
+	Counters                map[string]perfCounter
 	HardwareCountersEnabled = true
 	BpfPerfArrayPrefix      = "_hc_reader"
 
@@ -77,6 +77,7 @@ func getCounters() map[string]perfCounter {
 }
 
 func GetEnabledHWCounters() []string {
+	Counters = getCounters()
 	var metrics []string
 	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
 	if !config.ExposeHardwareCounterMetrics {
