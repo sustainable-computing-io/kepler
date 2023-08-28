@@ -13,7 +13,7 @@ tracking-links: # link to related GitHub issues
 ---
 
 To get started with this template:
-1. **Make a copy of this template.** Copy this template into the ehancements directory and name the file appropriately.
+1. **Make a copy of this template.** Copy this template into the enhancements directory and name the file appropriately.
 1. **Fill out all applicable sections.**
 1. **Create a PR.** Assign it to those with expertise to sponsor the process.
 1. **Merge after reaching consensus.** Merge when there is consensus
