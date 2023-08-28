@@ -16,7 +16,7 @@ and [start up](https://github.com/sustainable-computing-io/local-dev-cluster#sta
 customize your own local development environment.
 
 You can find technical discussions within the community regarding this topic by
-following [this enhancements propsal](../../enhancements/CICDv1.md) and
+following [this enhancements proposal](../../enhancements/CICDv1.md) and
 [related issue](https://github.com/sustainable-computing-io/kepler/issues/721).
 
 ## Deploying kepler in the cluster
