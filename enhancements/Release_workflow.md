@@ -19,11 +19,11 @@ tracking-links: # link to related GitHub issues
 
 ## Summary
 
-At Jul 2023, during development of [CICDv1](./CICDv1.md) we found we'd better have a release scheudle as guidance to handle breaking changes between repos. Major for our (customer github action)[https://github.com/sustainable-computing-io/kepler-action], but also for breaking changes in kepler which may infulence kepler-operator, model server and other repos.
+At Jul 2023, during development of [CICDv1](./CICDv1.md) we found we'd better have a release schedule as guidance to handle breaking changes between repos. Major for our (customer github action)[https://github.com/sustainable-computing-io/kepler-action], but also for breaking changes in kepler which may influence kepler-operator, model server and other repos.
 
 ## Motivation
 
-This document is created for our next steps integration works, as in [CICDv1](./CICDv1.md) we discussed about flexable pipelines with paramterable to reduce the influnence of version bump up. In this rfc, we are going to discuss how to make CI, dashboard, bi-weekly meeting together.
+This document is created for our next steps integration works, as in [CICDv1](./CICDv1.md) we discussed about flexible pipelines with paramterable to reduce the influence of version bump up. In this rfc, we are going to discuss how to make CI, dashboard, bi-weekly meeting together.
 
 ### Goals
 
@@ -48,7 +48,7 @@ As we have kepler release in each 3 months.
 | 3 month | kepler release |
 | 3~3+1 month | kepler-helm-chat, kepler-operator... default branch switch to latest kepler release |
 
-and we also provide pre release for kepler, kepler opartor etc... to make a regular build as security patch for CVE fixing.
+and we also provide pre release for kepler, kepler operator etc... to make a regular build as security patch for CVE fixing.
 
 ### Workflow Description
 n/A I suppose this rfc itself is a proposal as workflow.
@@ -63,7 +63,7 @@ n/A
 n/A
 
 ## Design Details
-We can use https://docs.github.com/en/actions/managing-issues-and-pull-requests/scheduling-issue-creation to scheudle those works.
+We can use https://docs.github.com/en/actions/managing-issues-and-pull-requests/scheduling-issue-creation to schedule those works.
 
 ### Open Questions [optional]
 n/A, leave to PR to discussion.

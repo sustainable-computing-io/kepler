@@ -30,13 +30,13 @@ Test cases and test report are not available, which could be the evidence or che
 
 2. Whether the data/metrics of specific power source are correctly exported?
 
-3. Whether the power measurement accuracy is accpetable?
+3. Whether the power measurement accuracy is acceptable?
 
 4. More...
 
 ### Goals
 
-1. Define workflow to validate specific hardward platform support in Kepler.
+1. Define workflow to validate specific hardware platform support in Kepler.
 
 2. Design test cases for such validation. (Platform agnostic and specific cases)
 
@@ -75,7 +75,7 @@ Step 3: Run test cases and get test result.
 
 Step 4: Generate test report and save to somewhere.
 
-Step 5: Delete the local cluster and recover the orignal environment on the test node.
+Step 5: Delete the local cluster and recover the original environment on the test node.
 
 Note:
 1. There are three kinds of deployment available in Kepler:
@@ -313,7 +313,7 @@ AI:
 
 (1) Test plan and cases are open in community.
 
-(2) Test code and execution workflow should be reviewed before merge. Seperate PRs needed case by case in the future.
+(2) Test code and execution workflow should be reviewed before merge. Separate PRs needed case by case in the future.
 
 4. The content/format/release process of the test report.
 
@@ -327,11 +327,11 @@ AI:
 
 AI:
 
-(1) Define GHA for test cases execution, PR triggerred and one-shot execution are both needed.
+(1) Define GHA for test cases execution, PR triggered and one-shot execution are both needed.
 
-(2) PR triggerred cases could be merged into current integration test scope; others may live under e2e directory also but handled by different GHA workflow ymls.
+(2) PR triggered cases could be merged into current integration test scope; others may live under e2e directory also but handled by different GHA workflow ymls.
 
-(3) Seperate PRs needed for change here.
+(3) Separate PRs needed for change here.
 
 6. More test cases?
 
@@ -339,4 +339,4 @@ AI:
 
 (1) Marcelo introduced `stress-ng` for stress test. Need investigation whether it is applicable in this PR scope.
 
-(2) More brainstorming ideas are needed and welcomed in community, as long as they are `Platform Validation` related. Ideas could be added here, test cases should be seperate PRs.
+(2) More brainstorming ideas are needed and welcomed in community, as long as they are `Platform Validation` related. Ideas could be added here, test cases should be separate PRs.
