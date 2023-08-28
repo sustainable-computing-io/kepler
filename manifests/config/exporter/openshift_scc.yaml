@@ -12,7 +12,7 @@ allowHostIPC: true
 allowHostPID: true
 readOnlyRootFilesystem: true
 defaultAddCapabilities:
-- SYS_ADMIN
+  - SYS_ADMIN
 runAsUser:
   type: RunAsAny
 seLinuxContext:
@@ -24,6 +24,7 @@ volumes:
   - projected
   - emptyDir
   - hostPath
+  - secret
 users:
   - $(KEPLER_NAMESPACE)
   - system:serviceaccount:$(KEPLER_NAMESPACE):kepler-sa
