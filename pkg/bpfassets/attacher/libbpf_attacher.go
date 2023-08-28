@@ -56,7 +56,7 @@ var (
 	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
-		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instr_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instr", "cache_miss", "cpu_freq_array",
+		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instructions_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array",
 	}
 	cpuCores = getCPUCores()
 	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
