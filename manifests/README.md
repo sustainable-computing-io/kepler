@@ -27,7 +27,7 @@ CLUSTER_PREREQ_DEPLOY|deploy prerequisites for kepler on openshift cluster| OPEN
 CI_DEPLOY|update proc path for kind cluster using in CI|-
 ESTIMATOR_SIDECAR_DEPLOY|patch estimator sidecar and corresponding configmap to kepler daemonset|-
 MODEL_SERVER_DEPLOY|deploy model server and corresponding configmap to kepler daemonset|-
-TRAIN_DEPLOY|patch online-trainer sidecar to model server| MODEL_SERVER_DEPLOY option set
+TRAINER_DEPLOY|patch online-trainer sidecar to model server| MODEL_SERVER_DEPLOY option set
 DEBUG_DEPLOY|patch KEPLER_LOG_LEVEL for debugging|
 QAT_DEPLOY|update proc path for Kepler to enable accelerator QAT|Intel QAT installed
 
