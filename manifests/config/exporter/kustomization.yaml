@@ -32,8 +32,8 @@ images:
 - name: kepler
   newName: quay.io/sustainable_computing_io/kepler
   newTag: latest
-- name: kepler-estimator
-  newName: quay.io/sustainable_computing_io/kepler_estimator
+- name: kepler_model_server
+  newName: quay.io/sustainable_computing_io/kepler_model_server
   newTag: latest
 
 vars:
