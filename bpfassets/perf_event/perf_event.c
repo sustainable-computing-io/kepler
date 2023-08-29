@@ -62,7 +62,7 @@ BPF_ARRAY(cpu_cycles, u64, NUM_CPUS);
 BPF_PERF_ARRAY(cpu_ref_cycles_hc_reader, NUM_CPUS);
 BPF_ARRAY(cpu_ref_cycles, u64, NUM_CPUS);
 
-BPF_PERF_ARRAY(cpu_instr_hc_reader, NUM_CPUS);
+BPF_PERF_ARRAY(cpu_instructions_hc_reader, NUM_CPUS);
 BPF_ARRAY(cpu_instr, u64, NUM_CPUS);
 
 BPF_PERF_ARRAY(cache_miss_hc_reader, NUM_CPUS);
@@ -146,7 +146,7 @@ static inline u64 get_on_cpu_instr(u32 *cpu_id)
 {
     u64 delta = 0;
     struct bpf_perf_event_value c = {};
-    int error = cpu_instr_hc_reader.perf_counter_value(CUR_CPU_IDENTIFIER, &c, sizeof(struct bpf_perf_event_value));
+    int error = cpu_instructions_hc_reader.perf_counter_value(CUR_CPU_IDENTIFIER, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
         u64 val = normalize(&c.counter, &c.enabled, &c.running);
