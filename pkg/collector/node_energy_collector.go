@@ -63,7 +63,7 @@ func (c *Collector) updateNodeComponentsEnergy(wg *sync.WaitGroup) {
 	} else if model.IsNodeComponentPowerModelEnabled() {
 		model.UpdateNodeComponentEnergy(&c.NodeMetrics)
 	} else {
-		klog.V(1).Info("No nodeComponentsEnergy found, node components energy metrics is not exposed ")
+		klog.V(5).Info("No nodeComponentsEnergy found, node components energy metrics is not exposed ")
 	}
 }
 
