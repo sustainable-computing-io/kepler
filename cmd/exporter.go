@@ -200,14 +200,6 @@ func main() {
 
 	collector_metric.InitAvailableParamAndMetrics()
 
-	// For local estimator, there is endpoint provided, thus we should let
-	// model component decide whether/how to init
-	model.CreatePowerEstimatorModels(
-		collector_metric.ContainerFeaturesNames,
-		collector_metric.NodeMetadataFeatureNames,
-		collector_metric.NodeMetadataFeatureValues,
-	)
-
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
 		var err error
@@ -250,6 +242,14 @@ func main() {
 	}
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
+
+	// For local estimator, there is endpoint provided, thus we should let
+	// model component decide whether/how to init
+	model.CreatePowerEstimatorModels(
+		collector_metric.ContainerFeaturesNames,
+		collector_metric.NodeMetadataFeatureNames,
+		collector_metric.NodeMetadataFeatureValues,
+	)
 
 	http.Handle(metricPathConfig, promhttp.Handler())
 	http.HandleFunc("/healthz", healthProbe)
