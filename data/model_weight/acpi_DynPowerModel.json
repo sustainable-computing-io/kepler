@@ -1,1 +1,1 @@
-{"platform": {"All_Weights": {"Bias_Weight": 3427.8961151990857, "Categorical_Variables": {}, "Numerical_Variables": {"kubelet_cpu_usage": {"mean": 0.3086623354989186, "variance": 0.11882551366884181, "weight": 141.0349581850243}, "kubelet_memory_bytes": {"mean": 274579.5528902216, "variance": 2763989623111.006, "weight": 4.932254845439169}}}}}
+{"platform": {"All_Weights": {"Bias_Weight": 204.6670758834315, "Categorical_Variables": {}, "Numerical_Variables": {"bpf_cpu_time_us": {"mean": 5608.400902868793, "variance": 29661131.240907874, "weight": 120.84768898049641}}}}}
