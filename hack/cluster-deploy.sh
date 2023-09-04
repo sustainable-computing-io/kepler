@@ -17,29 +17,88 @@
 # Copyright 2022 The Kepler Contributors
 #
 
-set -ex pipefail
+set -eu -o pipefail
+# constants
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+declare -r CTR_CMD=${CTR_CMD:-docker}
+declare -r CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
+declare -r MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
-source ./hack/common.sh
+declare IMAGE_REPO="${IMAGE_REPO:-localhost:5001}"
+declare IMAGE_TAG="${IMAGE_TAG:-devel}"
+declare NO_BUILD=false
 
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+source "$PROJECT_ROOT/hack/utils.sh"
 
-function main() {
-    [ ! -d "${MANIFESTS_OUT_DIR}" ] && echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
-    
-    if [ "$CLUSTER_PROVIDER" == "microshift" ]
-    then
-        sed "s/localhost:5001/registry:5000/g" ${MANIFESTS_OUT_DIR}/deployment.yaml > ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp && \
-            mv ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp ${MANIFESTS_OUT_DIR}/deployment.yaml
-    fi
-    echo "Deploying manifests..."
-    # Ignore errors because some clusters might not have prometheus operator
-    echo "Deploying with image:"
-    cat ${MANIFESTS_OUT_DIR}/deployment.yaml | grep "image:"
-    kubectl apply -f ${MANIFESTS_OUT_DIR} || true
-    
-    # verify kepler deployment on cluster
-    ./hack/verify.sh kepler
+build_kepler() {
+    header "Build Kepler"
+    $NO_BUILD && {
+        info "skipping building of kepler image"
+        return 0
+    }
+    run make build_containerized \
+        IMAGE_REPO="$IMAGE_REPO" \
+        IMAGE_TAG="$IMAGE_TAG" \
+        CTR_CMD="$CTR_CMD"
+}
+push_kepler() {
+    header "Push Kepler Image"
+    $NO_BUILD && {
+        info "skipping pushing of kepler image"
+        return 0
+    }
+    run make push-image \
+        IMAGE_REPO="$IMAGE_REPO" \
+        IMAGE_TAG="$IMAGE_TAG" \
+        CTR_CMD="$CTR_CMD"
+}
+
+cluster_prereqs() {
+    header "Setting up prerequisites"
+    build_kepler
+    push_kepler
+
+    [[ ! -d "${MANIFESTS_OUT_DIR}" ]] && {
+        err "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists"
+        if [[ "$CLUSTER_PROVIDER" == "microshift" ]]; then
+            header 'Running: make build-manifest OPTS="OPENSHIFT_DEPLOY"'
+            run make build-manifest \
+                OPTS="OPENSHIFT_DEPLOY" \
+                CLUSTER_PROVIDER="$CLUSTER_PROVIDER" \
+                IMAGE_REPO="$IMAGE_REPO" \
+                IMAGE_TAG="$IMAGE_TAG" \
+                CTR_CMD="$CTR_CMD"
+            run sed "s/localhost:5001/registry:5000/g" "${MANIFESTS_OUT_DIR}"/deployment.yaml >"${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp &&
+                mv "${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp "${MANIFESTS_OUT_DIR}"/deployment.yaml
+            return $?
+        else
+            header 'Running: make build-manifest OPTS="CI_DEPLOY"'
+            run make build-manifest \
+                OPTS="CI_DEPLOY" \
+                CLUSTER_PROVIDER="$CLUSTER_PROVIDER" \
+                IMAGE_REPO="$IMAGE_REPO" \
+                IMAGE_TAG="$IMAGE_TAG" \
+                CTR_CMD="$CTR_CMD"
+            return $?
+        fi
+    }
+    return 0
+}
+
+main() {
+
+    cluster_prereqs || {
+        fail "fail to configure cluster-prereqs."
+        return 1
+    }
+
+    info "Deploying manifests with image:"
+    run grep "image:" "${MANIFESTS_OUT_DIR}"/deployment.yaml
+
+    kubectl apply -f "${MANIFESTS_OUT_DIR}"/deployment.yaml
+
+    info "Verifying kepler deployment"
+    "$PROJECT_ROOT"/hack/verify.sh "kepler"
 }
 
 main "$@"

@@ -346,29 +346,41 @@ build-manifest: kustomize
 	./hack/build-manifest.sh "${OPTS}"
 .PHONY: build-manifest
 
-cluster-clean: build-manifest
-	./hack/cluster-clean.sh
-.PHONY: cluster-clean
-
 cluster-deploy:
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
-cluster-sync:
-	./hack/cluster-sync.sh
-.PHONY: cluster-sync
+## Development env
+CLUSTER_PROVIDER ?= kind
+LOCAL_DEV_CLUSTER_VERSION ?= main
+GRAFANA_ENABLE ?= false
+KIND_WORKER_NODES ?=0
 
-cluster-up:
-	./hack/cluster-up.sh
 .PHONY: cluster-up
+cluster-up:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	./hack/cluster.sh up
 
-cluster-down:
-	./hack/cluster-down.sh
+.PHONY: cluster-restart
+cluster-restart:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	./hack/cluster.sh restart
+
 .PHONY: cluster-down
+cluster-down:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	./hack/cluster.sh down
 
-e2e:
+run-e2e:
 	./hack/verify.sh test ${ATTACHER_TAG}
-.PHONY: e2e
+.PHONY: run-e2e
 
 check: tidy-vendor set_govulncheck govulncheck format golint test
 .PHONY: check

@@ -17,79 +17,87 @@
 # Copyright 2022 The Kepler Contributors
 #
 
-set -e
-set -o pipefail
-set -x
+set -eu -o pipefail
 
-source ./hack/common.sh
+# constants
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+declare -r CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
+declare -r MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+declare -r ARTIFACT_DIR="${ARTIFACT_DIR:-/tmp/artifacts}"
 
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
-ARTIFACT_DIR="${ARTIFACT_DIR:-/tmp/artifacts}"
+source "$PROJECT_ROOT/hack/utils.sh"
 
-function must_gather() {
-    mkdir -p $ARTIFACT_DIR
-    kubectl describe nodes > "$ARTIFACT_DIR/nodes"
-    kubectl get pods --all-namespaces > "$ARTIFACT_DIR/pods"
-    kubectl get deployment --all-namespaces > "$ARTIFACT_DIR/deployments"
-    kubectl get daemonsets --all-namespaces > "$ARTIFACT_DIR/daemonsets"
-    kubectl get services --all-namespaces > "$ARTIFACT_DIR/services"
-    kubectl get endpoints --all-namespaces > "$ARTIFACT_DIR/endpoints"
-    kubectl describe daemonset kepler-exporter -n kepler > "$ARTIFACT_DIR/kepler-daemonset-describe"
-    kubectl get pods -n kepler -o yaml > "$ARTIFACT_DIR/kepler-pod-yaml"
-    kubectl logs $(kubectl -n kepler get pods -o name) -n kepler > "$ARTIFACT_DIR/kepler-pod-logs"
+must_gather() {
+    info "running must gather on cluster"
+    kubectl describe nodes >"$ARTIFACT_DIR/nodes"
+    kubectl get pods --all-namespaces >"$ARTIFACT_DIR/pods"
+    kubectl get deployment --all-namespaces >"$ARTIFACT_DIR/deployments"
+    kubectl get daemonsets --all-namespaces >"$ARTIFACT_DIR/daemonsets"
+    kubectl get services --all-namespaces >"$ARTIFACT_DIR/services"
+    kubectl get endpoints --all-namespaces >"$ARTIFACT_DIR/endpoints"
+    kubectl describe daemonset kepler-exporter -n kepler >"$ARTIFACT_DIR/kepler-daemonset-describe"
+    kubectl get pods -n kepler -o yaml >"$ARTIFACT_DIR/kepler-pod-yaml"
+    kubectl logs "$(kubectl -n kepler get pods -o name)" -n kepler >"$ARTIFACT_DIR/kepler-pod-logs"
 }
 
-function check_deployment_status() {
+check_deployment_status() {
+    info "checking deployment status"
     kubectl rollout status daemonset kepler-exporter -n kepler --timeout 5m || {
         must_gather
-        exit 1
+        die "fail to check status of daemonset"
     }
-    echo "check if kepler is still alive"
-    kubectl logs $(kubectl -n kepler get pods -o name) -n kepler
-    kubectl get all -n kepler
+    info "checking if kepler is still alive"
+    kubectl get all -n kepler || {
+        die "cannot get resources under kepler namespace"
+    }
+    info "checking for kepler logs"
+    kubectl logs "$(kubectl -n kepler get pods -o name)" -n kepler || {
+        die "cannot check kepler pod logs"
+    }
 }
 
-function intergration_test() {
+intergration_test() {
     tags=$1
-    if [ "$tags" == "" ]
-    then
+    if [ "$tags" == "" ]; then
         tags="bcc"
     fi
-    echo TAGS=$tags
+    info TAGS="$tags"
     kepler_ready=false
-    $CTR_CMD ps -a
-    mkdir -p /tmp/.kube
-    if [ "$CLUSTER_PROVIDER" == "microshift" ]
-    then
-        $CTR_CMD exec -i microshift cat /var/lib/microshift/resources/kubeadmin/kubeconfig > /tmp/.kube/config
-    else
-        kind get kubeconfig --name=kind > /tmp/.kube/config
-    fi
-    until ${kepler_ready} ; do
-        kubectl logs $(kubectl -n kepler get pods -o name) -n kepler > kepler.log
-	if [ `grep -c "Started Kepler in" kepler.log` -ne '0' ]; then
-		echo "Kepler start finish"
-		kepler_ready=true
-	else
-		sleep 10
-	fi
+    until ${kepler_ready}; do
+        kubectl logs "$(kubectl -n kepler get pods -o name)" -n kepler >"$ARTIFACT_DIR"/kepler.log
+        if [ "$(grep -c "Started Kepler in" "$ARTIFACT_DIR"/kepler.log)" -ne '0' ]; then
+            ok "Kepler start finish"
+            kepler_ready=true
+        else
+            sleep 10
+        fi
     done
-    rm -f kepler.log
+    info "enabling port-forward on kepler service"
     while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
-    kubectl logs -n kepler daemonset/kepler-exporter
+    info "checking for kepler logs"
+    kubectl logs "$(kubectl -n kepler get pods -o name)" -n kepler
+    info "get kepler pods"
     kubectl get pods -n kepler -o yaml
-    go test ./e2e/... --tags $tags -v --race --bench=. -cover --count=1 --vet=all
+    info "running tests"
+    run go test ./e2e/... --tags "$tags" -v --race --bench=. -cover --count=1 --vet=all
 }
 
-function main() {
+main() {
+    [[ "$#" -lt 2 ]] && {
+        echo "Usage: $0 <operation> <tag>"
+        exit 1
+    }
+    local op="$1"
+    shift
+    local tag="$1"
+    mkdir -p "$ARTIFACT_DIR"
     # verify the deployment of cluster
-    case $1 in
+    case $op in
     kepler)
         check_deployment_status
         ;;
     test)
-        intergration_test $2
+        intergration_test "$tag"
         ;;
     *)
         check_deployment_status

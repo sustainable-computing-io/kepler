@@ -72,9 +72,6 @@ MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
 
 MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
 
-# shellcheck source=hack/common.sh
-source hack/common.sh
-
 echo "Building manifests..."
 
 echo "move to untrack workspace ${MANIFESTS_OUT_DIR}"

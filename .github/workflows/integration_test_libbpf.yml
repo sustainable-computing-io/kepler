@@ -3,9 +3,9 @@ name: Integration test with libbpf
 on:
   pull_request:
     paths-ignore:
-      - 'doc/**'
-      - 'enhancements/**'
-      - '*.md'
+      - "doc/**"
+      - "enhancements/**"
+      - "*.md"
 
 env:
   GO_VERSION: "1.18"
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        cluster_provider: [kind,microshift]
+        cluster_provider: [kind, microshift]
     steps:
       - name: checkout source
         uses: actions/checkout@v3
@@ -59,14 +59,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: kepler
-
-      - name: build manifest
-        run: make build-manifest OPTS="CI_DEPLOY"
-        env:
-          CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
-          IMAGE_REPO: "localhost:5001"
-          IMAGE_TAG: "devel"
-          CTR_CMD: docker
 
       - name: import Kepler image
         run: make load-image
@@ -99,6 +91,7 @@ jobs:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
+          NO_BUILD: true
 
       - name: Save artifacts
         if: ${{ failure() }}
@@ -109,15 +102,14 @@ jobs:
           retention-days: 10
 
       - name: run e2e tests
-        run: make e2e
+        run: make run-e2e
         env:
           ATTACHER_TAG: libbpf
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           kepler_address: localhost:9102
 
       - name: undeploy Kepler and cleanup the cluster
-        run: |
-          make cluster-clean
-          make cluster-down
+        run: make cluster-down
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
+          LOCAL_DEV_CLUSTER_VERSION: v0.0.3
