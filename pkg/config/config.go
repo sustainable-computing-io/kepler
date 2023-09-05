@@ -144,6 +144,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
 		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessMetrics)
+		klog.V(5).Infof("LIBBPF_ATTACH: %t", UseLibBPFAttacher)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
 		klog.V(5).Infof("EXPOSE_KUBELET_METRICS: %t", ExposeKubeletMetrics)
