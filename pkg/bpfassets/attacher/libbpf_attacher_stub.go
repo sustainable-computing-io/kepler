@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	LibbpfBuilt = false
+	LibbpfBuilt = true
 )
 
 var libbpfCounters = map[string]perfCounter{}
