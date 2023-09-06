@@ -129,8 +129,8 @@ else
 endif
 
 # for testsuite
-ENVTEST_ASSETS_DIR=./test-bin
-export PATH := $(PATH):./test-bin
+ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
+export PATH := $(PATH):$(SRC_ROOT)/test-bin
 
 ifndef GOPATH
 	GOPATH := $(HOME)/go
@@ -186,7 +186,7 @@ build_containerized: genbpfassets tidy-vendor format
 
 save-image:
 	@mkdir -p _output
-	$(CTR_CMD) save $(IMAGE_REPO)/kepler:$(IMAGE_TAG) | gzip > "${IMAGE_OUTPUT_PATH}"
+	$(CTR_CMD) save $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) | gzip > "${IMAGE_OUTPUT_PATH}"
 .PHONY: save-image
 
 load-image:
@@ -198,7 +198,7 @@ image-prune:
 .PHONY: image-prune
 
 push-image:
-	$(CTR_CMD) push $(CTR_CMD_PUSH_OPTIONS) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
+	$(CTR_CMD) push $(CTR_CMD_PUSH_OPTIONS) $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
 .PHONY: push-image
 
 clean-cross-build:
@@ -214,7 +214,7 @@ build: clean_build_local _build_local copy_build_local
 _build_local: tidy-vendor format
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter.go
+	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
 
 container_build:
 	$(CTR_CMD) run --rm \
@@ -367,8 +367,36 @@ cluster-down:
 .PHONY: cluster-down
 
 e2e:
-	./hack/verify.sh test ${ATTACHER_TAG}
+	./hack/verify.sh integration ${ATTACHER_TAG}
 .PHONY: e2e
+
+### platform-validation ###
+
+VALIDATION_DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.kepler-validator
+
+build-validator: tidy-vendor format
+	@echo TAGS=$(GO_BUILD_TAGS)
+	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
+	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator -ldflags $(LDFLAGS) ./cmd/validator/validator.go
+	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator $(CROSS_BUILD_BINDIR)
+.PHONY: build-validator
+
+build-validation-container:
+	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) \
+		-f $(VALIDATION_DOCKERFILE) .
+.PHONY: build-validation-container
+
+get-power:
+	$(CTR_CMD) run -i --rm -v $(SRC_ROOT)/e2e/platform-validation:/output $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) /usr/bin/validator
+.PHONY: get-power
+
+get-env:
+	$(CTR_CMD) run -i --rm -v $(SRC_ROOT)/e2e/platform-validation:/output $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) /usr/bin/validator -gen-env=true
+.PHONY: get-env
+
+platform-validation: ginkgo-set get-env
+	./hack/verify.sh platform ${ATTACHER_TAG}
+.PHONY: platform-validation
 
 check: tidy-vendor set_govulncheck govulncheck format golint test
 .PHONY: check

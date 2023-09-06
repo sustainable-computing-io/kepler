@@ -32,6 +32,7 @@ jobs:
         env:
           ATTACHER_TAG: libbpf
           IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
@@ -72,6 +73,7 @@ jobs:
         run: make load-image
         env:
           IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
           INPUT_PATH: ${{env.FILE_NAME}}
@@ -89,6 +91,7 @@ jobs:
           make image-prune
         env:
           IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
 

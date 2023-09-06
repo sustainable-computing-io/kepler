@@ -19,19 +19,7 @@
 
 set -e
 
-
-_registry_port="5001"
-_registry_name="kind-registry"
-
 CTR_CMD=${CTR_CMD-docker}
-
-CONFIG_PATH="kind"
-KIND_VERSION=${KIND_VERSION:-0.15.0}
-KIND_MANIFESTS_DIR="$CONFIG_PATH/manifests"
-CLUSTER_NAME=${KIND_CLUSTER_NAME:-kind}
-REGISTRY_NAME=${REGISTRY_NAME:-kind-registry}
-REGISTRY_PORT=${REGISTRY_PORT:-5001}
-KIND_DEFAULT_NETWORK="kind"
 
 IMAGE_REPO=${IMAGE_REPO:-localhost:5001}
 ESTIMATOR_REPO=${ESTIMATOR_REPO:-quay.io/sustainable_computing_io}

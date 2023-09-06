@@ -7,7 +7,7 @@ reviewers:
 approvers:
   - N/A
 creation-date: 2023-05-27
-last-updated: 2023-06-06
+last-updated: 2023-09-01
 tracking-links:
   - https://github.com/sustainable-computing-io/kepler/issues/712
 ---
@@ -113,13 +113,13 @@ Directly check the Kepler exposed metrics by port forwarding port 9102 to host p
 
 Pros: Check metrics on the very beginning of dataflow, direct evaluation on Kepler's collector and exporter functionalities.
 
-Cons: `kubectl port-forward` needs to be run in background process, this is inconvenient for automation and weak in side effect.
+Cons: Kepler exporter metrics can be regarded as snapshots per three seconds(current defautl scrape interval), it may not be intuitive to those observability concepts of power consumption and power attribution. 
 
 * Check on Prometheus.
 
 Deploy Prometheus service and Kepler specific Service Monitor in the cluster.
 
-Expose Prometheus service as `NodePort` type.
+Expose Prometheus service also through the `port forwarding` way.
 
 Pros: Codes/scripts could retrieve what they needed data from Prometheus using either REST API calls or PromQL queries.
 
@@ -144,7 +144,7 @@ N/A
 
 ### Test Plan
 
-The first test case for this PR: CPU architecture recognition.
+#### Test Methodogy
 
 The current local-dev-cluster setup job will by default bring up Kind cluster and deploy basic Prometheus service(without Grafana).
 
@@ -160,42 +160,8 @@ It supports Kepler-Prometheus association by binding Kepler's specific service m
 make build-manifest OPTS="PROMETHEUS_DEPLOY"
 ```
 
-(2) Change the Prometheus service as `NodePort` type and get the accessible port.
+(2) Prometheus community provides [REST APIs](https://prometheus.io/docs/prometheus/latest/querying/api/) and [client-go](https://github.com/prometheus/client_golang/blob/main/api/prometheus/v1/api.go) libraries for specific queries.
 
-```
-kubectl patch svc prometheus-k8s -n monitoring --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'
-```
-```
-$kubectl get svc prometheus-k8s -n monitoring
-NAME             TYPE       CLUSTER-IP    EXTERNAL-IP   PORT(S)                         AGE
-prometheus-k8s   NodePort   10.96.205.9   <none>        9090:32517/TCP,8080:30331/TCP   5d9h
-```
-
-Tools such as `awk` could retrieve the accessible port:
-```
-$kubectl get svc prometheus-k8s -n monitoring | grep 9090 | awk '{print $5}' | awk -F ',' '{print $1}' | awk -F '/' '{print substr($1,6)}'
-32517
-```
-
-(3) Get the test node's IP.
-
-```
-$ kubectl get nodes -o wide
-NAME                 STATUS   ROLES           AGE     VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-kind-control-plane   Ready    control-plane   5d10h   v1.25.3   172.19.0.2    <none>        Ubuntu 22.04.1 LTS   5.19.0-41-generic   containerd://1.6.9
-```
-
-```
-$ kubectl get nodes -o wide |grep control-plane | awk '{print $6}'
-172.19.0.2
-```
-
-(4) Retrieve the metrics with `cpu_architecture` label in Prometheus.
-
-```
-$ curl --noproxy "*" -s http://172.19.0.2:32517/api/v1/label/cpu_architecture/values | jq -r ".data[]" | sort
-Sapphire Rapids
-```
 
 * Deploy from kepler-helm-chart.
 
@@ -203,58 +169,71 @@ It by default does not support deploy kepler service monitor yet.
 
 * Deploy from kepler-operator.
 
-It also by default does not support Kepler-Prometheus association.
+Kepler operator feature has some refactoring in 0.6.0 release period, we may cover this scenario in platform validation framework in later releases.
 
-Without `servcie monitor`, we have to use `port forwarding` mechanism to check metrics directly on Kepler Exporter:
-```
-kubectl port-forward --namespace=kepler service/kepler 9103:9102 &
-```
-
-So we could implement `port-forward` test logic in the latter two and implement service `nodePort type` patch logic in the first one.
-
-After retrieve the exported metrics, we could check the actual `cpu_architure` info on the node:
-
-Per current Kepler code,
-
-(1) For x86 platforms, we use `cpuid` command to fetch the cpu arch info:
+We could leverage the `port forwarding` mechanism to expose accessible ports of `kepler-exporter` and `prometheus-k8s` sevices to the automation codes.
 
 ```
-$ cpuid -1 |grep uarch
-   (uarch synth) = Intel Sapphire Rapids {Golden Cove}, Intel 7
+kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102 &
+
+kubectl port-forward --address localhost -n monitoring service/prometheus-k8s 9090:9090 &
 ```
 
-Note: we need to add prerequisite check for cpuid version on the test machine. Upgrade it if necessary.
+To support validation cases comparison base, we are introducing an indepentent RAPL-based energy collection and power consumption calculation tool called `validator` on Intel X86 BareMetal platforms.
 
-Take Intel 4th Gen Xeon Scalable Processor (Code name: Sapphire Rapids, first released at 2023/1/10) as example, cpuid could not correctly recognize its full characteristics until `20230505` version, this version is available in RHEL distro's epel, but not available in latest Ubuntu APT repositories.
+Test cases could use the `valiator` sampling and calculation results to compare with Kepler exported and Promethes aggregated query results.
 
-On Ubuntu test machine, the result may like this:
+For other platforms, developers may use other specific measurement methods and tools to implement similar validation targets.
 
-```
-$ cpuid -1 |grep uarch
-   (uarch synth) = Intel Sapphire Rapids {Sunny Cove}, 10nm+
-```
+#### Test Cases
 
+Till 0.6.0 release, we have been introducing four automation platform validation cases on Intel X86 BareMetal platforms.
 
-(2) For ARM platforms, we use `archspec` Python tool, follow the usage guide in this [repo](https://github.com/archspec/archspec)
+Case 1. CPU architecture recognition check.
 
-(3) For s390x platforms, we use `lscpu` command to check the machine type:
-```
-$ lscpu |grep "Machine type"
-Machine type:        3906
-```
+(1) Use `validator` built-in `cpuid` tool to achieve the current platform CPU architecture info.
+
+(2) Compare it with the Kepler exported metrics' `cpu_archiecture` label info.
 
 
-The further test cases include not but limited to:
+Case 2. Platform specific power source components validity check.
+
+(1) Use `validator` tool to detect the RAPL components support status at the beginning of the test.
+
+(2) Check Kepler exported specific components metrics' validity.
+
+
+Case 3. Prometheus side node level components power stats accuracy check.
+
+(1) Use `validator` tool to do node-level sampling and power calculation for the node level power stats data.
+
+(2) Query with Prometheus for the same data as comparison.
+
+
+Case 4. Prometheus side namespace level components power stats accuracy check.
+
+(1) Use `validator` tool to do node-level sampling and power calculation in cluster up different phases
+
+(2) Query the observed APP's related namespace container power sum to compare with the power stats deltas from `validator`.
+
+(3) The by default APP could be `kind cluster`(refer to three namespaces) and `kepler`(refer to one namespace)
+
+Note: There might be interference processes in the same node for this test, for example, other tenants deployed workloads, other running VMs, etc. So we can better understand the Kepler's current accuracy on BareMetal Power Ratio Modeling.
+
+Besides above automation test cases, with the help of the tools such as `validator`, we can also trigger manual(or automation) tests to check below scenarios:
 
 1. Typical workloads power consumption measurement (carbon footprint) accuracy check on specific platform.
 
 2. Carbon footprint accuracy check in scaling scenarios (VPA/HPA) on specific platform.
+
 
 ## Implementation History
 
 * 2023/5/27, Jie Ren (jie.ren@intel.com), initial draft for ideas and scope.
 
 * 2023/6/6, Jie Ren (jie.ren@intel.com), change per review comments and add new section for open questions and action items.
+
+* 2023/9/1, Jie Ren (jie.ren@intel.com), adjust description in `Implementation Details` and `Test Plan` sections per platform-validation framework initial code commit in community. Also update in `Open questions and action items` section for resolved issues.
 
 ## Alternatives
 N/A
@@ -273,17 +252,17 @@ N/A
 
 Three solutions mentioned in previous comments: Kind, k3d/k3s, microshift.
 
-* Kind is current available solution in Kelper. It works well on BM, but has known issues in VM.
+* Kind is current available and widely-used solution in Kelper.
 
-* Microshift efforts and progress is tracked in Issue #182.
+* Microshift has also been supported in 2023 Q3. It is beneficial supplement to Kind and especially for local deployment verfication for Openshift scenarios.
 
-* k3d/k3s works are tracked in PR #313.
+* k3d/k3s will not be community choice for local dev in short term.
 
 AI:
 
-(1) Before more local dev solutions are officially supported in Kepler, we still design and execute platform validation test cases based on Kind.
+(1) The initial proposed platform validation framework code only covers BM platforms scenarios, we still design and execute test cases based on Kind. If needed, we can try other solutions, such as microshift later.
 
-(2) Once more solutions supported, such as microshift. Add option parameters support in both test cases and Kepler Makefile cluster-xxx operations.
+(2) Add more BM platforms validation cases, such as s390x and arm64 platforms, adjust platform validation framework if needed.
 
 2. Test scenarios coverage.
 
@@ -305,8 +284,6 @@ AI:
 
 * For VM scenario, needs more investigations and TBD.
 
-(2) Test image build for different platforms. See existed PR [here](https://github.com/sustainable-computing-io/kepler/pull/587)
-
 3. Some test cases' feasibility.
 
 AI:
@@ -327,9 +304,9 @@ AI:
 
 AI:
 
-(1) Define GHA for test cases execution, PR triggered and one-shot execution are both needed.
+(1) Define GHA for test cases execution, platform validatio workflows should happen on specific self-hosted runners, manual or release based one-shot executions are appropriate.
 
-(2) PR triggered cases could be merged into current integration test scope; others may live under e2e directory also but handled by different GHA workflow ymls.
+(2) PR triggerred cases should be merged into current integration test scope; others may live under e2e directory also but handled by different GHA workflow ymls.
 
 (3) Separate PRs needed for change here.
 
@@ -339,4 +316,6 @@ AI:
 
 (1) Marcelo introduced `stress-ng` for stress test. Need investigation whether it is applicable in this PR scope.
 
-(2) More brainstorming ideas are needed and welcomed in community, as long as they are `Platform Validation` related. Ideas could be added here, test cases should be separate PRs.
+(2) Some further cases are introduced in 0.6.0 release, see `Test Plan` section above.
+
+(3) More brainstorming ideas are needed and welcomed in community, as long as they are `Platform Validation` related. Ideas could be added here, test cases should be seperate PRs.

@@ -30,6 +30,7 @@ const (
 	packageNamePathTemplate = "/sys/class/powercap/intel-rapl/intel-rapl:%d/"
 	eventNamePathTemplate   = "/sys/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:%d/"
 	energyFile              = "energy_uj"
+	energyMaxRangeFile      = "max_energy_range_uj"
 
 	// RAPL number of events (core, dram and uncore)
 	numRAPLEvents = 3
@@ -89,6 +90,34 @@ func readEventEnergy(eventName string) map[string]uint64 {
 	return energy
 }
 
+func getMaxEnergyRange(eventName string) (uint64, error) {
+	energy := uint64(0)
+	if hasEvent(eventName) {
+		for _, subTree := range eventPaths {
+			for event, path := range subTree {
+				if strings.Index(event, eventName) != 0 {
+					continue
+				}
+				var e uint64
+				var err error
+				var data []byte
+
+				if data, err = os.ReadFile(path + energyMaxRangeFile); err != nil {
+					klog.V(3).Infoln(err)
+					continue
+				}
+				if e, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err != nil {
+					klog.V(3).Infoln(err)
+					continue
+				}
+				e /= 1000 /*mJ*/
+				return e, nil
+			}
+		}
+	}
+	return energy, fmt.Errorf("could not read RAPL energy max range for %s", eventName)
+}
+
 type PowerSysfs struct{}
 
 func (r *PowerSysfs) IsSystemCollectionSupported() bool {
@@ -139,4 +168,20 @@ func (r *PowerSysfs) GetAbsEnergyFromNodeComponents() map[int]NodeComponentsEner
 }
 
 func (r *PowerSysfs) StopPower() {
+}
+
+func (r *PowerSysfs) GetMaxEnergyRangeFromDram() (uint64, error) {
+	return getMaxEnergyRange(dramEvent)
+}
+
+func (r *PowerSysfs) GetMaxEnergyRangeFromCore() (uint64, error) {
+	return getMaxEnergyRange(coreEvent)
+}
+
+func (r *PowerSysfs) GetMaxEnergyRangeFromUncore() (uint64, error) {
+	return getMaxEnergyRange(uncoreEvent)
+}
+
+func (r *PowerSysfs) GetMaxEnergyRangeFromPackage() (uint64, error) {
+	return getMaxEnergyRange(packageEvent)
 }

@@ -52,9 +52,8 @@ func InitPowerImpl() {
 		klog.V(1).Infoln("use redfish to obtain power")
 		powerImpl = redfishImpl
 		powerSource = "redfish"
-	} else {
+	} else if powerImpl = source.NewACPIPowerMeter(); powerImpl != nil && powerImpl.IsSystemCollectionSupported() {
 		klog.V(1).Infoln("use acpi to obtain power")
-		powerImpl = source.NewACPIPowerMeter()
 		powerSource = "acpi"
 	}
 }

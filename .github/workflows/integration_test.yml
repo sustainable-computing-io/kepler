@@ -32,6 +32,7 @@ jobs:
         env:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
+          IMAGE_NAME: "kepler"
           CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
 
@@ -66,11 +67,12 @@ jobs:
           IMAGE_REPO: "localhost:5001"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
-          
+
       - name: import Kepler image
         run: make load-image
         env:
           IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
           INPUT_PATH: ${{env.FILE_NAME}}
@@ -88,6 +90,7 @@ jobs:
           make image-prune
         env:
           IMAGE_REPO: "localhost:5001"
+          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
           CTR_CMD: docker
 
