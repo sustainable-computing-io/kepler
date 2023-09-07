@@ -102,28 +102,31 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 	if err == nil {
 		err = m.AttachTracepoint("irq:softirq_entry", softirqEntry)
 		if err != nil {
-			klog.Infof("failed to attach softirq_entry: %s", err)
+			klog.Warningf("could not attach softirq_entry: %s", err)
 		}
 	} else {
-		klog.Infof("failed to load softirq_entry: %s", err)
+		klog.Warningf("could not load softirq_entry: %s", err)
 	}
 
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
 		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)
 		if t == nil {
-			return nil, fmt.Errorf("failed to find perf array: %s", bpfPerfArrayName)
-		}
-		perfErr := openPerfEvent(t, counter.EvType, counter.EvConfig)
-		if perfErr != nil {
-			// some hypervisors don't expose perf counters
-			klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			counter.enabled = false
+			klog.Warningf("could not get perf event %s. Are you using a VM?\n", bpfPerfArrayName)
+			continue
+		} else {
+			perfErr := openPerfEvent(t, counter.EvType, counter.EvConfig)
+			if perfErr != nil {
+				// some hypervisors don't expose perf counters
+				klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
+				counter.enabled = false
 
-			// if any counter is not enabled, we need disable HardwareCountersEnabled
-			HardwareCountersEnabled = false
+				// if any counter is not enabled, we need disable HardwareCountersEnabled
+				HardwareCountersEnabled = false
+			}
 		}
 	}
+	klog.Infof("Successfully load eBPF module from using bcc")
 	return m, nil
 }
 

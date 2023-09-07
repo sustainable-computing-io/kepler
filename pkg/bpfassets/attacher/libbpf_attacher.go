@@ -123,13 +123,13 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	// attach softirq_entry tracepoint to kepler_irq_trace function
 	irq_prog, err := libbpfModule.GetProgram("kepler_irq_trace")
 	if err != nil {
-		klog.Infof("failed to get kepler_irq_trace: %v", err)
+		klog.Warningf("could not get kepler_irq_trace: %v", err)
 		// disable IRQ metric
 		config.ExposeIRQCounterMetrics = false
 	} else {
 		_, err = irq_prog.AttachTracepoint("irq", "softirq_entry")
 		if err != nil {
-			klog.Infof("failed to attach irq/softirq_entry: %v", err)
+			klog.Warningf("could not attach irq/softirq_entry: %v", err)
 			// disable IRQ metric
 			config.ExposeIRQCounterMetrics = false
 		}
@@ -140,20 +140,20 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
 		bpfMap, perfErr := libbpfModule.GetMap(bpfPerfArrayName)
 		if perfErr != nil {
-			klog.Infof("failed to get perf event %s: %v\n", bpfPerfArrayName, perfErr)
+			klog.Warningf("could not get perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
 			continue
-		}
-		perfErr = unixOpenPerfEvent(bpfMap, counter.EvType, counter.EvConfig)
-		if perfErr != nil {
-			// some hypervisors don't expose perf counters
-			klog.Infof("failed to attach perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			counter.enabled = false
+		} else {
+			perfErr = unixOpenPerfEvent(bpfMap, counter.EvType, counter.EvConfig)
+			if perfErr != nil {
+				// some hypervisors don't expose perf counters
+				klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
+				counter.enabled = false
 
-			// if any counter is not enabled, we need disable HardwareCountersEnabled
-			HardwareCountersEnabled = false
+				// if any counter is not enabled, we need disable HardwareCountersEnabled
+				HardwareCountersEnabled = false
+			}
 		}
 	}
-
 	klog.Infof("Successfully load eBPF module from libbpf object")
 	return libbpfModule, nil
 }
