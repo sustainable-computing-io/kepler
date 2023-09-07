@@ -67,6 +67,7 @@ func newMockPrometheusExporter() *PrometheusCollector {
 	exporter.NodeMetrics = collector_metric.NewNodeMetrics()
 	exporter.ContainersMetrics = &map[string]*collector_metric.ContainerMetrics{}
 	exporter.ProcessMetrics = &map[uint64]*collector_metric.ProcessMetrics{}
+	exporter.VMMetrics = &map[uint64]*collector_metric.VMMetrics{}
 	exporter.SamplePeriodSec = 3.0
 	collector_metric.ContainerFeaturesNames = []string{config.CoreUsageMetric}
 	collector_metric.NodeMetadataFeatureNames = []string{"cpu_architecture"}

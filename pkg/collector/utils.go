@@ -60,3 +60,11 @@ func (c *Collector) createProcessMetricsIfNotExist(pid uint64, command string) {
 func addSuffix(name, suffix string) string {
 	return fmt.Sprintf("%s_%s", name, suffix)
 }
+
+func (c *Collector) createVMMetricsIfNotExist(pid uint64, name string) {
+	if p, ok := c.VMMetrics[pid]; !ok {
+		c.VMMetrics[pid] = collector_metric.NewVMMetrics(pid, name)
+	} else if p.Name == "" {
+		p.Name = name
+	}
+}
