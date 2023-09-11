@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: "1.18"
   OUTPUT_DIR: "_output/"
   KEPLER_FILE_NAME: "kepler.tar.gz"
   VALIDATOR_FILE_NAME: "validator.tar.gz"
@@ -15,7 +14,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
@@ -30,7 +29,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{env.GO_VERSION}}
+          go-version-file: go.mod
 
       - name: Build and export Kepler image with test specific tag
         run: |
@@ -86,7 +85,7 @@ jobs:
         cluster_provider: [kind]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download Kepler test image artifact
         uses: actions/download-artifact@v3

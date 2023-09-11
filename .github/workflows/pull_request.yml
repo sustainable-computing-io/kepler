@@ -1,0 +1,28 @@
+name: Pull request
+
+on:
+  branch_protection_rule:
+  pull_request:
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
+      - '*.md'
+
+jobs:
+  # for each PR run go command line check
+  golang:
+    uses: ./.github/workflows/golang.yml
+  # for each PR run unit test
+  unit_test:
+    uses: ./.github/workflows/unit_test.yml
+  # for each PR ensure for local developer usage
+  developer_local:
+    uses: ./.github/workflows/developer_local.yml
+  # for each PR run integration test
+  integration_test:
+    uses: ./.github/workflows/integration_test.yml
+  # for each PR run integration test    
+  integration_test_libbpf:
+    uses: ./.github/workflows/integration_test_libbpf.yml
+
+  

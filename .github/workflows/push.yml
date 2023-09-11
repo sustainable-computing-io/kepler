@@ -1,0 +1,23 @@
+name: Push
+on:
+  branch_protection_rule:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'doc/**'
+      - 'enhancements/**'
+      - '*.md'
+
+jobs:
+  # for each PR merge, trigger image build
+  image:
+    uses: ./.github/workflows/image.yml
+  # for each PR merge, unit test for test coverage
+  unit_test:
+    uses: ./.github/workflows/unit_test.yml
+  # for each PR merge, openSSF scan
+  scorecard:
+    uses: ./.github/workflows/scorecard.yml
+  # for each PR merge, go sec scan
+  gosec:
+    uses: ./.github/workflows/gosec.yml
