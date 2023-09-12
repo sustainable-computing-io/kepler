@@ -86,8 +86,10 @@ spec:
         volumeMounts:
         - mountPath: /lib/modules
           name: lib-modules
+          readOnly: true
         - mountPath: /sys
           name: tracing
+          readOnly: true
         - mountPath: /proc
           name: proc
         - name: cfm

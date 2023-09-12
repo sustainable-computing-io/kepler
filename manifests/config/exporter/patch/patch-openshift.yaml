@@ -19,6 +19,7 @@ spec:
         volumeMounts:
         - name: kernel-src
           mountPath: /usr/src/kernels
+          readOnly: true
         - name: kernel-debug
           mountPath: /sys/kernel/debug
         securityContext:
