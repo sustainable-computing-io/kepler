@@ -55,6 +55,7 @@ spec:
         key: node-role.kubernetes.io/master
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: kepler-sa
+      hostPID: true
       containers:
       - name: kepler-exporter
         image: kepler:latest
