@@ -20,15 +20,9 @@ spec:
         - name: kernel-src
           mountPath: /usr/src/kernels
           readOnly: true
-        - name: kernel-debug
-          mountPath: /sys/kernel/debug
         securityContext:
           privileged: true
-      volumes:      
-      - name: kernel-debug
-        hostPath:
-          path: /sys/kernel/debug
-          type: Directory
+      volumes:
       - name: kernel-src
         hostPath:
           path: /usr/src/kernels
