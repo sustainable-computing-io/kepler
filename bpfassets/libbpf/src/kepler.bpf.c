@@ -44,8 +44,9 @@ BPF_ARRAY(cache_miss, u64);
 // cpu freq counters
 BPF_ARRAY(cpu_freq_array, u32);
 
-int sample_rate = 1000;
-int counter = 1000;
+// setting sample rate or counter to 0 will make compiler to remove the code entirely.
+int sample_rate = 1;
+int counter = 1;
 
 static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 {
