@@ -143,9 +143,9 @@ func (r *RatioProcessPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error
 
 		// TODO: idle power should be divided accordinly to the process requested resource
 		if isIdlePower {
-			processPower = r.getPowerByRatio(processIdx, int(GpuDynPower), int(GpuIdlePower), numProcesss)
+			processPower = r.getPowerByRatio(processIdx, int(GpuUsageMetric), int(GpuIdlePower), numProcesss)
 		} else {
-			processPower = r.getPowerByRatio(processIdx, int(GpuDynPower), int(GpuDynPower), numProcesss)
+			processPower = r.getPowerByRatio(processIdx, int(GpuUsageMetric), int(GpuDynPower), numProcesss)
 		}
 		nodeComponentsPowerOfAllProcesss = append(nodeComponentsPowerOfAllProcesss, processPower)
 	}
