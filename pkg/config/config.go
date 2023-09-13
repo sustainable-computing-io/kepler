@@ -83,6 +83,7 @@ var (
 	BindAddressKey  = "BIND_ADDRESS"
 	CPUArchOverride = getConfig("CPU_ARCH_OVERRIDE", "")
 	MaxLookupRetry  = getIntConfig("MAX_LOOKUP_RETRY", defaultMaxLookupRetry)
+	BPFSampleRate   = getIntConfig("EXPERIMENTAL_BPF_SAMPLE_RATE", 0)
 
 	EstimatorModel        = getConfig("ESTIMATOR_MODEL", defaultMetricValue)         // auto-select
 	EstimatorSelectFilter = getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue) // no filter
@@ -149,6 +150,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_KUBELET_METRICS: %t", ExposeKubeletMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeEstimatedIdlePowerMetrics)
+		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %t", BPFSampleRate)
 	}
 }
 
