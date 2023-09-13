@@ -169,6 +169,7 @@ func CreatePowerModelConfig(powerSourceTarget string) *types.ModelConfig {
 		TrainerName:      getPowerModelTrainerName(powerSourceTarget),
 		SelectFilter:     getPowerModelFilter(powerSourceTarget),
 		InitModelURL:     getPowerModelDownloadURL(powerSourceTarget),
+		IsNodePowerModel: isNodeLevel(powerSourceTarget),
 		EnergySource:     energySource,
 		NodeFeatureNames: []string{},
 	}
@@ -261,4 +262,15 @@ func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 		return types.AbsPower
 	}
 	return types.Unsupported
+}
+
+// isNodeLevel return the true if current power key is node platform or node components
+func isNodeLevel(powerSourceTarget string) bool {
+	switch powerSourceTarget {
+	case config.NodePlatformPowerKey:
+		return true
+	case config.NodeComponentsPowerKey:
+		return true
+	}
+	return false
 }
