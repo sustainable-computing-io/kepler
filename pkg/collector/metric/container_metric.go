@@ -271,6 +271,9 @@ func (c *ContainerMetrics) UpdateCgroupMetrics() error {
 }
 
 func (c *ContainerMetrics) GetDynEnergyStat(component string) (energyStat *types.UInt64Stat) {
+	if c == nil {
+		return
+	}
 	switch component {
 	case PKG:
 		return c.DynEnergyInPkg
