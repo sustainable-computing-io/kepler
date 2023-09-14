@@ -18,7 +18,7 @@ data:
   KEPLER_LOG_LEVEL: "1"
   METRIC_PATH: "/metrics"
   BIND_ADDRESS: "0.0.0.0:9102"
-  ENABLE_GPU: "true"
+  ENABLE_GPU: "false"
   ENABLE_QAT: "false"
   ENABLE_EBPF_CGROUPID: "true"
   EXPOSE_HW_COUNTER_METRICS: "true"
