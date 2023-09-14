@@ -28,6 +28,12 @@ else
 	BUILDER_IMAGE := quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
 endif
 
+ifdef IMAGE_NAME
+	IMAGE_NAME := $(IMAGE_NAME)
+else
+	IMAGE_NAME := kepler
+endif
+
 ifdef IMAGE_TAG
 	IMAGE_TAG := $(IMAGE_TAG)
 else
@@ -172,7 +178,7 @@ build_containerized: genbpfassets tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 
-	$(CTR_CMD) build -t $(IMAGE_REPO)/kepler:$(IMAGE_BUILD_TAG) \
+	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--network host \
 		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
@@ -180,7 +186,7 @@ build_containerized: genbpfassets tidy-vendor format
 		--platform="linux/$(GOARCH)" \
 		.
 
-	$(CTR_CMD) tag $(IMAGE_REPO)/kepler:$(IMAGE_BUILD_TAG) $(IMAGE_REPO)/kepler:$(IMAGE_TAG)
+	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
 
 .PHONY: build_containerized
 
