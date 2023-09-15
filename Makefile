@@ -7,44 +7,19 @@ export BIN_TIMESTAMP ?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 export TIMESTAMP ?=$(shell echo $(BIN_TIMESTAMP) | tr -d ':' | tr 'T' '-' | tr -d 'Z')
 
 # restrict included verify-* targets to only process project files
-SOURCE_GIT_TAG :=$(shell git describe --tags --always --abbrev=7 --match 'v*')
-SRC_ROOT :=$(shell pwd)
-OUTPUT_DIR :=_output
-CROSS_BUILD_BINDIR :=$(OUTPUT_DIR)/bin
-GIT_VERSION     := $(shell git describe --dirty --tags --always --match='v*')
-VERSION         ?= $(GIT_VERSION)
-LDFLAGS         := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
-ROOTLESS	?= false
-
-ifdef IMAGE_REPO
-	IMAGE_REPO := $(IMAGE_REPO)
-else
-	IMAGE_REPO := quay.io/sustainable_computing_io
-endif
-
-ifdef BUILDER_IMAGE
-	BUILDER_IMAGE := $(BUILDER_IMAGE)
-else
-	BUILDER_IMAGE := quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
-endif
-
-ifdef IMAGE_NAME
-	IMAGE_NAME := $(IMAGE_NAME)
-else
-	IMAGE_NAME := kepler
-endif
-
-ifdef IMAGE_TAG
-	IMAGE_TAG := $(IMAGE_TAG)
-else
-	IMAGE_TAG := latest
-endif
-
-ifdef CTR_CMD
-	CTR_CMD := $(CTR_CMD)
-else
-	CTR_CMD :=$(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
-endif
+SOURCE_GIT_TAG     := $(shell git describe --tags --always --abbrev=7 --match 'v*')
+SRC_ROOT           := $(shell pwd)
+OUTPUT_DIR         := _output
+CROSS_BUILD_BINDIR := $(OUTPUT_DIR)/bin
+GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')
+VERSION            ?= $(GIT_VERSION)
+LDFLAGS            := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
+ROOTLESS	       ?= false
+IMAGE_REPO         ?= quay.io/sustainable_computing_io
+BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
+IMAGE_NAME         ?= kepler
+IMAGE_TAG          ?= latest
+CTR_CMD            ?= $(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
