@@ -1,17 +1,7 @@
 name: Unit test
 
 on:
-  pull_request:
-    paths-ignore:
-      - 'doc/**'
-      - 'enhancements/**'
-      - '*.md'
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'doc/**'
-      - 'enhancements/**'
-      - '*.md'
+  workflow_call:
 
 permissions:
   pull-requests: write
@@ -21,15 +11,15 @@ permissions:
 
 jobs:
   unit_test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         persist-credentials: false
         fetch-depth: 0
     - uses: actions/setup-go@v3
       with:
-          go-version: 1.18
+        go-version-file: go.mod
     - name: Get ginkgo
       run: make ginkgo-set
       env:
