@@ -16,7 +16,7 @@ VERSION            ?= $(GIT_VERSION)
 LDFLAGS            := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 ROOTLESS	       ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
-BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
+BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.21
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
 CTR_CMD            ?= $(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))

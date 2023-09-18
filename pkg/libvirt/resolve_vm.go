@@ -18,7 +18,7 @@ package libvirt
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
@@ -38,7 +38,7 @@ func getThreadIDsForPID(pid, extraPath string) []string {
 	}
 
 	procDir := fmt.Sprintf(fullPath, pid)
-	files, err := ioutil.ReadDir(procDir)
+	files, err := os.ReadDir(procDir)
 	if err != nil {
 		return nil
 	}
@@ -57,7 +57,7 @@ func GetCurrentVMPID(path ...string) (map[string]string, error) {
 		path = []string{libvirtPath, procPath}
 	}
 
-	files, err := ioutil.ReadDir(path[0])
+	files, err := os.ReadDir(path[0])
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func GetCurrentVMPID(path ...string) (map[string]string, error) {
 
 		if filepath.Ext(file.Name()) == ".pid" {
 			filePath := filepath.Join(path[0], file.Name())
-			content, err := ioutil.ReadFile(filePath)
+			content, err := os.ReadFile(filePath)
 			if err != nil {
 				fmt.Printf("Error reading %s: %v\n", filePath, err)
 				continue

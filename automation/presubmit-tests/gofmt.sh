@@ -19,6 +19,8 @@
 
 set -e
 
+make genbpfassets
+
 echo "Checking go format"
 sources="pkg/ cmd/"
 unformatted=$(gofmt -e -d -s -l $sources)

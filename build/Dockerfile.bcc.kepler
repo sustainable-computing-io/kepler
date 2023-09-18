@@ -1,4 +1,4 @@
-FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.26-go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-bcc-0.26-go1.21 as builder
 
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG

@@ -1,7 +1,7 @@
 #
 # This Dockerfile is used for building the image `quay.io/sustainable_computing_io/kepler`
 #
-FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.21 as builder
 
 ARG BIN_TIMESTAMP
 ARG SOURCE_GIT_TAG
