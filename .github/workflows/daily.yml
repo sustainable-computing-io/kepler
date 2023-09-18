@@ -11,6 +11,9 @@ jobs:
   # daily image build    
   image:
     uses: ./.github/workflows/image.yml
+    secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
   # daily openSSF scan
   scorecard:
     uses: ./.github/workflows/scorecard.yml

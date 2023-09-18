@@ -2,6 +2,8 @@ name: Unit test
 
 on:
   workflow_call:
+    secrets:
+      GH_BOT_SECRET:
 
 permissions:
   pull-requests: write
