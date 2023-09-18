@@ -2,6 +2,11 @@ name: image
 
 on:
   workflow_call:
+    secrets:
+      username:
+        required: true
+      password:
+        required: true
 
 jobs:
   image_build:

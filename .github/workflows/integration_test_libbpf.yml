@@ -35,7 +35,7 @@ jobs:
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: kepler
+          name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
           retention-days: 1
           # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
@@ -54,7 +54,7 @@ jobs:
       - name: download Kepler image artifact
         uses: actions/download-artifact@v3
         with:
-          name: kepler
+          name: keplerlibbpf
 
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
