@@ -3,6 +3,9 @@ name: Platform Validation
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   OUTPUT_DIR: "_output/"
   KEPLER_FILE_NAME: "kepler.tar.gz"

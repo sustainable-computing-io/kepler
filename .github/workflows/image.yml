@@ -8,6 +8,9 @@ on:
       password:
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   image_build:
     runs-on: ubuntu-latest

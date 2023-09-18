@@ -8,6 +8,9 @@ on:
       - 'enhancements/**'
       - '*.md'
 
+permissions:
+  contents: read
+
 jobs:
   # for each PR run go command line check
   golang:
