@@ -17,12 +17,14 @@ limitations under the License.
 package collector
 
 import (
+	"strconv"
 	"unsafe"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/libvirt"
 
 	"k8s.io/klog/v2"
 )
@@ -33,7 +35,7 @@ import "C"
 type ProcessBPFMetrics = attacher.ProcessBPFMetrics
 
 // updateBasicBPF
-func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, isSystemProcess bool) {
+func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, isSystemProcess, isSystemVM bool) {
 	// update ebpf metrics
 	// first update CPU time
 	err := c.ContainersMetrics[containerID].CPUTime.AddNewDelta(ct.ProcessRunTime)
@@ -56,10 +58,16 @@ func (c *Collector) updateBasicBPF(containerID string, ct *ProcessBPFMetrics, is
 			}
 		}
 	}
+	// track virtual machine metrics
+	if isSystemVM && config.EnableProcessMetrics {
+		for i := 0; i < config.MaxIRQ; i++ {
+			c.VMMetrics[ct.PID].SoftIRQCount = c.ProcessMetrics[ct.PID].SoftIRQCount
+		}
+	}
 }
 
 // updateHWCounters
-func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, isSystemProcess bool) {
+func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, isSystemProcess, isSystemVM bool) {
 	// update HW counters
 	for _, counterKey := range collector_metric.AvailableHWCounters {
 		var val uint64
@@ -84,6 +92,10 @@ func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, 
 				klog.V(5).Infoln(err)
 			}
 		}
+		// track virtual machine metrics
+		if isSystemVM && config.EnableProcessMetrics {
+			c.VMMetrics[ct.PID].CounterStats = c.ProcessMetrics[ct.PID].CounterStats
+		}
 	}
 }
 
@@ -91,7 +103,9 @@ func (c *Collector) updateHWCounters(containerID string, ct *ProcessBPFMetrics, 
 func (c *Collector) updateBPFMetrics() {
 	foundContainer := make(map[string]bool)
 	foundProcess := make(map[uint64]bool)
+	foundVM := make(map[uint64]bool)
 	processesData, err := attacher.CollectProcesses()
+	vmPIDList, _ := libvirt.GetCurrentVMPID()
 	if err != nil {
 		return
 	}
@@ -116,12 +130,21 @@ func (c *Collector) updateBPFMetrics() {
 			if err != nil {
 				klog.V(5).Infoln(err)
 			}
+			for vmpid, name := range vmPIDList {
+				pid, _ := strconv.ParseUint(vmpid, 10, 64)
+
+				if pid == ct.PID {
+					c.createVMMetricsIfNotExist(ct.PID, name)
+					foundVM[pid] = true
+					c.VMMetrics[ct.PID].CPUTime = c.ProcessMetrics[ct.PID].CPUTime
+				}
+			}
 		}
 
 		c.ContainersMetrics[containerID].CurrProcesses++
 
-		c.updateBasicBPF(containerID, &ct, isSystemProcess)
-		c.updateHWCounters(containerID, &ct, isSystemProcess)
+		c.updateBasicBPF(containerID, &ct, isSystemProcess, foundVM[ct.PID])
+		c.updateHWCounters(containerID, &ct, isSystemProcess, foundVM[ct.PID])
 
 		// TODO: improve the removal of deleted containers from ContainersMetrics. Currently we verify the maxInactiveContainers using the foundContainer map
 		foundContainer[containerID] = true
@@ -132,6 +155,7 @@ func (c *Collector) updateBPFMetrics() {
 	c.handleInactiveContainers(foundContainer)
 	if config.EnableProcessMetrics {
 		c.handleInactiveProcesses(foundProcess)
+		c.handleInactiveVM(foundVM)
 	}
 }
 
@@ -162,6 +186,18 @@ func (c *Collector) handleInactiveProcesses(foundProcess map[uint64]bool) {
 		for pid := range c.ProcessMetrics {
 			if _, found := foundProcess[pid]; !found {
 				delete(c.ProcessMetrics, pid)
+			}
+		}
+	}
+}
+
+// handleInactiveVirtualMachine
+func (c *Collector) handleInactiveVM(foundVM map[uint64]bool) {
+	numOfInactive := len(c.VMMetrics) - len(foundVM)
+	if numOfInactive > maxInactiveVM {
+		for pid := range c.VMMetrics {
+			if _, found := foundVM[pid]; !found {
+				delete(c.VMMetrics, pid)
 			}
 		}
 	}

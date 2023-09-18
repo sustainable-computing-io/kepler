@@ -102,6 +102,7 @@ type PrometheusCollector struct {
 	containerDesc *ContainerDesc
 	podDesc       *PodDesc
 	processDesc   *processDesc
+	vmDesc        *vmDesc
 
 	// NodeMetrics holds all node energy and resource usage metrics
 	NodeMetrics *collector_metric.NodeMetrics
@@ -111,6 +112,9 @@ type PrometheusCollector struct {
 
 	// ProcessMetrics hold all process energy and resource usage metrics
 	ProcessMetrics *map[uint64]*collector_metric.ProcessMetrics
+
+	// VMMetrics hold all Virtual Machine energy and resource usage metrics
+	VMMetrics *map[uint64]*collector_metric.VMMetrics
 
 	// SamplePeriodSec the collector metric collection interval
 	SamplePeriodSec float64
@@ -132,11 +136,13 @@ func NewPrometheusExporter() *PrometheusCollector {
 		nodeDesc:    &NodeDesc{},
 		podDesc:     &PodDesc{},
 		processDesc: &processDesc{},
+		vmDesc:      &vmDesc{},
 	}
 	exporter.newNodeMetrics()
 	exporter.newContainerMetrics()
 	exporter.newPodMetrics()
 	exporter.newprocessMetrics()
+	exporter.newVMMetrics()
 	return &exporter
 }
 
@@ -216,6 +222,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 		ch <- p.containerDesc.containerBlockIRQTotal
 	}
 	p.describeProcess(ch)
+	p.describeVM(ch)
 }
 
 func (p *PrometheusCollector) newNodeMetrics() {
@@ -451,6 +458,7 @@ func (p *PrometheusCollector) Collect(ch chan<- prometheus.Metric) {
 	p.updateNodeMetrics(&wg, ch)
 	p.updatePodMetrics(&wg, ch)
 	p.updateProcessMetrics(&wg, ch)
+	p.updateVMMetrics(&wg, ch)
 	wg.Wait()
 }
 

@@ -36,6 +36,7 @@ import (
 const (
 	maxInactiveContainers = 10
 	maxInactiveProcesses  = 5
+	maxInactiveVM         = 3
 )
 
 type Collector struct {
@@ -48,6 +49,9 @@ type Collector struct {
 	// ProcessMetrics hold all process energy and resource usage metrics
 	ProcessMetrics map[uint64]*collector_metric.ProcessMetrics
 
+	// VMMetrics hold all Virtual Machine energy and resource usage metrics
+	VMMetrics map[uint64]*collector_metric.VMMetrics
+
 	// generic names to be used for process that are not within a pod
 	systemProcessName      string
 	systemProcessNamespace string
@@ -58,6 +62,7 @@ func NewCollector() *Collector {
 		NodeMetrics:            *collector_metric.NewNodeMetrics(),
 		ContainersMetrics:      map[string]*collector_metric.ContainerMetrics{},
 		ProcessMetrics:         map[uint64]*collector_metric.ProcessMetrics{},
+		VMMetrics:              map[uint64]*collector_metric.VMMetrics{},
 		systemProcessName:      utils.SystemProcessName,
 		systemProcessNamespace: utils.SystemProcessNamespace,
 	}
@@ -127,6 +132,7 @@ func (c *Collector) Update() {
 	// calculate the process energy consumption using its resource utilization and the node components energy consumption
 	if config.EnableProcessMetrics {
 		c.updateProcessEnergy()
+		c.updateVMEnergy()
 	}
 
 	// check the log verbosity level before iterating in all container

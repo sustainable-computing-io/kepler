@@ -47,6 +47,7 @@ func New() *CollectorManager {
 	manager.PrometheusCollector.NodeMetrics = &manager.MetricCollector.NodeMetrics
 	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
 	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
+	manager.PrometheusCollector.VMMetrics = &manager.MetricCollector.VMMetrics
 	manager.PrometheusCollector.SamplePeriodSec = config.SamplePeriodSec
 	// configure the wather
 	manager.Watcher = kubernetes.NewObjListWatcher()
