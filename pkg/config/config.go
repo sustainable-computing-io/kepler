@@ -56,7 +56,7 @@ const (
 	MaxIRQ = 10
 
 	// SamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
-	SamplePeriodSec = 3
+	defaultSamplePeriodSec = 3
 )
 
 var (
@@ -92,6 +92,8 @@ var (
 	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue)  // no metric (evenly divided)
 	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)       // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", defaultMetricValue) // for uncategorized energy
+
+	SamplePeriodSec = getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec)
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
