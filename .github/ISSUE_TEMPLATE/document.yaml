@@ -5,14 +5,21 @@ body:
   - type: textarea
     id: document
     attributes:
-      label: Which document would you like to be mentioned?
-      description: Place the link to the document if application
+      label: Which document would you like to address?
+      description: Include the link to the document if applicable
     validations:
       required: true
 
   - type: textarea
     id: documentFixDetail
     attributes:
-      label: Why is this needed?
+      label: What is the issue?
     validations:
       required: true
+
+  - type: textarea
+    id: documentFixDetail
+    attributes:
+      label: How do you suggest this is fixed?
+    validations:
+      required: false
