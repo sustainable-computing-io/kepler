@@ -55,8 +55,8 @@ const (
 	// MaxIRQ is the maximum number of IRQs to be monitored
 	MaxIRQ = 10
 
-	// SamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
-	SamplePeriodSec = 3
+	// defaultSamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
+	defaultSamplePeriodSec = 3
 )
 
 var (
@@ -92,6 +92,8 @@ var (
 	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue)  // no metric (evenly divided)
 	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)       // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", defaultMetricValue) // for uncategorized energy
+
+	SamplePeriodSec = uint64(getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec))
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 

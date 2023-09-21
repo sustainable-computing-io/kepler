@@ -201,7 +201,7 @@ container_build:
 	$(CTR_CMD) run --rm \
 		--network host \
 		-v $(base_dir):/kepler:Z -w /kepler \
-		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
+		-e GOROOT=/usr/local/go -e PATH=/usr/bin:/bin:/sbin:/usr/local/bin:/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
 		git config --global --add safe.directory /kepler && make build
 

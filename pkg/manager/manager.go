@@ -24,8 +24,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 )
 
-const (
-	samplePeriod = config.SamplePeriodSec * 1000 * time.Millisecond
+var (
+	samplePeriod = time.Duration(config.SamplePeriodSec * 1000 * uint64(time.Millisecond))
 )
 
 type CollectorManager struct {
@@ -48,7 +48,7 @@ func New() *CollectorManager {
 	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
 	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
 	manager.PrometheusCollector.VMMetrics = &manager.MetricCollector.VMMetrics
-	manager.PrometheusCollector.SamplePeriodSec = config.SamplePeriodSec
+	manager.PrometheusCollector.SamplePeriodSec = float64(config.SamplePeriodSec)
 	// configure the wather
 	manager.Watcher = kubernetes.NewObjListWatcher()
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
