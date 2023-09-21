@@ -94,13 +94,13 @@ func UpdateNodePlatformEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for id, power := range platformPower {
 		// convert power to energy
-		platformPower[id] = power * config.SamplePeriodSec
+		platformPower[id] = power * float64(config.SamplePeriodSec)
 	}
 	nodeMetrics.SetNodePlatformEnergy(platformPower, gauge, absPower)
 	platformPower = GetNodePlatformPower(nodeMetrics, idlePower)
 	for id, power := range platformPower {
 		// convert power to energy
-		platformPower[id] = power * config.SamplePeriodSec
+		platformPower[id] = power * float64(config.SamplePeriodSec)
 	}
 	nodeMetrics.SetNodePlatformEnergy(platformPower, gauge, idlePower)
 }

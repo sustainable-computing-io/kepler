@@ -93,7 +93,7 @@ var (
 	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)       // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", defaultMetricValue) // for uncategorized energy
 
-	SamplePeriodSec = getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec)
+	SamplePeriodSec = uint64(getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec))
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
