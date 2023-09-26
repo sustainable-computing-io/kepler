@@ -89,7 +89,7 @@ func GetNodePlatformPower(nodeMetrics *collector_metric.NodeMetrics, isIdlePower
 	return
 }
 
-// UpdateNodePlatformEnergy resets the power model samples, add new samples to the power models, then estimates the idle and dynamic energy
+// UpdateNodePlatformEnergy sets the power model samples, get absolute powers, and set platform energy
 func UpdateNodePlatformEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for id, power := range platformPower {
@@ -97,7 +97,11 @@ func UpdateNodePlatformEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 		platformPower[id] = power * float64(config.SamplePeriodSec)
 	}
 	nodeMetrics.SetNodePlatformEnergy(platformPower, gauge, absPower)
-	platformPower = GetNodePlatformPower(nodeMetrics, idlePower)
+}
+
+// UpdateNodePlatformIdleEnergy sets the power model samples to zeros, get idle powers, and set platform energy
+func UpdateNodePlatformIdleEnergy(nodeMetrics *collector_metric.NodeMetrics) {
+	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
 	for id, power := range platformPower {
 		// convert power to energy
 		platformPower[id] = power * float64(config.SamplePeriodSec)
