@@ -91,7 +91,7 @@ func GetNodeComponentPowers(nodeMetrics *collector_metric.NodeMetrics, isIdlePow
 	return
 }
 
-// UpdateNodeComponentEnergy resets the power model samples, add new samples to the power models, then estimates the idle and absolute energy
+// UpdateNodeComponentIdleEnergy sets the power model samples, get absolute powers, and set gauge value for each component energy
 func UpdateNodeComponentEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 	componentPower := GetNodeComponentPowers(nodeMetrics, absPower)
 	for id := range componentPower {
@@ -109,8 +109,11 @@ func UpdateNodeComponentEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 		componentPower[id] = power
 	}
 	nodeMetrics.SetNodeComponentsEnergy(componentPower, gauge, absPower)
+}
 
-	componentPower = GetNodeComponentPowers(nodeMetrics, idlePower)
+// UpdateNodeComponentIdleEnergy sets the power model samples to zeros, get idle powers, and set gauge value for each component idle energy
+func UpdateNodeComponentIdleEnergy(nodeMetrics *collector_metric.NodeMetrics) {
+	componentPower := GetNodeComponentPowers(nodeMetrics, idlePower)
 	for id := range componentPower {
 		var ok bool
 		var power source.NodeComponentsEnergy
@@ -126,6 +129,4 @@ func UpdateNodeComponentEnergy(nodeMetrics *collector_metric.NodeMetrics) {
 		componentPower[id] = power
 	}
 	nodeMetrics.SetNodeComponentsEnergy(componentPower, gauge, idlePower)
-	// After the node component idle and absulute energy was updated, we need to update the dynamic power
-	nodeMetrics.UpdateDynEnergy()
 }

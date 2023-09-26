@@ -98,13 +98,10 @@ func (c *Collector) updateNodeIdleEnergy() {
 	if !isComponentsSystemCollectionSupported {
 		// if power collection on components is not supported, try using estimator to update idle energy
 		if model.IsNodeComponentPowerModelEnabled() {
-			nodeComponentsEnergy := model.GetNodeComponentPowers(&c.NodeMetrics, idlePower)
-			// the node components power model returns gauge mentrics
-			c.NodeMetrics.SetNodeComponentsEnergy(nodeComponentsEnergy, true, idlePower)
+			model.UpdateNodeComponentIdleEnergy(&c.NodeMetrics)
 		}
 		if model.IsNodePlatformPowerModelEnabled() {
-			nodePlatformEnergy := model.GetNodePlatformPower(&c.NodeMetrics, idlePower)
-			c.NodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, idlePower)
+			model.UpdateNodePlatformIdleEnergy(&c.NodeMetrics)
 		}
 	}
 }
