@@ -198,10 +198,23 @@ var _ = Describe("Test LR Weight Unit", func() {
 	})
 
 	Context("without model server", func() {
-		It("Get Node Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
-			/// Estimate Node Components Absolute Power using Linear Regression
+		It("Get Node Platform Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			/// Estimate Node Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
-			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/Linux-4.15.0-213-generic-x86_64_v0.6/rapl/AbsPower/KubeletOnly/weight.json"
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
+			r := genLinearRegressor(types.AbsPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
+			_, err = r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Get Node Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			/// Estimate Node Components Power using Linear Regression
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genLinearRegressor(types.AbsPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -212,9 +225,24 @@ var _ = Describe("Test LR Weight Unit", func() {
 		})
 
 		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
-			// Estimate Container Components Absolute Power using Linear Regression
+			// Estimate Container Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
-			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/Linux-4.15.0-213-generic-x86_64_v0.6/rapl/DynPower/KubeletOnly/weight.json"
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
+			r := genLinearRegressor(types.DynPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			for _, containerFeatureValues := range containerFeatureValues {
+				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			}
+			_, err = r.GetComponentsPower(false)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			// Estimate Container Components Power using Linear Regression
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
+			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genLinearRegressor(types.DynPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -226,6 +254,4 @@ var _ = Describe("Test LR Weight Unit", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
-
-	// TODO: right now we don't have a pre-trained power model for node platform power, we should create a test when it is available.
 })
