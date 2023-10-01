@@ -20,12 +20,16 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: install libbpf
+        uses: sustainable-computing-io/kepler-action@v0.0.2
+        with:
+          ebpfprovider: libbpf
+
       - name: build and export Kepler image
         run: |
           make build_containerized
           make save-image
         env:
-          ATTACHER_TAG: libbpf
           IMAGE_REPO: "localhost:5001"
           IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
@@ -74,9 +78,9 @@ jobs:
           INPUT_PATH: ${{env.FILE_NAME}}
 
       - name: use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.1
+        uses: sustainable-computing-io/kepler-action@v0.0.2
         with:
-          runningBranch: ${{matrix.cluster_provider}}
+          ebpfprovider: libbpf
           cluster_provider: ${{matrix.cluster_provider}}
           local_dev_cluster_version: v0.0.3
 
@@ -109,7 +113,6 @@ jobs:
       - name: run e2e tests
         run: make e2e
         env:
-          ATTACHER_TAG: libbpf
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           kepler_address: localhost:9102
 

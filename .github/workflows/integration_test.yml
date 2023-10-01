@@ -73,9 +73,8 @@ jobs:
           INPUT_PATH: ${{env.FILE_NAME}}
 
       - name: use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.1
+        uses: sustainable-computing-io/kepler-action@v0.0.2
         with:
-          runningBranch: ${{matrix.cluster_provider}}
           cluster_provider: ${{matrix.cluster_provider}}
           local_dev_cluster_version: v0.0.3
 
