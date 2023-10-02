@@ -71,10 +71,10 @@ var (
 		},
 	}
 	SampleCoreNumericalVars = map[string]NormalizedNumericalFeature{
-		"cpu_cycles": {Weight: 1.0, Mean: 0, Variance: 1},
+		"cpu_cycles": {Weight: 1.0, Scale: 1},
 	}
 	SampleDramNumbericalVars = map[string]NormalizedNumericalFeature{
-		"cache_miss": {Weight: 1.0, Mean: 0, Variance: 1},
+		"cache_miss": {Weight: 1.0, Scale: 1},
 	}
 	SampleComponentWeightResponse = ComponentModelWeights{
 		collector_metric.CORE: genWeights(SampleCoreNumericalVars),
