@@ -80,8 +80,8 @@ type ContainerDesc struct {
 	containerKubeletMemoryBytesTotal *prometheus.Desc
 
 	// Additional metrics (gauge)
-	// TODO: review if we really need to expose this metric. cgroup also has some sortof cpuTime metric
-	containerCPUTime *prometheus.Desc
+	containerCPUTime      *prometheus.Desc
+	containerPageCacheHit *prometheus.Desc
 
 	// IRQ metrics
 	containerNetTxIRQTotal *prometheus.Desc
@@ -214,6 +214,7 @@ func (p *PrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 
 	ch <- p.containerDesc.containerCPUTime
+	ch <- p.containerDesc.containerPageCacheHit
 
 	// IRQ counter
 	if config.IsIRQCounterMetricsEnabled() {
@@ -390,10 +391,15 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
 	)
 
-	// Additional metrics (gauge)
+	// Additional metrics (counter)
 	containerCPUTime := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUTime, config.AggregatedUsageSuffix)),
 		"Aggregated CPU time obtained from BPF",
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
+	)
+	containerPageCacheHit := prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "container", addSuffix(config.PageCacheHit, config.AggregatedUsageSuffix)),
+		"Aggregated Page Cache Hit obtained from BPF",
 		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
@@ -432,6 +438,7 @@ func (p *PrometheusCollector) newContainerMetrics() {
 		containerKubeletMemoryBytesTotal:     containerKubeletMemoryBytesTotal,
 		containerKubeletCPUUsageTotal:        containerKubeletCPUUsageTotal,
 		containerCPUTime:                     containerCPUTime,
+		containerPageCacheHit:                containerPageCacheHit,
 		containerNetTxIRQTotal:               containerNetTxIRQTotal,
 		containerNetRxIRQTotal:               containerNetRxIRQTotal,
 		containerBlockIRQTotal:               containerBlockIRQTotal,
@@ -627,12 +634,22 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			if len(containerCommand) > commandLenLimit {
 				containerCommand = container.Command[:commandLenLimit]
 			}
-			ch <- prometheus.MustNewConstMetric(
-				p.containerDesc.containerCPUTime,
-				prometheus.CounterValue,
-				float64(container.CPUTime.Aggr),
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-			)
+			if container.BPFStats[config.CPUTime] != nil {
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerCPUTime,
+					prometheus.CounterValue,
+					float64(container.BPFStats[config.CPUTime].Aggr),
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
+				)
+			}
+			if container.BPFStats[config.PageCacheHit] != nil {
+				ch <- prometheus.MustNewConstMetric(
+					p.containerDesc.containerPageCacheHit,
+					prometheus.CounterValue,
+					float64(container.BPFStats[config.PageCacheHit].Aggr),
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
+				)
+			}
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerCoreJoulesTotal,
 				prometheus.CounterValue,
@@ -737,27 +754,27 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				)
 			}
 			if config.ExposeHardwareCounterMetrics && collector_metric.CPUHardwareCounterEnabled {
-				if container.CounterStats[attacher.CPUCycleLabel] != nil {
+				if container.BPFStats[attacher.CPUCycleLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerCPUCyclesTotal,
 						prometheus.CounterValue,
-						float64(container.CounterStats[attacher.CPUCycleLabel].Aggr),
+						float64(container.BPFStats[attacher.CPUCycleLabel].Aggr),
 						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
 					)
 				}
-				if container.CounterStats[attacher.CPUInstructionLabel] != nil {
+				if container.BPFStats[attacher.CPUInstructionLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerCPUInstrTotal,
 						prometheus.CounterValue,
-						float64(container.CounterStats[attacher.CPUInstructionLabel].Aggr),
+						float64(container.BPFStats[attacher.CPUInstructionLabel].Aggr),
 						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
 					)
 				}
-				if container.CounterStats[attacher.CacheMissLabel] != nil {
+				if container.BPFStats[attacher.CacheMissLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerCacheMissTotal,
 						prometheus.CounterValue,
-						float64(container.CounterStats[attacher.CacheMissLabel].Aggr),
+						float64(container.BPFStats[attacher.CacheMissLabel].Aggr),
 						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
 					)
 				}
@@ -806,24 +823,30 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 			}
 
 			if config.ExposeIRQCounterMetrics {
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerNetTxIRQTotal,
-					prometheus.CounterValue,
-					float64(container.SoftIRQCount[attacher.IRQNetTX].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerNetRxIRQTotal,
-					prometheus.CounterValue,
-					float64(container.SoftIRQCount[attacher.IRQNetRX].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.containerDesc.containerBlockIRQTotal,
-					prometheus.CounterValue,
-					float64(container.SoftIRQCount[attacher.IRQBlock].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
-				)
+				if container.BPFStats[config.IRQNetTXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.containerDesc.containerNetTxIRQTotal,
+						prometheus.CounterValue,
+						float64(container.BPFStats[config.IRQNetTXLabel].Aggr),
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
+					)
+				}
+				if container.BPFStats[config.IRQNetRXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.containerDesc.containerNetRxIRQTotal,
+						prometheus.CounterValue,
+						float64(container.BPFStats[config.IRQNetRXLabel].Aggr),
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
+					)
+				}
+				if container.BPFStats[config.IRQBlockLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.containerDesc.containerBlockIRQTotal,
+						prometheus.CounterValue,
+						float64(container.BPFStats[config.IRQBlockLabel].Aggr),
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
+					)
+				}
 			}
 		}(container)
 	}

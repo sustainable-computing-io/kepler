@@ -20,9 +20,13 @@ import (
 	"testing"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 func benchmarkNtesting(b *testing.B, containerNumber int) {
+	metric.AvailableBPFSWCounters = []string{
+		config.CPUTime,
+	}
 	var containerMetrics map[string]*metric.ContainerMetrics
 	nodeMetrics := metric.NewNodeMetrics()
 	containerMetrics = make(map[string]*metric.ContainerMetrics)
@@ -55,6 +59,6 @@ func BenchmarkAddNodeResUsageFromContainerResUsageWith10000Contianer(b *testing.
 func createMockContainerMetrics(containerName, podName, namespace string) *metric.ContainerMetrics {
 	containerMetrics := metric.NewContainerMetrics(containerName, podName, namespace, containerName)
 	// bpf - cpu time
-	_ = containerMetrics.CPUTime.AddNewDelta(30000) // config.CPUTime
+	_ = containerMetrics.BPFStats[config.CPUTime].AddNewDelta(30000) // config.CPUTime
 	return containerMetrics
 }

@@ -108,6 +108,24 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 		klog.Warningf("could not load softirq_entry: %s", err)
 	}
 
+	page_write, err := m.LoadKprobe("kprobe__mark_buffer_dirty")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load kprobe__mark_buffer_dirty: %s", err)
+	}
+	err = m.AttachKprobe("mark_buffer_dirty", page_write, -1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach mark_buffer_dirty: %s", err)
+	}
+
+	page_read, err := m.LoadKprobe("kprobe__mark_page_accessed")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load kprobe__mark_page_accessed: %s", err)
+	}
+	err = m.AttachKprobe("mark_page_accessed", page_read, -1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach mark_page_accessed: %s", err)
+	}
+
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
 		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)

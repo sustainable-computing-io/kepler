@@ -41,9 +41,9 @@ type CPUModelData struct {
 func getcontainerUintFeatureNames() []string {
 	var metrics []string
 	// bpf metrics
-	metrics = append(metrics, AvailableEBPFCounters...)
+	metrics = append(metrics, AvailableBPFSWCounters...)
 	// counter metric
-	metrics = append(metrics, AvailableHWCounters...)
+	metrics = append(metrics, AvailableBPFHWCounters...)
 	// cgroup metric
 	metrics = append(metrics, AvailableCGroupMetrics...)
 	// cgroup kubelet metric
@@ -53,8 +53,8 @@ func getcontainerUintFeatureNames() []string {
 		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
 	}
 
-	klog.V(3).Infof("Available ebpf metrics: %v", AvailableEBPFCounters)
-	klog.V(3).Infof("Available counter metrics: %v", AvailableHWCounters)
+	klog.V(3).Infof("Available ebpf metrics: %v", AvailableBPFSWCounters)
+	klog.V(3).Infof("Available counter metrics: %v", AvailableBPFHWCounters)
 	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
 	klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
 
@@ -71,7 +71,7 @@ func setEnabledMetrics() {
 }
 
 func isCounterStatEnabled(label string) bool {
-	for _, counter := range AvailableHWCounters {
+	for _, counter := range AvailableBPFHWCounters {
 		if counter == label {
 			return true
 		}

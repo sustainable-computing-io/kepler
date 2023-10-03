@@ -25,6 +25,7 @@ const (
 
 	// bpf - attacher package
 	CPUTime       = "bpf_cpu_time_us"
+	PageCacheHit  = "bpf_page_cache_hit"
 	IRQNetTXLabel = "bpf_net_tx_irq"
 	IRQNetRXLabel = "bpf_net_rx_irq"
 	IRQBlockLabel = "bpf_block_irq"

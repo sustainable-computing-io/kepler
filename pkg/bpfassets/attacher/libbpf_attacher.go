@@ -141,6 +141,28 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		}
 	}
 
+	// attach function
+	page_write, err := libbpfModule.GetProgram("kprobe__mark_buffer_dirty")
+	if err != nil {
+		return libbpfModule, fmt.Errorf("failed to get kprobe__mark_buffer_dirty: %v", err)
+	} else {
+		_, err = page_write.AttachKprobe("mark_buffer_dirty")
+		if err != nil {
+			return libbpfModule, fmt.Errorf("failed to attach kprobe/mark_buffer_dirty: %v", err)
+		}
+	}
+
+	// attach function
+	page_read, err := libbpfModule.GetProgram("kprobe__mark_page_accessed")
+	if err != nil {
+		return libbpfModule, fmt.Errorf("failed to get kprobe__mark_page_accessed: %v", err)
+	} else {
+		_, err = page_read.AttachKprobe("mark_page_accessed")
+		if err != nil {
+			return libbpfModule, fmt.Errorf("failed to attach kprobe/mark_page_accessed: %v", err)
+		}
+	}
+
 	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix

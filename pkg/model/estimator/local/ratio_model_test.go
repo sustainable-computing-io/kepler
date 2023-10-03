@@ -31,16 +31,16 @@ var _ = Describe("Test Ratio Unit", func() {
 
 		containersMetrics := map[string]*collector_metric.ContainerMetrics{}
 		containersMetrics["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
-		containersMetrics["containerA"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err := containersMetrics["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		containersMetrics["containerA"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		err := containersMetrics["containerA"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		containersMetrics["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
-		containersMetrics["containerB"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = containersMetrics["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		containersMetrics["containerB"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		err = containersMetrics["containerB"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		containersMetrics["containerC"] = collector_metric.NewContainerMetrics("containerC", "podC", "test", "containerC")
-		containersMetrics["containerC"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = containersMetrics["containerC"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		containersMetrics["containerC"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		err = containersMetrics["containerC"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 
 		nodeMetrics := collector_metric.NewNodeMetrics()
