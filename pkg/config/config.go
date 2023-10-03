@@ -305,7 +305,7 @@ func SetEnabledEstimatedIdlePower(enabled bool) {
 // IsEstimatedIdlePowerEnabled always return true if Kepler has access to system power metrics.
 // However, if pre-trained power models are being used, Kepler should only expose metrics if the user is aware of the implications.
 func IsEstimatedIdlePowerEnabled() bool {
-	return ExposeHardwareCounterMetrics
+	return ExposeEstimatedIdlePowerMetrics
 }
 
 // SetEnabledGPU enables the exposure of gpu metrics
