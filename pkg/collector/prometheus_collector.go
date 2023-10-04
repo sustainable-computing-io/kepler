@@ -302,92 +302,92 @@ func (p *PrometheusCollector) newContainerMetrics() {
 	containerCoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.CORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in core in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerUncoreJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.UNCORE, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in uncore in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerDramJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.DRAM, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in dram in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerPackageJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.PKG, config.AggregatedEnergySuffix)),
 		"Aggregated RAPL value in package (socket) in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerOtherComponentsJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.OTHER, config.AggregatedEnergySuffix)),
 		"Aggregated value in other host components (platform - package - dram) in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerGPUJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(collector_metric.GPU, config.AggregatedEnergySuffix)),
 		"Aggregated GPU value in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 	containerJoulesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", config.AggregatedEnergySuffix),
 		"Aggregated RAPL Package + Uncore + DRAM + GPU + other host components (platform - package - dram) in joules",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command", "mode"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace", "mode"}, nil,
 	)
 
 	// Hardware Counters (counter)
 	containerCPUCyclesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUCycle, config.AggregatedUsageSuffix)),
 		"Aggregated CPU cycle value",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerCPUInstrTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CPUInstruction, config.AggregatedUsageSuffix)),
 		"Aggregated CPU instruction value",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 	containerCacheMissTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CacheMiss, config.AggregatedUsageSuffix)),
 		"Aggregated cache miss value",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	// cGroups Counters (counter)
 	containerCgroupCPUUsageUsTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsCPU, config.AggregatedUsageSuffix)),
 		"Aggregated cpu usage obtained from cGroups",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	containerCgroupMemoryUsageBytesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsMemory, config.AggregatedUsageSuffix)),
 		"Aggregated memory bytes obtained from cGroups",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	containerCgroupSystemCPUUsageUsTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsSystemCPU, config.AggregatedUsageSuffix)),
 		"Aggregated system cpu usage obtained from cGroups",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	containerCgroupUserCPUUsageUsTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.CgroupfsUserCPU, config.AggregatedUsageSuffix)),
 		"Aggregated user cpu usage obtained from cGroups",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	// Kubelet Counters (counter)
 	containerKubeletCPUUsageTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.KubeletCPUUsage, config.AggregatedUsageSuffix)),
 		"Aggregated cpu usage obtained from kubelet",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	containerKubeletMemoryBytesTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "container", addSuffix(config.KubeletMemoryUsage, config.AggregatedUsageSuffix)),
 		"Aggregated memory bytes obtained from kubelet",
-		[]string{"container_id", "pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"container_id", "pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	// Additional metrics (gauge)
@@ -442,7 +442,7 @@ func (p *PrometheusCollector) newPodMetrics() {
 	podCPUInstrTotal := prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "pod", "cpu_instructions"),
 		"Aggregated CPU instruction value (deprecated)",
-		[]string{"pod_name", "container_name", "container_namespace", "command"}, nil,
+		[]string{"pod_name", "container_name", "container_namespace"}, nil,
 	)
 
 	p.podDesc = &PodDesc{
@@ -618,15 +618,10 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 
 // updatePodMetrics send pod metrics to prometheus
 func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- prometheus.Metric) {
-	const commandLenLimit = 10
 	for _, container := range *p.ContainersMetrics {
 		wg.Add(1)
 		go func(container *collector_metric.ContainerMetrics) {
 			defer wg.Done()
-			containerCommand := container.Command
-			if len(containerCommand) > commandLenLimit {
-				containerCommand = container.Command[:commandLenLimit]
-			}
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerCPUTime,
 				prometheus.CounterValue,
@@ -637,62 +632,62 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				p.containerDesc.containerCoreJoulesTotal,
 				prometheus.CounterValue,
 				float64(container.DynEnergyInCore.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerUncoreJoulesTotal,
 				prometheus.CounterValue,
 				float64(container.DynEnergyInUncore.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerDramJoulesTotal,
 				prometheus.CounterValue,
 				float64(container.DynEnergyInDRAM.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerPackageJoulesTotal,
 				prometheus.CounterValue,
 				float64(container.DynEnergyInPkg.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			ch <- prometheus.MustNewConstMetric(
 				p.containerDesc.containerOtherComponentsJoulesTotal,
 				prometheus.CounterValue,
 				float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule,
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			if config.IsEstimatedIdlePowerEnabled() {
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCoreJoulesTotal,
 					prometheus.CounterValue,
 					float64(container.IdleEnergyInCore.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerUncoreJoulesTotal,
 					prometheus.CounterValue,
 					float64(container.IdleEnergyInUncore.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerDramJoulesTotal,
 					prometheus.CounterValue,
 					float64(container.IdleEnergyInDRAM.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerPackageJoulesTotal,
 					prometheus.CounterValue,
 					float64(container.IdleEnergyInPkg.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerOtherComponentsJoulesTotal,
 					prometheus.CounterValue,
 					float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule,
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 			}
 			if config.EnabledGPU {
@@ -701,7 +696,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						p.containerDesc.containerGPUJoulesTotal,
 						prometheus.CounterValue,
 						float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule,
-						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 					)
 				}
 				if container.IdleEnergyInGPU.Aggr > 0 {
@@ -710,7 +705,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						p.containerDesc.containerGPUJoulesTotal,
 						prometheus.CounterValue,
 						float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule,
-						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 					)
 				}
 			}
@@ -722,7 +717,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					float64(container.DynEnergyInDRAM.Aggr)/miliJouleToJoule +
 					float64(container.DynEnergyInGPU.Aggr)/miliJouleToJoule +
 					float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule),
-				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "dynamic",
+				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
 			if config.IsEstimatedIdlePowerEnabled() {
 				ch <- prometheus.MustNewConstMetric(
@@ -733,7 +728,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						float64(container.IdleEnergyInDRAM.Aggr)/miliJouleToJoule +
 						float64(container.IdleEnergyInGPU.Aggr)/miliJouleToJoule +
 						float64(container.IdleEnergyInOther.Aggr)/miliJouleToJoule),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand, "idle",
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle",
 				)
 			}
 			if config.ExposeHardwareCounterMetrics && collector_metric.CPUHardwareCounterEnabled {
@@ -742,7 +737,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						p.containerDesc.containerCPUCyclesTotal,
 						prometheus.CounterValue,
 						float64(container.CounterStats[attacher.CPUCycleLabel].Aggr),
-						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 					)
 				}
 				if container.CounterStats[attacher.CPUInstructionLabel] != nil {
@@ -750,7 +745,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						p.containerDesc.containerCPUInstrTotal,
 						prometheus.CounterValue,
 						float64(container.CounterStats[attacher.CPUInstructionLabel].Aggr),
-						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 					)
 				}
 				if container.CounterStats[attacher.CacheMissLabel] != nil {
@@ -758,7 +753,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 						p.containerDesc.containerCacheMissTotal,
 						prometheus.CounterValue,
 						float64(container.CounterStats[attacher.CacheMissLabel].Aggr),
-						container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+						container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 					)
 				}
 			}
@@ -768,25 +763,25 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					p.containerDesc.containerCgroupCPUUsageUsTotal,
 					prometheus.CounterValue,
 					float64(container.CgroupStatMap[config.CgroupfsCPU].SumAllAggrValues()),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupMemoryUsageBytesTotal,
 					prometheus.CounterValue,
 					float64(container.CgroupStatMap[config.CgroupfsMemory].SumAllAggrValues()),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupSystemCPUUsageUsTotal,
 					prometheus.CounterValue,
 					float64(container.CgroupStatMap[config.CgroupfsSystemCPU].SumAllAggrValues()),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCgroupUserCPUUsageUsTotal,
 					prometheus.CounterValue,
 					float64(container.CgroupStatMap[config.CgroupfsUserCPU].SumAllAggrValues()),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 			}
 
@@ -795,13 +790,13 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					p.containerDesc.containerKubeletCPUUsageTotal,
 					prometheus.CounterValue,
 					float64(container.KubeletStats[config.KubeletCPUUsage].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerKubeletMemoryBytesTotal,
 					prometheus.CounterValue,
 					float64(container.KubeletStats[config.KubeletMemoryUsage].Aggr),
-					container.ContainerID, container.PodName, container.ContainerName, container.Namespace, containerCommand,
+					container.ContainerID, container.PodName, container.ContainerName, container.Namespace,
 				)
 			}
 
