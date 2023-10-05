@@ -9,6 +9,13 @@ jobs:
   gosec:
     uses: ./.github/workflows/gosec.yml
   # daily image build    
+  base_image:
+    uses: ./.github/workflows/image_base.yml
+    with:
+      push_option: false  
+    secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
   image:
     uses: ./.github/workflows/image.yml
     secrets:

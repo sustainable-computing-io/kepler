@@ -1,7 +1,5 @@
 FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 
-ARG ARCH=$(uname -m)
-
 # enable EPEL and install cpuid
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \ 
     yum install -y cpuid
@@ -9,9 +7,19 @@ RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.n
 # install less frequently updated pkg first
 RUN yum install -y kmod xz python3 && yum clean all -y
 
-# bcc pkg is updated more frequently
+# enable centos appstream
 RUN yum install -y https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/bcc-0.26.0-2.el9.x86_64.rpm && \
     yum install -y https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/bcc-devel-0.26.0-2.el9.x86_64.rpm
+    
+RUN yum install -y dnf-plugins-core python3-pip
+    # && \
+    #yum config-manager --set-enabled powertools
 
-# nvidia driver is updated on a (bi)monthly basis
-# RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
+# don't update yet, this will conflict with protected pkg i.e. redhat-release
+#RUN yum update -y
+
+# install less frequently updated pkg first
+RUN pip3 install  --no-cache-dir archspec 
+
+# bcc pkg is updated more frequently
+RUN yum install -y bcc && yum install -y bcc-devel

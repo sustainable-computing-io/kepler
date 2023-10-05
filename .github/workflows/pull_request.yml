@@ -24,5 +24,8 @@ jobs:
   # for each PR run integration test    
   integration_test_libbpf:
     uses: ./.github/workflows/integration_test_libbpf.yml
-
-  
+  # base image
+  base_image:
+    uses: ./.github/workflows/image_base.yml
+    with:
+      push_option: false

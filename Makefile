@@ -381,3 +381,11 @@ platform-validation: ginkgo-set get-env
 
 check: tidy-vendor set_govulncheck govulncheck format golint test
 .PHONY: check
+
+multi-arch-image-base:	
+	$(CTR_CMD) pull --platform=linux/s390x quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) pull --platform=linux/amd64 quay.io/sustainable_computing_io/kepler_base:latest-amd64; \
+	$(CTR_CMD) manifest create quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x quay.io/sustainable_computing_io/kepler_base:latest-amd64 quay.io/sustainable_computing_io/kepler_base:latest-arm64; \
+	$(CTR_CMD) manifest annotate --arch s390x quay.io/sustainable_computing_io/kepler_base:latest quay.io/sustainable_computing_io/kepler_base:latest-s390x; \
+	$(CTR_CMD) push quay.io/sustainable_computing_io/kepler_base:latest
+.PHONY: multi-arch-image-base

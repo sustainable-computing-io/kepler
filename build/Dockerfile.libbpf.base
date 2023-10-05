@@ -3,8 +3,6 @@
 #
 FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 
-ARG ARCH=$(uname -m)
-
 # enable EPEL and install cpuid
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \ 
     yum install -y cpuid
