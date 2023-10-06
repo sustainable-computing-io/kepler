@@ -52,7 +52,7 @@ jobs:
         with:
           context: .
           file: ./build/Dockerfile.libbpf.base
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ inputs.push_option }}
           tags: quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-1.2.0
 
@@ -61,7 +61,7 @@ jobs:
         with:
           context: .
           file: ./build/Dockerfile.libbpf.builder
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ inputs.push_option }}
           tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
       #- name: Build and push bcc-s390x
