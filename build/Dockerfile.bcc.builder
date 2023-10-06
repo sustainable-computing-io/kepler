@@ -4,7 +4,9 @@ FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26 as builder
 
 LABEL name=kepler-builder
 
-RUN yum install -y kernel-devel make git gcc rpm-build systemd && \
+RUN yum install -y make git gcc rpm-build systemd && \
     yum clean all -y 
+
+#kernel-devel
 
 RUN curl -LO https://go.dev/dl/go1.18.10.linux-amd64.tar.gz; mkdir -p /usr/local; tar -C /usr/local -xvzf go1.18.10.linux-amd64.tar.gz; rm -f go1.18.10.linux-amd64.tar.gz
