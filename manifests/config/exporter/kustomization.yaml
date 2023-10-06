@@ -53,6 +53,14 @@ vars:
     name: kepler-cfm
   fieldref:
     fieldpath: data.KEPLER_LOG_LEVEL
+- name: PROMETHEUS_SCRAPE_INTERVAL
+  objref:
+    kind: ConfigMap
+    group: ""
+    version: v1
+    name: kepler-cfm
+  fieldref:
+    fieldpath: data.PROMETHEUS_SCRAPE_INTERVAL
 
 configurations:
 - ./kustomizeconfig.yaml

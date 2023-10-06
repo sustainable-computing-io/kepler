@@ -26,3 +26,5 @@ patchesStrategicMerge: []
 # - ./patch/patch-model-server-kepler-config.yaml
 # add this line to change log level for debugging
 # - ./patch/patch-debug.yaml
+# add this line to get high metric granularity (3s interval)
+# - ./patch/patch-high-granularity.yaml

@@ -7,7 +7,7 @@ metadata:
   name: kepler-exporter
 spec:
   endpoints:
-  - interval: 3s
+  - interval: $(PROMETHEUS_SCRAPE_INTERVAL)
     port: http
     relabelings:
     - action: replace
