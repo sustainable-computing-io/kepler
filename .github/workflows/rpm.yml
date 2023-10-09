@@ -19,6 +19,7 @@ jobs:
         env:
           _VERSION_ : latest
           _RELEASE_: latest
+          _ARCH_: x86_64
         run: |
           make containerized_build_rpm
           make containerized_build_container_rpm
