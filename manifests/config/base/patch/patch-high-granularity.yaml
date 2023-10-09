@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-cfm
+  namespace: system
+data:
+  PROMETHEUS_SCRAPE_INTERVAL: "3s"
