@@ -38,3 +38,4 @@ local-dev-cluster
 *.prof
 *.test
 *.cache
+/tmp
