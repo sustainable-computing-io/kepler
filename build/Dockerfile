@@ -40,7 +40,6 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 # pre install kernel sources
 RUN mkdir -p /usr/share/kepler/kernel_sources
 
-COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi8 /usr/src/kernels /usr/share/kepler/kernel_sources
 COPY --from=quay.io/sustainable_computing_io/kepler_kernel_source_images:ubi9 /usr/src/kernels /usr/share/kepler/kernel_sources
 
 ENTRYPOINT ["/usr/bin/kepler"]
