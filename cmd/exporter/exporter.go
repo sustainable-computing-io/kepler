@@ -162,7 +162,7 @@ func main() {
 	config.SetEnabledGPU(*enableGPU)
 	config.SetEnabledQAT(*enableQAT)
 	config.EnabledMSR = *enabledMSR
-	config.SetEnabledEstimatedIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
+	config.SetEnabledIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
