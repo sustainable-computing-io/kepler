@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -80,6 +81,14 @@ func (c *Collector) Initialize() error {
 		klog.V(5).Infoln(err)
 		return err
 	}
+
+	// For local estimator, there is endpoint provided, thus we should let
+	// model component decide whether/how to init
+	model.CreatePowerEstimatorModels(
+		collector_metric.ContainerFeaturesNames,
+		collector_metric.NodeMetadataFeatureNames,
+		collector_metric.NodeMetadataFeatureValues,
+	)
 
 	c.prePopulateContainerMetrics(pods)
 	c.updateNodeEnergyMetrics()
