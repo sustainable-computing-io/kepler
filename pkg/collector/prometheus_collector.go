@@ -515,7 +515,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 				pkgID, collector_metric.NodeName, "rapl", "dynamic",
 			)
 
-			if config.IsEstimatedIdlePowerEnabled() {
+			if config.IsIdlePowerEnabled() {
 				idlePower := (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.PKG, pkgID)) / miliJouleToJoule)
 				ch <- prometheus.MustNewConstMetric(
 					p.nodeDesc.nodePackageJoulesTotal,
@@ -566,7 +566,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 			collector_metric.NodeName, powerSource, "dynamic",
 		)
 
-		if config.IsEstimatedIdlePowerEnabled() {
+		if config.IsIdlePowerEnabled() {
 			idlePower := (float64(p.NodeMetrics.GetSumAggrIdleEnergyFromAllSources(collector_metric.OTHER)) / miliJouleToJoule)
 			ch <- prometheus.MustNewConstMetric(
 				p.nodeDesc.nodeOtherComponentsJoulesTotal,
@@ -592,7 +592,7 @@ func (p *PrometheusCollector) updateNodeMetrics(wg *sync.WaitGroup, ch chan<- pr
 					dynPower,
 					gpuID, collector_metric.NodeName, "nvidia", "dynamic",
 				)
-				// We do not verify if IsEstimatedIdlePowerEnabled is enabled for GPUs because pre-trained power models does not estimate GPU power.
+				// We do not verify if IsIdlePowerEnabled is enabled for GPUs because pre-trained power models does not estimate GPU power.
 				idlePower := (float64(p.NodeMetrics.GetAggrIdleEnergyPerID(collector_metric.GPU, gpuID)) / miliJouleToJoule)
 				ch <- prometheus.MustNewConstMetric(
 					p.nodeDesc.nodeGPUJoulesTotal,
@@ -658,7 +658,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 				float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule,
 				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
-			if config.IsEstimatedIdlePowerEnabled() {
+			if config.IsIdlePowerEnabled() {
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerCoreJoulesTotal,
 					prometheus.CounterValue,
@@ -700,7 +700,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					)
 				}
 				if container.IdleEnergyInGPU.Aggr > 0 {
-					// We do not verify if IsEstimatedIdlePowerEnabled is enabled for GPUs because pre-trained power models does not estimate GPU power.
+					// We do not verify if IsIdlePowerEnabled is enabled for GPUs because pre-trained power models does not estimate GPU power.
 					ch <- prometheus.MustNewConstMetric(
 						p.containerDesc.containerGPUJoulesTotal,
 						prometheus.CounterValue,
@@ -719,7 +719,7 @@ func (p *PrometheusCollector) updatePodMetrics(wg *sync.WaitGroup, ch chan<- pro
 					float64(container.DynEnergyInOther.Aggr)/miliJouleToJoule),
 				container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic",
 			)
-			if config.IsEstimatedIdlePowerEnabled() {
+			if config.IsIdlePowerEnabled() {
 				ch <- prometheus.MustNewConstMetric(
 					p.containerDesc.containerJoulesTotal,
 					prometheus.CounterValue,
