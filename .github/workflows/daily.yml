@@ -17,3 +17,6 @@ jobs:
   # daily openSSF scan
   scorecard:
     uses: ./.github/workflows/scorecard.yml
+  # daily rpm
+  rpm:
+    uses: ./.github/workflows/rpm.yml

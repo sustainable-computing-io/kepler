@@ -45,7 +45,7 @@ BPF_ARRAY(cache_miss, u64);
 BPF_ARRAY(cpu_freq_array, u32);
 
 // setting sample rate or counter to 0 will make compiler to remove the code entirely.
-int sample_rate = 0;
+int sample_rate = 1;
 int counter_sched_switch = 0;
 
 static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
@@ -291,8 +291,8 @@ int kprobe__mark_page_accessed(struct pt_regs *ctx)
 }
 
 // count write page cache
-SEC("kprobe/mark_buffer_dirty")
-int kprobe__mark_buffer_dirty(struct pt_regs *ctx)
+SEC("kprobe/set_page_dirty")
+int kprobe__set_page_dirty(struct pt_regs *ctx)
 {
     u32 cur_pid = bpf_get_current_pid_tgid();
     struct process_metrics_t *process_metrics;

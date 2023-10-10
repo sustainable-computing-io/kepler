@@ -1,0 +1,34 @@
+name: rpm daily
+
+on:
+  workflow_call:
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build RPM packages
+        id: rpm_build
+        env:
+          _VERSION_ : latest
+          _RELEASE_: latest
+          _ARCH_: x86_64
+        run: |
+          make containerized_build_rpm
+          make containerized_build_container_rpm
+          cd _output/rpmbuild/
+          sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
+
+      - name: save Kepler image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kepler_rpm
+          path: /tmp/kepler.rpm.tar.gz
+          retention-days: 1

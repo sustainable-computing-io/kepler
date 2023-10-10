@@ -142,13 +142,16 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 
 	// attach function
-	page_write, err := libbpfModule.GetProgram("kprobe__mark_buffer_dirty")
+	page_write, err := libbpfModule.GetProgram("kprobe__set_page_dirty")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kprobe__mark_buffer_dirty: %v", err)
+		return libbpfModule, fmt.Errorf("failed to get kprobe__set_page_dirty: %v", err)
 	} else {
-		_, err = page_write.AttachKprobe("mark_buffer_dirty")
+		_, err = page_write.AttachKprobe("set_page_dirty")
 		if err != nil {
-			return libbpfModule, fmt.Errorf("failed to attach kprobe/mark_buffer_dirty: %v", err)
+			_, err = page_write.AttachKprobe("mark_buffer_dirty")
+			if err != nil {
+				klog.Warningf("failed to attach kprobe/set_page_dirty or mark_buffer_dirty: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
+			}
 		}
 	}
 
@@ -159,7 +162,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	} else {
 		_, err = page_read.AttachKprobe("mark_page_accessed")
 		if err != nil {
-			return libbpfModule, fmt.Errorf("failed to attach kprobe/mark_page_accessed: %v", err)
+			klog.Warningf("failed to attach kprobe/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
 		}
 	}
 

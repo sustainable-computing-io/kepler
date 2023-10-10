@@ -28,7 +28,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"os"
 
@@ -81,9 +80,8 @@ type CategoricalFeature struct {
 	Weight float64 `json:"weight"`
 }
 type NormalizedNumericalFeature struct {
-	Mean     float64 `json:"mean"`
-	Variance float64 `json:"variance"`
-	Weight   float64 `json:"weight"`
+	Scale  float64 `json:"scale"` // to normalize the data
+	Weight float64 `json:"weight"`
 }
 
 // getIndexedWeights maps weight index with usageMetrics
@@ -112,8 +110,7 @@ func (weights ModelWeights) predict(usageMetricNames []string, usageMetricValues
 			if coeff.Weight == 0 {
 				continue
 			}
-			// TODO: review this normalization, when the mean is higher than the val, the normalized value will be negative. We probably do not want this.
-			normalizedX := (vals[index] - coeff.Mean) / math.Sqrt(coeff.Variance)
+			normalizedX := vals[index] / coeff.Scale
 			power += coeff.Weight * normalizedX
 		}
 		powers = append(powers, power)

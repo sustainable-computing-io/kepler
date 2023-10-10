@@ -100,7 +100,7 @@ func (r *RatioPowerModel) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 		var containerPower float64
 		if isIdlePower {
 			// TODO: idle power should be divided accordinly to the container requested resource
-			containerPower = r.getPowerByRatio(containerIdx, int(PlatformUsageMetric), int(PlatformIdlePower), numContainers)
+			containerPower = r.nodeFeatureValues[PlatformIdlePower] / numContainers
 		} else {
 			containerPower = r.getPowerByRatio(containerIdx, int(PlatformUsageMetric), int(PlatformDynPower), numContainers)
 		}
@@ -125,7 +125,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		// PKG power
 		// TODO: idle power should be divided accordinly to the container requested resource
 		if isIdlePower {
-			containerPower = uint64(r.getPowerByRatio(containerIdx, int(PkgUsageMetric), int(PkgIdlePower), numContainers))
+			containerPower = uint64(r.nodeFeatureValues[PkgIdlePower] / numContainers)
 		} else {
 			containerPower = uint64(r.getPowerByRatio(containerIdx, int(PkgUsageMetric), int(PkgDynPower), numContainers))
 		}
@@ -133,7 +133,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 
 		// CORE power
 		if isIdlePower {
-			containerPower = uint64(r.getPowerByRatio(containerIdx, int(CoreUsageMetric), int(CoreIdlePower), numContainers))
+			containerPower = uint64(r.nodeFeatureValues[CoreIdlePower] / numContainers)
 		} else {
 			containerPower = uint64(r.getPowerByRatio(containerIdx, int(CoreUsageMetric), int(CoreDynPower), numContainers))
 		}
@@ -141,7 +141,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 
 		// DRAM power
 		if isIdlePower {
-			containerPower = uint64(r.getPowerByRatio(containerIdx, int(DramUsageMetric), int(DramIdlePower), numContainers))
+			containerPower = uint64(r.nodeFeatureValues[DramIdlePower] / numContainers)
 		} else {
 			containerPower = uint64(r.getPowerByRatio(containerIdx, int(DramUsageMetric), int(DramDynPower), numContainers))
 		}
@@ -149,7 +149,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 
 		// UNCORE power
 		if isIdlePower {
-			containerPower = uint64(r.getPowerByRatio(containerIdx, int(UncoreUsageMetric), int(UncoreIdlePower), numContainers))
+			containerPower = uint64(r.nodeFeatureValues[UncoreIdlePower] / numContainers)
 		} else {
 			containerPower = uint64(r.getPowerByRatio(containerIdx, int(UncoreUsageMetric), int(UncoreDynPower), numContainers))
 		}
@@ -174,7 +174,7 @@ func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error) {
 
 		// TODO: idle power should be divided accordinly to the container requested resource
 		if isIdlePower {
-			containerPower = r.getPowerByRatio(containerIdx, int(GpuUsageMetric), int(GpuIdlePower), numContainers)
+			containerPower = r.nodeFeatureValues[GpuIdlePower] / numContainers
 		} else {
 			containerPower = r.getPowerByRatio(containerIdx, int(GpuUsageMetric), int(GpuDynPower), numContainers)
 		}

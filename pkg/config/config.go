@@ -67,17 +67,17 @@ var (
 
 	KernelVersion = float32(0)
 
-	KeplerNamespace                 = getConfig("KEPLER_NAMESPACE", defaultNamespace)
-	UseLibBPFAttacher               = false
-	EnabledEBPFCgroupID             = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
-	EnabledGPU                      = getBoolConfig("ENABLE_GPU", false)
-	EnabledQAT                      = getBoolConfig("ENABLE_QAT", false)
-	EnableProcessMetrics            = getBoolConfig("ENABLE_PROCESS_METRICS", false)
-	ExposeHardwareCounterMetrics    = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
-	ExposeCgroupMetrics             = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
-	ExposeKubeletMetrics            = getBoolConfig("EXPOSE_KUBELET_METRICS", true)
-	ExposeIRQCounterMetrics         = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
-	ExposeEstimatedIdlePowerMetrics = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
+	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
+	UseLibBPFAttacher            = false
+	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
+	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	EnabledQAT                   = getBoolConfig("ENABLE_QAT", false)
+	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
+	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
+	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
+	ExposeKubeletMetrics         = getBoolConfig("EXPOSE_KUBELET_METRICS", true)
+	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
+	ExposeIdlePowerMetrics       = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
 
 	MetricPathKey   = "METRIC_PATH"
 	BindAddressKey  = "BIND_ADDRESS"
@@ -151,7 +151,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
 		klog.V(5).Infof("EXPOSE_KUBELET_METRICS: %t", ExposeKubeletMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
-		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeEstimatedIdlePowerMetrics)
+		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeIdlePowerMetrics)
 		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %t", BPFSampleRate)
 	}
 }
@@ -287,25 +287,25 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 	ExposeHardwareCounterMetrics = enabled && ExposeHardwareCounterMetrics
 }
 
-// SetEnabledEstimatedIdlePower allows enabling idle power exposure in Kepler's metrics. When direct power metrics access is available,
+// SetEnabledIdlePower allows enabling idle power exposure in Kepler's metrics. When direct power metrics access is available,
 // idle power exposure is automatic. With pre-trained power models, awareness of implications is crucial.
 // Estimated idle power is useful for bare-metal or single VM setups. In VM environments, accurately distributing idle power is tough due
 // to unknown co-running VMs. Wrong division results in significant accuracy errors, duplicatiing the host idle power across all VMs.
 // Container pre-trained models focus on dynamic power. Estimating idle power in limited information scenarios (like VMs) is complex.
 // Idle power prediction is limited to bare-metal or single VM setups.
 // Know the number of runnign VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
-func SetEnabledEstimatedIdlePower(enabled bool) {
+func SetEnabledIdlePower(enabled bool) {
 	// set to true is any config source set it to true or if system power metrics are available
-	ExposeHardwareCounterMetrics = enabled || ExposeEstimatedIdlePowerMetrics
-	if ExposeHardwareCounterMetrics {
+	ExposeIdlePowerMetrics = enabled || ExposeIdlePowerMetrics
+	if ExposeIdlePowerMetrics {
 		klog.Infoln("The Idle power will be exposed. Are you running on Baremetal or using single VM per node?")
 	}
 }
 
-// IsEstimatedIdlePowerEnabled always return true if Kepler has access to system power metrics.
+// IsIdlePowerEnabled always return true if Kepler has access to system power metrics.
 // However, if pre-trained power models are being used, Kepler should only expose metrics if the user is aware of the implications.
-func IsEstimatedIdlePowerEnabled() bool {
-	return ExposeHardwareCounterMetrics
+func IsIdlePowerEnabled() bool {
+	return ExposeIdlePowerMetrics
 }
 
 // SetEnabledGPU enables the exposure of gpu metrics

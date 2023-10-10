@@ -12,19 +12,20 @@ jobs:
   build-kepler_with_libbpf:
     runs-on: ubuntu-latest
     steps:
+      # checkout source code
       - name: checkout source
         uses: actions/checkout@v4
-
+      # set up golang
       - name: install Go
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-
+      # set up ebpf
       - name: install libbpf
         uses: sustainable-computing-io/kepler-action@v0.0.2
         with:
           ebpfprovider: libbpf
-
+      # build kepler image
       - name: build and export Kepler image
         run: |
           make build_containerized
@@ -35,7 +36,7 @@ jobs:
           IMAGE_TAG: "devel"
           CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
-
+      # save kepler image
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v3
         with:
@@ -76,7 +77,7 @@ jobs:
           IMAGE_TAG: "devel"
           CTR_CMD: docker
           INPUT_PATH: ${{env.FILE_NAME}}
-
+      # set up k8s cluster with ebpf
       - name: use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.2
         with:

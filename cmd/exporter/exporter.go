@@ -162,7 +162,7 @@ func main() {
 	config.SetEnabledGPU(*enableGPU)
 	config.SetEnabledQAT(*enableQAT)
 	config.EnabledMSR = *enabledMSR
-	config.SetEnabledEstimatedIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
+	config.SetEnabledIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
@@ -229,6 +229,14 @@ func main() {
 		}
 	}
 
+	// For local estimator, there is endpoint provided, thus we should let
+	// model component decide whether/how to init
+	model.CreatePowerEstimatorModels(
+		collector_metric.ContainerFeaturesNames,
+		collector_metric.NodeMetadataFeatureNames,
+		collector_metric.NodeMetadataFeatureValues,
+	)
+
 	m := manager.New()
 	prometheus.MustRegister(version.NewCollector("kepler_exporter"))
 	prometheus.MustRegister(m.PrometheusCollector)
@@ -242,14 +250,6 @@ func main() {
 	}
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
-
-	// For local estimator, there is endpoint provided, thus we should let
-	// model component decide whether/how to init
-	model.CreatePowerEstimatorModels(
-		collector_metric.ContainerFeaturesNames,
-		collector_metric.NodeMetadataFeatureNames,
-		collector_metric.NodeMetadataFeatureValues,
-	)
 
 	http.Handle(metricPathConfig, promhttp.Handler())
 	http.HandleFunc("/healthz", healthProbe)

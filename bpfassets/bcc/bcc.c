@@ -283,7 +283,7 @@ int kprobe__mark_page_accessed(struct pt_regs *ctx)
 }
 
 // count write page cache
-int kprobe__mark_buffer_dirty(struct pt_regs *ctx)
+int kprobe__set_page_dirty(struct pt_regs *ctx)
 {
     u32 cur_pid = bpf_get_current_pid_tgid();
     struct process_metrics_t *process_metrics;

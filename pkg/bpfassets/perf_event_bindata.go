@@ -130,7 +130,7 @@ BPF_ARRAY(cache_miss, u64, NUM_CPUS);
 BPF_ARRAY(cpu_freq_array, u32, NUM_CPUS);
 
 #ifndef SAMPLE_RATE
-#define SAMPLE_RATE 1000
+#define SAMPLE_RATE 0
 #endif
 BPF_HASH(sample_rate, u32, u32);
 
@@ -256,14 +256,17 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 {
     u32 initial = SAMPLE_RATE, *sample_counter_value, sample_counter_key = 1234;
-    sample_counter_value = sample_rate.lookup_or_try_init(&sample_counter_key, &initial);
-    if (sample_counter_value > 0) {
-        if (*sample_counter_value > 0) {
-            (*sample_counter_value)--;
-            return 0;
+    // only do sampling if sample rate is set
+    if (initial != 0) {
+        sample_counter_value = sample_rate.lookup_or_try_init(&sample_counter_key, &initial);
+        if (sample_counter_value > 0) {
+            if (*sample_counter_value > 0) {
+                (*sample_counter_value)--;
+                return 0;
+            }
         }
+        sample_rate.update(&sample_counter_key, &initial);
     }
-    sample_rate.update(&sample_counter_key, &initial);
 
     pid_t cur_pid = bpf_get_current_pid_tgid();
 #ifdef SET_GROUP_ID
@@ -436,8 +439,8 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"bpfassets": {nil, map[string]*bintree{
-		"bcc": {nil, map[string]*bintree{
-			"bcc.c": {bpfassetsPerf_eventPerf_eventC, map[string]*bintree{}},
+		"perf_event": {nil, map[string]*bintree{
+			"perf_event.c": {bpfassetsPerf_eventPerf_eventC, map[string]*bintree{}},
 		}},
 	}},
 }}
