@@ -32,7 +32,6 @@ import (
 	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
@@ -228,14 +227,6 @@ func main() {
 			klog.Infof("Failed to initialize the QAT collector: %v", err)
 		}
 	}
-
-	// For local estimator, there is endpoint provided, thus we should let
-	// model component decide whether/how to init
-	model.CreatePowerEstimatorModels(
-		collector_metric.ContainerFeaturesNames,
-		collector_metric.NodeMetadataFeatureNames,
-		collector_metric.NodeMetadataFeatureValues,
-	)
 
 	m := manager.New()
 	prometheus.MustRegister(version.NewCollector("kepler_exporter"))

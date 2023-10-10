@@ -85,8 +85,13 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 				collector_metric.GPU + "_IDLE",    // for idle GPU power consumption
 			}...)
 		} else if powerSourceTarget == config.ProcessPlatformPowerKey {
+			platformUsageMetric := config.CoreUsageMetric
+			if !attacher.HardwareCountersEnabled {
+				// Given that there is no HW counter in  some scenarios (e.g. on VMs), we have to use CPUTime data.
+				platformUsageMetric = config.CPUTime
+			}
 			modelConfig.ContainerFeatureNames = []string{
-				config.CoreUsageMetric, // for PLATFORM resource usage
+				platformUsageMetric, // for PLATFORM resource usage
 			}
 			modelConfig.NodeFeatureNames = modelConfig.ContainerFeatureNames
 			modelConfig.NodeFeatureNames = append(modelConfig.NodeFeatureNames, []string{
@@ -106,6 +111,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
 		klog.Infof("Using the %s Power Model to estimate Process Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+		klog.Infof("Container feature names: %v", modelConfig.ContainerFeatureNames)
 	} else {
 		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
@@ -115,6 +121,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
 		klog.Infof("Using the %s Power Model to estimate Process Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+		klog.Infof("Container feature names: %v", modelConfig.ContainerFeatureNames)
 	} else {
 		klog.Infof("Failed to create %s Power Model to estimate Process Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
