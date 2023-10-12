@@ -50,6 +50,8 @@ var (
 
 	PerfEvents = map[string][]int{}
 	ByteOrder  binary.ByteOrder
+
+	SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
 )
 
 // must be in sync with bpf program
@@ -60,6 +62,7 @@ type ProcessBPFMetrics struct {
 	CPUCycles      uint64
 	CPUInstr       uint64
 	CacheMisses    uint64
+	PageCacheHit   uint64
 	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
 	Command        [16]byte
 }
@@ -76,7 +79,7 @@ func getCounters() map[string]perfCounter {
 	}
 }
 
-func GetEnabledHWCounters() []string {
+func GetEnabledBPFHWCounters() []string {
 	Counters = getCounters()
 	var metrics []string
 	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
@@ -93,16 +96,16 @@ func GetEnabledHWCounters() []string {
 	return metrics
 }
 
-func GetEnabledBPFCounters() []string {
+func GetEnabledBPFSWCounters() []string {
 	var metrics []string
-	metrics = append(metrics, config.CPUTime)
+	metrics = append(metrics, config.CPUTime, config.PageCacheHit)
 
 	klog.V(5).Infof("irq counter metrics config %t", config.ExposeIRQCounterMetrics)
 	if !config.ExposeIRQCounterMetrics {
 		klog.V(5).Info("irq counter metrics not enabled")
 		return metrics
 	}
-	metrics = append(metrics, []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}...)
+	metrics = append(metrics, SoftIRQEvents...)
 	return metrics
 }
 

@@ -108,6 +108,27 @@ func loadBccModule(objProg []byte, options []string) (m *bpf.Module, err error) 
 		klog.Warningf("could not load softirq_entry: %s", err)
 	}
 
+	page_write, err := m.LoadKprobe("kprobe__set_page_dirty")
+	if err != nil {
+		klog.Warningf("failed to load kprobe__set_page_dirty: %s", err)
+	}
+	err = m.AttachKprobe("set_page_dirty", page_write, -1)
+	if err != nil {
+		err = m.AttachKprobe("mark_buffer_dirty", page_write, -1)
+		if err != nil {
+			klog.Warningf("failed to attach kprobe/set_page_dirty or mark_buffer_dirty: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
+		}
+	}
+
+	page_read, err := m.LoadKprobe("kprobe__mark_page_accessed")
+	if err != nil {
+		klog.Warningf("failed to load kprobe__mark_page_accessed: %s", err)
+	}
+	err = m.AttachKprobe("mark_page_accessed", page_read, -1)
+	if err != nil {
+		klog.Warningf("failed to attach kprobe/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
+	}
+
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix
 		t := bpf.NewTable(m.TableId(bpfPerfArrayName), m)

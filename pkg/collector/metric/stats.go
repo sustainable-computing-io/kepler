@@ -17,10 +17,10 @@ const (
 )
 
 var (
-	// AvailableEBPFCounters holds a list of eBPF counters that might be collected
-	AvailableEBPFCounters []string
-	// AvailableHWCounters holds a list of hardware counters that might be collected
-	AvailableHWCounters []string
+	// AvailableBPFSWCounters holds a list of eBPF counters that might be collected
+	AvailableBPFSWCounters []string
+	// AvailableBPFHWCounters holds a list of hardware counters that might be collected
+	AvailableBPFHWCounters []string
 	// AvailableCGroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
 	AvailableCGroupMetrics []string
 	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
@@ -34,8 +34,8 @@ var (
 )
 
 func InitAvailableParamAndMetrics() {
-	AvailableHWCounters = attacher.GetEnabledHWCounters()
-	AvailableEBPFCounters = attacher.GetEnabledBPFCounters()
+	AvailableBPFHWCounters = attacher.GetEnabledBPFHWCounters()
+	AvailableBPFSWCounters = attacher.GetEnabledBPFSWCounters()
 	AvailableCGroupMetrics = []string{
 		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
 		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,

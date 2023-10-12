@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -64,9 +63,7 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 		Namespace:     podNamespace,
 		ContainerID:   containerID,
 		ProcessMetrics: ProcessMetrics{
-			CPUTime:              &types.UInt64Stat{},
-			CounterStats:         make(map[string]*types.UInt64Stat),
-			SoftIRQCount:         make([]types.UInt64Stat, config.MaxIRQ),
+			BPFStats:             make(map[string]*types.UInt64Stat),
 			DynEnergyInCore:      &types.UInt64Stat{},
 			DynEnergyInDRAM:      &types.UInt64Stat{},
 			DynEnergyInUncore:    &types.UInt64Stat{},
@@ -85,13 +82,16 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 		CgroupStatMap: make(map[string]*types.UInt64StatCollection),
 		KubeletStats:  make(map[string]*types.UInt64Stat),
 	}
-	for _, metricName := range AvailableHWCounters {
-		c.CounterStats[metricName] = &types.UInt64Stat{}
+	for _, metricName := range AvailableBPFSWCounters {
+		c.BPFStats[metricName] = &types.UInt64Stat{}
+	}
+	for _, metricName := range AvailableBPFHWCounters {
+		c.BPFStats[metricName] = &types.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
 	if gpu.IsGPUCollectionSupported() {
-		c.CounterStats[config.GPUSMUtilization] = &types.UInt64Stat{}
-		c.CounterStats[config.GPUMemUtilization] = &types.UInt64Stat{}
+		c.BPFStats[config.GPUSMUtilization] = &types.UInt64Stat{}
+		c.BPFStats[config.GPUMemUtilization] = &types.UInt64Stat{}
 	}
 	for _, metricName := range AvailableCGroupMetrics {
 		c.CgroupStatMap[metricName] = &types.UInt64StatCollection{
@@ -108,12 +108,8 @@ func NewContainerMetrics(containerName, podName, podNamespace, containerID strin
 func (c *ContainerMetrics) ResetDeltaValues() {
 	c.CurrProcesses = 0
 	c.PIDS = c.PIDS[:0]
-	c.CPUTime.ResetDeltaValues()
-	for i := 0; i < config.MaxIRQ; i++ {
-		c.SoftIRQCount[i].ResetDeltaValues()
-	}
-	for counterKey := range c.CounterStats {
-		c.CounterStats[counterKey].ResetDeltaValues()
+	for counterKey := range c.BPFStats {
+		c.BPFStats[counterKey].ResetDeltaValues()
 	}
 	for cgroupFSKey := range c.CgroupStatMap {
 		c.CgroupStatMap[cgroupFSKey].ResetDeltaValues()
@@ -164,7 +160,7 @@ func (c *ContainerMetrics) getFloatCurrAndAggrValue(metric string) (curr, aggr f
 
 // getIntDeltaAndAggrValue return curr, aggr uint64 values of specific uint metric
 func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr uint64, err error) {
-	if val, exists := c.CounterStats[metric]; exists {
+	if val, exists := c.BPFStats[metric]; exists {
 		return val.Delta, val.Aggr, nil
 	}
 	if val, exists := c.CgroupStatMap[metric]; exists {
@@ -173,19 +169,6 @@ func (c *ContainerMetrics) getIntDeltaAndAggrValue(metric string) (curr, aggr ui
 	if val, exists := c.KubeletStats[metric]; exists {
 		return val.Delta, val.Aggr, nil
 	}
-
-	switch metric {
-	// ebpf metrics
-	case config.CPUTime:
-		return c.CPUTime.Delta, c.CPUTime.Aggr, nil
-	case config.IRQBlockLabel:
-		return c.SoftIRQCount[attacher.IRQBlock].Delta, c.SoftIRQCount[attacher.IRQBlock].Aggr, nil
-	case config.IRQNetTXLabel:
-		return c.SoftIRQCount[attacher.IRQNetTX].Delta, c.SoftIRQCount[attacher.IRQNetTX].Aggr, nil
-	case config.IRQNetRXLabel:
-		return c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr, nil
-	}
-
 	klog.V(4).Infof("cannot extract: %s", metric)
 	return 0, 0, fmt.Errorf("cannot extract: %s", metric)
 }
@@ -239,10 +222,6 @@ func (c *ContainerMetrics) String() string {
 		"\tcgrouppid: %d pid: %d comm: %s containerid:%s\n"+
 		"\tDyn ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
 		"\tIdle ePkg (mJ): %s (eCore: %s eDram: %s eUncore: %s) eGPU (mJ): %s eOther (mJ): %s \n"+
-		"\tCPUTime:  %d (%d)\n"+
-		"\tNetTX IRQ: %d (%d)\n"+
-		"\tNetRX IRQ: %d (%d)\n"+
-		"\tBlock IRQ: %d (%d)\n"+
 		"\tcounters: %v\n"+
 		"\tcgroupfs: %v\n"+
 		"\tkubelets: %v\n",
@@ -250,11 +229,7 @@ func (c *ContainerMetrics) String() string {
 		c.CGroupPID, c.PIDS, c.Command, c.ContainerID,
 		c.DynEnergyInPkg, c.DynEnergyInCore, c.DynEnergyInDRAM, c.DynEnergyInUncore, c.DynEnergyInGPU, c.DynEnergyInOther,
 		c.IdleEnergyInPkg, c.IdleEnergyInCore, c.IdleEnergyInDRAM, c.IdleEnergyInUncore, c.IdleEnergyInGPU, c.IdleEnergyInOther,
-		c.CPUTime.Delta, c.CPUTime.Aggr,
-		c.SoftIRQCount[attacher.IRQNetTX].Delta, c.SoftIRQCount[attacher.IRQNetTX].Aggr,
-		c.SoftIRQCount[attacher.IRQNetRX].Delta, c.SoftIRQCount[attacher.IRQNetRX].Aggr,
-		c.SoftIRQCount[attacher.IRQBlock].Delta, c.SoftIRQCount[attacher.IRQBlock].Aggr,
-		c.CounterStats,
+		c.BPFStats,
 		c.CgroupStatMap,
 		c.KubeletStats)
 }

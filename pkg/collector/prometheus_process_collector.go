@@ -185,12 +185,14 @@ func (p *PrometheusCollector) updateProcessMetrics(wg *sync.WaitGroup, ch chan<-
 				processCommand = process.Command[:commandLenLimit]
 			}
 			pidStr := strconv.FormatUint(pid, 10)
-			ch <- prometheus.MustNewConstMetric(
-				p.processDesc.processCPUTime,
-				prometheus.CounterValue,
-				float64(process.CPUTime.Aggr),
-				pidStr, processCommand,
-			)
+			if process.BPFStats[config.CPUTime] != nil {
+				ch <- prometheus.MustNewConstMetric(
+					p.processDesc.processCPUTime,
+					prometheus.CounterValue,
+					float64(process.BPFStats[config.CPUTime].Aggr),
+					pidStr, processCommand,
+				)
+			}
 			ch <- prometheus.MustNewConstMetric(
 				p.processDesc.processCoreJoulesTotal,
 				prometheus.CounterValue,
@@ -286,50 +288,56 @@ func (p *PrometheusCollector) updateProcessMetrics(wg *sync.WaitGroup, ch chan<-
 				pidStr, processCommand, "idle",
 			)
 			if collector_metric.CPUHardwareCounterEnabled {
-				if process.CounterStats[attacher.CPUCycleLabel] != nil {
+				if process.BPFStats[attacher.CPUCycleLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.processDesc.processCPUCyclesTotal,
 						prometheus.CounterValue,
-						float64(process.CounterStats[attacher.CPUCycleLabel].Aggr),
+						float64(process.BPFStats[attacher.CPUCycleLabel].Aggr),
 						pidStr, processCommand,
 					)
 				}
-				if process.CounterStats[attacher.CPUInstructionLabel] != nil {
+				if process.BPFStats[attacher.CPUInstructionLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.processDesc.processCPUInstrTotal,
 						prometheus.CounterValue,
-						float64(process.CounterStats[attacher.CPUInstructionLabel].Aggr),
+						float64(process.BPFStats[attacher.CPUInstructionLabel].Aggr),
 						pidStr, processCommand,
 					)
 				}
-				if process.CounterStats[attacher.CacheMissLabel] != nil {
+				if process.BPFStats[attacher.CacheMissLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.processDesc.processCacheMissTotal,
 						prometheus.CounterValue,
-						float64(process.CounterStats[attacher.CacheMissLabel].Aggr),
+						float64(process.BPFStats[attacher.CacheMissLabel].Aggr),
 						pidStr, processCommand,
 					)
 				}
 			}
 			if config.ExposeIRQCounterMetrics {
-				ch <- prometheus.MustNewConstMetric(
-					p.processDesc.processNetTxIRQTotal,
-					prometheus.CounterValue,
-					float64(process.SoftIRQCount[attacher.IRQNetTX].Aggr),
-					pidStr, processCommand,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.processDesc.processNetRxIRQTotal,
-					prometheus.CounterValue,
-					float64(process.SoftIRQCount[attacher.IRQNetRX].Aggr),
-					pidStr, processCommand,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.processDesc.processBlockIRQTotal,
-					prometheus.CounterValue,
-					float64(process.SoftIRQCount[attacher.IRQBlock].Aggr),
-					pidStr, processCommand,
-				)
+				if process.BPFStats[config.IRQNetTXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.processDesc.processNetTxIRQTotal,
+						prometheus.CounterValue,
+						float64(process.BPFStats[config.IRQNetTXLabel].Aggr),
+						pidStr, processCommand,
+					)
+				}
+				if process.BPFStats[config.IRQNetRXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.processDesc.processNetRxIRQTotal,
+						prometheus.CounterValue,
+						float64(process.BPFStats[config.IRQNetRXLabel].Aggr),
+						pidStr, processCommand,
+					)
+				}
+				if process.BPFStats[config.IRQBlockLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.processDesc.processBlockIRQTotal,
+						prometheus.CounterValue,
+						float64(process.BPFStats[config.IRQBlockLabel].Aggr),
+						pidStr, processCommand,
+					)
+				}
 			}
 		}(pid, process)
 	}

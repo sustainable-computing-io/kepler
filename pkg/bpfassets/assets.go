@@ -17,5 +17,5 @@ limitations under the License.
 package bpfassets
 
 const (
-	Program = "bpfassets/perf_event/perf_event.c"
+	Program = "bpfassets/bcc/bcc.c"
 )

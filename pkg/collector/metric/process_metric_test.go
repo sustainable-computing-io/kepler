@@ -3,14 +3,20 @@ package metric
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 var _ = Describe("ProcessMetric", func() {
 
+	AvailableBPFSWCounters = []string{
+		config.CPUTime,
+		config.PageCacheHit,
+	}
+
 	It("Test ResetDeltaValues", func() {
 		p := NewProcessMetrics(0, "command")
 		p.ResetDeltaValues()
-		Expect(p.CPUTime.Delta).To(Equal(uint64(0)))
+		Expect(p.BPFStats[config.CPUTime].Delta).To(Equal(uint64(0)))
 	})
 
 	It("Test SumAllDynDeltaValues", func() {

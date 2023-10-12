@@ -21,6 +21,7 @@ import (
 )
 
 // UpdateVMEnergy matches the VM metrics with the process metrics already computed
+// TODO: remove data duplication, we don;t need to have a separate map for VM metrics, the processes metrics just need to have the VM ID label.
 func UpdateVMEnergy(vmMetrics map[uint64]*collector_metric.VMMetrics, processMetrics map[uint64]*collector_metric.ProcessMetrics) {
 	for _, vmmetrics := range vmMetrics {
 		for _, procmetrics := range processMetrics {
@@ -28,10 +29,7 @@ func UpdateVMEnergy(vmMetrics map[uint64]*collector_metric.VMMetrics, processMet
 				continue
 			}
 
-			vmmetrics.CPUTime = procmetrics.CPUTime
-			vmmetrics.CounterStats = procmetrics.CounterStats
-
-			vmmetrics.SoftIRQCount = procmetrics.SoftIRQCount
+			vmmetrics.BPFStats = procmetrics.BPFStats
 
 			vmmetrics.DynEnergyInCore = procmetrics.DynEnergyInCore
 			vmmetrics.DynEnergyInDRAM = procmetrics.DynEnergyInDRAM

@@ -19,10 +19,14 @@ import (
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func setCollectorMetrics() {
 	// initialize the Available metrics since they are used to create a new containersMetrics instance
-	collector_metric.AvailableHWCounters = []string{
+	collector_metric.AvailableBPFHWCounters = []string{
 		config.CPUCycle,
 		config.CPUInstruction,
 		config.CacheMiss,
+	}
+	collector_metric.AvailableBPFSWCounters = []string{
+		config.CPUTime,
+		config.PageCacheHit,
 	}
 	collector_metric.AvailableCGroupMetrics = []string{
 		config.CgroupfsMemory,
@@ -40,8 +44,8 @@ func setCollectorMetrics() {
 		config.KubeletMemoryUsage,
 	}
 	collector_metric.ContainerUintFeaturesNames = []string{}
-	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableEBPFCounters...)
-	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableHWCounters...)
+	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableBPFSWCounters...)
+	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableBPFHWCounters...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableCGroupMetrics...)
 	collector_metric.ContainerUintFeaturesNames = append(collector_metric.ContainerUintFeaturesNames, collector_metric.AvailableKubeletMetrics...)
 	// ContainerFeaturesNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ContainerFeaturesNames will be used.
@@ -62,14 +66,14 @@ func createMockContainersMetrics() map[string]*collector_metric.ContainerMetrics
 func createMockContainerMetrics(containerName, podName, namespace string) *collector_metric.ContainerMetrics {
 	containerMetrics := collector_metric.NewContainerMetrics(containerName, podName, namespace, containerName)
 	// counter - attacher package
-	err := containerMetrics.CounterStats[config.CPUCycle].AddNewDelta(30000)
+	err := containerMetrics.BPFStats[config.CPUCycle].AddNewDelta(30000)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.CounterStats[config.CPUInstruction].AddNewDelta(30000)
+	err = containerMetrics.BPFStats[config.CPUInstruction].AddNewDelta(30000)
 	Expect(err).NotTo(HaveOccurred())
-	err = containerMetrics.CounterStats[config.CacheMiss].AddNewDelta(30000)
+	err = containerMetrics.BPFStats[config.CacheMiss].AddNewDelta(30000)
 	Expect(err).NotTo(HaveOccurred())
 	// bpf - cpu time
-	err = containerMetrics.CPUTime.AddNewDelta(30000) // config.CPUTime
+	err = containerMetrics.BPFStats[config.CPUTime].AddNewDelta(30000) // config.CPUTime
 	Expect(err).NotTo(HaveOccurred())
 	// cgroup - cgroup package
 	// we need to add two aggregated values to the stats so that it can calculate a current value (i.e. agg diff)

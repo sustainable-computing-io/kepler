@@ -42,6 +42,7 @@ typedef struct process_metrics_t
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_miss;
+    u64 page_cache_hit;
     u16 vec_nr[10]; // irq counter, 10 is the max number of irq vectors
     char comm[16];
 } process_metrics_t;
@@ -197,13 +198,13 @@ static inline u64 get_on_cpu_avg_freq(u32 *cpu_id, u64 on_cpu_cycles_delta, u64 
 // int kprobe__finish_task_switch(switch_args *ctx)
 int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 {
-    u32 initial = SAMPLE_RATE, *sample_counter_value, sample_counter_key = 1234;
+    u32 initial = SAMPLE_RATE, *counter_sched_switch, sample_counter_key = 1234;
     // only do sampling if sample rate is set
     if (initial != 0) {
-        sample_counter_value = sample_rate.lookup_or_try_init(&sample_counter_key, &initial);
-        if (sample_counter_value > 0) {
-            if (*sample_counter_value > 0) {
-                (*sample_counter_value)--;
+        counter_sched_switch = sample_rate.lookup_or_try_init(&sample_counter_key, &initial);
+        if (counter_sched_switch > 0) {
+            if (*counter_sched_switch > 0) {
+                (*counter_sched_switch)--;
                 return 0;
             }
         }
@@ -264,6 +265,32 @@ TRACEPOINT_PROBE(irq, softirq_entry)
         if (args->vec < 10) {
             process_metrics->vec_nr[args->vec] ++;
         }
+    }
+    return 0;
+}
+
+// count read page cache
+int kprobe__mark_page_accessed(struct pt_regs *ctx)
+{
+    u32 cur_pid = bpf_get_current_pid_tgid();
+    struct process_metrics_t *process_metrics;
+   process_metrics = processes.lookup(&cur_pid);
+    if (process_metrics)
+    {
+        process_metrics->page_cache_hit ++;
+    }
+    return 0;
+}
+
+// count write page cache
+int kprobe__set_page_dirty(struct pt_regs *ctx)
+{
+    u32 cur_pid = bpf_get_current_pid_tgid();
+    struct process_metrics_t *process_metrics;
+   process_metrics = processes.lookup(&cur_pid);
+    if (process_metrics)
+    {
+        process_metrics->page_cache_hit ++;
     }
     return 0;
 }

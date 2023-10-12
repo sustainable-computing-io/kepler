@@ -34,12 +34,10 @@ var (
 )
 
 type VMMetrics struct {
-	PID          uint64
-	Name         string
-	CounterStats map[string]*types.UInt64Stat
+	PID      uint64
+	Name     string
+	BPFStats map[string]*types.UInt64Stat
 	// ebpf metrics
-	CPUTime             *types.UInt64Stat
-	SoftIRQCount        []types.UInt64Stat
 	DynEnergyInCore     *types.UInt64Stat
 	DynEnergyInDRAM     *types.UInt64Stat
 	DynEnergyInUncore   *types.UInt64Stat
@@ -62,9 +60,7 @@ func NewVMMetrics(pid uint64, name string) *VMMetrics {
 	p := &VMMetrics{
 		PID:                  pid,
 		Name:                 name,
-		CPUTime:              &types.UInt64Stat{},
-		CounterStats:         make(map[string]*types.UInt64Stat),
-		SoftIRQCount:         make([]types.UInt64Stat, config.MaxIRQ),
+		BPFStats:             make(map[string]*types.UInt64Stat),
 		DynEnergyInCore:      &types.UInt64Stat{},
 		DynEnergyInDRAM:      &types.UInt64Stat{},
 		DynEnergyInUncore:    &types.UInt64Stat{},
@@ -80,26 +76,24 @@ func NewVMMetrics(pid uint64, name string) *VMMetrics {
 		IdleEnergyInGPU:      &types.UInt64Stat{},
 		IdleEnergyInPlatform: &types.UInt64Stat{},
 	}
-
-	for _, metricName := range AvailableHWCounters {
-		p.CounterStats[metricName] = &types.UInt64Stat{}
+	for _, metricName := range AvailableBPFSWCounters {
+		p.BPFStats[metricName] = &types.UInt64Stat{}
+	}
+	for _, metricName := range AvailableBPFHWCounters {
+		p.BPFStats[metricName] = &types.UInt64Stat{}
 	}
 	// TODO: transparently list the other metrics and do not initialize them when they are not supported, e.g. HC
 	if gpu.IsGPUCollectionSupported() {
-		p.CounterStats[config.GPUSMUtilization] = &types.UInt64Stat{}
-		p.CounterStats[config.GPUMemUtilization] = &types.UInt64Stat{}
+		p.BPFStats[config.GPUSMUtilization] = &types.UInt64Stat{}
+		p.BPFStats[config.GPUMemUtilization] = &types.UInt64Stat{}
 	}
 	return p
 }
 
 // ResetCurr reset all current value to 0
 func (p *VMMetrics) ResetDeltaValues() {
-	p.CPUTime.ResetDeltaValues()
-	for counterKey := range p.CounterStats {
-		p.CounterStats[counterKey].ResetDeltaValues()
-	}
-	for i := 0; i < config.MaxIRQ; i++ {
-		p.SoftIRQCount[i].ResetDeltaValues()
+	for counterKey := range p.BPFStats {
+		p.BPFStats[counterKey].ResetDeltaValues()
 	}
 	p.DynEnergyInCore.ResetDeltaValues()
 	p.DynEnergyInDRAM.ResetDeltaValues()

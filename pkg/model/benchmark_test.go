@@ -83,8 +83,8 @@ func benchmarkNtesting(b *testing.B, containerNumber int) {
 	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
 	for n := 0; n < containerNumber; n++ {
 		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test", "container"+strconv.Itoa(n))
-		containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		_ = containersMetrics["container"+strconv.Itoa(n)].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		containersMetrics["container"+strconv.Itoa(n)].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		_ = containersMetrics["container"+strconv.Itoa(n)].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 	}
 	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
 	b.ResetTimer()

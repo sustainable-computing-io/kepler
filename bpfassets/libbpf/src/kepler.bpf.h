@@ -122,6 +122,7 @@ typedef struct process_metrics_t
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_miss;
+    u64 page_cache_hit;
     u16 vec_nr[IRQ_MAX_LEN]; 
     char comm[TASK_COMM_LEN];
 } process_metrics_t;

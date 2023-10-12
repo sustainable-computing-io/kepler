@@ -84,12 +84,12 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		// add container mock values
 		(*exporter.ContainersMetrics)["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
-		(*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err := (*exporter.ContainersMetrics)["containerA"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		(*exporter.ContainersMetrics)["containerA"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		err := (*exporter.ContainersMetrics)["containerA"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		(*exporter.ContainersMetrics)["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
-		(*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = (*exporter.ContainersMetrics)["containerB"].CounterStats[config.CoreUsageMetric].AddNewDelta(30000)
+		(*exporter.ContainersMetrics)["containerB"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
+		err = (*exporter.ContainersMetrics)["containerB"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
 		Expect(err).NotTo(HaveOccurred())
 		exporter.NodeMetrics.AddNodeResUsageFromContainerResUsage(*exporter.ContainersMetrics)
 

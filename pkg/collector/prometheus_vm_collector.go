@@ -186,12 +186,14 @@ func (p *PrometheusCollector) updateVMMetrics(wg *sync.WaitGroup, ch chan<- prom
 				vmName = vm.Name[:nameLenLimit]
 			}
 			pidStr := strconv.FormatUint(pid, 10)
-			ch <- prometheus.MustNewConstMetric(
-				p.vmDesc.vmCPUTime,
-				prometheus.CounterValue,
-				float64(vm.CPUTime.Aggr),
-				pidStr, vmName,
-			)
+			if vm.BPFStats[config.CPUTime] != nil {
+				ch <- prometheus.MustNewConstMetric(
+					p.vmDesc.vmCPUTime,
+					prometheus.CounterValue,
+					float64(vm.BPFStats[config.CPUTime].Aggr),
+					pidStr, vmName,
+				)
+			}
 			ch <- prometheus.MustNewConstMetric(
 				p.vmDesc.vmCoreJoulesTotal,
 				prometheus.CounterValue,
@@ -287,50 +289,56 @@ func (p *PrometheusCollector) updateVMMetrics(wg *sync.WaitGroup, ch chan<- prom
 				pidStr, vmName, "idle",
 			)
 			if collector_metric.CPUHardwareCounterEnabled {
-				if vm.CounterStats[attacher.CPUCycleLabel] != nil {
+				if vm.BPFStats[attacher.CPUCycleLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.vmDesc.vmCPUCyclesTotal,
 						prometheus.CounterValue,
-						float64(vm.CounterStats[attacher.CPUCycleLabel].Aggr),
+						float64(vm.BPFStats[attacher.CPUCycleLabel].Aggr),
 						pidStr, vmName,
 					)
 				}
-				if vm.CounterStats[attacher.CPUInstructionLabel] != nil {
+				if vm.BPFStats[attacher.CPUInstructionLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.vmDesc.vmCPUInstrTotal,
 						prometheus.CounterValue,
-						float64(vm.CounterStats[attacher.CPUInstructionLabel].Aggr),
+						float64(vm.BPFStats[attacher.CPUInstructionLabel].Aggr),
 						pidStr, vmName,
 					)
 				}
-				if vm.CounterStats[attacher.CacheMissLabel] != nil {
+				if vm.BPFStats[attacher.CacheMissLabel] != nil {
 					ch <- prometheus.MustNewConstMetric(
 						p.vmDesc.vmCacheMissTotal,
 						prometheus.CounterValue,
-						float64(vm.CounterStats[attacher.CacheMissLabel].Aggr),
+						float64(vm.BPFStats[attacher.CacheMissLabel].Aggr),
 						pidStr, vmName,
 					)
 				}
 			}
 			if config.ExposeIRQCounterMetrics {
-				ch <- prometheus.MustNewConstMetric(
-					p.vmDesc.vmNetTxIRQTotal,
-					prometheus.CounterValue,
-					float64(vm.SoftIRQCount[attacher.IRQNetTX].Aggr),
-					pidStr, vmName,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.vmDesc.vmNetRxIRQTotal,
-					prometheus.CounterValue,
-					float64(vm.SoftIRQCount[attacher.IRQNetRX].Aggr),
-					pidStr, vmName,
-				)
-				ch <- prometheus.MustNewConstMetric(
-					p.vmDesc.vmBlockIRQTotal,
-					prometheus.CounterValue,
-					float64(vm.SoftIRQCount[attacher.IRQBlock].Aggr),
-					pidStr, vmName,
-				)
+				if vm.BPFStats[config.IRQNetTXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.vmDesc.vmNetTxIRQTotal,
+						prometheus.CounterValue,
+						float64(vm.BPFStats[config.IRQNetTXLabel].Aggr),
+						pidStr, vmName,
+					)
+				}
+				if vm.BPFStats[config.IRQNetRXLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.vmDesc.vmNetRxIRQTotal,
+						prometheus.CounterValue,
+						float64(vm.BPFStats[config.IRQNetRXLabel].Aggr),
+						pidStr, vmName,
+					)
+				}
+				if vm.BPFStats[config.IRQBlockLabel] != nil {
+					ch <- prometheus.MustNewConstMetric(
+						p.vmDesc.vmBlockIRQTotal,
+						prometheus.CounterValue,
+						float64(vm.BPFStats[config.IRQBlockLabel].Aggr),
+						pidStr, vmName,
+					)
+				}
 			}
 		}(pid, vm)
 	}

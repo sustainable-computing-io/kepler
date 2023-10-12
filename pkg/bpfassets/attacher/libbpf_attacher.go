@@ -141,6 +141,31 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		}
 	}
 
+	// attach function
+	page_write, err := libbpfModule.GetProgram("kprobe__set_page_dirty")
+	if err != nil {
+		return libbpfModule, fmt.Errorf("failed to get kprobe__set_page_dirty: %v", err)
+	} else {
+		_, err = page_write.AttachKprobe("set_page_dirty")
+		if err != nil {
+			_, err = page_write.AttachKprobe("mark_buffer_dirty")
+			if err != nil {
+				klog.Warningf("failed to attach kprobe/set_page_dirty or mark_buffer_dirty: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
+			}
+		}
+	}
+
+	// attach function
+	page_read, err := libbpfModule.GetProgram("kprobe__mark_page_accessed")
+	if err != nil {
+		return libbpfModule, fmt.Errorf("failed to get kprobe__mark_page_accessed: %v", err)
+	} else {
+		_, err = page_read.AttachKprobe("mark_page_accessed")
+		if err != nil {
+			klog.Warningf("failed to attach kprobe/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
+		}
+	}
+
 	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
 	for arrayName, counter := range Counters {
 		bpfPerfArrayName := arrayName + BpfPerfArrayPrefix

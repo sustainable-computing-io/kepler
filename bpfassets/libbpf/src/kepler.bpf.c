@@ -46,7 +46,7 @@ BPF_ARRAY(cpu_freq_array, u32);
 
 // setting sample rate or counter to 0 will make compiler to remove the code entirely.
 int sample_rate = 1;
-int counter = 1;
+int counter_sched_switch = 0;
 
 static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 {
@@ -212,12 +212,17 @@ int kepler_trace(struct sched_switch_args *ctx)
 {
     u32 next_pid = ctx->next_pid; // the new pid that is to be scheduled
 
-    if (counter > 0)
+    // only do sampling if sample rate is set
+    if (sample_rate != 0)
     {
-        counter--;
-        return 0;
+        if (counter_sched_switch > 0)
+        {
+            counter_sched_switch--;
+            return 0;
+        }
+        counter_sched_switch = sample_rate;
     }
-    counter = sample_rate;
+
     u32 cur_pid = bpf_get_current_pid_tgid();
     u64 cgroup_id = bpf_get_current_cgroup_id(); // the cgroup id is the cgroup id of the running process (this is not next_pid or prev_pid)
     u64 cur_ts = bpf_ktime_get_ns();
@@ -267,6 +272,34 @@ int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
         if (ctx->vec < 10) {
             process_metrics->vec_nr[ctx->vec] ++;
         }
+    }
+    return 0;
+}
+
+// count read page cache
+SEC("kprobe/mark_page_accessed")
+int kprobe__mark_page_accessed(struct pt_regs *ctx)
+{
+    u32 cur_pid = bpf_get_current_pid_tgid();
+    struct process_metrics_t *process_metrics;
+    process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
+    if (process_metrics)
+    {
+        process_metrics->page_cache_hit ++;
+    }
+    return 0;
+}
+
+// count write page cache
+SEC("kprobe/set_page_dirty")
+int kprobe__set_page_dirty(struct pt_regs *ctx)
+{
+    u32 cur_pid = bpf_get_current_pid_tgid();
+    struct process_metrics_t *process_metrics;
+    process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
+    if (process_metrics)
+    {
+        process_metrics->page_cache_hit ++;
     }
     return 0;
 }
