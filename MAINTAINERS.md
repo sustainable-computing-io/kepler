@@ -18,4 +18,6 @@
 | Sunyanan Choochotkaew | IBM |  sunya-ch | sunyanan.choochotkaew1@ibm.com | 
 | Ruomeng Hao | Intel | ruomengh | ruomengh@intel.com | 
 | Chen Wang | IBM | wangchen615 | chen.wang1@ibm.com |
-
+| Sunil Thaha | Red Hat | sthaha | sthaha@redhat.com |
+| Jie Ren | Intel | jiere | jie.ren@intel.com |
+| Vibhu Prashar | Red Hat | vprashar2929 | vibhu.sharma2929@gmail.com |
