@@ -230,6 +230,11 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 	if path == unknownPath {
 		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 	}
+	// as the container ID is located at the end of the path, we remove the beginning of the string to prevent bugs, as seen in issue #923
+	split := strings.Split(path, "/")
+	size := len(split)
+	path = split[size-1 : size][0]
+
 	cgroup := config.GetCGroupVersion()
 	if regexFindContainerIDPath.MatchString(path) {
 		sub := regexFindContainerIDPath.FindAllString(path, -1)
