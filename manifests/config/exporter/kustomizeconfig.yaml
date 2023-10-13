@@ -9,6 +9,11 @@ varReference:
   version: v1
   name: kepler-cfm
   path: data/KEPLER_NAMESPACE
+- kind: ConfigMap
+  group: ""
+  version: v1
+  name: kepler-cfm
+  path: data/PROMETHEUS_SCRAPE_INTERVAL
 - kind: DaemonSet
   group: apps
   version: v1
@@ -19,3 +24,8 @@ varReference:
   version: v1
   name: kepler-exporter
   path: spec/namespaceSelector/matchNames
+- kind: ServiceMonitor
+  group: monitoring.coreos.com
+  version: v1
+  name: kepler-exporter
+  path: spec/endpoints/interval

@@ -102,6 +102,10 @@ if [ -n "${PROMETHEUS_DEPLOY}" ]; then
     echo "deployment with prometheus"
     uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
     uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
+    if [ -n "${HIGH_GRANULARITY}" ]; then
+        echo "enable high metric granularity in Prometheus"
+        uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
+    fi
 fi
 
 if [ -n "${ESTIMATOR_SIDECAR_DEPLOY}" ]; then
