@@ -136,6 +136,7 @@ jobs:
         uses: sustainable-computing-io/kepler-action@v0.0.2
         with:
           cluster_provider: ${{matrix.cluster_provider}}
+          ebpfprovider: bcc
           local_dev_cluster_version: v0.0.3
           prometheus_enable: true
           grafana_enable: true
@@ -192,8 +193,8 @@ jobs:
           IMAGE_NAME: "kepler-validator"
           IMAGE_TAG: "x86-rapl"
           CTR_CMD: docker
-          kepler_address: localhost:9102
-          prometheus_address: localhost:9090
+          kepler_address: localhost:9103
+          prometheus_address: localhost:9091
 
       - name: Undeploy Kepler and cleanup the cluster
         run: |
