@@ -28,7 +28,7 @@ jobs:
         password: ${{ secrets.BOT_TOKEN }}
 
     - name: Build and push
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
           context: .
           platforms: linux/amd64
