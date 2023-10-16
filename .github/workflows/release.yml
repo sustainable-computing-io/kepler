@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
     - name: Create release branch
-      uses: peterjgrainger/action-create-branch@v2.2.0
+      uses: peterjgrainger/action-create-branch@v2.4.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
