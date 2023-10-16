@@ -16,7 +16,8 @@ limitations under the License.
 
 /*
 lr.go
-estimate (node/pod) component and total power by linear regression approach when trained model weights are available.
+estimate (node/pod) component and total power by local regression approach when trained model weights are available.
+The regressor can be linear or non-linear.
 The model weights can be obtained by Kepler Model Server or configured initial model URL.
 */
 
@@ -92,6 +93,8 @@ func genWeights(numericalVars map[string]NormalizedNumericalFeature) ModelWeight
 			CategoricalVariables: map[string]map[string]CategoricalFeature{"cpu_architecture": SampleCategoricalFeatures},
 			NumericalVariables:   numericalVars,
 		},
+		XGBoostModelWeight{},
+		types.RegressorType(1),
 	}
 }
 
@@ -115,10 +118,10 @@ func getDummyWeights(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func genLinearRegressor(outputType types.ModelOutputType, energySource, modelServerEndpoint, modelWeightsURL, modelWeightFilepath string) LinearRegressor {
+func genLocalRegressor(outputType types.ModelOutputType, energySource, modelServerEndpoint, modelWeightsURL, modelWeightFilepath string) LocalRegressor {
 	config.ModelServerEnable = true
 	config.ModelServerEndpoint = modelServerEndpoint
-	return LinearRegressor{
+	return LocalRegressor{
 		ModelServerEndpoint:         modelServerEndpoint,
 		OutputType:                  outputType,
 		EnergySource:                energySource,
@@ -135,7 +138,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 		It("Get Node Platform Power By Linear Regression with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.PlatformEnergySource)
-			r := genLinearRegressor(types.AbsPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath)
+			r := genLocalRegressor(types.AbsPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -150,7 +153,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 		It("Get Node Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
-			r := genLinearRegressor(types.AbsPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath)
+			r := genLocalRegressor(types.AbsPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -165,7 +168,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 		It("Get Container Platform Power By Linear Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource)
-			r := genLinearRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath)
+			r := genLocalRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -182,7 +185,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 		It("Get Container Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
-			r := genLinearRegressor(types.DynPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath)
+			r := genLocalRegressor(types.DynPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -202,7 +205,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 			/// Estimate Node Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
-			r := genLinearRegressor(types.AbsPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
+			r := genLocalRegressor(types.AbsPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -215,7 +218,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 			/// Estimate Node Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
-			r := genLinearRegressor(types.AbsPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
+			r := genLocalRegressor(types.AbsPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -228,7 +231,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 			// Estimate Container Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
-			r := genLinearRegressor(types.DynPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
+			r := genLocalRegressor(types.DynPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
@@ -243,7 +246,7 @@ var _ = Describe("Test LR Weight Unit", func() {
 			// Estimate Container Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
-			r := genLinearRegressor(types.DynPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
+			r := genLocalRegressor(types.DynPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
