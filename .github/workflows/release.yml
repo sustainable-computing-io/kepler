@@ -145,7 +145,7 @@ jobs:
           file: build/Dockerfile.libbpf.kepler
 
     - name: Generate SBOM
-      uses: anchore/sbom-action@v0.14.2
+      uses: anchore/sbom-action@v0.14.3
       with:
         image: quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
         artifact-name: sbom-kepler-${{ github.event.inputs.release }}.json
