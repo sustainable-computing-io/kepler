@@ -22,7 +22,7 @@ jobs:
             username: ${{ secrets.BOT_NAME }}
             password: ${{ secrets.BOT_TOKEN }}
       - name: Build and push bcc-amd64
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./build/Dockerfile.bcc.base
@@ -30,7 +30,7 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-amd64
       - name: Build and push bcc-s390x
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./build/Dockerfile.bcc.base.s390x
@@ -38,7 +38,7 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-s390x
       - name: Build and push bcc-arm64
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./build/Dockerfile.bcc.base.arm64
@@ -46,7 +46,7 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-arm64
       - name: Build and push libbpf-amd64
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./build/Dockerfile.libbpf.base
