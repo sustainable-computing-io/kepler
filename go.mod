@@ -6,7 +6,7 @@ require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
 	github.com/aquasecurity/libbpfgo v0.4.9-libbpf-1.2.0
 	github.com/containerd/cgroups v1.1.0
-	github.com/containerd/cgroups/v3 v3.0.1
+	github.com/containerd/cgroups/v3 v3.0.2
 	github.com/iovisor/gobpf v0.2.1-0.20221005153822-16120a1bf4d4
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
@@ -64,7 +64,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.1.0 // indirect
