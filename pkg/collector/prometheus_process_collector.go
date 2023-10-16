@@ -19,6 +19,7 @@ package collector
 import (
 	"strconv"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -183,6 +184,9 @@ func (p *PrometheusCollector) updateProcessMetrics(wg *sync.WaitGroup, ch chan<-
 			processCommand := process.Command
 			if len(processCommand) > commandLenLimit {
 				processCommand = process.Command[:commandLenLimit]
+			}
+			if !utf8.ValidString(processCommand) {
+				processCommand = ""
 			}
 			pidStr := strconv.FormatUint(pid, 10)
 			if process.BPFStats[config.CPUTime] != nil {
