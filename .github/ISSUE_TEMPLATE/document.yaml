@@ -11,14 +11,14 @@ body:
       required: true
 
   - type: textarea
-    id: documentFixDetail
+    id: documentFixDetailWhat
     attributes:
       label: What is the issue?
     validations:
       required: true
 
   - type: textarea
-    id: documentFixDetail
+    id: documentFixDetailHow
     attributes:
       label: How do you suggest this is fixed?
     validations:
