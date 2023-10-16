@@ -59,26 +59,34 @@ type ModelRequest struct {
 /*
 ModelWeights, AllWeight, CategoricalFeature, NormalizedNumericalFeature define structure of model weight
 {
-"All_Weights":
-
+	"All_Weights":
 		{
 		"Bias_Weight": 1.0,
 		"Categorical_Variables": {"cpu_architecture": {"Sky Lake": {"weight": 1.0}}},
 		"Numerical_Variables": {"cpu_cycles": {"mean": 0, "variance": 1.0, "weight": 1.0}}
 		}
-	}
-*/
-type ModelWeights struct {
-	AllWeights `json:"All_Weights"`
+	},
+	"XGboost_Weights": "base64_encoded_dmlc_xgboost_model_json"
 }
+*/
+
+type ModelWeights struct {
+	AllWeights    `json:"All_Weights"`
+	XGBoostWeight string `json:"XGBoost_Weights"`
+	XGBoostModel  XGBoostModelWeight
+	RegressorType types.RegressorType
+}
+
 type AllWeights struct {
 	BiasWeight           float64                                  `json:"Bias_Weight"`
 	CategoricalVariables map[string]map[string]CategoricalFeature `json:"Categorical_Variables"`
 	NumericalVariables   map[string]NormalizedNumericalFeature    `json:"Numerical_Variables"`
 }
+
 type CategoricalFeature struct {
 	Weight float64 `json:"weight"`
 }
+
 type NormalizedNumericalFeature struct {
 	Scale  float64 `json:"scale"` // to normalize the data
 	Weight float64 `json:"weight"`
@@ -96,7 +104,7 @@ func (weights ModelWeights) getIndexedWeights(usageMetrics, systemFeatures []str
 	return
 }
 
-// predict applies normalization and linear regression to usageMetricValues and systemMetaDataFeatureValues
+// predict applies normalization and local regression to usageMetricValues and systemMetaDataFeatureValues
 func (weights ModelWeights) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
 	categoricalWeights, numericalWeights := weights.getIndexedWeights(usageMetricNames, systemMetaDataFeatureNames)
 	basePower := weights.AllWeights.BiasWeight
@@ -141,10 +149,11 @@ ComponentModelWeights defines structure for multiple (power component's) weights
 	  }
 	}
 */
+
 type ComponentModelWeights map[string]ModelWeights
 
-// LinearRegressor defines power estimator with linear regression approach
-type LinearRegressor struct {
+// LocalRegressor defines power estimator with regression approach
+type LocalRegressor struct {
 	ModelServerEndpoint  string
 	OutputType           types.ModelOutputType
 	EnergySource         string
@@ -168,8 +177,25 @@ type LinearRegressor struct {
 	modelWeight *ComponentModelWeights
 }
 
+// init model weight
+func (r *LocalRegressor) initModelWeight(content *ComponentModelWeights) error {
+	r.modelWeight = content
+	for k, v := range *r.modelWeight {
+		if v.XGBoostWeight != "" {
+			err := v.XGBoostModel.LoadFromBuffer(v.XGBoostWeight)
+			if err != nil {
+				return fmt.Errorf("failed to load %v xgboost model: %v", k, err)
+			}
+		} else {
+			v.RegressorType = types.LinearRegressor
+		}
+		(*r.modelWeight)[k] = v
+	}
+	return nil
+}
+
 // Start returns nil if model weight is obtainable
-func (r *LinearRegressor) Start() error {
+func (r *LocalRegressor) Start() error {
 	var err error
 	var weight *ComponentModelWeights
 	outputStr := r.OutputType.String()
@@ -186,8 +212,7 @@ func (r *LinearRegressor) Start() error {
 	}
 	if weight != nil {
 		r.enabled = true
-		r.modelWeight = weight
-		return nil
+		return r.initModelWeight(weight)
 	} else {
 		if err == nil {
 			err = fmt.Errorf("the model LR (%s): has no config", outputStr)
@@ -198,7 +223,7 @@ func (r *LinearRegressor) Start() error {
 }
 
 // getWeightFromServer tries getting weights for Kepler Model Server
-func (r *LinearRegressor) getWeightFromServer() (*ComponentModelWeights, error) {
+func (r *LocalRegressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	modelRequest := ModelRequest{
 		MetricNames:  append(r.FloatFeatureNames, r.SystemMetaDataFeatureNames...),
 		OutputType:   r.OutputType.String(),
@@ -242,7 +267,7 @@ func (r *LinearRegressor) getWeightFromServer() (*ComponentModelWeights, error) 
 
 // loadWeightFromURLorLocal get weight from either local or URL
 // if string start with '/', we take it as local file
-func (r *LinearRegressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
+func (r *LocalRegressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
 	var body []byte
 	var err error
 
@@ -262,7 +287,7 @@ func (r *LinearRegressor) loadWeightFromURLorLocal() (*ComponentModelWeights, er
 }
 
 // loadWeightFromLocal tries loading weights from local file given by r.ModelWeightsURL
-func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
+func (r *LocalRegressor) loadWeightFromLocal() ([]byte, error) {
 	data, err := os.ReadFile(r.ModelWeightsFilepath)
 	if err != nil {
 		return nil, err
@@ -271,7 +296,7 @@ func (r *LinearRegressor) loadWeightFromLocal() ([]byte, error) {
 }
 
 // loadWeightFromURL tries loading weights from initial model URL
-func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
+func (r *LocalRegressor) loadWeightFromURL() ([]byte, error) {
 	if r.ModelWeightsURL == "" {
 		return nil, fmt.Errorf("ModelWeightsURL is empty")
 	}
@@ -295,7 +320,7 @@ func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
 }
 
 // GetPlatformPower applies ModelWeight prediction and return a list of power associated to each process/container/pod
-func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
+func (r *LocalRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
 	if !r.enabled {
 		return []float64{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
@@ -316,7 +341,7 @@ func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 }
 
 // GetComponentsPower applies each component's ModelWeight prediction and return a map of component power associated to each process/container/pod
-func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error) {
+func (r *LocalRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error) {
 	if !r.enabled {
 		return []source.NodeComponentsEnergy{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
@@ -349,11 +374,11 @@ func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
-func (r *LinearRegressor) GetGPUPower(isIdlePower bool) ([]float64, error) {
+func (r *LocalRegressor) GetGPUPower(isIdlePower bool) ([]float64, error) {
 	return []float64{}, fmt.Errorf("current power model does not support GPUs")
 }
 
-func (r *LinearRegressor) addFloatFeatureValues(x []float64) {
+func (r *LocalRegressor) addFloatFeatureValues(x []float64) {
 	for i, feature := range x {
 		// floatFeatureValues is a cyclic list, where we only append a new value if it is necessary.
 		if r.xidx < len(r.floatFeatureValues) {
@@ -377,53 +402,53 @@ func (r *LinearRegressor) addFloatFeatureValues(x []float64) {
 }
 
 // AddContainerFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
-// LinearRegressor is trained off-line then we cannot Add training samples. We might implement it in the future.
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) AddContainerFeatureValues(x []float64) {
+// LocalRegressor is trained off-line then we cannot Add training samples. We might implement it in the future.
+// The LocalRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LocalRegressor) AddContainerFeatureValues(x []float64) {
 	r.addFloatFeatureValues(x)
 }
 
 // AddNodeFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
-// LinearRegressor is not trained, then we cannot Add training samples, only samples for prediction.
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) AddNodeFeatureValues(x []float64) {
+// LocalRegressor is not trained, then we cannot Add training samples, only samples for prediction.
+// The LocalRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LocalRegressor) AddNodeFeatureValues(x []float64) {
 	r.addFloatFeatureValues(x)
 }
 
 // AddDesiredOutValue adds the the y, which is the response variable (or the dependent variable) of regression.
-// LinearRegressor is trained off-line then we do not add Y for trainning. We might implement it in the future.
-func (r *LinearRegressor) AddDesiredOutValue(y float64) {
+// LocalRegressor is trained off-line then we do not add Y for trainning. We might implement it in the future.
+func (r *LocalRegressor) AddDesiredOutValue(y float64) {
 }
 
 // ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
-func (r *LinearRegressor) ResetSampleIdx() {
+func (r *LocalRegressor) ResetSampleIdx() {
 	r.xidx = 0
 }
 
 // Train triggers the regressiong fit after adding data points to create a new power model.
-// LinearRegressor is trained off-line then we cannot trigger the trainning. We might implement it in the future.
-func (r *LinearRegressor) Train() error {
+// LocalRegressor is trained off-line then we cannot trigger the trainning. We might implement it in the future.
+func (r *LocalRegressor) Train() error {
 	return nil
 }
 
 // IsEnabled returns true if the power model was trained and is active
-func (r *LinearRegressor) IsEnabled() bool {
+func (r *LocalRegressor) IsEnabled() bool {
 	return r.enabled
 }
 
 // GetModelType returns the model type
-func (r *LinearRegressor) GetModelType() types.ModelType {
-	return types.LinearRegressor
+func (r *LocalRegressor) GetModelType() types.ModelType {
+	return types.LocalRegressor
 }
 
 // GetContainerFeatureNamesList returns the list of float features that the model was configured to use
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) GetContainerFeatureNamesList() []string {
+// The LocalRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LocalRegressor) GetContainerFeatureNamesList() []string {
 	return r.FloatFeatureNames
 }
 
 // GetNodeFeatureNamesList returns the list of float features that the model was configured to use
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) GetNodeFeatureNamesList() []string {
+// The LocalRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+func (r *LocalRegressor) GetNodeFeatureNamesList() []string {
 	return r.FloatFeatureNames
 }

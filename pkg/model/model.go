@@ -54,7 +54,7 @@ type PowerMoldelInterface interface {
 	Train() error
 	// IsEnabled returns true if the power model was trained and is active
 	IsEnabled() bool
-	// GetModelType returns if the model is Ratio, LinearRegressor or EstimatorSidecar
+	// GetModelType returns if the model is Ratio, LocalRegressor or EstimatorSidecar
 	GetModelType() types.ModelType
 	// GetContainerFeatureNamesList returns the list of container features that the model was configured to use
 	GetContainerFeatureNamesList() []string
@@ -82,7 +82,7 @@ func CreatePowerEstimatorModels(containerFeatureNames, systemMetaDataFeatureName
 }
 
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
-// To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the LinearRegressor.
+// To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the LocalRegressor.
 // For the built-in Power Model, we have the option to use the Ratio power model.
 func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInterface, error) {
 	switch modelConfig.ModelType {
@@ -94,14 +94,14 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 		klog.V(3).Infof("Using Power Model Ratio")
 		return model, nil
 
-	case types.LinearRegressor:
+	case types.LocalRegressor:
 		var featuresNames []string
 		if modelConfig.IsNodePowerModel {
 			featuresNames = modelConfig.NodeFeatureNames
 		} else {
 			featuresNames = modelConfig.ContainerFeatureNames
 		}
-		model := &local.LinearRegressor{
+		model := &local.LocalRegressor{
 			ModelServerEndpoint:         config.ModelServerEndpoint,
 			OutputType:                  modelConfig.ModelOutputType,
 			EnergySource:                modelConfig.EnergySource,
@@ -190,14 +190,14 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 		modelType = types.EstimatorSidecar
 		return
 	}
-	useLinearRegressionStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LinearRegressionEnabledKey)]
-	if strings.EqualFold(useLinearRegressionStr, "true") {
-		modelType = types.LinearRegressor
+	useLocalRegressorStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey)]
+	if strings.EqualFold(useLocalRegressorStr, "true") {
+		modelType = types.LocalRegressor
 		return
 	}
-	// set the default node power model as LinearRegressor
+	// set the default node power model as LocalRegressor
 	if powerSourceTarget == config.NodePlatformPowerKey || powerSourceTarget == config.NodeComponentsPowerKey {
-		modelType = types.LinearRegressor
+		modelType = types.LocalRegressor
 		return
 	}
 	// set the default container power model as Ratio
@@ -244,7 +244,7 @@ func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 }
 
 // getPowerModelOutputType return the model output type for a given power source, such as platform, components, container or node power sources.
-// getPowerModelOutputType only affects LinearRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
+// getPowerModelOutputType only affects LocalRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
 // AbsPower for Node, DynPower for container and process
 func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 	switch powerSourceTarget {

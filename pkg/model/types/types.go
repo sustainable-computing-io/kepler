@@ -18,22 +18,27 @@ package types
 
 type ModelType int
 type ModelOutputType int
+type RegressorType int
 
 var (
 	ModelOutputTypeConverter = []string{
 		"AbsPower", "DynPower",
 	}
 	ModelTypeConverter = []string{
-		"Ratio", "LinearRegressor", "EstimatorSidecar",
+		"Ratio", "LocalRegressor", "EstimatorSidecar",
+	}
+	RegressorTypeConverter = []string{
+		"LinearRegression", "XGradientBoostingRegressor",
 	}
 )
 
 const (
 	// Power Model types
 	Ratio            ModelType = iota + 1 // estimation happens within kepler without using Model Server
-	LinearRegressor                       // estimation happens within kepler, but pre-trained model parameters are downloaded externally
+	LocalRegressor                        // estimation happens within kepler, but pre-trained model parameters are downloaded externally
 	EstimatorSidecar                      // estimation happens in the sidecar with a loaded pre-trained power model
 )
+
 const (
 	// Power Model Output types
 	// Absolute Power Model (AbsPower): is the power model trained by measured power (including the idle power)
@@ -43,6 +48,12 @@ const (
 	Unsupported
 )
 
+const (
+	// Regressor types
+	LinearRegressor RegressorType = iota + 1
+	XGBoostRegressor
+)
+
 var (
 	// Define energy source
 	PlatformEnergySource  = "acpi"
@@ -50,15 +61,22 @@ var (
 )
 
 func (s ModelOutputType) String() string {
-	if int(s) <= len(ModelOutputTypeConverter) {
+	if s > 0 && int(s) <= len(ModelOutputTypeConverter) {
 		return ModelOutputTypeConverter[s-1]
 	}
 	return "unknown"
 }
 
 func (s ModelType) String() string {
-	if int(s) <= len(ModelTypeConverter) {
+	if s > 0 && int(s) <= len(ModelTypeConverter) {
 		return ModelTypeConverter[s-1]
+	}
+	return "unknown"
+}
+
+func (r RegressorType) String() string {
+	if r > 0 && int(r) <= len(RegressorTypeConverter) {
+		return RegressorTypeConverter[r-1]
 	}
 	return "unknown"
 }
