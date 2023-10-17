@@ -27,7 +27,7 @@ var (
 //
 // In case of success the provided slice will be reinitialized and its content
 // fully replaced with decoded data.
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v any) error {
 	val := reflect.ValueOf(v)
 
 	if val.Kind() != reflect.Ptr || val.IsNil() {
@@ -90,7 +90,7 @@ func Unmarshal(data []byte, v interface{}) error {
 // Marshal will always encode the CSV header even for the empty slice.
 //
 // For the exact encoding rules look at Encoder.Encode method.
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v any) ([]byte, error) {
 	val := walkValue(reflect.ValueOf(v))
 
 	if !val.IsValid() {
@@ -177,7 +177,7 @@ func countRecords(s []byte) (n int) {
 //
 // Header will return UnsupportedTypeError if the provided value is nil or is
 // not a struct.
-func Header(v interface{}, tag string) ([]string, error) {
+func Header(v any, tag string) ([]string, error) {
 	typ, err := valueType(v)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func Header(v interface{}, tag string) ([]string, error) {
 	return h, nil
 }
 
-func valueType(v interface{}) (reflect.Type, error) {
+func valueType(v any) (reflect.Type, error) {
 	val := reflect.ValueOf(v)
 	if !val.IsValid() {
 		return nil, &UnsupportedTypeError{}
@@ -220,4 +220,10 @@ loop:
 		return nil, &UnsupportedTypeError{Type: typ}
 	}
 	return typ, nil
+}
+
+func newCSVReader(r io.Reader) *csv.Reader {
+	rr := csv.NewReader(r)
+	rr.ReuseRecord = true
+	return rr
 }

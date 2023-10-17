@@ -10,7 +10,7 @@ type decField struct {
 	columnIndex int
 	field
 	decodeFunc
-	zero interface{}
+	zero any
 }
 
 // A Decoder reads and decodes string records into structs.
@@ -45,7 +45,7 @@ type Decoder struct {
 	// value of that type.
 	//
 	// Map must be set before the first call to Decode and not changed after it.
-	Map func(field, col string, v interface{}) string
+	Map func(field, col string, v any) string
 
 	r          Reader
 	typeKey    typeKey
@@ -54,8 +54,13 @@ type Decoder struct {
 	record     []string
 	cache      []decField
 	unused     []int
-	funcMap    map[reflect.Type]reflect.Value
-	ifaceFuncs []reflect.Value
+	funcMap    map[reflect.Type]func([]byte, any) error
+	ifaceFuncs []ifaceDecodeFunc
+}
+
+type ifaceDecodeFunc struct {
+	f       func([]byte, any) error
+	argType reflect.Type
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -104,22 +109,23 @@ func NewDecoder(r Reader, header ...string) (dec *Decoder, err error) {
 // the decoding if record's field is an empty string.
 //
 // Examples of struct field tags and their meanings:
-// 	// Decode matches this field with "myName" header column.
-// 	Field int `csv:"myName"`
 //
-// 	// Decode matches this field with "Field" header column.
-// 	Field int
+//	// Decode matches this field with "myName" header column.
+//	Field int `csv:"myName"`
 //
-// 	// Decode matches this field with "myName" header column and decoding is not
+//	// Decode matches this field with "Field" header column.
+//	Field int
+//
+//	// Decode matches this field with "myName" header column and decoding is not
 //	// called if record's field is an empty string.
-// 	Field int `csv:"myName,omitempty"`
+//	Field int `csv:"myName,omitempty"`
 //
-// 	// Decode matches this field with "Field" header column and decoding is not
+//	// Decode matches this field with "Field" header column and decoding is not
 //	// called if record's field is an empty string.
-// 	Field int `csv:",omitempty"`
+//	Field int `csv:",omitempty"`
 //
-// 	// Decode ignores this field.
-// 	Field int `csv:"-"`
+//	// Decode ignores this field.
+//	Field int `csv:"-"`
 //
 //	// Decode treats this field exactly as if it was an embedded field and
 //	// matches header columns that start with "my_prefix_" to all fields of this
@@ -164,7 +170,7 @@ func NewDecoder(r Reader, header ...string) (dec *Decoder, err error) {
 //
 // Fields with inline tags that have a non-empty prefix must not be cyclic
 // structures. Passing such values to Decode will result in an infinite loop.
-func (d *Decoder) Decode(v interface{}) (err error) {
+func (d *Decoder) Decode(v any) (err error) {
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Ptr || val.IsNil() {
 		return &InvalidDecodeError{Type: reflect.TypeOf(v)}
@@ -238,7 +244,8 @@ func (d *Decoder) Unused() []int {
 
 // Register registers a custom decoding function for a concrete type or interface.
 // The argument f must be of type:
-// 	func([]byte, T) error
+//
+//	func([]byte, T) error
 //
 // T must be a concrete type such as *time.Time, or interface that has at least one
 // method.
@@ -248,13 +255,16 @@ func (d *Decoder) Unused() []int {
 // in order they were registered.
 //
 // Register panics if:
-//	- f does not match the right signature
-//	- f is an empty interface
-//	- f was already registered
+//   - f does not match the right signature
+//   - f is an empty interface
+//   - f was already registered
 //
 // Register is based on the encoding/json proposal:
 // https://github.com/golang/go/issues/5901.
-func (d *Decoder) Register(f interface{}) {
+//
+// Deprecated: use UnmarshalFunc function with type parameter instead. The benefits
+// are type safety and much better performance.
+func (d *Decoder) Register(f any) {
 	v := reflect.ValueOf(f)
 	typ := v.Type()
 
@@ -271,18 +281,52 @@ func (d *Decoder) Register(f interface{}) {
 	}
 
 	if d.funcMap == nil {
-		d.funcMap = make(map[reflect.Type]reflect.Value)
+		d.funcMap = make(map[reflect.Type]func([]byte, any) error)
 	}
 
 	if _, ok := d.funcMap[argType]; ok {
 		panic("csvutil: func " + typ.String() + " already registered")
 	}
 
-	d.funcMap[argType] = v
+	isIface := argType.Kind() == reflect.Interface
+	isArgPtr := v.Type().In(1).Kind() == reflect.Ptr
+
+	fn := func(data []byte, in any) error {
+		dst := reflect.ValueOf(in)
+
+		if isIface && !dst.IsValid() {
+			return &UnmarshalTypeError{Value: string(data), Type: argType}
+		}
+
+		if !isIface && isArgPtr && dst.Kind() != reflect.Pointer {
+			dst = dst.Addr()
+		}
+
+		out := v.Call([]reflect.Value{
+			reflect.ValueOf(data),
+			dst,
+		})
+		err, _ := out[0].Interface().(error)
+		return err
+	}
+
+	d.funcMap[argType] = fn
 
 	if argType.Kind() == reflect.Interface {
-		d.ifaceFuncs = append(d.ifaceFuncs, v)
+		d.ifaceFuncs = append(d.ifaceFuncs, ifaceDecodeFunc{
+			f:       fn,
+			argType: argType,
+		})
 	}
+}
+
+// WithUnmarshalers sets the provided Unmarshalers for the decoder.
+//
+// WithUnmarshalers is based on the encoding/json proposal:
+// https://github.com/golang/go/issues/5901.
+func (d *Decoder) WithUnmarshalers(u *Unmarshalers) {
+	d.funcMap = u.funcMap
+	d.ifaceFuncs = u.ifaceFuncs
 }
 
 func (d *Decoder) decodeSlice(slice reflect.Value) error {
@@ -417,9 +461,9 @@ fieldLoop:
 }
 
 // wrapDecodeError provides the given error with more context such as:
-// 	- column name (field)
-// 	- line number
-// 	- column within record
+//   - column name (field)
+//   - line number
+//   - column within record
 //
 // Line and Column info is available only if the used Reader supports 'FieldPos'
 // that is available e.g. in csv.Reader (since Go1.17).
@@ -535,5 +579,82 @@ func indirect(v reflect.Value) reflect.Value {
 		default:
 			return v
 		}
+	}
+}
+
+// Unmarshalers stores custom unmarshal functions. Unmarshalers is immutable.
+//
+// Unmarshalers are based on the encoding/json proposal:
+// https://github.com/golang/go/issues/5901.
+type Unmarshalers struct {
+	funcMap    map[reflect.Type]func([]byte, any) error
+	ifaceFuncs []ifaceDecodeFunc
+}
+
+// NewUnmarshalers merges the provided Unmarshalers into one and returns it.
+// If Unmarshalers contain duplicate function signatures, the one that was
+// provided first wins.
+func NewUnmarshalers(us ...*Unmarshalers) *Unmarshalers {
+	out := &Unmarshalers{
+		funcMap: make(map[reflect.Type]func([]byte, any) error),
+	}
+
+	for _, u := range us {
+		for k, v := range u.funcMap {
+			if _, ok := out.funcMap[k]; ok {
+				continue
+			}
+			out.funcMap[k] = v
+		}
+		out.ifaceFuncs = append(out.ifaceFuncs, u.ifaceFuncs...)
+	}
+
+	return out
+}
+
+// UnmarshalFunc stores the provided function in Unmarshaler and returns it.
+//
+// Type Parameter T must be a concrete type such as *time.Time, or interface
+// that has at least one method.
+//
+// During decoding, fields are matched by the concrete type first. If match is not
+// found then Decoder looks if field implements any of the registered interfaces
+// in order they were registered.
+//
+// UnmarshalFunc panics if T is an empty interface.
+func UnmarshalFunc[T any](f func([]byte, T) error) *Unmarshalers {
+	var (
+		funcMap    = make(map[reflect.Type]func([]byte, any) error)
+		ifaceFuncs []ifaceDecodeFunc
+		argType    = reflect.TypeOf(f).In(1)
+		isIface    = argType.Kind() == reflect.Interface
+	)
+
+	fn := func(data []byte, v any) error {
+		if !isIface {
+			return f(data, v.(T))
+		}
+		if _, ok := v.(T); !ok {
+			return &UnmarshalTypeError{Value: string(data), Type: argType}
+		}
+		return f(data, v.(T))
+	}
+
+	funcMap[argType] = fn
+
+	if argType.Kind() == reflect.Interface {
+		if argType.NumMethod() == 0 {
+			panic("csvutil: func argument type must not be an empty interface")
+		}
+
+		ifaceFuncs = append(ifaceFuncs, ifaceDecodeFunc{
+			f:       fn,
+			argType: argType,
+		})
+	}
+
+	return &Unmarshalers{
+		funcMap:    funcMap,
+		ifaceFuncs: ifaceFuncs,
 	}
 }

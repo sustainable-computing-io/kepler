@@ -19,7 +19,7 @@ Installation
 Requirements
 -------------
 
-* Go1.8+
+* Go1.18+
 
 Index
 ------
@@ -226,7 +226,7 @@ Lets say we want to decode some floats and the csv input contains some NaN value
 		log.Fatal(err)
 	}
 
-	dec.Map = func(field, column string, v interface{}) string {
+	dec.Map = func(field, column string, v any) string {
 		if _, ok := v.(float64); ok && field == "n/a" {
 			return "NaN"
 		}
@@ -321,24 +321,28 @@ func (f *Foo) UnmarshalText(data []byte) error {
 	return nil
 }
 ```
-3. a type is registered using [Encoder.Register](https://pkg.go.dev/github.com/jszwec/csvutil#Encoder.Register) and/or [Decoder.Register](https://pkg.go.dev/github.com/jszwec/csvutil#Decoder.Register)
+3. a type is registered using [Encoder.WithMarshalers](https://pkg.go.dev/github.com/jszwec/csvutil#Encoder.WithMarshalers) and/or [Decoder.WithUnmarshalers](https://pkg.go.dev/github.com/jszwec/csvutil#Decoder.WithUnmarshalers)
 ```go
 type Foo int64
 
-enc.Register(func(f Foo) ([]byte, error) {
-	return strconv.AppendInt(nil, int64(f), 16), nil
-})
+enc.WithMarshalers(
+	csvutil.MarshalFunc(func(f Foo) ([]byte, error) {
+		return strconv.AppendInt(nil, int64(f), 16), nil
+	}),
+)
 
-dec.Register(func(data []byte, f *Foo) error {
-	v, err := strconv.ParseInt(string(data), 16, 64)
-	if err != nil {
-		return err
-	}
-	*f = Foo(v)
-	return nil
-})
+dec.WithUnmarshalers(
+	csvutil.UnmarshalFunc(func(data []byte, f *Foo) error {
+		v, err := strconv.ParseInt(string(data), 16, 64)
+		if err != nil {
+			return err
+		}
+		*f = Foo(v)
+		return nil
+	}),
+)
 ```
-4. a type implements an interface that was registered using [Encoder.Register](https://pkg.go.dev/github.com/jszwec/csvutil#Encoder.Register) and/or [Decoder.Register](https://pkg.go.dev/github.com/jszwec/csvutil#Decoder.Register)
+4. a type implements an interface that was registered using [Encoder.WithMarshalers](https://pkg.go.dev/github.com/jszwec/csvutil#Encoder.WithMarshalers) and/or [Decoder.WithUnmarshalers](https://pkg.go.dev/github.com/jszwec/csvutil#Decoder.WithUnmarshalers)
 ```go
 type Foo int64
 
@@ -350,14 +354,18 @@ func (f *Foo) Scan(state fmt.ScanState, verb rune) error {
 	// too long; look here: https://github.com/jszwec/csvutil/blob/master/example_decoder_register_test.go#L19
 }
 
-enc.Register(func(s fmt.Stringer) ([]byte, error) {
-	return []byte(s.String()), nil
-})
+enc.WithMarshalers(
+	csvutil.MarshalFunc(func(s fmt.Stringer) ([]byte, error) {
+		return []byte(s.String()), nil
+	}),
+)
 
-dec.Register(func(data []byte, s fmt.Scanner) error {
-	_, err := fmt.Sscan(string(data), s)
-	return err
-})
+dec.WithUnmarshalers(
+	csvutil.UnmarshalFunc(func(data []byte, s fmt.Scanner) error {
+		_, err := fmt.Sscan(string(data), s)
+		return err
+	}),
+)
 ```
 
 The order of precedence for both Encoder and Decoder is:

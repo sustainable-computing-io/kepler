@@ -23,18 +23,17 @@ func nopEncode(buf []byte, _ reflect.Value, _ bool) ([]byte, error) {
 	return buf, nil
 }
 
-func encodeFuncValue(fn reflect.Value) encodeFunc {
+func encodeFuncValue(fn marshalFunc) encodeFunc {
 	return func(buf []byte, v reflect.Value, omitempty bool) ([]byte, error) {
-		out := fn.Call([]reflect.Value{v})
-		err, _ := out[1].Interface().(error)
+		b, err := fn.f(v.Interface())
 		if err != nil {
 			return nil, err
 		}
-		return append(buf, out[0].Bytes()...), nil
+		return append(buf, b...), nil
 	}
 }
 
-func encodeFuncValuePtr(fn reflect.Value) encodeFunc {
+func encodeFuncValuePtr(fn marshalFunc) encodeFunc {
 	return func(buf []byte, v reflect.Value, omitempty bool) ([]byte, error) {
 		if !v.CanAddr() {
 			fallback, err := encodeFn(v.Type(), false, nil, nil)
@@ -44,12 +43,11 @@ func encodeFuncValuePtr(fn reflect.Value) encodeFunc {
 			return fallback(buf, v, omitempty)
 		}
 
-		out := fn.Call([]reflect.Value{v.Addr()})
-		err, _ := out[1].Interface().(error)
+		b, err := fn.f(v.Addr().Interface())
 		if err != nil {
 			return nil, err
 		}
-		return append(buf, out[0].Bytes()...), nil
+		return append(buf, b...), nil
 	}
 }
 
@@ -91,7 +89,7 @@ func encodeBool(buf []byte, v reflect.Value, omitempty bool) ([]byte, error) {
 	return strconv.AppendBool(buf, t), nil
 }
 
-func encodeInterface(funcMap map[reflect.Type]reflect.Value, funcs []reflect.Value) encodeFunc {
+func encodeInterface(funcMap map[reflect.Type]marshalFunc, funcs []marshalFunc) encodeFunc {
 	return func(buf []byte, v reflect.Value, omitempty bool) ([]byte, error) {
 		if !v.IsValid() || v.IsNil() || !v.Elem().IsValid() {
 			return buf, nil
@@ -164,7 +162,7 @@ func encodeMarshaler(buf []byte, v reflect.Value, _ bool) ([]byte, error) {
 	return append(buf, b...), nil
 }
 
-func encodePtr(typ reflect.Type, canAddr bool, funcMap map[reflect.Type]reflect.Value, funcs []reflect.Value) (encodeFunc, error) {
+func encodePtr(typ reflect.Type, canAddr bool, funcMap map[reflect.Type]marshalFunc, funcs []marshalFunc) (encodeFunc, error) {
 	next, err := encodeFn(typ.Elem(), canAddr, funcMap, funcs)
 	if err != nil {
 		return nil, err
@@ -186,7 +184,7 @@ func encodeBytes(buf []byte, v reflect.Value, _ bool) ([]byte, error) {
 	return buf, nil
 }
 
-func encodeFn(typ reflect.Type, canAddr bool, funcMap map[reflect.Type]reflect.Value, funcs []reflect.Value) (encodeFunc, error) {
+func encodeFn(typ reflect.Type, canAddr bool, funcMap map[reflect.Type]marshalFunc, funcs []marshalFunc) (encodeFunc, error) {
 	if v, ok := funcMap[typ]; ok {
 		return encodeFuncValue(v), nil
 	}
@@ -196,7 +194,7 @@ func encodeFn(typ reflect.Type, canAddr bool, funcMap map[reflect.Type]reflect.V
 	}
 
 	for _, v := range funcs {
-		argType := v.Type().In(0)
+		argType := v.argType
 		if typ.AssignableTo(argType) {
 			return encodeFuncValue(v), nil
 		}
