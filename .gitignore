@@ -39,3 +39,4 @@ local-dev-cluster
 *.test
 *.cache
 /tmp
+.env

@@ -340,11 +340,11 @@ cluster-sync:
 .PHONY: cluster-sync
 
 cluster-up:
-	./hack/cluster-up.sh
+	./hack/cluster.sh up
 .PHONY: cluster-up
 
 cluster-down:
-	./hack/cluster-down.sh
+	./hack/cluster.sh down
 .PHONY: cluster-down
 
 e2e:
