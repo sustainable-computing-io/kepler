@@ -14,7 +14,7 @@ jobs:
     steps:
       # checkout source code
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.1.1
       # set up golang
       - name: install Go
         uses: actions/setup-go@v4
@@ -54,7 +54,7 @@ jobs:
         cluster_provider: [kind,microshift]
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.1.1
 
       - name: download Kepler image artifact
         uses: actions/download-artifact@v3

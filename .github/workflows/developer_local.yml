@@ -7,7 +7,7 @@ jobs:
   unit_test_mac:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.1.1
       with:
         persist-credentials: false
         fetch-depth: 0
@@ -28,6 +28,6 @@ jobs:
       matrix:
         kube_provider: [kind]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.1
       - name: local cluster set up
         run: make cluster-up
