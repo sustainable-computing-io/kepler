@@ -27,17 +27,11 @@ const (
 	procPath    string = "/proc/%s/task"
 )
 
-func getThreadIDsForPID(pid, extraPath string) []string {
+func getThreadIDsForPID(pid, fullPath string) []string {
 	threadIDs := []string{}
-	fullPath := ""
-
-	if procPath != "" {
-		fullPath = filepath.Join(extraPath, procPath)
-	} else {
-		fullPath = procPath
-	}
 
 	procDir := fmt.Sprintf(fullPath, pid)
+
 	files, err := ioutil.ReadDir(procDir)
 	if err != nil {
 		return nil
