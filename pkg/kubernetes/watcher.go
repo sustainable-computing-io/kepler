@@ -90,7 +90,6 @@ func NewObjListWatcher() *ObjListWatcher {
 	if w.k8sCli == nil || !config.EnableAPIServer {
 		return w
 	}
-
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", collector_metric.NodeName) // to filter events per node
 	}
@@ -101,11 +100,14 @@ func NewObjListWatcher() *ObjListWatcher {
 		optionsModifier,
 	)
 
-	w.informer = cache.NewSharedInformer(objListWatcher, nil, 0)
+	w.informer = cache.NewSharedInformer(objListWatcher, &k8sv1.Pod{}, 0)
 	w.stopChannel = make(chan struct{})
 	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			w.handleAdd(obj)
+		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			w.handleUpdate(newObj)
+			w.handleUpdate(oldObj, newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
 			w.handleDeleted(obj)
@@ -117,6 +119,7 @@ func NewObjListWatcher() *ObjListWatcher {
 
 func (w *ObjListWatcher) Run() {
 	if !IsWatcherEnabled {
+		klog.Infoln("k8s APIserver watcher was not enabled")
 		return
 	}
 	go w.informer.Run(w.stopChannel)
@@ -128,13 +131,40 @@ func (w *ObjListWatcher) Run() {
 	if !cache.WaitForCacheSync(timeoutCh, w.informer.HasSynced) {
 		klog.Fatalf("watcher timed out waiting for caches to sync")
 	}
+	klog.Infoln("k8s APIserver watcher was started")
 }
 
 func (w *ObjListWatcher) Stop() {
+	klog.Infoln("k8s APIserver watcher was stopped")
 	close(w.stopChannel)
 }
 
-func (w *ObjListWatcher) handleUpdate(obj interface{}) {
+func (w *ObjListWatcher) handleUpdate(oldObj, newObj interface{}) {
+	switch w.ResourceKind {
+	case podResourceType:
+		oldPod, ok := oldObj.(*k8sv1.Pod)
+		if !ok {
+			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			return
+		}
+		newPod, ok := newObj.(*k8sv1.Pod)
+		if !ok {
+			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			return
+		}
+		if newPod.ResourceVersion == oldPod.ResourceVersion {
+			// Periodic resync will send update events for all known pods.
+			// Two different versions of the same pod will always have different RVs.
+			return
+		}
+		w.handleAdd(newObj)
+	default:
+		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
+		return
+	}
+}
+
+func (w *ObjListWatcher) handleAdd(obj interface{}) {
 	switch w.ResourceKind {
 	case podResourceType:
 		pod, ok := obj.(*k8sv1.Pod)
@@ -143,19 +173,18 @@ func (w *ObjListWatcher) handleUpdate(obj interface{}) {
 			return
 		}
 		for _, condition := range pod.Status.Conditions {
-			klog.V(5).Infof("Pod %s %s status %s %s", pod.Name, pod.Namespace, condition.Type, condition.Status)
-			if condition.Type == k8sv1.ContainersReady {
-				klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
-					pod.Name, pod.Namespace, len(pod.Status.ContainerStatuses), len(pod.Status.InitContainerStatuses), len(pod.Status.EphemeralContainerStatuses))
-				w.Mx.Lock()
-				err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
-				err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
-				err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
-				w.Mx.Unlock()
-				klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
+			if condition.Type != k8sv1.ContainersReady {
+				continue
 			}
+			klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
+				pod.Name, pod.Namespace, len(pod.Status.ContainerStatuses), len(pod.Status.InitContainerStatuses), len(pod.Status.EphemeralContainerStatuses))
+			w.Mx.Lock()
+			err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
+			err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
+			err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
+			w.Mx.Unlock()
+			klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
 		}
-
 	default:
 		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
 		return
