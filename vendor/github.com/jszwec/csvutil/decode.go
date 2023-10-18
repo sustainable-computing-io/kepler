@@ -33,31 +33,16 @@ var (
 
 type decodeFunc func(s string, v reflect.Value) error
 
-func decodeFuncValue(f reflect.Value) decodeFunc {
-	isIface := f.Type().In(1).Kind() == reflect.Interface
-
+func decodeFuncValue(f func([]byte, any) error) decodeFunc {
 	return func(s string, v reflect.Value) error {
-		if isIface && v.Type().Kind() == reflect.Interface && v.IsNil() {
-			return &UnmarshalTypeError{Value: s, Type: v.Type()}
-		}
-
-		out := f.Call([]reflect.Value{
-			reflect.ValueOf([]byte(s)),
-			v,
-		})
-		err, _ := out[0].Interface().(error)
-		return err
+		return f([]byte(s), v.Interface())
 	}
 }
 
-func decodeFuncValuePtr(f reflect.Value) decodeFunc {
+func decodeFuncValuePtr(f func([]byte, any) error) decodeFunc {
 	return func(s string, v reflect.Value) error {
-		out := f.Call([]reflect.Value{
-			reflect.ValueOf([]byte(s)),
-			v.Addr(),
-		})
-		err, _ := out[0].Interface().(error)
-		return err
+		v = v.Addr()
+		return f([]byte(s), v.Interface())
 	}
 }
 
@@ -124,7 +109,7 @@ func decodeFieldUnmarshaler(s string, v reflect.Value) error {
 	return v.Interface().(Unmarshaler).UnmarshalCSV([]byte(s))
 }
 
-func decodePtr(typ reflect.Type, funcMap map[reflect.Type]reflect.Value, ifaceFuncs []reflect.Value) (decodeFunc, error) {
+func decodePtr(typ reflect.Type, funcMap map[reflect.Type]func([]byte, any) error, ifaceFuncs []ifaceDecodeFunc) (decodeFunc, error) {
 	next, err := decodeFn(typ.Elem(), funcMap, ifaceFuncs)
 	if err != nil {
 		return nil, err
@@ -138,7 +123,7 @@ func decodePtr(typ reflect.Type, funcMap map[reflect.Type]reflect.Value, ifaceFu
 	}, nil
 }
 
-func decodeInterface(funcMap map[reflect.Type]reflect.Value, ifaceFuncs []reflect.Value) decodeFunc {
+func decodeInterface(funcMap map[reflect.Type]func([]byte, any) error, ifaceFuncs []ifaceDecodeFunc) decodeFunc {
 	return func(s string, v reflect.Value) error {
 		if v.NumMethod() != 0 {
 			return &UnmarshalTypeError{
@@ -163,8 +148,8 @@ func decodeInterface(funcMap map[reflect.Type]reflect.Value, ifaceFuncs []reflec
 					return decodeFuncValue(f)(s, el)
 				}
 				for _, f := range ifaceFuncs {
-					if typ.AssignableTo(f.Type().In(1)) {
-						return decodeFuncValue(f)(s, el)
+					if typ.AssignableTo(f.argType) {
+						return decodeFuncValue(f.f)(s, el)
 					}
 				}
 				if typ.Implements(csvUnmarshaler) {
@@ -195,7 +180,7 @@ func decodeBytes(s string, v reflect.Value) error {
 	return nil
 }
 
-func decodeFn(typ reflect.Type, funcMap map[reflect.Type]reflect.Value, ifaceFuncs []reflect.Value) (decodeFunc, error) {
+func decodeFn(typ reflect.Type, funcMap map[reflect.Type]func([]byte, any) error, ifaceFuncs []ifaceDecodeFunc) (decodeFunc, error) {
 	if f, ok := funcMap[typ]; ok {
 		return decodeFuncValue(f), nil
 	}
@@ -204,12 +189,11 @@ func decodeFn(typ reflect.Type, funcMap map[reflect.Type]reflect.Value, ifaceFun
 	}
 
 	for _, f := range ifaceFuncs {
-		argType := f.Type().In(1)
-		if typ.AssignableTo(argType) {
-			return decodeFuncValue(f), nil
+		if typ.AssignableTo(f.argType) {
+			return decodeFuncValue(f.f), nil
 		}
-		if reflect.PtrTo(typ).AssignableTo(argType) {
-			return decodeFuncValuePtr(f), nil
+		if reflect.PtrTo(typ).AssignableTo(f.argType) {
+			return decodeFuncValuePtr(f.f), nil
 		}
 	}
 
