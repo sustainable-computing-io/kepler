@@ -19,7 +19,7 @@ type encCache struct {
 	record []string
 }
 
-func newEncCache(k typeKey, funcMap map[reflect.Type]reflect.Value, funcs []reflect.Value, header []string) (_ *encCache, err error) {
+func newEncCache(k typeKey, funcMap map[reflect.Type]marshalFunc, funcs []marshalFunc, header []string) (_ *encCache, err error) {
 	fields := cachedFields(k)
 	encFields := make([]encField, 0, len(fields))
 
@@ -103,8 +103,8 @@ type Encoder struct {
 	header     []string
 	noHeader   bool
 	typeKey    typeKey
-	funcMap    map[reflect.Type]reflect.Value
-	ifaceFuncs []reflect.Value
+	funcMap    map[reflect.Type]marshalFunc
+	ifaceFuncs []marshalFunc
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -118,7 +118,8 @@ func NewEncoder(w Writer) *Encoder {
 
 // Register registers a custom encoding function for a concrete type or interface.
 // The argument f must be of type:
-// 	func(T) ([]byte, error)
+//
+//	func(T) ([]byte, error)
 //
 // T must be a concrete type such as Foo or *Foo, or interface that has at
 // least one method.
@@ -128,15 +129,20 @@ func NewEncoder(w Writer) *Encoder {
 // in order they were registered.
 //
 // Register panics if:
-//	- f does not match the right signature
-//	- f is an empty interface
-//	- f was already registered
+//   - f does not match the right signature
+//   - f is an empty interface
+//   - f was already registered
 //
 // Register is based on the encoding/json proposal:
 // https://github.com/golang/go/issues/5901.
-func (e *Encoder) Register(f interface{}) {
-	v := reflect.ValueOf(f)
-	typ := v.Type()
+//
+// Deprecated: use MarshalFunc function with type parameter instead. The benefits
+// are type safety and much better performance.
+func (e *Encoder) Register(f any) {
+	var (
+		fn  = reflect.ValueOf(f)
+		typ = fn.Type()
+	)
 
 	if typ.Kind() != reflect.Func ||
 		typ.NumIn() != 1 || typ.NumOut() != 2 ||
@@ -144,24 +150,43 @@ func (e *Encoder) Register(f interface{}) {
 		panic("csvutil: func must be of type func(T) ([]byte, error)")
 	}
 
-	argType := typ.In(0)
+	var (
+		argType = typ.In(0)
 
-	if argType.Kind() == reflect.Interface && argType.NumMethod() == 0 {
+		isIface = argType.Kind() == reflect.Interface
+		isPtr   = argType.Kind() == reflect.Pointer
+	)
+
+	if isIface && argType.NumMethod() == 0 {
 		panic("csvutil: func argument type must not be an empty interface")
 	}
 
+	wrappedFn := marshalFunc{
+		f: func(val any) ([]byte, error) {
+			v := reflect.ValueOf(val)
+			if !v.IsValid() && (isIface || isPtr) {
+				v = reflect.Zero(argType)
+			}
+
+			out := fn.Call([]reflect.Value{v})
+			err, _ := out[1].Interface().(error)
+			return out[0].Bytes(), err
+		},
+		argType: typ.In(0),
+	}
+
 	if e.funcMap == nil {
-		e.funcMap = make(map[reflect.Type]reflect.Value)
+		e.funcMap = make(map[reflect.Type]marshalFunc)
 	}
 
 	if _, ok := e.funcMap[argType]; ok {
 		panic("csvutil: func " + typ.String() + " already registered")
 	}
 
-	e.funcMap[argType] = v
+	e.funcMap[argType] = wrappedFn
 
-	if argType.Kind() == reflect.Interface {
-		e.ifaceFuncs = append(e.ifaceFuncs, v)
+	if isIface {
+		e.ifaceFuncs = append(e.ifaceFuncs, wrappedFn)
 	}
 }
 
@@ -178,6 +203,15 @@ func (enc *Encoder) SetHeader(header []string) {
 	cp := make([]string, len(header))
 	copy(cp, header)
 	enc.header = cp
+}
+
+// WithMarshalers sets the provided Marshalers for the encoder.
+//
+// WithMarshalers are based on the encoding/json proposal:
+// https://github.com/golang/go/issues/5901.
+func (enc *Encoder) WithMarshalers(m *Marshalers) {
+	enc.funcMap = m.funcMap
+	enc.ifaceFuncs = m.ifaceFuncs
 }
 
 // Encode writes the CSV encoding of v to the output stream. The provided
@@ -224,22 +258,22 @@ func (enc *Encoder) SetHeader(header []string) {
 //
 // Examples of struct tags:
 //
-// 	// Field appears as 'myName' header in CSV encoding.
-// 	Field int `csv:"myName"`
+//	// Field appears as 'myName' header in CSV encoding.
+//	Field int `csv:"myName"`
 //
-// 	// Field appears as 'Field' header in CSV encoding.
-// 	Field int
+//	// Field appears as 'Field' header in CSV encoding.
+//	Field int
 //
-// 	// Field appears as 'myName' header in CSV encoding and is an empty string
+//	// Field appears as 'myName' header in CSV encoding and is an empty string
 //	// if Field is 0.
-// 	Field int `csv:"myName,omitempty"`
+//	Field int `csv:"myName,omitempty"`
 //
-// 	// Field appears as 'Field' header in CSV encoding and is an empty string
+//	// Field appears as 'Field' header in CSV encoding and is an empty string
 //	// if Field is 0.
-// 	Field int `csv:",omitempty"`
+//	Field int `csv:",omitempty"`
 //
-// 	// Encode ignores this field.
-// 	Field int `csv:"-"`
+//	// Encode ignores this field.
+//	Field int `csv:"-"`
 //
 //	// Encode treats this field exactly as if it was an embedded field and adds
 //	// "my_prefix_" to each field's name.
@@ -253,7 +287,7 @@ func (enc *Encoder) SetHeader(header []string) {
 //
 // Encode doesn't flush data. The caller is responsible for calling Flush() if
 // the used Writer supports it.
-func (e *Encoder) Encode(v interface{}) error {
+func (e *Encoder) Encode(v any) error {
 	return e.encode(reflect.ValueOf(v))
 }
 
@@ -267,7 +301,7 @@ func (e *Encoder) Encode(v interface{}) error {
 // EncodeHeader is like Header function, but it works with the Encoder and writes
 // directly to the output stream. Look at Header documentation for the exact
 // header encoding rules.
-func (e *Encoder) EncodeHeader(v interface{}) error {
+func (e *Encoder) EncodeHeader(v any) error {
 	typ, err := valueType(v)
 	if err != nil {
 		return err
@@ -389,6 +423,90 @@ func (e *Encoder) cache(typ reflect.Type) ([]encField, []byte, []int, []string, 
 	return e.c.fields, e.c.buf[:0], e.c.index, e.c.record, nil
 }
 
+// Marshalers stores custom unmarshal functions. Marshalers are immutable.
+//
+// Marshalers are based on the encoding/json proposal:
+// https://github.com/golang/go/issues/5901.
+type Marshalers struct {
+	funcMap    map[reflect.Type]marshalFunc
+	ifaceFuncs []marshalFunc
+}
+
+// NewMarshalers merges the provided Marshalers into one and returns it.
+// If Marshalers contain duplicate function signatures, the one that was
+// provided first wins.
+func NewMarshalers(ms ...*Marshalers) *Marshalers {
+	out := &Marshalers{
+		funcMap: make(map[reflect.Type]marshalFunc),
+	}
+
+	for _, u := range ms {
+		for k, v := range u.funcMap {
+			if _, ok := out.funcMap[k]; ok {
+				continue
+			}
+			out.funcMap[k] = v
+		}
+		out.ifaceFuncs = append(out.ifaceFuncs, u.ifaceFuncs...)
+	}
+
+	return out
+}
+
+// MarshalFunc stores the provided function in Marshalers and returns it.
+//
+// T must be a concrete type such as Foo or *Foo, or interface that has at
+// least one method.
+//
+// During encoding, fields are matched by the concrete type first. If match is not
+// found then Encoder looks if field implements any of the registered interfaces
+// in order they were registered.
+//
+// UnmarshalFunc panics if T is an empty interface.
+func MarshalFunc[T any](f func(T) ([]byte, error)) *Marshalers {
+	var (
+		v       = reflect.ValueOf(f)
+		typ     = v.Type()
+		argType = typ.In(0)
+		isIface = argType.Kind() == reflect.Interface
+	)
+
+	if isIface && argType.NumMethod() == 0 {
+		panic("csvutil: func argument type must not be an empty interface")
+	}
+
+	var zero T
+	wrappedFn := marshalFunc{
+		f: func(v any) ([]byte, error) {
+			if !isIface {
+				return f(v.(T))
+			}
+
+			if v == nil {
+				return f(zero)
+			}
+			return f(v.(T))
+		},
+		argType: typ.In(0),
+	}
+
+	funcMap := map[reflect.Type]marshalFunc{
+		argType: wrappedFn,
+	}
+
+	var ifaceFuncs []marshalFunc
+	if isIface {
+		ifaceFuncs = []marshalFunc{
+			wrappedFn,
+		}
+	}
+
+	return &Marshalers{
+		funcMap:    funcMap,
+		ifaceFuncs: ifaceFuncs,
+	}
+}
+
 func walkIndex(v reflect.Value, index []int) reflect.Value {
 	for _, i := range index {
 		v = walkPtr(v)
@@ -423,4 +541,9 @@ func walkType(typ reflect.Type) reflect.Type {
 		typ = typ.Elem()
 	}
 	return typ
+}
+
+type marshalFunc struct {
+	f       func(any) ([]byte, error)
+	argType reflect.Type
 }
