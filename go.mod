@@ -1,6 +1,6 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.21
+go 1.18
 
 require (
 	github.com/NVIDIA/go-nvml v0.11.6-0
