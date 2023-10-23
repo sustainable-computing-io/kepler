@@ -77,7 +77,7 @@ function intergration_test() {
     done
     rm -f kepler.log
     while true; do kubectl port-forward --address localhost -n kepler service/kepler-exporter 9102:9102; done &
-    kubectl logs -n kepler daemonset/kepler-exporter
+    kubectl logs -n kepler daemonset/kepler-exporter --since=5m
     kubectl get pods -n kepler -o yaml
     go test ./e2e/integration-test/... --tags $tags -v --race --bench=. -cover --count=1 --vet=all
 }

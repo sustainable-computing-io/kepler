@@ -67,12 +67,16 @@ var (
 )
 
 func Init() (*[]corev1.Pod, error) {
-	pods, err := podLister.ListPods()
-	if err != nil {
-		return nil, err
+	if config.IsKubeletMetricsEnabled() {
+		pods, err := podLister.ListPods()
+		if err != nil {
+			return nil, err
+		}
+		getAliveContainers(pods)
+		return pods, nil
 	}
-	getAliveContainers(pods)
-	return pods, nil
+	pods := []corev1.Pod{}
+	return &pods, nil
 }
 
 func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
