@@ -90,6 +90,8 @@ spec:
           name: tracing
         - mountPath: /proc
           name: proc
+        - mountPath: /var/run
+          name: var-run
         - name: cfm
           mountPath: /etc/kepler/kepler.config
           readOnly: true
@@ -117,6 +119,10 @@ spec:
       - name: proc
         hostPath:
           path: /proc
+          type: Directory
+      - name: var-run
+        hostPath:
+          path: /var/run
           type: Directory
       - name: cfm
         configMap:

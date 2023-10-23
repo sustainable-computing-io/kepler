@@ -65,6 +65,7 @@ func TestGetCurrentVMPID(t *testing.T) {
 	mockProcDir := t.TempDir()
 	createMockProcDir(mockProcDir)
 
+	mockProcDir = filepath.Join(mockProcDir, procPath)
 	pidFiles, err := GetCurrentVMPID(mockLibvirtDir, mockProcDir)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
