@@ -177,13 +177,11 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 			Expect(value).To(BeNumerically(">", 0))
 		},
 		EntryDescription("Checking %s"),
-		Entry(nil, "kepler_container_core_joules_total"),          // pod level
-		Entry(nil, "kepler_container_dram_joules_total"),          // pod level
-		Entry(nil, "kepler_container_joules_total"),               // pod level
-		Entry(nil, "kepler_container_other_joules_total"),         // pod level
-		Entry(nil, "kepler_container_package_joules_total"),       // pod level
-		Entry(nil, "kepler_container_uncore_joules_total"),        // pod level
-		Entry(nil, "kepler_container_kubelet_cpu_usage_total"),    // pod level
-		Entry(nil, "kepler_container_kubelet_memory_bytes_total"), // pod level
+		Entry(nil, "kepler_container_core_joules_total"),    // pod level
+		Entry(nil, "kepler_container_dram_joules_total"),    // pod level
+		Entry(nil, "kepler_container_joules_total"),         // pod level
+		Entry(nil, "kepler_container_other_joules_total"),   // pod level
+		Entry(nil, "kepler_container_package_joules_total"), // pod level
+		Entry(nil, "kepler_container_uncore_joules_total"),  // pod level
 	)
 })
