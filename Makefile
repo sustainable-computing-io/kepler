@@ -121,23 +121,11 @@ ifndef GOBIN
 	GOBIN := $(GOPATH)/bin
 endif
 
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
+# NOTE: project related tools get installed to tmp dir which is ignored by 
 PROJECT_DIR := $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
-ls $$TMP_DIR;\
-echo $(PROJECT_DIR);\
-rm -rf $$TMP_DIR ;\
-}
-endef
+TOOLS_DIR=$(PROJECT_DIR)/tmp/bin
+KUSTOMIZE = $(TOOLS_DIR)/kustomize
+GOVULNCHECK = $(TOOLS_DIR)/govulncheck
 
 base_dir := $(patsubst %/,%,$(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
@@ -294,10 +282,10 @@ escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
 set_govulncheck:
-	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	./hack/tools.sh govulncheck
 
 govulncheck: set_govulncheck tidy-vendor
-	@govulncheck -v ./... || true
+	@$(GOVULNCHECK) ./... || true
 
 format:
 	./automation/presubmit-tests/gofmt.sh
@@ -318,10 +306,14 @@ genbpfassets:
 
 genlibbpf: kepler.bpf.o
 
+
+tools:
+	hack/tools.sh
+.PHONY: tools
+
 ### k8s ###
 kustomize: ## Download kustomize locally if necessary.
-	mkdir -p bin
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
+	hack/tools.sh kustomize
 
 build-manifest: kustomize
 	./hack/build-manifest.sh "${OPTS}"
