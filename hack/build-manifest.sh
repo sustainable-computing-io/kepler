@@ -17,22 +17,33 @@
 # Copyright 2022 The Kepler Contributors
 #
 
-set -ex
+set -eu -o pipefail
 
+# constants
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+declare -r PROJECT_ROOT
+source "$PROJECT_ROOT/hack/utils.bash"
+
+export PATH="$PROJECT_ROOT/tmp/bin:$PATH"
+
+command -v jq >/dev/null 2>&1 || {
+    die "jq is not installed; run make tools to install all necessary tools"
+}
+
+kc_version_ok=$(kubectl version --client -ojson |
+    jq '.clientVersion | (.major | tonumber) >= 1 and (.minor | tonumber) > 21')
+if [[ "$kc_version_ok" != true ]]; then
+    die "Please update the kubectl version to 1.21+ to support kustomize"
+fi
+
+set -x
 export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
-
 # set options
 # for example: ./build-manifest.sh "ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
 DEPLOY_OPTIONS=$1
 for opt in ${DEPLOY_OPTIONS}; do export "$opt"=true; done
 
-version=$(kubectl version --short | grep 'Client Version' | sed 's/.*v//g' | cut -b -4)
-if [ 1 -eq "$(echo "${version} < 1.21" | bc)" ]; then
-    echo "You need to update your kubectl version to 1.21+ to support kustomize"
-    exit 1
-fi
-
-KUSTOMIZE=${PWD}/bin/kustomize
+KUSTOMIZE=${PROJECT_ROOT}/tmp/bin/kustomize
 SED="sed -i"
 if [ "$(uname)" == "Darwin" ]; then
     SED="sed -i .bak "
@@ -82,38 +93,38 @@ rm -rf "${MANIFESTS_OUT_DIR}"
 mkdir -p "${MANIFESTS_OUT_DIR}"
 cp -r manifests/config/* "${MANIFESTS_OUT_DIR}"/
 
-if [ -n "${BM_DEPLOY}" ]; then
+if [ -n "${BM_DEPLOY:-}" ]; then
     echo "baremetal deployment"
     uncomment_patch bm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
 
-if [ -n "${ROOTLESS}" ]; then
+if [ -n "${ROOTLESS:-}" ]; then
     echo "rootless deployment"
     uncomment_patch rootless "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
 
-if [ -n "${OPENSHIFT_DEPLOY}" ]; then
+if [ -n "${OPENSHIFT_DEPLOY:-}" ]; then
     echo "deployment on openshift"
     uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
     uncomment openshift_scc "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
 
-if [ -n "${PROMETHEUS_DEPLOY}" ]; then
+if [ -n "${PROMETHEUS_DEPLOY:-}" ]; then
     echo "deployment with prometheus"
     uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
     uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
-    if [ -n "${HIGH_GRANULARITY}" ]; then
+    if [ -n "${HIGH_GRANULARITY:-}" ]; then
         echo "enable high metric granularity in Prometheus"
         uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
     fi
 fi
 
-if [ -n "${ESTIMATOR_SIDECAR_DEPLOY}" ]; then
+if [ -n "${ESTIMATOR_SIDECAR_DEPLOY:-}" ]; then
     echo "enable estimator-sidecar"
     uncomment_patch estimator-sidecar "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
 
-if [ -n "${CI_DEPLOY}" ]; then
+if [ -n "${CI_DEPLOY:-}" ]; then
     echo "enable ci ${CLUSTER_PROVIDER}"
     uncomment_patch ci "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
     case ${CLUSTER_PROVIDER} in
@@ -124,12 +135,12 @@ if [ -n "${CI_DEPLOY}" ]; then
     esac
 fi
 
-if [ -n "${DEBUG_DEPLOY}" ]; then
+if [ -n "${DEBUG_DEPLOY:-}" ]; then
     echo "enable debug"
     uncomment_patch debug "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
 fi
 
-if [ -n "${MODEL_SERVER_DEPLOY}" ]; then
+if [ -n "${MODEL_SERVER_DEPLOY:-}" ]; then
     echo "enable model-server"
     uncomment_path model-server "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
     uncomment_patch model-server-kepler-config "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
@@ -146,7 +157,7 @@ if [ -n "${MODEL_SERVER_DEPLOY}" ]; then
     fi
 fi
 
-if [ -n "${QAT_DEPLOY}" ]; then
+if [ -n "${QAT_DEPLOY:-}" ]; then
     echo "enable qat"
     uncomment_patch qat "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
