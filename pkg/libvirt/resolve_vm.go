@@ -61,6 +61,11 @@ func GetCurrentVMPID(path ...string) (map[string]string, error) {
 			continue
 		}
 
+		// avoid driver.pid since it's for libvrit daemon
+		if file.Name() == "driver.pid" {
+			continue
+		}
+
 		if filepath.Ext(file.Name()) == ".pid" {
 			filePath := filepath.Join(path[0], file.Name())
 			content, err := ioutil.ReadFile(filePath)
