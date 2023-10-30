@@ -46,6 +46,11 @@ GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
 
 ifdef ATTACHER_TAG
 	ATTACHER_TAG := $(ATTACHER_TAG)
+	ifeq ($(ATTACHER_TAG),libbpf)
+		LIBBPF_HEADERS := /usr/include/bpf
+		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
+		LIBBPF_OBJ := /usr/lib64/libbpf.a
+	endif
 else
 # auto determine
 	BCC_TAG := 
