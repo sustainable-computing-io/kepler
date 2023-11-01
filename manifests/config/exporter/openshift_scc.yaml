@@ -6,9 +6,9 @@ metadata:
 # To allow running privilegedContainers
 allowPrivilegedContainer: true
 allowHostDirVolumePlugin: true
-allowHostNetwork: true
-allowHostPorts: true
-allowHostIPC: true
+allowHostNetwork: false
+allowHostPorts: false
+allowHostIPC: false
 allowHostPID: true
 readOnlyRootFilesystem: true
 defaultAddCapabilities:
