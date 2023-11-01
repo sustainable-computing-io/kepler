@@ -55,6 +55,7 @@ spec:
         key: node-role.kubernetes.io/master
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: kepler-sa
+      hostPID: true
       containers:
       - name: kepler-exporter
         image: kepler:latest
@@ -86,8 +87,10 @@ spec:
         volumeMounts:
         - mountPath: /lib/modules
           name: lib-modules
+          readOnly: true
         - mountPath: /sys
           name: tracing
+          readOnly: true
         - mountPath: /proc
           name: proc
         - mountPath: /var/run
