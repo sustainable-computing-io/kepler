@@ -132,7 +132,7 @@ func Attach() (interface{}, error) {
 		// err != nil, disable and try using bcc
 		detachLibbpfModule()
 		config.UseLibBPFAttacher = false
-		klog.Infof("failed to attach bpf with libbpf: %v", err)
+		klog.Infof("failed to attach bpf with libbpf: %v, fall back to bcc attachment", err)
 	}
 	return attachBccModule()
 }
