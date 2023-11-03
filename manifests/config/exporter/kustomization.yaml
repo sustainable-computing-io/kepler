@@ -3,7 +3,9 @@ resources:
 # - openshift_scc.yaml
 - exporter.yaml
 # uncomment this line if prometheus deployed
-# - prometheus_service_monitor.yaml
+# - prometheus_common_service_monitor.yaml
+# - prometheus_common_rules.yaml
+# - prometheus_high_granularity_rules.yaml
 
 patchesStrategicMerge: []
 # add this line to allow ci
