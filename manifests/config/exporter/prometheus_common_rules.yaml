@@ -1,0 +1,59 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/part-of: kepler
+    sustainable-computing.io/app: kepler
+  name: kepler-common-rules
+spec:
+  groups:
+    # NOTE: rules are evaluated at 1m interval since the resolution is quite
+    # low and computation is done for 24h
+  - interval: 1m
+    name: kepler-common-rules
+    rules:
+    # NOTE: 2m step interval is good enough granularity for 24h and has 
+    # at least 4 samples
+    - expr: |
+        sum by(container_namespace, pod_name) (
+          increase(kepler_container_joules_total[24h:2m])
+        )
+      record: kepler:container_joules_total:increase:24h:by_ns_pod
+
+    - expr: |
+        sum by(container_namespace) ( 
+          kepler:container_joules_total:increase:24h:by_ns_pod 
+        )
+      record: kepler:container_joules_total:increase:24h:by_ns
+
+    # NOTE: rules are evaluated at scrape interval of low granularity
+  - interval: 30s
+    name: kepler-low-res-rules
+    rules:
+    # NOTE: joules/second ->  watts, so irate(joules) -> watts
+    # 2m range ensures there are at least 4 scrapes are present when 
+    # evaluating rules at low resolution (30s scrape instead of 3s)
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_package_joules_total[2m])
+        )
+      record: kepler:container_package_watts:2m:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_dram_joules_total[2m])
+        )
+      record: kepler:container_dram_watts:2m:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_other_joules_total[2m])
+        )
+      record: kepler:container_other_watts:2m:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_gpu_joules_total[2m])
+        )
+      record: kepler:container_gpu_watts:2m:by_ns_pod
