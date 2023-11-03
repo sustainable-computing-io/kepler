@@ -109,15 +109,23 @@ if [ -n "${OPENSHIFT_DEPLOY:-}" ]; then
     uncomment openshift_scc "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 fi
 
-if [ -n "${PROMETHEUS_DEPLOY:-}" ]; then
-    echo "deployment with prometheus"
-    uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-    uncomment prometheus_ "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
-    if [ -n "${HIGH_GRANULARITY:-}" ]; then
-        echo "enable high metric granularity in Prometheus"
-        uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
-    fi
-fi
+prometheus_deployment() {
+  [[ -z "${PROMETHEUS_DEPLOY:-}" ]] && return 0
+
+  echo "deployment with prometheus"
+
+  uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+  uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
+
+  if [ -n "${HIGH_GRANULARITY:-}" ]; then
+      echo "enable high metric granularity in Prometheus"
+      uncomment prometheus_high "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+      uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
+  fi
+}
+
+prometheus_deployment
+
 
 if [ -n "${ESTIMATOR_SIDECAR_DEPLOY:-}" ]; then
     echo "enable estimator-sidecar"

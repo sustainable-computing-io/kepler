@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/part-of: kepler
+    sustainable-computing.io/app: kepler
+  name: kepler-high-granularity-rules
+spec:
+  groups:
+    # NOTE: rules are evaluated every 10s instead of scrape interval 3s 
+    # since that will be quite taxing on Prometheus
+  - interval: 10s
+    name: kepler-high-granularity-rules
+    rules:
+    # NOTE: joules/second ->  watts, so irate(joules) -> watts
+    # 15s range ensures there are at least 4 scrapes are present when 
+    # evaluating rules at high resolution 3s
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_package_joules_total[15s])
+        )
+      record: kepler:container_package_watts:15s:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_dram_joules_total[15s])
+        )
+      record: kepler:container_dram_watts:15s:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_other_joules_total[15s])
+        )
+      record: kepler:container_other_watts:15s:by_ns_pod
+
+    - expr: |
+        sum by (container_namespace, pod_name) (
+          irate(kepler_container_gpu_joules_total[15s])
+        )
+      record: kepler:container_gpu_watts:15s:by_ns_pod
