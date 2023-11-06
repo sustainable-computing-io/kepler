@@ -13,7 +13,7 @@ require (
 	github.com/jszwec/csvutil v1.8.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.28.0
-	github.com/opencontainers/runc v1.1.8
+	github.com/opencontainers/runc v1.1.10
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
