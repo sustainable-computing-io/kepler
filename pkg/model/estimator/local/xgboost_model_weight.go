@@ -65,6 +65,7 @@ int Predict(BoosterHandle h_booster, float *data, int rows, int cols, float *out
 import "C"
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 )
 
@@ -76,7 +77,7 @@ type XGBoostModelWeight struct {
 
 func (m *XGBoostModelWeight) LoadFromJson(modelPath string) error {
 	m.hBooster = C.LoadModelFromJSON(C.CString(modelPath))
-	if m.hBooster == nil {
+	if reflect.ValueOf(m.hBooster).IsNil() {
 		return fmt.Errorf("load model from json %s failed", modelPath)
 	}
 	m.num_features = int(C.GetNumFeatures(m.hBooster))
@@ -86,7 +87,7 @@ func (m *XGBoostModelWeight) LoadFromJson(modelPath string) error {
 func (m *XGBoostModelWeight) LoadFromBuffer() error {
 	modelBuffer := []byte(m.Learner)
 	m.hBooster = C.LoadModelFromBuffer((*C.char)(unsafe.Pointer(&modelBuffer[0])), C.int(len(modelBuffer)))
-	if m.hBooster == nil {
+	if reflect.ValueOf(m.hBooster).IsNil() {
 		return fmt.Errorf("load model from buffer failed")
 	}
 	m.num_features = int(C.GetNumFeatures(m.hBooster))
