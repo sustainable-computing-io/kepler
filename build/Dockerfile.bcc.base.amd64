@@ -20,4 +20,12 @@ RUN yum install -y kmod xz python3 && yum clean all -y && \
 # bcc pkg is updated more frequently
 RUN yum install -y bcc-0.24.0 && yum install -y bcc-devel-0.24.0
 
+# install xgboost library
+ENV XGBOOST_VERSION=v2.0.1
+ENV nproc=8
+RUN yum install cmake git gcc gcc-c++ -y; \
+    git clone --recursive https://github.com/dmlc/xgboost; \
+    cd xgboost; git checkout tags/${XGBOOST_VERSION}; \
+    mkdir build; cd build; cmake ..; make -j$(nproc); make install; \
+    yum remove cmake git gcc gcc-c++ -y
     

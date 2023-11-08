@@ -20,3 +20,12 @@ RUN yum install -y bcc && yum install -y bcc-devel
 # install less frequently updated python3 pkg and archspec
 RUN yum install -y python3 python3-pip && yum clean all -y && \
     pip3 install  --no-cache-dir archspec
+
+# install xgboost library
+ENV XGBOOST_VERSION=v2.0.1
+ENV nproc=8
+RUN yum install cmake git gcc gcc-c++ -y; \
+    git clone --recursive https://github.com/dmlc/xgboost; \
+    cd xgboost; git checkout tags/${XGBOOST_VERSION}; \
+    mkdir build; cd build; cmake ..; make -j$(nproc); make install; \
+    yum remove cmake git gcc gcc-c++ -y
