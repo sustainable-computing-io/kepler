@@ -43,9 +43,11 @@ install -d %{buildroot}%{_unitdir}
 install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_sysconfdir}/kepler/
 
+install -d %{buildroot}/var/lib/kepler/data
+
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
-
+install -p -m644 ./data/normalized_cpu_arch.csv %{buildroot}/var/lib/kepler/data/normalized_cpu_arch.csv
 
 %post
 
@@ -55,6 +57,7 @@ install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.s
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
+/var/lib/kepler/data/normalized_cpu_arch.csv
 
 
 %changelog
