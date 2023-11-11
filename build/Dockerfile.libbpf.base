@@ -1,5 +1,5 @@
 #
-# This Dockerfile is used for building the image `quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-0.5`
+# This Dockerfile is used for building the image `quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-1.2.0`
 #
 FROM docker.io/nvidia/cuda:12.1.1-base-ubi9
 

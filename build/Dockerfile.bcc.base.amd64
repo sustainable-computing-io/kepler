@@ -1,10 +1,10 @@
-FROM --platform=linux/amd64 docker.io/nvidia/cuda:12.1.0-base-ubi8
+FROM --platform=linux/amd64 docker.io/nvidia/cuda:12.1.0-base-ubi9
 
 ARG ARCH=amd64
 
 # enable centos appstream
-RUN yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-gpg-keys-8-6.el8.noarch.rpm && \
-    yum install -y http://mirror.centos.org/centos/8-stream/BaseOS/aarch64/os/Packages/centos-stream-repos-8-6.el8.noarch.rpm
+RUN yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-gpg-keys-9.0-23.el9.noarch.rpm && \
+    yum install -y https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/centos-stream-repos-9.0-23.el9.noarch.rpm
 
 RUN yum install -y dnf-plugins-core && \
     yum config-manager --set-enabled powertools
@@ -18,7 +18,7 @@ RUN yum install -y kmod xz python3 && yum clean all -y && \
     pip3 install  --no-cache-dir archspec 
 
 # bcc pkg is updated more frequently
-RUN yum install -y bcc-0.24.0 && yum install -y bcc-devel-0.24.0
+RUN yum install -y bcc-0.26.0 && yum install -y bcc-devel-0.26.0
 
 # install xgboost library
 ENV XGBOOST_VERSION=v2.0.1

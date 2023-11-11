@@ -18,7 +18,7 @@ RUN yum install -y kmod xz python3 && yum clean all -y && \
     pip3 install  --no-cache-dir archspec 
 
 # bcc pkg is updated more frequently
-RUN yum install -y bcc-0.24.0 && yum install -y bcc-devel-0.24.0
+RUN yum install -y bcc-0.24.0 && yum install -y bcc-devel-0.26.0
 
 # install xgboost library
 ENV XGBOOST_VERSION=v2.0.1
