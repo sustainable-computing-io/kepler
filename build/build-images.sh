@@ -93,29 +93,39 @@ then
     rm build.log
 fi
 
-# Build and push images
+
+function build_image() {
+    local image=$1
+    local dockerfile=$2
+    local push=$3
+
+    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/$image -f $dockerfile . >> build.log 2>&1"
+    $DOCKER_CMD build -t $IMAGE_REGISTRY/$image -f $dockerfile . >> build.log 2>&1
+
+    if [ "$push" = true ]
+    then
+        echo "$DOCKER_CMD push $IMAGE_REGISTRY/$image >> build.log 2>&1"
+        $DOCKER_CMD push $IMAGE_REGISTRY/$image >> build.log 2>&1
+    fi
+}
+
+# Build images
 if [ "$BUILD_BASE" = true ]
 then   
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX} -f $BCC_BASE_DOCKERFILE --build-arg ARCH=$ARCH . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX} -f $BCC_BASE_DOCKERFILE --build-arg ARCH=$ARCH . >> build.log 2>&1
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} -f $LIBBPF_BASE_DOCKERFILE --build-arg ARCH=$ARCH . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} -f $LIBBPF_BASE_DOCKERFILE --build-arg ARCH=$ARCH . >> build.log 2>&1
+    build_image "kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX}" "$BCC_BASE_DOCKERFILE" false
+    build_image "kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX}" "$LIBBPF_BASE_DOCKERFILE" false
 fi
 
 if [ "$BUILD_BUILDER" = true ]
 then
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX} -f $BCC_BUILDER_DOCKERFILE . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX} -f $BCC_BUILDER_DOCKERFILE . >> build.log 2>&1
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} -f $LIBBPF_BUILDER_DOCKERFILE . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} -f $LIBBPF_BUILDER_DOCKERFILE . >> build.log 2>&1
+    build_image "kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX}" "$BCC_BUILDER_DOCKERFILE" false
+    build_image "kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX}" "$LIBBPF_BUILDER_DOCKERFILE" false
 fi
 
 if [ "$BUILD_KEPLER" = true ]
 then
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler:${KEPLER_BCC_TAG} -f $BCC_KEPLER_DOCKERFILE . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler:${KEPLER_BCC_TAG} -f $BCC_KEPLER_DOCKERFILE . >> build.log 2>&1
-    echo "$DOCKER_CMD build -t $IMAGE_REGISTRY/kepler:${KEPLER_LIBBPF_TAG} -f $LIBBPF_KEPLER_DOCKERFILE . >> build.log 2>&1"
-    $DOCKER_CMD build -t $IMAGE_REGISTRY/kepler:${KEPLER_LIBBPF_TAG} -f $LIBBPF_KEPLER_DOCKERFILE . >> build.log 2>&1
+    build_image "kepler:${KEPLER_BCC_TAG}" "$BCC_KEPLER_DOCKERFILE" false
+    build_image "kepler:${KEPLER_LIBBPF_TAG}" "$LIBBPF_KEPLER_DOCKERFILE" false
 fi
 
 # Push images
@@ -123,25 +133,19 @@ if [ "$PUSH_ONLY" = true ]
 then
     if [ "$BUILD_BASE" = true ]
     then
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX} >> build.log 2>&1
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} >> build.log 2>&1
+        build_image "kepler_base:${BASE_TAG_PREFIX}${BCC_TAG_SUFFIX}" "$BCC_BASE_DOCKERFILE" true
+        build_image "kepler_base:${BASE_TAG_PREFIX}${LIBBPF_TAG_SUFFIX}" "$LIBBPF_BASE_DOCKERFILE" true
     fi
 
     if [ "$BUILD_BUILDER" = true ]
     then
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX} >> build.log 2>&1
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX} >> build.log 2>&1
+        build_image "kepler_builder:${BUILDER_TAG_PREFIX}${BCC_TAG_SUFFIX}" "$BCC_BUILDER_DOCKERFILE" true
+        build_image "kepler_builder:${BUILDER_TAG_PREFIX}${LIBBPF_TAG_SUFFIX}" "$LIBBPF_BUILDER_DOCKERFILE" true
     fi
 
     if [ "$BUILD_KEPLER" = true ]
     then
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler:${KEPLER_BCC_TAG} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler:${KEPLER_BCC_TAG} >> build.log 2>&1
-        echo "$DOCKER_CMD push $IMAGE_REGISTRY/kepler:${KEPLER_LIBBPF_TAG} >> build.log 2>&1"
-        $DOCKER_CMD push $IMAGE_REGISTRY/kepler:${KEPLER_LIBBPF_TAG} >> build.log 2>&1
+        build_image "kepler:${KEPLER_BCC_TAG}" "$BCC_KEPLER_DOCKERFILE" true
+        build_image "kepler:${KEPLER_LIBBPF_TAG}" "$LIBBPF_KEPLER_DOCKERFILE" true
     fi
 fi
