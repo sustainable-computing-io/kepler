@@ -142,7 +142,7 @@ clean: clean-cross-build
 .PHONY: clean
 
 ### build container ###
-build_containerized: genbpfassets tidy-vendor format
+build_containerized: genbpfassets tidy-download format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 
@@ -185,7 +185,7 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local: tidy-vendor format
+_build_local: tidy-download format
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
@@ -244,9 +244,9 @@ cross-build: clean_build_local cross-build-linux-amd64 cross-build-linux-arm64 c
 .PHONY: cross-build
 
 ### toolkit ###
-tidy-vendor:
+tidy-download:
 	go mod tidy -v
-	go mod vendor
+	go mod download
 
 ginkgo-set:
 	mkdir -p $(GOBIN)
@@ -271,11 +271,11 @@ container_test:
 			cd - && git config --global --add safe.directory /kepler && \
 			make test-verbose'
 
-test: ginkgo-set tidy-vendor
+test: ginkgo-set tidy-download
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@$(GOENV) go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
 
-test-verbose: ginkgo-set tidy-vendor
+test-verbose: ginkgo-set tidy-download
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@$(GOENV) go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 	
@@ -283,13 +283,13 @@ test-mac-verbose: ginkgo-set
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@go test $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 
-escapes_detect: tidy-vendor
+escapes_detect: tidy-download
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
 set_govulncheck:
 	./hack/tools.sh govulncheck
 
-govulncheck: set_govulncheck tidy-vendor
+govulncheck: set_govulncheck tidy-download
 	@$(GOVULNCHECK) ./... || true
 
 format:
@@ -352,7 +352,7 @@ e2e:
 
 VALIDATION_DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.kepler-validator
 
-build-validator: tidy-vendor format
+build-validator: tidy-download format
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator -ldflags $(LDFLAGS) ./cmd/validator/validator.go
@@ -376,5 +376,5 @@ platform-validation: ginkgo-set get-env
 	./hack/verify.sh platform ${ATTACHER_TAG}
 .PHONY: platform-validation
 
-check: tidy-vendor set_govulncheck govulncheck format golint test
+check: tidy-download set_govulncheck govulncheck format golint test
 .PHONY: check
