@@ -64,6 +64,7 @@ int Predict(BoosterHandle h_booster, float *data, int rows, int cols, float *out
 */
 import "C"
 import (
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -72,7 +73,7 @@ import (
 type XGBoostModelWeight struct {
 	hBooster     C.BoosterHandle
 	num_features int
-	Learner      string `json:"learner"` // xgboost model learner
+	Learner      string
 }
 
 func (m *XGBoostModelWeight) LoadFromJson(modelPath string) error {
@@ -84,8 +85,14 @@ func (m *XGBoostModelWeight) LoadFromJson(modelPath string) error {
 	return nil
 }
 
-func (m *XGBoostModelWeight) LoadFromBuffer() error {
-	modelBuffer := []byte(m.Learner)
+func (m *XGBoostModelWeight) LoadFromBuffer(modelString string) error {
+	// model is a base64 encoded string, decode it first
+	decodedLearner, err := base64.StdEncoding.DecodeString(modelString)
+	if err != nil {
+		return fmt.Errorf("decode learner failed: %v", err)
+	}
+	modelBuffer := []byte(decodedLearner)
+
 	m.hBooster = C.LoadModelFromBuffer((*C.char)(unsafe.Pointer(&modelBuffer[0])), C.int(len(modelBuffer)))
 	if reflect.ValueOf(m.hBooster).IsNil() {
 		return fmt.Errorf("load model from buffer failed")

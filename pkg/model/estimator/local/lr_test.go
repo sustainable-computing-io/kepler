@@ -87,14 +87,14 @@ var (
 )
 
 func genWeights(numericalVars map[string]NormalizedNumericalFeature) ModelWeights {
+	allWeight := AllWeights{
+		BiasWeight:           1.0,
+		CategoricalVariables: map[string]map[string]CategoricalFeature{"cpu_architecture": SampleCategoricalFeatures},
+		NumericalVariables:   numericalVars,
+	}
+
 	return ModelWeights{
-		AllWeights{
-			BiasWeight:           1.0,
-			CategoricalVariables: map[string]map[string]CategoricalFeature{"cpu_architecture": SampleCategoricalFeatures},
-			NumericalVariables:   numericalVars,
-		},
-		XGBoostModelWeight{},
-		types.RegressorType(1),
+		AllWeights: allWeight,
 	}
 }
 
@@ -256,5 +256,35 @@ var _ = Describe("Test LR Weight Unit", func() {
 			_, err = r.GetComponentsPower(false)
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+})
+
+var _ = Describe("LocalRegressor", func() {
+	Describe("Test loading models", func() {
+		It("should set the AllWeight model weight correctly", func() {
+			r := &LocalRegressor{
+				// use 'test_data/all_weight_model.json' as the filepath
+				ModelWeightsFilepath: "./test_data/all_weight_model.json",
+			}
+			err := r.Start()
+			Expect(err).To(BeNil())
+			Expect(r.modelWeight).NotTo(BeNil())
+			weight := (*r.modelWeight)["package"]
+			Expect(weight).NotTo(BeNil())
+			Expect(weight.AllWeights.NumericalVariables).NotTo(BeNil())
+			bpfCpuTime := weight.AllWeights.NumericalVariables["bpf_cpu_time_us"]
+			Expect(bpfCpuTime).NotTo(BeNil())
+		})
+
+		It("should set the xgboost model weight correctly", func() {
+			r := &LocalRegressor{
+				// use 'test_data/all_weight_model.json' as the filepath
+				ModelWeightsFilepath: "./test_data/xgboost_weight_model.json",
+			}
+			err := r.Start()
+			Expect(err).To(BeNil())
+			Expect(r.modelWeight).NotTo(BeNil())
+		})
+
 	})
 })

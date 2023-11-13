@@ -78,9 +78,10 @@ ModelWeights, AllWeight, CategoricalFeature, NormalizedNumericalFeature define s
 */
 
 type ModelWeights struct {
-	AllWeights         `json:"All_Weights"`
-	XGBoostModelWeight `json:"XGBoost_Weights"`
-	RegressorType      types.RegressorType
+	AllWeights    `json:"All_Weights"`
+	XGBoostWeight string `json:"XGBoost_Weights"`
+	XGBoostModel  XGBoostModelWeight
+	RegressorType types.RegressorType
 }
 
 type AllWeights struct {
@@ -212,9 +213,8 @@ func (r *LocalRegressor) initModelWeight(content *ComponentModelWeights) error {
 	r.modelWeight = content
 	weight := *r.modelWeight
 	for k, v := range weight {
-		if v.XGBoostModelWeight.Learner != "" {
-			v.RegressorType = types.XGBoostRegressor
-			err := v.XGBoostModelWeight.LoadFromBuffer()
+		if v.XGBoostWeight != "" {
+			err := v.XGBoostModel.LoadFromBuffer(v.XGBoostWeight)
 			if err != nil {
 				return fmt.Errorf("failed to load %v xgboost model: %v", k, err)
 			}

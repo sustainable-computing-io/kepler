@@ -1,0 +1,18 @@
+{
+    "package": {
+        "All_Weights": {
+            "Bias_Weight": 0,
+            "Categorical_Variables": {
+            },
+            "Numerical_Variables": {
+                "bpf_cpu_time_us": {
+                    "scale": 29170.333333333332,
+                    "mean": 0,
+                    "variance": 0,
+                    "weight": 0
+                }
+            }
+        },
+        "XGBoost_Weights": ""
+    }
+}

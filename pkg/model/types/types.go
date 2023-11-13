@@ -61,21 +61,21 @@ var (
 )
 
 func (s ModelOutputType) String() string {
-	if int(s) <= len(ModelOutputTypeConverter) {
+	if s > 0 && int(s) <= len(ModelOutputTypeConverter) {
 		return ModelOutputTypeConverter[s-1]
 	}
 	return "unknown"
 }
 
 func (s ModelType) String() string {
-	if int(s) <= len(ModelTypeConverter) {
+	if s > 0 && int(s) <= len(ModelTypeConverter) {
 		return ModelTypeConverter[s-1]
 	}
 	return "unknown"
 }
 
 func (r RegressorType) String() string {
-	if int(r) <= len(RegressorTypeConverter) {
+	if r > 0 && int(r) <= len(RegressorTypeConverter) {
 		return RegressorTypeConverter[r-1]
 	}
 	return "unknown"
