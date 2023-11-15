@@ -124,6 +124,12 @@ jobs:
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
 
+    - name: Build and push kepler base and build image
+      uses: ./.github/workflows/image_base.yml
+      secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
+
     - name: Build and push kepler latest bcc image
       uses: docker/build-push-action@v5
       with:

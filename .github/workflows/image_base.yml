@@ -1,9 +1,12 @@
 name: base
 
 on:
-  push:
-    branches: 
-      - 'base'
+  workflow_call:
+    secrets:
+      username:
+        required: true
+      password:
+        required: true
 
 jobs:
   baseimagebuild:
@@ -19,39 +22,9 @@ jobs:
         uses: docker/login-action@v3
         with:
             registry: quay.io/sustainable_computing_io
-            username: ${{ secrets.BOT_NAME }}
-            password: ${{ secrets.BOT_TOKEN }}
-      - name: Build and push bcc-amd64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./build/Dockerfile.bcc.base
-          platforms: linux/amd64
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-amd64
-      - name: Build and push bcc-s390x
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./build/Dockerfile.bcc.base.s390x
-          platforms: linux/s390x
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-s390x
-      - name: Build and push bcc-arm64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./build/Dockerfile.bcc.base.arm64
-          platforms: linux/arm64
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler_base:latest-bcc-arm64
-      - name: Build and push libbpf-amd64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./build/Dockerfile.libbpf.base
-          platforms: linux/amd64
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler_base:latest-libbpf-amd64
-      - name: Create and upload multi-arch image
-        run: make multi-arch-image-base
+            username: ${{ secrets.username }}
+            password: ${{ secrets.password }}
+      - name: Build and push base image
+        run: ./build/build-images.sh -b
+      - name: Build and push builder image
+        run: ./build/build-images.sh -r
