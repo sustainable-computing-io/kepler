@@ -20,6 +20,9 @@ type ModelType int
 type ModelOutputType int
 type RegressorType int
 
+// fix golint (goconst)
+const UnkownType = "unknown"
+
 var (
 	ModelOutputTypeConverter = []string{
 		"AbsPower", "DynPower",
@@ -64,21 +67,21 @@ func (s ModelOutputType) String() string {
 	if s > 0 && int(s) <= len(ModelOutputTypeConverter) {
 		return ModelOutputTypeConverter[s-1]
 	}
-	return "unknown"
+	return UnkownType
 }
 
 func (s ModelType) String() string {
 	if s > 0 && int(s) <= len(ModelTypeConverter) {
 		return ModelTypeConverter[s-1]
 	}
-	return "unknown"
+	return UnkownType
 }
 
 func (r RegressorType) String() string {
 	if r > 0 && int(r) <= len(RegressorTypeConverter) {
 		return RegressorTypeConverter[r-1]
 	}
-	return "unknown"
+	return UnkownType
 }
 
 type ModelConfig struct {
