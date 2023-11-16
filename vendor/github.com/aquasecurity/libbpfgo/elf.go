@@ -16,6 +16,10 @@ type Symbol struct {
 	byteOrder   binary.ByteOrder
 }
 
+type MySymbolizer struct {
+	Foo int
+}
+
 func getGlobalVariableSymbol(e *elf.File, varName string) (*Symbol, error) {
 	regularSymbols, err := e.Symbols()
 	if err != nil {
