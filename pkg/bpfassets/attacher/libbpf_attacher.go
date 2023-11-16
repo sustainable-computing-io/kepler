@@ -210,6 +210,8 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	}
 	if ebpfBatchGetAndDelete {
 		processesData, err = libbpfCollectProcessBatchSingleHash(processes)
+	} else {
+		processesData, err = libbpfCollectProcessSingleHash(processes)
 	}
 	if err == nil {
 		return
