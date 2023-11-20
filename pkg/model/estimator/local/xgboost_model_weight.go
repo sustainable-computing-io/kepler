@@ -17,6 +17,7 @@ limitations under the License.
 package local
 
 /*
+#cgo CFLAGS: -I/usr/local/include
 #cgo LDFLAGS: -lxgboost -L/usr/local/lib64
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,6 +64,7 @@ int Predict(BoosterHandle h_booster, float *data, int rows, int cols, float *out
 }
 */
 import "C"
+
 import (
 	"encoding/base64"
 	"fmt"
