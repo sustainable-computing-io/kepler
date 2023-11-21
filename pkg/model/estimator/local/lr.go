@@ -112,16 +112,37 @@ func (weights ModelWeights) predict(usageMetricNames []string, usageMetricValues
 		basePower += coeffMap[systemMetaDataFeatureValues[index]].Weight
 	}
 	var powers []float64
-	for _, vals := range usageMetricValues {
-		power := basePower
-		for index, coeff := range numericalWeights {
-			if coeff.Weight == 0 {
-				continue
+	switch weights.RegressorType {
+	case types.LinearRegressor:
+		for _, vals := range usageMetricValues {
+			power := basePower
+			for index, coeff := range numericalWeights {
+				if coeff.Weight == 0 {
+					continue
+				}
+				normalizedX := vals[index] / coeff.Scale
+				power += coeff.Weight * normalizedX
 			}
-			normalizedX := vals[index] / coeff.Scale
-			power += coeff.Weight * normalizedX
+			powers = append(powers, power)
 		}
-		powers = append(powers, power)
+	case types.XGBoostRegressor:
+		for _, vals := range usageMetricValues {
+			data := make([]float32, len(vals))
+			for index, coeff := range numericalWeights {
+				if coeff.Weight == 0 {
+					continue
+				}
+				data[index] = float32(vals[index] / coeff.Scale)
+			}
+			power, err := weights.XGBoostModel.PredictFromData(data)
+			if err != nil {
+				klog.Errorf("XGBoostModel.PredictFromData failed: %v", err)
+				return []float64{}
+			}
+			powers = append(powers, power[0])
+		}
+	default:
+		klog.Errorf("RegressorType %v is not supported", weights.RegressorType)
 	}
 	return powers
 }

@@ -125,27 +125,3 @@ func (m *XGBoostModelWeight) PredictFromData(data []float32) ([]float64, error) 
 	C.free(unsafe.Pointer(output))
 	return output_array, nil
 }
-
-func (m XGBoostModelWeight) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
-	output := make([]float64, len(usageMetricValues))
-	// FIXME: how to use systmeMetaDataFeatureNames and systemMetaDataFeatureValues?
-	for i, usageMetricValue := range usageMetricValues {
-		if m.num_features != len(usageMetricValue) {
-			panic("xgboost model features and usageMetricValues length not equal")
-		}
-		// TODO we should really make a float32 array since xgboost only support float32
-		data := make([]float32, len(usageMetricValue))
-		for i, v := range usageMetricValue {
-			data[i] = float32(v)
-		}
-		val, err := m.PredictFromData(data)
-		if err != nil {
-			panic(err)
-		}
-		if len(val) != 1 {
-			panic("xgboost model predict length not equal to 1")
-		}
-		output[i] = val[0]
-	}
-	return output
-}
