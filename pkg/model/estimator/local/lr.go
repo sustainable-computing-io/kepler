@@ -71,16 +71,16 @@ ModelWeights, AllWeight, CategoricalFeature, NormalizedNumericalFeature define s
 */
 
 type ModelWeights struct {
-	AllWeights    `json:"All_Weights"`
-	XGBoostWeight string `json:"XGBoost_Weights"`
-	XGBoostModel  XGBoostModelWeight
-	RegressorType types.RegressorType
+	AllWeights `json:"All_Weights"`
 }
 
 type AllWeights struct {
 	BiasWeight           float64                                  `json:"Bias_Weight"`
 	CategoricalVariables map[string]map[string]CategoricalFeature `json:"Categorical_Variables"`
 	NumericalVariables   map[string]NormalizedNumericalFeature    `json:"Numerical_Variables"`
+	XGBoostWeight        string                                   `json:"XGBoost_Weights"`
+	XGBoostModel         XGBoostModelWeight
+	RegressorType        types.RegressorType
 }
 
 type CategoricalFeature struct {

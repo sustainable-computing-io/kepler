@@ -279,7 +279,7 @@ var _ = Describe("LocalRegressor", func() {
 		It("should set the xgboost model weight correctly", func() {
 			r := &LocalRegressor{
 				// load the xgboost model weight
-				ModelWeightsFilepath: "./test_data/xgboost_weight_model.json",
+				ModelWeightsFilepath: "./test_data/XgboostFitTrainer.json",
 			}
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -289,14 +289,14 @@ var _ = Describe("LocalRegressor", func() {
 			model := weight.XGBoostModel
 			defer model.Close()
 			Expect(model.hBooster).NotTo(BeNil())
-			Expect(model.num_features).To(Equal(1))
+			Expect(model.num_features).To(Equal(2))
 
-			data := []float32{1.0, 2.0, 3.0}
-			expectedPredictions := []float64{0.5, 0.5, 0.5}
+			data := []float32{1.0, 2.0, 3.0, 4.0}
+			expectedPredictions := []float64{174.14540100097656, 174.14540100097656}
 
 			predictions, err := model.PredictFromData(data)
 			Expect(err).NotTo(HaveOccurred())
-			/* the data has 3 rows and 1 column, there should be 3 preditions */
+			/* the data has 1 rows and 1 column, there should be 2 preditions */
 			Expect(len(predictions)).To(Equal(len(expectedPredictions)))
 			for i, prediction := range predictions {
 				Expect(prediction).To(Equal(expectedPredictions[i]))
