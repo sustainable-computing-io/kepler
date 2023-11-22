@@ -48,7 +48,7 @@ func (n *GPUNvml) Init() (err error) {
 	}()
 	if ret := nvml.Init(); ret != nvml.SUCCESS {
 		n.collectionSupported = false
-		err = fmt.Errorf("failed to init nvml: %v", nvml.ErrorString(ret))
+		err = fmt.Errorf("failed to init nvml. %s", nvmlErrorString(ret))
 		return err
 	}
 
@@ -144,4 +144,14 @@ func (n *GPUNvml) IsGPUCollectionSupported() bool {
 
 func (n *GPUNvml) SetGPUCollectionSupported(supported bool) {
 	n.collectionSupported = supported
+}
+
+func nvmlErrorString(errno nvml.Return) string {
+	switch errno {
+	case nvml.SUCCESS:
+		return "SUCCESS"
+	case nvml.ERROR_LIBRARY_NOT_FOUND:
+		return "ERROR_LIBRARY_NOT_FOUND"
+	}
+	return fmt.Sprintf("Error %d", errno)
 }
