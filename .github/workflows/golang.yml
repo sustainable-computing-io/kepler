@@ -59,3 +59,21 @@ jobs:
           go-version-file: go.mod
       - name: run vulnerability detect
         run: make govulncheck
+
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      - name: run go mod check
+        run: go mod tidy && go mod vendor
+      - name: Compare the expected and actual vendor directories
+        run: |
+          if [ "$(git diff --ignore-space-at-eol vendor/ | wc -l)" -gt "0" ]; then
+            echo "Detected different on vendor folder.  See status below:"
+            git diff
+            exit 1
+          fi
+        id: diff
