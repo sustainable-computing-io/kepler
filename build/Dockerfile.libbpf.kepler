@@ -28,7 +28,7 @@ COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler
 
 RUN mkdir -p /var/lib/kepler/data
 RUN mkdir -p /var/lib/kepler/bpfassets
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/cpus.yaml /var/lib/kepler/data/cpus.yaml
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/bpfassets/libbpf/bpf.o /var/lib/kepler/bpfassets
 
 # copy model weight

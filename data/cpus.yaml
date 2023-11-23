@@ -1,0 +1,191 @@
+##########
+# CPUS - used to lookup uarch and channels by family, model, and stepping
+#    The model and stepping fields will be interpreted as regular expressions
+#    An empty stepping field means 'any' stepping
+
+##########
+# Intel Core CPUs
+##########
+#  Haswell
+- core: HSW
+  uarch: Haswell
+  family: 6
+  model: (50|69|70)
+  stepping:
+
+#  Broadwell
+- core: BDW
+  uarch: Broadwell
+  family: 6
+  model: (61|71)
+  stepping:
+
+#  Skylake
+- core: SKL
+  uarch: Skylake
+  family: 6
+  model: (78|94)
+  stepping:
+
+#  Kabylake
+- core: KBL
+  uarch: Kaby Lake
+  family: 6
+  model: (142|158)
+  stepping: 9
+
+#  Coffelake
+- core: CFL
+  uarch: Coffee Lake
+  family: 6
+  model: (142|158)
+  stepping: (10|11|12|13)
+
+#  Rocket Lake
+- core: RKL
+  uarch: Cypress Cove
+  family: 6
+  model: 167
+  stepping:
+
+#  Tiger Lake
+- core: TGL
+  uarch: Willow Cove
+  family: 6
+  model: (140|141)
+  stepping:
+
+#  Alder Lake
+- core: ADL
+  uarch: Golden Cove
+  family: 6
+  model: (151|154)
+  stepping:
+
+#  Raptor Lake
+- core: RTL
+  uarch: Raptor Cove
+  family: 6
+  model: 183
+  stepping:
+
+##########
+# Intel Xeon CPUs
+##########
+#  Haswell
+- core: HSX
+  uarch: Haswell
+  family: 6
+  model: 63
+  stepping:
+
+#  Broadwell
+- core: BDX
+  uarch: Broadwell
+  family: 6
+  model: (79|86)
+  stepping:
+
+#  Skylake
+- core: SKX
+  uarch: Skylake
+  family: 6
+  model: 85
+  stepping: (0|1|2|3|4)
+
+#  Cascadelake
+- core: CLX
+  uarch: Cascade Lake
+  family: 6
+  model: 85
+  stepping: (5|6|7)
+
+#  Cooperlake
+- core: CPX
+  uarch: Cooper Lake
+  family: 6
+  model: 85
+  stepping: 11
+
+#  Icelake
+- core: ICX
+  uarch: Sunny Cove
+  family: 6
+  model: (106|108)
+  stepping:
+
+#  Sapphire Rapids
+- core: SPR
+  uarch: Sapphire Rapids
+  family: 6
+  model: 143
+  stepping:
+
+#  Emerald Rapids
+- core: EMR
+  uarch: Emerald Rapids
+  family: 6
+  model: 207
+  stepping:
+
+#  Granite Rapids
+- core: GNR
+  uarch: Granite Rapids
+  family: 6
+  model: 173
+  stepping:
+
+#  Sierra Forest
+- core: SRF
+  uarch: Sierra Forest
+  family: 6
+  model: 175
+  stepping:
+
+##########
+# AMD CPUs
+##########
+#  Naples
+- core: Naples
+  uarch: Zen
+  family: 23
+  model: 1
+  stepping:
+
+#  Rome
+- core: Rome
+  uarch: Zen 2
+  family: 23
+  model: 49
+  stepping:
+
+#  Milan
+- core: Milan
+  uarch: Zen 3
+  family: 25
+  model: 1
+  stepping:
+
+#  Genoa
+- core: Genoa
+  uarch: Zen 4
+  family: 25
+  model: 17
+  stepping:
+
+##########
+# ARM CPUs
+#########
+#  AWS Graviton 2
+- core: Ares
+  uarch: neoverse_n1
+  family:
+  model: 1
+  stepping: r3p1
+
+#  AWS Graviton 3
+- core: Zeus
+  uarch: neoverse_v1
+  family:
+  model: 1
+  stepping: r1p1
