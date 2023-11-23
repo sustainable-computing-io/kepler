@@ -234,7 +234,7 @@ func (ne *NodeMetrics) ToEstimatorValues(featuresName []string, shouldNormalize 
 		case CORE + "_DYN": // for dynamic CORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(CORE)), shouldNormalize))
 
-		case DRAM + "_DYN": // for dynamic PKG power consumption
+		case DRAM + "_DYN": // for dynamic DRAM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(DRAM)), shouldNormalize))
 
 		case UNCORE + "_DYN": // for dynamic UNCORE power consumption
@@ -255,7 +255,7 @@ func (ne *NodeMetrics) ToEstimatorValues(featuresName []string, shouldNormalize 
 		case CORE + "_IDLE": // for idle CORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(CORE)), shouldNormalize))
 
-		case DRAM + "_IDLE": // for idle PKG power consumption
+		case DRAM + "_IDLE": // for idle DRAM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(DRAM)), shouldNormalize))
 
 		case UNCORE + "_IDLE": // for idle UNCORE power consumption

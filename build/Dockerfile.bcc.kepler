@@ -5,17 +5,18 @@ ARG SOURCE_GIT_TAG
 
 LABEL name=kepler-builder
 
-ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go 
+ENV GOPATH=/opt/app-root GO111MODULE=off GOROOT=/usr/local/go 
 
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
-WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
+# Set GOCACHE environment variable for caching
+ENV GOCACHE=/go/cache 
 
+WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
 
 COPY . .
 RUN mkdir -p data
-
-# Build kepler
+# Build kepler with caching to speed up the process
 RUN make build SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 RUN ls ./_output/bin
 # RUN make test

@@ -46,6 +46,11 @@ GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
 
 ifdef ATTACHER_TAG
 	ATTACHER_TAG := $(ATTACHER_TAG)
+	ifeq ($(ATTACHER_TAG),libbpf)
+		LIBBPF_HEADERS := /usr/include/bpf
+		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
+		LIBBPF_OBJ := /usr/lib64/libbpf.a
+	endif
 else
 # auto determine
 	BCC_TAG := 
@@ -180,7 +185,7 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local: tidy-vendor format
+_build_local:
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go

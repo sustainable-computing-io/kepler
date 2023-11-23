@@ -43,9 +43,15 @@ install -d %{buildroot}%{_unitdir}
 install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_sysconfdir}/kepler/
 
+install -d %{buildroot}/var/lib/kepler/data
+
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
-
+install -p -m644 ./data/normalized_cpu_arch.csv %{buildroot}/var/lib/kepler/data/normalized_cpu_arch.csv
+install -p -m644 ./data/model_weight/acpi_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_AbsPowerModel.json
+install -p -m644 ./data/model_weight/acpi_DynPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_DynPowerModel.json
+install -p -m644 ./data/model_weight/rapl_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/rapl_AbsPowerModel.json
+install -p -m644 ./data/model_weight/rapl_DynPowerModel.json %{buildroot}/var/lib/kepler/data/rapl_DynPowerModel.json
 
 %post
 
@@ -55,7 +61,11 @@ install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.s
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
-
+/var/lib/kepler/data/normalized_cpu_arch.csv
+/var/lib/kepler/data/acpi_AbsPowerModel.json
+/var/lib/kepler/data/acpi_DynPowerModel.json
+/var/lib/kepler/data/rapl_AbsPowerModel.json
+/var/lib/kepler/data/rapl_DynPowerModel.json
 
 %changelog
 * %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_} 

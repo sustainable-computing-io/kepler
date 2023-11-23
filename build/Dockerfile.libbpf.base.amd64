@@ -22,6 +22,16 @@ RUN curl -LO https://github.com/libbpf/libbpf/archive/refs/tags/v${LIBBPF_VERSIO
     tar -C /usr/local -xvzf v${LIBBPF_VERSION}.tar.gz; rm -f v${LIBBPF_VERSION}.tar.gz; \
     cd /usr/local/libbpf-${LIBBPF_VERSION}/src && OBJDIR=/usr/lib/$(uname -m)-linux-gnu make BUILD_STATIC_ONLY=y install install_uapi_headers
 
+# install xgboost library
+ENV XGBOOST_VERSION=v2.0.1
+ENV nproc=8
+RUN yum install cmake git gcc gcc-c++ -y; \
+    git clone --recursive https://github.com/dmlc/xgboost; \
+    cd xgboost; git checkout tags/${XGBOOST_VERSION}; \
+    mkdir build; cd build; cmake ..; make -j$(nproc); make install; \
+    echo "/usr/local/lib64" > /etc/ld.so.conf.d/xgboost.conf; ldconfig;  ldconfig -p | grep xgboost; \
+    yum remove cmake git gcc gcc-c++ -y
+    
 # nvidia driver is updated on a (bi)monthly basis
 # RUN yum install -y nvidia-driver-NVML nvidia-driver-cuda
 
