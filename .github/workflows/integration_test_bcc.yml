@@ -1,15 +1,15 @@
-name: Integration test with libbpf
+name: Integration test with bcc
 
 on:
   workflow_call:
 
 env:
   OUTPUT_DIR: "_output/"
-  FILE_NAME: "kepler_libbpf.tar.gz"
+  FILE_NAME: "kepler-bcc.tar.gz"
   ARTIFACT_DIR: "/tmp/artifacts"
 
 jobs:
-  build-kepler_with_libbpf:
+  build-kepler-with-bcc:
     runs-on: ubuntu-latest
     steps:
       # checkout source code
@@ -21,10 +21,10 @@ jobs:
         with:
           go-version-file: go.mod
       # set up ebpf
-      - name: install libbpf
+      - name: install bcc
         uses: sustainable-computing-io/kepler-action@v0.0.3
         with:
-          ebpfprovider: libbpf
+          ebpfprovider: bcc
       # build kepler image
       - name: build and export Kepler image
         run: |
@@ -32,22 +32,22 @@ jobs:
           make save-image
         env:
           IMAGE_REPO: "localhost:5001"
-          IMAGE_NAME: "kepler"
           IMAGE_TAG: "devel"
+          IMAGE_NAME: "kepler"
           CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: keplerlibbpf
+          name: kepler
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
           retention-days: 1
           # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
           # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
 
-  integration_test_with_libbpf:
-    needs: [build-kepler_with_libbpf]
+  integration_test:
+    needs: [build-kepler-with-bcc]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -59,7 +59,7 @@ jobs:
       - name: download Kepler image artifact
         uses: actions/download-artifact@v3
         with:
-          name: keplerlibbpf
+          name: kepler
 
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
@@ -81,7 +81,7 @@ jobs:
       - name: use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.3
         with:
-          ebpfprovider: libbpf
+          ebpfprovider: bcc
           cluster_provider: ${{matrix.cluster_provider}}
           local_dev_cluster_version: v0.0.3
 

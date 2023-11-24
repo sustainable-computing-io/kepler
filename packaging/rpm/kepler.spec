@@ -33,7 +33,7 @@ CROSS_BUILD_BINDIR=_output/bin
 GOARCH=amd64
 %endif
 
-make _build_local GOOS=${GOOS} GOARCH=${GOARCH}
+make _build_local GOOS=${GOOS} GOARCH=${GOARCH} ATTACHER_TAG=libbpf
 
 cp ./${CROSS_BUILD_BINDIR}/${GOOS}_${GOARCH}/kepler ./_output/kepler
 

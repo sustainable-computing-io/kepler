@@ -49,7 +49,7 @@ ifdef ATTACHER_TAG
 	ifeq ($(ATTACHER_TAG),libbpf)
 		LIBBPF_HEADERS := /usr/include/bpf
 		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-		LIBBPF_OBJ := /usr/lib64/libbpf.a
+		LIBBPF_OBJ ?= /usr/lib64/libbpf.a
 	endif
 else
 # auto determine
@@ -277,6 +277,7 @@ test: ginkgo-set tidy-vendor
 
 test-verbose: ginkgo-set tidy-vendor
 	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo GOENV=$(GOENV)
 	@$(GOENV) go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
