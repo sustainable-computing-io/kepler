@@ -16,7 +16,7 @@ jobs:
         go-version-file: go.mod
     - name: Prepare environment 
       run: |
-          brew install cpuid xgboost
+          brew install cpuid
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
           git config --global --add safe.directory /kepler
     - name: Run 
