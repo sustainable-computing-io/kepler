@@ -31,6 +31,7 @@ jobs:
       uses: sustainable-computing-io/kepler-action@v0.0.3
       with:
         ebpfprovider: bcc
+        xgboost_version: 2.0.1
     - name: Prepare environment 
       run: |
           sudo apt-get install -y cpuid

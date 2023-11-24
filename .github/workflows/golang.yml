@@ -48,7 +48,12 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Run go vet
-        run: go vet ./...
+        run: |
+          wget https://github.com/sustainable-computing-io/kepler-ci-artifacts/releases/download/v0.26.0/xgboost-2.0.1-Linux.sh.tar.gz
+          tar -zxvf xgboost-2.0.1-Linux.sh.tar.gz
+          sudo sh xgboost-2.0.1-Linux.sh --skip-license  --prefix=/usr/local
+          sudo ldconfig
+          go vet ./...
 
   vulnerability_detect:
     runs-on: ubuntu-latest

@@ -1,0 +1,38 @@
+{
+    "learner": {
+      "gradient_booster": {
+        "model": {
+          "gbtree_model_param": {
+            "num_trees": "1"
+          },
+          "trees": [
+            {
+              "id": 0,
+              "depth": 1,
+              "num_feature": 1,
+              "split_conditions": [0.5],
+              "default_left": true,
+              "categories_segments": [],
+              "categories_nodes": [],
+              "categories_segments_nodes": [],
+              "split_indices": [0],
+              "left_children": [1],
+              "right_children": [2],
+              "base_weights": [],
+              "leaf_weights": [1.0, -1.0],
+              "leaf_child_counts": []
+            }
+          ]
+        },
+        "name": "gbtree"
+      },
+      "objective": "binary:logistic",
+      "learner_model_param": {
+        "base_score": "0.5",
+        "num_class": "1",
+        "num_feature": "1"
+      }
+    },
+    "version": [2, 0, 1]
+  }
+  
