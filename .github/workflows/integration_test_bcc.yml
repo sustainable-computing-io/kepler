@@ -99,9 +99,7 @@ jobs:
         run: make cluster-deploy
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
-          IMAGE_REPO: "localhost:5001"
-          IMAGE_TAG: "devel"
-          CTR_CMD: docker
+          NO_BUILDS: true
 
       - name: Save artifacts
         if: ${{ failure() }}
