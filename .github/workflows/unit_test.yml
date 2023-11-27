@@ -38,7 +38,7 @@ jobs:
           git config --global --add safe.directory /kepler
     - name: Run 
       run: |
-          sudo apt install -y libbpf1
+          sudo apt install -y libbpf0
           ATTACHER_TAG=libbpf make test-verbose
           go tool cover -func=coverage.out -o=coverage.out
     - name: Go Coverage Badge  # Pass the `coverage.out` output to this action
