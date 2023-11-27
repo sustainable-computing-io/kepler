@@ -49,7 +49,7 @@ ifdef ATTACHER_TAG
 	ifeq ($(ATTACHER_TAG),libbpf)
 		LIBBPF_HEADERS := /usr/include/bpf
 		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-		LIBBPF_OBJ ?= /usr/lib64/libbpf.a
+		LIBBPF_OBJ ?= /usr/lib64/libbpf.so
 	endif
 else
 # auto determine
@@ -82,9 +82,9 @@ else
 
 	LIBBPF_HEADERS := /usr/include/bpf
 	KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-	LIBBPF_OBJ := /usr/lib/$(ARCH)-linux-gnu/libbpf.a
+	LIBBPF_OBJ := /usr/lib/$(ARCH)-linux-gnu/libbpf.so
 
-# for libbpf tag, if libbpf.a, kepler.bpf.o exist, clear bcc tag
+# for libbpf tag, if libbpf.so, kepler.bpf.o exist, clear bcc tag
 	ifneq ($(LIBBPF_TAG),)
 		ifneq ($(wildcard $(LIBBPF_OBJ)),)
 			ifneq ($(wildcard $(KEPLER_OBJ_SRC)),)
