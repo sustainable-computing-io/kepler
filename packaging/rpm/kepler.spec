@@ -11,7 +11,7 @@ URL:            https://github.com/sustainable-computing-io/kepler/
 Source0:        kepler.tar.gz
 
 BuildRequires: systemd
-BuildRequires: clang llvm llvm-devel zlib-devel make libbpf golang
+BuildRequires: clang llvm llvm-devel zlib-devel make libbpf
 
 Requires:       elfutils-libelf
 Requires:       elfutils-libelf-devel
