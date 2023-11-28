@@ -297,6 +297,7 @@ format:
 	./automation/presubmit-tests/gofmt.sh
 
 golint:
+	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
 	$(CTR_CMD) run --tty --rm \
 		--volume '$(base_dir)/.cache/golangci-lint:/root/.cache' \
