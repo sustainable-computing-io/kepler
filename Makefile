@@ -334,10 +334,6 @@ cluster-deploy:
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
-cluster-sync:
-	./hack/cluster-sync.sh
-.PHONY: cluster-sync
-
 cluster-up:
 	./hack/cluster.sh up
 .PHONY: cluster-up
