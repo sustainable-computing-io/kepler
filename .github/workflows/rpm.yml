@@ -14,11 +14,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.1.1
 
+      - name: get git version
+        id: git_version
+        run: echo "::set-output name=git_version::$(git describe --dirty --tags --always --match='v*' | tr '-' '.')"
+
       - name: Build RPM packages
         id: rpm_build
         env:
-          _VERSION_ : ${{ steps.date.outputs.date }}
-          _RELEASE_: 1
+          _VERSION_ : ${{ steps.git_version.outputs.git_version }}
+          _RELEASE_: ${{ steps.date.outputs.date }}
           _COMMITTER_: nightly
           _ARCH_: x86_64
         run: |
