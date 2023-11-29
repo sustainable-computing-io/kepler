@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
 
       - name: Checkout code
         uses: actions/checkout@v4.1.1
@@ -19,7 +19,7 @@ jobs:
         env:
           _VERSION_ : ${{ steps.date.outputs.date }}
           _RELEASE_: 1
-          _COMMITTER_: ${{ github.actor }}
+          _COMMITTER_: nightly
           _ARCH_: x86_64
         run: |
           make containerized_build_rpm
