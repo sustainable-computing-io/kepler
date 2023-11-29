@@ -17,8 +17,9 @@ jobs:
       - name: Build RPM packages
         id: rpm_build
         env:
-          _VERSION_ : latest
-          _RELEASE_: latest
+          _VERSION_ : ${{ steps.date.outputs.date }}
+          _RELEASE_: 1
+          _COMMITTER_: ${{ github.actor }}
           _ARCH_: x86_64
         run: |
           make containerized_build_rpm
