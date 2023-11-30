@@ -67,6 +67,7 @@ func NewACPIPowerMeter() *ACPI {
 			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
 		}
 	}
+
 	return acpi
 }
 

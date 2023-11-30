@@ -17,7 +17,7 @@ limitations under the License.
 package qat
 
 import (
-	qat_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat/source"
+	qat_source "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat/source"
 	"k8s.io/klog/v2"
 )
 

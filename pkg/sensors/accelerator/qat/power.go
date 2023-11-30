@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	qat_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat/source"
+	qat_source "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat/source"
 	"k8s.io/klog/v2"
 )
 
@@ -52,21 +52,21 @@ func Init() error {
 }
 
 func Shutdown() bool {
-	if qatImpl != nil && config.EnabledQAT {
+	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		return qatImpl.Shutdown()
 	}
 	return true
 }
 
 func GetQATs() map[string]interface{} {
-	if qatImpl != nil && config.EnabledQAT {
+	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		return qatImpl.GetQATs()
 	}
 	return map[string]interface{}{}
 }
 
 func GetQATUtilization(devices map[string]interface{}) (map[string]qat_source.DeviceUtilizationSample, error) {
-	if qatImpl != nil && config.EnabledQAT {
+	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		deviceUtilization, err := qatImpl.GetQATUtilization(devices)
 		if err != nil {
 			klog.Infof("failed to collector QAT metrics, trying to initizalize again: %v \n", err)
@@ -82,14 +82,14 @@ func GetQATUtilization(devices map[string]interface{}) (map[string]qat_source.De
 }
 
 func IsQATCollectionSupported() bool {
-	if qatImpl != nil && config.EnabledQAT {
+	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		return qatImpl.IsQATCollectionSupported()
 	}
 	return false
 }
 
 func SetQATCollectionSupported(supported bool) {
-	if qatImpl != nil && config.EnabledQAT {
+	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		qatImpl.SetQATCollectionSupported(supported)
 	}
 }

@@ -1,4 +1,4 @@
-package power
+package sensors
 
 import (
 	"testing"

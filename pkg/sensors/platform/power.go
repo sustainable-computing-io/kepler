@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform/source"
 	"k8s.io/klog/v2"
 )
 

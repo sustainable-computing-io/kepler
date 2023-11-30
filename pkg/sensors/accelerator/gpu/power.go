@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	gpu_source "github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu/source"
+	gpu_source "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu/source"
 	"k8s.io/klog/v2"
 )
 
