@@ -225,6 +225,7 @@ int kepler_trace(struct sched_switch_args *ctx)
 
     u32 cur_pid = bpf_get_current_pid_tgid();
     u64 cgroup_id = bpf_get_current_cgroup_id(); // the cgroup id is the cgroup id of the running process (this is not next_pid or prev_pid)
+
     u64 cur_ts = bpf_ktime_get_ns();
     u32 cpu_id = bpf_get_smp_processor_id();
     u32 prev_pid = ctx->prev_pid;
