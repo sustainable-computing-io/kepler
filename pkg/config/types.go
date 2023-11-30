@@ -17,6 +17,15 @@ limitations under the License.
 package config
 
 const (
+	CORE      = "core"
+	DRAM      = "dram"
+	UNCORE    = "uncore"
+	PKG       = "package"
+	GPU       = "gpu"
+	OTHER     = "other"
+	PLATFORM  = "platform"
+	FREQUENCY = "frequency"
+
 	// counter - attacher package
 	CPUCycle       = "cpu_cycles"
 	CPURefCycle    = "cpu_ref_cycles"
@@ -53,11 +62,37 @@ const (
 	// system
 	CPUFrequency = "avg_cpu_frequency"
 
-	// GPU
+	// NVIDIA GPU
 	GPUSMUtilization  = "gpu_sm_util"
 	GPUMemUtilization = "gpu_mem_util"
 
-	// Metric suffix
-	AggregatedUsageSuffix  = "total"
-	AggregatedEnergySuffix = "joules_total"
+	// Intel QuickAssist Technology (QAT)
+	// TODO: test if different request has different energy consumption.
+	QATUtilization = "qta_sample_cnt"
+
+	// Energy Metrics
+	// Absolute energy and power
+	AbsEnergyInCore     = "abs_energy_in_core"
+	AbsEnergyInDRAM     = "abs_energy_in_dram"
+	AbsEnergyInUnCore   = "abs_energy_in_uncore"
+	AbsEnergyInPkg      = "abs_energy_in_pkg"
+	AbsEnergyInGPU      = "abs_energy_in_gpu"
+	AbsEnergyInOther    = "abs_energy_in_other"
+	AbsEnergyInPlatform = "abs_energy_in_platform"
+	// Dynamic energy and power
+	DynEnergyInCore     = "dyn_energy_in_core"
+	DynEnergyInDRAM     = "dyn_energy_in_dram"
+	DynEnergyInUnCore   = "dyn_energy_in_uncore"
+	DynEnergyInPkg      = "dyn_energy_in_pkg"
+	DynEnergyInGPU      = "dyn_energy_in_gpu"
+	DynEnergyInOther    = "dyn_energy_in_other"
+	DynEnergyInPlatform = "dyn_energy_in_platform"
+	// Idle energy and power
+	IdleEnergyInCore     = "idle_energy_in_core"
+	IdleEnergyInDRAM     = "idle_energy_in_dram"
+	IdleEnergyInUnCore   = "idle_energy_in_uncore"
+	IdleEnergyInPkg      = "idle_energy_in_pkg"
+	IdleEnergyInGPU      = "idle_energy_in_gpu"
+	IdleEnergyInOther    = "idle_energy_in_other"
+	IdleEnergyInPlatform = "idle_energy_in_platform"
 )

@@ -31,7 +31,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
@@ -39,7 +38,7 @@ import (
 var (
 	SampleDynPowerValue float64 = 100.0
 
-	containerFeatureNames = []string{
+	processFeatureNames = []string{
 		config.CPUCycle,
 		config.CPUInstruction,
 		config.CacheMiss,
@@ -56,9 +55,9 @@ var (
 		config.KubeletMemoryUsage,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
-	containerFeatureValues     = [][]float64{
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container A
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container B
+	processFeatureValues       = [][]float64{
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // process A
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // process B
 	}
 	nodeFeatureValues           = []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
 	systemMetaDataFeatureValues = []string{"Sandy Bridge"}
@@ -77,11 +76,11 @@ var (
 		"cache_miss": {Weight: 1.0, Scale: 1},
 	}
 	SampleComponentWeightResponse = ComponentModelWeights{
-		collector_metric.CORE: genWeights(SampleCoreNumericalVars),
-		collector_metric.DRAM: genWeights(SampleDramNumbericalVars),
+		config.CORE: genWeights(SampleCoreNumericalVars),
+		config.DRAM: genWeights(SampleDramNumbericalVars),
 	}
 	SamplePlatformWeightResponse = ComponentModelWeights{
-		collector_metric.PLATFORM: genWeights(SampleCoreNumericalVars),
+		config.PLATFORM: genWeights(SampleCoreNumericalVars),
 	}
 )
 
@@ -122,7 +121,7 @@ func genLinearRegressor(outputType types.ModelOutputType, energySource, modelSer
 		ModelServerEndpoint:         modelServerEndpoint,
 		OutputType:                  outputType,
 		EnergySource:                energySource,
-		FloatFeatureNames:           containerFeatureNames,
+		FloatFeatureNames:           processFeatureNames,
 		SystemMetaDataFeatureNames:  systemMetaDataFeatureNames,
 		SystemMetaDataFeatureValues: systemMetaDataFeatureValues,
 		ModelWeightsURL:             modelWeightsURL,
@@ -162,36 +161,36 @@ var _ = Describe("Test LR Weight Unit", func() {
 			Expect(compPowers[0].Core).Should(BeEquivalentTo(4000))
 		})
 
-		It("Get Container Platform Power By Linear Regression Estimator with ModelServerEndpoint", func() {
+		It("Get Process Platform Power By Linear Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource)
 			r := genLinearRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
-			for _, containerFeatureValues := range containerFeatureValues {
-				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			for _, processFeatureValues := range processFeatureValues {
+				r.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 			}
 			powers, err := r.GetPlatformPower(false)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(powers)).Should(Equal(len(containerFeatureValues)))
+			Expect(len(powers)).Should(Equal(len(processFeatureValues)))
 			// TODO: verify if the power makes sense
 			Expect(powers[0]).Should(BeEquivalentTo(3))
 		})
 
-		It("Get Container Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
+		It("Get Process Components Power By Linear Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(http.HandlerFunc(getDummyWeights))
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
 			r := genLinearRegressor(types.DynPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
-			for _, containerFeatureValues := range containerFeatureValues {
-				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			for _, processFeatureValues := range processFeatureValues {
+				r.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 			}
 			compPowers, err := r.GetComponentsPower(false)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(compPowers)).Should(Equal(len(containerFeatureValues)))
+			Expect(len(compPowers)).Should(Equal(len(processFeatureValues)))
 			// TODO: verify if the power makes sense
 			Expect(compPowers[0].Core).Should(BeEquivalentTo(3000))
 		})
@@ -224,31 +223,31 @@ var _ = Describe("Test LR Weight Unit", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
-			// Estimate Container Components Power using Linear Regression
+		It("Get Process Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			// Estimate Process Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genLinearRegressor(types.DynPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
-			for _, containerFeatureValues := range containerFeatureValues {
-				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			for _, processFeatureValues := range processFeatureValues {
+				r.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 			}
 			_, err = r.GetComponentsPower(false)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("Get Container Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
-			// Estimate Container Components Power using Linear Regression
+		It("Get Process Components Power By Linear Regression Estimator without ModelServerEndpoint", func() {
+			// Estimate Process Components Power using Linear Regression
 			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genLinearRegressor(types.DynPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath)
 			err := r.Start()
 			Expect(err).To(BeNil())
 			r.ResetSampleIdx()
-			for _, containerFeatureValues := range containerFeatureValues {
-				r.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+			for _, processFeatureValues := range processFeatureValues {
+				r.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 			}
 			_, err = r.GetComponentsPower(false)
 			Expect(err).NotTo(HaveOccurred())

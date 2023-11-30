@@ -19,12 +19,11 @@ package model
 import (
 	"fmt"
 
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
-
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
 const (
@@ -50,7 +49,7 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatur
 		var err error
 		NodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {
-			klog.Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+			klog.V(1).Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		} else {
 			klog.Infof("Failed to create %s Power Model to estimate Node Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 		}
@@ -66,7 +65,7 @@ func IsNodePlatformPowerModelEnabled() bool {
 }
 
 // GetNodePlatformPower returns a single estimated value of node total power
-func GetNodePlatformPower(nodeMetrics *collector_metric.NodeMetrics, isIdlePower bool) (platformEnergy map[string]float64) {
+func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platformEnergy map[string]float64) {
 	if NodePlatformPowerModel == nil {
 		klog.Errorln("Node Platform Power Model was not created")
 	}
@@ -90,21 +89,17 @@ func GetNodePlatformPower(nodeMetrics *collector_metric.NodeMetrics, isIdlePower
 }
 
 // UpdateNodePlatformEnergy sets the power model samples, get absolute powers, and set platform energy
-func UpdateNodePlatformEnergy(nodeMetrics *collector_metric.NodeMetrics) {
+func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
-	for id, power := range platformPower {
-		// convert power to energy
-		platformPower[id] = power * float64(config.SamplePeriodSec)
+	for sourceID, power := range platformPower {
+		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, uint64(power)*config.SamplePeriodSec)
 	}
-	nodeMetrics.SetNodePlatformEnergy(platformPower, gauge, absPower)
 }
 
 // UpdateNodePlatformIdleEnergy sets the power model samples to zeros, get idle powers, and set platform energy
-func UpdateNodePlatformIdleEnergy(nodeMetrics *collector_metric.NodeMetrics) {
+func UpdateNodePlatformIdleEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
-	for id, power := range platformPower {
-		// convert power to energy
-		platformPower[id] = power * float64(config.SamplePeriodSec)
+	for sourceID, power := range platformPower {
+		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, uint64(power)*config.SamplePeriodSec)
 	}
-	nodeMetrics.SetNodePlatformEnergy(platformPower, gauge, idlePower)
 }

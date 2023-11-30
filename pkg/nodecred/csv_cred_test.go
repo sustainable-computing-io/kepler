@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 )
 
 func TestGetNodeCredByNodeName(t *testing.T) {

@@ -26,15 +26,14 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"k8s.io/klog/v2"
-
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
-const MaxContainers = 500 // 256 pods and 2 containers per pod
+const MaxProcesss = 500 // 256 pods and 2 processes per pod
 
 // PowerRequest defines a request to Kepler Estimator to get estimated powers
 type PowerRequest struct {
@@ -72,11 +71,11 @@ type EstimatorSidecar struct {
 	SystemMetaDataFeatureNames  []string
 	SystemMetaDataFeatureValues []string
 
-	floatFeatureValues [][]float64 // metrics per process/container/pod/node
+	floatFeatureValues [][]float64 // metrics per process/process/pod/node
 	// idle power is calculated with the minimal resource utilization, which means that the system is at rest
 	// due to performance reasons, we keep a shadow copy of the floatFeatureValues with 1 values
-	floatFeatureValuesForIdlePower [][]float64 // metrics per process/container/pod/node
-	// xidx represents the instance slide window position, where an instance can be process/container/pod/node
+	floatFeatureValuesForIdlePower [][]float64 // metrics per process/process/pod/node
+	// xidx represents the instance slide window position, where an instance can be process/process/pod/node
 	xidx int
 
 	enabled bool
@@ -160,8 +159,8 @@ func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]float64, error)
 	if len(power) == 0 {
 		return []float64{}, err
 	}
-	if powers, found := power[collector_metric.PLATFORM]; !found {
-		return []float64{}, fmt.Errorf("not found %s in response %v", collector_metric.PLATFORM, power)
+	if powers, found := power[config.PLATFORM]; !found {
+		return []float64{}, fmt.Errorf("not found %s in response %v", config.PLATFORM, power)
 	} else {
 		return powers, nil
 	}
@@ -181,26 +180,26 @@ func (c *EstimatorSidecar) GetComponentsPower(isIdlePower bool) ([]source.NodeCo
 		return []source.NodeComponentsEnergy{}, err
 	}
 	power := compPowers.(map[string][]float64)
-	num := 0 // number of processes/containers/pods
+	num := 0 // number of processes
 	for _, vals := range power {
-		// the vals list has one entry of the predicted value for each container
+		// the vals list has one entry of the predicted value for each process
 		num = len(vals)
 		break
 	}
 	nodeComponentsPower := make([]source.NodeComponentsEnergy, num)
 
 	for index := 0; index < num; index++ {
-		pkgPower := utils.GetComponentPower(power, collector_metric.PKG, index)
-		corePower := utils.GetComponentPower(power, collector_metric.CORE, index)
-		uncorePower := utils.GetComponentPower(power, collector_metric.UNCORE, index)
-		dramPower := utils.GetComponentPower(power, collector_metric.DRAM, index)
+		pkgPower := utils.GetComponentPower(power, config.PKG, index)
+		corePower := utils.GetComponentPower(power, config.CORE, index)
+		uncorePower := utils.GetComponentPower(power, config.UNCORE, index)
+		dramPower := utils.GetComponentPower(power, config.DRAM, index)
 		nodeComponentsPower[index] = utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower)
 	}
 
 	return nodeComponentsPower, err
 }
 
-// GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
+// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
 func (c *EstimatorSidecar) GetGPUPower(isIdlePower bool) ([]float64, error) {
 	return []float64{}, fmt.Errorf("current power model does not support GPUs")
 }
@@ -217,27 +216,27 @@ func (c *EstimatorSidecar) addFloatFeatureValues(x []float64) {
 				c.floatFeatureValuesForIdlePower[c.xidx] = append(c.floatFeatureValuesForIdlePower[c.xidx], 0)
 			}
 		} else {
-			// add new container
+			// add new process
 			c.floatFeatureValues = append(c.floatFeatureValues, []float64{})
 			c.floatFeatureValuesForIdlePower = append(c.floatFeatureValuesForIdlePower, []float64{})
-			// add feature of new container
+			// add feature of new process
 			c.floatFeatureValues[c.xidx] = append(c.floatFeatureValues[c.xidx], feature)
 			c.floatFeatureValuesForIdlePower[c.xidx] = append(c.floatFeatureValuesForIdlePower[c.xidx], 0)
 		}
 	}
-	c.xidx += 1 // mode pointer to next container
+	c.xidx += 1 // mode pointer to next process
 }
 
-// AddContainerFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
+// AddProcessFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
 // EstimatorSidecar is trained off-line then we cannot Add training samples. We might implement it in the future.
-// The EstimatorSidecar does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (c *EstimatorSidecar) AddContainerFeatureValues(x []float64) {
+// The EstimatorSidecar does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
+func (c *EstimatorSidecar) AddProcessFeatureValues(x []float64) {
 	c.addFloatFeatureValues(x)
 }
 
 // AddNodeFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
 // EstimatorSidecar is not trained, then we cannot Add training samples, only samples for prediction.
-// The EstimatorSidecar does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+// The EstimatorSidecar does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
 func (c *EstimatorSidecar) AddNodeFeatureValues(x []float64) {
 	c.addFloatFeatureValues(x)
 }
@@ -268,14 +267,14 @@ func (c *EstimatorSidecar) GetModelType() types.ModelType {
 	return types.EstimatorSidecar
 }
 
-// GetContainerFeatureNamesList returns the list of float features that the model was configured to use
-// The EstimatorSidecar does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (c *EstimatorSidecar) GetContainerFeatureNamesList() []string {
+// GetProcessFeatureNamesList returns the list of float features that the model was configured to use
+// The EstimatorSidecar does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
+func (c *EstimatorSidecar) GetProcessFeatureNamesList() []string {
 	return c.FloatFeatureNames
 }
 
 // GetNodeFeatureNamesList returns the list of float features that the model was configured to use
-// The EstimatorSidecar does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+// The EstimatorSidecar does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
 func (c *EstimatorSidecar) GetNodeFeatureNamesList() []string {
 	return c.FloatFeatureNames
 }

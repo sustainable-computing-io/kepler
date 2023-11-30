@@ -20,86 +20,41 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 var _ = Describe("Test Ratio Unit", func() {
-	It("GetContainerEnergyRatio", func() {
+	It("GetProcessEnergyRatio", func() {
+		stats.SetMockedCollectorMetrics()
+		processStats := stats.CreateMockedProcessStats(3)
 
-		containersMetrics := map[string]*collector_metric.ContainerMetrics{}
-		containersMetrics["containerA"] = collector_metric.NewContainerMetrics("containerA", "podA", "test", "containerA")
-		containersMetrics["containerA"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err := containersMetrics["containerA"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
-		Expect(err).NotTo(HaveOccurred())
-		containersMetrics["containerB"] = collector_metric.NewContainerMetrics("containerB", "podB", "test", "containerB")
-		containersMetrics["containerB"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = containersMetrics["containerB"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
-		Expect(err).NotTo(HaveOccurred())
-		containersMetrics["containerC"] = collector_metric.NewContainerMetrics("containerC", "podC", "test", "containerC")
-		containersMetrics["containerC"].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		err = containersMetrics["containerC"].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
-		Expect(err).NotTo(HaveOccurred())
+		nodeStats := stats.CreateMockedNodeStats()
+		Expect(nodeStats.EnergyUsage[config.DynEnergyInPkg].SumAllDeltaValues()).Should(BeEquivalentTo(35000))
+		Expect(nodeStats.EnergyUsage[config.DynEnergyInCore].SumAllDeltaValues()).Should(BeEquivalentTo(35000))
+		Expect(nodeStats.EnergyUsage[config.DynEnergyInUnCore].SumAllDeltaValues()).Should(BeEquivalentTo(0))
+		Expect(nodeStats.EnergyUsage[config.DynEnergyInDRAM].SumAllDeltaValues()).Should(BeEquivalentTo(35000))
+		Expect(nodeStats.EnergyUsage[config.DynEnergyInPlatform].SumAllDeltaValues()).Should(BeEquivalentTo(35000))
 
-		nodeMetrics := collector_metric.NewNodeMetrics()
-		collector_metric.ContainerFeaturesNames = []string{config.CoreUsageMetric}
-		collector_metric.NodeMetadataFeatureNames = []string{"cpu_architecture"}
-		collector_metric.NodeMetadataFeatureValues = []string{"Sandy Bridge"}
-		nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
-		Expect(nodeMetrics.ResourceUsage[config.CoreUsageMetric]).Should(BeEquivalentTo(90000))
+		for _, pMetric := range processStats {
+			val := pMetric.ResourceUsage[config.CPUCycle].Stat[stats.MockedSocketID].GetDelta()
+			nodeStats.ResourceUsage[config.CPUCycle].AddDeltaStat(stats.MockedSocketID, val)
 
-		// manually add node mock values
-		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
-		nodePlatformEnergy := map[string]float64{}
-		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
-		nodePlatformEnergy["sensor0"] = 5000 // mJ
-		nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-		nodeMetrics.UpdateIdleEnergyWithMinValue(true)
-		// the second node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
-		nodePlatformEnergy["sensor0"] = 35000
-		nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-		nodeMetrics.UpdateDynEnergy()
+			val = pMetric.ResourceUsage[config.CPUInstruction].Stat[stats.MockedSocketID].GetDelta()
+			nodeStats.ResourceUsage[config.CPUInstruction].AddDeltaStat(stats.MockedSocketID, val)
 
-		// initialize the node energy with aggregated energy, which will be used to calculate delta energy
-		// note that NodeComponentsEnergy contains aggregated energy over time
-		componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    5000, // mJ
-			Core:   5000,
-			DRAM:   5000,
-			Uncore: 5000,
+			val = pMetric.ResourceUsage[config.CacheMiss].Stat[stats.MockedSocketID].GetDelta()
+			nodeStats.ResourceUsage[config.CacheMiss].AddDeltaStat(stats.MockedSocketID, val)
+
+			val = pMetric.ResourceUsage[config.CPUTime].Stat[stats.MockedSocketID].GetDelta()
+			nodeStats.ResourceUsage[config.CPUTime].AddDeltaStat(stats.MockedSocketID, val)
 		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    10000, // mJ
-			Core:   10000,
-			DRAM:   10000,
-			Uncore: 10000,
-		}
-		// the second node energy will force to calculate a delta. The delta is calculates after added at least two aggregated metric
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-		nodeMetrics.UpdateIdleEnergyWithMinValue(true)
-		// the third node energy will represent the idle and dynamic power. The idle power is only calculated after there at at least two delta values
-		componentsEnergies[0] = source.NodeComponentsEnergy{
-			Pkg:    45000, // 35000mJ delta, which is 5000mJ idle, 30000mJ dynamic power
-			Core:   45000,
-			DRAM:   45000,
-			Uncore: 45000,
-		}
-		nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-		nodeMetrics.UpdateDynEnergy()
-
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PKG)).Should(BeEquivalentTo(30000))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.CORE)).Should(BeEquivalentTo(30000))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.UNCORE)).Should(BeEquivalentTo(30000))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.DRAM)).Should(BeEquivalentTo(30000))
-		Expect(nodeMetrics.GetSumDeltaDynEnergyFromAllSources(collector_metric.PLATFORM)).Should(BeEquivalentTo(30000))
+		Expect(nodeStats.ResourceUsage[config.CoreUsageMetric].Stat[utils.GenericSocketID].GetDelta()).Should(BeEquivalentTo(90000))
 
 		// The default estimator model is the ratio
 		model := RatioPowerModel{
-			ContainerFeatureNames: []string{
+			ProcessFeatureNames: []string{
 				config.CoreUsageMetric,    // for PKG resource usage
 				config.CoreUsageMetric,    // for CORE resource usage
 				config.DRAMUsageMetric,    // for DRAM resource usage
@@ -108,50 +63,51 @@ var _ = Describe("Test Ratio Unit", func() {
 				config.GpuUsageMetric,     // for GPU resource usage
 			},
 			NodeFeatureNames: []string{
-				config.CoreUsageMetric,            // for PKG resource usage
-				config.CoreUsageMetric,            // for CORE resource usage
-				config.DRAMUsageMetric,            // for DRAM resource usage
-				config.GeneralUsageMetric,         // for UNCORE resource usage
-				config.GeneralUsageMetric,         // for OTHER resource usage
-				config.GpuUsageMetric,             // for GPU resource usage
-				collector_metric.PKG + "_DYN",     // for dynamic PKG power consumption
-				collector_metric.CORE + "_DYN",    // for dynamic CORE power consumption
-				collector_metric.DRAM + "_DYN",    // for dynamic PKG power consumption
-				collector_metric.UNCORE + "_DYN",  // for dynamic UNCORE power consumption
-				collector_metric.OTHER + "_DYN",   // for dynamic OTHER power consumption
-				collector_metric.GPU + "_DYN",     // for dynamic GPU power consumption
-				collector_metric.PKG + "_IDLE",    // for idle PKG power consumption
-				collector_metric.CORE + "_IDLE",   // for idle CORE power consumption
-				collector_metric.DRAM + "_IDLE",   // for idle PKG power consumption
-				collector_metric.UNCORE + "_IDLE", // for idle UNCORE power consumption
-				collector_metric.OTHER + "_IDLE",  // for idle OTHER power consumption
-				collector_metric.GPU + "_IDLE",    // for idle GPU power consumption
+				config.CoreUsageMetric,    // for PKG resource usage
+				config.CoreUsageMetric,    // for CORE resource usage
+				config.DRAMUsageMetric,    // for DRAM resource usage
+				config.GeneralUsageMetric, // for UNCORE resource usage
+				config.GeneralUsageMetric, // for OTHER resource usage
+				config.GpuUsageMetric,     // for GPU resource usage
+				config.DynEnergyInPkg,     // for dynamic PKG power consumption
+				config.DynEnergyInCore,    // for dynamic CORE power consumption
+				config.DynEnergyInDRAM,    // for dynamic PKG power consumption
+				config.DynEnergyInUnCore,  // for dynamic UNCORE power consumption
+				config.DynEnergyInOther,   // for dynamic OTHER power consumption
+				config.DynEnergyInGPU,     // for dynamic GPU power consumption
+				config.IdleEnergyInPkg,    // for idle PKG power consumption
+				config.IdleEnergyInCore,   // for idle CORE power consumption
+				config.IdleEnergyInDRAM,   // for idle PKG power consumption
+				config.IdleEnergyInUnCore, // for idle UNCORE power consumption
+				config.IdleEnergyInOther,  // for idle OTHER power consumption
+				config.IdleEnergyInGPU,    // for idle GPU power consumption
 			},
 		}
 		model.ResetSampleIdx()
-		// Add container metrics
-		for _, c := range containersMetrics {
+		// Add process metrics
+		for _, c := range processStats {
 			// add samples to estimate the components (CPU and DRAM) power
 			if model.IsEnabled() {
-				// Add container metrics
-				featureValues := c.ToEstimatorValues(model.GetContainerFeatureNamesList(), true) // add node features with normalized values
-				model.AddContainerFeatureValues(featureValues)
+				// Add process metrics
+				featureValues := c.ToEstimatorValues(model.GetProcessFeatureNamesList(), true) // add node features with normalized values
+				model.AddProcessFeatureValues(featureValues)
 			}
 		}
 		// Add node metrics.
 		if model.IsEnabled() {
-			featureValues := nodeMetrics.ToEstimatorValues(model.GetNodeFeatureNamesList(), true) // add node features with normalized values
+			featureValues := nodeStats.ToEstimatorValues(model.GetNodeFeatureNamesList(), true) // add node features with normalized values
 			model.AddNodeFeatureValues(featureValues)
 		}
 
-		containerPower, err := model.GetComponentsPower(false)
+		processPower, err := model.GetComponentsPower(false)
 		Expect(err).NotTo(HaveOccurred())
 
-		// The node energy consumption was manually set as 30J (30000mJ), but since the interval is 3s, the power is 10J
-		// There are 3 containers consuming 30000 ns, but since the interval is 3s, the normalized utilization is 10ms
-		// Then, the container resource usage ratio will be 0.3334. Consequently, the container power will be 0.3334 * the node power (10000mJ) = 3334
-		Expect(containerPower[0].Pkg).Should(BeEquivalentTo(uint64(3334)))
-		Expect(containerPower[1].Pkg).Should(BeEquivalentTo(uint64(3334)))
-		Expect(containerPower[2].Pkg).Should(BeEquivalentTo(uint64(3334)))
+		// The node energy consumption was manually set as 35J (35000mJ), but since the interval is 3s, the power is 11667mJ
+		// There are 3 processes consuming 30000ns, but since the interval is 3s, the normalized utilization is 10ms
+		// Then, the process resource usage ratio will be 0.3334. Consequently, the process power will be 0.3334 * the node power (11667mJ) = 3334
+		// Which is 3889mJ
+		Expect(processPower[0].Pkg).Should(BeEquivalentTo(uint64(3889)))
+		Expect(processPower[1].Pkg).Should(BeEquivalentTo(uint64(3889)))
+		Expect(processPower[2].Pkg).Should(BeEquivalentTo(uint64(3889)))
 	})
 })

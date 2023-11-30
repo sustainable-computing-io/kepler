@@ -17,11 +17,13 @@ limitations under the License.
 package model
 
 import (
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"fmt"
+
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"k8s.io/klog/v2"
 )
 
@@ -51,7 +53,7 @@ func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 		// init func for NodeComponentPower
 		NodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {
-			klog.Infof("Using the %s Power Model to estimate Node Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+			klog.V(1).Infof("Using the %s Power Model to estimate Node Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		} else {
 			klog.Infof("Failed to create %s Power Model to estimate Node Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 		}
@@ -67,7 +69,7 @@ func IsNodeComponentPowerModelEnabled() bool {
 }
 
 // GetNodeComponentPowers returns estimated RAPL power for the node
-func GetNodeComponentPowers(nodeMetrics *collector_metric.NodeMetrics, isIdlePower bool) (nodeComponentsEnergy map[int]source.NodeComponentsEnergy) {
+func GetNodeComponentPowers(nodeMetrics *stats.NodeStats, isIdlePower bool) (nodeComponentsEnergy map[int]source.NodeComponentsEnergy) {
 	if NodeComponentPowerModel == nil {
 		klog.Errorln("Node Component Power Model was not created")
 	}
@@ -92,41 +94,21 @@ func GetNodeComponentPowers(nodeMetrics *collector_metric.NodeMetrics, isIdlePow
 }
 
 // UpdateNodeComponentIdleEnergy sets the power model samples, get absolute powers, and set gauge value for each component energy
-func UpdateNodeComponentEnergy(nodeMetrics *collector_metric.NodeMetrics) {
-	componentPower := GetNodeComponentPowers(nodeMetrics, absPower)
-	for id := range componentPower {
-		var ok bool
-		var power source.NodeComponentsEnergy
-		if power, ok = componentPower[id]; !ok {
-			continue
-		}
-		// convert power to energy
-		power.Pkg *= config.SamplePeriodSec
-		power.Core *= config.SamplePeriodSec
-		power.DRAM *= config.SamplePeriodSec
-		power.Uncore *= config.SamplePeriodSec
-		power.Core *= config.SamplePeriodSec
-		componentPower[id] = power
-	}
-	nodeMetrics.SetNodeComponentsEnergy(componentPower, gauge, absPower)
+func UpdateNodeComponentEnergy(nodeMetrics *stats.NodeStats) {
+	addEnergy(nodeMetrics, stats.AvailableAbsEnergyMetrics, absPower)
 }
 
 // UpdateNodeComponentIdleEnergy sets the power model samples to zeros, get idle powers, and set gauge value for each component idle energy
-func UpdateNodeComponentIdleEnergy(nodeMetrics *collector_metric.NodeMetrics) {
-	componentPower := GetNodeComponentPowers(nodeMetrics, idlePower)
-	for id := range componentPower {
-		var ok bool
-		var power source.NodeComponentsEnergy
-		if power, ok = componentPower[id]; !ok {
-			continue
-		}
-		// convert power to energy
-		power.Pkg *= config.SamplePeriodSec
-		power.Core *= config.SamplePeriodSec
-		power.DRAM *= config.SamplePeriodSec
-		power.Uncore *= config.SamplePeriodSec
-		power.Core *= config.SamplePeriodSec
-		componentPower[id] = power
+func UpdateNodeComponentIdleEnergy(nodeMetrics *stats.NodeStats) {
+	addEnergy(nodeMetrics, stats.AvailableIdleEnergyMetrics, idlePower)
+}
+
+func addEnergy(nodeMetrics *stats.NodeStats, metrics []string, isIdle bool) {
+	for socket, power := range GetNodeComponentPowers(nodeMetrics, isIdle) {
+		strID := fmt.Sprintf("%d", socket)
+		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec)
 	}
-	nodeMetrics.SetNodeComponentsEnergy(componentPower, gauge, idlePower)
 }

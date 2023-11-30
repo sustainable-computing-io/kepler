@@ -17,99 +17,57 @@ package model_test
 
 import (
 	"os"
-	"strconv"
 	"testing"
 
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/collector"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
 const (
 	configStrEstimator = "CONTAINER_COMPONENTS_ESTIMATOR=false\n"
 )
 
-func benchmarkNtesting(b *testing.B, containerNumber int) {
-	nodeMetrics := collector_metric.NewNodeMetrics()
-	collector_metric.ContainerFeaturesNames = []string{config.CoreUsageMetric}
-	collector_metric.NodeMetadataFeatureNames = []string{"cpu_architecture"}
-	collector_metric.NodeMetadataFeatureValues = []string{"Sandy Bridge"}
-	// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
-	components.SetIsSystemCollectionSupported(false)
-	platform.SetIsSystemCollectionSupported(false)
+func benchmarkNtesting(b *testing.B, processNumber int) {
+	// enable metrics
+	stats.SetMockedCollectorMetrics()
+	// create node node metrics
+	metricCollector := collector.NewCollector()
 
-	nodePlatformEnergy := map[string]float64{}
+	// create processes
+	metricCollector.ProcessStats = stats.CreateMockedProcessStats(processNumber)
+	metricCollector.NodeStats = stats.CreateMockedNodeStats()
+	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
+	metricCollector.AggregateProcessResourceUtilizationMetrics()
 
-	nodePlatformEnergy["sensor0"] = 10
-	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
+	// The default estimator model is the ratio
+	model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues)
 
-	nodePlatformEnergy["sensor0"] = 20
-	nodeMetrics.SetNodePlatformEnergy(nodePlatformEnergy, true, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
-	nodeMetrics.UpdateDynEnergy()
-
-	componentsEnergies := make(map[int]source.NodeComponentsEnergy)
-	componentsEnergies[0] = source.NodeComponentsEnergy{
-		Pkg:    5,
-		Core:   5,
-		DRAM:   5,
-		Uncore: 5,
-	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-	componentsEnergies[0] = source.NodeComponentsEnergy{
-		Pkg:    10,
-		Core:   10,
-		DRAM:   10,
-		Uncore: 10,
-	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
-	componentsEnergies[0] = source.NodeComponentsEnergy{
-		Pkg:    uint64(containerNumber),
-		Core:   uint64(containerNumber),
-		DRAM:   uint64(containerNumber),
-		Uncore: uint64(containerNumber),
-	}
-	nodeMetrics.SetNodeComponentsEnergy(componentsEnergies, false, false)
-
-	nodeMetrics.UpdateIdleEnergyWithMinValue(true)
-	nodeMetrics.UpdateDynEnergy()
+	// update container and node metrics
 	b.ReportAllocs()
-	containersMetrics := map[string]*collector_metric.ContainerMetrics{}
-	for n := 0; n < containerNumber; n++ {
-		containersMetrics["container"+strconv.Itoa(n)] = collector_metric.NewContainerMetrics("container"+strconv.Itoa(n), "podA", "test", "container"+strconv.Itoa(n))
-		containersMetrics["container"+strconv.Itoa(n)].BPFStats[config.CoreUsageMetric] = &types.UInt64Stat{}
-		_ = containersMetrics["container"+strconv.Itoa(n)].BPFStats[config.CoreUsageMetric].AddNewDelta(30000)
-	}
-	nodeMetrics.AddNodeResUsageFromContainerResUsage(containersMetrics)
 	b.ResetTimer()
-	model.CreatePowerEstimatorModels(collector_metric.ContainerFeaturesNames, collector_metric.NodeMetadataFeatureNames, collector_metric.NodeMetadataFeatureValues)
-	model.UpdateContainerEnergy(containersMetrics, nodeMetrics)
+	metricCollector.UpdateProcessEnergyUtilizationMetrics()
+	metricCollector.AggregateProcessEnergyUtilizationMetrics()
 	b.StopTimer()
 }
 
-func BenchmarkUpdateContainerWith1000Container(b *testing.B) {
+func BenchmarkUpdateProcessWith1000Process(b *testing.B) {
 	// disable side car estimator
 	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 1000)
 }
 
-func BenchmarkUpdateContainerWith2000Container(b *testing.B) {
+func BenchmarkUpdateProcessWith2000Process(b *testing.B) {
 	os.Setenv("MODEL_CONFIG", configStrEstimator)
 	benchmarkNtesting(b, 2000)
 }
 
-func BenchmarkUpdateContainerWith5000Container(b *testing.B) {
+func BenchmarkUpdateProcessWith4000Process(b *testing.B) {
 	os.Setenv("MODEL_CONFIG", configStrEstimator)
-	benchmarkNtesting(b, 5000)
+	benchmarkNtesting(b, 4000)
 }
 
-func BenchmarkUpdateContainerWith10000Container(b *testing.B) {
+func BenchmarkUpdateProcessWith8000Process(b *testing.B) {
 	os.Setenv("MODEL_CONFIG", configStrEstimator)
-	benchmarkNtesting(b, 10000)
+	benchmarkNtesting(b, 8000)
 }

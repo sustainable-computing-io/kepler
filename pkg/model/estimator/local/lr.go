@@ -34,10 +34,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"k8s.io/klog/v2"
-
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 )
 
 const (
@@ -157,11 +155,11 @@ type LinearRegressor struct {
 	SystemMetaDataFeatureNames  []string
 	SystemMetaDataFeatureValues []string
 
-	floatFeatureValues [][]float64 // metrics per process/container/pod/node
+	floatFeatureValues [][]float64 // metrics per process/process/pod/node
 	// idle power is calculated with the minimal resource utilization, which means that the system is at rest
 	// due to performance reasons, we keep a shadow copy of the floatFeatureValues with 1 values
-	floatFeatureValuesForIdlePower [][]float64 // metrics per process/container/pod/node
-	// xidx represents the instance slide window position, where an instance can be process/container/pod/node
+	floatFeatureValuesForIdlePower [][]float64 // metrics per process/process/pod/node
+	// xidx represents the instance slide window position, where an instance can be process/process/pod/node
 	xidx int
 
 	enabled     bool
@@ -294,7 +292,7 @@ func (r *LinearRegressor) loadWeightFromURL() ([]byte, error) {
 	return body, nil
 }
 
-// GetPlatformPower applies ModelWeight prediction and return a list of power associated to each process/container/pod
+// GetPlatformPower applies ModelWeight prediction and return a list of power associated to each process/process/pod
 func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
 	if !r.enabled {
 		return []float64{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
@@ -304,7 +302,7 @@ func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 		if isIdlePower {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
 		}
-		if modelWeight, found := (*r.modelWeight)[collector_metric.PLATFORM]; found {
+		if modelWeight, found := (*r.modelWeight)[config.PLATFORM]; found {
 			power := modelWeight.predict(
 				r.FloatFeatureNames, floatFeatureValues,
 				r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
@@ -315,7 +313,7 @@ func (r *LinearRegressor) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 	return []float64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
 }
 
-// GetComponentsPower applies each component's ModelWeight prediction and return a map of component power associated to each process/container/pod
+// GetComponentsPower applies each component's ModelWeight prediction and return a map of component power associated to each process/process/pod
 func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error) {
 	if !r.enabled {
 		return []source.NodeComponentsEnergy{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
@@ -336,19 +334,19 @@ func (r *LinearRegressor) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 	}
 
 	nodeComponentsPower := []source.NodeComponentsEnergy{}
-	num := r.xidx // number of processes/containers/pods
+	num := r.xidx // number of processes
 	for index := 0; index < num; index++ {
-		pkgPower := utils.GetComponentPower(compPowers, collector_metric.PKG, index)
-		corePower := utils.GetComponentPower(compPowers, collector_metric.CORE, index)
-		uncorePower := utils.GetComponentPower(compPowers, collector_metric.UNCORE, index)
-		dramPower := utils.GetComponentPower(compPowers, collector_metric.DRAM, index)
+		pkgPower := utils.GetComponentPower(compPowers, config.PKG, index)
+		corePower := utils.GetComponentPower(compPowers, config.CORE, index)
+		uncorePower := utils.GetComponentPower(compPowers, config.UNCORE, index)
+		dramPower := utils.GetComponentPower(compPowers, config.DRAM, index)
 		nodeComponentsPower = append(nodeComponentsPower, utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower))
 	}
 
 	return nodeComponentsPower, nil
 }
 
-// GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
+// GetComponentsPower returns GPU Power in Watts associated to each each process
 func (r *LinearRegressor) GetGPUPower(isIdlePower bool) ([]float64, error) {
 	return []float64{}, fmt.Errorf("current power model does not support GPUs")
 }
@@ -365,27 +363,27 @@ func (r *LinearRegressor) addFloatFeatureValues(x []float64) {
 				r.floatFeatureValuesForIdlePower[r.xidx] = append(r.floatFeatureValuesForIdlePower[r.xidx], 0)
 			}
 		} else {
-			// add new container
+			// add new process
 			r.floatFeatureValues = append(r.floatFeatureValues, []float64{})
 			r.floatFeatureValuesForIdlePower = append(r.floatFeatureValuesForIdlePower, []float64{})
-			// add feature of new container
+			// add feature of new process
 			r.floatFeatureValues[r.xidx] = append(r.floatFeatureValues[r.xidx], feature)
 			r.floatFeatureValuesForIdlePower[r.xidx] = append(r.floatFeatureValuesForIdlePower[r.xidx], 0)
 		}
 	}
-	r.xidx += 1 // mode pointer to next container
+	r.xidx += 1 // mode pointer to next process
 }
 
-// AddContainerFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
+// AddProcessFeatureValues adds the the x for prediction, which are the explanatory variables (or the independent variable) of regression.
 // LinearRegressor is trained off-line then we cannot Add training samples. We might implement it in the future.
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) AddContainerFeatureValues(x []float64) {
+// The LinearRegressor does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) AddProcessFeatureValues(x []float64) {
 	r.addFloatFeatureValues(x)
 }
 
 // AddNodeFeatureValues adds the the x for prediction, which is the variable used to calculate the ratio.
 // LinearRegressor is not trained, then we cannot Add training samples, only samples for prediction.
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+// The LinearRegressor does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
 func (r *LinearRegressor) AddNodeFeatureValues(x []float64) {
 	r.addFloatFeatureValues(x)
 }
@@ -416,14 +414,14 @@ func (r *LinearRegressor) GetModelType() types.ModelType {
 	return types.LinearRegressor
 }
 
-// GetContainerFeatureNamesList returns the list of float features that the model was configured to use
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
-func (r *LinearRegressor) GetContainerFeatureNamesList() []string {
+// GetProcessFeatureNamesList returns the list of float features that the model was configured to use
+// The LinearRegressor does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
+func (r *LinearRegressor) GetProcessFeatureNamesList() []string {
 	return r.FloatFeatureNames
 }
 
 // GetNodeFeatureNamesList returns the list of float features that the model was configured to use
-// The LinearRegressor does not differentiate node or container power estimation, the difference will only be the amount of resource utilization
+// The LinearRegressor does not differentiate node or process power estimation, the difference will only be the amount of resource utilization
 func (r *LinearRegressor) GetNodeFeatureNamesList() []string {
 	return r.FloatFeatureNames
 }

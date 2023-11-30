@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	metric_util "github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 
 	"k8s.io/klog/v2"
 )
