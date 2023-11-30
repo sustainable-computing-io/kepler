@@ -5,7 +5,7 @@ on:
 
 env:
   OUTPUT_DIR: "_output/"
-  FILE_NAME: "kepler.tar.gz"
+  FILE_NAME: "kepler_libbpf.tar.gz"
   ARTIFACT_DIR: "/tmp/artifacts"
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: install libbpf
         uses: sustainable-computing-io/kepler-action@v0.0.3
         with:
-          ebpfprovider: bcc
+          ebpfprovider: libbpf
       # build kepler image
       - name: build and export Kepler image
         run: |
@@ -32,21 +32,21 @@ jobs:
           make save-image
         env:
           IMAGE_REPO: "localhost:5001"
-          IMAGE_TAG: "devel"
           IMAGE_NAME: "kepler"
+          IMAGE_TAG: "devel"
           CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: kepler
+          name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
           retention-days: 1
           # ref https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
           # as PR or Push event, we don't keep artifact in 90 days hence use 1 day here to save resources.
 
-  integration_test:
+  integration_test_with_libbpf:
     needs: [build-kepler]
     runs-on: ubuntu-latest
     strategy:
@@ -59,7 +59,7 @@ jobs:
       - name: download Kepler image artifact
         uses: actions/download-artifact@v3
         with:
-          name: kepler
+          name: keplerlibbpf
 
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
@@ -81,7 +81,7 @@ jobs:
       - name: use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.3
         with:
-          ebpfprovider: bcc
+          ebpfprovider: libbpf
           cluster_provider: ${{matrix.cluster_provider}}
           local_dev_cluster_version: v0.0.3
 
@@ -99,9 +99,7 @@ jobs:
         run: make cluster-deploy
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
-          IMAGE_REPO: "localhost:5001"
-          IMAGE_TAG: "devel"
-          CTR_CMD: docker
+          NO_BUILDS: true
 
       - name: Save artifacts
         if: ${{ failure() }}

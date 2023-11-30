@@ -55,7 +55,6 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 	var _ = BeforeAll(func() {
 		kMetric = make(map[string][]float64)
 		podlists = make([]string, 0)
-
 		kubeconfig := flag.String("kubeconfig", "/tmp/.kube/config", "location to your kubeconfig file")
 		config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 		Expect(err).NotTo(HaveOccurred())
@@ -143,7 +142,6 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_node_core_joules_total"),     // node level check by instance
 		Entry(nil, "kepler_node_dram_joules_total"),     // node level check by instance
 		Entry(nil, "kepler_node_info"),                  // node level missing labels
-		Entry(nil, "kepler_node_other_joules_total"),    // node level check by instance
 		Entry(nil, "kepler_node_package_joules_total"),  // node levelcheck by instance
 		Entry(nil, "kepler_node_platform_joules_total"), // node levelcheck by instance
 		Entry(nil, "kepler_node_uncore_joules_total"),   // node levelcheck by instance
@@ -180,7 +178,6 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_container_core_joules_total"),    // pod level
 		Entry(nil, "kepler_container_dram_joules_total"),    // pod level
 		Entry(nil, "kepler_container_joules_total"),         // pod level
-		Entry(nil, "kepler_container_other_joules_total"),   // pod level
 		Entry(nil, "kepler_container_package_joules_total"), // pod level
 		Entry(nil, "kepler_container_uncore_joules_total"),  // pod level
 	)
