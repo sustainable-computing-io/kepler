@@ -1,4 +1,4 @@
-package metric
+package stats
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -8,14 +8,12 @@ import (
 )
 
 func clearPlatformDependentAvailability() {
+	AvailableBPFSWCounters = []string{config.CPUTime}
 	AvailableBPFHWCounters = []string{}
 	AvailableCGroupMetrics = []string{}
 	AvailableKubeletMetrics = []string{}
 
-	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
-	ContainerFeaturesNames = []string{}
-	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
-	ContainerFeaturesNames = append(ContainerFeaturesNames, blockDeviceLabel)
+	ProcessFeaturesNames = getProcessFeatureNames()
 }
 
 var _ = Describe("Test Metric Unit", func() {
@@ -31,15 +29,11 @@ var _ = Describe("Test Metric Unit", func() {
 		Expect(exp).To(BeFalse())
 	})
 
-	It("Test setEnabledMetrics", func() {
+	It("Test setEnabledProcessMetrics", func() {
 		config.ExposeHardwareCounterMetrics = false
 		clearPlatformDependentAvailability()
-		setEnabledMetrics()
-		exp := []string{config.BlockDevicesIO}
-		if len(ContainerFeaturesNames) > len(exp) {
-			Expect(exp).To(Equal(ContainerFeaturesNames[len(ContainerFeaturesNames)-len(exp):]))
-		} else {
-			Expect(exp).To(Equal(ContainerFeaturesNames))
-		}
+		setEnabledProcessMetrics()
+		exp := []string{config.CPUTime}
+		Expect(exp).To(Equal(ProcessFeaturesNames))
 	})
 })

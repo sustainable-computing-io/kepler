@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collector
+package energy
 
 import (
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 )
 
-// updateVMEnergy matches the virtual machine metrics with process metrics
-func (c *Collector) updateVMEnergy() {
-	model.UpdateVMEnergy(c.VMMetrics, c.ProcessMetrics)
+// UpdateProcessEnergy matches the process resource usage with the node energy consumption
+func UpdateProcessEnergy(processStats map[uint64]*stats.ProcessStats, nodeStats *stats.NodeStats) {
+	model.UpdateProcessEnergy(processStats, nodeStats)
 }

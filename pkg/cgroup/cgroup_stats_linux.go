@@ -28,7 +28,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	"github.com/opencontainers/runc/libcontainer/configs"
 
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 

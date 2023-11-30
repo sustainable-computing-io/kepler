@@ -29,18 +29,16 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/version"
 
 	"k8s.io/klog/v2"
 )
@@ -197,7 +195,7 @@ func main() {
 	components.InitPowerImpl()
 	platform.InitPowerImpl()
 
-	collector_metric.InitAvailableParamAndMetrics()
+	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
@@ -218,7 +216,7 @@ func main() {
 		}
 	}
 
-	if config.EnabledQAT {
+	if config.IsExposeQATMetricsEnabled() {
 		klog.Infof("Initializing the QAT collector")
 		err := qat.Init()
 		if err == nil {
@@ -229,9 +227,8 @@ func main() {
 	}
 
 	m := manager.New()
-	prometheus.MustRegister(version.NewCollector("kepler_exporter"))
-	prometheus.MustRegister(m.PrometheusCollector)
-	defer m.MetricCollector.Destroy()
+	reg := m.PrometheusCollector.RegisterMetrics()
+	defer m.StatsCollector.Destroy()
 	defer components.StopPower()
 
 	// starting a new gorotine to collect data and report metrics
@@ -242,7 +239,12 @@ func main() {
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
 
-	http.Handle(metricPathConfig, promhttp.Handler())
+	http.Handle(metricPathConfig, promhttp.HandlerFor(
+		reg,
+		promhttp.HandlerOpts{
+			Registry: reg,
+		},
+	))
 	http.HandleFunc("/healthz", healthProbe)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(`<html>

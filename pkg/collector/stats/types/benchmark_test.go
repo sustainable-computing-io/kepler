@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 )
 
 var seededRand *rand.Rand = rand.New(

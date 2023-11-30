@@ -14,23 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collector
+package accelerator
 
 import (
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/qat"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
 	"k8s.io/klog/v2"
 )
 
-// updateQATMetrics update QAT metrics from telemetry data
-func (c *Collector) updateQATMetrics() {
+// UpdateNodeQATMetrics update QAT metrics from telemetry data
+func UpdateNodeQATMetrics(nodeStats *stats.NodeStats) {
 	// get available QAT devices
 	devices := qat.GetQATs()
 	if len(devices) != 0 {
-		utils, err := qat.GetQATUtilization(devices)
+		deviceUtil, err := qat.GetQATUtilization(devices)
 		if err != nil {
 			klog.V(5).Infoln(err)
 		}
-		c.NodeMetrics.QATUtilization = utils
+		for devID, sample := range deviceUtil {
+			nodeStats.ResourceUsage[config.QATUtilization].SetDeltaStat(devID, sample.SampleCnt)
+		}
 	} else {
 		klog.V(5).Infoln("Unable to find an available QAT. Please check the status of QAT again")
 	}

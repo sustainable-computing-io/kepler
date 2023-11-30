@@ -17,22 +17,16 @@ limitations under the License.
 package collector
 
 import (
-	"fmt"
-
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 )
 
 // this function is only called with the watcher delayed to sync and update the container info or if the watcher is not enabled
-func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroupID, pid uint64, withCGroupID bool) {
-	if _, ok := c.ContainersMetrics[containerID]; !ok {
-		// We feel the info with generic values because the watcher will eventually update it.
-		podName := c.systemProcessName
-		containerName := c.systemProcessName
-		namespace := c.systemProcessNamespace
-
+func (c *Collector) createContainerStatsIfNotExist(containerID string, cGroupID, pid uint64, withCGroupID bool) {
+	if _, ok := c.ContainerStats[containerID]; !ok {
 		// In case the pod watcher is not enabled, we need to retrieve the information about the
 		// pod and container from the kubelet API. However, we prefer to use the watcher approach
 		// as accessing the kubelet API might be restricted in certain systems.
@@ -41,30 +35,22 @@ func (c *Collector) createContainersMetricsIfNotExist(containerID string, cGroup
 		// containerID (which occasionally occurs), the container will be wrongly identified for its entire lifetime.
 		if !kubernetes.IsWatcherEnabled {
 			info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(info.ContainerName, info.PodName, info.Namespace, containerID)
+			c.ContainerStats[containerID] = stats.NewContainerStats(
+				info.ContainerName, info.PodName, info.Namespace, containerID)
 		} else {
-			c.ContainersMetrics[containerID] = collector_metric.NewContainerMetrics(
-				podName, containerName, namespace, containerID)
+			name := utils.SystemProcessName
+			namespace := utils.SystemProcessNamespace
+			if cGroupID == 1 {
+				// some kernel processes have cgroup id equal 1 or 0
+				name = utils.KernelProcessName
+				namespace = utils.KernelProcessNamespace
+			}
+			// We feel the info with generic values because the watcher will eventually update it.
+			c.ContainerStats[containerID] = stats.NewContainerStats(
+				name, name, namespace, containerID)
 		}
-	}
-}
-
-func (c *Collector) createProcessMetricsIfNotExist(pid uint64, command string) {
-	if p, ok := c.ProcessMetrics[pid]; !ok {
-		c.ProcessMetrics[pid] = collector_metric.NewProcessMetrics(pid, command)
-	} else if p.Command == "" {
-		p.Command = command
-	}
-}
-
-func addSuffix(name, suffix string) string {
-	return fmt.Sprintf("%s_%s", name, suffix)
-}
-
-func (c *Collector) createVMMetricsIfNotExist(pid uint64, name string) {
-	if p, ok := c.VMMetrics[pid]; !ok {
-		c.VMMetrics[pid] = collector_metric.NewVMMetrics(pid, name)
-	} else if p.Name == "" {
-		p.Name = name
+	} else {
+		// TODO set only the most resource intensive PID for the container
+		c.ContainerStats[containerID].SetLatestProcess(pid)
 	}
 }

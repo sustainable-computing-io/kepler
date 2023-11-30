@@ -1,4 +1,4 @@
-package metric
+package stats
 
 import (
 	"runtime"
@@ -21,11 +21,11 @@ var _ = Describe("Stats", func() {
 				config.BytesWriteIO,
 				config.BlockDevicesIO,
 			}
-			Expect(len(ContainerFeaturesNames) >= len(exp)).To(BeTrue())
+			Expect(len(ProcessFeaturesNames) >= len(exp)).To(BeTrue())
 		}
 		if runtime.GOOS == "darwin" {
 			exp := []string{config.BlockDevicesIO}
-			Expect(len(ContainerFeaturesNames) >= len(exp)).To(BeTrue())
+			Expect(len(ProcessFeaturesNames) >= len(exp)).To(BeTrue())
 		}
 	})
 })

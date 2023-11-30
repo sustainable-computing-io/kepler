@@ -14,13 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collector
+package stats
 
 import (
-	"github.com/sustainable-computing-io/kepler/pkg/model"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// updateContainerEnergy matches the container resource usage with the node energy consumption
-func (c *Collector) updateContainerEnergy() {
-	model.UpdateContainerEnergy(c.ContainersMetrics, &c.NodeMetrics)
+func TestPodLoader(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Metric Collector Suite")
 }

@@ -72,6 +72,20 @@ func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
 	return nil
 }
 
+func (s *UInt64Stat) GetDelta() uint64 {
+	return s.Delta
+}
+
+func (s *UInt64Stat) GetAggr() uint64 {
+	return s.Aggr
+}
+
+func NewUInt64StatCollection() *UInt64StatCollection {
+	return &UInt64StatCollection{
+		Stat: make(map[string]*UInt64Stat),
+	}
+}
+
 // UInt64StatCollection keeps a collection of UInt64Stat
 type UInt64StatCollection struct {
 	Stat map[string]*UInt64Stat

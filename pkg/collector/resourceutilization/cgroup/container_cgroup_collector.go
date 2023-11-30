@@ -14,60 +14,61 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collector
+package cgroup
 
 import (
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"k8s.io/klog/v2"
 )
 
-// updateCgroupMetrics adds container-level cgroup data
-func (c *Collector) updateCgroupMetrics() {
-	for key := range c.ContainersMetrics {
-		if c.ContainersMetrics[key].CgroupStatHandler == nil {
-			for pid := range c.ContainersMetrics[key].PIDS {
+// UpdateContainerCgroupMetrics adds container-level cgroup data
+func UpdateContainerCgroupMetrics(containerStats map[string]*stats.ContainerStats) {
+	for key := range containerStats {
+		if containerStats[key].CgroupStatHandler == nil {
+			for pid := range containerStats[key].PIDS {
 				if pid == 0 {
 					klog.V(3).Infof("PID 0 does not have cgroup metrics since there is no /proc/0/cgroup")
 					continue
 				}
-				handler, err := cgroup.NewCGroupStatManager(pid)
+				handler, err := cgroup.NewCGroupStatManager(int(pid))
 				if err != nil {
 					klog.V(3).Infof("Error: could not start cgroup stat handler for PID %d: %v", pid, err)
 					continue
 				}
-				c.ContainersMetrics[key].CgroupStatHandler = handler
+				containerStats[key].CgroupStatHandler = handler
 				break
 			}
 		}
 		// we need to test again in case the cgroup handler could not be created, e.g., for system processes
-		if c.ContainersMetrics[key].CgroupStatHandler != nil {
-			if err := c.ContainersMetrics[key].UpdateCgroupMetrics(); err != nil {
+		if containerStats[key].CgroupStatHandler != nil {
+			if err := containerStats[key].UpdateCgroupMetrics(); err != nil {
 				// if the cgroup metrics of a container does not exist, it means that the container was deleted
-				if key != c.systemProcessName && strings.Contains(err.Error(), "cgroup deleted") {
-					delete(c.ContainersMetrics, key)
+				if key != utils.SystemProcessName && strings.Contains(err.Error(), "cgroup deleted") {
+					delete(containerStats, key)
 					klog.V(1).Infof("Container/Pod %s/%s was removed from the map because the cgroup was deleted",
-						c.ContainersMetrics[key].ContainerName, c.ContainersMetrics[key].PodName)
+						containerStats[key].ContainerName, containerStats[key].PodName)
 				}
 			}
 		}
 	}
 }
 
-// updateKubeletMetrics adds kubelet data (resident mem)
-func (c *Collector) updateKubeletMetrics() {
-	if len(collector_metric.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _ := cgroup.GetContainerMetrics()
+// UpdateContainerKubeletMetrics adds kubelet data (resident mem)
+func UpdateContainerKubeletMetrics(containerStats map[string]*stats.ContainerStats) {
+	if len(stats.AvailableKubeletMetrics) == 2 {
+		containerCPU, containerMem, _ := cgroup.GetContainerStats()
 		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
-		for _, c := range c.ContainersMetrics {
+		for _, c := range containerStats {
 			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName
 			readCPU := uint64(containerCPU[k])
 			readMem := uint64(containerMem[k])
-			cpuMetricName := collector_metric.AvailableKubeletMetrics[0]
-			memMetricName := collector_metric.AvailableKubeletMetrics[1]
+			cpuMetricName := stats.AvailableKubeletMetrics[0]
+			memMetricName := stats.AvailableKubeletMetrics[1]
 			if err := c.KubeletStats[cpuMetricName].SetNewAggr(readCPU); err != nil {
 				klog.V(5).Infoln(err)
 			}

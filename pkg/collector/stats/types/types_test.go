@@ -17,7 +17,7 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 )
 
 var _ = Describe("Types", func() {

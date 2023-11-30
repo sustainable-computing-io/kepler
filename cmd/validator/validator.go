@@ -29,9 +29,9 @@ import (
 	"time"
 
 	"github.com/jaypipes/ghw"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 )
 
 const (

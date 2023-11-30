@@ -1,4 +1,4 @@
-package collector
+package bpf
 
 import (
 	. "github.com/onsi/ginkgo/v2"

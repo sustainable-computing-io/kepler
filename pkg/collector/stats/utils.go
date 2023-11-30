@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
+package stats
 
 import (
 	"fmt"
@@ -25,12 +25,15 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog/v2"
+
+	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 
 	cpuidv2 "github.com/klauspost/cpuid/v2"
 	"gopkg.in/yaml.v3"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -51,36 +54,69 @@ type CPUS struct {
 	cpusInfo []CPUModelData
 }
 
-func getcontainerUintFeatureNames() []string {
-	var metrics []string
-	// bpf metrics
-	metrics = append(metrics, AvailableBPFSWCounters...)
-	// counter metric
-	metrics = append(metrics, AvailableBPFHWCounters...)
-	// cgroup metric
-	metrics = append(metrics, AvailableCGroupMetrics...)
-	// cgroup kubelet metric
-	metrics = append(metrics, AvailableKubeletMetrics...)
-	// gpu metric
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		metrics = append(metrics, []string{config.GPUSMUtilization, config.GPUMemUtilization}...)
+func InitAvailableParamAndMetrics() {
+	AvailableBPFHWCounters = attacher.GetEnabledBPFHWCounters()
+	AvailableBPFSWCounters = attacher.GetEnabledBPFSWCounters()
+	AvailableCGroupMetrics = []string{
+		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
+		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
+		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
+	}
+	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
+	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
+	AvailableAbsEnergyMetrics = []string{
+		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
+		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
+	}
+	AvailableDynEnergyMetrics = []string{
+		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
+		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
+	}
+	AvailableIdleEnergyMetrics = []string{
+		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
+		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
 	}
 
-	klog.V(3).Infof("Available ebpf metrics: %v", AvailableBPFSWCounters)
-	klog.V(3).Infof("Available counter metrics: %v", AvailableBPFHWCounters)
-	klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
-	klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
+	// defined in utils to init metrics
+	setEnabledProcessMetrics()
+}
+
+func getProcessFeatureNames() []string {
+	var metrics []string
+	// bpf software counter metrics
+	metrics = append(metrics, AvailableBPFSWCounters...)
+	klog.V(3).Infof("Available ebpf software counters: %v", AvailableBPFSWCounters)
+
+	// bpf hardware counter metrics
+	if config.IsHCMetricsEnabled() {
+		metrics = append(metrics, AvailableBPFHWCounters...)
+		klog.V(3).Infof("Available ebpf hardware counters: %v", AvailableBPFHWCounters)
+	}
+
+	// gpu metric
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		gpuMetrics := []string{config.GPUSMUtilization, config.GPUMemUtilization}
+		metrics = append(metrics, gpuMetrics...)
+		klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
+	}
+
+	// cgroup metric are deprecated and will be removed later
+	if config.ExposeCgroupMetrics {
+		metrics = append(metrics, AvailableCGroupMetrics...)
+		klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
+	}
+	// cgroup kubelet metric are deprecated and will be removed later
+	if config.ExposeKubeletMetrics {
+		metrics = append(metrics, AvailableKubeletMetrics...)
+		klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
+	}
 
 	return metrics
 }
 
-func setEnabledMetrics() {
-	ContainerFeaturesNames = []string{}
-
-	ContainerUintFeaturesNames = getcontainerUintFeatureNames()
-	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerFloatFeatureNames...)
-	ContainerFeaturesNames = append(ContainerFeaturesNames, ContainerUintFeaturesNames...)
-	ContainerFeaturesNames = append(ContainerFeaturesNames, blockDeviceLabel)
+func setEnabledProcessMetrics() {
+	ProcessMetricNames = []string{}
+	ProcessFeaturesNames = getProcessFeatureNames()
 }
 
 func isCounterStatEnabled(label string) bool {
