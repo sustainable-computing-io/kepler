@@ -20,7 +20,6 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,16 +29,14 @@ import (
 	"time"
 
 	"github.com/jaypipes/ghw"
-	"github.com/jszwec/csvutil"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components"
 	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
 )
 
 const (
-	uJTomJ           = 1000
-	resultDirPath    = "/output"
-	CPUModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
+	uJTomJ        = 1000
+	resultDirPath = "/output"
 )
 
 var (
@@ -145,43 +142,36 @@ func getX86Architecture() (string, error) {
 	}
 	res, _ := grep.Output()
 
-	// format the CPUArchitecture result
-	uarch := strings.Split(string(res), "=")
-	if len(uarch) != 2 {
+	// format the CPUArchitecture result, the raw "uarch synth" string is like this:
+	// (uarch synth) = <vendor> <uarch> {<family>}, <phys>
+	// example 1: "(uarch synth) = Intel Sapphire Rapids {Golden Cove}, Intel 7"
+	// example 2: "(uarch synth) = AMD Zen 2, 7nm", here the <family> info is missing.
+	uarchSection := strings.Split(string(res), "=")
+	if len(uarchSection) != 2 {
 		return "", fmt.Errorf("cpuid grep output is unexpected")
 	}
+	// get the string contains only vendor/uarch/family info
+	// example 1: "Intel Sapphire Rapids {Golden Cove}"
+	// example 2: "AMD Zen 2"
+	vendorUarchFamily := strings.Split(strings.TrimSpace(uarchSection[1]), ",")[0]
 
-	if err2 := output.Wait(); err2 != nil {
-		return "", err2
+	// remove the family info if necessary
+	var vendorUarch string
+	if strings.Contains(vendorUarchFamily, "{") {
+		vendorUarch = strings.TrimSpace(strings.Split(vendorUarchFamily, "{")[0])
+	} else {
+		vendorUarch = vendorUarchFamily
 	}
 
-	myCPUModel := strings.Split(uarch[1], "{")[0]
-	file, er := os.Open(CPUModelDataPath)
-	if er != nil {
-		return "", er
-	}
-	reader := csv.NewReader(file)
+	// get the uarch finally, e.g. "Sapphire Rapids", "Zen 2".
+	start := strings.Index(vendorUarch, " ") + 1
+	uarch := vendorUarch[start:]
 
-	dec, e := csvutil.NewDecoder(reader)
-	if e != nil {
-		return "", e
+	if err = output.Wait(); err != nil {
+		fmt.Printf("cpuid command is not properly completed: %s", err)
 	}
 
-	var de error
-	for {
-		type CPUModelData struct {
-			Architecture string `csv:"Architecture"`
-		}
-		var p CPUModelData
-		if de = dec.Decode(&p); de == io.EOF {
-			break
-		}
-		if strings.Contains(myCPUModel, p.Architecture) {
-			return p.Architecture, nil
-		}
-	}
-
-	return "unknown", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
+	return uarch, err
 }
 
 func isFileExists(path string) bool {

@@ -49,7 +49,7 @@ ifdef ATTACHER_TAG
 	ifeq ($(ATTACHER_TAG),libbpf)
 		LIBBPF_HEADERS := /usr/include/bpf
 		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-		LIBBPF_OBJ := /usr/lib64/libbpf.a
+		LIBBPF_OBJ ?= /usr/lib64/libbpf.a
 	endif
 else
 # auto determine
@@ -185,7 +185,7 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local: tidy-vendor format
+_build_local:
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
@@ -277,6 +277,7 @@ test: ginkgo-set tidy-vendor
 
 test-verbose: ginkgo-set tidy-vendor
 	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo GOENV=$(GOENV)
 	@$(GOENV) go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
@@ -296,6 +297,7 @@ format:
 	./automation/presubmit-tests/gofmt.sh
 
 golint:
+	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
 	$(CTR_CMD) run --tty --rm \
 		--volume '$(base_dir)/.cache/golangci-lint:/root/.cache' \
@@ -331,10 +333,6 @@ cluster-clean: build-manifest
 cluster-deploy:
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
-
-cluster-sync:
-	./hack/cluster-sync.sh
-.PHONY: cluster-sync
 
 cluster-up:
 	./hack/cluster.sh up

@@ -17,29 +17,91 @@
 # Copyright 2022 The Kepler Contributors
 #
 
-set -ex pipefail
+set -eu -o pipefail
 
-source ./hack/common.sh
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+declare -r PROJECT_ROOT
 
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kubernetes}
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+source "$PROJECT_ROOT/hack/utils.bash"
 
-function main() {
-    [ ! -d "${MANIFESTS_OUT_DIR}" ] && echo "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
-    
-    if [ "$CLUSTER_PROVIDER" == "microshift" ]
-    then
-        sed "s/localhost:5001/registry:5000/g" ${MANIFESTS_OUT_DIR}/deployment.yaml > ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp && \
-            mv ${MANIFESTS_OUT_DIR}/deployment.yaml.tmp ${MANIFESTS_OUT_DIR}/deployment.yaml
-    fi
-    echo "Deploying manifests..."
-    # Ignore errors because some clusters might not have prometheus operator
-    echo "Deploying with image:"
-    cat ${MANIFESTS_OUT_DIR}/deployment.yaml | grep "image:"
-    kubectl apply -f ${MANIFESTS_OUT_DIR} || true
-    
-    # verify kepler deployment on cluster
-    ./hack/verify.sh kepler
+declare -r MANIFESTS_OUT_DIR="${MANIFESTS_OUT_DIR:-_output/generated-manifest}"
+
+declare CLUSTER_PROVIDER="${CLUSTER_PROVIDER:-kind}"
+declare CTR_CMD="${CTR_CMD:-docker}"
+declare IMAGE_TAG="${IMAGE_TAG:-devel}"
+declare IMAGE_REPO="${IMAGE_REPO:-localhost:5001}"
+declare ATTACHER_TAG="${ATTACHER_TAG:-libbpf}"
+declare OPTS="${OPTS:-}"
+declare NO_BUILDS="${NO_BUILDS:-false}"
+
+build_manifest() {
+	$NO_BUILDS && {
+		ok "Skipping building manifests"
+		return 0
+	}
+	header "Build Kepler Manifest"
+	run make build-manifest OPTS="$OPTS"
 }
 
+build_kepler() {
+	header "Build Kepler Image"
+	$NO_BUILDS && {
+		ok "Skipping building of images"
+		return 0
+	}
+	run make build_containerized \
+		IMAGE_REPO="$IMAGE_REPO" \
+		IMAGE_TAG="$IMAGE_TAG" \
+		ATTACHER_TAG="$ATTACHER_TAG"
+}
+push_kepler() {
+	header "Push Kepler Image"
+	$NO_BUILDS && {
+		ok "Skipping pushing of images"
+		return 0
+	}
+	run make push-image \
+		IMAGE_REPO="$IMAGE_REPO" \
+		IMAGE_TAG="$IMAGE_TAG" \
+		ATTACHER_TAG="$ATTACHER_TAG"
+}
+run_kepler() {
+	header "Running Kepler"
+
+	[[ ! -d "$MANIFESTS_OUT_DIR" ]] && die "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
+
+	[[ "$CLUSTER_PROVIDER" == "microshift" ]] && {
+		sed "s/localhost:5001/registry:5000/g" "${MANIFESTS_OUT_DIR}"/deployment.yaml >"${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp &&
+			mv "${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp "${MANIFESTS_OUT_DIR}"/deployment.yaml
+	}
+
+	kubectl apply -f "${MANIFESTS_OUT_DIR}" || true
+}
+clean_kepler() {
+	header "Cleaning Kepler"
+	kubectl delete --ignore-not-found=true -f "${MANIFESTS_OUT_DIR}"/*.yaml || true
+}
+verify_kepler() {
+	header "Verifying Kepler"
+	run ./hack/verify.sh kepler || {
+		die "Kepler validation failed ❌"
+	}
+	ok "Kepler deployed successfully"
+}
+deploy_kepler() {
+	header "Build and Deploy Kepler"
+
+	build_manifest
+	build_kepler
+	push_kepler
+	clean_kepler
+	run_kepler
+	verify_kepler
+}
+main() {
+	export CTR_CMD="$CTR_CMD"
+	cd "$PROJECT_ROOT"
+
+	deploy_kepler
+}
 main "$@"

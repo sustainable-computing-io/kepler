@@ -11,14 +11,10 @@ URL:            https://github.com/sustainable-computing-io/kepler/
 Source0:        kepler.tar.gz
 
 BuildRequires: systemd
-BuildRequires: make
+BuildRequires: clang llvm llvm-devel zlib-devel make libbpf
 
-Requires:       cpuid
-Requires:       kmod
-Requires:       xz
-Requires:       python3  
-Requires:       bcc-devel
-Requires:       bcc
+Requires:       elfutils-libelf
+Requires:       elfutils-libelf-devel
 
 %{?systemd_requires}
 
@@ -33,9 +29,10 @@ CROSS_BUILD_BINDIR=_output/bin
 GOARCH=amd64
 %endif
 
-make _build_local GOOS=${GOOS} GOARCH=${GOARCH}
+make genlibbpf _build_local GOOS=${GOOS} GOARCH=${GOARCH} ATTACHER_TAG=libbpf
 
 cp ./${CROSS_BUILD_BINDIR}/${GOOS}_${GOARCH}/kepler ./_output/kepler
+echo -n "true" > ./_output/ENABLE_PROCESS_METRICS
 
 %install
 
@@ -44,10 +41,18 @@ install -d %{buildroot}%{_bindir}
 install -d %{buildroot}%{_sysconfdir}/kepler/
 
 install -d %{buildroot}/var/lib/kepler/data
+install -d %{buildroot}/var/lib/kepler/bpfassets
+install -d %{buildroot}/etc/kepler/kepler.config
 
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
-install -p -m644 ./data/normalized_cpu_arch.csv %{buildroot}/var/lib/kepler/data/normalized_cpu_arch.csv
+install -p -m644 ./bpfassets/libbpf/bpf.o/amd64_kepler.bpf.o %{buildroot}/var/lib/kepler/bpfassets/amd64_kepler.bpf.o
+install -p -m644 ./_output/ENABLE_PROCESS_METRICS %{buildroot}/etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
+install -p -m644 ./data/cpus.yaml %{buildroot}/var/lib/kepler/data/cpus.yaml
+install -p -m644 ./data/model_weight/acpi_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_AbsPowerModel.json
+install -p -m644 ./data/model_weight/acpi_DynPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_DynPowerModel.json
+install -p -m644 ./data/model_weight/rapl_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/rapl_AbsPowerModel.json
+install -p -m644 ./data/model_weight/rapl_DynPowerModel.json %{buildroot}/var/lib/kepler/data/rapl_DynPowerModel.json
 
 %post
 
@@ -57,8 +62,13 @@ install -p -m644 ./data/normalized_cpu_arch.csv %{buildroot}/var/lib/kepler/data
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
-/var/lib/kepler/data/normalized_cpu_arch.csv
-
+/var/lib/kepler/bpfassets/amd64_kepler.bpf.o
+/var/lib/kepler/data/cpus.yaml
+/var/lib/kepler/data/acpi_AbsPowerModel.json
+/var/lib/kepler/data/acpi_DynPowerModel.json
+/var/lib/kepler/data/rapl_AbsPowerModel.json
+/var/lib/kepler/data/rapl_DynPowerModel.json
+/etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 
 %changelog
 * %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_} 

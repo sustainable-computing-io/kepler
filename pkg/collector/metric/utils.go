@@ -17,25 +17,38 @@ limitations under the License.
 package metric
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
-	"github.com/jszwec/csvutil"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/power/accelerator/gpu"
 
+	cpuidv2 "github.com/klauspost/cpuid/v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
-var CPUModelDataPath = "/var/lib/kepler/data/normalized_cpu_arch.csv"
+const (
+	CPUModelDataPath = "/var/lib/kepler/data/cpus.yaml"
+	CPUPmuNamePath   = "/sys/devices/cpu/caps/pmu_name"
+	CPUTopologyPath  = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
+)
 
 type CPUModelData struct {
-	Architecture string `csv:"Architecture"`
+	Core     string `yaml:"core"`
+	Uarch    string `yaml:"uarch"`
+	Family   string `yaml:"family"`
+	Model    string `yaml:"model"`
+	Stepping string `yaml:"stepping"`
+}
+
+type CPUS struct {
+	cpusInfo []CPUModelData
 }
 
 func getcontainerUintFeatureNames() []string {
@@ -93,6 +106,7 @@ func GetNodeName() string {
 func getCPUArch() string {
 	arch, err := getCPUArchitecture()
 	if err == nil {
+		klog.V(3).Infof("Current CPU architecture: %s", arch)
 		return arch
 	}
 	klog.Errorf("getCPUArch failure: %s", err)
@@ -100,12 +114,16 @@ func getCPUArch() string {
 }
 
 // getX86Architecture() uses "cpuid" tool to detect the current X86 CPU architecture.
+// Per "cpuid" source code, the "uarch" section format in output is as follows:
+//
+// "   (uarch synth) = <vendor> <uarch> {<family>}, <phys>"
+//
 // Take Intel Xeon 4th Gen Scalable Processor(Codename: Sapphire Rapids) as example:
 // $ cpuid -1 |grep uarch
 //
 //	(uarch synth) = Intel Sapphire Rapids {Golden Cove}, Intel 7
 //
-// In this example, the expected return string should be: "Intel Sapphire Rapids".
+// In this example, the expected return string should be: "Sapphire Rapids".
 func getX86Architecture() (string, error) {
 	// use cpuid to get CPUArchitecture
 	grep := exec.Command("grep", "uarch")
@@ -128,19 +146,39 @@ func getX86Architecture() (string, error) {
 		return "", err
 	}
 
-	// format the CPUArchitecture result
-	uarch := strings.Split(string(res), "=")
-	if len(uarch) != 2 {
+	// format the CPUArchitecture result, the raw "uarch synth" string is like this:
+	// (uarch synth) = <vendor> <uarch> {<family>}, <phys>
+	// example 1: "(uarch synth) = Intel Sapphire Rapids {Golden Cove}, Intel 7"
+	// example 2: "(uarch synth) = AMD Zen 2, 7nm", here the <family> info is missing.
+	uarchSection := strings.Split(string(res), "=")
+	if len(uarchSection) != 2 {
 		return "", fmt.Errorf("cpuid grep output is unexpected")
 	}
+	// get the string contains only vendor/uarch/family info
+	// example 1: "Intel Sapphire Rapids {Golden Cove}"
+	// example 2: "AMD Zen 2"
+	vendorUarchFamily := strings.Split(strings.TrimSpace(uarchSection[1]), ",")[0]
+
+	// remove the family info if necessary
+	var vendorUarch string
+	if strings.Contains(vendorUarchFamily, "{") {
+		vendorUarch = strings.TrimSpace(strings.Split(vendorUarchFamily, "{")[0])
+	} else {
+		vendorUarch = vendorUarchFamily
+	}
+
+	// get the uarch finally, e.g. "Sapphire Rapids", "Zen 2".
+	start := strings.Index(vendorUarch, " ") + 1
+	uarch := vendorUarch[start:]
 
 	if err = output.Wait(); err != nil {
 		klog.Errorf("cpuid command is not properly completed: %s", err)
 	}
 
-	return strings.Split(uarch[1], "{")[0], err
+	return uarch, err
 }
 
+// TODO: getCPUArchitecture() code logic changes, need check if anything should change here.
 func getArm64Architecture() (string, error) {
 	output, err := exec.Command("archspec", "cpu").Output()
 	if err != nil {
@@ -184,6 +222,73 @@ func getS390xArchitecture() (string, error) {
 	return fmt.Sprintf("zSystems model %s", strings.TrimSpace(uarch[1])), err
 }
 
+// There are three options for Kepler to detect CPU microarchitecture:
+// 1. Use tools such as 'cpuid', 'archspec', etc, to directly fetch CPU microarchitecture.
+//
+//  2. Use Golang libraries to detect the CPU's 'family'/'model'/'stepping' information,
+//     then use it to fetch the microarchitecture from community's CPU models data file.
+//
+// 3. Read Linux SYSFS file '/sys/devices/cpu/pmu_name', use the content as uarch.
+//
+// Option #1 is the first choice in Kepler, if the tools are N/A on platforms,
+// getCPUMicroarchitecture() provides option #2 and #3 as the alternative solution.
+func getCPUMicroArchitecture(family, model, stepping string) (string, error) {
+	yamlBytes, err := os.ReadFile(CPUModelDataPath)
+	if err != nil {
+		klog.Errorf("failed to read cpus.yaml: %v", err)
+		return "", err
+	}
+	cpus := &CPUS{
+		cpusInfo: []CPUModelData{},
+	}
+	err = yaml.Unmarshal(yamlBytes, &cpus.cpusInfo)
+	if err != nil {
+		klog.Errorf("failed to parse cpus.yaml: %v", err)
+		return "", err
+	}
+
+	for _, info := range cpus.cpusInfo {
+		// if family matches
+		if info.Family == family {
+			var reModel *regexp.Regexp
+			reModel, err = regexp.Compile(info.Model)
+			if err != nil {
+				return "", err
+			}
+			// if model matches
+			if reModel.FindString(model) == model {
+				// if there is a stepping
+				if info.Stepping != "" {
+					var reStepping *regexp.Regexp
+					reStepping, err = regexp.Compile(info.Stepping)
+					if err != nil {
+						return "", err
+					}
+					// if stepping does NOT match
+					if reStepping.FindString(stepping) == "" {
+						// no match
+						continue
+					}
+				}
+				return info.Uarch, nil
+			}
+		}
+	}
+	klog.V(3).Infof("CPU match not found for family %s, model %s, stepping %s. Use pmu_name as uarch.", family, model, stepping)
+	// fallback to option #3
+	return getCPUPmuName()
+}
+
+func getCPUPmuName() (pmuName string, err error) {
+	var data []byte
+	if data, err = os.ReadFile(CPUPmuNamePath); err != nil {
+		klog.V(3).Infoln(err)
+		return
+	}
+	pmuName = string(data)
+	return
+}
+
 func getCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
 	cpuArchOverride := config.CPUArchOverride
@@ -193,44 +298,24 @@ func getCPUArchitecture() (string, error) {
 	}
 
 	var (
-		myCPUModel string
-		err        error
+		myCPUArch string
+		err       error
 	)
+	// get myCPUArch for x86-64 and ARM CPUs, for s390x CPUs, directly return result.
 	if runtime.GOARCH == "amd64" {
-		myCPUModel, err = getX86Architecture()
-		if err != nil {
-			return "", err
-		}
+		myCPUArch, err = getX86Architecture()
 	} else if runtime.GOARCH == "s390x" {
 		return getS390xArchitecture()
 	} else {
-		myCPUModel, err = getArm64Architecture()
-		if err != nil {
-			return "", err
-		}
-	}
-	file, err := os.Open(CPUModelDataPath)
-	if err != nil {
-		return "", err
-	}
-	reader := csv.NewReader(file)
-
-	dec, err := csvutil.NewDecoder(reader)
-	if err != nil {
-		return "", err
+		myCPUArch, err = getArm64Architecture()
 	}
 
-	for {
-		var p CPUModelData
-		if err := dec.Decode(&p); err == io.EOF {
-			break
-		}
-		if strings.Contains(myCPUModel, p.Architecture) {
-			return p.Architecture, nil
-		}
+	if err == nil {
+		return myCPUArch, nil
+	} else {
+		f, m, s := strconv.Itoa(cpuidv2.CPU.Family), strconv.Itoa(cpuidv2.CPU.Model), strconv.Itoa(cpuidv2.CPU.Stepping)
+		return getCPUMicroArchitecture(f, m, s)
 	}
-
-	return "", fmt.Errorf("no CPU power model found for architecture %s", myCPUModel)
 }
 
 func getCPUPackageMap() (cpuPackageMap map[int32]string) {
@@ -238,7 +323,7 @@ func getCPUPackageMap() (cpuPackageMap map[int32]string) {
 	// check if mapping available
 	numCPU := int32(runtime.NumCPU())
 	for cpu := int32(0); cpu < numCPU; cpu++ {
-		targetFileName := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/topology/physical_package_id", cpu)
+		targetFileName := fmt.Sprintf(CPUTopologyPath, cpu)
 		value, err := os.ReadFile(targetFileName)
 		if err != nil {
 			klog.Errorf("cannot get CPU-Package map: %v", err)

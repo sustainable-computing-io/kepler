@@ -35,4 +35,4 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler
           labels: ${{ github.event.inputs.commitSHA }}
-          file: build/Dockerfile
+          file: build/Dockerfile.libbpf.kepler

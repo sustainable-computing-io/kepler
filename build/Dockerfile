@@ -8,7 +8,7 @@ ARG SOURCE_GIT_TAG
 
 LABEL name=kepler-builder
 
-ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go 
+ENV GOPATH=/opt/app-root GO111MODULE=off GOROOT=/usr/local/go 
 
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
@@ -17,7 +17,6 @@ WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
 
 COPY . .
 RUN mkdir -p data
-
 # Build kepler
 RUN make build SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 RUN ls ./_output/bin
@@ -29,7 +28,8 @@ FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 
 RUN mkdir -p /var/lib/kepler/data
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/cpus.yaml /var/lib/kepler/data/cpus.yaml
+
 
 # copy model weight
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json

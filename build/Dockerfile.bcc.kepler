@@ -5,7 +5,7 @@ ARG SOURCE_GIT_TAG
 
 LABEL name=kepler-builder
 
-ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go 
+ENV GOPATH=/opt/app-root GO111MODULE=off GOROOT=/usr/local/go 
 
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
@@ -14,17 +14,10 @@ ENV GOCACHE=/go/cache
 
 WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
 
-# Cache and download Go dependencies if go.mod or go.sum changes
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/cache \
-go mod download -x
-
 COPY . .
 RUN mkdir -p data
-
 # Build kepler with caching to speed up the process
-RUN --mount=type=cache,target=/go/cache/ \
-make build SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
+RUN make build SOURCE_GIT_TAG=$SOURCE_GIT_TAG BIN_TIMESTAMP=$BIN_TIMESTAMP
 RUN ls ./_output/bin
 # RUN make test
 
@@ -34,7 +27,7 @@ FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-bcc-0.26
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/kepler /usr/bin/kepler
 
 RUN mkdir -p /var/lib/kepler/data
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/normalized_cpu_arch.csv /var/lib/kepler/data/normalized_cpu_arch.csv
+COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/cpus.yaml /var/lib/kepler/data/cpus.yaml
 
 # copy model weight
 COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json

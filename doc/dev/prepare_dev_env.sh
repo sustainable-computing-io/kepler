@@ -5,7 +5,7 @@ echo "copy data files"
 DATAPATH="/var/lib/kepler/data/"
 mkdir -p ${DATAPATH}
 
-cp ../data/normalized_cpu_arch.csv ${DATAPATH}
+cp ../data/cpus.yaml ${DATAPATH}
 
 mkdir -p /var/lib/kepler/data/
 cp ../data/model_weight/acpi_AbsPowerModel.json ${DATAPATH}/acpi_AbsPowerModel.json
