@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 
 	"k8s.io/klog/v2"
 )
@@ -52,27 +51,6 @@ func (c *Collector) updateCgroupMetrics() {
 					klog.V(1).Infof("Container/Pod %s/%s was removed from the map because the cgroup was deleted",
 						c.ContainersMetrics[key].ContainerName, c.ContainersMetrics[key].PodName)
 				}
-			}
-		}
-	}
-}
-
-// updateKubeletMetrics adds kubelet data (resident mem)
-func (c *Collector) updateKubeletMetrics() {
-	if len(collector_metric.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _ := cgroup.GetContainerMetrics()
-		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
-		for _, c := range c.ContainersMetrics {
-			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName
-			readCPU := uint64(containerCPU[k])
-			readMem := uint64(containerMem[k])
-			cpuMetricName := collector_metric.AvailableKubeletMetrics[0]
-			memMetricName := collector_metric.AvailableKubeletMetrics[1]
-			if err := c.KubeletStats[cpuMetricName].SetNewAggr(readCPU); err != nil {
-				klog.V(5).Infoln(err)
-			}
-			if err := c.KubeletStats[memMetricName].SetNewAggr(readMem); err != nil {
-				klog.V(5).Infoln(err)
 			}
 		}
 	}

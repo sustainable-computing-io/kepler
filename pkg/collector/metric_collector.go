@@ -119,9 +119,6 @@ func (c *Collector) Update() {
 	if config.IsCgroupMetricsEnabled() {
 		c.updateCgroupMetrics() // collect new cgroup metrics from cgroup
 	}
-	if config.IsKubeletMetricsEnabled() {
-		c.updateKubeletMetrics() // collect new cgroup metrics from kubelet
-	}
 
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		c.updateGPUMetrics()

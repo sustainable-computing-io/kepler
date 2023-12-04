@@ -67,14 +67,6 @@ var (
 )
 
 func Init() (*[]corev1.Pod, error) {
-	if config.IsKubeletMetricsEnabled() {
-		pods, err := podLister.ListPods()
-		if err != nil {
-			return nil, err
-		}
-		getAliveContainers(pods)
-		return pods, nil
-	}
 	pods := []corev1.Pod{}
 	return &pods, nil
 }
