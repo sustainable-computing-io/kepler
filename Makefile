@@ -16,7 +16,7 @@ VERSION            ?= $(GIT_VERSION)
 LDFLAGS            := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 ROOTLESS	       ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
-BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18
+BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
 CTR_CMD            ?= $(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
@@ -44,75 +44,15 @@ GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
 
-ifdef ATTACHER_TAG
-	ATTACHER_TAG := $(ATTACHER_TAG)
-	ifeq ($(ATTACHER_TAG),libbpf)
-		LIBBPF_HEADERS := /usr/include/bpf
-		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-		LIBBPF_OBJ ?= /usr/lib64/libbpf.a
-	endif
-else
-# auto determine
-	BCC_TAG := 
-	LIBBPF_TAG := 
+LIBBPF_HEADERS := /usr/include/bpf
+KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
+LIBBPF_OBJ ?= /usr/lib64/libbpf.a
 
-	ifneq ($(shell command -v ldconfig),)
-		ifneq ($(shell ldconfig -p|grep bcc),)
-			BCC_TAG = bcc
-		endif
-	endif
+GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS)" CGO_LDFLAGS="$(LIBBPF_OBJ)"
 
-	ifneq ($(shell command -v dpkg),)
-		ifneq ($(shell dpkg -l|grep bcc),)
-			BCC_TAG = bcc
-		endif
-	endif
-
-	ifneq ($(shell command -v ldconfig),)
-		ifneq ($(shell ldconfig -p|grep libbpf),)
-		LIBBPF_TAG = libbpf
-		endif
-	endif
-
-	ifneq ($(shell command -v dpkg),)
-		ifneq ($(shell dpkg -l|grep libbpf-dev),)
-			LIBBPF_TAG = libbpf
-		endif
-	endif
-
-	LIBBPF_HEADERS := /usr/include/bpf
-	KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-	LIBBPF_OBJ := /usr/lib/$(ARCH)-linux-gnu/libbpf.a
-
-# for libbpf tag, if libbpf.a, kepler.bpf.o exist, clear bcc tag
-	ifneq ($(LIBBPF_TAG),)
-		ifneq ($(wildcard $(LIBBPF_OBJ)),)
-			ifneq ($(wildcard $(KEPLER_OBJ_SRC)),)
-				BCC_TAG = 
-			endif
-		endif
-	endif
-# if bcc tag is not clear, clear libbpf tag
-	ifneq ($(BCC_TAG),)
-		LIBBPF_TAG = 
-	endif
-	ATTACHER_TAG := $(BCC_TAG)$(LIBBPF_TAG)
-endif
-
-# if libbpf tag is not empty, update goenv
-ifeq ($(ATTACHER_TAG),libbpf)
-	GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS)" CGO_LDFLAGS="$(LIBBPF_OBJ)"
-endif
-
-ifneq ($(ATTACHER_TAG),)
-	DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.$(ATTACHER_TAG).kepler
-	IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)-$(ATTACHER_TAG)
-	GO_BUILD_TAGS := $(GENERAL_TAGS)'$(ATTACHER_TAG) '$(GOOS)
-else
-	DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
-	IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
-	GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)
-endif
+DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
+IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
+GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
@@ -142,7 +82,7 @@ clean: clean-cross-build
 .PHONY: clean
 
 ### build container ###
-build_containerized: genbpfassets tidy-vendor format
+build_containerized: tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
 
@@ -228,15 +168,15 @@ clean_build_local:
 copy_build_local:
 	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler $(CROSS_BUILD_BINDIR)
 
-cross-build-linux-amd64: genbpfassets
+cross-build-linux-amd64:
 	+$(MAKE) _build_local GOOS=linux GOARCH=amd64
 .PHONY: cross-build-linux-amd64
 
-cross-build-linux-arm64: genbpfassets
+cross-build-linux-arm64:
 	+$(MAKE) _build_local GOOS=linux GOARCH=arm64
 .PHONY: cross-build-linux-arm64
 
-cross-build-linux-s390x: genbpfassets
+cross-build-linux-s390x:
 	+$(MAKE) _build_local GOOS=linux GOARCH=s390x
 .PHONY: cross-build-linux-s390x
 
@@ -305,11 +245,6 @@ golint:
 		--workdir /app \
 		golangci/golangci-lint \
 		golangci-lint run --verbose
-
-genbpfassets:
-	GO111MODULE=off go get -u github.com/go-bindata/go-bindata/...
-	./hack/bindata.sh
-.PHONY: genbpfassets
 
 genlibbpf: kepler.bpf.o
 
