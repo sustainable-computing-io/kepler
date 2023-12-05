@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e_test
+package integrationtest
 
 import (
 	"fmt"
@@ -27,11 +27,14 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+const (
+	DefaultAddress = "localhost:9102"
+	KeplerEnvVar   = "kepler_address"
+)
+
 var (
 	tmpDir, keplerBin, address string
 	keplerSession              *gexec.Session
-	err                        error
-	ok                         bool
 )
 
 func TestE2eTest(t *testing.T) {
@@ -40,16 +43,19 @@ func TestE2eTest(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	address, ok = os.LookupEnv("kepler_address")
+	var ok bool
+	address, ok = os.LookupEnv(KeplerEnvVar)
 	if !ok {
+		var err error
 		tmpDir, err = os.MkdirTemp("", "test-kepler")
 		Expect(err).NotTo(HaveOccurred())
 		keplerBin, err = gexec.Build("../cmd/exporter.go")
 		Expect(err).NotTo(HaveOccurred())
-		address = "localhost:8888"
+		address = DefaultAddress
 		cmd := exec.Command(keplerBin)
 		keplerSession, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).NotTo(HaveOccurred())
+
 		Eventually(func() string {
 			sdtErr := string(keplerSession.Err.Contents())
 			fmt.Println("keplerSession sdtErr", sdtErr)
