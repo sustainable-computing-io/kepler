@@ -53,5 +53,13 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: quay.io/sustainable_computing_io/kepler_base:latest-libbpf-amd64
+      - name: Build and push a base image for building Kepler with libbpf
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.base
+          platforms: linux/amd64
+          push: true
+          tags: quay.io/sustainable_computing_io/kepler_base:latest-libbpf-amd64-simplified
       - name: Create and upload multi-arch image
         run: make multi-arch-image-base
