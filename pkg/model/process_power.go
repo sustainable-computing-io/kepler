@@ -71,18 +71,18 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 			// NodeFeatureNames contains the metrics that represents the node resource utilization plus the dynamic and idle power power consumption
 			modelConfig.NodeFeatureNames = modelConfig.ContainerFeatureNames
 			modelConfig.NodeFeatureNames = append(modelConfig.NodeFeatureNames, []string{
-				collector_metric.PKG + "_DYN",     // for dynamic PKG power consumption
-				collector_metric.CORE + "_DYN",    // for dynamic CORE power consumption
-				collector_metric.DRAM + "_DYN",    // for dynamic DRAM power consumption
-				collector_metric.UNCORE + "_DYN",  // for dynamic UNCORE power consumption
-				collector_metric.OTHER + "_DYN",   // for dynamic OTHER power consumption
-				collector_metric.GPU + "_DYN",     // for dynamic GPU power consumption
-				collector_metric.PKG + "_IDLE",    // for idle PKG power consumption
-				collector_metric.CORE + "_IDLE",   // for idle CORE power consumption
-				collector_metric.DRAM + "_IDLE",   // for idle DRAM power consumption
-				collector_metric.UNCORE + "_IDLE", // for idle UNCORE power consumption
-				collector_metric.OTHER + "_IDLE",  // for idle OTHER power consumption
-				collector_metric.GPU + "_IDLE",    // for idle GPU power consumption
+				collector_metric.PKG + collector_metric.DYN,     // for dynamic PKG power consumption
+				collector_metric.CORE + collector_metric.DYN,    // for dynamic CORE power consumption
+				collector_metric.DRAM + collector_metric.DYN,    // for dynamic DRAM power consumption
+				collector_metric.UNCORE + collector_metric.DYN,  // for dynamic UNCORE power consumption
+				collector_metric.OTHER + collector_metric.DYN,   // for dynamic OTHER power consumption
+				collector_metric.GPU + collector_metric.DYN,     // for dynamic GPU power consumption
+				collector_metric.PKG + collector_metric.IDLE,    // for idle PKG power consumption
+				collector_metric.CORE + collector_metric.IDLE,   // for idle CORE power consumption
+				collector_metric.DRAM + collector_metric.IDLE,   // for idle DRAM power consumption
+				collector_metric.UNCORE + collector_metric.IDLE, // for idle UNCORE power consumption
+				collector_metric.OTHER + collector_metric.IDLE,  // for idle OTHER power consumption
+				collector_metric.GPU + collector_metric.IDLE,    // for idle GPU power consumption
 			}...)
 		} else if powerSourceTarget == config.ProcessPlatformPowerKey {
 			platformUsageMetric := config.CoreUsageMetric
@@ -95,8 +95,8 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 			}
 			modelConfig.NodeFeatureNames = modelConfig.ContainerFeatureNames
 			modelConfig.NodeFeatureNames = append(modelConfig.NodeFeatureNames, []string{
-				collector_metric.PLATFORM + "_DYN",  // for dynamic PLATFORM power consumption
-				collector_metric.PLATFORM + "_IDLE", // for idle PLATFORM power consumption
+				collector_metric.PLATFORM + collector_metric.DYN,  // for dynamic PLATFORM power consumption
+				collector_metric.PLATFORM + collector_metric.IDLE, // for idle PLATFORM power consumption
 			}...)
 		}
 	}

@@ -17,7 +17,6 @@ limitations under the License.
 package libvirt
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -34,7 +33,7 @@ func createMockLibvirtDir(directory string) {
 	}
 
 	for _, file := range mockFiles {
-		err := ioutil.WriteFile(filepath.Join(directory, file.name), []byte(file.content), 0644)
+		err := os.WriteFile(filepath.Join(directory, file.name), []byte(file.content), 0644)
 		if err != nil {
 			panic(err)
 		}
