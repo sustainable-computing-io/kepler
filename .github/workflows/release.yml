@@ -156,3 +156,4 @@ jobs:
       with:
         tag_name: ${{ github.event.inputs.tag }}
         files: ./sbom-kepler-${{ github.event.inputs.release }}.spdx.json
+        body_path: CHANGELOG.md
