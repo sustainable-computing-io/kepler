@@ -44,75 +44,63 @@ GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
 
-ifdef ATTACHER_TAG
-	ATTACHER_TAG := $(ATTACHER_TAG)
-	ifeq ($(ATTACHER_TAG),libbpf)
-		LIBBPF_HEADERS := /usr/include/bpf
-		KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-		LIBBPF_OBJ ?= /usr/lib64/libbpf.a
-	endif
-else
-# auto determine
-	BCC_TAG := 
-	LIBBPF_TAG := 
-
-	ifneq ($(shell command -v ldconfig),)
-		ifneq ($(shell ldconfig -p|grep bcc),)
-			BCC_TAG = bcc
-		endif
-	endif
-
-	ifneq ($(shell command -v dpkg),)
-		ifneq ($(shell dpkg -l|grep bcc),)
-			BCC_TAG = bcc
-		endif
-	endif
-
-	ifneq ($(shell command -v ldconfig),)
-		ifneq ($(shell ldconfig -p|grep libbpf),)
-		LIBBPF_TAG = libbpf
-		endif
-	endif
-
-	ifneq ($(shell command -v dpkg),)
-		ifneq ($(shell dpkg -l|grep libbpf-dev),)
-			LIBBPF_TAG = libbpf
-		endif
-	endif
-
-	LIBBPF_HEADERS := /usr/include/bpf
-	KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-	LIBBPF_OBJ := /usr/lib/$(ARCH)-linux-gnu/libbpf.a
-
-# for libbpf tag, if libbpf.a, kepler.bpf.o exist, clear bcc tag
-	ifneq ($(LIBBPF_TAG),)
-		ifneq ($(wildcard $(LIBBPF_OBJ)),)
-			ifneq ($(wildcard $(KEPLER_OBJ_SRC)),)
-				BCC_TAG = 
-			endif
-		endif
-	endif
-# if bcc tag is not clear, clear libbpf tag
-	ifneq ($(BCC_TAG),)
-		LIBBPF_TAG = 
-	endif
-	ATTACHER_TAG := $(BCC_TAG)$(LIBBPF_TAG)
+ifeq ($(shell command -v pkg-config),)
+  $(error Please ensure pkg-config is installed)
 endif
 
-# if libbpf tag is not empty, update goenv
+ATTACHER_TAG ?=
+ATTACHER_LIB ?=
+
+# auto determine attacher - libbpf by default
+
+ifneq ($(shell pkg-config --modversion libbpf 2>/dev/null),)
+  ATTACHER_TAG=libbpf
+  ATTACHER_LIB=libbpf
+else ifneq ($(shell pkg-config --modversion libbcc 2>/dev/null),)
+  ATTACHER_TAG=bcc
+  ATTACHER_LIB=libbcc
+endif
+
+ifeq ($(ATTACHER_TAG),)
+  $(error missing build dependencies - libbpf or bcc)
+endif
+# NOTE: from now on, ATTACHER_TAG and LIB will not be empty
+
+ATTACHER_CFLAGS = $(shell pkg-config --cflags $(ATTACHER_LIB)) 
+KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/$(ATTACHER_TAG)/bpf.o/$(GOARCH)_kepler.bpf.o
+
+
 ifeq ($(ATTACHER_TAG),libbpf)
-	GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS)" CGO_LDFLAGS="$(LIBBPF_OBJ)"
+	LIBBPF_OBJ := $(shell pkg-config --var=libdir libbpf)/libbpf.a
+  ifeq ($(wildcard $(LIBBPF_OBJ)),)
+    $(error libbpf.a not found at $(LIBBPF_OBJ))
+  endif
+
+	# if libbpf tag is not empty, update goenv
+	GOENV = GO111MODULE="" \
+					GOOS=$(GOOS) \
+					GOARCH=$(GOARCH) \
+					CGO_ENABLED=1 \
+					CC=clang \
+					CGO_CFLAGS="$(ATTACHER_CFLAGS)" \
+					CGO_LDFLAGS="$(LIBBPF_OBJ)"
 endif
 
-ifneq ($(ATTACHER_TAG),)
-	DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.$(ATTACHER_TAG).kepler
-	IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)-$(ATTACHER_TAG)
-	GO_BUILD_TAGS := $(GENERAL_TAGS)'$(ATTACHER_TAG) '$(GOOS)
-else
+# TODO - make use of ATTACHER_TAG to determine the dockerfile instead of if..else
+ifneq ($(ATTACHER_TAG),libbpf)
 	DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 	IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
 	GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)
+else
+	DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.$(ATTACHER_TAG).kepler
+	IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)-$(ATTACHER_TAG)
+	GO_BUILD_TAGS := $(GENERAL_TAGS)'$(ATTACHER_TAG) '$(GOOS)
 endif
+
+
+foobar:
+	@echo attacher: $(ATTACHER_TAG)
+
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
@@ -188,7 +176,12 @@ build: clean_build_local _build_local copy_build_local
 _build_local:
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
+	@echo +@$(GOENV) \
+		go build -v \
+		-tags ${GO_BUILD_TAGS} \
+		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler \
+		-ldflags $(LDFLAGS) \
+		./cmd/exporter/exporter.go
 
 container_build:
 	$(CTR_CMD) run --rm \
