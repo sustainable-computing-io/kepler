@@ -1,9 +1,7 @@
 name: base
 
 on:
-  push:
-    branches: 
-      - 'new_build_process'
+  workflow_dispatch:
 
 jobs:
   baseimagebuild:
