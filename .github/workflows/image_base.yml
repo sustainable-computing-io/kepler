@@ -21,14 +21,6 @@ jobs:
             registry: quay.io/sustainable_computing_io
             username: ${{ secrets.BOT_NAME }}
             password: ${{ secrets.BOT_TOKEN }}
-      - name: Build and push libbpf-amd64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./build/Dockerfile.libbpf.base
-          platforms: linux/amd64
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler_base:latest-libbpf-amd64
       - name: Build and push a base image for building Kepler with libbpf
         uses: docker/build-push-action@v5
         with:
