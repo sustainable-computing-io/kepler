@@ -108,24 +108,24 @@ var _ = Describe("Test Ratio Unit", func() {
 				config.GpuUsageMetric,     // for GPU resource usage
 			},
 			NodeFeatureNames: []string{
-				config.CoreUsageMetric,            // for PKG resource usage
-				config.CoreUsageMetric,            // for CORE resource usage
-				config.DRAMUsageMetric,            // for DRAM resource usage
-				config.GeneralUsageMetric,         // for UNCORE resource usage
-				config.GeneralUsageMetric,         // for OTHER resource usage
-				config.GpuUsageMetric,             // for GPU resource usage
-				collector_metric.PKG + "_DYN",     // for dynamic PKG power consumption
-				collector_metric.CORE + "_DYN",    // for dynamic CORE power consumption
-				collector_metric.DRAM + "_DYN",    // for dynamic PKG power consumption
-				collector_metric.UNCORE + "_DYN",  // for dynamic UNCORE power consumption
-				collector_metric.OTHER + "_DYN",   // for dynamic OTHER power consumption
-				collector_metric.GPU + "_DYN",     // for dynamic GPU power consumption
-				collector_metric.PKG + "_IDLE",    // for idle PKG power consumption
-				collector_metric.CORE + "_IDLE",   // for idle CORE power consumption
-				collector_metric.DRAM + "_IDLE",   // for idle PKG power consumption
-				collector_metric.UNCORE + "_IDLE", // for idle UNCORE power consumption
-				collector_metric.OTHER + "_IDLE",  // for idle OTHER power consumption
-				collector_metric.GPU + "_IDLE",    // for idle GPU power consumption
+				config.CoreUsageMetric,                          // for PKG resource usage
+				config.CoreUsageMetric,                          // for CORE resource usage
+				config.DRAMUsageMetric,                          // for DRAM resource usage
+				config.GeneralUsageMetric,                       // for UNCORE resource usage
+				config.GeneralUsageMetric,                       // for OTHER resource usage
+				config.GpuUsageMetric,                           // for GPU resource usage
+				collector_metric.PKG + collector_metric.DYN,     // for dynamic PKG power consumption
+				collector_metric.CORE + collector_metric.DYN,    // for dynamic CORE power consumption
+				collector_metric.DRAM + collector_metric.DYN,    // for dynamic PKG power consumption
+				collector_metric.UNCORE + collector_metric.DYN,  // for dynamic UNCORE power consumption
+				collector_metric.OTHER + collector_metric.DYN,   // for dynamic OTHER power consumption
+				collector_metric.GPU + collector_metric.DYN,     // for dynamic GPU power consumption
+				collector_metric.PKG + collector_metric.IDLE,    // for idle PKG power consumption
+				collector_metric.CORE + collector_metric.IDLE,   // for idle CORE power consumption
+				collector_metric.DRAM + collector_metric.IDLE,   // for idle PKG power consumption
+				collector_metric.UNCORE + collector_metric.IDLE, // for idle UNCORE power consumption
+				collector_metric.OTHER + collector_metric.IDLE,  // for idle OTHER power consumption
+				collector_metric.GPU + collector_metric.IDLE,    // for idle GPU power consumption
 			},
 		}
 		model.ResetSampleIdx()

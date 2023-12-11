@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -70,7 +69,7 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 		return err
 	}
 	defer func() {
-		if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 			klog.V(0).Infof("Failed to discard response body: %v", err)
 		}
 		resp.Body.Close()
