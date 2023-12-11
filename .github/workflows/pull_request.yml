@@ -18,9 +18,6 @@ jobs:
   # for each PR ensure for local developer usage
   developer_local:
     uses: ./.github/workflows/developer_local.yml
-  # for each PR run integration test
-  integration_test_bcc:
-    uses: ./.github/workflows/integration_test_bcc.yml
   # for each PR run integration test    
   integration_test:
     uses: ./.github/workflows/integration_test.yml

@@ -1,4 +1,0 @@
-FROM ImageName
-
-ARG ARCH=amd64
-RUN yum install -y kernel-devel
