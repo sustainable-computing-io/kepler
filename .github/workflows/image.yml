@@ -25,16 +25,6 @@ jobs:
         username: ${{ secrets.username }}
         password: ${{ secrets.password }}
 
-    - name: Build and push kepler latest (bcc)
-      uses: docker/build-push-action@v5
-      with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: quay.io/sustainable_computing_io/kepler:latest-bcc
-          labels: latest-bcc
-          file: build/Dockerfile
-
     - name: Build and push kepler latest (libbpf)
       uses: docker/build-push-action@v5
       with:
@@ -43,4 +33,4 @@ jobs:
           push: true
           tags: quay.io/sustainable_computing_io/kepler:latest
           labels: latest
-          file: build/Dockerfile.libbpf.kepler
+          file: build/Dockerfile
