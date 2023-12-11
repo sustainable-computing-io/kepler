@@ -39,6 +39,8 @@ const (
 	OTHER     = "other"
 	PLATFORM  = "platform"
 	FREQUENCY = "frequency"
+	DYN       = "_DYN"
+	IDLE      = "_IDLE"
 )
 
 var (
@@ -228,46 +230,46 @@ func (ne *NodeMetrics) ToEstimatorValues(featuresName []string, shouldNormalize 
 		case config.GpuUsageMetric: // for GPU resource usage
 			featureValues = append(featureValues, normalize(ne.ResourceUsage[config.GpuUsageMetric], shouldNormalize))
 
-		case PKG + "_DYN": // for dynamic PKG power consumption
+		case PKG + DYN: // for dynamic PKG power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(PKG)), shouldNormalize))
 
-		case CORE + "_DYN": // for dynamic CORE power consumption
+		case CORE + DYN: // for dynamic CORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(CORE)), shouldNormalize))
 
-		case DRAM + "_DYN": // for dynamic DRAM power consumption
+		case DRAM + DYN: // for dynamic DRAM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(DRAM)), shouldNormalize))
 
-		case UNCORE + "_DYN": // for dynamic UNCORE power consumption
+		case UNCORE + DYN: // for dynamic UNCORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(UNCORE)), shouldNormalize))
 
-		case OTHER + "_DYN": // for dynamic OTHER power consumption
+		case OTHER + DYN: // for dynamic OTHER power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(OTHER)), shouldNormalize))
 
-		case PLATFORM + "_DYN": // for dynamic PLATFORM power consumption
+		case PLATFORM + DYN: // for dynamic PLATFORM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(PLATFORM)), shouldNormalize))
 
-		case GPU + "_DYN": // for dynamic GPU power consumption
+		case GPU + DYN: // for dynamic GPU power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaDynEnergyFromAllSources(GPU)), shouldNormalize))
 
-		case PKG + "_IDLE": // for idle PKG power consumption
+		case PKG + IDLE: // for idle PKG power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(PKG)), shouldNormalize))
 
-		case CORE + "_IDLE": // for idle CORE power consumption
+		case CORE + IDLE: // for idle CORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(CORE)), shouldNormalize))
 
-		case DRAM + "_IDLE": // for idle DRAM power consumption
+		case DRAM + IDLE: // for idle DRAM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(DRAM)), shouldNormalize))
 
-		case UNCORE + "_IDLE": // for idle UNCORE power consumption
+		case UNCORE + IDLE: // for idle UNCORE power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(UNCORE)), shouldNormalize))
 
-		case OTHER + "_IDLE": // for idle OTHER power consumption
+		case OTHER + IDLE: // for idle OTHER power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(OTHER)), shouldNormalize))
 
-		case PLATFORM + "_IDLE": // for idle PLATFORM power consumption
+		case PLATFORM + IDLE: // for idle PLATFORM power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(PLATFORM)), shouldNormalize))
 
-		case GPU + "_IDLE": // for idle GPU power consumption
+		case GPU + IDLE: // for idle GPU power consumption
 			featureValues = append(featureValues, normalize(float64(ne.GetSumDeltaIdleEnergyFromAllSources(GPU)), shouldNormalize))
 
 		default:
