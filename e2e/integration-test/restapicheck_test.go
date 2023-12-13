@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e_test
+package integrationtest
 
 import (
 	"net/http"
@@ -28,15 +28,14 @@ const (
 	poolingInterval = 5
 )
 
-var _ = Describe("request check should pass", func() {
-
-	DescribeTable("Test with endpoints with requests", func(path string) {
+var _ = Describe("Request Check", func() {
+	DescribeTable("should pass with valid endpoint", func(path string) {
 		resp, err := http.Get("http://" + address + "/" + path)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	},
 		Entry("default endpoint", ""),
-		Entry("default healthz", "healthz"),
-		Entry("default metrics", "metrics"),
+		Entry("healthz endpoint", "healthz"),
+		Entry("metrics endpoint", "metrics"),
 	)
 })

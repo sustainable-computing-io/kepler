@@ -88,7 +88,6 @@ func queryPodPower(m, p, ns string, r promv1.Range, api promv1.API) float64 {
 	}
 	q := `sum by(pod_name,container_namespace)(irate(` + m + `{container_namespace=~"` + ns + `", pod_name=~"` + p + `"}[1m]))`
 	return query_range(m, q, r, api)
-
 }
 
 func query_range(metric, queryString string, r promv1.Range, api promv1.API) float64 {
@@ -131,7 +130,7 @@ func query_range(metric, queryString string, r promv1.Range, api promv1.API) flo
 }
 
 var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
-	var _ = BeforeAll(func() {
+	_ = BeforeAll(func() {
 		kMetric = make(map[string][]float64)
 		podlistMap = make(map[string][]string)
 		// Step 1: get K8S topo
@@ -217,13 +216,13 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		}
 	})
 
-	var _ = Describe("Case 1: CPU architecture check.", func() {
+	_ = Describe("Case 1: CPU architecture check.", func() {
 		It("Kepler can export correct cpu_architecture", func() {
 			Expect(cpu_arch).To(Equal(cpuArch))
 		})
 	})
 
-	var _ = DescribeTable("Case 2-1: Check node level metrics for platform specific power source component",
+	_ = DescribeTable("Case 2-1: Check node level metrics for platform specific power source component",
 		func(metrics string, enable *bool) {
 			v, ok := kMetric[metrics]
 			Expect(ok).To(BeTrue())
@@ -247,7 +246,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		Entry(nil, "kepler_node_uncore_joules_total", &raplUncoreEnable),
 	)
 
-	var _ = DescribeTable("Case 2-2: Check pod level metrics for platform specific power source component",
+	_ = DescribeTable("Case 2-2: Check pod level metrics for platform specific power source component",
 		func(metrics string, enable *bool) {
 			nonzero_found := false
 		outer:
@@ -278,7 +277,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		Entry(nil, "kepler_container_uncore_joules_total", &raplUncoreEnable),
 	)
 
-	var _ = DescribeTable("Case 3: Compare Prometheus side node level components power stats with validator measured data",
+	_ = DescribeTable("Case 3: Compare Prometheus side node level components power stats with validator measured data",
 		func(metrics string, enable *bool) {
 			if !*enable {
 				Skip("Skip as " + metrics + " should not be supported in this platform")
@@ -309,7 +308,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		Entry(nil, "kepler_node_uncore_joules_total", &raplUncoreEnable),
 	)
 
-	var _ = DescribeTable("Case 4: Compare Prometheus side namespace level components power stats with validator measured data",
+	_ = DescribeTable("Case 4: Compare Prometheus side namespace level components power stats with validator measured data",
 		func(metrics string, enable *bool) {
 			if !*enable {
 				Skip("Skip as " + metrics + " should not be supported in this platform")
@@ -321,11 +320,11 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 				"local-path-storage",
 			}
 			kepler_namespace := "kepler"
-			//d1: validator measured power for Kind
-			//d2: validator measured power for Kepler
+			// d1: validator measured power for Kind
+			// d2: validator measured power for Kepler
 			var d1, d2 float64
-			//p1: prometheus queried power for Kind
-			//p2: prometheus queried power for Kepler
+			// p1: prometheus queried power for Kind
+			// p2: prometheus queried power for Kepler
 			var p1, p2 float64
 
 			switch component {
@@ -355,7 +354,6 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 			fmt.Printf("Prometheus queried kind power(related namespaces power sum) is: %f\n", p1)
 			fmt.Printf("Validator measured kepler power(postDeploy - preDeploy) is: %f\n", d2)
 			fmt.Printf("Prometheus queried kepler power(related namespaces power sum) is: %f\n", p2)
-
 		},
 		EntryDescription("Checking %s"),
 		Entry(nil, "kepler_container_core_joules_total", &raplCoreEnable),

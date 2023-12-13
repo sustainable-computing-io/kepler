@@ -343,7 +343,7 @@ cluster-down:
 .PHONY: cluster-down
 
 e2e:
-	./hack/verify.sh integration ${ATTACHER_TAG}
+	./hack/verify.sh integration
 .PHONY: e2e
 
 ### platform-validation ###
@@ -371,7 +371,7 @@ get-env:
 .PHONY: get-env
 
 platform-validation: ginkgo-set get-env
-	./hack/verify.sh platform ${ATTACHER_TAG}
+	./hack/verify.sh platform
 .PHONY: platform-validation
 
 check: tidy-vendor set_govulncheck govulncheck format golint test

@@ -1,6 +1,3 @@
-//go:build bcc || libbpf
-// +build bcc libbpf
-
 /*
 Copyright 2022.
 
@@ -17,20 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e_test
+package integrationtest
 
 import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -39,38 +35,76 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var kMetric map[string][]float64
-var podlists []string
-var pods *v1.PodList
+type TestKeplerMetric struct {
+	Metric   map[string][]float64
+	PodLists []string
+	Client   *kubernetes.Clientset
+}
 
-func updateMetricMap(key string, value float64) {
-	_, ok := kMetric[key]
-	if !ok {
-		kMetric[key] = make([]float64, 0)
+func NewTestKeplerMetric(kubeconfigPath string) (*TestKeplerMetric, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		return nil, err
 	}
-	kMetric[key] = append(kMetric[key], value)
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return &TestKeplerMetric{
+		Metric:   make(map[string][]float64),
+		PodLists: make([]string, 0),
+		Client:   clientset,
+	}, nil
+}
+
+func (kmc *TestKeplerMetric) UpdateMetricMap(key string, value float64) {
+	if _, ok := kmc.Metric[key]; !ok {
+		kmc.Metric[key] = []float64{}
+	}
+	kmc.Metric[key] = append(kmc.Metric[key], value)
+}
+
+func (kmc *TestKeplerMetric) RetrivePodNames(ctx context.Context) error {
+	namespaces, err := kmc.Client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for i := range namespaces.Items {
+		ns := &namespaces.Items[i]
+		pods, err := kmc.Client.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for j := range pods.Items {
+			pod := &pods.Items[j]
+			kmc.PodLists = append(kmc.PodLists, pod.Name)
+		}
+	}
+	return nil
+}
+
+func getEnvOrDefault(envName, defaultValue string) string {
+	value, exists := os.LookupEnv(envName)
+	if !exists {
+		return defaultValue
+	}
+	return value
 }
 
 var _ = Describe("Metrics check should pass", Ordered, func() {
-	var _ = BeforeAll(func() {
-		kMetric = make(map[string][]float64)
-		podlists = make([]string, 0)
+	var keplerMetric *TestKeplerMetric
 
-		kubeconfig := flag.String("kubeconfig", "/tmp/.kube/config", "location to your kubeconfig file")
-		config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	_ = BeforeAll(func() {
+		var err error
+		kubeconfigPath := getEnvOrDefault("KUBECONFIG", "/tmp/.kube/config")
+		keplerMetric, err = NewTestKeplerMetric(kubeconfigPath)
 		Expect(err).NotTo(HaveOccurred())
-		clientset, err := kubernetes.NewForConfig(config)
-		Expect(err).NotTo(HaveOccurred())
+
 		ctx := context.Background()
-		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		err = keplerMetric.RetrivePodNames(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		for _, ns := range namespaces.Items {
-			pods, err = clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			for _, pod := range pods.Items {
-				podlists = append(podlists, pod.Name)
-			}
-		}
+
 		reader := bytes.NewReader([]byte{})
 		req, err := http.NewRequest("GET", "http://"+address+"/metrics", reader)
 		Expect(err).NotTo(HaveOccurred())
@@ -97,9 +131,9 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 				m, _, v := p.Series()
 				p.Metric(&res)
 				if res.Has("pod_name") {
-					updateMetricMap(res.Get("__name__")+" @ "+res.Get("pod_name"), v)
+					keplerMetric.UpdateMetricMap(res.Get("__name__")+" @ "+res.Get("pod_name"), v)
 				} else {
-					updateMetricMap(res.Get("__name__"), v)
+					keplerMetric.UpdateMetricMap(res.Get("__name__"), v)
 				}
 				fmt.Printf("metric(with lables): %s\nvalue: %f\n", m, v)
 				res = res[:0]
@@ -114,26 +148,26 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 		}
 		fmt.Println("=============================================")
 		fmt.Println("Dump saved metrics...")
-		for k, v := range kMetric {
+		for k, v := range keplerMetric.Metric {
 			fmt.Printf("metric: %s, value: %v\n", k, v)
 		}
 	})
 
-	var _ = DescribeTable("Check node level metrics for details",
+	_ = DescribeTable("Check node level metrics for details",
 		func(metrics string) {
-			v, ok := kMetric[metrics]
+			v, ok := keplerMetric.Metric[metrics]
 			Expect(ok).To(BeTrue())
-			nonzero_found := false
+			nonzeroFound := false
 			for _, val := range v {
 				if val > 0 {
-					nonzero_found = true
+					nonzeroFound = true
 					break
 				}
 			}
-			if !nonzero_found {
+			if !nonzeroFound {
 				Skip("Skip as " + metrics + " is zero")
 			}
-			Expect(nonzero_found).To(BeTrue())
+			Expect(nonzeroFound).To(BeTrue())
 
 			// TODO: check value in details base on cgroup and gpu etc...
 			// so far just base check as compare with zero by default
@@ -149,21 +183,21 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 		Entry(nil, "kepler_node_uncore_joules_total"),   // node levelcheck by instance
 	)
 
-	var _ = DescribeTable("Check pod level metrics for details",
+	_ = DescribeTable("Check pod level metrics for details",
 		func(metrics string) {
-			nonzero_found := false
+			nonzeroFound := false
 			var value float64
-			for _, podname := range podlists {
-				v, ok := kMetric[metrics+" @ "+podname]
+			for _, podname := range keplerMetric.PodLists {
+				v, ok := keplerMetric.Metric[metrics+" @ "+podname]
 				Expect(ok).To(BeTrue())
 				for _, val := range v {
 					if val > 0 {
-						nonzero_found = true
+						nonzeroFound = true
 						value = val
 						break
 					}
 				}
-				if !nonzero_found {
+				if !nonzeroFound {
 					fmt.Printf("Skip as %s for %s is zero\n", metrics, podname)
 				} else {
 					break
@@ -171,7 +205,7 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 				// TODO: check value in details base on cgroup and gpu etc...
 				// so far just base check as compare with zero by default
 			}
-			if !nonzero_found {
+			if !nonzeroFound {
 				Skip("skip as " + metrics + " for all pods are zero")
 			}
 			Expect(value).To(BeNumerically(">", 0))
