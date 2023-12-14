@@ -32,7 +32,7 @@ jobs:
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
 
       - name: save Kepler image as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: kepler_rpm
           path: /tmp/kepler.rpm.tar.gz
