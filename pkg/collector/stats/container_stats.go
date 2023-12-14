@@ -36,8 +36,6 @@ type ContainerStats struct {
 
 	CgroupStatHandler cgroup.CCgroupStatHandler
 	CgroupStatMap     map[string]*types.UInt64StatCollection
-	// TODO: kubelet stat metrics is deprecated since it duplicates the cgroup metrics. We will remove it soon.
-	KubeletStats map[string]*types.UInt64Stat
 }
 
 // NewContainerStats creates a new ContainerStats instance
@@ -50,7 +48,6 @@ func NewContainerStats(containerName, podName, podNamespace, containerID string)
 		ContainerName: containerName,
 		Namespace:     podNamespace,
 		CgroupStatMap: make(map[string]*types.UInt64StatCollection),
-		KubeletStats:  make(map[string]*types.UInt64Stat),
 	}
 
 	if config.ExposeCgroupMetrics {
@@ -58,12 +55,7 @@ func NewContainerStats(containerName, podName, podNamespace, containerID string)
 			c.CgroupStatMap[metricName] = types.NewUInt64StatCollection()
 		}
 	}
-	// Kubelet metrics are deprecated and will be removed in the future
-	if config.ExposeKubeletMetrics {
-		for _, metricName := range AvailableKubeletMetrics {
-			c.KubeletStats[metricName] = &types.UInt64Stat{}
-		}
-	}
+
 	return c
 }
 
@@ -80,13 +72,12 @@ func (c *ContainerStats) SetLatestProcess(pid uint64) {
 }
 
 func (c *ContainerStats) String() string {
-	return fmt.Sprintf("energy from pod/container: name: %s/%s namespace: %s containerid:%s\n cgroupMetrics: %v\n kubeletMetrics: %v\n",
+	return fmt.Sprintf("energy from pod/container: name: %s/%s namespace: %s containerid:%s\n cgroupMetrics: %v\n",
 		c.PodName,
 		c.ContainerName,
 		c.Namespace,
 		c.ContainerID,
 		c.CgroupStatMap,
-		c.KubeletStats,
 	) + c.Stats.String()
 }
 

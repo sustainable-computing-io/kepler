@@ -51,13 +51,6 @@ const (
 	BytesReadIO          = "bytes_read"
 	BytesWriteIO         = "bytes_writes"
 	BlockDevicesIO       = "block_devices_used"
-	// kubelet - package
-	KubeletCPUUsage        = "kubelet_cpu_usage"
-	KubeletMemoryUsage     = "kubelet_memory_bytes"
-	KubeletContainerCPU    = "container_cpu_usage_seconds_total"
-	KubeletContainerMemory = "container_memory_working_set_bytes"
-	KubeletNodeCPU         = "node_cpu_usage_seconds_total"
-	KubeletNodeMemory      = "node_memory_working_set_bytes"
 
 	// system
 	CPUFrequency = "avg_cpu_frequency"

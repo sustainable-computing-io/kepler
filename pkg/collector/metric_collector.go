@@ -160,7 +160,7 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
-	// update the deprecated cgroup and kubelet metrics. Note that we only call this function after all process metrics were aggregated per container
+	// update the deprecated cgroup metrics. Note that we only call this function after all process metrics were aggregated per container
 	c.updateContainerResourceUtilizationMetrics()
 }
 
@@ -200,16 +200,12 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	bpf.UpdateProcessBPFMetrics(c.ProcessStats)
 }
 
-// this is only for cgroup and kubelet metrics, as these metrics are deprecated we might remove thi in the future
+// this is only for cgroup metrics, as these metrics are deprecated we might remove thi in the future
 func (c *Collector) updateContainerResourceUtilizationMetrics() {
 	if config.IsExposeContainerStatsEnabled() {
 		if config.IsCgroupMetricsEnabled() {
 			// collect cgroup metrics from cgroup api
 			cgroup_collector.UpdateContainerCgroupMetrics(c.ContainerStats)
-		}
-		if config.IsKubeletMetricsEnabled() {
-			// collect new cgroup metrics from kubelet api
-			cgroup_collector.UpdateContainerKubeletMetrics(c.ContainerStats)
 		}
 	}
 }

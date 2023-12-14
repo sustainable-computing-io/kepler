@@ -52,12 +52,7 @@ func energyMetricsPromDesc(context, name, source string) (desc *prometheus.Desc)
 		klog.Errorf("Unexpected prometheus context: %s", context)
 		return
 	}
-	return prometheus.NewDesc(
-		prometheus.BuildFQName(consts.MetricsNamespace, context, name+consts.EnergyMetricNameSuffix),
-		"Aggregated value in "+name+" in joules",
-		labels,
-		prometheus.Labels{"source": source},
-	)
+	return MetricsPromDesc(context, name, consts.EnergyMetricNameSuffix, source, labels)
 }
 
 func HCMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
@@ -93,16 +88,6 @@ func CGroupMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 	if config.IsCgroupMetricsEnabled() {
 		for _, name := range consts.CGroupMetricNames {
 			descriptions[name] = resMetricsPromDesc(context, name, "cgroup")
-		}
-	}
-	return descriptions
-}
-
-func KubeletMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
-	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsKubeletMetricsEnabled() {
-		for _, name := range consts.KubeletMetricNames {
-			descriptions[name] = resMetricsPromDesc(context, name, "kubelet")
 		}
 	}
 	return descriptions
@@ -144,7 +129,7 @@ func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 	return MetricsPromDesc(context, name, consts.UsageMetricNameSuffix, source, labels)
 }
 
-func MetricsPromDesc(context, name, source, sufix string, labels []string) (desc *prometheus.Desc) {
+func MetricsPromDesc(context, name, sufix, source string, labels []string) (desc *prometheus.Desc) {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(consts.MetricsNamespace, context, name+sufix),
 		"Aggregated value in "+name+" value from "+source,

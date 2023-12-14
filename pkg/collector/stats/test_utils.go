@@ -56,16 +56,11 @@ func SetMockedCollectorMetrics() {
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
 	}
-	AvailableKubeletMetrics = []string{
-		config.KubeletCPUUsage,
-		config.KubeletMemoryUsage,
-	}
 	// ProcessFeaturesNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ProcessFeaturesNames will be used.
 	ProcessFeaturesNames = []string{}
 	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableBPFSWCounters...)
 	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableBPFHWCounters...)
 	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableCGroupMetrics...)
-	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableKubeletMetrics...)
 
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,

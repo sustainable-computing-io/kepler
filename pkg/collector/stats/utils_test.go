@@ -11,7 +11,6 @@ func clearPlatformDependentAvailability() {
 	AvailableBPFSWCounters = []string{config.CPUTime}
 	AvailableBPFHWCounters = []string{}
 	AvailableCGroupMetrics = []string{}
-	AvailableKubeletMetrics = []string{}
 
 	ProcessFeaturesNames = getProcessFeatureNames()
 }

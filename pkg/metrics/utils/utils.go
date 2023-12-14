@@ -66,13 +66,6 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
-
-	// collect the deprecated Kubelet metrics, this metrics will be removed in the future
-	if config.IsKubeletMetricsEnabled() {
-		for _, collectorName := range consts.KubeletMetricNames {
-			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-		}
-	}
 }
 
 func collect(ch chan<- prometheus.Metric, collector metricfactory.PromMetric, value float64, labelValues []string) {

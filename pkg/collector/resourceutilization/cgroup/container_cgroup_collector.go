@@ -57,24 +57,3 @@ func UpdateContainerCgroupMetrics(containerStats map[string]*stats.ContainerStat
 		}
 	}
 }
-
-// UpdateContainerKubeletMetrics adds kubelet data (resident mem)
-func UpdateContainerKubeletMetrics(containerStats map[string]*stats.ContainerStats) {
-	if len(stats.AvailableKubeletMetrics) == 2 {
-		containerCPU, containerMem, _ := cgroup.GetContainerStats()
-		klog.V(5).Infof("Kubelet Read: %v, %v\n", containerCPU, containerMem)
-		for _, c := range containerStats {
-			k := c.Namespace + "/" + c.PodName + "/" + c.ContainerName
-			readCPU := uint64(containerCPU[k])
-			readMem := uint64(containerMem[k])
-			cpuMetricName := stats.AvailableKubeletMetrics[0]
-			memMetricName := stats.AvailableKubeletMetrics[1]
-			if err := c.KubeletStats[cpuMetricName].SetNewAggr(readCPU); err != nil {
-				klog.V(5).Infoln(err)
-			}
-			if err := c.KubeletStats[memMetricName].SetNewAggr(readMem); err != nil {
-				klog.V(5).Infoln(err)
-			}
-		}
-	}
-}

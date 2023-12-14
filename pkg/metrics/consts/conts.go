@@ -89,8 +89,4 @@ var (
 		config.CgroupfsSystemCPU,
 		config.CgroupfsUserCPU,
 	}
-	KubeletMetricNames = []string{
-		config.KubeletCPUUsage,
-		config.KubeletMemoryUsage,
-	}
 )

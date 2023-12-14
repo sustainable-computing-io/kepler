@@ -70,7 +70,7 @@ func (c *collector) initMetrics() {
 	}
 
 	// TODO: prometheus metric should be "node_info"
-	desc := metricfactory.MetricsPromDesc(context, "info", "os", "", []string{"cpu_architecture"})
+	desc := metricfactory.MetricsPromDesc(context, "", "_info", "os", []string{"cpu_architecture"})
 	c.descriptions["info"] = desc
 	c.collectors["info"] = metricfactory.NewPromCounter(desc)
 }

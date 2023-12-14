@@ -28,7 +28,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 
@@ -62,7 +61,6 @@ func InitAvailableParamAndMetrics() {
 		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
 		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
 	}
-	AvailableKubeletMetrics = cgroup.GetAvailableKubeletMetrics()
 	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
@@ -105,12 +103,6 @@ func getProcessFeatureNames() []string {
 		metrics = append(metrics, AvailableCGroupMetrics...)
 		klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
 	}
-	// cgroup kubelet metric are deprecated and will be removed later
-	if config.ExposeKubeletMetrics {
-		metrics = append(metrics, AvailableKubeletMetrics...)
-		klog.V(3).Infof("Available cgroup metrics from kubelet: %v", AvailableKubeletMetrics)
-	}
-
 	return metrics
 }
 

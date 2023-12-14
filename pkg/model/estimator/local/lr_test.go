@@ -51,8 +51,6 @@ var (
 		config.CgroupfsReadIO,
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
-		config.KubeletCPUUsage,
-		config.KubeletMemoryUsage,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
 	processFeatureValues       = [][]float64{

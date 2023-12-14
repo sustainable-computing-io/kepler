@@ -34,12 +34,6 @@ var (
 	AvailableBPFHWCounters []string
 	// AvailableCGroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
 	AvailableCGroupMetrics []string
-	// AvailableKubeletMetrics holds a list of cgrpup metrics exposed by kubelet that might be collected
-	AvailableKubeletMetrics []string
-	// AvailableContainerKubeletMetrics holds a list of cgrpup metrics exposed by kubelet specific to container
-	AvailableContainerKubeletMetrics []string
-	// AvailableNodeKubeletMetrics holds a list of cgroup metrics exposed by kubelet specific to node
-	AvailableNodeKubeletMetrics []string
 	// AvailableAbsEnergyMetrics holds a list of absolute energy metrics
 	AvailableAbsEnergyMetrics []string
 	// AvailableDynEnergyMetrics holds a list of dynamic energy metrics
@@ -75,9 +69,8 @@ func NewStats() *Stats {
 	resMetrics := []string{}
 	resMetrics = append(resMetrics, AvailableBPFHWCounters...)
 	resMetrics = append(resMetrics, AvailableBPFSWCounters...)
-	// CGroup and Kubelet metrics are deprecated, it will be removed in the future
+	// CGroup metrics are deprecated, it will be removed in the future
 	resMetrics = append(resMetrics, AvailableCGroupMetrics...)
-	resMetrics = append(resMetrics, AvailableKubeletMetrics...)
 	for _, metricName := range resMetrics {
 		m.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}

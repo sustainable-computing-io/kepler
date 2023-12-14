@@ -27,7 +27,7 @@ jobs:
           password: ${{ secrets.BOT_TOKEN }}
 
       - name: Install Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
@@ -133,7 +133,7 @@ jobs:
           CTR_CMD: docker
 
       - name: Use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.3
+        uses: sustainable-computing-io/kepler-action@v0.0.4
         with:
           cluster_provider: ${{matrix.cluster_provider}}
           ebpfprovider: bcc
@@ -173,9 +173,7 @@ jobs:
         run: make cluster-deploy
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
-          IMAGE_REPO: "localhost:5001"
-          IMAGE_TAG: "platform-validation"
-          CTR_CMD: docker
+          NO_BUILDS: true
 
       - name: Save artifacts
         if: ${{ failure() }}

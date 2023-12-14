@@ -67,14 +67,6 @@ var (
 )
 
 func Init() (*[]corev1.Pod, error) {
-	if config.IsKubeletMetricsEnabled() {
-		pods, err := podLister.ListPods()
-		if err != nil {
-			return nil, err
-		}
-		getAliveContainers(pods)
-		return pods, nil
-	}
 	pods := []corev1.Pod{}
 	return &pods, nil
 }
@@ -82,14 +74,6 @@ func Init() (*[]corev1.Pod, error) {
 func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
 	info, err := GetContainerInfo(cGroupID, pid, withCGroupID)
 	return info.ContainerID, err
-}
-
-func GetContainerStats() (containerCPU, containerMem map[string]float64, retErr error) {
-	return podLister.ListMetrics()
-}
-
-func GetAvailableKubeletMetrics() []string {
-	return podLister.GetAvailableMetrics()
 }
 
 func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {

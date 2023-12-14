@@ -24,12 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -42,18 +37,7 @@ const (
 )
 
 var (
-	podURL, metricsURL string
-
-	nodeCPUUsageMetricName      = config.KubeletNodeCPU
-	nodeMemUsageMetricName      = config.KubeletNodeMemory
-	containerCPUUsageMetricName = config.KubeletContainerCPU
-	containerMemUsageMetricName = config.KubeletContainerMemory
-
-	podNameTag       = "pod"
-	containerNameTag = "container"
-	namespaceTag     = "namespace"
-	once             sync.Once
-	kubeletMetric    []string
+	podURL string
 )
 
 func init() {
@@ -66,7 +50,6 @@ func init() {
 		port = "10250"
 	}
 	podURL = "https://" + nodeName + ":" + port + "/pods"
-	metricsURL = "https://" + nodeName + ":" + port + "/metrics/resource"
 }
 
 func httpGet(url string) (*http.Response, error) {
@@ -91,7 +74,7 @@ func httpGet(url string) (*http.Response, error) {
 	return resp, err
 }
 
-// ListPods accesses Kubelet's metrics and obtain PodList
+// ListPods obtains PodList
 func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	resp, err := httpGet(podURL)
 	if err != nil {
@@ -111,93 +94,4 @@ func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
 	pods := &podList.Items
 
 	return pods, nil
-}
-
-// ListMetrics accesses Kubelet's metrics and obtain pods and node metrics
-func (k *KubeletPodLister) ListMetrics() (containerCPU, containerMem map[string]float64, retErr error) {
-	resp, err := httpGet(metricsURL)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get response: %v", err)
-	}
-	defer resp.Body.Close()
-
-	return parseMetrics(resp.Body)
-}
-
-func parseMetrics(r io.ReadCloser) (containerCPU, containerMem map[string]float64, retErr error) {
-	var parser expfmt.TextParser
-	var nodeCPU, nodeMem float64
-	mf, err := parser.TextToMetricFamilies(r)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse: %v", err)
-	}
-	containerCPU = make(map[string]float64)
-	containerMem = make(map[string]float64)
-	totalContainerMem := float64(0)
-	totalContainerCPU := float64(0)
-	for k, family := range mf {
-		for _, v := range family.Metric {
-			value := float64(0)
-			switch family.GetType() {
-			case dto.MetricType_COUNTER:
-				value = v.GetCounter().GetValue()
-			case dto.MetricType_GAUGE:
-				value = v.GetGauge().GetValue()
-			}
-			switch k {
-			case nodeCPUUsageMetricName:
-				nodeCPU = value
-			case nodeMemUsageMetricName:
-				nodeMem = value
-			case containerCPUUsageMetricName:
-				namespace, pod, container := parseLabels(v.GetLabel())
-				containerCPU[namespace+"/"+pod+"/"+container] = value
-				totalContainerCPU += value
-			case containerMemUsageMetricName:
-				namespace, pod, container := parseLabels(v.GetLabel())
-				containerMem[namespace+"/"+pod+"/"+container] = value
-				totalContainerMem += value
-			default:
-				continue
-			}
-		}
-	}
-	systemContainerMem := nodeMem - totalContainerMem
-	systemContainerCPU := nodeCPU - totalContainerCPU
-	systemContainerName := utils.SystemProcessNamespace + "/" + utils.SystemProcessName
-	containerCPU[systemContainerName] = systemContainerCPU
-	containerMem[systemContainerName] = systemContainerMem
-	return containerCPU, containerMem, retErr
-}
-
-// GetAvailableMetrics returns containerCPUUsageMetricName and containerMemUsageMetricName if kubelet is connected
-// and this function just need do a once init when kepler started without analysis kubelet returns
-func (k *KubeletPodLister) GetAvailableMetrics() []string {
-	once.Do(func() {
-		resp, err := httpGet(metricsURL)
-		if err != nil {
-			kubeletMetric = []string{}
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			kubeletMetric = []string{config.KubeletCPUUsage, config.KubeletMemoryUsage}
-		}
-	})
-	return kubeletMetric
-}
-
-func parseLabels(labels []*dto.LabelPair) (namespace, pod, container string) {
-	for _, v := range labels {
-		if v.GetName() == podNameTag {
-			pod = v.GetValue()
-		}
-		if v.GetName() == namespaceTag {
-			namespace = v.GetValue()
-		}
-		if v.GetName() == containerNameTag {
-			container = v.GetValue()
-		}
-	}
-	return
 }
