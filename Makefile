@@ -149,8 +149,8 @@ containerized_build_rpm:
 	$(CTR_CMD) run --rm \
 		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/root/rpmbuild \
 		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} -e _ARCH_=${_ARCH_} \
-		-e _TIMESTAMP_="$(shell date)" -e _COMMITTER_=${_COMMITTER_} -e  _CHANGELOG_=${_CHANGELOG_} \
-		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
+		-e _TIMESTAMP_="$(shell date +"%a %b %d %Y")" -e _COMMITTER_=${_COMMITTER_} -e  _CHANGELOG_=${_CHANGELOG_} \
+		-e PATH=$(PATH):/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
 		make build_rpm
 
