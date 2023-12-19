@@ -25,6 +25,8 @@ import (
 )
 
 type powerInterface interface {
+	// GetName() returns the name of the platform power source
+	GetName() string
 	// GetAbsEnergyFromPlatform returns mJ in DRAM. Absolute energy is the sum of Idle + Dynamic energy.
 	GetAbsEnergyFromPlatform() (map[string]float64, error)
 	// StopPower stops the collection
@@ -33,48 +35,57 @@ type powerInterface interface {
 	IsSystemCollectionSupported() bool
 }
 
+// dummy satisfies the powerInterface and can be used as the default NOP source
+type dummy struct {
+}
+
+func (dummy) GetName() string {
+	return "none"
+}
+
+func (dummy) IsSystemCollectionSupported() bool {
+	return false
+}
+func (dummy) StopPower() {
+}
+
+func (dummy) GetAbsEnergyFromPlatform() (map[string]float64, error) {
+	return nil, fmt.Errorf("dummy power source")
+}
+
 var (
-	powerImpl   powerInterface
-	redfishImpl *source.RedFishClient
-	hmcImpl     = &source.PowerHMC{}
-	powerSource = "none"
-	enabled     = true
+	powerImpl powerInterface = &dummy{}
+	enabled                  = true
 )
 
 func InitPowerImpl() {
 	// switch the platform power collector source to hmc if the system architecture is s390x
 	// TODO: add redfish or ipmi as well.
 	if runtime.GOARCH == "s390x" {
-		klog.V(1).Infoln("use hmc to obtain power")
-		powerImpl = hmcImpl
-		powerSource = "hmc"
-	} else if redfishImpl = source.NewRedfishClient(); redfishImpl != nil && redfishImpl.IsSystemCollectionSupported() {
-		klog.V(1).Infoln("use redfish to obtain power")
-		powerImpl = redfishImpl
-		powerSource = "redfish"
-	} else if powerImpl = source.NewACPIPowerMeter(); powerImpl != nil && powerImpl.IsSystemCollectionSupported() {
-		klog.V(1).Infoln("use acpi to obtain power")
-		powerSource = "acpi"
+		powerImpl = &source.PowerHMC{}
+	} else if redfish := source.NewRedfishClient(); redfish != nil && redfish.IsSystemCollectionSupported() {
+		powerImpl = redfish
+	} else if acpi := source.NewACPIPowerMeter(); acpi != nil && acpi.CollectEnergy {
+		powerImpl = acpi
 	}
+
+	klog.V(1).Infof("using %s to obtain power", powerImpl.GetName())
 }
 
-func GetPowerSource() string {
-	return powerSource
+func GetSourceName() string {
+	return powerImpl.GetName()
 }
 
 // GetAbsEnergyFromPlatform returns the absolute energy, which is the sum of Idle + Dynamic energy.
 func GetAbsEnergyFromPlatform() (map[string]float64, error) {
-	if powerImpl != nil {
-		return powerImpl.GetAbsEnergyFromPlatform()
-	}
-	return nil, fmt.Errorf("powerImpl is nil")
+	return powerImpl.GetAbsEnergyFromPlatform()
 }
 
 func IsSystemCollectionSupported() bool {
-	if powerImpl != nil && enabled {
-		return powerImpl.IsSystemCollectionSupported()
+	if !enabled {
+		return false
 	}
-	return false
+	return powerImpl.IsSystemCollectionSupported()
 }
 
 // SetIsSystemCollectionSupported is used to enable or disable the system power collection.
@@ -84,7 +95,5 @@ func SetIsSystemCollectionSupported(enable bool) {
 }
 
 func StopPower() {
-	if powerImpl != nil {
-		powerImpl.StopPower()
-	}
+	powerImpl.StopPower()
 }

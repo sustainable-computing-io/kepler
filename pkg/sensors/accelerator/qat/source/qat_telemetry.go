@@ -44,6 +44,10 @@ type QATTelemetry struct {
 	collectionSupported bool
 }
 
+func (QATTelemetry) GetName() string {
+	return "qat"
+}
+
 // Init initizalize and start the QAT metric collector
 func (q *QATTelemetry) Init() (err error) {
 	defer func() {

@@ -37,6 +37,10 @@ type GPUNvml struct {
 	collectionSupported bool
 }
 
+func (GPUNvml) GetName() string {
+	return "nvidia-nvml"
+}
+
 // Init initizalize and start the GPU metric collector
 // the nvml only works if the container has support to GPU, e.g., it is using nvidia-docker2
 // otherwise it will fail to load the libnvidia-ml.so.1

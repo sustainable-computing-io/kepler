@@ -120,6 +120,10 @@ func getMaxEnergyRange(eventName string) (uint64, error) {
 
 type PowerSysfs struct{}
 
+func (PowerSysfs) GetName() string {
+	return "rapl-sysfs"
+}
+
 func (r *PowerSysfs) IsSystemCollectionSupported() bool {
 	path := fmt.Sprintf(packageNamePathTemplate, 0)
 	_, err := os.ReadFile(path + energyFile)

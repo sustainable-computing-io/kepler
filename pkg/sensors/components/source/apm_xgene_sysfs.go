@@ -41,6 +41,10 @@ type ApmXgeneSysfs struct {
 	currTime time.Time
 }
 
+func (ApmXgeneSysfs) GetName() string {
+	return "ampere-xgene-hwmon"
+}
+
 func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
 	labelFiles, err := filepath.Glob(powerLabelPathTemplate)
 	if err != nil {

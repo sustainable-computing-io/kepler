@@ -18,6 +18,10 @@ package source
 
 type PowerMSR struct{}
 
+func (PowerMSR) GetName() string {
+	return "rapl-msr"
+}
+
 func (r *PowerMSR) IsSystemCollectionSupported() bool {
 	return InitUnits() == nil
 }
