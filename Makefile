@@ -147,7 +147,7 @@ build_container_rpm:
 containerized_build_rpm:
 	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
 	$(CTR_CMD) run --rm \
-		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/root/rpmbuild \
+		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/opt/app-root/src/rpmbuild \
 		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} -e _ARCH_=${_ARCH_} \
 		-e _TIMESTAMP_="$(shell date +"%a %b %d %Y")" -e _COMMITTER_=${_COMMITTER_} -e  _CHANGELOG_=${_CHANGELOG_} \
 		-e PATH=$(PATH):/usr/local/go/bin \
@@ -157,7 +157,7 @@ containerized_build_rpm:
 containerized_build_container_rpm:
 	@mkdir -p $(base_dir)/$(OUTPUT_DIR)/rpmbuild
 	$(CTR_CMD) run --rm \
-		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/root/rpmbuild \
+		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/opt/app-root/src/rpmbuild \
 		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} \
 		$(BUILDER_IMAGE) \
 		make build_container_rpm
