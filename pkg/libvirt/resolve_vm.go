@@ -19,67 +19,83 @@ package libvirt
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 const (
-	libvirtPath string = "/var/run/libvirt/qemu/"
-	procPath    string = "/proc/%s/task"
+	procPath            string = "/proc/%d/cgroup"
+	maxCacheSize        int    = 1000
+	cacheRemoveElements int    = 100
 )
 
-func getThreadIDsForPID(pid, fullPath string) []string {
-	threadIDs := []string{}
+var (
+	cacheExist               = map[uint64]string{}
+	cacheNotExist            = map[uint64]bool{}
+	regexFindContainerIDPath = regexp.MustCompile(`machine-qemu.*\.scope`)
+)
 
-	procDir := fmt.Sprintf(fullPath, pid)
-
-	files, err := os.ReadDir(procDir)
-	if err != nil {
-		return nil
-	}
-
-	for _, file := range files {
-		threadIDs = append(threadIDs, file.Name())
-	}
-
-	return threadIDs
+func GetVMID(pid uint64) (string, error) {
+	fileName := fmt.Sprintf(procPath, pid)
+	return getVMID(pid, fileName)
 }
 
-func GetCurrentVMPID(path ...string) (map[string]string, error) {
-	pidFiles := make(map[string]string)
-
-	if len(path) == 0 {
-		path = []string{libvirtPath, procPath}
+func getVMID(pid uint64, fileName string) (string, error) {
+	if _, exist := cacheExist[pid]; exist {
+		return cacheExist[pid], nil
+	}
+	if _, exist := cacheNotExist[pid]; exist {
+		return "", fmt.Errorf("pid %d is not in a VM", pid)
 	}
 
-	files, err := os.ReadDir(path[0])
+	// Read the file
+	fileContents, err := os.ReadFile(fileName)
 	if err != nil {
-		return nil, err
+		addToNotExistCache(pid)
+		return "", err
 	}
 
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
+	content := regexFindContainerIDPath.FindAllString(string(fileContents), -1)
+	if len(content) == 0 {
+		addToNotExistCache(pid)
+		return utils.EmptyString, fmt.Errorf("pid %d does not have vm ID", pid)
+	}
+	vmID := content[0]
+	vmID = strings.ReplaceAll(vmID, "\\x2d", "-")
+	vmID = strings.ReplaceAll(vmID, ".scope", "")
 
-		if filepath.Ext(file.Name()) == ".pid" {
-			filePath := filepath.Join(path[0], file.Name())
-			content, err := os.ReadFile(filePath)
-			if err != nil {
-				fmt.Printf("Error reading %s: %v\n", filePath, err)
-				continue
+	addVMIDToCache(pid, vmID)
+	return vmID, nil
+}
+
+func addVMIDToCache(pid uint64, id string) {
+	if len(cacheExist) >= maxCacheSize {
+		counter := cacheRemoveElements
+		// Remove elemets from the cache
+		for k := range cacheExist {
+			delete(cacheExist, k)
+			if counter == 0 {
+				break
 			}
-
-			currentPid := string(content)
-			currentName := file.Name()
-
-			tid := getThreadIDsForPID(currentPid, path[1])
-
-			for _, currentTid := range tid {
-				// Get rid of the ".pid" before storing the name
-				pidFiles[currentTid] = currentName[:len(currentName)-4]
-			}
+			counter--
 		}
 	}
+	cacheExist[pid] = id
+}
 
-	return pidFiles, nil
+func addToNotExistCache(pid uint64) {
+	if len(cacheNotExist) >= maxCacheSize {
+		counter := cacheRemoveElements
+		// Remove elemets from the cache
+		for k := range cacheNotExist {
+			delete(cacheNotExist, k)
+			if counter == 0 {
+				break
+			}
+			counter--
+		}
+	}
+	cacheNotExist[pid] = false
 }

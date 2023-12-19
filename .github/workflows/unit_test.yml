@@ -27,17 +27,26 @@ jobs:
       env:
           GOPATH: /home/runner/go
           GOBIN: /home/runner/go/bin
-    - name: install libbpf
-      uses: sustainable-computing-io/kepler-action@v0.0.4
-      with:
-        ebpfprovider: libbpf
     - name: Prepare environment 
       run: |
-          sudo apt-get install -y cpuid
+          sudo apt-get install -y cpuid clang
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
           git config --global --add safe.directory /kepler
+    - name: install libbpf
+      uses: sustainable-computing-io/kepler-action@v0.0.3
+      with:
+        ebpfprovider: libbpf
     - name: Run 
       run: |
+          sudo apt remove libbpf-dev
+          mkdir temp-libbpf
+          cd temp-libbpf
+          git clone https://github.com/libbpf/libbpf
+          cd libbpf/src
+          sudo make install_headers
+          sudo make install_uapi_headers
+          sudo prefix=/usr  BUILD_STATIC_ONLY=y make install
+          cd ../../../
           ATTACHER_TAG=libbpf make test-verbose
           go tool cover -func=coverage.out -o=coverage.out
     - name: Go Coverage Badge  # Pass the `coverage.out` output to this action

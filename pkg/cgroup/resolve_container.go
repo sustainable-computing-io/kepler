@@ -76,23 +76,22 @@ func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
 	return info.ContainerID, err
 }
 
-func GetContainerMetrics() (containerCPU, containerMem map[string]float64, retErr error) {
-	return podLister.ListMetrics()
-}
-
-func GetAvailableKubeletMetrics() []string {
-	return podLister.GetAvailableMetrics()
-}
-
 func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
 	var err error
 	var containerID string
 
+	name := utils.SystemProcessName
+	namespace := utils.SystemProcessNamespace
+	if cGroupID == 1 {
+		// some kernel processes have cgroup id equal 1 or 0
+		name = utils.KernelProcessName
+		namespace = utils.KernelProcessNamespace
+	}
 	info := &ContainerInfo{
-		ContainerID:   utils.SystemProcessName,
-		ContainerName: utils.SystemProcessName,
-		PodName:       utils.SystemProcessName,
-		Namespace:     utils.SystemProcessNamespace,
+		ContainerID:   name,
+		ContainerName: name,
+		PodName:       name,
+		Namespace:     namespace,
 	}
 
 	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
@@ -113,6 +112,9 @@ func ParseContainerIDFromPodStatus(containerID string) string {
 }
 
 func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	if cGroupID == 1 {
+		return utils.KernelProcessName, nil
+	}
 	var err error
 	var containerID string
 	if withCGroupID {

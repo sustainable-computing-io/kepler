@@ -76,7 +76,7 @@ type ModelConfig struct {
 	IsNodePowerModel bool
 
 	// initial samples to start the model
-	ContainerFeatureNames       []string
+	ProcessFeatureNames         []string
 	NodeFeatureNames            []string
 	SystemMetaDataFeatureNames  []string
 	SystemMetaDataFeatureValues []string

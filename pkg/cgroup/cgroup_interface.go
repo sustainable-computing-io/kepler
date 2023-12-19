@@ -16,7 +16,7 @@ limitations under the License.
 
 package cgroup
 
-import "github.com/sustainable-computing-io/kepler/pkg/collector/metric/types"
+import "github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 
 type CCgroupStatHandler interface {
 	SetCGroupStat(containerID string, CgroupStatMap map[string]*types.UInt64StatCollection) error

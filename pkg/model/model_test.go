@@ -22,17 +22,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
-	"github.com/sustainable-computing-io/kepler/pkg/power/platform"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 )
 
 var _ = Describe("Test Model Unit", func() {
 
 	BeforeEach(func() {
 		source.SystemCollectionSupported = false // disable the system power collection to use the prediction power model
-		setCollectorMetrics()
+		stats.SetMockedCollectorMetrics()
 
 		configStr := "CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json\n"
 		os.Setenv("MODEL_CONFIG", configStr)

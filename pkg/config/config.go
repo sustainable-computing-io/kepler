@@ -72,11 +72,14 @@ var (
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	EnabledQAT                   = getBoolConfig("ENABLE_QAT", false)
-	EnableProcessMetrics         = getBoolConfig("ENABLE_PROCESS_METRICS", false)
+	EnableProcessStats           = getBoolConfig("ENABLE_PROCESS_METRICS", false)
+	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)
+	ExposeVMStats                = getBoolConfig("EXPOSE_VM_METRICS", true)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
 	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
 	ExposeIdlePowerMetrics       = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
+	ExposeCPUFrequencyMetrics    = getBoolConfig("EXPOSE_CPU_FREQUENCY_METRICS", false)
 
 	MetricPathKey   = "METRIC_PATH"
 	BindAddressKey  = "BIND_ADDRESS"
@@ -145,7 +148,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
 		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
-		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessMetrics)
+		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessStats)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
@@ -306,6 +309,31 @@ func IsIdlePowerEnabled() bool {
 	return ExposeIdlePowerMetrics
 }
 
+// IsExposeProcessStatsEnabled returns false if process metrics are disabled to minimize overhead in the Kepler standalone mode.
+func IsExposeProcessStatsEnabled() bool {
+	return EnableProcessStats
+}
+
+// IsExposeContainerStatsEnabled returns false if container metrics are disabled to minimize overhead in the Kepler standalone mode.
+func IsExposeContainerStatsEnabled() bool {
+	return ExposeContainerStats
+}
+
+// IsExposeVMStatsEnabled returns false if VM metrics are disabled to minimize overhead.
+func IsExposeVMStatsEnabled() bool {
+	return ExposeVMStats
+}
+
+// IsExposeCPUFrequencyMetricsEnabled returns false if CPUFrequency metrics are disabled to minimize overhead.
+func IsExposeCPUFrequencyMetricsEnabled() bool {
+	return ExposeCPUFrequencyMetrics
+}
+
+// IsExposeCPUFrequencyMetricsEnabled returns false if CPUFrequency metrics are disabled to minimize overhead.
+func IsExposeQATMetricsEnabled() bool {
+	return EnabledQAT
+}
+
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
@@ -417,6 +445,9 @@ func GetModelConfigMap() map[string]string {
 	return configMap
 }
 
+func IsHCMetricsEnabled() bool {
+	return ExposeHardwareCounterMetrics
+}
 func IsCgroupMetricsEnabled() bool {
 	return ExposeCgroupMetrics
 }

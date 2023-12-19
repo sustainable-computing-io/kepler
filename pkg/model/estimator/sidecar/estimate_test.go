@@ -24,7 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
@@ -32,7 +31,7 @@ import (
 var (
 	SampleDynEnergyValue float64 = 100000 // 100 mJ
 
-	containerFeatureNames = []string{
+	processFeatureNames = []string{
 		config.CPUCycle,
 		config.CPUInstruction,
 		config.CacheMiss,
@@ -45,14 +44,12 @@ var (
 		config.CgroupfsReadIO,
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
-		config.KubeletCPUUsage,
-		config.KubeletMemoryUsage,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
-	featureNames               = append(containerFeatureNames, systemMetaDataFeatureNames...) // to predict node power, we will need the resource usage and metadata metrics
-	containerFeatureValues     = [][]float64{
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container A
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // container B
+	featureNames               = append(processFeatureNames, systemMetaDataFeatureNames...) // to predict node power, we will need the resource usage and metadata metrics
+	processFeatureValues       = [][]float64{
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // process A
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // process B
 	}
 	nodeFeatureValues           = []float64{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
 	systemMetaDataFeatureValues = []string{"Sandy Bridge"}
@@ -105,12 +102,12 @@ func dummyEstimator(serveSocket string, start, quit chan bool) {
 		var powerResponse ComponentPowerResponse
 		if powerRequest.EnergySource == types.ComponentEnergySource {
 			powerResponse = ComponentPowerResponse{
-				Powers:  map[string][]float64{collector_metric.PKG: powers},
+				Powers:  map[string][]float64{config.PKG: powers},
 				Message: msg,
 			}
 		} else {
 			powerResponse = ComponentPowerResponse{
-				Powers:  map[string][]float64{collector_metric.PLATFORM: powers},
+				Powers:  map[string][]float64{config.PLATFORM: powers},
 				Message: msg,
 			}
 		}
@@ -158,7 +155,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		quit <- true
 	})
 
-	It("Get Container Platform Power By Sidecar Estimator", func() {
+	It("Get Process Platform Power By Sidecar Estimator", func() {
 		serveSocket := "/tmp/pod-total-power.sock"
 		start := make(chan bool)
 		quit := make(chan bool)
@@ -170,12 +167,12 @@ var _ = Describe("Test Estimate Unit", func() {
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()
-		for _, containerFeatureValues := range containerFeatureValues {
-			c.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+		for _, processFeatureValues := range processFeatureValues {
+			c.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 		}
 		powers, err := c.GetPlatformPower(false)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(powers)).Should(Equal(len(containerFeatureValues)))
+		Expect(len(powers)).Should(Equal(len(processFeatureValues)))
 		Expect(powers[0]).Should(Equal(SampleDynEnergyValue))
 		quit <- true
 	})
@@ -202,7 +199,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		// 	"We are skiping this test until the power model is fixed.",
 		// Expect(powers[0].Pkg).Should(Equal(uint64(100000000)))
 	})
-	It("Get Container Component Power By Sidecar Estimator", func() {
+	It("Get Process Component Power By Sidecar Estimator", func() {
 		serveSocket := "/tmp/pod-comp-power.sock"
 		start := make(chan bool)
 		quit := make(chan bool)
@@ -214,13 +211,13 @@ var _ = Describe("Test Estimate Unit", func() {
 		err := c.Start()
 		Expect(err).To(BeNil())
 		c.ResetSampleIdx()
-		for _, containerFeatureValues := range containerFeatureValues {
-			c.AddContainerFeatureValues(containerFeatureValues) // add samples to the power model
+		for _, processFeatureValues := range processFeatureValues {
+			c.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
 		}
 		powers, err := c.GetComponentsPower(false)
 		quit <- true
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(powers)).Should(Equal(len(containerFeatureValues)))
+		Expect(len(powers)).Should(Equal(len(processFeatureValues)))
 		// "The estimator node pkg power estimation is estimating 100 Kilo Joules or 0 Joules, " +
 		// 	"which is way to high or too low for the given resource utilization is set to only 1 in all features." +
 		// 	"We are skiping this test until the power model is fixed.",

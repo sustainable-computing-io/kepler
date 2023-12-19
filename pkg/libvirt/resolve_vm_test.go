@@ -17,69 +17,69 @@ limitations under the License.
 package libvirt
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func createMockLibvirtDir(directory string) {
-	mockFiles := []struct {
-		name    string
-		content string
-	}{
-		{"vm1.pid", "1234"},
-		{"vm2.pid", "5678"},
-	}
+const (
+	cGroupFileName = "cgroup"
+	cGroupContent  = "0::/machine.slice/machine-qemu\x2d6\x2dcirros.scope/libvirt/emulator"
+)
 
-	for _, file := range mockFiles {
-		err := os.WriteFile(filepath.Join(directory, file.name), []byte(file.content), 0644)
-		if err != nil {
-			panic(err)
-		}
-	}
+var _ = Describe("Test LibVirt", func() {
+	var (
+		mockProcDir = ""
+	)
+
+	BeforeEach(func() {
+		mockProcDir = createTempDir()
+	})
+
+	AfterEach(func() {
+		removeTempDir(mockProcDir)
+	})
+
+	It("Test GetCurrentVMPID", func() {
+		pid := uint64(13)
+		fmt.Fprintln(GinkgoWriter, "mockProcDir", mockProcDir)
+		fileName := createMockProcDir(mockProcDir, pid)
+		vmID, err := getVMID(pid, fileName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmID).Should(Equal("machine-qemu-6-cirros"))
+	})
+})
+
+// helper function to create a temporary directory
+func createTempDir() string {
+	tmpDir, err := os.MkdirTemp("", "ginkgo-temp")
+	Expect(err).NotTo(HaveOccurred())
+	return tmpDir
 }
 
-func createMockProcDir(directory string) {
-	mockThreadDirs := []string{
-		"/proc/1234/task/123",
-		"/proc/1234/task/456",
-		"/proc/1234/task/789",
-		"/proc/5678/task/1234",
-		"/proc/5678/task/4567",
-		"/proc/5678/task/7890",
-	}
-	for _, dir := range mockThreadDirs {
-		err := os.MkdirAll(filepath.Join(directory, dir), 0755)
-		if err != nil {
-			panic(err)
-		}
-	}
+// helper function to remove the temporary directory
+func removeTempDir(dir string) {
+	err := os.RemoveAll(dir)
+	Expect(err).NotTo(HaveOccurred())
 }
 
-func TestGetCurrentVMPID(t *testing.T) {
-	mockLibvirtDir := t.TempDir()
-	createMockLibvirtDir(mockLibvirtDir)
+// helper function to create a temporary process directory
+func createMockProcDir(directory string, pid uint64) string {
+	procDir := fmt.Sprintf("/proc/%d/", pid)
+	fullPathProcDir := filepath.Join(directory, procDir)
+	err := os.MkdirAll(fullPathProcDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
 
-	mockProcDir := t.TempDir()
-	createMockProcDir(mockProcDir)
+	cgroupFile := filepath.Join(fullPathProcDir, cGroupFileName)
+	createMockProcCGroupDir(cgroupFile)
+	return cgroupFile
+}
 
-	mockProcDir = filepath.Join(mockProcDir, procPath)
-	pidFiles, err := GetCurrentVMPID(mockLibvirtDir, mockProcDir)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	expectedResult := map[string]string{
-		"123":  "vm1",
-		"456":  "vm1",
-		"789":  "vm1",
-		"1234": "vm2",
-		"4567": "vm2",
-		"7890": "vm2",
-	}
-
-	if !reflect.DeepEqual(pidFiles, expectedResult) {
-		t.Errorf("Expected: %v, Got: %v", expectedResult, pidFiles)
-	}
+// helper function to write a temporary cgroup info
+func createMockProcCGroupDir(filename string) {
+	err := os.WriteFile(filename, []byte(cGroupContent), 0644)
+	Expect(err).NotTo(HaveOccurred())
 }

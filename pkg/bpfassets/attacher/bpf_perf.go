@@ -82,8 +82,8 @@ func getCounters() map[string]perfCounter {
 func GetEnabledBPFHWCounters() []string {
 	Counters = getCounters()
 	var metrics []string
-	klog.V(5).Infof("hardeware counter metrics config %t", config.ExposeHardwareCounterMetrics)
-	if !config.ExposeHardwareCounterMetrics {
+	klog.V(5).Infof("hardeware counter metrics config %t", config.IsHCMetricsEnabled())
+	if !config.IsHCMetricsEnabled() {
 		klog.V(5).Info("hardeware counter metrics not enabled")
 		return metrics
 	}

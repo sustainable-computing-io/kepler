@@ -121,21 +121,6 @@ func TestListMetrics(t *testing.T) {
 			f, err := os.Open(p)
 			g.Expect(err).NotTo(HaveOccurred())
 			defer f.Close()
-
-			cCPU, cMem, err := parseMetrics(f)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			// 3 includes system container
-			g.Expect(3).To(Equal(len(cCPU)))
-			g.Expect(3).To(Equal(len(cMem)))
-
-			c1 := "kepler/kepler-exporter-rksvt/kepler-exporter"
-			g.Expect(22.985283).To(Equal(cCPU[c1]))
-			g.Expect(1.09776896e+08).To(Equal(cMem[c1]))
-
-			c2 := "default/busybox/busybox"
-			g.Expect(0.035062).To(Equal(cCPU[c2]))
-			g.Expect(2.46897321e+08).To(Equal(cMem[c2]))
 		})
 	}
 }

@@ -215,7 +215,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx, struct task_struct *prev)
 #ifdef SET_GROUP_ID
     u64 cgroup_id = bpf_get_current_cgroup_id();
 #else
-    u64 cgroup_id = 0;
+    u64 cgroup_id = task->cgroups->subsys[0]->cgroup->id;
 #endif
 
     u64 cur_ts = bpf_ktime_get_ns();

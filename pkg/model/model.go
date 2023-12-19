@@ -24,7 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"k8s.io/klog/v2"
 )
 
@@ -41,9 +41,9 @@ var (
 
 // PowerMoldelInterface defines the power model sckeleton
 type PowerMoldelInterface interface {
-	// AddContainerFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
+	// AddProcessFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
 	// x values are added to a sliding window with circular list for dynamic data flow
-	AddContainerFeatureValues(x []float64)
+	AddProcessFeatureValues(x []float64)
 	// AddNodeFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
 	AddNodeFeatureValues(x []float64)
 	// AddDesiredOutValue adds the new y as a point for trainning. Where y the response variable (or the dependent variable).
@@ -56,29 +56,29 @@ type PowerMoldelInterface interface {
 	IsEnabled() bool
 	// GetModelType returns if the model is Ratio, LinearRegressor or EstimatorSidecar
 	GetModelType() types.ModelType
-	// GetContainerFeatureNamesList returns the list of container features that the model was configured to use
-	GetContainerFeatureNamesList() []string
+	// GetProcessFeatureNamesList returns the list of process features that the model was configured to use
+	GetProcessFeatureNamesList() []string
 	// GetNodeFeatureNamesList returns the list of node features that the model was configured to use
 	GetNodeFeatureNamesList() []string
-	// GetPlatformPower returns the total Platform Power in Watts associated to each process/container/pod
+	// GetPlatformPower returns the total Platform Power in Watts associated to each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetPlatformPower(isIdlePower bool) ([]float64, error)
-	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/container/pod
+	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
-	// GetComponentsPower returns GPU Power in Watts associated to each each process/container/pod
+	// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetGPUPower(isIdlePower bool) ([]float64, error)
 }
 
 // CreatePowerEstimatorModels checks validity of power model and set estimate functions
-func CreatePowerEstimatorModels(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	config.InitModelConfigMap()
-	CreateContainerPowerEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	CreateProcessPowerEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	// Node power estimator uses the container features to estimate node power, expect for the Ratio power model that contains additional metrics.
-	CreateNodePlatformPoweEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	CreateNodeComponentPoweEstimatorModel(containerFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
+	CreateNodePlatformPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateNodeComponentPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 }
 
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
@@ -88,8 +88,8 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 	switch modelConfig.ModelType {
 	case types.Ratio:
 		model := &local.RatioPowerModel{
-			ContainerFeatureNames: modelConfig.ContainerFeatureNames,
-			NodeFeatureNames:      modelConfig.NodeFeatureNames,
+			ProcessFeatureNames: modelConfig.ProcessFeatureNames,
+			NodeFeatureNames:    modelConfig.NodeFeatureNames,
 		}
 		klog.V(3).Infof("Using Power Model Ratio")
 		return model, nil
@@ -99,7 +99,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 		if modelConfig.IsNodePowerModel {
 			featuresNames = modelConfig.NodeFeatureNames
 		} else {
-			featuresNames = modelConfig.ContainerFeatureNames
+			featuresNames = modelConfig.ProcessFeatureNames
 		}
 		model := &local.LinearRegressor{
 			ModelServerEndpoint:         config.ModelServerEndpoint,
@@ -125,7 +125,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInter
 		if modelConfig.IsNodePowerModel {
 			featuresNames = modelConfig.NodeFeatureNames
 		} else {
-			featuresNames = modelConfig.ContainerFeatureNames
+			featuresNames = modelConfig.ProcessFeatureNames
 		}
 		model := &sidecar.EstimatorSidecar{
 			Socket:                      EstimatorSidecarSocket,
@@ -200,7 +200,7 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 		modelType = types.LinearRegressor
 		return
 	}
-	// set the default container power model as Ratio
+	// set the default process power model as Ratio
 	modelType = types.Ratio
 	return
 }
@@ -243,18 +243,14 @@ func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 	return ""
 }
 
-// getPowerModelOutputType return the model output type for a given power source, such as platform, components, container or node power sources.
+// getPowerModelOutputType return the model output type for a given power source, such as platform, components, process or node power sources.
 // getPowerModelOutputType only affects LinearRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
-// AbsPower for Node, DynPower for container and process
+// AbsPower for Node, DynPower for process and process
 func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 	switch powerSourceTarget {
-	case config.ContainerPlatformPowerKey:
-		return types.DynPower
-	case config.ContainerComponentsPowerKey:
+	case config.ProcessComponentsPowerKey:
 		return types.DynPower
 	case config.ProcessPlatformPowerKey:
-		return types.DynPower
-	case config.ProcessComponentsPowerKey:
 		return types.DynPower
 	case config.NodePlatformPowerKey:
 		return types.AbsPower

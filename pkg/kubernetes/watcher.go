@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	collector_metric "github.com/sustainable-computing-io/kepler/pkg/collector/metric"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -53,8 +53,8 @@ type ObjListWatcher struct {
 	informer     cache.SharedInformer
 	stopChannel  chan struct{}
 
-	// ContainersMetrics holds all container energy and resource usage metrics
-	ContainersMetrics *map[string]*collector_metric.ContainerMetrics
+	// ContainerStats holds all container energy and resource usage metrics
+	ContainerStats *map[string]*stats.ContainerStats
 }
 
 func newK8sClient() *kubernetes.Clientset {
@@ -91,7 +91,7 @@ func NewObjListWatcher() *ObjListWatcher {
 		return w
 	}
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", collector_metric.NodeName) // to filter events per node
+		options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", stats.NodeName) // to filter events per node
 	}
 	objListWatcher := cache.NewFilteredListWatchFromClient(
 		w.k8sCli.CoreV1().RESTClient(),
@@ -201,13 +201,13 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 			err = fmt.Errorf("container %s did not start yet", containers[j].Name)
 			continue
 		}
-		if _, exist = (*w.ContainersMetrics)[containerID]; !exist {
-			(*w.ContainersMetrics)[containerID] = collector_metric.NewContainerMetrics(containers[j].Name, pod.Name, pod.Namespace, containerID)
+		if _, exist = (*w.ContainerStats)[containerID]; !exist {
+			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID)
 		}
 		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
-		(*w.ContainersMetrics)[containerID].ContainerName = containers[j].Name
-		(*w.ContainersMetrics)[containerID].PodName = pod.Name
-		(*w.ContainersMetrics)[containerID].Namespace = pod.Namespace
+		(*w.ContainerStats)[containerID].ContainerName = containers[j].Name
+		(*w.ContainerStats)[containerID].PodName = pod.Name
+		(*w.ContainerStats)[containerID].Namespace = pod.Namespace
 	}
 	return err
 }
@@ -234,7 +234,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 func (w *ObjListWatcher) deleteInfo(containers []k8sv1.ContainerStatus) {
 	for j := 0; j < len(containers); j++ {
 		containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-		delete(*w.ContainersMetrics, containerID)
+		delete(*w.ContainerStats, containerID)
 	}
 }
 

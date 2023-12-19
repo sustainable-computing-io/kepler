@@ -22,6 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
+	exporter "github.com/sustainable-computing-io/kepler/pkg/metrics"
 )
 
 var (
@@ -29,36 +30,35 @@ var (
 )
 
 type CollectorManager struct {
-	// MetricCollector is resposible to collect resource and energy consumption metrics and calculate them when needed
-	MetricCollector *collector.Collector
+	// StatsCollector is resposible to collect resource and energy consumption metrics and calculate them when needed
+	StatsCollector *collector.Collector
 
 	// PrometheusCollector implements the external Collector interface provided by the Prometheus client
-	PrometheusCollector *collector.PrometheusCollector
+	PrometheusCollector *exporter.PrometheusExporter
 
-	// Watcher register in the kubernetes apiserver to watch for pod events to add or remove it from the ContainersMetrics map
+	// Watcher register in the kubernetes apiserver to watch for pod events to add or remove it from the ContainerStats map
 	Watcher *kubernetes.ObjListWatcher
 }
 
 func New() *CollectorManager {
 	manager := &CollectorManager{}
-	manager.MetricCollector = collector.NewCollector()
-	manager.PrometheusCollector = collector.NewPrometheusExporter()
+	manager.StatsCollector = collector.NewCollector()
+	manager.PrometheusCollector = exporter.NewPrometheusExporter()
 	// the collector and prometheusExporter share structures and collections
-	manager.PrometheusCollector.NodeMetrics = &manager.MetricCollector.NodeMetrics
-	manager.PrometheusCollector.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
-	manager.PrometheusCollector.ProcessMetrics = &manager.MetricCollector.ProcessMetrics
-	manager.PrometheusCollector.VMMetrics = &manager.MetricCollector.VMMetrics
-	manager.PrometheusCollector.SamplePeriodSec = float64(config.SamplePeriodSec)
+	manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)
+	manager.PrometheusCollector.NewContainerCollector(manager.StatsCollector.ContainerStats)
+	manager.PrometheusCollector.NewVMCollector(manager.StatsCollector.VMStats)
+	manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
 	// configure the wather
 	manager.Watcher = kubernetes.NewObjListWatcher()
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
-	manager.Watcher.ContainersMetrics = &manager.MetricCollector.ContainersMetrics
+	manager.Watcher.ContainerStats = &manager.StatsCollector.ContainerStats
 	manager.Watcher.Run()
 	return manager
 }
 
 func (m *CollectorManager) Start() error {
-	if err := m.MetricCollector.Initialize(); err != nil {
+	if err := m.StatsCollector.Initialize(); err != nil {
 		return err
 	}
 
@@ -70,7 +70,7 @@ func (m *CollectorManager) Start() error {
 
 			// acquire the lock to wait prometheus finish the metric collection before updating the metrics
 			m.PrometheusCollector.Mx.Lock()
-			m.MetricCollector.Update()
+			m.StatsCollector.Update()
 			m.PrometheusCollector.Mx.Unlock()
 		}
 	}()

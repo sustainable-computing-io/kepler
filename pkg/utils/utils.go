@@ -43,8 +43,12 @@ func DetermineHostByteOrder() binary.ByteOrder {
 }
 
 const (
+	KernelProcessName      string = "kernel_processes"
+	KernelProcessNamespace string = "kernel"
 	SystemProcessName      string = "system_processes"
 	SystemProcessNamespace string = "system"
+	EmptyString            string = ""
+	GenericSocketID        string = "socket0"
 )
 
 func GetPathFromPID(searchPath string, pid uint64) (string, error) {

@@ -17,7 +17,7 @@ limitations under the License.
 package utils
 
 import (
-	"github.com/sustainable-computing-io/kepler/pkg/power/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 )
 
 const (

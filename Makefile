@@ -9,6 +9,7 @@ export TIMESTAMP ?=$(shell echo $(BIN_TIMESTAMP) | tr -d ':' | tr 'T' '-' | tr -
 # restrict included verify-* targets to only process project files
 SOURCE_GIT_TAG     := $(shell git describe --tags --always --abbrev=7 --match 'v*')
 SRC_ROOT           := $(shell pwd)
+ARCH               := $(shell arch)
 OUTPUT_DIR         := _output
 CROSS_BUILD_BINDIR := $(OUTPUT_DIR)/bin
 GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')

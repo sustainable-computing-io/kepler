@@ -40,10 +40,7 @@ build_manifest() {
 		return 0
 	}
 	header "Build Kepler Manifest"
-	run make build-manifest \
-		OPTS="$OPTS" \
-		IMAGE_REPO="$IMAGE_REPO" \
-		IMAGE_TAG="$IMAGE_TAG"
+	run make build-manifest OPTS="$OPTS"
 }
 
 build_kepler() {
