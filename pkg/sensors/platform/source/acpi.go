@@ -97,6 +97,10 @@ func findACPIPowerPath() string {
 	return powerPath
 }
 
+func (ACPI) GetName() string {
+	return "acpi"
+}
+
 func (a *ACPI) StopPower() {
 }
 

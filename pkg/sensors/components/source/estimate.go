@@ -37,6 +37,10 @@ type PowerEstimateData struct {
 	PerGBWatts   float64 `csv:"GB/Chip"`
 }
 
+func (PowerEstimate) GetName() string {
+	return "estimator"
+}
+
 // If the Estimated Power is being used, it means that the system does not support Components Power Measurement
 func (r *PowerEstimate) IsSystemCollectionSupported() bool {
 	return false

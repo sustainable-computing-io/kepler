@@ -24,6 +24,8 @@ import (
 )
 
 type powerInterface interface {
+	// GetName() returns the name of the source / impl used for estimation
+	GetName() string
 	// GetAbsEnergyFromDram returns mJ in DRAM. Absolute energy is the sum of Idle + Dynamic energy.
 	GetAbsEnergyFromDram() (uint64, error)
 	// GetAbsEnergyFromCore returns mJ in CPU cores
@@ -41,27 +43,26 @@ type powerInterface interface {
 }
 
 var (
-	estimateImpl                     = &source.PowerEstimate{}
-	sysfsImpl                        = &source.PowerSysfs{}
-	msrImpl                          = &source.PowerMSR{}
-	apmXgeneSysfsImpl                = &source.ApmXgeneSysfs{}
-	powerImpl         powerInterface = sysfsImpl
-	enabled                          = true
+	powerImpl powerInterface = &source.PowerSysfs{}
+	enabled                  = true
 )
 
 func InitPowerImpl() {
+	sysfsImpl := &source.PowerSysfs{}
 	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
 		powerImpl = sysfsImpl
 		return
 	}
 
+	msrImpl := &source.PowerMSR{}
 	if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
 		klog.V(1).Infoln("use MSR to obtain power")
 		powerImpl = msrImpl
 		return
 	}
 
+	apmXgeneSysfsImpl := &source.ApmXgeneSysfs{}
 	if apmXgeneSysfsImpl.IsSystemCollectionSupported() {
 		klog.V(1).Infoln("use Ampere Xgene sysfs to obtain power")
 		powerImpl = apmXgeneSysfsImpl
@@ -69,7 +70,12 @@ func InitPowerImpl() {
 	}
 
 	klog.V(1).Infoln("Unable to obtain power, use estimate method")
+	estimateImpl := &source.PowerEstimate{}
 	powerImpl = estimateImpl
+}
+
+func GetSourceName() string {
+	return powerImpl.GetName()
 }
 
 func GetAbsEnergyFromDram() (uint64, error) {

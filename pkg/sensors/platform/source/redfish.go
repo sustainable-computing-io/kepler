@@ -203,6 +203,10 @@ func NewRedfishClient() *RedFishClient {
 	return nil
 }
 
+func (*RedFishClient) GetName() string {
+	return "redfish"
+}
+
 func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 	// goroutine for collecting power info from Redfish already exists
 	if rf.ticker != nil {

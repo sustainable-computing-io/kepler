@@ -251,7 +251,7 @@ func main() {
 			}
 		}
 		if platform.IsSystemCollectionSupported() {
-			powerSource := platform.GetPowerSource()
+			powerSource := platform.GetSourceName()
 			switch powerSource {
 			case "hmc":
 				hmcEnable = true

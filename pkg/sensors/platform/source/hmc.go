@@ -18,6 +18,10 @@ package source
 
 type PowerHMC struct{}
 
+func (a *PowerHMC) GetName() string {
+	return "hmc"
+}
+
 func (a *PowerHMC) StopPower() {
 }
 

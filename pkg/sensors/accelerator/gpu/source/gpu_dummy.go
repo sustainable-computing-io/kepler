@@ -29,6 +29,10 @@ type GPUDummy struct {
 	collectionSupported bool
 }
 
+func (d *GPUDummy) GetName() string {
+	return "dummy"
+}
+
 // todo: refactor logic at invoking side, if gpu is not set?
 func (d *GPUDummy) Init() error {
 	d.collectionSupported = false

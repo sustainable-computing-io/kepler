@@ -23,6 +23,10 @@ var (
 
 type PowerDummy struct{}
 
+func (PowerDummy) GetName() string {
+	return "dummy"
+}
+
 func (r *PowerDummy) IsSystemCollectionSupported() bool {
 	return SystemCollectionSupported
 }

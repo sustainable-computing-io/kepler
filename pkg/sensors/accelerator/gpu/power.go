@@ -31,6 +31,9 @@ var (
 )
 
 type acceleratorInterface interface {
+	// GetName returns the name of the collector
+	GetName() string
+
 	// Init initizalize and start the GPU metric collector
 	Init() error
 	// Shutdown stops the GPU metric collector

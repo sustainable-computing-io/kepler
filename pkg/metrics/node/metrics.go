@@ -24,6 +24,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/utils"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 )
 
 const (
@@ -70,7 +72,9 @@ func (c *collector) initMetrics() {
 	}
 
 	// TODO: prometheus metric should be "node_info"
-	desc := metricfactory.MetricsPromDesc(context, "", "info", "os", []string{"cpu_architecture"})
+	desc := metricfactory.MetricsPromDesc(context, "", "info", "os", []string{
+		"cpu_architecture", "components_power_source", "platform_power_source",
+	})
 	c.descriptions["info"] = desc
 	c.collectors["info"] = metricfactory.NewPromCounter(desc)
 }
@@ -91,5 +95,9 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.Mx.Unlock()
 
 	// update node info
-	ch <- c.collectors["info"].MustMetric(1, stats.NodeCPUArchitecture)
+	ch <- c.collectors["info"].MustMetric(1,
+		stats.NodeCPUArchitecture,
+		components.GetSourceName(),
+		platform.GetSourceName(),
+	)
 }
