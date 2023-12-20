@@ -266,6 +266,11 @@ build-manifest: kustomize
 	./hack/build-manifest.sh "${OPTS}"
 .PHONY: build-manifest
 
+##@ Development env
+CLUSTER_PROVIDER ?= kind
+LOCAL_DEV_CLUSTER_VERSION ?= main
+KIND_WORKER_NODES ?=2
+
 cluster-clean: build-manifest
 	./hack/cluster-clean.sh
 .PHONY: cluster-clean
@@ -275,12 +280,25 @@ cluster-deploy:
 .PHONY: cluster-deploy
 
 cluster-up:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh up
 .PHONY: cluster-up
 
 cluster-down:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh down
 .PHONY: cluster-down
+
+cluster-restart:
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	./hack/cluster.sh restart
+.PHONY: cluster-restart
 
 e2e:
 	./hack/verify.sh integration

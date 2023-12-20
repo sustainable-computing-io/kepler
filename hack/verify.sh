@@ -26,6 +26,7 @@ declare -r MANIFESTS_OUT_DIR="${MANIFESTS_OUT_DIR:-_output/generated-manifest}"
 declare -r EXPORTER="${EXPORTER:-kepler-exporter}"
 declare -r KEPLER_NS="${KEPLER_NS:-kepler}"
 declare -r MONITORING_NS="${MONITORING_NS:-monitoring}"
+declare -r KUBECONFIG_PATH=${KUBECONFIG_ROOT_DIR:-$HOME/.kube/config}
 
 source "$PROJECT_ROOT/hack/utils.bash"
 
@@ -70,21 +71,13 @@ watch_service() {
 }
 
 intergration_test() {
-	mkdir -p /tmp/.kube
-
-	if [[ "$CLUSTER_PROVIDER" == "microshift" ]]; then
-		run $CTR_CMD exec -i microshift cat /var/lib/microshift/resources/kubeadmin/kubeconfig >/tmp/.kube/config
-	else
-		run kind get kubeconfig --name=kind >/tmp/.kube/config
-	fi
-	watch_service "9102" "$KEPLER_NS" "$EXPORTER" &
 	log_kepler &
 
 	local ret=0
 	go test ./e2e/integration-test/... -v --race --bench=. -cover --count=1 --vet=all \
 		2>&1 | tee "$ARTIFACT_DIR/e2e.log" || ret=1
 
-	# terminate both jobs
+	# terminate jobs
 	{ jobs -p | xargs -I {} -- pkill -TERM -P {}; } || true
 	wait
 	sleep 1
@@ -110,6 +103,7 @@ platform_validation() {
 	ginkgo -v --json-report=platform_validation_report.json --race -cover --vet=all \
 		2>&1 | tee "$ARTIFACT_DIR/e2e-platform.log" || ret=1
 
+	# terminate both jobs
 	{ jobs -p | xargs -I {} -- pkill -TERM -P {}; } || true
 	wait
 	sleep 1
@@ -126,6 +120,7 @@ platform_validation() {
 
 main() {
 	mkdir -p "$ARTIFACT_DIR"
+	export KUBECONFIG="$KUBECONFIG_PATH"
 
 	local ret=0
 	case "${1-}" in
