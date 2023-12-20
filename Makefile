@@ -126,7 +126,7 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local
 .PHONY: build
 
-_build_local:
+_build_local: genlibbpf
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
