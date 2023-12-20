@@ -17,24 +17,19 @@ limitations under the License.
 package integrationtest
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-)
-
-const (
-	DefaultAddress = "localhost:9102"
-	KeplerEnvVar   = "kepler_address"
 )
 
 var (
-	tmpDir, keplerBin, address string
-	keplerSession              *gexec.Session
+	keplerMetric   *TestKeplerMetric
+	kubeconfigPath string
+	port           string = "9102"
+	ctx            context.Context
+	namespace      string = "kepler"
 )
 
 func TestE2eTest(t *testing.T) {
@@ -43,31 +38,12 @@ func TestE2eTest(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	var ok bool
-	address, ok = os.LookupEnv(KeplerEnvVar)
-	if !ok {
-		var err error
-		tmpDir, err = os.MkdirTemp("", "test-kepler")
-		Expect(err).NotTo(HaveOccurred())
-		keplerBin, err = gexec.Build("../cmd/exporter.go")
-		Expect(err).NotTo(HaveOccurred())
-		address = DefaultAddress
-		cmd := exec.Command(keplerBin)
-		keplerSession, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-		Expect(err).NotTo(HaveOccurred())
+	var err error
+	kubeconfigPath = getEnvOrDefault("KUBECONFIG", "")
+	keplerMetric, err = NewTestKeplerMetric(kubeconfigPath, namespace, port)
+	Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() string {
-			sdtErr := string(keplerSession.Err.Contents())
-			fmt.Println("keplerSession sdtErr", sdtErr)
-			return sdtErr
-		}, timeout, poolingInterval).Should(Or(ContainSubstring("Started Kepler"), ContainSubstring("exiting...")))
-	}
-})
-
-var _ = AfterSuite(func() {
-	if keplerSession != nil {
-		keplerSession.Kill()
-	}
-	os.RemoveAll(tmpDir)
-	os.RemoveAll(keplerBin)
+	ctx = context.Background()
+	err = keplerMetric.RetrievePodNames(ctx)
+	Expect(err).NotTo(HaveOccurred())
 })
