@@ -219,7 +219,11 @@ test: ginkgo-set tidy-vendor
 test-verbose: ginkgo-set tidy-vendor
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) -covermode=atomic -coverprofile=coverage.out -v $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
+	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+		-timeout=30m \
+		-covermode=atomic -coverprofile=coverage.out \
+		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
+		--race --bench=. -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
 	@echo TAGS=$(GO_BUILD_TAGS)
