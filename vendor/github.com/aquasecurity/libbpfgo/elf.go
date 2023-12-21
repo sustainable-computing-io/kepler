@@ -57,5 +57,6 @@ func isGlobalVariableSection(sectionName string) bool {
 		strings.HasPrefix(sectionName, ".rodata.") {
 		return true
 	}
+
 	return false
 }
