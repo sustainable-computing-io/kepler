@@ -43,7 +43,7 @@ jobs:
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
 
       - name: Save Kepler image as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: kepler
           path: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
@@ -71,7 +71,7 @@ jobs:
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
 
       - name: Save kepler-validator test image as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: validator
           path: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
@@ -88,12 +88,12 @@ jobs:
         uses: actions/checkout@v4.1.1
 
       - name: Download Kepler test image artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: kepler
 
       - name: Download kepler-validator test image artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: validator
 
@@ -177,7 +177,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}
