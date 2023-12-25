@@ -200,7 +200,6 @@ container_test:
 	$(CTR_CMD) run --rm \
 		-v $(base_dir):/kepler:Z\
 		-v ~/.kube/config:/tmp/.kube/config \
-		-e GOROOT=/usr/local/go -e PATH=$(PATH):/usr/local/go/bin \
 		--network host \
 		-w /kepler \
 		--privileged \
@@ -210,7 +209,7 @@ container_test:
 			cd doc/ && \
 			./dev/prepare_dev_env.sh && \
 			cd - && git config --global --add safe.directory /kepler && \
-			make test-verbose'
+			make test-container-verbose'
 
 test: ginkgo-set tidy-vendor
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -224,6 +223,14 @@ test-verbose: ginkgo-set tidy-vendor
 		-covermode=atomic -coverprofile=coverage.out \
 		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
 		--race --bench=. -cover --count=1 --vet=all
+
+test-container-verbose: ginkgo-set tidy-vendor
+	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo GOENV=$(GOENV)
+	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+		-covermode=atomic -coverprofile=coverage.out \
+		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
+		--race -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
 	@echo TAGS=$(GO_BUILD_TAGS)
