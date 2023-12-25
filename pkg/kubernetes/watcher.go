@@ -102,7 +102,7 @@ func NewObjListWatcher() *ObjListWatcher {
 
 	w.informer = cache.NewSharedInformer(objListWatcher, &k8sv1.Pod{}, 0)
 	w.stopChannel = make(chan struct{})
-	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			w.handleAdd(obj)
 		},
@@ -113,6 +113,9 @@ func NewObjListWatcher() *ObjListWatcher {
 			w.handleDeleted(obj)
 		},
 	})
+	if err != nil {
+		klog.Fatalf("%v", err)
+	}
 	IsWatcherEnabled = true
 	return w
 }
