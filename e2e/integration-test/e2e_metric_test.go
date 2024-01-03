@@ -136,7 +136,7 @@ func (kmc *TestKeplerMetric) retrieveMetrics(pod *v1.Pod) error {
 		return err
 	}
 	var stdout, stderr bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Tty:    false,
