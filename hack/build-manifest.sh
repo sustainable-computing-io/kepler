@@ -33,7 +33,7 @@ command -v jq >/dev/null 2>&1 || {
 kc_version_ok=$(kubectl version --client -ojson |
     jq '.clientVersion | (.major | tonumber) >= 1 and (.minor | tonumber) > 21')
 if [[ "$kc_version_ok" != true ]]; then
-    die "Please update the kubectl version to 1.21+ to support kustomize"
+    die "Need kubectl version to 1.21+ to support kustomize; run make tools to install all necessary tools"
 fi
 
 set -x
