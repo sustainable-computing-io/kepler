@@ -239,10 +239,7 @@ test-mac-verbose: ginkgo-set
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
-set_govulncheck:
-	./hack/tools.sh govulncheck
-
-govulncheck: set_govulncheck tidy-vendor
+check-govuln: govulncheck tidy-vendor
 	@$(GOVULNCHECK) ./... || true
 
 format:
@@ -260,14 +257,17 @@ golint:
 
 genlibbpf: kepler.bpf.o
 
+TOOLS = govulncheck \
+		jq \
+		kubectl \
+		kustomize \
 
 tools:
-	hack/tools.sh
+	./hack/tools.sh
 .PHONY: tools
 
-### k8s ###
-kustomize: ## Download kustomize locally if necessary.
-	hack/tools.sh kustomize
+$(TOOLS):
+	./hack/tools.sh $@
 
 build-manifest: kustomize
 	./hack/build-manifest.sh "${OPTS}"
@@ -339,5 +339,5 @@ platform-validation: ginkgo-set get-env
 	./hack/verify.sh platform
 .PHONY: platform-validation
 
-check: tidy-vendor set_govulncheck govulncheck format golint test
+check: tidy-vendor check-govuln format golint test
 .PHONY: check

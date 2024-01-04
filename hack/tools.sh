@@ -28,11 +28,12 @@ declare -r PROJECT_ROOT GOOS GOARCH
 declare -r LOCAL_BIN="$PROJECT_ROOT/tmp/bin"
 
 # tools
+declare -r KUBECTL_VERSION=${KUBECTL_VERSION:-v1.28.4}
 declare -r KUSTOMIZE_VERSION=${KUSTOMIZE_VERSION:-v4.5.2}
 declare -r KUSTOMIZE_INSTALL_SCRIPT="https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 
 declare -r JQ_VERSION=${JQ_VERSION:-1.7}
-declare -r JQ_INSTALL_URL="https://github.com/jqlang/jq/releases/download/jq-$JQ_VERSION/jq-$GOOS-$GOARCH"
+declare -r JQ_INSTALL_URL="https://github.com/jqlang/jq/releases/download/jq-$JQ_VERSION"
 
 source "$PROJECT_ROOT/hack/utils.bash"
 
@@ -104,11 +105,31 @@ install_jq() {
 	validate_version jq --version "$JQ_VERSION" && {
 		return 0
 	}
-	curl_install jq "$JQ_INSTALL_URL"
+	local os="$GOOS"
+	[[ $os == "darwin" ]] && os="macos"
+
+	curl_install jq "$JQ_INSTALL_URL/jq-$os-$GOARCH"
 }
 
 install_govulncheck() {
 	go_install golang.org/x/vuln/cmd/govulncheck latest
+}
+
+install_kubectl() {
+	local version_regex="Client Version: $KUBECTL_VERSION"
+
+	validate_version kubectl "version --client" "$version_regex" && return 0
+
+	info "installing kubectl version: $KUBECTL_VERSION"
+	local install_url="https://dl.k8s.io/release/$KUBECTL_VERSION/bin/$GOOS/$GOARCH/kubectl"
+
+	curl -Lo "$LOCAL_BIN/kubectl" "$install_url" || {
+		fail "failed to install kubectl"
+		return 1
+	}
+	chmod +x "$LOCAL_BIN/kubectl"
+	ok "kubectl - $KUBECTL_VERSION was installed successfully"
+
 }
 
 install_all() {
