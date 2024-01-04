@@ -29,8 +29,8 @@ jobs:
         with:
           context: .
           file: ./build/Dockerfile.builder
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
-      - name: Create and upload multi-arch image
-        run: make multi-arch-image-base
+      #- name: Create and upload multi-arch image
+      #  run: make multi-arch-image-base
