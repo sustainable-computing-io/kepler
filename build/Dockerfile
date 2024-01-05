@@ -8,6 +8,8 @@ RUN ATTACHER_TAG=libbpf make build
 
 FROM registry.access.redhat.com/ubi9-minimal:9.2
 RUN microdnf -y update
+RUN microdnf -y install epel-release
+RUN if [ $(uname -i) == "x86_64" ]; then microdnf install -y --enablerepo='epel' cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 
@@ -19,7 +21,7 @@ RUN INSTALL_PKGS=" \
 
 COPY --from=builder /workspace/_output/bin/kepler /usr/bin/kepler
 COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
-COPY --from=builder /usr/bin/cpuid /usr/bin/cpuid
+COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
 
 RUN mkdir -p /var/lib/kepler/data
 RUN mkdir -p /var/lib/kepler/bpfassets

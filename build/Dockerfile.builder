@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.20 as builder
 
 USER 0
 
-RUN yum -y install yum-utils
+RUN yum -y install yum-utils go
 RUN yum-config-manager --enable ubi-9-baseos-source
 
 WORKDIR /elfutils-source
@@ -29,5 +29,4 @@ RUN yum -y install clang rpm-build llvm-devel
 
 # enable EPEL and install cpuid
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-RUN yum install -y cpuid
 RUN yum clean all
