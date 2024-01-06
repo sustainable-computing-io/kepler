@@ -8,7 +8,7 @@ RUN ATTACHER_TAG=libbpf make build
 
 FROM registry.access.redhat.com/ubi9-minimal:9.2
 RUN microdnf -y update
-RUN microdnf -y install epel-release
+RUN microdnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 RUN if [ $(uname -i) == "x86_64" ]; then microdnf install -y --enablerepo='epel' cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
