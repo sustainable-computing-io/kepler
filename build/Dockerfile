@@ -6,18 +6,18 @@ COPY . .
 
 RUN ATTACHER_TAG=libbpf make build
 
-FROM registry.access.redhat.com/ubi9-minimal:9.2
-RUN microdnf -y update
-RUN microdnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-RUN if [ $(uname -i) == "x86_64" ]; then microdnf install -y --enablerepo='epel' cpuid; fi
+FROM registry.access.redhat.com/ubi9
+RUN yum -y update
+RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 
 RUN INSTALL_PKGS=" \
     libbpf \
     " && \
-	microdnf install -y $INSTALL_PKGS && \
-	microdnf clean all
+	yum install -y $INSTALL_PKGS && \
+	yum clean all
 
 COPY --from=builder /workspace/_output/bin/kepler /usr/bin/kepler
 COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
