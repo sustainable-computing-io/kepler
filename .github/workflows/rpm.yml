@@ -9,14 +9,14 @@ jobs:
     steps:
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d')"
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Checkout code
         uses: actions/checkout@v4.1.1
 
       - name: get git version
         id: git_version
-        run: echo "::set-output name=git_version::$(git describe --dirty --tags --always --match='v*' | tr '-' '.')"
+        run: echo "name=git_version::$(git describe --dirty --tags --always --match='v*' | tr '-' '.')" >> $GITHUB_OUTPUT
 
       - name: Build RPM packages
         id: rpm_build
