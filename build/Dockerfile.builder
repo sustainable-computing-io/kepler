@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.20 as builder
 
 USER 0
 
-RUN yum -y install yum-utils go
+RUN yum -y install yum-utils
 RUN yum-config-manager --enable ubi-9-baseos-source
 
 WORKDIR /elfutils-source
