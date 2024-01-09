@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	context = "vm"
+	context = "process"
 )
 
 // collector implements prometheus.Collector. It collects metrics directly from process maps.
