@@ -6,7 +6,7 @@ COPY . .
 
 RUN ATTACHER_TAG=libbpf make build
 
-FROM registry.access.redhat.com/ubi9
+FROM registry.access.redhat.com/ubi9:9.2
 RUN yum -y update
 RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
