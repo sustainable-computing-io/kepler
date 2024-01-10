@@ -18,17 +18,17 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Login to Quay
-        uses: docker/login-action@v3
-        with:
-            registry: quay.io/sustainable_computing_io
-            username: ${{ secrets.username }}
-            password: ${{ secrets.password }}
+      #- name: Login to Quay
+      #  uses: docker/login-action@v3
+      #  with:
+      #      registry: quay.io/sustainable_computing_io
+      #      username: ${{ secrets.username }}
+      #      password: ${{ secrets.password }}
       - name: Build and push a base image for building Kepler with libbpf
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./build/Dockerfile.builder
-          platforms: linux/amd64
-          push: true
+          platforms: linux/amd64,linux/arm64,linux/s390x
+          push: false
           tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0

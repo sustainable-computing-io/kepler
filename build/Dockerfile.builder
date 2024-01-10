@@ -27,7 +27,4 @@ RUN make bpftool
 
 RUN yum -y install clang rpm-build llvm-devel
 
-# enable EPEL and install cpuid
-RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-RUN yum install -y cpuid
 RUN yum clean all
