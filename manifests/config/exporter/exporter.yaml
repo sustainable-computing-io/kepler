@@ -113,19 +113,19 @@ spec:
       - name: lib-modules
         hostPath:
           path: /lib/modules
-          type: Directory
+          Type: DirectoryOrCreate
       - name: tracing
         hostPath:
           path: /sys
-          type: Directory
+          Type: DirectoryOrCreate
       - name: proc
         hostPath:
           path: /proc
-          type: Directory
+          Type: DirectoryOrCreate
       - name: var-run
         hostPath:
           path: /var/run
-          type: Directory
+          Type: DirectoryOrCreate
       - name: cfm
         configMap:
           name: kepler-cfm
