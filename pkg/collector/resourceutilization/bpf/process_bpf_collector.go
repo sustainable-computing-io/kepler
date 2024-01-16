@@ -37,6 +37,7 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 	// update ebpf metrics
 	// first update CPU time and Page Cache Hit
 	processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime)
+	processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
 	processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 	// update IRQ vector. Soft IRQ events has the events ordered
 	for i, event := range attacher.SoftIRQEvents {
@@ -63,6 +64,9 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 		case config.CacheMiss:
 			val = ct.CacheMisses
 			event = config.CacheMiss
+		case config.TaskClock:
+			val = ct.TaskClockTime
+			event = config.TaskClock
 		default:
 			klog.Errorf("counter %s is not supported\n", counterKey)
 		}
@@ -78,12 +82,16 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 		return
 	}
 	for _, ct := range processesData {
+		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
+
+		if ct.PID != 0 {
+			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d task clock time %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
+				comm, ct.PID, ct.CGroupID, ct.TaskClockTime, ct.CPUCycles, ct.CPUInstr, ct.CacheMisses, ct.PageCacheHit)
+		}
 		// skip process without resource utilization
-		if ct.ProcessRunTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
+		if ct.TaskClockTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
 			continue
 		}
-
-		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
 		// if the pid is within a container, it will have a container ID
 		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
@@ -100,8 +108,8 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 			}
 		}
 
-		mapKey := ct.PID
-		if ct.CGroupID == 1 {
+		mapKey := ct.TGID
+		if ct.CGroupID == 1 && config.EnabledEBPFCgroupID {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
 			mapKey = 1
@@ -110,7 +118,7 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm)
+			pStat = stats.NewProcessStats(ct.TGID, ct.CGroupID, containerID, vmID, comm)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm
