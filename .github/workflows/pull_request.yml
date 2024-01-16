@@ -21,5 +21,8 @@ jobs:
   # for each PR run integration test    
   integration_test:
     uses: ./.github/workflows/integration_test.yml
-
-  
+  #image_base:
+  #  uses: ./.github/workflows/image_base.yml
+  #  secrets:
+  #      username: ${{ secrets.BOT_NAME }}
+  #      password: ${{ secrets.BOT_TOKEN }
