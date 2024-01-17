@@ -26,3 +26,8 @@ jobs:
   #  secrets:
   #      username: ${{ secrets.BOT_NAME }}
   #      password: ${{ secrets.BOT_TOKEN }
+  #image:
+  #  uses: ./.github/workflows/image.yml
+  #  secrets:
+  #      username: ${{ secrets.BOT_NAME }}
+  #      password: ${{ secrets.BOT_TOKEN }}
