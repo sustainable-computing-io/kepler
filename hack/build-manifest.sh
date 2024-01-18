@@ -22,168 +22,221 @@ set -eu -o pipefail
 # constants
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 declare -r PROJECT_ROOT
+
 source "$PROJECT_ROOT/hack/utils.bash"
 
-export PATH="$PROJECT_ROOT/tmp/bin:$PATH"
+declare CLUSTER_PROVIDER="${CLUSTER_PROVIDER:-kind}"
 
-command -v jq >/dev/null 2>&1 || {
-    die "jq is not installed; run make tools to install all necessary tools"
+declare IMAGE_TAG=${IMAGE_TAG:-latest}
+declare MODEL_SERVER_IMAGE_TAG=${MODEL_SERVER_IMAGE_TAG:-latest}
+declare IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}
+declare MODEL_SERVER_REPO=${MODEL_SERVER_REPO:-${IMAGE_REPO}}
+declare EXPORTER_IMAGE_NAME=${EXPORTER_IMAGE_NAME:-kepler}
+declare MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
+declare EXPORTER_IMG=${EXPORTER_IMG:-${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}}
+declare MODEL_SERVER_IMG=${MODEL_SERVER_IMG:-${MODEL_SERVER_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}}
+
+declare -r MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+
+declare BM_DEPLOY=false
+declare ROOTLESS_DEPLOY=false
+declare OPENSHIFT_DEPLOY=false
+declare ESTIMATOR_SIDECAR_DEPLOY=false
+declare CI_DEPLOY=false
+declare DEBUG_DEPLOY=false
+declare MODEL_SERVER_DEPLOY=false
+declare TRAINER_DEPLOY=false
+declare QAT_DEPLOY=false
+declare PROMETHEUS_DEPLOY=false
+declare HIGH_GRANULARITY=false
+
+ensure_all_tools() {
+	header "Ensuring all tools are installed"
+	"$PROJECT_ROOT/hack/tools.sh" all
 }
 
-kc_version_ok=$(kubectl version --client -ojson |
-    jq '.clientVersion | (.major | tonumber) >= 1 and (.minor | tonumber) > 21')
-if [[ "$kc_version_ok" != true ]]; then
-    die "Need kubectl version to 1.21+ to support kustomize; run make tools to install all necessary tools"
-fi
-
-set -x
-export CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
-# set options
-# for example: ./build-manifest.sh "ESTIMATOR_SIDECAR_DEPLOY OPENSHIFT_DEPLOY"
-DEPLOY_OPTIONS=$1
-for opt in ${DEPLOY_OPTIONS}; do export "$opt"=true; done
-
-KUSTOMIZE=${PROJECT_ROOT}/tmp/bin/kustomize
-SED="sed -i"
-if [ "$(uname)" == "Darwin" ]; then
-    SED="sed -i .bak "
-fi
-
 remove_empty_patch() {
-    file="${1:?}"
-    ${SED} -e "/^patchesStrategicMerge.*/s/\[\]//" "$file"
+	file="${1:?}"
+	sed <"$file" "/^patchesStrategicMerge.*/s/\[\]//" >"${file}.tmp"
+	mv "${file}.tmp" "${file}"
 }
 
 uncomment_patch() {
-    regex="patch-${1}"
-    file="${2:?}"
-    remove_empty_patch "$file"
-    uncomment "$regex" "$file"
+	regex="patch-${1}"
+	file="${2:?}"
+	remove_empty_patch "$file"
+	uncomment "$regex" "$file"
 }
 
 uncomment_path() {
-    regex="..\/${1}"
-    file="${2:?}"
-    remove_empty_patch "$file"
-    uncomment "$regex" "$file"
+	regex="..\/${1}"
+	file="${2:?}"
+	remove_empty_patch "$file"
+	uncomment "$regex" "$file"
 }
 
 uncomment() {
-    regex="${1:?}"
-    file="${2:?}"
-    ${SED} -e "/^# .*${regex}.*/s/^# //" "$file"
+	regex="${1:?}"
+	file="${2:?}"
+	sed <"$file" "/^# .*${regex}.*/s/^# //" >"${file}.tmp"
+	mv "${file}.tmp" "${file}"
 }
 
-IMAGE_TAG=${IMAGE_TAG:-latest}
-MODEL_SERVER_IMAGE_TAG=${MODEL_SERVER_IMAGE_TAG:-latest}
-IMAGE_REPO=${IMAGE_REPO:-quay.io/sustainable_computing_io}
-MODEL_SERVER_REPO=${MODEL_SERVER_REPO:-${IMAGE_REPO}}
-EXPORTER_IMAGE_NAME=${EXPORTER_IMAGE_NAME:-kepler}
-MODEL_SERVER_IMAGE_NAME=${MODEL_SERVER_IMAGE_NAME:-kepler_model_server}
+deploy_prometheus() {
+	header "Prometheus Deployment"
+	$PROMETHEUS_DEPLOY || {
+		skip "skipping prometheus deployment"
+		return 0
+	}
+	info "deploying prometheus"
+	uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
 
-MANIFESTS_OUT_DIR=${MANIFESTS_OUT_DIR:-"_output/generated-manifest"}
+	ok "Prometheus deployment configured"
 
-# shellcheck source=hack/common.sh
-source hack/common.sh
+	$HIGH_GRANULARITY || {
+		skip "skipping prometheus deployment with high granularity"
+		return 0
+	}
+	info "deploying prometheus with high granularity"
+	uncomment prometheus_high "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
 
-echo "Building manifests..."
-
-echo "move to untrack workspace ${MANIFESTS_OUT_DIR}"
-rm -rf "${MANIFESTS_OUT_DIR}"
-mkdir -p "${MANIFESTS_OUT_DIR}"
-cp -r manifests/config/* "${MANIFESTS_OUT_DIR}"/
-
-if [ -n "${BM_DEPLOY:-}" ]; then
-    echo "baremetal deployment"
-    uncomment_patch bm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-fi
-
-if [ -n "${ROOTLESS:-}" ]; then
-    echo "rootless deployment"
-    uncomment_patch rootless "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-fi
-
-if [ -n "${OPENSHIFT_DEPLOY:-}" ]; then
-    echo "deployment on openshift"
-    uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-    uncomment openshift_scc "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-fi
-
-prometheus_deployment() {
-  [[ -z "${PROMETHEUS_DEPLOY:-}" ]] && return 0
-
-  echo "deployment with prometheus"
-
-  uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-  uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
-
-  if [ -n "${HIGH_GRANULARITY:-}" ]; then
-      echo "enable high metric granularity in Prometheus"
-      uncomment prometheus_high "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-      uncomment_patch high-granularity "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
-  fi
+	ok "Prometheus deployment with high granularity configured"
+}
+deploy_bm() {
+	header "Baremetal Deployment"
+	$BM_DEPLOY || {
+		skip "skipping baremetal deployment"
+		return 0
+	}
+	uncomment_patch bm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Baremetal deployment configured"
+}
+deploy_rootless() {
+	header "Rootless Deployment"
+	$ROOTLESS_DEPLOY || {
+		skip "skipping rootless deployment"
+		return 0
+	}
+	uncomment_patch rootless "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Rootless deployment configured"
+}
+deploy_openshift() {
+	header "OpenShift Deployment"
+	$OPENSHIFT_DEPLOY || {
+		skip "skipping openshift deployment"
+		return 0
+	}
+	uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	uncomment openshift_scc "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "OpenShift deployment configured"
+}
+deploy_estimator_sidecar() {
+	header "Estimator Sidecar Deployment"
+	$ESTIMATOR_SIDECAR_DEPLOY || {
+		skip "skipping estimator with sidecar deployment"
+		return 0
+	}
+	uncomment_patch estimator-sidecar "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Estimator sidecar deployment configured"
+}
+deploy_ci() {
+	header "CI Deployment"
+	$CI_DEPLOY || {
+		skip "skipping ci deployment"
+		return 0
+	}
+	uncomment_patch ci "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	[[ $CLUSTER_PROVIDER == 'kind' ]] && {
+		uncomment_patch kind "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	}
+	ok "CI deployment configured for ${CLUSTER_PROVIDER}"
+}
+deploy_debug() {
+	header "Debug Deployment"
+	$DEBUG_DEPLOY || {
+		skip "skipping debug deployment"
+		return 0
+	}
+	uncomment_patch debug "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
+	ok "Debug deployment configured"
+}
+deploy_model_server() {
+	header "Model Server Deployment"
+	$MODEL_SERVER_DEPLOY || {
+		skip "skipping model server deployment"
+		return 0
+	}
+	uncomment_path model-server "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
+	uncomment_patch model-server-kepler-config "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
+	$OPENSHIFT_DEPLOY && {
+		uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
+	}
+	ok "Model server deployment configured"
+}
+deploy_trainer() {
+	header "Trainer Deployment"
+	$TRAINER_DEPLOY || {
+		skip "skipping trainer deployment"
+		return 0
+	}
+	uncomment_patch trainer "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
+	$OPENSHIFT_DEPLOY && {
+		uncomment_patch train-ocp "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
+	}
+	ok "Trainer deployment configured"
+}
+deploy_qat() {
+	header "QAT Deployment"
+	$QAT_DEPLOY || {
+		skip "skipping qat deployment"
+		return 0
+	}
+	uncomment_patch qat "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "QAT deployment configured"
 }
 
-prometheus_deployment
+build_manifest() {
+	info "Building manifests ..."
+	for deploy in $(declare -F | cut -f3 -d ' ' | grep 'deploy_'); do
+		"$deploy" || return 1
+	done
+	line 50 heavy
+	pushd "${MANIFESTS_OUT_DIR}"/exporter
+	run kustomize edit set image kepler="${EXPORTER_IMG}"
+	run kustomize edit set image kepler_model_server="${MODEL_SERVER_IMG}"
+	popd
+	pushd "${MANIFESTS_OUT_DIR}"/model-server
+	run kustomize edit set image kepler_model_server="${MODEL_SERVER_IMG}"
+	popd
+	info "kustomize manifests..."
+	kustomize build "${MANIFESTS_OUT_DIR}"/base >"${MANIFESTS_OUT_DIR}"/deployment.yaml
 
+	ok "Manifests build successfully."
+	info "run kubectl create -f _output/generated-manifest/deployment.yaml to deploy"
+	return 0
+}
 
-if [ -n "${ESTIMATOR_SIDECAR_DEPLOY:-}" ]; then
-    echo "enable estimator-sidecar"
-    uncomment_patch estimator-sidecar "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-fi
+main() {
+	local opts=$1
+	shift
+	ensure_all_tools
 
-if [ -n "${CI_DEPLOY:-}" ]; then
-    echo "enable ci ${CLUSTER_PROVIDER}"
-    uncomment_patch ci "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-    case ${CLUSTER_PROVIDER} in
-    microshift) ;;
-    *)
-        uncomment_patch kind "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-        ;;
-    esac
-fi
+	for opt in ${opts}; do
+		info "Setting $opt as True"
+		eval "$opt=true"
+	done
 
-if [ -n "${DEBUG_DEPLOY:-}" ]; then
-    echo "enable debug"
-    uncomment_patch debug "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
-fi
+	info "move to untrack workspace ${MANIFESTS_OUT_DIR}"
+	run rm -rf "${MANIFESTS_OUT_DIR}"
+	run mkdir -p "${MANIFESTS_OUT_DIR}"
+	run cp -r manifests/config/* "${MANIFESTS_OUT_DIR}"/
+	export PATH="$PROJECT_ROOT/tmp/bin:$PATH"
 
-if [ -n "${MODEL_SERVER_DEPLOY:-}" ]; then
-    echo "enable model-server"
-    uncomment_path model-server "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
-    uncomment_patch model-server-kepler-config "${MANIFESTS_OUT_DIR}"/base/kustomization.yaml
-    if [ -n "${OPENSHIFT_DEPLOY}" ]; then
-        uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
-    fi
-
-    if [ -n "${TRAINER_DEPLOY}" ]; then
-        echo "enable online-trainer of model-server"
-        uncomment_patch trainer "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
-        if [ -n "${OPENSHIFT_DEPLOY}" ]; then
-            uncomment_patch train-ocp "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
-        fi
-    fi
-fi
-
-if [ -n "${QAT_DEPLOY:-}" ]; then
-    echo "enable qat"
-    uncomment_patch qat "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-fi
-
-echo "set manager image"
-EXPORTER_IMG=${IMAGE_REPO}/${EXPORTER_IMAGE_NAME}:${IMAGE_TAG}
-MODEL_SERVER_IMG=${MODEL_SERVER_REPO}/${MODEL_SERVER_IMAGE_NAME}:${MODEL_SERVER_IMAGE_TAG}
-pushd "${MANIFESTS_OUT_DIR}"/exporter
-${KUSTOMIZE} edit set image kepler="${EXPORTER_IMG}"
-${KUSTOMIZE} edit set image kepler_model_server="${MODEL_SERVER_IMG}"
-popd
-pushd "${MANIFESTS_OUT_DIR}"/model-server
-${KUSTOMIZE} edit set image kepler_model_server="${MODEL_SERVER_IMG}"
-popd
-
-echo "kustomize manifests..."
-${KUSTOMIZE} build "${MANIFESTS_OUT_DIR}"/base >"${MANIFESTS_OUT_DIR}"/deployment.yaml
-
-for opt in ${DEPLOY_OPTIONS}; do unset "$opt"; done
-
-echo "Done $0"
+	build_manifest || {
+		fail "Fail to build the manifests"
+		return 1
+	}
+}
+main "$@"
