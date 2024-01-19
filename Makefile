@@ -205,6 +205,7 @@ container_test:
 		--privileged \
 		$(BUILDER_IMAGE) \
 		/bin/sh -c ' \
+			yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
 			yum install -y cpuid && \
 			cd doc/ && \
 			./dev/prepare_dev_env.sh && \
