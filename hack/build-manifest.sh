@@ -90,7 +90,7 @@ deploy_prometheus() {
 	}
 	info "deploying prometheus"
 	uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
-	uncomment prometheus_common "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
+	uncomment prometheus_role "${MANIFESTS_OUT_DIR}"/rbac/kustomization.yaml
 
 	ok "Prometheus deployment configured"
 
@@ -219,6 +219,8 @@ build_manifest() {
 }
 
 main() {
+	export PATH="$PROJECT_ROOT/tmp/bin:$PATH"
+
 	local opts=$1
 	shift
 	ensure_all_tools
@@ -232,7 +234,6 @@ main() {
 	run rm -rf "${MANIFESTS_OUT_DIR}"
 	run mkdir -p "${MANIFESTS_OUT_DIR}"
 	run cp -r manifests/config/* "${MANIFESTS_OUT_DIR}"/
-	export PATH="$PROJECT_ROOT/tmp/bin:$PATH"
 
 	build_manifest || {
 		fail "Fail to build the manifests"
