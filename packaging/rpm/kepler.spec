@@ -71,5 +71,4 @@ install -p -m644 ./data/model_weight/rapl_DynPowerModel.json %{buildroot}/var/li
 /etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 
 %changelog
-* %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_} 
-- %{getenv:_CHANGELOG_}
+%autochangelog
