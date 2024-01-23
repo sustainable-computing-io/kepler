@@ -204,54 +204,65 @@ func (kmc *TestKeplerMetric) constructMetricName(res labels.Labels) string {
 }
 
 // checkMetricValues verifies that specified metric exists and has nonzero values.
-func checkMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
+func checkMetricValues(keplerMetric *TestKeplerMetric, metricName string, zeroAllowed bool) {
 	v, ok := keplerMetric.Metric[metricName]
 	Expect(ok).To(BeTrue(), "Metric %s should exist", metricName)
 
-	nonzeroFound := false
 	for _, val := range v {
-		if val > 0 {
-			nonzeroFound = true
-			break
+		value := int64(val)
+		if value == 0 {
+			if !zeroAllowed {
+				Expect(value).To(BeNumerically(">", int64(0)), "Value for metric %s should be greater than 0", metricName)
+			} else {
+				Skip("Skipping test as values for " + metricName + " are zero")
+			}
 		}
 	}
-	if !nonzeroFound {
-		Skip("Skipping test as values for " + metricName + " are zero")
-	}
-	Expect(nonzeroFound).To(BeTrue(), "Non-zero value should be found for metric %s", metricName)
+}
 
-	// TODO: check value in details base on cgroup and gpu etc...
-	// so far just base check as compare with zero by default
+// noneZeroMetricValues verifies that specified metric exists and has nonzero values.
+// It returns true if no zero value is found.
+func noneZeroMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
+	checkMetricValues(keplerMetric, metricName, false)
+}
+
+// allowZeroMetricValues verifies that specified metric exists and has nonzero values.
+// It returns true even if a zero value is found.
+func allowZeroMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
+	checkMetricValues(keplerMetric, metricName, true)
 }
 
 // checkPodMetricValues iterates through the list of pods and checks for the presence and value of specified pod-level metric.
-func checkPodMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
-	var value float64
-	nonzeroFound := false
+func checkPodMetricValues(keplerMetric *TestKeplerMetric, metricName string, zeroAllowed bool) {
 	for _, podName := range keplerMetric.PodLists {
 		metricKey := metricName + " @ " + podName
 		v, ok := keplerMetric.Metric[metricKey]
 		Expect(ok).To(BeTrue(), "Metric %s should exists for pod %s", metricName, podName)
-
+		sum := 0.0
 		for _, val := range v {
-			if val > 0 {
-				nonzeroFound = true
-				value = val
-				break
+			sum += val
+		}
+		value := int64(sum)
+		if value == 0 {
+			if !zeroAllowed {
+				Expect(value).To(BeNumerically(">", int64(0)), "Pod value for metric %s should be greater than 0", metricName)
+			} else {
+				Skip("Skipping test as values for " + metricName + " are zero")
 			}
 		}
-		if nonzeroFound {
-			break
-		} else {
-			log.Infof("Skipping as metric %s for pod %s is zero", metricName, podName)
-		}
 	}
-	if !nonzeroFound {
-		Skip("Skipping test as value for " + metricName + " are zero for all pods")
-	}
-	Expect(value).To(BeNumerically(">", 0), "Value for metric %s should be greater than 0", metricName)
-	// TODO: check value in details base on cgroup and gpu etc...
-	// so far just base check as compare with zero by default
+}
+
+// noneZeroPodMetricValues iterates through the list of pods and checks for the presence and value of specified pod-level metric.
+// It returns true if no zero value is found.
+func noneZeroPodMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
+	checkPodMetricValues(keplerMetric, metricName, false)
+}
+
+// allowZeroPodMetricValues iterates through the list of pods and checks for the presence and value of specified pod-level metric.
+// It returns true even if a zero value is found.
+func allowZeroPodMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
+	checkPodMetricValues(keplerMetric, metricName, true)
 }
 
 var _ = Describe("Metrics check should pass", Ordered, func() {
@@ -260,27 +271,39 @@ var _ = Describe("Metrics check should pass", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	_ = DescribeTable("Check node level metrics for details",
+	_ = DescribeTable("Check node level metrics for details, non zero value metric should be found",
 		func(metricName string) {
-			checkMetricValues(keplerMetric, metricName)
+			noneZeroMetricValues(keplerMetric, metricName)
 		},
-		Entry(nil, "kepler_exporter_build_info"),        // only one
-		Entry(nil, "kepler_node_core_joules_total"),     // node level
-		Entry(nil, "kepler_node_dram_joules_total"),     // node level
-		Entry(nil, "kepler_node_info"),                  // node level
-		Entry(nil, "kepler_node_package_joules_total"),  // node level
+		Entry(nil, "kepler_exporter_build_info"),       // only one
+		Entry(nil, "kepler_node_core_joules_total"),    // node level
+		Entry(nil, "kepler_node_dram_joules_total"),    // node level
+		Entry(nil, "kepler_node_info"),                 // node level
+		Entry(nil, "kepler_node_package_joules_total"), // node level
+	)
+
+	_ = DescribeTable("Check node level metrics for details, zero value metric can be found",
+		func(metricName string) {
+			allowZeroMetricValues(keplerMetric, metricName)
+		},
 		Entry(nil, "kepler_node_platform_joules_total"), // node level
 		Entry(nil, "kepler_node_uncore_joules_total"),   // node level
 	)
 
-	_ = DescribeTable("Check pod level metrics for details",
+	_ = DescribeTable("Check pod level metrics for details, no zero value metric should be found",
 		func(metricName string) {
-			checkPodMetricValues(keplerMetric, metricName)
+			noneZeroPodMetricValues(keplerMetric, metricName)
 		},
 		Entry(nil, "kepler_container_core_joules_total"),    // pod level
 		Entry(nil, "kepler_container_dram_joules_total"),    // pod level
 		Entry(nil, "kepler_container_joules_total"),         // pod level
 		Entry(nil, "kepler_container_package_joules_total"), // pod level
-		Entry(nil, "kepler_container_uncore_joules_total"),  // pod level
+	)
+
+	_ = DescribeTable("Check pod level metrics for details, zero value metric can be found",
+		func(metricName string) {
+			allowZeroPodMetricValues(keplerMetric, metricName)
+		},
+		Entry(nil, "kepler_container_uncore_joules_total"), // pod level
 	)
 })
