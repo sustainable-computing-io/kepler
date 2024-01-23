@@ -19,8 +19,11 @@ limitations under the License.
  * Redefine it to just asm to enable successful compilation.
  * see https://github.com/iovisor/bcc/commit/2d1497cde1cc9835f759a707b42dea83bee378b8 for more details
  */
-#include <linux/types.h>
-#include <linux/sched.h>
+#include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_core_read.h>
+#include <bpf/bpf_tracing.h>
+
 #ifdef asm_inline
 #undef asm_inline
 #define asm_inline asm
@@ -29,9 +32,6 @@ limitations under the License.
 typedef __u64 u64;
 typedef __u32 u32;
 typedef __u16 u16;
-
-#include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
 
 #ifndef NUM_CPUS
 #define NUM_CPUS 128
@@ -109,16 +109,20 @@ struct sched_switch_args {
     int next_prio;
 };
 
+/*
 struct trace_event_raw_softirq {
     unsigned long long pad;
     unsigned int vec;
 };
+*/
 
 typedef struct process_metrics_t
 {
     u64 cgroup_id;
-    u64 pid;
+    u64 pid; // pid is the kernel space view of the thread id
+    u64 tgid; // tgid is the user space view of the pid
     u64 process_run_time;
+    u64 task_clock_time;
     u64 cpu_cycles;
     u64 cpu_instr;
     u64 cache_miss;

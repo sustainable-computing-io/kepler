@@ -46,7 +46,7 @@ const (
 var (
 	Counters                map[string]perfCounter
 	HardwareCountersEnabled = true
-	BpfPerfArrayPrefix      = "_hc_reader"
+	BpfPerfArrayPrefix      = "_event_reader"
 
 	PerfEvents = map[string][]int{}
 	ByteOrder  binary.ByteOrder
@@ -58,7 +58,9 @@ var (
 type ProcessBPFMetrics struct {
 	CGroupID       uint64
 	PID            uint64
-	ProcessRunTime uint64
+	TGID           uint64
+	ProcessRunTime uint64 /* in ms */
+	TaskClockTime  uint64 /* in ms */
 	CPUCycles      uint64
 	CPUInstr       uint64
 	CacheMisses    uint64

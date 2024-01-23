@@ -76,6 +76,7 @@ var (
 	}
 	SCMetricNames = []string{
 		config.CPUTime,
+		config.TaskClock,
 		config.PageCacheHit,
 	}
 	IRQMetricNames = []string{

@@ -60,7 +60,8 @@ var (
 	regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*-`)
 	// some platforms (e.g. RHEL) have different cgroup path
 	regexFindContainerIDPath2 = regexp.MustCompile(`[^:]*$`)
-	validPattern              = "^[a-zA-Z0-9]+$"
+
+	validPattern = "^[a-zA-Z0-9]+$"
 
 	regexReplaceContainerIDPathSufix = regexp.MustCompile(`\..*`)
 	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
@@ -82,7 +83,7 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 
 	name := utils.SystemProcessName
 	namespace := utils.SystemProcessNamespace
-	if cGroupID == 1 {
+	if cGroupID == 1 && withCGroupID {
 		// some kernel processes have cgroup id equal 1 or 0
 		name = utils.KernelProcessName
 		namespace = utils.KernelProcessNamespace
@@ -112,7 +113,7 @@ func ParseContainerIDFromPodStatus(containerID string) string {
 }
 
 func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	if cGroupID == 1 {
+	if cGroupID == 1 && withCGroupID {
 		return utils.KernelProcessName, nil
 	}
 	var err error
@@ -159,10 +160,15 @@ func getPathFromPID(searchPath string, pid uint64) (string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "pod") || strings.Contains(line, "containerd") || strings.Contains(line, "crio") {
+			// check if the string has ".scope" in it and truncate everything else after ".scope"
+			if strings.Contains(line, ".scope") {
+				line = strings.Split(line, ".scope")[0] + ".scope"
+			}
 			return line, nil
 		}
 	}
-	return "", fmt.Errorf("could not find cgroup description entry for pid %d", pid)
+	// this process doesn't belong to a pod, return unknown path to avoid future lookups
+	return unknownPath, nil
 }
 
 func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
@@ -225,6 +231,11 @@ func validContainerID(id string) string {
 
 // Get containerID from path. cgroup v1 and cgroup v2 will use different regex
 func extractPodContainerIDfromPath(path string) (string, error) {
+	cgroup := config.GetCGroupVersion()
+	return extractPodContainerIDfromPathWithCgroup(path, cgroup)
+}
+
+func extractPodContainerIDfromPathWithCgroup(path string, cgroup int) (string, error) {
 	if path == unknownPath {
 		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 	}
@@ -233,7 +244,6 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 	size := len(split)
 	path = split[size-1 : size][0]
 
-	cgroup := config.GetCGroupVersion()
 	if regexFindContainerIDPath.MatchString(path) {
 		sub := regexFindContainerIDPath.FindAllString(path, -1)
 		for _, element := range sub {
@@ -247,6 +257,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 			}
 		}
 	}
+	// TODO: need to get a path to verify this case
 	// as some platforms (e.g. RHEL) have a different cgroup path, if the cgroup path has information from a pod and we can't get the container id
 	// with the previous regex, we'll try to get it using a different approach
 	if regexFindContainerIDPath2.MatchString(path) {
@@ -261,6 +272,7 @@ func extractPodContainerIDfromPath(path string) (string, error) {
 		containerID := tmp[len(tmp)-1]
 		return validContainerID(containerID), nil
 	}
+
 	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 }
 
