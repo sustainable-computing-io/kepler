@@ -140,6 +140,7 @@ container_build:
 		git config --global --add safe.directory /kepler && make build
 
 build_rpm:
+	rpmautospec generate-changelog packaging/rpm/kepler.spec
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
 
 build_container_rpm:
@@ -150,7 +151,7 @@ containerized_build_rpm:
 	$(CTR_CMD) run --rm \
 		-v $(base_dir):/kepler:Z -w /kepler -v $(base_dir)/$(OUTPUT_DIR)/rpmbuild:/opt/app-root/src/rpmbuild \
 		-e _VERSION_=${_VERSION_} -e _RELEASE_=${_RELEASE_} -e _ARCH_=${_ARCH_} \
-		-e _TIMESTAMP_="$(shell date +"%a %b %d %Y")" -e _COMMITTER_=${_COMMITTER_} -e  _CHANGELOG_=${_CHANGELOG_} \
+		-e _TIMESTAMP_="$(shell date +"%a %b %d %Y")" -e _COMMITTER_=${_COMMITTER_} \
 		-e PATH=$(PATH):/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
 		make build_rpm
