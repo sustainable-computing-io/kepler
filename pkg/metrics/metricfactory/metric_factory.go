@@ -29,8 +29,11 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 	descriptions = make(map[string]*prometheus.Desc)
 	for _, name := range consts.EnergyMetricNames {
 		source := "intel_rapl"
-		if strings.Contains(name, "gpu") {
+		if strings.Contains(name, config.GPU) {
 			source = "nvidia"
+		}
+		if strings.Contains(name, config.PLATFORM) {
+			source = "acpi"
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}
