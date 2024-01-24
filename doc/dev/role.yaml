@@ -6,6 +6,15 @@ rules:
 - apiGroups: [""]
   resources: ["nodes", "nodes/proxy", "nodes/stats","pods", "nodes/metrics"]
   verbs: ["get", "watch", "list"]
+- apiGroups: ["apps"] # "apps" is the API group for deployments
+  resources: ["deployments"]
+  verbs: ["create", "get", "watch", "list"] 
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["list", "get"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

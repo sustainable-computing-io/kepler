@@ -21,7 +21,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"os"
+	"time"
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
@@ -131,7 +133,7 @@ func (kmc *TestKeplerMetric) GetMetrics(ctx context.Context) error {
 // retrieveMetrics executes command on the given pod and retrieve metrics data.
 func (kmc *TestKeplerMetric) retrieveMetrics(pod *v1.Pod) error {
 	req := kmc.createExecRequest(pod)
-	exec, err := remotecommand.NewSPDYExecutor(kmc.Config, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(kmc.Config, "GET", req.URL())
 	if err != nil {
 		return err
 	}
@@ -154,7 +156,7 @@ func (kmc *TestKeplerMetric) retrieveMetrics(pod *v1.Pod) error {
 
 // createExecRequest constructs a request for executing command inside a container in the pod.
 func (kmc *TestKeplerMetric) createExecRequest(pod *v1.Pod) *rest.Request {
-	return kmc.Client.CoreV1().RESTClient().Post().
+	return kmc.Client.CoreV1().RESTClient().Get().
 		Resource("pods").Name(pod.Name).
 		Namespace(kmc.Namespace).
 		SubResource("exec").
@@ -209,10 +211,9 @@ func checkMetricValues(keplerMetric *TestKeplerMetric, metricName string, zeroAl
 	Expect(ok).To(BeTrue(), "Metric %s should exist", metricName)
 
 	for _, val := range v {
-		value := int64(val)
-		if value == 0 {
+		if val == 0 {
 			if !zeroAllowed {
-				Expect(value).To(BeNumerically(">", int64(0)), "Value for metric %s should be greater than 0", metricName)
+				Expect(val).To(BeNumerically(">", float64(0)), "Value for metric %s should be greater than 0", metricName)
 			} else {
 				Skip("Skipping test as values for " + metricName + " are zero")
 			}
@@ -234,21 +235,32 @@ func allowZeroMetricValues(keplerMetric *TestKeplerMetric, metricName string) {
 
 // checkPodMetricValues iterates through the list of pods and checks for the presence and value of specified pod-level metric.
 func checkPodMetricValues(keplerMetric *TestKeplerMetric, metricName string, zeroAllowed bool) {
-	for _, podName := range keplerMetric.PodLists {
-		metricKey := metricName + " @ " + podName
-		v, ok := keplerMetric.Metric[metricKey]
-		Expect(ok).To(BeTrue(), "Metric %s should exists for pod %s", metricName, podName)
-		sum := 0.0
-		for _, val := range v {
-			sum += val
-		}
-		value := int64(sum)
-		if value == 0 {
-			if !zeroAllowed {
-				Expect(value).To(BeNumerically(">", int64(0)), "Pod value for metric %s should be greater than 0", metricName)
-			} else {
-				Skip("Skipping test as values for " + metricName + " are zero")
+	// retry 3 times to get the metrics, with exponential backoff
+	retry := 0
+	sum := 0.0
+	for retry < 5 {
+		for _, podName := range keplerMetric.PodLists {
+			metricKey := metricName + " @ " + podName
+			v, ok := keplerMetric.Metric[metricKey]
+			Expect(ok).To(BeTrue(), "Metric %s should exists for pod %s", metricName, podName)
+			for _, val := range v {
+				sum += val
 			}
+		}
+		if sum > 0 || zeroAllowed {
+			break
+		} else {
+			retry += 1
+			log.Infof("Retrying to get metrics for %s, retry count: %d", metricName, retry)
+			// exponential backoff
+			time.Sleep(time.Duration(math.Pow(2, float64(retry))) * time.Second)
+		}
+	}
+	if sum == 0 {
+		if !zeroAllowed {
+			Expect(sum).To(BeNumerically(">", float64(0)), "Pod value for metric %s should be greater than 0", metricName)
+		} else {
+			Skip("Skipping test as values for " + metricName + " are zero")
 		}
 	}
 }
