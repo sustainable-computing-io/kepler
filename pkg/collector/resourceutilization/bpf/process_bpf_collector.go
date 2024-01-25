@@ -108,7 +108,7 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 			}
 		}
 
-		mapKey := ct.TGID
+		mapKey := ct.PID
 		if ct.CGroupID == 1 && config.EnabledEBPFCgroupID {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
@@ -118,7 +118,7 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.TGID, ct.CGroupID, containerID, vmID, comm)
+			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm
