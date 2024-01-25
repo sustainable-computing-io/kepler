@@ -25,6 +25,6 @@ RUN prefix=/usr BUILD_STATIC_ONLY=y make install
 WORKDIR /libbpf-source/linux-5.14.0-333.el9/tools/bpf
 RUN make bpftool
 
-RUN yum -y install clang rpm-build llvm-devel
+RUN yum -y install clang rpm-build llvm-devel rpmautospec
 
 RUN yum clean all
