@@ -22,18 +22,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
+	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"k8s.io/klog/v2"
 )
 
 func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	for _, name := range consts.EnergyMetricNames {
-		source := "intel_rapl"
+		source := modeltypes.ComponentEnergySource
 		if strings.Contains(name, config.GPU) {
-			source = "nvidia"
-		}
-		if strings.Contains(name, config.PLATFORM) {
-			source = "acpi"
+			source = modeltypes.GPUEnergySource
+		} else if strings.Contains(name, config.PLATFORM) {
+			source = modeltypes.PlatformEnergySource
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}
