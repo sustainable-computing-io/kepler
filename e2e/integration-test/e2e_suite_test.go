@@ -43,6 +43,14 @@ var _ = BeforeSuite(func() {
 	keplerMetric, err = NewTestKeplerMetric(kubeconfigPath, namespace, port)
 	Expect(err).NotTo(HaveOccurred())
 
+	// for stress test only
+	// create stress-ng deployment to generate load
+	stressTest := getEnvOrDefault("ENABLE_STRESS_TEST", "")
+	if stressTest == "true" {
+		err = keplerMetric.createdStressNGDeployment()
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	ctx = context.Background()
 	err = keplerMetric.RetrievePodNames(ctx)
 	Expect(err).NotTo(HaveOccurred())

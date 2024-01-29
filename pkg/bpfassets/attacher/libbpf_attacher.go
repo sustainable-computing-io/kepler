@@ -51,12 +51,14 @@ var (
 		CPURefCycleLabel:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
 		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
+		TaskClockLabel:      {unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, true},
 	}
 	uint32Key uint32
 	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
-		"cpu_cycles_hc_reader", "cpu_ref_cycles_hc_reader", "cpu_instructions_hc_reader", "cache_miss_hc_reader", "cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array",
+		"cpu_cycles_event_reader", "cpu_ref_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_event_reader",
+		"cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
 	}
 	cpuCores = getCPUCores()
 	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
@@ -115,14 +117,19 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 	err = libbpfModule.BPFLoadObject()
 
-	// attach sched_switch tracepoint to kepler_trace function
-	prog, err := libbpfModule.GetProgram("kepler_trace")
+	// attach to kprobe__finish_task_switch kprobe function
+	prog, err := libbpfModule.GetProgram("kprobe__finish_task_switch")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kepler_trace: %v", err)
+		return libbpfModule, fmt.Errorf("failed to get kprobe__finish_task_switch: %v", err)
 	} else {
-		_, err = prog.AttachTracepoint("sched", "sched_switch")
+		_, err = prog.AttachKprobe("finish_task_switch")
 		if err != nil {
-			return libbpfModule, fmt.Errorf("failed to attach sched/sched_switch: %v", err)
+			// try finish_task_switch.isra.0
+			klog.Infof("failed to attach kprobe/finish_task_switch: %v. Try finish_task_switch.isra.0", err)
+			_, err = prog.AttachKprobe("finish_task_switch.isra.0")
+			if err != nil {
+				return libbpfModule, fmt.Errorf("failed to attach kprobe/finish_task_switch or finish_task_switch.isra.0: %v", err)
+			}
 		}
 	}
 

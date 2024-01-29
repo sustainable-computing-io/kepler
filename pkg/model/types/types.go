@@ -46,7 +46,8 @@ const (
 var (
 	// Define energy source
 	PlatformEnergySource  = "acpi"
-	ComponentEnergySource = "rapl"
+	ComponentEnergySource = "intel_rapl"
+	GPUEnergySource       = "nvidia"
 )
 
 func (s ModelOutputType) String() string {

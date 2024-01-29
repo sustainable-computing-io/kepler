@@ -12,6 +12,8 @@ RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.n
 RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
+# add utility to support nvidia-smi
+ENV NVIDIA_DRIVER_CAPABILITIES=utility
 
 RUN INSTALL_PKGS=" \
     libbpf \
@@ -31,6 +33,6 @@ COPY --from=builder /workspace/bpfassets/libbpf/bpf.o /var/lib/kepler/bpfassets
 # copy model weight
 COPY --from=builder /workspace/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json
 COPY --from=builder /workspace/data/model_weight/acpi_DynPowerModel.json /var/lib/kepler/data/acpi_DynPowerModel.json
-COPY --from=builder /workspace/data/model_weight/rapl_AbsPowerModel.json /var/lib/kepler/data/rapl_AbsPowerModel.json
-COPY --from=builder /workspace/data/model_weight/rapl_DynPowerModel.json /var/lib/kepler/data/rapl_DynPowerModel.json
+COPY --from=builder /workspace/data/model_weight/intel_rapl_AbsPowerModel.json /var/lib/kepler/data/intel_rapl_AbsPowerModel.json
+COPY --from=builder /workspace/data/model_weight/intel_rapl_DynPowerModel.json /var/lib/kepler/data/intel_rapl_DynPowerModel.json
 ENTRYPOINT ["/usr/bin/kepler"]
