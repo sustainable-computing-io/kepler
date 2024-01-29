@@ -130,7 +130,7 @@ jobs:
           file: build/Dockerfile
 
     - name: Generate SBOM
-      uses: anchore/sbom-action@v0.15.4
+      uses: anchore/sbom-action@v0.15.5
       with:
         image: quay.io/sustainable_computing_io/kepler:${{ github.event.inputs.release }}
         artifact-name: sbom-kepler-${{ github.event.inputs.release }}.json
