@@ -100,7 +100,7 @@ func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Des
 	descriptions = make(map[string]*prometheus.Desc)
 	if config.IsExposeQATMetricsEnabled() {
 		name := config.QATUtilization
-		descriptions[name] = resMetricsPromDesc(context, name, "intel_qta")
+		descriptions[name] = resMetricsPromDesc(context, name, "intel_qat")
 	}
 	return descriptions
 }

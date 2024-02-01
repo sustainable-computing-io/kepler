@@ -139,7 +139,7 @@ func (m *Stats) UpdateDynEnergy() {
 	}
 	// gpu metric
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		for gpuID := range m.EnergyUsage[config.DynEnergyInGPU].Stat {
+		for gpuID := range m.EnergyUsage[config.AbsEnergyInGPU].Stat {
 			m.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
 		}
 	}
@@ -147,7 +147,7 @@ func (m *Stats) UpdateDynEnergy() {
 
 // CalcDynEnergy calculate the difference between the absolute and idle energy/power
 func (m *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
-	if _, exits := m.EnergyUsage[absM].Stat[id]; !exits {
+	if _, exist := m.EnergyUsage[absM].Stat[id]; !exist {
 		return
 	}
 	totalPower := m.EnergyUsage[absM].Stat[id].Delta
