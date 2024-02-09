@@ -21,12 +21,12 @@ func (s *UInt64Stat) ResetDeltaValues() {
 	s.Delta = uint64(0)
 }
 
-// AddNewDelta sum a new read delta value (e.g., from bpf table that is reset, computed delta energy)
+// AddNewDelta add a new read (process) delta value (e.g., from bpf table that is reset, computed delta energy)
 func (s *UInt64Stat) AddNewDelta(newDelta uint64) error {
 	return s.SetNewDeltaValue(newDelta, true)
 }
 
-// SetNewDelta replace the delta value with a new read delta value (e.g., from bpf table that is reset, computed delta energy)
+// SetNewDelta replace the delta value with a new (node) read delta value (e.g., from bpf table that is reset, computed delta energy)
 func (s *UInt64Stat) SetNewDelta(newDelta uint64) error {
 	return s.SetNewDeltaValue(newDelta, false)
 }

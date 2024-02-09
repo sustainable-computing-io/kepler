@@ -36,7 +36,7 @@ func UpdatePlatformEnergy(nodeStats *stats.NodeStats) {
 	if platform.IsSystemCollectionSupported() {
 		nodePlatformEnergy, _ := platform.GetAbsEnergyFromPlatform()
 		for sourceID, energy := range nodePlatformEnergy {
-			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetAggrStat(sourceID, uint64(energy))
+			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, uint64(energy))
 		}
 	} else if model.IsNodePlatformPowerModelEnabled() {
 		model.UpdateNodePlatformEnergy(nodeStats)
