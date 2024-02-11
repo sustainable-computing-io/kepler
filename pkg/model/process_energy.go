@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	ProcessPlatformPowerModel  PowerMoldelInterface
-	ProcessComponentPowerModel PowerMoldelInterface
+	ProcessPlatformPowerModel  PowerModelInterface
+	ProcessComponentPowerModel PowerModelInterface
 )
 
 // createProcessPowerModelConfig: the process component power model must be set by default.

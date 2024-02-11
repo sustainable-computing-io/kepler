@@ -39,16 +39,16 @@ var (
 	EstimatorSidecarSocket = "/tmp/estimator.sock"
 )
 
-// PowerMoldelInterface defines the power model sckeleton
-type PowerMoldelInterface interface {
-	// AddProcessFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
+// PowerModelInterface defines the power model skeleton
+type PowerModelInterface interface {
+	// AddProcessFeatureValues adds the new x as a point for training or prediction. Where x are explanatory variable (or the independent variable).
 	// x values are added to a sliding window with circular list for dynamic data flow
 	AddProcessFeatureValues(x []float64)
-	// AddNodeFeatureValues adds the new x as a point for trainning or prediction. Where x are explanatory variable (or the independent variable).
+	// AddNodeFeatureValues adds the new x as a point for training or prediction. Where x are explanatory variable (or the independent variable).
 	AddNodeFeatureValues(x []float64)
-	// AddDesiredOutValue adds the new y as a point for trainning. Where y the response variable (or the dependent variable).
+	// AddDesiredOutValue adds the new y as a point for training. Where y the response variable (or the dependent variable).
 	AddDesiredOutValue(y float64)
-	// ResetSampleIdx set the sample sliding window index, setting to 0 to overwrite the old samples with new ones for trainning or prediction.
+	// ResetSampleIdx set the sample sliding window index, setting to 0 to overwrite the old samples with new ones for training or prediction.
 	ResetSampleIdx()
 	// Train triggers the regressiong fit after adding data points to create a new power model
 	Train() error
@@ -66,7 +66,7 @@ type PowerMoldelInterface interface {
 	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
-	// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
+	// GetGPUPower returns GPU Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetGPUPower(isIdlePower bool) ([]float64, error)
 }
@@ -84,7 +84,7 @@ func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames,
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
 // To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the LinearRegressor.
 // For the built-in Power Model, we have the option to use the Ratio power model.
-func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerMoldelInterface, error) {
+func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterface, error) {
 	switch modelConfig.ModelType {
 	case types.Ratio:
 		model := &local.RatioPowerModel{

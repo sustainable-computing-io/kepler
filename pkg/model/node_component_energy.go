@@ -29,7 +29,7 @@ import (
 
 var (
 	// the absulute power model includes both the absolute and idle power consumption
-	NodeComponentPowerModel PowerMoldelInterface
+	NodeComponentPowerModel PowerModelInterface
 )
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
