@@ -27,6 +27,10 @@ RUN make bpftool
 
 # rpmautospec requires epel-release
 RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-RUN yum -y install clang rpm-build llvm-devel rpmautospec
+RUN yum update -y
+RUN yum -y install clang rpm-build llvm-devel 
+#rpmautospec as bug for #1224
+# for cpuid on x86, for rpm build
+RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 RUN yum clean all
