@@ -31,6 +31,6 @@ RUN yum update -y
 RUN yum -y install clang rpm-build llvm-devel 
 #rpmautospec as bug for #1224
 # for cpuid on x86, for rpm build
-RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
+RUN if [ $(uname -i) == "x86_64" ]; then yum install -y https://www.rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/http-parser-2.9.4-6.el9.x86_64.rpm && yum install -y rpmautospec && yum install -y cpuid; fi
 
 RUN yum clean all
