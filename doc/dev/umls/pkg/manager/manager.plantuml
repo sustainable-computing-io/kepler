@@ -1,0 +1,18 @@
+@startuml
+namespace manager {
+    class CollectorManager << (S,Aquamarine) >> {
+        + StatsCollector *collector.Collector
+        + PrometheusCollector *metrics.PrometheusExporter
+        + Watcher *kubernetes.ObjListWatcher
+
+        + Start() error
+
+    }
+}
+
+
+"manager.CollectorManager" o-- "collector.Collector"
+"manager.CollectorManager" o-- "kubernetes.ObjListWatcher"
+"manager.CollectorManager" o-- "metrics.PrometheusExporter"
+
+@enduml

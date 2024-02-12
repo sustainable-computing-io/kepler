@@ -1,0 +1,1087 @@
+@startuml
+namespace attacher {
+    class BccModuleTables << (S,Aquamarine) >> {
+        + Module *bcc.Module
+        + Table *bcc.Table
+        + TableName string
+        + CPUFreqTable *bcc.Table
+
+    }
+    class ProcessBPFMetrics << (S,Aquamarine) >> {
+        + CGroupID uint64
+        + ThreadPID uint64
+        + PID uint64
+        + ProcessRunTime uint64
+        + TaskClockTime uint64
+        + CPUCycles uint64
+        + CPUInstr uint64
+        + CacheMisses uint64
+        + PageCacheHit uint64
+        + VecNR []uint16
+        + Command []byte
+
+    }
+    class perfCounter << (S,Aquamarine) >> {
+        - enabled bool
+
+        + EvType int
+        + EvConfig int
+
+    }
+}
+
+
+"attacher.BccModuleTables" o-- "bcc.Module"
+"attacher.BccModuleTables" o-- "bcc.Table"
+
+namespace bpf {
+    class bpf.ProcessBPFMetrics << (T, #FF7700) >>  {
+    }
+    class "attacher.ProcessBPFMetrics" as attacherProcessBPFMetrics {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+
+namespace bpfassets {
+    class asset << (S,Aquamarine) >> {
+        - bytes []byte
+        - info os.FileInfo
+
+    }
+    class bindataFileInfo << (S,Aquamarine) >> {
+        - name string
+        - size int64
+        - mode os.FileMode
+        - modTime time.Time
+
+        + Name() string
+        + Size() int64
+        + Mode() os.FileMode
+        + ModTime() time.Time
+        + IsDir() bool
+        + Sys() <font color=blue>interface</font>{}
+
+    }
+    class bintree << (S,Aquamarine) >> {
+        + Func <font color=blue>func</font>() (*asset, error)
+        + Children <font color=blue>map</font>[string]*bintree
+
+    }
+}
+
+
+"bpfassets.bintree" o-- "bpfassets.bintree"
+
+namespace cgroup {
+    interface CCgroupStatHandler  {
+        + SetCGroupStat(containerID string, CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class CCgroupV1StatManager << (S,Aquamarine) >> {
+        - manager cgroups.Cgroup
+
+        + SetCGroupStat(containerID string, cgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class CCgroupV2StatManager << (S,Aquamarine) >> {
+        - manager cgroups.Manager
+
+        + SetCGroupStat(containerID string, cgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class ContainerInfo << (S,Aquamarine) >> {
+        + ContainerID string
+        + ContainerName string
+        + PodName string
+        + Namespace string
+
+    }
+}
+
+"cgroup.CCgroupStatHandler" <|-- "cgroup.CCgroupV1StatManager"
+"cgroup.CCgroupStatHandler" <|-- "cgroup.CCgroupV2StatManager"
+
+
+namespace collector {
+    class Collector << (S,Aquamarine) >> {
+        + NodeStats stats.NodeStats
+        + ProcessStats <font color=blue>map</font>[uint64]*stats.ProcessStats
+        + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
+        + VMStats <font color=blue>map</font>[string]*stats.VMStats
+
+        - resetDeltaValue() 
+        - updateResourceUtilizationMetrics() 
+        - updateNodeAvgCPUFrequencyFromEBPF() 
+        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) 
+        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
+        - updateContainerResourceUtilizationMetrics() 
+        - handleIdlingProcess(pStat *stats.ProcessStats) 
+        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool) 
+        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool) 
+        - printDebugMetrics() 
+        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool) 
+
+        + Initialize() error
+        + Destroy() 
+        + Update() 
+        + UpdateEnergyUtilizationMetrics() 
+        + UpdateNodeEnergyUtilizationMetrics() 
+        + UpdateProcessEnergyUtilizationMetrics() 
+        + AggregateProcessResourceUtilizationMetrics() 
+        + AggregateProcessEnergyUtilizationMetrics() 
+
+    }
+}
+
+
+"collector.Collector" o-- "stats.ContainerStats"
+"collector.Collector" o-- "stats.NodeStats"
+"collector.Collector" o-- "stats.ProcessStats"
+"collector.Collector" o-- "stats.VMStats"
+
+namespace components {
+    interface powerInterface  {
+        + GetName() string
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]source.NodeComponentsEnergy
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+
+    }
+}
+
+
+
+namespace config {
+    interface Client  {
+        - getUnixName() (unix.Utsname, error)
+        - getCgroupV2File() string
+
+    }
+    class config << (S,Aquamarine) >> {
+        - getUnixName() (unix.Utsname, error)
+        - getCgroupV2File() string
+
+    }
+}
+
+"config.Client" <|-- "config.config"
+
+
+namespace container {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+        - collectTotalEnergyMetrics(ch <font color=blue>chan</font> prometheus.Metric, container *stats.ContainerStats) 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"container.collector" o-- "stats.ContainerStats"
+"container.collector" o-- "sync.Mutex"
+
+namespace gpu {
+    interface acceleratorInterface  {
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetAbsEnergyFromGPU() []uint32
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]source.ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported( bool) 
+
+    }
+}
+
+
+
+namespace kubelet {
+    class KubeletPodLister << (S,Aquamarine) >> {
+        + ListPods() (*[]v1.Pod, error)
+
+    }
+}
+
+
+
+namespace kubernetes {
+    class ObjListWatcher << (S,Aquamarine) >> {
+        - k8sCli *kubernetes.Clientset
+        - informer cache.SharedInformer
+        - stopChannel <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        + Mx *sync.Mutex
+        + ResourceKind string
+        + ContainerStats *<font color=blue>map</font>[string]*stats.ContainerStats
+
+        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{}) 
+        - handleAdd(obj <font color=blue>interface</font>{}) 
+        - fillInfo(pod *v1.Pod, containers []v1.ContainerStatus) error
+        - handleDeleted(obj <font color=blue>interface</font>{}) 
+        - deleteInfo(containers []v1.ContainerStatus) 
+
+        + Run() 
+        + Stop() 
+
+    }
+}
+
+
+"kubernetes.ObjListWatcher" o-- "stats.ContainerStats"
+"kubernetes.ObjListWatcher" o-- "sync.Mutex"
+
+namespace local {
+    class AllWeights << (S,Aquamarine) >> {
+        + BiasWeight float64
+        + CategoricalVariables <font color=blue>map</font>[string]<font color=blue>map</font>[string]CategoricalFeature
+        + NumericalVariables <font color=blue>map</font>[string]NormalizedNumericalFeature
+
+    }
+    class CategoricalFeature << (S,Aquamarine) >> {
+        + Weight float64
+
+    }
+    class LinearRegressor << (S,Aquamarine) >> {
+        - floatFeatureValues [][]float64
+        - floatFeatureValuesForIdlePower [][]float64
+        - xidx int
+        - enabled bool
+        - modelWeight *ComponentModelWeights
+
+        + ModelServerEndpoint string
+        + OutputType types.ModelOutputType
+        + EnergySource string
+        + TrainerName string
+        + SelectFilter string
+        + ModelWeightsURL string
+        + ModelWeightsFilepath string
+        + FloatFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+        - getWeightFromServer() (*ComponentModelWeights, error)
+        - loadWeightFromURLorLocal() (*ComponentModelWeights, error)
+        - loadWeightFromLocal() ([]byte, error)
+        - loadWeightFromURL() ([]byte, error)
+        - addFloatFeatureValues(x []float64) 
+
+        + Start() error
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class ModelRequest << (S,Aquamarine) >> {
+        + MetricNames []string
+        + OutputType string
+        + EnergySource string
+        + NodeType int
+        + Weight bool
+        + TrainerName string
+        + SelectFilter string
+
+    }
+    class ModelWeights << (S,Aquamarine) >> {
+        - getIndexedWeights(usageMetrics []string, systemFeatures []string) ([]<font color=blue>map</font>[string]CategoricalFeature, []NormalizedNumericalFeature)
+        - predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames []string, systemMetaDataFeatureValues []string) []float64
+
+    }
+    class NormalizedNumericalFeature << (S,Aquamarine) >> {
+        + Scale float64
+        + Weight float64
+
+    }
+    class RatioPowerModel << (S,Aquamarine) >> {
+        - processFeatureValues [][]float64
+        - nodeFeatureValues []float64
+        - xidx int
+
+        + NodeFeatureNames []string
+        + ProcessFeatureNames []string
+
+        - getPowerByRatio(processIdx int, resUsageFeature int, nodePowerFeature int, numProcesses float64) float64
+
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class local.ComponentFeatures << (T, #FF7700) >>  {
+    }
+    class local.ComponentModelWeights << (T, #FF7700) >>  {
+    }
+    class local.PlaformFeatures << (T, #FF7700) >>  {
+    }
+}
+"local.AllWeights" *-- "local.ModelWeights"
+
+"model.PowerModelInterface" <|-- "local.LinearRegressor"
+"model.PowerModelInterface" <|-- "local.RatioPowerModel"
+
+"local.AllWeights" o-- "local.CategoricalFeature"
+"local.AllWeights" o-- "local.NormalizedNumericalFeature"
+"local.LinearRegressor" o-- "types.ModelOutputType"
+
+namespace manager {
+    class CollectorManager << (S,Aquamarine) >> {
+        + StatsCollector *collector.Collector
+        + PrometheusCollector *metrics.PrometheusExporter
+        + Watcher *kubernetes.ObjListWatcher
+
+        + Start() error
+
+    }
+}
+
+
+"manager.CollectorManager" o-- "collector.Collector"
+"manager.CollectorManager" o-- "kubernetes.ObjListWatcher"
+"manager.CollectorManager" o-- "metrics.PrometheusExporter"
+
+namespace metricfactory {
+    interface PromMetric  {
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+    class bpfGauge << (S,Aquamarine) >> {
+        - desc *prometheus.Desc
+
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+    class promCounter << (S,Aquamarine) >> {
+        - desc *prometheus.Desc
+
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+}
+
+"metricfactory.PromMetric" <|-- "metricfactory.bpfGauge"
+"metricfactory.PromMetric" <|-- "metricfactory.promCounter"
+
+
+namespace metrics {
+    class PrometheusExporter << (S,Aquamarine) >> {
+        + ProcessStatsCollector prometheus.Collector
+        + ContainerStatsCollector prometheus.Collector
+        + VMStatsCollector prometheus.Collector
+        + NodeStatsCollector prometheus.Collector
+        + Mx sync.Mutex
+
+        + NewProcessCollector(processMetrics <font color=blue>map</font>[uint64]*stats.ProcessStats) 
+        + NewContainerCollector(containerMetrics <font color=blue>map</font>[string]*stats.ContainerStats) 
+        + NewVMCollector(vmMetrics <font color=blue>map</font>[string]*stats.VMStats) 
+        + NewNodeCollector(nodeMetrics *stats.NodeStats) 
+        + RegisterMetrics() *prometheus.Registry
+
+    }
+}
+
+
+"metrics.PrometheusExporter" o-- "prometheus.Collector"
+"metrics.PrometheusExporter" o-- "sync.Mutex"
+
+namespace model {
+    interface PowerModelInterface  {
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+
+    }
+}
+
+
+
+namespace node {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + NodeStats *stats.NodeStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"node.collector" o-- "stats.NodeStats"
+"node.collector" o-- "sync.Mutex"
+
+namespace nodecred {
+    interface NodeCredInterface  {
+        + GetNodeCredByNodeName(nodeName string, target string) (<font color=blue>map</font>[string]string, error)
+        + IsSupported(info <font color=blue>map</font>[string]string) bool
+
+    }
+    class csvNodeCred << (S,Aquamarine) >> {
+        + GetNodeCredByNodeName(nodeName string, target string) (<font color=blue>map</font>[string]string, error)
+        + IsSupported(info <font color=blue>map</font>[string]string) bool
+
+    }
+}
+
+"nodecred.NodeCredInterface" <|-- "nodecred.csvNodeCred"
+
+
+namespace platform {
+    class dummy << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    interface powerInterface  {
+        + GetName() string
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+
+    }
+}
+
+"platform.powerInterface" <|-- "platform.dummy"
+
+
+namespace process {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + ProcessStats <font color=blue>map</font>[uint64]*stats.ProcessStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"process.collector" o-- "stats.ProcessStats"
+"process.collector" o-- "sync.Mutex"
+
+namespace qat {
+    interface qatInterface  {
+        + Init() error
+        + Shutdown() bool
+        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + GetQATUtilization(device <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]source.DeviceUtilizationSample, error)
+        + IsQATCollectionSupported() bool
+        + SetQATCollectionSupported( bool) 
+
+    }
+}
+
+
+
+namespace sidecar {
+    class ComponentPowerResponse << (S,Aquamarine) >> {
+        + Powers <font color=blue>map</font>[string][]float64
+        + Message string
+
+    }
+    class EstimatorSidecar << (S,Aquamarine) >> {
+        - floatFeatureValues [][]float64
+        - floatFeatureValuesForIdlePower [][]float64
+        - xidx int
+        - enabled bool
+
+        + Socket string
+        + OutputType types.ModelOutputType
+        + EnergySource string
+        + TrainerName string
+        + SelectFilter string
+        + FloatFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+        - makeRequest(usageValues [][]float64, systemValues []string) (<font color=blue>interface</font>{}, error)
+        - addFloatFeatureValues(x []float64) 
+
+        + Start() error
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class PlatformPowerResponse << (S,Aquamarine) >> {
+        + Powers []float64
+        + Message string
+
+    }
+    class PowerRequest << (S,Aquamarine) >> {
+        + FloatFeatureNames []string
+        + UsageValues [][]float64
+        + OutputType string
+        + EnergySource string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+        + TrainerName string
+        + SelectFilter string
+
+    }
+}
+
+"model.PowerModelInterface" <|-- "sidecar.EstimatorSidecar"
+
+"sidecar.EstimatorSidecar" o-- "types.ModelOutputType"
+
+namespace source {
+    class ACPI << (S,Aquamarine) >> {
+        - powerPath string
+
+        + CollectEnergy bool
+
+        + GetName() string
+        + StopPower() 
+        + GetCPUCoreFrequency() <font color=blue>map</font>[int32]uint64
+        + IsSystemCollectionSupported() bool
+        + IsHWMONCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    class Actions << (S,Aquamarine) >> {
+        + PowerPowerSupplyReset PowerPowerSupplyReset
+
+    }
+    class ApmXgeneSysfs << (S,Aquamarine) >> {
+        - currTime time.Time
+
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+
+    }
+    class DeviceUtilizationSample << (S,Aquamarine) >> {
+        + SampleCnt uint64
+        + PciTransCnt uint64
+        + Latency uint64
+        + BwIn uint64
+        + BwOut uint64
+        + CprUtil uint64
+        + DcprUtil uint64
+        + XltUtil uint64
+        + CphUtil uint64
+        + AthUtil uint64
+
+    }
+    class GPUDummy << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetAbsEnergyFromGPU() []uint32
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported(supported bool) 
+
+    }
+    class GPUNvml << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetAbsEnergyFromGPU() []uint32
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported(supported bool) 
+
+    }
+    class InputRanges << (S,Aquamarine) >> {
+        + InputType string
+        + MinimumVoltage int
+        + MaximumVoltage int
+        + OutputWattage int
+
+    }
+    class NodeComponentsEnergy << (S,Aquamarine) >> {
+        + Core uint64
+        + DRAM uint64
+        + Uncore uint64
+        + Pkg uint64
+
+        + String() string
+
+    }
+    class PowerControl << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + PowerConsumedWatts int
+        + PowerRequestedWatts int
+        + PowerAvailableWatts int
+        + PowerCapacityWatts int
+        + PowerAllocatedWatts int
+        + PowerMetrics PowerMetrics
+        + PowerLimit PowerLimit
+        + RelatedItem []RelatedItem
+        + Status Status
+
+    }
+    class PowerDummy << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+
+    }
+    class PowerEstimate << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+
+    }
+    class PowerEstimateData << (S,Aquamarine) >> {
+        + Architecture string
+        + MinWatts float64
+        + MaxWatts float64
+        + PerGBWatts float64
+
+    }
+    class PowerHMC << (S,Aquamarine) >> {
+        + GetName() string
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    class PowerLimit << (S,Aquamarine) >> {
+        + LimitInWatts int
+        + LimitException string
+        + CorrectionInMs int
+
+    }
+    class PowerMSR << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+
+    }
+    class PowerMetrics << (S,Aquamarine) >> {
+        + IntervalInMin int
+        + MinConsumedWatts int
+        + MaxConsumedWatts int
+        + AverageConsumedWatts int
+
+    }
+    class PowerPowerSupplyReset << (S,Aquamarine) >> {
+        + Target string
+
+    }
+    class PowerSupplies << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + Status Status
+        + PowerSupplyType string
+        + LineInputVoltageType string
+        + LineInputVoltage int
+        + PowerCapacityWatts int
+        + LastPowerOutputWatts int
+        + Model string
+        + Manufacturer string
+        + FirmwareVersion string
+        + SerialNumber string
+        + PartNumber string
+        + SparePartNumber string
+        + InputRanges []InputRanges
+        + RelatedItem []RelatedItem
+
+    }
+    class PowerSysfs << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+        + GetMaxEnergyRangeFromDram() (uint64, error)
+        + GetMaxEnergyRangeFromCore() (uint64, error)
+        + GetMaxEnergyRangeFromUncore() (uint64, error)
+        + GetMaxEnergyRangeFromPackage() (uint64, error)
+
+    }
+    class ProcessUtilizationSample << (S,Aquamarine) >> {
+        + Pid uint32
+        + TimeStamp uint64
+        + SmUtil uint32
+        + MemUtil uint32
+        + EncUtil uint32
+        + DecUtil uint32
+
+    }
+    class QATTelemetry << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + GetQATUtilization(devices <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]DeviceUtilizationSample, error)
+        + Shutdown() bool
+        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + IsQATCollectionSupported() bool
+        + SetQATCollectionSupported(supported bool) 
+
+    }
+    class RedFishClient << (S,Aquamarine) >> {
+        - accessInfo RedfishAccessInfo
+        - systems []*RedfishSystemPowerResult
+        - ticker *time.Ticker
+        - probeInterval time.Duration
+        - mutex sync.Mutex
+
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+        + StopPower() 
+
+    }
+    class RedfishAccessInfo << (S,Aquamarine) >> {
+        + Username string
+        + Password string
+        + Host string
+
+    }
+    class RedfishPowerModel << (S,Aquamarine) >> {
+        + OdataType string
+        + ID string
+        + Name string
+        + PowerControl []PowerControl
+        + Voltages []Voltages
+        + PowerSupplies []PowerSupplies
+        + Actions Actions
+        + OdataID string
+
+    }
+    class RedfishSystemModel << (S,Aquamarine) >> {
+        + OdataContext string
+        + OdataID string
+        + OdataType string
+        + Description string
+        + Members []<font color=blue>struct</font>{string}
+        + MembersOdataCount int
+        + Name string
+
+    }
+    class RedfishSystemPowerResult << (S,Aquamarine) >> {
+        - system string
+        - consumedWatts int
+        - timestamp time.Time
+
+    }
+    class RelatedItem << (S,Aquamarine) >> {
+        + OdataID string
+
+    }
+    class Status << (S,Aquamarine) >> {
+        + State string
+        + Health string
+
+    }
+    class Voltages << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + SensorNumber int
+        + Status Status
+        + ReadingVolts int
+        + UpperThresholdNonCritical float64
+        + UpperThresholdCritical int
+        + UpperThresholdFatal int
+        + LowerThresholdNonCritical float64
+        + LowerThresholdCritical int
+        + LowerThresholdFatal int
+        + MinReadingRange int
+        + MaxReadingRange int
+        + PhysicalContext string
+        + RelatedItem []RelatedItem
+
+    }
+    class qatDevInfo << (S,Aquamarine) >> {
+        - addr string
+        - datafile *os.File
+
+    }
+}
+
+"platform.powerInterface" <|-- "source.ACPI"
+"components.powerInterface" <|-- "source.ApmXgeneSysfs"
+"gpu.acceleratorInterface" <|-- "source.GPUDummy"
+"gpu.acceleratorInterface" <|-- "source.GPUNvml"
+"components.powerInterface" <|-- "source.PowerDummy"
+"components.powerInterface" <|-- "source.PowerEstimate"
+"platform.powerInterface" <|-- "source.PowerHMC"
+"components.powerInterface" <|-- "source.PowerMSR"
+"components.powerInterface" <|-- "source.PowerSysfs"
+"qat.qatInterface" <|-- "source.QATTelemetry"
+"platform.powerInterface" <|-- "source.RedFishClient"
+
+"source.Actions" o-- "source.PowerPowerSupplyReset"
+"source.PowerControl" o-- "source.PowerLimit"
+"source.PowerControl" o-- "source.PowerMetrics"
+"source.PowerControl" o-- "source.RelatedItem"
+"source.PowerControl" o-- "source.Status"
+"source.PowerSupplies" o-- "source.InputRanges"
+"source.PowerSupplies" o-- "source.RelatedItem"
+"source.PowerSupplies" o-- "source.Status"
+"source.RedfishPowerModel" o-- "source.Actions"
+"source.RedfishPowerModel" o-- "source.PowerControl"
+"source.RedfishPowerModel" o-- "source.PowerSupplies"
+"source.RedfishPowerModel" o-- "source.Voltages"
+"source.Voltages" o-- "source.RelatedItem"
+"source.Voltages" o-- "source.Status"
+
+namespace stats {
+    class CPUModelData << (S,Aquamarine) >> {
+        + Core string
+        + Uarch string
+        + Family string
+        + Model string
+        + Stepping string
+
+    }
+    class CPUS << (S,Aquamarine) >> {
+        - cpusInfo []CPUModelData
+
+    }
+    class ContainerStats << (S,Aquamarine) >> {
+        + PIDS <font color=blue>map</font>[uint64]bool
+        + ContainerID string
+        + ContainerName string
+        + PodName string
+        + Namespace string
+        + CgroupStatHandler cgroup.CCgroupStatHandler
+        + CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection
+
+        + ResetDeltaValues() 
+        + SetLatestProcess(pid uint64) 
+        + String() string
+        + UpdateCgroupMetrics() error
+
+    }
+    class NodeStats << (S,Aquamarine) >> {
+        + IdleResUtilization <font color=blue>map</font>[string]uint64
+
+        + ResetDeltaValues() 
+        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) 
+        + CalcIdleEnergy(absM string, idleM string, resouceUtil string) 
+        + SetNodeOtherComponentsEnergy() 
+        + String() string
+
+    }
+    class ProcessStats << (S,Aquamarine) >> {
+        + PID uint64
+        + CGroupID uint64
+        + ContainerID string
+        + VMID string
+        + Command string
+        + IdleCounter int
+
+        + ResetDeltaValues() 
+        + String() string
+
+    }
+    class Stats << (S,Aquamarine) >> {
+        + ResourceUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
+        + EnergyUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
+
+        + ResetDeltaValues() 
+        + String() string
+        + UpdateDynEnergy() 
+        + CalcDynEnergy(absM string, idleM string, dynM string, id string) 
+        + ToEstimatorValues(featuresName []string, shouldNormalize bool) []float64
+
+    }
+    class VMStats << (S,Aquamarine) >> {
+        + PID uint64
+        + VMID string
+
+        + ResetDeltaValues() 
+
+    }
+}
+"stats.Stats" *-- "stats.ContainerStats"
+"stats.Stats" *-- "stats.NodeStats"
+"stats.Stats" *-- "stats.ProcessStats"
+"stats.Stats" *-- "stats.VMStats"
+
+
+"stats.ContainerStats" o-- "cgroup.CCgroupStatHandler"
+"stats.ContainerStats" o-- "types.UInt64StatCollection"
+"stats.Stats" o-- "types.UInt64StatCollection"
+
+namespace types {
+    class ModelConfig << (S,Aquamarine) >> {
+        + ModelType ModelType
+        + ModelOutputType ModelOutputType
+        + TrainerName string
+        + EnergySource string
+        + SelectFilter string
+        + InitModelURL string
+        + InitModelFilepath string
+        + IsNodePowerModel bool
+        + ProcessFeatureNames []string
+        + NodeFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+    }
+    class ModelOutputType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class ModelType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class UInt64Stat << (S,Aquamarine) >> {
+        + Aggr uint64
+        + Delta uint64
+
+        + String() string
+        + ResetDeltaValues() 
+        + AddNewDelta(newDelta uint64) error
+        + SetNewDelta(newDelta uint64) error
+        + SetNewDeltaValue(newDelta uint64, sum bool) error
+        + SetNewAggr(newAggr uint64) error
+        + GetDelta() uint64
+        + GetAggr() uint64
+
+    }
+    class UInt64StatCollection << (S,Aquamarine) >> {
+        + Stat <font color=blue>map</font>[string]*UInt64Stat
+
+        + SetAggrStat(key string, newAggr uint64) 
+        + AddDeltaStat(key string, newDelta uint64) 
+        + SetDeltaStat(key string, newDelta uint64) 
+        + SumAllDeltaValues() uint64
+        + SumAllAggrValues() uint64
+        + ResetDeltaValues() 
+        + String() string
+
+    }
+    class types.ModelOutputType << (T, #FF7700) >>  {
+    }
+    class types.ModelType << (T, #FF7700) >>  {
+    }
+}
+
+
+"types.ModelConfig" o-- "types.ModelOutputType"
+"types.ModelConfig" o-- "types.ModelType"
+"types.UInt64StatCollection" o-- "types.UInt64Stat"
+
+namespace virtualmachine {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + VMStats <font color=blue>map</font>[string]*stats.VMStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"virtualmachine.collector" o-- "stats.VMStats"
+"virtualmachine.collector" o-- "sync.Mutex"
+
+"__builtin__.int" #.. "local.ComponentFeatures"
+"__builtin__.int" #.. "local.PlaformFeatures"
+"__builtin__.int" #.. "types.ModelOutputType"
+"__builtin__.int" #.. "types.ModelType"
+"bpf.attacherProcessBPFMetrics" #.. "bpf.ProcessBPFMetrics"
+"local.<font color=blue>map</font>[string]ModelWeights" #.. "local.ComponentModelWeights"
+@enduml

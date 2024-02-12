@@ -1,0 +1,18 @@
+@startuml
+namespace nodecred {
+    interface NodeCredInterface  {
+        + GetNodeCredByNodeName(nodeName string, target string) (<font color=blue>map</font>[string]string, error)
+        + IsSupported(info <font color=blue>map</font>[string]string) bool
+
+    }
+    class csvNodeCred << (S,Aquamarine) >> {
+        + GetNodeCredByNodeName(nodeName string, target string) (<font color=blue>map</font>[string]string, error)
+        + IsSupported(info <font color=blue>map</font>[string]string) bool
+
+    }
+}
+
+"nodecred.NodeCredInterface" <|-- "nodecred.csvNodeCred"
+
+
+@enduml

@@ -1,0 +1,161 @@
+@startuml
+namespace bpf {
+    class bpf.ProcessBPFMetrics << (T, #FF7700) >>  {
+    }
+    class "attacher.ProcessBPFMetrics" as attacherProcessBPFMetrics {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+
+namespace collector {
+    class Collector << (S,Aquamarine) >> {
+        + NodeStats stats.NodeStats
+        + ProcessStats <font color=blue>map</font>[uint64]*stats.ProcessStats
+        + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
+        + VMStats <font color=blue>map</font>[string]*stats.VMStats
+
+        - resetDeltaValue() 
+        - updateResourceUtilizationMetrics() 
+        - updateNodeAvgCPUFrequencyFromEBPF() 
+        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) 
+        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
+        - updateContainerResourceUtilizationMetrics() 
+        - handleIdlingProcess(pStat *stats.ProcessStats) 
+        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool) 
+        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool) 
+        - printDebugMetrics() 
+        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool) 
+
+        + Initialize() error
+        + Destroy() 
+        + Update() 
+        + UpdateEnergyUtilizationMetrics() 
+        + UpdateNodeEnergyUtilizationMetrics() 
+        + UpdateProcessEnergyUtilizationMetrics() 
+        + AggregateProcessResourceUtilizationMetrics() 
+        + AggregateProcessEnergyUtilizationMetrics() 
+
+    }
+}
+
+
+"collector.Collector" o-- "stats.ContainerStats"
+"collector.Collector" o-- "stats.NodeStats"
+"collector.Collector" o-- "stats.ProcessStats"
+"collector.Collector" o-- "stats.VMStats"
+
+namespace stats {
+    class CPUModelData << (S,Aquamarine) >> {
+        + Core string
+        + Uarch string
+        + Family string
+        + Model string
+        + Stepping string
+
+    }
+    class CPUS << (S,Aquamarine) >> {
+        - cpusInfo []CPUModelData
+
+    }
+    class ContainerStats << (S,Aquamarine) >> {
+        + PIDS <font color=blue>map</font>[uint64]bool
+        + ContainerID string
+        + ContainerName string
+        + PodName string
+        + Namespace string
+        + CgroupStatHandler cgroup.CCgroupStatHandler
+        + CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection
+
+        + ResetDeltaValues() 
+        + SetLatestProcess(pid uint64) 
+        + String() string
+        + UpdateCgroupMetrics() error
+
+    }
+    class NodeStats << (S,Aquamarine) >> {
+        + IdleResUtilization <font color=blue>map</font>[string]uint64
+
+        + ResetDeltaValues() 
+        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) 
+        + CalcIdleEnergy(absM string, idleM string, resouceUtil string) 
+        + SetNodeOtherComponentsEnergy() 
+        + String() string
+
+    }
+    class ProcessStats << (S,Aquamarine) >> {
+        + PID uint64
+        + CGroupID uint64
+        + ContainerID string
+        + VMID string
+        + Command string
+        + IdleCounter int
+
+        + ResetDeltaValues() 
+        + String() string
+
+    }
+    class Stats << (S,Aquamarine) >> {
+        + ResourceUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
+        + EnergyUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
+
+        + ResetDeltaValues() 
+        + String() string
+        + UpdateDynEnergy() 
+        + CalcDynEnergy(absM string, idleM string, dynM string, id string) 
+        + ToEstimatorValues(featuresName []string, shouldNormalize bool) []float64
+
+    }
+    class VMStats << (S,Aquamarine) >> {
+        + PID uint64
+        + VMID string
+
+        + ResetDeltaValues() 
+
+    }
+}
+"stats.Stats" *-- "stats.ContainerStats"
+"stats.Stats" *-- "stats.NodeStats"
+"stats.Stats" *-- "stats.ProcessStats"
+"stats.Stats" *-- "stats.VMStats"
+
+
+"stats.ContainerStats" o-- "cgroup.CCgroupStatHandler"
+"stats.ContainerStats" o-- "types.UInt64StatCollection"
+"stats.Stats" o-- "types.UInt64StatCollection"
+
+namespace types {
+    class UInt64Stat << (S,Aquamarine) >> {
+        + Aggr uint64
+        + Delta uint64
+
+        + String() string
+        + ResetDeltaValues() 
+        + AddNewDelta(newDelta uint64) error
+        + SetNewDelta(newDelta uint64) error
+        + SetNewDeltaValue(newDelta uint64, sum bool) error
+        + SetNewAggr(newAggr uint64) error
+        + GetDelta() uint64
+        + GetAggr() uint64
+
+    }
+    class UInt64StatCollection << (S,Aquamarine) >> {
+        + Stat <font color=blue>map</font>[string]*UInt64Stat
+
+        + SetAggrStat(key string, newAggr uint64) 
+        + AddDeltaStat(key string, newDelta uint64) 
+        + SetDeltaStat(key string, newDelta uint64) 
+        + SumAllDeltaValues() uint64
+        + SumAllAggrValues() uint64
+        + ResetDeltaValues() 
+        + String() string
+
+    }
+}
+
+
+"types.UInt64StatCollection" o-- "types.UInt64Stat"
+
+"bpf.attacherProcessBPFMetrics" #.. "bpf.ProcessBPFMetrics"
+@enduml

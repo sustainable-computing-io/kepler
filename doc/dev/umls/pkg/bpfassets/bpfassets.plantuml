@@ -1,0 +1,67 @@
+@startuml
+namespace attacher {
+    class BccModuleTables << (S,Aquamarine) >> {
+        + Module *bcc.Module
+        + Table *bcc.Table
+        + TableName string
+        + CPUFreqTable *bcc.Table
+
+    }
+    class ProcessBPFMetrics << (S,Aquamarine) >> {
+        + CGroupID uint64
+        + ThreadPID uint64
+        + PID uint64
+        + ProcessRunTime uint64
+        + TaskClockTime uint64
+        + CPUCycles uint64
+        + CPUInstr uint64
+        + CacheMisses uint64
+        + PageCacheHit uint64
+        + VecNR []uint16
+        + Command []byte
+
+    }
+    class perfCounter << (S,Aquamarine) >> {
+        - enabled bool
+
+        + EvType int
+        + EvConfig int
+
+    }
+}
+
+
+"attacher.BccModuleTables" o-- "bcc.Module"
+"attacher.BccModuleTables" o-- "bcc.Table"
+
+namespace bpfassets {
+    class asset << (S,Aquamarine) >> {
+        - bytes []byte
+        - info os.FileInfo
+
+    }
+    class bindataFileInfo << (S,Aquamarine) >> {
+        - name string
+        - size int64
+        - mode os.FileMode
+        - modTime time.Time
+
+        + Name() string
+        + Size() int64
+        + Mode() os.FileMode
+        + ModTime() time.Time
+        + IsDir() bool
+        + Sys() <font color=blue>interface</font>{}
+
+    }
+    class bintree << (S,Aquamarine) >> {
+        + Func <font color=blue>func</font>() (*asset, error)
+        + Children <font color=blue>map</font>[string]*bintree
+
+    }
+}
+
+
+"bpfassets.bintree" o-- "bpfassets.bintree"
+
+@enduml
