@@ -139,12 +139,18 @@ func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 		klog.Errorf("Unexpected prometheus context: %s", context)
 		return
 	}
+	// if this is a GPU metric, we need to add the GPU ID label
+	for _, gpuMetric := range consts.GPUMetricNames {
+		if name == gpuMetric {
+			labels = append(labels, consts.GPUResUtilLabels...)
+		}
+	}
 	return MetricsPromDesc(context, name, consts.UsageMetricNameSuffix, source, labels)
 }
 
-func MetricsPromDesc(context, name, sufix, source string, labels []string) (desc *prometheus.Desc) {
+func MetricsPromDesc(context, name, suffix, source string, labels []string) (desc *prometheus.Desc) {
 	return prometheus.NewDesc(
-		prometheus.BuildFQName(consts.MetricsNamespace, context, name+sufix),
+		prometheus.BuildFQName(consts.MetricsNamespace, context, name+suffix),
 		"Aggregated value in "+name+" value from "+source,
 		labels,
 		prometheus.Labels{"source": source},

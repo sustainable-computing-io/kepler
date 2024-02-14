@@ -46,7 +46,7 @@ func UpdateNodeGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats
 	var err error
 	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
-	for _, device := range gpu.GetGpus() {
+	for gpuID, device := range gpu.GetGpus() {
 		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
 			klog.Infoln(err)
 			continue
@@ -78,8 +78,9 @@ func UpdateNodeGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats
 				}
 				processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
 			}
-			processStats[uintPid].ResourceUsage[config.GPUSMUtilization].AddDeltaStat(utils.GenericSocketID, uint64(processUtilization.SmUtil))
-			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(utils.GenericSocketID, uint64(processUtilization.MemUtil))
+			gpuName := fmt.Sprintf("%s%d", utils.GenericGPUID, gpuID)
+			processStats[uintPid].ResourceUsage[config.GPUSMUtilization].AddDeltaStat(gpuName, uint64(processUtilization.SmUtil))
+			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuName, uint64(processUtilization.MemUtil))
 		}
 	}
 

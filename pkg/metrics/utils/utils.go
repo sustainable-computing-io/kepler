@@ -122,9 +122,25 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 	switch v := instance.(type) {
 	case *stats.ContainerStats:
 		container := instance.(*stats.ContainerStats)
-		value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
-		labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
-		collect(ch, collector, value, labelValues)
+		// special case for GPU devices, the metrics are reported per device
+		isGPUMetric := false
+		for _, m := range consts.GPUMetricNames {
+			if metricName == m {
+				isGPUMetric = true
+				break
+			}
+		}
+		if isGPUMetric {
+			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
+				value = float64(utilization.Aggr)
+				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
+				collect(ch, collector, value, labelValues)
+			}
+		} else {
+			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
+			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
+			collect(ch, collector, value, labelValues)
+		}
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)
