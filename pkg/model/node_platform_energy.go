@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	NodePlatformPowerModel PowerMoldelInterface
+	NodePlatformPowerModel PowerModelInterface
 )
 
 // CreateNodeComponentPoweEstimatorModel only create a new power model estimater if node platform power metrics are not available
