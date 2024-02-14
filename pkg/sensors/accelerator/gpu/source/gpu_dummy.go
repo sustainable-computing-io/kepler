@@ -21,8 +21,6 @@ package source
 
 import (
 	"time"
-
-	"github.com/NVIDIA/go-nvml/pkg/nvml"
 )
 
 type GPUDummy struct {
@@ -47,13 +45,12 @@ func (d *GPUDummy) GetAbsEnergyFromGPU() []uint32 {
 	return []uint32{}
 }
 
-func (d *GPUDummy) GetGpus() []interface{} {
-	var devices []interface{}
-	devices = append(devices, nvml.Device{})
+func (d *GPUDummy) GetGpus() map[string]interface{} {
+	var devices map[string]interface{}
 	return devices
 }
 
-func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	processAcceleratorMetrics[0] = ProcessUtilizationSample{
 		Pid:       0,

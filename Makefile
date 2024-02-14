@@ -37,7 +37,8 @@ else
 	GC_FLAGS =
 endif
 
-GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu libbpf '
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
+GPU_TAGS := ' gpu '
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 # set GOENV
@@ -53,7 +54,8 @@ GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
-GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)
+GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)$(GPU_TAGS)
+GO_TEST_TAGS := $(GENERAL_TAGS)$(GOOS)
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
@@ -214,28 +216,28 @@ container_test:
 			make test-container-verbose'
 
 test: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
+	@echo TAGS=$(GO_TEST_TAGS)
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) ./... --race --bench=. -cover --count=1 --vet=all -v
 
 test-verbose: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
 		-timeout=30m \
 		-covermode=atomic -coverprofile=coverage.out \
 		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
 		--race --bench=. -cover --count=1 --vet=all
 
 test-container-verbose: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
 		-covermode=atomic -coverprofile=coverage.out \
 		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
 		--race -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@go test $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 
 escapes_detect: tidy-vendor

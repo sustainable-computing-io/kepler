@@ -39,6 +39,7 @@ var (
 	ContainerResUtilLabels = []string{"container_id", "pod_name", "container_name", "container_namespace"}
 	VMResUtilLabels        = []string{"vm_id"}
 	NodeResUtilLabels      = []string{"device", "instance"}
+	GPUResUtilLabels       = []string{"gpu_id"}
 )
 
 var (
@@ -89,5 +90,9 @@ var (
 		config.CgroupfsMemory,
 		config.CgroupfsSystemCPU,
 		config.CgroupfsUserCPU,
+	}
+	GPUMetricNames = []string{
+		config.GPUSMUtilization,
+		config.GPUMemUtilization,
 	}
 )

@@ -34,8 +34,18 @@ Then, we use gpu.go file to initialize the acceleratorImpl from power.go when gp
 
 // init initialize the acceleratorImpl and start it
 func init() {
-	acceleratorImpl = &gpu_source.GPUNvml{}
+	acceleratorImpl = &gpu_source.GPUDcgm{}
 	err := acceleratorImpl.Init()
+	if err == nil {
+		klog.Infoln("Using dcgm to obtain gpu power")
+		// If the library was successfully initialized, we don't need to return an error in the Init() function
+		errLib = nil
+		return
+	}
+	// if dcgm fail to work, we use nvml
+	klog.Infof("Failed to init dcgm, err: %v\n", err)
+	acceleratorImpl = &gpu_source.GPUNvml{}
+	err = acceleratorImpl.Init()
 	if err == nil {
 		klog.Infoln("Using nvml to obtain gpu power")
 		// If the library was successfully initialized, we don't need to return an error in the Init() function
