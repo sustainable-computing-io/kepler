@@ -225,7 +225,7 @@ func (r *RatioPowerModel) AddNodeFeatureValues(x []float64) {
 func (r *RatioPowerModel) AddDesiredOutValue(y float64) {
 }
 
-// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
+// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for training or prediction.
 func (r *RatioPowerModel) ResetSampleIdx() {
 	r.xidx = 0
 }

@@ -66,7 +66,7 @@ type PowerModelInterface interface {
 	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
-	// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
+	// GetGPUPower returns GPU Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetGPUPower(isIdlePower bool) ([]float64, error)
 }
