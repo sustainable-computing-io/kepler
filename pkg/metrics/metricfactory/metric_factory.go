@@ -114,6 +114,16 @@ func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*p
 	return descriptions
 }
 
+func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+	descriptions = make(map[string]*prometheus.Desc)
+	if config.EnabledGPU {
+		for _, name := range consts.GPUMetricNames {
+			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
+		}
+	}
+	return descriptions
+}
+
 func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 	var labels []string
 	switch context {

@@ -90,4 +90,8 @@ var (
 		config.CgroupfsSystemCPU,
 		config.CgroupfsUserCPU,
 	}
+	GPUMetricNames = []string{
+		config.GPUSMUtilization,
+		config.GPUMemUtilization,
+	}
 )

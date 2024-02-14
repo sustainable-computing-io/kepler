@@ -31,6 +31,8 @@ import (
 var (
 	// List of GPU identifiers for the device
 	devices []interface{}
+	// bool to check if the process utilization collection is supported
+	processUtilizationSupported bool = true
 )
 
 type GPUNvml struct {
@@ -116,29 +118,56 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, sin
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	lastUtilizationTimestamp := uint64(time.Now().Add(-1*since).UnixNano() / 1000)
 
-	processUtilizationSample, ret := device.(nvml.Device).GetProcessUtilization(lastUtilizationTimestamp)
-	if ret != nvml.SUCCESS {
-		if ret == nvml.ERROR_NOT_FOUND {
-			// ignore the error if there is no process running in the GPU
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get processes' utilization on device %v: %v", device, nvml.ErrorString(ret))
-	}
-
-	for _, pinfo := range processUtilizationSample {
-		// pid 0 means no data.
-		if pinfo.Pid != 0 {
-			processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
-				Pid:       pinfo.Pid,
-				TimeStamp: pinfo.TimeStamp,
-				SmUtil:    pinfo.SmUtil,
-				MemUtil:   pinfo.MemUtil,
-				EncUtil:   pinfo.EncUtil,
-				DecUtil:   pinfo.DecUtil,
+	if processUtilizationSupported {
+		processUtilizationSample, ret := device.(nvml.Device).GetProcessUtilization(lastUtilizationTimestamp)
+		if ret != nvml.SUCCESS {
+			if ret == nvml.ERROR_NOT_FOUND {
+				// ignore the error if there is no process running in the GPU
+				return nil, nil
+			}
+			processUtilizationSupported = false
+		} else {
+			for _, pinfo := range processUtilizationSample {
+				// pid 0 means no data.
+				if pinfo.Pid != 0 {
+					processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
+						Pid:       pinfo.Pid,
+						TimeStamp: pinfo.TimeStamp,
+						SmUtil:    pinfo.SmUtil,
+						MemUtil:   pinfo.MemUtil,
+						EncUtil:   pinfo.EncUtil,
+						DecUtil:   pinfo.DecUtil,
+					}
+				}
 			}
 		}
 	}
-
+	if !processUtilizationSupported { // if processUtilizationSupported is false, try deviceGetMPSComputeRunningProcesses_v3 to use memory usage to ratio power usage
+		config.GpuUsageMetric = config.GPUMemUtilization
+		processInfo, ret := device.(nvml.Device).GetComputeRunningProcesses()
+		if ret != nvml.SUCCESS {
+			if ret == nvml.ERROR_NOT_FOUND {
+				// ignore the error if there is no process running in the GPU
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get processes' utilization on device %v: %v", device, nvml.ErrorString(ret))
+		}
+		memoryInfo, ret := device.(nvml.Device).GetMemoryInfo()
+		if ret != nvml.SUCCESS {
+			return nil, fmt.Errorf("failed to get memory info on device %v: %v", device, nvml.ErrorString(ret))
+		}
+		// convert processInfo to processUtilizationSample
+		for _, pinfo := range processInfo {
+			// pid 0 means no data.
+			if pinfo.Pid != 0 {
+				processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
+					Pid:     pinfo.Pid,
+					MemUtil: uint32(pinfo.UsedGpuMemory * 100 / memoryInfo.Total),
+				}
+				klog.V(5).Infof("pid: %d, memUtil: %d\n", pinfo.Pid, processAcceleratorMetrics[pinfo.Pid].MemUtil)
+			}
+		}
+	}
 	return processAcceleratorMetrics, nil
 }
 

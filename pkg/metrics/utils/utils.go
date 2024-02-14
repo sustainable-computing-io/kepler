@@ -66,6 +66,12 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
+
+	if config.EnabledGPU {
+		for _, collectorName := range consts.GPUMetricNames {
+			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+		}
+	}
 }
 
 func collect(ch chan<- prometheus.Metric, collector metricfactory.PromMetric, value float64, labelValues []string) {

@@ -455,3 +455,7 @@ func IsCgroupMetricsEnabled() bool {
 func IsIRQCounterMetricsEnabled() bool {
 	return ExposeIRQCounterMetrics
 }
+
+func SetGpuUsageMetric(metric string) {
+	GpuUsageMetric = metric
+}
