@@ -1,0 +1,32 @@
+@startuml
+namespace cgroup {
+    interface CCgroupStatHandler  {
+        + SetCGroupStat(containerID string, CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class CCgroupV1StatManager << (S,Aquamarine) >> {
+        - manager cgroups.Cgroup
+
+        + SetCGroupStat(containerID string, cgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class CCgroupV2StatManager << (S,Aquamarine) >> {
+        - manager cgroups.Manager
+
+        + SetCGroupStat(containerID string, cgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection) error
+
+    }
+    class ContainerInfo << (S,Aquamarine) >> {
+        + ContainerID string
+        + ContainerName string
+        + PodName string
+        + Namespace string
+
+    }
+}
+
+"cgroup.CCgroupStatHandler" <|-- "cgroup.CCgroupV1StatManager"
+"cgroup.CCgroupStatHandler" <|-- "cgroup.CCgroupV2StatManager"
+
+
+@enduml

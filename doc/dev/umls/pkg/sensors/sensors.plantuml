@@ -1,0 +1,397 @@
+@startuml
+namespace components {
+    interface powerInterface  {
+        + GetName() string
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]source.NodeComponentsEnergy
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+
+    }
+}
+
+
+
+namespace gpu {
+    interface acceleratorInterface  {
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetAbsEnergyFromGPU() []uint32
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]source.ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported( bool) 
+
+    }
+}
+
+
+
+namespace platform {
+    class dummy << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    interface powerInterface  {
+        + GetName() string
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+
+    }
+}
+
+"platform.powerInterface" <|-- "platform.dummy"
+
+
+namespace qat {
+    interface qatInterface  {
+        + Init() error
+        + Shutdown() bool
+        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + GetQATUtilization(device <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]source.DeviceUtilizationSample, error)
+        + IsQATCollectionSupported() bool
+        + SetQATCollectionSupported( bool) 
+
+    }
+}
+
+
+
+namespace source {
+    class ACPI << (S,Aquamarine) >> {
+        - powerPath string
+
+        + CollectEnergy bool
+
+        + GetName() string
+        + StopPower() 
+        + GetCPUCoreFrequency() <font color=blue>map</font>[int32]uint64
+        + IsSystemCollectionSupported() bool
+        + IsHWMONCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    class Actions << (S,Aquamarine) >> {
+        + PowerPowerSupplyReset PowerPowerSupplyReset
+
+    }
+    class ApmXgeneSysfs << (S,Aquamarine) >> {
+        - currTime time.Time
+
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+
+    }
+    class DeviceUtilizationSample << (S,Aquamarine) >> {
+        + SampleCnt uint64
+        + PciTransCnt uint64
+        + Latency uint64
+        + BwIn uint64
+        + BwOut uint64
+        + CprUtil uint64
+        + DcprUtil uint64
+        + XltUtil uint64
+        + CphUtil uint64
+        + AthUtil uint64
+
+    }
+    class GPUDummy << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetAbsEnergyFromGPU() []uint32
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported(supported bool) 
+
+    }
+    class GPUNvml << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + Shutdown() bool
+        + GetGpus() []<font color=blue>interface</font>{}
+        + GetAbsEnergyFromGPU() []uint32
+        + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
+        + IsGPUCollectionSupported() bool
+        + SetGPUCollectionSupported(supported bool) 
+
+    }
+    class InputRanges << (S,Aquamarine) >> {
+        + InputType string
+        + MinimumVoltage int
+        + MaximumVoltage int
+        + OutputWattage int
+
+    }
+    class NodeComponentsEnergy << (S,Aquamarine) >> {
+        + Core uint64
+        + DRAM uint64
+        + Uncore uint64
+        + Pkg uint64
+
+        + String() string
+
+    }
+    class PowerControl << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + PowerConsumedWatts int
+        + PowerRequestedWatts int
+        + PowerAvailableWatts int
+        + PowerCapacityWatts int
+        + PowerAllocatedWatts int
+        + PowerMetrics PowerMetrics
+        + PowerLimit PowerLimit
+        + RelatedItem []RelatedItem
+        + Status Status
+
+    }
+    class PowerDummy << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+
+    }
+    class PowerEstimate << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + StopPower() 
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+
+    }
+    class PowerEstimateData << (S,Aquamarine) >> {
+        + Architecture string
+        + MinWatts float64
+        + MaxWatts float64
+        + PerGBWatts float64
+
+    }
+    class PowerHMC << (S,Aquamarine) >> {
+        + GetName() string
+        + StopPower() 
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+
+    }
+    class PowerLimit << (S,Aquamarine) >> {
+        + LimitInWatts int
+        + LimitException string
+        + CorrectionInMs int
+
+    }
+    class PowerMSR << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+
+    }
+    class PowerMetrics << (S,Aquamarine) >> {
+        + IntervalInMin int
+        + MinConsumedWatts int
+        + MaxConsumedWatts int
+        + AverageConsumedWatts int
+
+    }
+    class PowerPowerSupplyReset << (S,Aquamarine) >> {
+        + Target string
+
+    }
+    class PowerSupplies << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + Status Status
+        + PowerSupplyType string
+        + LineInputVoltageType string
+        + LineInputVoltage int
+        + PowerCapacityWatts int
+        + LastPowerOutputWatts int
+        + Model string
+        + Manufacturer string
+        + FirmwareVersion string
+        + SerialNumber string
+        + PartNumber string
+        + SparePartNumber string
+        + InputRanges []InputRanges
+        + RelatedItem []RelatedItem
+
+    }
+    class PowerSysfs << (S,Aquamarine) >> {
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromDram() (uint64, error)
+        + GetAbsEnergyFromCore() (uint64, error)
+        + GetAbsEnergyFromUncore() (uint64, error)
+        + GetAbsEnergyFromPackage() (uint64, error)
+        + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
+        + StopPower() 
+        + GetMaxEnergyRangeFromDram() (uint64, error)
+        + GetMaxEnergyRangeFromCore() (uint64, error)
+        + GetMaxEnergyRangeFromUncore() (uint64, error)
+        + GetMaxEnergyRangeFromPackage() (uint64, error)
+
+    }
+    class ProcessUtilizationSample << (S,Aquamarine) >> {
+        + Pid uint32
+        + TimeStamp uint64
+        + SmUtil uint32
+        + MemUtil uint32
+        + EncUtil uint32
+        + DecUtil uint32
+
+    }
+    class QATTelemetry << (S,Aquamarine) >> {
+        - collectionSupported bool
+
+        + GetName() string
+        + Init() error
+        + GetQATUtilization(devices <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]DeviceUtilizationSample, error)
+        + Shutdown() bool
+        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + IsQATCollectionSupported() bool
+        + SetQATCollectionSupported(supported bool) 
+
+    }
+    class RedFishClient << (S,Aquamarine) >> {
+        - accessInfo RedfishAccessInfo
+        - systems []*RedfishSystemPowerResult
+        - ticker *time.Ticker
+        - probeInterval time.Duration
+        - mutex sync.Mutex
+
+        + GetName() string
+        + IsSystemCollectionSupported() bool
+        + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
+        + StopPower() 
+
+    }
+    class RedfishAccessInfo << (S,Aquamarine) >> {
+        + Username string
+        + Password string
+        + Host string
+
+    }
+    class RedfishPowerModel << (S,Aquamarine) >> {
+        + OdataType string
+        + ID string
+        + Name string
+        + PowerControl []PowerControl
+        + Voltages []Voltages
+        + PowerSupplies []PowerSupplies
+        + Actions Actions
+        + OdataID string
+
+    }
+    class RedfishSystemModel << (S,Aquamarine) >> {
+        + OdataContext string
+        + OdataID string
+        + OdataType string
+        + Description string
+        + Members []<font color=blue>struct</font>{string}
+        + MembersOdataCount int
+        + Name string
+
+    }
+    class RedfishSystemPowerResult << (S,Aquamarine) >> {
+        - system string
+        - consumedWatts int
+        - timestamp time.Time
+
+    }
+    class RelatedItem << (S,Aquamarine) >> {
+        + OdataID string
+
+    }
+    class Status << (S,Aquamarine) >> {
+        + State string
+        + Health string
+
+    }
+    class Voltages << (S,Aquamarine) >> {
+        + OdataID string
+        + MemberID string
+        + Name string
+        + SensorNumber int
+        + Status Status
+        + ReadingVolts int
+        + UpperThresholdNonCritical float64
+        + UpperThresholdCritical int
+        + UpperThresholdFatal int
+        + LowerThresholdNonCritical float64
+        + LowerThresholdCritical int
+        + LowerThresholdFatal int
+        + MinReadingRange int
+        + MaxReadingRange int
+        + PhysicalContext string
+        + RelatedItem []RelatedItem
+
+    }
+    class qatDevInfo << (S,Aquamarine) >> {
+        - addr string
+        - datafile *os.File
+
+    }
+}
+
+"platform.powerInterface" <|-- "source.ACPI"
+"components.powerInterface" <|-- "source.ApmXgeneSysfs"
+"gpu.acceleratorInterface" <|-- "source.GPUDummy"
+"gpu.acceleratorInterface" <|-- "source.GPUNvml"
+"components.powerInterface" <|-- "source.PowerDummy"
+"components.powerInterface" <|-- "source.PowerEstimate"
+"platform.powerInterface" <|-- "source.PowerHMC"
+"components.powerInterface" <|-- "source.PowerMSR"
+"components.powerInterface" <|-- "source.PowerSysfs"
+"qat.qatInterface" <|-- "source.QATTelemetry"
+"platform.powerInterface" <|-- "source.RedFishClient"
+
+"source.Actions" o-- "source.PowerPowerSupplyReset"
+"source.PowerControl" o-- "source.PowerLimit"
+"source.PowerControl" o-- "source.PowerMetrics"
+"source.PowerControl" o-- "source.RelatedItem"
+"source.PowerControl" o-- "source.Status"
+"source.PowerSupplies" o-- "source.InputRanges"
+"source.PowerSupplies" o-- "source.RelatedItem"
+"source.PowerSupplies" o-- "source.Status"
+"source.RedfishPowerModel" o-- "source.Actions"
+"source.RedfishPowerModel" o-- "source.PowerControl"
+"source.RedfishPowerModel" o-- "source.PowerSupplies"
+"source.RedfishPowerModel" o-- "source.Voltages"
+"source.Voltages" o-- "source.RelatedItem"
+"source.Voltages" o-- "source.Status"
+
+@enduml

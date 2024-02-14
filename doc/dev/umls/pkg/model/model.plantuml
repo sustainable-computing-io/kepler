@@ -1,0 +1,232 @@
+@startuml
+namespace local {
+    class AllWeights << (S,Aquamarine) >> {
+        + BiasWeight float64
+        + CategoricalVariables <font color=blue>map</font>[string]<font color=blue>map</font>[string]CategoricalFeature
+        + NumericalVariables <font color=blue>map</font>[string]NormalizedNumericalFeature
+
+    }
+    class CategoricalFeature << (S,Aquamarine) >> {
+        + Weight float64
+
+    }
+    class LinearRegressor << (S,Aquamarine) >> {
+        - floatFeatureValues [][]float64
+        - floatFeatureValuesForIdlePower [][]float64
+        - xidx int
+        - enabled bool
+        - modelWeight *ComponentModelWeights
+
+        + ModelServerEndpoint string
+        + OutputType types.ModelOutputType
+        + EnergySource string
+        + TrainerName string
+        + SelectFilter string
+        + ModelWeightsURL string
+        + ModelWeightsFilepath string
+        + FloatFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+        - getWeightFromServer() (*ComponentModelWeights, error)
+        - loadWeightFromURLorLocal() (*ComponentModelWeights, error)
+        - loadWeightFromLocal() ([]byte, error)
+        - loadWeightFromURL() ([]byte, error)
+        - addFloatFeatureValues(x []float64) 
+
+        + Start() error
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class ModelRequest << (S,Aquamarine) >> {
+        + MetricNames []string
+        + OutputType string
+        + EnergySource string
+        + NodeType int
+        + Weight bool
+        + TrainerName string
+        + SelectFilter string
+
+    }
+    class ModelWeights << (S,Aquamarine) >> {
+        - getIndexedWeights(usageMetrics []string, systemFeatures []string) ([]<font color=blue>map</font>[string]CategoricalFeature, []NormalizedNumericalFeature)
+        - predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames []string, systemMetaDataFeatureValues []string) []float64
+
+    }
+    class NormalizedNumericalFeature << (S,Aquamarine) >> {
+        + Scale float64
+        + Weight float64
+
+    }
+    class RatioPowerModel << (S,Aquamarine) >> {
+        - processFeatureValues [][]float64
+        - nodeFeatureValues []float64
+        - xidx int
+
+        + NodeFeatureNames []string
+        + ProcessFeatureNames []string
+
+        - getPowerByRatio(processIdx int, resUsageFeature int, nodePowerFeature int, numProcesses float64) float64
+
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class local.ComponentFeatures << (T, #FF7700) >>  {
+    }
+    class local.ComponentModelWeights << (T, #FF7700) >>  {
+    }
+    class local.PlaformFeatures << (T, #FF7700) >>  {
+    }
+}
+"local.AllWeights" *-- "local.ModelWeights"
+
+"model.PowerModelInterface" <|-- "local.LinearRegressor"
+"model.PowerModelInterface" <|-- "local.RatioPowerModel"
+
+"local.AllWeights" o-- "local.CategoricalFeature"
+"local.AllWeights" o-- "local.NormalizedNumericalFeature"
+"local.LinearRegressor" o-- "types.ModelOutputType"
+
+namespace model {
+    interface PowerModelInterface  {
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+
+    }
+}
+
+
+
+namespace sidecar {
+    class ComponentPowerResponse << (S,Aquamarine) >> {
+        + Powers <font color=blue>map</font>[string][]float64
+        + Message string
+
+    }
+    class EstimatorSidecar << (S,Aquamarine) >> {
+        - floatFeatureValues [][]float64
+        - floatFeatureValuesForIdlePower [][]float64
+        - xidx int
+        - enabled bool
+
+        + Socket string
+        + OutputType types.ModelOutputType
+        + EnergySource string
+        + TrainerName string
+        + SelectFilter string
+        + FloatFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+        - makeRequest(usageValues [][]float64, systemValues []string) (<font color=blue>interface</font>{}, error)
+        - addFloatFeatureValues(x []float64) 
+
+        + Start() error
+        + GetPlatformPower(isIdlePower bool) ([]float64, error)
+        + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
+        + GetGPUPower(isIdlePower bool) ([]float64, error)
+        + AddProcessFeatureValues(x []float64) 
+        + AddNodeFeatureValues(x []float64) 
+        + AddDesiredOutValue(y float64) 
+        + ResetSampleIdx() 
+        + Train() error
+        + IsEnabled() bool
+        + GetModelType() types.ModelType
+        + GetProcessFeatureNamesList() []string
+        + GetNodeFeatureNamesList() []string
+
+    }
+    class PlatformPowerResponse << (S,Aquamarine) >> {
+        + Powers []float64
+        + Message string
+
+    }
+    class PowerRequest << (S,Aquamarine) >> {
+        + FloatFeatureNames []string
+        + UsageValues [][]float64
+        + OutputType string
+        + EnergySource string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+        + TrainerName string
+        + SelectFilter string
+
+    }
+}
+
+"model.PowerModelInterface" <|-- "sidecar.EstimatorSidecar"
+
+"sidecar.EstimatorSidecar" o-- "types.ModelOutputType"
+
+namespace types {
+    class ModelConfig << (S,Aquamarine) >> {
+        + ModelType ModelType
+        + ModelOutputType ModelOutputType
+        + TrainerName string
+        + EnergySource string
+        + SelectFilter string
+        + InitModelURL string
+        + InitModelFilepath string
+        + IsNodePowerModel bool
+        + ProcessFeatureNames []string
+        + NodeFeatureNames []string
+        + SystemMetaDataFeatureNames []string
+        + SystemMetaDataFeatureValues []string
+
+    }
+    class ModelOutputType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class ModelType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class types.ModelOutputType << (T, #FF7700) >>  {
+    }
+    class types.ModelType << (T, #FF7700) >>  {
+    }
+}
+
+
+"types.ModelConfig" o-- "types.ModelOutputType"
+"types.ModelConfig" o-- "types.ModelType"
+
+"__builtin__.int" #.. "local.ComponentFeatures"
+"__builtin__.int" #.. "local.PlaformFeatures"
+"__builtin__.int" #.. "types.ModelOutputType"
+"__builtin__.int" #.. "types.ModelType"
+"local.<font color=blue>map</font>[string]ModelWeights" #.. "local.ComponentModelWeights"
+@enduml

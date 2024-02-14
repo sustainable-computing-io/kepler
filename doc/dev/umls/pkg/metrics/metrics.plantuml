@@ -1,0 +1,130 @@
+@startuml
+namespace container {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+        - collectTotalEnergyMetrics(ch <font color=blue>chan</font> prometheus.Metric, container *stats.ContainerStats) 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"container.collector" o-- "stats.ContainerStats"
+"container.collector" o-- "sync.Mutex"
+
+namespace metricfactory {
+    interface PromMetric  {
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+    class bpfGauge << (S,Aquamarine) >> {
+        - desc *prometheus.Desc
+
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+    class promCounter << (S,Aquamarine) >> {
+        - desc *prometheus.Desc
+
+        + Desc() *prometheus.Desc
+        + MustMetric(value float64, labelValues ...string) prometheus.Metric
+
+    }
+}
+
+"metricfactory.PromMetric" <|-- "metricfactory.bpfGauge"
+"metricfactory.PromMetric" <|-- "metricfactory.promCounter"
+
+
+namespace metrics {
+    class PrometheusExporter << (S,Aquamarine) >> {
+        + ProcessStatsCollector prometheus.Collector
+        + ContainerStatsCollector prometheus.Collector
+        + VMStatsCollector prometheus.Collector
+        + NodeStatsCollector prometheus.Collector
+        + Mx sync.Mutex
+
+        + NewProcessCollector(processMetrics <font color=blue>map</font>[uint64]*stats.ProcessStats) 
+        + NewContainerCollector(containerMetrics <font color=blue>map</font>[string]*stats.ContainerStats) 
+        + NewVMCollector(vmMetrics <font color=blue>map</font>[string]*stats.VMStats) 
+        + NewNodeCollector(nodeMetrics *stats.NodeStats) 
+        + RegisterMetrics() *prometheus.Registry
+
+    }
+}
+
+
+"metrics.PrometheusExporter" o-- "prometheus.Collector"
+"metrics.PrometheusExporter" o-- "sync.Mutex"
+
+namespace node {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + NodeStats *stats.NodeStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"node.collector" o-- "stats.NodeStats"
+"node.collector" o-- "sync.Mutex"
+
+namespace process {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + ProcessStats <font color=blue>map</font>[uint64]*stats.ProcessStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"process.collector" o-- "stats.ProcessStats"
+"process.collector" o-- "sync.Mutex"
+
+namespace virtualmachine {
+    class collector << (S,Aquamarine) >> {
+        - descriptions <font color=blue>map</font>[string]*prometheus.Desc
+        - collectors <font color=blue>map</font>[string]metricfactory.PromMetric
+
+        + VMStats <font color=blue>map</font>[string]*stats.VMStats
+        + Mx *sync.Mutex
+
+        - initMetrics() 
+
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+
+    }
+}
+
+
+"virtualmachine.collector" o-- "stats.VMStats"
+"virtualmachine.collector" o-- "sync.Mutex"
+
+@enduml
