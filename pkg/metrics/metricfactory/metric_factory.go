@@ -23,6 +23,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
 )
 
@@ -30,10 +32,19 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 	descriptions = make(map[string]*prometheus.Desc)
 	for _, name := range consts.EnergyMetricNames {
 		source := modeltypes.ComponentEnergySource
+		// set the default source to trained power model if rapl is not available
+		// we will overwrite it if acpi or nvidia hardware sensors are available
+		if !components.IsSystemCollectionSupported() {
+			source = modeltypes.TrainedPowerModelSource
+		}
 		if strings.Contains(name, config.GPU) {
 			source = modeltypes.GPUEnergySource
 		} else if strings.Contains(name, config.PLATFORM) {
-			source = modeltypes.PlatformEnergySource
+			if !platform.IsSystemCollectionSupported() {
+				source = modeltypes.TrainedPowerModelSource
+			} else {
+				source = modeltypes.PlatformEnergySource
+			}
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}
