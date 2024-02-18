@@ -21,13 +21,53 @@ jobs:
   # for each PR run integration test    
   integration_test:
     uses: ./.github/workflows/integration_test.yml
-  #image_base:
-  #  uses: ./.github/workflows/image_base.yml
-  #  secrets:
-  #      username: ${{ secrets.BOT_NAME }}
-  #      password: ${{ secrets.BOT_TOKEN }
-  #image:
-  #  uses: ./.github/workflows/image.yml
-  #  secrets:
-  #      username: ${{ secrets.BOT_NAME }}
-  #      password: ${{ secrets.BOT_TOKEN }}
+
+  changes_image:
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.changes.outputs.src }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          src:
+            - './.github/workflows/image.yml'
+            - './build/Dockerfile'
+            - './build/Dockerfile.kepler-validator'
+
+  image:
+    needs: changes_image
+    if: ${{ needs.changes_image.outputs.src == 'true' }}
+    uses: ./.github/workflows/image.yml
+    with:
+      pushImage: false
+    secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
+
+  changes_baseimage:
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.changes.outputs.src }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          src:
+            - './.github/workflows/image_base.yml'
+            - './build/Dockerfile.builder'
+
+  image_base:
+    needs: changes_baseimage
+    if: ${{ needs.changes_baseimage.outputs.src == 'true' }}
+    uses: ./.github/workflows/image_base.yml
+    with:
+      pushImage: false
+    secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
+

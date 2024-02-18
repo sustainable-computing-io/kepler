@@ -1,20 +1,14 @@
-FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0-go1.18 as builder
+FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0 as builder
 
-ENV GOPATH=/opt/app-root GO111MODULE=on GOROOT=/usr/local/go
-
-ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-
-WORKDIR $GOPATH/src/github.com/sustainable-computing-io/kepler
-
+WORKDIR /workspace
 COPY . .
 
 # Build validator
 RUN make build-validator
-RUN ls ./_output/bin
 
 # build image
-FROM quay.io/sustainable_computing_io/kepler_base:ubi-9-libbpf-1.2.0
+FROM registry.access.redhat.com/ubi9:9.2
 
-COPY --from=builder /opt/app-root/src/github.com/sustainable-computing-io/kepler/_output/bin/validator /usr/bin/validator
+COPY --from=builder /workspace/_output/bin/validator /usr/bin/validator
 
 RUN chmod +x /usr/bin/validator
