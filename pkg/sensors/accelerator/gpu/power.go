@@ -34,6 +34,8 @@ type acceleratorInterface interface {
 	// GetName returns the name of the collector
 	GetName() string
 
+	// Init the external library loading, if any.
+	InitLib() error
 	// Init initizalize and start the GPU metric collector
 	Init() error
 	// Shutdown stops the GPU metric collector
@@ -55,7 +57,7 @@ type acceleratorInterface interface {
 // However this file is only included in the build if kepler is run with gpus support.
 // This is necessary because nvidia libraries are not available on all systems
 func Init() error {
-	return errLib
+	return acceleratorImpl.Init()
 }
 
 func Shutdown() bool {

@@ -66,7 +66,7 @@ func (d *GPUDcgm) GetName() string {
 	return "dcgm"
 }
 
-func (d *GPUDcgm) Init() error {
+func (d *GPUDcgm) InitLib() error {
 	d.devices = make(map[string]interface{})
 	d.entities = make(map[string]dcgm.GroupEntityPair)
 
@@ -84,7 +84,10 @@ func (d *GPUDcgm) Init() error {
 		d.Shutdown()
 		return err
 	}
+	return nil
+}
 
+func (d *GPUDcgm) Init() error {
 	if err := d.createDeviceGroup(); err != nil {
 		d.Shutdown()
 		return err
@@ -181,8 +184,8 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 			value := ToString(val)
 			label := deviceFieldsString[i]
 			if val.FieldId == ratioFields {
-				smUtil, _ := strconv.ParseFloat(value, 32)
-				gpuSMActive = uint32(smUtil * 100)
+				computeUtil, _ := strconv.ParseFloat(value, 32)
+				gpuSMActive = uint32(computeUtil * 100)
 			}
 			klog.V(debugLevel).Infof("Device %v Label %v Val: %v", deviceName, label, ToString(val))
 		}
@@ -208,12 +211,12 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 					if val.FieldId == ratioFields {
 						floatVal, _ := strconv.ParseFloat(value, 32)
 						// ratio of active multiprocessors to total multiprocessors
-						smUtil := uint32(floatVal * 100 * multiprocessorCountRatio)
-						klog.V(debugLevel).Infof("pid %d smUtil %d multiprocessor count ratio %v\n", p.Pid, smUtil, multiprocessorCountRatio)
+						computeUtil := uint32(floatVal * 100 * multiprocessorCountRatio)
+						klog.V(debugLevel).Infof("pid %d computeUtil %d multiprocessor count ratio %v\n", p.Pid, computeUtil, multiprocessorCountRatio)
 						processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-							Pid:       p.Pid,
-							TimeStamp: uint64(time.Now().UnixNano()),
-							SmUtil:    smUtil,
+							Pid:         p.Pid,
+							TimeStamp:   uint64(time.Now().UnixNano()),
+							ComputeUtil: computeUtil,
 						}
 					}
 				}
@@ -221,9 +224,9 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 			}
 		} else {
 			processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-				Pid:       p.Pid,
-				TimeStamp: uint64(time.Now().UnixNano()),
-				SmUtil:    gpuSMActive, // if this is not a MIG, we will use the GPU SM active value. FIXME: what if there are multiple pids in the same GPU?
+				Pid:         p.Pid,
+				TimeStamp:   uint64(time.Now().UnixNano()),
+				ComputeUtil: gpuSMActive, // if this is not a MIG, we will use the GPU SM active value. FIXME: what if there are multiple pids in the same GPU?
 			}
 		}
 	}

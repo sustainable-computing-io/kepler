@@ -93,7 +93,7 @@ func getProcessFeatureNames() []string {
 
 	// gpu metric
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		gpuMetrics := []string{config.GPUSMUtilization, config.GPUMemUtilization}
+		gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 		metrics = append(metrics, gpuMetrics...)
 		klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
 	}

@@ -92,7 +92,7 @@ var (
 	CoreUsageMetric       = getConfig("CORE_USAGE_METRIC", CPUInstruction)
 	DRAMUsageMetric       = getConfig("DRAM_USAGE_METRIC", CacheMiss)
 	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue)  // no metric (evenly divided)
-	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)       // no metric (evenly divided)
+	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUComputeUtilization)  // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", defaultMetricValue) // for uncategorized energy
 
 	SamplePeriodSec = uint64(getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec))

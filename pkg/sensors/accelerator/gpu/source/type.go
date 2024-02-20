@@ -17,10 +17,10 @@ limitations under the License.
 package source
 
 type ProcessUtilizationSample struct {
-	Pid       uint32
-	TimeStamp uint64
-	SmUtil    uint32
-	MemUtil   uint32
-	EncUtil   uint32
-	DecUtil   uint32
+	Pid         uint32
+	TimeStamp   uint64
+	ComputeUtil uint32
+	MemUtil     uint32
+	EncUtil     uint32
+	DecUtil     uint32
 }

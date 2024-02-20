@@ -92,7 +92,7 @@ var (
 		config.CgroupfsUserCPU,
 	}
 	GPUMetricNames = []string{
-		config.GPUSMUtilization,
+		config.GPUComputeUtilization,
 		config.GPUMemUtilization,
 	}
 )

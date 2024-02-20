@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -116,7 +117,7 @@ func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*p
 
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.EnabledGPU {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for _, name := range consts.GPUMetricNames {
 			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
 		}

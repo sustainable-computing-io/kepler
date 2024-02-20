@@ -31,6 +31,10 @@ func (d *GPUDummy) GetName() string {
 	return "dummy"
 }
 
+func (d *GPUDummy) InitLib() error {
+	return nil
+}
+
 // todo: refactor logic at invoking side, if gpu is not set?
 func (d *GPUDummy) Init() error {
 	d.collectionSupported = false
@@ -53,12 +57,12 @@ func (d *GPUDummy) GetGpus() map[string]interface{} {
 func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	processAcceleratorMetrics[0] = ProcessUtilizationSample{
-		Pid:       0,
-		TimeStamp: uint64(time.Now().UnixNano()),
-		SmUtil:    10,
-		MemUtil:   10,
-		EncUtil:   10,
-		DecUtil:   10,
+		Pid:         0,
+		TimeStamp:   uint64(time.Now().UnixNano()),
+		ComputeUtil: 10,
+		MemUtil:     10,
+		EncUtil:     10,
+		DecUtil:     10,
 	}
 	return processAcceleratorMetrics, nil
 }

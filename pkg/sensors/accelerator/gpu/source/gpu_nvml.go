@@ -46,7 +46,7 @@ func (GPUNvml) GetName() string {
 // Init initizalize and start the GPU metric collector
 // the nvml only works if the container has support to GPU, e.g., it is using nvidia-docker2
 // otherwise it will fail to load the libnvidia-ml.so.1
-func (n *GPUNvml) Init() (err error) {
+func (n *GPUNvml) InitLib() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("could not init nvml: %v", r)
@@ -57,7 +57,10 @@ func (n *GPUNvml) Init() (err error) {
 		err = fmt.Errorf("failed to init nvml. %s", nvmlErrorString(ret))
 		return err
 	}
+	return nil
+}
 
+func (n *GPUNvml) Init() (err error) {
 	count, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
 		nvml.Shutdown()
@@ -132,12 +135,12 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 				// pid 0 means no data.
 				if pinfo.Pid != 0 {
 					processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
-						Pid:       pinfo.Pid,
-						TimeStamp: pinfo.TimeStamp,
-						SmUtil:    pinfo.SmUtil,
-						MemUtil:   pinfo.MemUtil,
-						EncUtil:   pinfo.EncUtil,
-						DecUtil:   pinfo.DecUtil,
+						Pid:         pinfo.Pid,
+						TimeStamp:   pinfo.TimeStamp,
+						ComputeUtil: pinfo.SmUtil,
+						MemUtil:     pinfo.MemUtil,
+						EncUtil:     pinfo.EncUtil,
+						DecUtil:     pinfo.DecUtil,
 					}
 				}
 			}
@@ -165,7 +168,7 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 					Pid:     pinfo.Pid,
 					MemUtil: uint32(pinfo.UsedGpuMemory * 100 / memoryInfo.Total),
 				}
-				klog.V(1).Infof("pid: %d, memUtil: %d gpu instance %d compute instance %d\n", pinfo.Pid, processAcceleratorMetrics[pinfo.Pid].MemUtil, pinfo.GpuInstanceId, pinfo.ComputeInstanceId)
+				klog.V(5).Infof("pid: %d, memUtil: %d gpu instance %d compute instance %d\n", pinfo.Pid, processAcceleratorMetrics[pinfo.Pid].MemUtil, pinfo.GpuInstanceId, pinfo.ComputeInstanceId)
 			}
 		}
 	}
