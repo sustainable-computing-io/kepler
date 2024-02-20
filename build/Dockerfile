@@ -15,8 +15,9 @@ RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.n
 RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
-# add utility to support nvidia-smi
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
+ENV NVIDIA_MIG_CONFIG_DEVICES=all 
+ENV NVIDIA_MIG_MONITOR_DEVICES=all 
 
 RUN INSTALL_PKGS=" \
     libbpf \

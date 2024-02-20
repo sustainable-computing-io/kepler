@@ -51,6 +51,7 @@ var (
 
 type GPUDcgm struct {
 	collectionSupported bool
+	libInited           bool
 	devices             map[string]interface{}
 	deviceGroupName     string
 	deviceGroupHandle   dcgm.GroupHandle
@@ -70,12 +71,13 @@ func (d *GPUDcgm) InitLib() error {
 	d.devices = make(map[string]interface{})
 	d.entities = make(map[string]dcgm.GroupEntityPair)
 
-	cleanup, err := dcgm.Init(dcgm.Embedded)
+	// cleanup, err := dcgm.Init(dcgm.Embedded) // embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, "0")
 	if err != nil {
 		if cleanup != nil {
 			cleanup()
 		}
-		return fmt.Errorf("not able to connect to DCGM: %s", err)
+		return fmt.Errorf("not able to connect to DCGM %v: %s", config.DCGMHostEngineEndpoint, err)
 	}
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
@@ -84,26 +86,37 @@ func (d *GPUDcgm) InitLib() error {
 		d.Shutdown()
 		return err
 	}
+	d.libInited = true
 	return nil
 }
 
 func (d *GPUDcgm) Init() error {
+	if !d.libInited {
+		if err := d.InitLib(); err != nil {
+			klog.Infof("failed to init lib: %v", err)
+			return err
+		}
+	}
 	if err := d.createDeviceGroup(); err != nil {
+		klog.Infof("failed to create device group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.addDevicesToGroup(); err != nil {
+		klog.Infof("failed to add devices to group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.createFieldGroup(); err != nil {
+		klog.Infof("failed to create field group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.setupWatcher(); err != nil {
+		klog.Infof("failed to set up watcher: %v", err)
 		d.Shutdown()
 		return err
 	}
@@ -133,6 +146,7 @@ func (d *GPUDcgm) Shutdown() bool {
 		d.cleanup()
 	}
 	d.collectionSupported = false
+	d.libInited = false
 	return true
 }
 
@@ -197,8 +211,8 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 		return processAcceleratorMetrics, fmt.Errorf("failed to get running processes: %v", nvml.ErrorString(ret))
 	}
 	for _, p := range processInfo {
-		// klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", p.Pid, p.UsedGpuMemory, p.GpuInstanceId, p.ComputeInstanceId)
-		if p.GpuInstanceId > 0 { // this is a MIG, get it entity id and reads the related fields
+		klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", p.Pid, p.UsedGpuMemory, p.GpuInstanceId, p.ComputeInstanceId)
+		if p.GpuInstanceId > 0 && p.GpuInstanceId < uint32(len(gpuMigArray[deviceIndex])) { // this is a MIG, get it entity id and reads the related fields
 			entityName := gpuMigArray[deviceIndex][p.GpuInstanceId].EntityName
 			multiprocessorCountRatio := gpuMigArray[deviceIndex][p.GpuInstanceId].MultiprocessorCountRatio
 			mi := d.entities[entityName]
@@ -245,7 +259,7 @@ func (d *GPUDcgm) initNVML() error {
 }
 
 func (d *GPUDcgm) createDeviceGroup() error {
-	deviceGroupName := "kepler-exporter-" + time.Now().Format("2006-01-02-15-04-05")
+	deviceGroupName := "dev-grp-" + time.Now().Format("2006-01-02-15-04-05")
 	deviceGroup, err := dcgm.CreateGroup(deviceGroupName)
 	if err != nil {
 		return fmt.Errorf("failed to create group %q: %v", deviceGroupName, err)
@@ -310,7 +324,7 @@ func (d *GPUDcgm) addDevicesToGroup() error {
 }
 
 func (d *GPUDcgm) createFieldGroup() error {
-	fieldGroupName := "kepler-exporter-" + time.Now().Format("2006-01-02-15-04-05")
+	fieldGroupName := "fld-grp-" + time.Now().Format("2006-01-02-15-04-05")
 	fieldGroup, err := dcgm.FieldGroupCreate(fieldGroupName, deviceFields)
 	if err != nil {
 		return fmt.Errorf("failed to create field group %q: %v", fieldGroupName, err)

@@ -101,6 +101,9 @@ var (
 
 	configPath = "/etc/kepler/kepler.config"
 
+	// nvidia dcgm hostengine endpoint
+	DCGMHostEngineEndpoint = getConfig("NVIDIA_HOSTENGINE_ENDPOINT", "localhost:5555")
+
 	// dir of kernel sources for bcc
 	kernelSourceDirs = []string{}
 

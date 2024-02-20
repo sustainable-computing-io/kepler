@@ -36,6 +36,7 @@ var (
 )
 
 type GPUNvml struct {
+	libInited           bool
 	collectionSupported bool
 }
 
@@ -57,10 +58,17 @@ func (n *GPUNvml) InitLib() (err error) {
 		err = fmt.Errorf("failed to init nvml. %s", nvmlErrorString(ret))
 		return err
 	}
+	n.libInited = true
 	return nil
 }
 
 func (n *GPUNvml) Init() (err error) {
+	if !n.libInited {
+		if err := n.InitLib(); err != nil {
+			return err
+		}
+	}
+
 	count, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
 		nvml.Shutdown()
@@ -89,6 +97,7 @@ func (n *GPUNvml) Init() (err error) {
 
 // Shutdown stops the GPU metric collector
 func (n *GPUNvml) Shutdown() bool {
+	n.libInited = false
 	return nvml.Shutdown() == nvml.SUCCESS
 }
 
