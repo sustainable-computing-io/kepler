@@ -88,7 +88,7 @@ clean: clean-cross-build
 build_containerized: tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
-
+	# build kepler without dcgm
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--network host \
@@ -98,6 +98,18 @@ build_containerized: tidy-vendor format
 		.
 
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
+
+	# build kepler with dcgm
+	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"dcgm" \
+		-f $(DOCKERFILE) \
+		--network host \
+		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
+		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
+		--build-arg INSTALL_DCGM="true" \
+		--platform="linux/$(GOARCH)" \
+		.
+
+	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-dcgm $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-dcgm
 
 .PHONY: build_containerized
 
