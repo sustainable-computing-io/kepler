@@ -24,6 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -63,6 +64,12 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 	// collect the deprecated cGroup metrics, this metrics will be removed in the future
 	if config.IsCgroupMetricsEnabled() {
 		for _, collectorName := range consts.CGroupMetricNames {
+			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+		}
+	}
+
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		for _, collectorName := range consts.GPUMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
@@ -116,9 +123,25 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 	switch v := instance.(type) {
 	case *stats.ContainerStats:
 		container := instance.(*stats.ContainerStats)
-		value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
-		labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
-		collect(ch, collector, value, labelValues)
+		// special case for GPU devices, the metrics are reported per device
+		isGPUMetric := false
+		for _, m := range consts.GPUMetricNames {
+			if metricName == m {
+				isGPUMetric = true
+				break
+			}
+		}
+		if isGPUMetric {
+			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
+				value = float64(utilization.Aggr)
+				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
+				collect(ch, collector, value, labelValues)
+			}
+		} else {
+			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
+			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
+			collect(ch, collector, value, labelValues)
+		}
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)

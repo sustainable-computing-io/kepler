@@ -19,7 +19,6 @@ package accelerator
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
@@ -47,12 +46,11 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 	var err error
 	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
-	for i, device := range gpu.GetGpus() {
-		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
+	for gpuID, device := range gpu.GetGpus() {
+		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, gpuID, time.Since(lastUtilizationTimestamp)); err != nil {
 			klog.Infoln(err)
 			continue
 		}
-		gpuID := strconv.Itoa(i)
 
 		for pid, processUtilization := range processesUtilization {
 			uintPid := uint64(pid)
@@ -80,8 +78,9 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 				}
 				processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
 			}
-			processStats[uintPid].ResourceUsage[config.GPUSMUtilization].AddDeltaStat(gpuID, uint64(processUtilization.SmUtil))
-			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuID, uint64(processUtilization.MemUtil))
+			gpuName := fmt.Sprintf("%s%v", utils.GenericGPUID, gpuID)
+			processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.ComputeUtil))
+			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuName, uint64(processUtilization.MemUtil))
 		}
 	}
 

@@ -75,8 +75,8 @@ func NewStats() *Stats {
 		m.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}
 
-	if gpu.IsGPUCollectionSupported() {
-		m.ResourceUsage[config.GPUSMUtilization] = types.NewUInt64StatCollection()
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		m.ResourceUsage[config.GPUComputeUtilization] = types.NewUInt64StatCollection()
 		m.ResourceUsage[config.GPUMemUtilization] = types.NewUInt64StatCollection()
 	}
 

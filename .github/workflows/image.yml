@@ -33,7 +33,7 @@ jobs:
         username: ${{ secrets.username }}
         password: ${{ secrets.password }}
 
-    - name: Build and push kepler latest (libbpf)
+    - name: Build and push kepler latest (no dcgm)
       uses: docker/build-push-action@v5
       with:
           context: .
@@ -41,6 +41,17 @@ jobs:
           push: ${{ inputs.pushImage }}
           tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}
           labels: ${{ inputs.imageTag }}
+          file: build/Dockerfile
+
+    - name: Build and push kepler latest (with dcgm)
+      uses: docker/build-push-action@v5
+      with:
+          context: .
+          platforms: linux/amd64
+          build-args: INSTALL_DCGM="true"
+          push: ${{ inputs.pushImage }}                                                                                                                   
+          tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm
+          labels: ${{ inputs.imageTag }}-dgcm
           file: build/Dockerfile
 
     - name: Build and push kepler-validator to official group repo
