@@ -75,7 +75,6 @@ type PowerModelInterface interface {
 func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	config.InitModelConfigMap()
 	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
 	CreateNodePlatformPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	CreateNodeComponentPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
