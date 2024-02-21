@@ -43,6 +43,17 @@ jobs:
           labels: ${{ inputs.imageTag }}
           file: build/Dockerfile
 
+    - name: Build and push kepler latest (with dcgm)
+      uses: docker/build-push-action@v5
+      with:
+          context: .
+          platforms: linux/amd64
+          build-args: INSTALL_DCGM="true"
+          push: ${{ inputs.pushImage }}                                                                                                                   
+          tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm
+          labels: ${{ inputs.imageTag }}-dgcm
+          file: build/Dockerfile
+
     - name: Build and push kepler-validator to official group repo
       uses: docker/build-push-action@v5
       with:
@@ -66,14 +77,3 @@ jobs:
           name: sbom-kepler-${{ inputs.imageTag }}.json
           path: sbom-kepler-${{ inputs.imageTag }}.json
           retention-days: 1
-
-    - name: Build and push kepler latest (no dcgm)                                                                                                          
-        uses: docker/build-push-action@v5
-        with:
-            context: .
-            platforms: linux/amd64            
-            build-args: INSTALL_DCGM="true"
-            push: ${{ inputs.pushImage }}                                                                                                                     
-            tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm                                                                              
-            labels: ${{ inputs.imageTag }}-dgcm                  
-            file: build/Dockerfile
