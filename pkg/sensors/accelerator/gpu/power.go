@@ -34,16 +34,18 @@ type acceleratorInterface interface {
 	// GetName returns the name of the collector
 	GetName() string
 
+	// Init the external library loading, if any.
+	InitLib() error
 	// Init initizalize and start the GPU metric collector
 	Init() error
 	// Shutdown stops the GPU metric collector
 	Shutdown() bool
 	// GetGpus returns a map with gpu device
-	GetGpus() []interface{}
+	GetGpus() map[string]interface{}
 	// GetAbsEnergyFromGPU returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
 	GetAbsEnergyFromGPU() []uint32
 	// GetProcessResourceUtilization returns a map of ProcessUtilizationSample where the key is the process pid
-	GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error)
+	GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error)
 	// IsGPUCollectionSupported returns if it is possible to use this collector
 	IsGPUCollectionSupported() bool
 	// SetGPUCollectionSupported manually set if it is possible to use this collector. This is for testing purpose only.
@@ -55,7 +57,7 @@ type acceleratorInterface interface {
 // However this file is only included in the build if kepler is run with gpus support.
 // This is necessary because nvidia libraries are not available on all systems
 func Init() error {
-	return errLib
+	return acceleratorImpl.Init()
 }
 
 func Shutdown() bool {
@@ -65,11 +67,11 @@ func Shutdown() bool {
 	return true
 }
 
-func GetGpus() []interface{} {
+func GetGpus() map[string]interface{} {
 	if acceleratorImpl != nil && config.EnabledGPU {
 		return acceleratorImpl.GetGpus()
 	}
-	return []interface{}{}
+	return map[string]interface{}{}
 }
 
 func GetAbsEnergyFromGPU() []uint32 {
@@ -82,9 +84,9 @@ func GetAbsEnergyFromGPU() []uint32 {
 // GetProcessResourceUtilizationPerDevice tries to collect the GPU metrics.
 // There is a known issue that some clusters the nvidia GPU can stop to respod and we need to start it again.
 // See https://github.com/sustainable-computing-io/kepler/issues/610.
-func GetProcessResourceUtilizationPerDevice(device interface{}, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
+func GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
 	if acceleratorImpl != nil && config.EnabledGPU {
-		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
+		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, deviceName, since)
 		if err != nil {
 			klog.Infof("Failed to collect GPU metrics, trying to initizalize again: %v\n", err)
 			err = acceleratorImpl.Init()

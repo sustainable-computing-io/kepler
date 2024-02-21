@@ -49,6 +49,7 @@ const (
 	SystemProcessNamespace string = "system"
 	EmptyString            string = ""
 	GenericSocketID        string = "socket0"
+	GenericGPUID           string = "gpu"
 )
 
 func GetPathFromPID(searchPath string, pid uint64) (string, error) {

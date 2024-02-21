@@ -41,7 +41,7 @@ BPF_ARRAY(cpu_instructions, u64);
 BPF_PERF_ARRAY(cache_miss_event_reader);
 BPF_ARRAY(cache_miss, u64);
 
-BPF_PERF_ARRAY(task_clock_event_reader);
+BPF_PERF_ARRAY(task_clock_ms_event_reader);
 BPF_ARRAY(task_clock, u64);
 
 // cpu freq counters
@@ -90,7 +90,7 @@ static inline u64 get_on_cpu_task_clock_time(u32 *cpu_id, u64 cur_ts)
     u64 delta = 0;
 #ifdef BPF_PERF_EVENT_READ_VALUE_AVAILABLE
     struct bpf_perf_event_value c = {};
-    int error = bpf_perf_event_read_value(&task_clock_event_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
+    int error = bpf_perf_event_read_value(&task_clock_ms_event_reader, *cpu_id, &c, sizeof(struct bpf_perf_event_value));
     if (error == 0)
     {
         u64 val = c.counter;
@@ -99,7 +99,7 @@ static inline u64 get_on_cpu_task_clock_time(u32 *cpu_id, u64 cur_ts)
         bpf_map_update_elem(&task_clock, cpu_id, &val, BPF_ANY);
     }
 #else
-    int ret = bpf_perf_event_read(&task_clock_event_reader, *cpu_id);
+    int ret = bpf_perf_event_read(&task_clock_ms_event_reader, *cpu_id);
     if (ret < 0) {
         return delta;
     }

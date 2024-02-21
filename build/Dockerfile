@@ -7,19 +7,29 @@ COPY . .
 RUN ATTACHER_TAG=libbpf make build
 
 FROM registry.access.redhat.com/ubi9:9.2
+ARG INSTALL_DCGM 
+ARG INSTALL_DCGM=${INSTALL_DCGM:-""}
+
 RUN yum -y update
 RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
-# add utility to support nvidia-smi
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
+ENV NVIDIA_MIG_CONFIG_DEVICES=all 
+ENV NVIDIA_MIG_MONITOR_DEVICES=all 
 
 RUN INSTALL_PKGS=" \
     libbpf \
     " && \
-	yum install -y $INSTALL_PKGS && \
-	yum clean all
+	yum install -y $INSTALL_PKGS 
+
+RUN if [[ ! -z "$INSTALL_DCGM" ]]; then \
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
+    yum install -y datacenter-gpu-manager; \
+    fi
+
+RUN yum clean all
 
 COPY --from=builder /workspace/_output/bin/kepler /usr/bin/kepler
 COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool

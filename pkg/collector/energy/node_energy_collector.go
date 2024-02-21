@@ -36,7 +36,7 @@ func UpdatePlatformEnergy(nodeStats *stats.NodeStats) {
 	if platform.IsSystemCollectionSupported() {
 		nodePlatformEnergy, _ := platform.GetAbsEnergyFromPlatform()
 		for sourceID, energy := range nodePlatformEnergy {
-			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetAggrStat(sourceID, uint64(energy))
+			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, uint64(energy))
 		}
 	} else if model.IsNodePlatformPowerModelEnabled() {
 		model.UpdateNodePlatformEnergy(nodeStats)
@@ -66,7 +66,7 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 // UpdateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if config.EnabledGPU {
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		gpuEnergy := gpu.GetAbsEnergyFromGPU()
 		for gpu, energy := range gpuEnergy {
 			nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))

@@ -31,10 +31,10 @@ const (
 	CPURefCycle    = "cpu_ref_cycles"
 	CPUInstruction = "cpu_instructions"
 	CacheMiss      = "cache_miss"
-	TaskClock      = "task_clock"
+	TaskClock      = "task_clock_ms"
 
 	// bpf - attacher package
-	CPUTime       = "bpf_cpu_time_us"
+	CPUTime       = "bpf_cpu_time_ms"
 	PageCacheHit  = "bpf_page_cache_hit"
 	IRQNetTXLabel = "bpf_net_tx_irq"
 	IRQNetRXLabel = "bpf_net_rx_irq"
@@ -57,8 +57,8 @@ const (
 	CPUFrequency = "avg_cpu_frequency"
 
 	// NVIDIA GPU
-	GPUSMUtilization  = "gpu_sm_util"
-	GPUMemUtilization = "gpu_mem_util"
+	GPUComputeUtilization = "gpu_compute_util"
+	GPUMemUtilization     = "gpu_mem_util"
 
 	// Intel QuickAssist Technology (QAT)
 	// TODO: test if different request has different energy consumption.

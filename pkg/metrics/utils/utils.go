@@ -24,6 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -66,6 +67,12 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
+
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		for _, collectorName := range consts.GPUMetricNames {
+			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+		}
+	}
 }
 
 func collect(ch chan<- prometheus.Metric, collector metricfactory.PromMetric, value float64, labelValues []string) {
@@ -97,7 +104,7 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 	// only node metrics report metrics per device, process, container and VM reports the aggregation
 	case *stats.NodeStats:
 		node := instance.(*stats.NodeStats)
-		if _, exit := node.EnergyUsage[metricName]; exit {
+		if _, exist := node.EnergyUsage[metricName]; exist {
 			for deviceID, utilization := range node.EnergyUsage[metricName].Stat {
 				value = float64(utilization.Aggr) / consts.MiliJouleToJoule
 				labelValues = []string{deviceID, stats.NodeName, mode}
@@ -116,9 +123,25 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 	switch v := instance.(type) {
 	case *stats.ContainerStats:
 		container := instance.(*stats.ContainerStats)
-		value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
-		labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
-		collect(ch, collector, value, labelValues)
+		// special case for GPU devices, the metrics are reported per device
+		isGPUMetric := false
+		for _, m := range consts.GPUMetricNames {
+			if metricName == m {
+				isGPUMetric = true
+				break
+			}
+		}
+		if isGPUMetric {
+			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
+				value = float64(utilization.Aggr)
+				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
+				collect(ch, collector, value, labelValues)
+			}
+		} else {
+			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
+			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
+			collect(ch, collector, value, labelValues)
+		}
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)
@@ -135,7 +158,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 	// only node metrics report metrics per device, process, container and VM reports the aggregation
 	case *stats.NodeStats:
 		node := instance.(*stats.NodeStats)
-		if _, exit := node.ResourceUsage[metricName]; exit {
+		if _, exist := node.ResourceUsage[metricName]; exist {
 			for deviceID, utilization := range node.ResourceUsage[metricName].Stat {
 				value = float64(utilization.Aggr)
 				labelValues = []string{deviceID, stats.NodeName}

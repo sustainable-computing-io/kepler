@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -100,7 +101,7 @@ func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Des
 	descriptions = make(map[string]*prometheus.Desc)
 	if config.IsExposeQATMetricsEnabled() {
 		name := config.QATUtilization
-		descriptions[name] = resMetricsPromDesc(context, name, "intel_qta")
+		descriptions[name] = resMetricsPromDesc(context, name, "intel_qat")
 	}
 	return descriptions
 }
@@ -110,6 +111,16 @@ func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*p
 	if config.IsExposeCPUFrequencyMetricsEnabled() {
 		name := config.CPUFrequency
 		descriptions[name] = resMetricsPromDesc(context, name, "")
+	}
+	return descriptions
+}
+
+func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+	descriptions = make(map[string]*prometheus.Desc)
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		for _, name := range consts.GPUMetricNames {
+			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
+		}
 	}
 	return descriptions
 }
@@ -129,12 +140,18 @@ func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 		klog.Errorf("Unexpected prometheus context: %s", context)
 		return
 	}
+	// if this is a GPU metric, we need to add the GPU ID label
+	for _, gpuMetric := range consts.GPUMetricNames {
+		if name == gpuMetric {
+			labels = append(labels, consts.GPUResUtilLabels...)
+		}
+	}
 	return MetricsPromDesc(context, name, consts.UsageMetricNameSuffix, source, labels)
 }
 
-func MetricsPromDesc(context, name, sufix, source string, labels []string) (desc *prometheus.Desc) {
+func MetricsPromDesc(context, name, suffix, source string, labels []string) (desc *prometheus.Desc) {
 	return prometheus.NewDesc(
-		prometheus.BuildFQName(consts.MetricsNamespace, context, name+sufix),
+		prometheus.BuildFQName(consts.MetricsNamespace, context, name+suffix),
 		"Aggregated value in "+name+" value from "+source,
 		labels,
 		prometheus.Labels{"source": source},

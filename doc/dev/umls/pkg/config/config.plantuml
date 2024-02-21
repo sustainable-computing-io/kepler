@@ -1,0 +1,18 @@
+@startuml
+namespace config {
+    interface Client  {
+        - getUnixName() (unix.Utsname, error)
+        - getCgroupV2File() string
+
+    }
+    class config << (S,Aquamarine) >> {
+        - getUnixName() (unix.Utsname, error)
+        - getCgroupV2File() string
+
+    }
+}
+
+"config.Client" <|-- "config.config"
+
+
+@enduml

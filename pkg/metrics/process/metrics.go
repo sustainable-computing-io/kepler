@@ -78,6 +78,10 @@ func (c *collector) initMetrics() {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
 	}
+	for name, desc := range metricfactory.GPUUsageMetricsPromDesc(context) {
+		c.descriptions[name] = desc
+		c.collectors[name] = metricfactory.NewPromCounter(desc)
+	}
 }
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {

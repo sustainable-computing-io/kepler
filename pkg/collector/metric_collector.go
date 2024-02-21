@@ -180,14 +180,9 @@ func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 // update the node metrics that are not related to aggregated resource utilization of processes
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		accelerator.UpdateNodeGPUUtilizationMetrics(c.ProcessStats)
-	}
-
 	if config.IsExposeQATMetricsEnabled() && qat.IsQATCollectionSupported() {
 		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats())
 	}
-
 	if config.ExposeCPUFrequencyMetrics {
 		c.updateNodeAvgCPUFrequencyFromEBPF()
 	}
@@ -198,6 +193,9 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
 	bpf.UpdateProcessBPFMetrics(c.ProcessStats)
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
+	}
 }
 
 // this is only for cgroup metrics, as these metrics are deprecated we might remove thi in the future

@@ -1,0 +1,28 @@
+@startuml
+namespace kubernetes {
+    class ObjListWatcher << (S,Aquamarine) >> {
+        - k8sCli *kubernetes.Clientset
+        - informer cache.SharedInformer
+        - stopChannel <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        + Mx *sync.Mutex
+        + ResourceKind string
+        + ContainerStats *<font color=blue>map</font>[string]*stats.ContainerStats
+
+        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{}) 
+        - handleAdd(obj <font color=blue>interface</font>{}) 
+        - fillInfo(pod *v1.Pod, containers []v1.ContainerStatus) error
+        - handleDeleted(obj <font color=blue>interface</font>{}) 
+        - deleteInfo(containers []v1.ContainerStatus) 
+
+        + Run() 
+        + Stop() 
+
+    }
+}
+
+
+"kubernetes.ObjListWatcher" o-- "stats.ContainerStats"
+"kubernetes.ObjListWatcher" o-- "sync.Mutex"
+
+@enduml

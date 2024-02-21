@@ -92,7 +92,7 @@ var (
 	CoreUsageMetric       = getConfig("CORE_USAGE_METRIC", CPUInstruction)
 	DRAMUsageMetric       = getConfig("DRAM_USAGE_METRIC", CacheMiss)
 	UncoreUsageMetric     = getConfig("UNCORE_USAGE_METRIC", defaultMetricValue)  // no metric (evenly divided)
-	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUSMUtilization)       // no metric (evenly divided)
+	GpuUsageMetric        = getConfig("GPU_USAGE_METRIC", GPUComputeUtilization)  // no metric (evenly divided)
 	GeneralUsageMetric    = getConfig("GENERAL_USAGE_METRIC", defaultMetricValue) // for uncategorized energy
 
 	SamplePeriodSec = uint64(getIntConfig("SAMPLE_PERIOD_SEC", defaultSamplePeriodSec))
@@ -100,6 +100,9 @@ var (
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
 	configPath = "/etc/kepler/kepler.config"
+
+	// nvidia dcgm hostengine endpoint
+	DCGMHostEngineEndpoint = getConfig("NVIDIA_HOSTENGINE_ENDPOINT", "localhost:5555")
 
 	// dir of kernel sources for bcc
 	kernelSourceDirs = []string{}
@@ -454,4 +457,8 @@ func IsCgroupMetricsEnabled() bool {
 
 func IsIRQCounterMetricsEnabled() bool {
 	return ExposeIRQCounterMetrics
+}
+
+func SetGpuUsageMetric(metric string) {
+	GpuUsageMetric = metric
 }

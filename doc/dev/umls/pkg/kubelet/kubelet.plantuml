@@ -1,0 +1,11 @@
+@startuml
+namespace kubelet {
+    class KubeletPodLister << (S,Aquamarine) >> {
+        + ListPods() (*[]v1.Pod, error)
+
+    }
+}
+
+
+
+@enduml
