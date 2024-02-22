@@ -60,10 +60,10 @@ func (weights ModelWeights) getIndexedWeights(usageMetrics, systemFeatures []str
 	return
 }
 
-func (weights ModelWeights) getX(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) ([]float64, [][]float64, []NormalizedNumericalFeature) {
+func (weights ModelWeights) getX(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) (categoricalX []float64, numericalX [][]float64, numericalWeights []NormalizedNumericalFeature) {
 	categoricalWeights, numericalWeights := weights.getIndexedWeights(usageMetricNames, systemMetaDataFeatureNames)
-	categoricalX := make([]float64, len(categoricalWeights))
-	numericalX := make([][]float64, len(usageMetricValues))
+	categoricalX = make([]float64, len(categoricalWeights))
+	numericalX = make([][]float64, len(usageMetricValues))
 	for i, coeffMap := range categoricalWeights {
 		categoricalX[i] = coeffMap[systemMetaDataFeatureValues[i]].Weight
 	}
