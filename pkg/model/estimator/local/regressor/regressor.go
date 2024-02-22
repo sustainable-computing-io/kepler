@@ -100,7 +100,8 @@ func (r *Regressor) Start() error {
 		r.modelWeight = weight
 		r.modelPredictors = map[string]Predictor{}
 		for component, allWeights := range *weight {
-			predictor, err := r.createPredictor(allWeights)
+			var predictor Predictor
+			predictor, err = r.createPredictor(allWeights)
 			if err != nil {
 				return err
 			}

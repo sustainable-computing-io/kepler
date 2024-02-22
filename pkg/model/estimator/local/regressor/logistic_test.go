@@ -20,66 +20,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
-
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
 
 var (
-	logisticCurveFits = []float64{1, 1, 1, 1}
+	logisticCurveFits          = []float64{1, 1, 1, 1}
+	dummyLogisticWeightHandler = genHandlerFunc(logisticCurveFits)
 )
 
-func getDummyLogisticWeights(w http.ResponseWriter, r *http.Request) {
-	reqBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		panic(err)
-	}
-	var req ModelRequest
-	err = json.Unmarshal(reqBody, &req)
-	if err != nil {
-		panic(err)
-	}
-	if req.EnergySource == types.ComponentEnergySource {
-		err = json.NewEncoder(w).Encode(GenComponentModelWeights(logisticCurveFits))
-	} else {
-		err = json.NewEncoder(w).Encode(GenPlatformModelWeights(logisticCurveFits))
-	}
-	if err != nil {
-		panic(err)
-	}
-}
-
 var _ = Describe("Test Logistic Predictor Unit", func() {
-	It("Get Node Platform Power By Logistic Regression with ModelServerEndpoint", func() {
-		testServer := httptest.NewServer(http.HandlerFunc(getDummyLogisticWeights))
-		modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.PlatformEnergySource)
-		r := genRegressor(types.AbsPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, types.LogisticTrainer)
-		err := r.Start()
-		Expect(err).To(BeNil())
-		r.ResetSampleIdx()
-		r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
-		powers, err := r.GetPlatformPower(false)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(powers)).Should(Equal(1))
-		// TODO: verify if the power makes sense
+	It("Get Node Platform Power By Logistic Regression", func() {
+		powers := GetNodePlatformPowerFromDummyServer(dummyLogisticWeightHandler, types.LogisticTrainer)
 		Expect(int(powers[0])).Should(BeEquivalentTo(2))
 	})
-	It("Get Node Components Power By Logistic Regression with ModelServerEndpoint", func() {
-		testServer := httptest.NewServer(http.HandlerFunc(getDummyLogisticWeights))
-		modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
-		r := genRegressor(types.AbsPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath, types.LogisticTrainer)
-		err := r.Start()
-		Expect(err).To(BeNil())
-		r.ResetSampleIdx()
-		r.AddNodeFeatureValues(nodeFeatureValues) // add samples to the power model
-		compPowers, err := r.GetComponentsPower(false)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(compPowers)).Should(Equal(1))
-		// TODO: verify if the power makes sense
+
+	It("Get Node Components Power By Logistic Regression", func() {
+		compPowers := GetNodeComponentsPowerFromDummyServer(dummyLogisticWeightHandler, types.LogisticTrainer)
 		Expect(int(compPowers[0].Core/1000) * 1000).Should(BeEquivalentTo(2000))
 	})
 })
