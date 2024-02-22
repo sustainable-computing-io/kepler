@@ -22,6 +22,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
+	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local/regressor"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/sidecar"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
@@ -54,7 +55,7 @@ type PowerModelInterface interface {
 	Train() error
 	// IsEnabled returns true if the power model was trained and is active
 	IsEnabled() bool
-	// GetModelType returns if the model is Ratio, LinearRegressor or EstimatorSidecar
+	// GetModelType returns if the model is Ratio, Regressor or EstimatorSidecar
 	GetModelType() types.ModelType
 	// GetProcessFeatureNamesList returns the list of process features that the model was configured to use
 	GetProcessFeatureNamesList() []string
@@ -81,7 +82,7 @@ func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames,
 }
 
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
-// To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the LinearRegressor.
+// To estimate the power using the trained models with the model server, we can choose between using the EstimatorSidecar or the Regressor.
 // For the built-in Power Model, we have the option to use the Ratio power model.
 func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterface, error) {
 	switch modelConfig.ModelType {
@@ -93,14 +94,14 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 		klog.V(3).Infof("Using Power Model Ratio")
 		return model, nil
 
-	case types.LinearRegressor:
+	case types.Regressor:
 		var featuresNames []string
 		if modelConfig.IsNodePowerModel {
 			featuresNames = modelConfig.NodeFeatureNames
 		} else {
 			featuresNames = modelConfig.ProcessFeatureNames
 		}
-		model := &local.LinearRegressor{
+		model := &regressor.Regressor{
 			ModelServerEndpoint:         config.ModelServerEndpoint,
 			OutputType:                  modelConfig.ModelOutputType,
 			EnergySource:                modelConfig.EnergySource,
@@ -189,14 +190,14 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 		modelType = types.EstimatorSidecar
 		return
 	}
-	useLinearRegressionStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LinearRegressionEnabledKey)]
-	if strings.EqualFold(useLinearRegressionStr, "true") {
-		modelType = types.LinearRegressor
+	useLocalRegressor := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey)]
+	if strings.EqualFold(useLocalRegressor, "true") {
+		modelType = types.Regressor
 		return
 	}
-	// set the default node power model as LinearRegressor
+	// set the default node power model as Regressor
 	if powerSourceTarget == config.NodePlatformPowerKey || powerSourceTarget == config.NodeComponentsPowerKey {
-		modelType = types.LinearRegressor
+		modelType = types.Regressor
 		return
 	}
 	// set the default process power model as Ratio
@@ -243,7 +244,7 @@ func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 }
 
 // getPowerModelOutputType return the model output type for a given power source, such as platform, components, process or node power sources.
-// getPowerModelOutputType only affects LinearRegressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
+// getPowerModelOutputType only affects Regressor or EstimatorSidecar model. The Ratio model does not download data from the Model Server.
 // AbsPower for Node, DynPower for process and process
 func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 	switch powerSourceTarget {
