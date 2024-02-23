@@ -8,7 +8,7 @@ Summary:        Kepler Binary
 
 License:        Apache License 2.0
 URL:            https://github.com/sustainable-computing-io/kepler/
-Source0:        https://github.com/sustainable-computing-io/kepler/archive/refs/tags/v%{version}.tar.gz
+Source0:        kepler.tar.gz
 
 BuildRequires: systemd
 BuildRequires: clang llvm llvm-devel zlib-devel make libbpf
