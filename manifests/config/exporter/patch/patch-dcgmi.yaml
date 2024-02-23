@@ -1,0 +1,13 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler-exporter
+  namespace: system
+spec:
+  template:
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kepler-exporter
+        image: quay.io/sustainable_computing_io/kepler:latest-dcgm

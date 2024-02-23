@@ -49,6 +49,7 @@ declare TRAINER_DEPLOY=false
 declare QAT_DEPLOY=false
 declare PROMETHEUS_DEPLOY=false
 declare HIGH_GRANULARITY=false
+declare DCGM_DEPLOY=false
 
 ensure_all_tools() {
 	header "Ensuring all tools are installed"
@@ -196,7 +197,15 @@ deploy_qat() {
 	uncomment_patch qat "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 	ok "QAT deployment configured"
 }
-
+deploy_dcgm() {
+	header "DCGM Deployment"
+	$DCGM_DEPLOY || {
+		skip "skipping dcgm deployment"
+		return 0
+	}
+	uncomment_patch dcgm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "DCGM deployment configured"
+}
 build_manifest() {
 	info "Building manifests ..."
 	for deploy in $(declare -F | cut -f3 -d ' ' | grep 'deploy_'); do
