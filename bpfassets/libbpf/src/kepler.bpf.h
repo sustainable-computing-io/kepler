@@ -19,7 +19,12 @@ limitations under the License.
  * Redefine it to just asm to enable successful compilation.
  * see https://github.com/iovisor/bcc/commit/2d1497cde1cc9835f759a707b42dea83bee378b8 for more details
  */
-#include "vmlinux.h"
+#if defined(__TARGET_ARCH_x86)
+#include "vmlinux-x86.h"
+#endif
+#if defined(__TARGET_ARCH_arm64)
+#include "vmlinux-arm64.h"
+#endif
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
