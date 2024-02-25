@@ -1,6 +1,6 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.20
+go 1.21
 
 require (
 	github.com/NVIDIA/go-nvml v0.12.0-1
@@ -14,12 +14,13 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.6
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
-	github.com/opencontainers/runc v1.1.10
+	github.com/opencontainers/runc v1.1.12
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.48.1
 	github.com/sirupsen/logrus v1.9.0
+	github.com/zhmcclient/golang-zhmcclient v0.2.1-0.20231123024149-4d04b40c0e93
 	golang.org/x/sys v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.2
@@ -70,6 +71,9 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
