@@ -30,10 +30,6 @@ RUN if [[ ! -z "$INSTALL_DCGM" ]]; then \
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
             yum install -y datacenter-gpu-manager; \
         fi; \
-        if [ "$TARGETARCH" == "arm64" ]; then \
-            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/aarch64/cuda-rhel9.repo; \
-            yum install -y datacenter-gpu-manager; \
-        fi; \
     fi
 
 RUN yum clean all
