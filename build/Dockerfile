@@ -9,6 +9,7 @@ RUN ATTACHER_TAG=libbpf make build
 FROM registry.access.redhat.com/ubi9:9.2
 ARG INSTALL_DCGM 
 ARG INSTALL_DCGM=${INSTALL_DCGM:-""}
+ARG TARGETARCH
 
 RUN yum -y update
 RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
@@ -25,8 +26,14 @@ RUN INSTALL_PKGS=" \
 	yum install -y $INSTALL_PKGS 
 
 RUN if [[ ! -z "$INSTALL_DCGM" ]]; then \
-    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
-    yum install -y datacenter-gpu-manager; \
+        if [ "$TARGETARCH" == "amd64" ]; then \
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
+            yum install -y datacenter-gpu-manager; \
+        fi; \
+        if [ "$TARGETARCH" == "arm64" ]; then \
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/aarch64/cuda-rhel9.repo; \
+            yum install -y datacenter-gpu-manager; \
+        fi; \
     fi
 
 RUN yum clean all
