@@ -32,6 +32,7 @@ import (
 
 const (
 	debugLevel = 5
+	isSocket   = "0"
 )
 
 var (
@@ -71,13 +72,19 @@ func (d *GPUDcgm) InitLib() error {
 	d.devices = make(map[string]interface{})
 	d.entities = make(map[string]dcgm.GroupEntityPair)
 
-	// cleanup, err := dcgm.Init(dcgm.Embedded) // embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
-	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, "0")
+	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket)
 	if err != nil {
-		if cleanup != nil {
-			cleanup()
+		klog.Warningf("There is no DCGM daemon running in the host: %s", err)
+		// embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+		cleanup, err = dcgm.Init(dcgm.Embedded)
+		if err != nil {
+			klog.Warningf("Could not start DCGM. Error: %s", err)
+			if cleanup != nil {
+				cleanup()
+			}
+			return fmt.Errorf("not able to connect to DCGM: %s", err)
 		}
-		return fmt.Errorf("not able to connect to DCGM %v: %s", config.DCGMHostEngineEndpoint, err)
+		klog.V(1).Infof("Started DCGM in the Embedded mode", err)
 	}
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
