@@ -44,8 +44,6 @@ var (
 		"dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
 	}
 	ratioFields              uint = dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE // this is the field that we will use to calculate the utilization per @yuezhu1
-	SkipDCGMValue                 = "SKIPPING DCGM VALUE"
-	FailedToConvert               = "ERROR - FAILED TO CONVERT TO STRING"
 	gpuMigArray              [][]MigDevice
 	totalMultiProcessorCount map[string]int
 )
@@ -184,9 +182,6 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 		return processAcceleratorMetrics, nil
 	}
 
-	var vals, miVals []dcgm.FieldValue_v1
-	var err error
-
 	klog.V(debugLevel).Infof("Device %v\n", deviceName)
 
 	deviceIndex, strErr := strconv.Atoi(deviceName)
@@ -194,48 +189,42 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 		klog.V(debugLevel).Infof("failed to convert %q to an integer: %v", deviceName, strErr)
 		return processAcceleratorMetrics, strErr
 	}
-	vals, err = dcgm.GetLatestValuesForFields(uint(deviceIndex), deviceFields)
+	vals, err := dcgm.GetLatestValuesForFields(uint(deviceIndex), deviceFields)
 	if err != nil {
 		klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
 		return processAcceleratorMetrics, err
 	}
-	gpuSMActive := uint32(0)
+	gpuUtilization := uint32(0)
 	if err == nil {
-		for i, val := range vals {
-			value := ToString(val)
-			label := deviceFieldsString[i]
+		for _, val := range vals {
 			if val.FieldId == ratioFields {
-				computeUtil, _ := strconv.ParseFloat(value, 32)
-				gpuSMActive = uint32(computeUtil * 100)
+				gpuUtilization = ToUint32(val, 100)
 			}
-			klog.V(debugLevel).Infof("Device %v Label %v Val: %v", deviceName, label, ToString(val))
 		}
-		klog.V(debugLevel).Infof("\n")
 	}
 	processInfo, ret := device.(nvml.Device).GetComputeRunningProcesses()
 	if ret != nvml.SUCCESS {
 		klog.V(debugLevel).Infof("failed to get running processes: %v", nvml.ErrorString(ret))
 		return processAcceleratorMetrics, fmt.Errorf("failed to get running processes: %v", nvml.ErrorString(ret))
 	}
-	for _, p := range processInfo {
-		klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", p.Pid, p.UsedGpuMemory, p.GpuInstanceId, p.ComputeInstanceId)
-		if p.GpuInstanceId > 0 && p.GpuInstanceId < uint32(len(gpuMigArray[deviceIndex])) { // this is a MIG, get it entity id and reads the related fields
-			entityName := gpuMigArray[deviceIndex][p.GpuInstanceId].EntityName
-			multiprocessorCountRatio := gpuMigArray[deviceIndex][p.GpuInstanceId].MultiprocessorCountRatio
-			mi := d.entities[entityName]
-			miVals, err = dcgm.EntityGetLatestValues(mi.EntityGroupId, mi.EntityId, deviceFields)
+	for _, pinfo := range processInfo {
+		klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", pinfo.Pid, pinfo.UsedGpuMemory, pinfo.GpuInstanceId, pinfo.ComputeInstanceId)
+		if pinfo.GpuInstanceId > 0 && pinfo.GpuInstanceId < uint32(len(gpuMigArray[deviceIndex])) { // this is a MIG, get it entity id and reads the related fields
+			entityName := gpuMigArray[deviceIndex][pinfo.GpuInstanceId].EntityName
+			multiprocessorCountRatio := uint32(gpuMigArray[deviceIndex][pinfo.GpuInstanceId].MultiprocessorCountRatio)
+			mig := d.entities[entityName]
+			migVals, err := dcgm.EntityGetLatestValues(mig.EntityGroupId, mig.EntityId, deviceFields)
 			if err == nil {
-				for i, val := range miVals {
-					label := deviceFieldsString[i]
-					value := ToString(val)
-					klog.V(debugLevel).Infof("Device %v Label %v Val: %v", entityName, label, value)
+				for _, val := range migVals {
 					if val.FieldId == ratioFields {
-						floatVal, _ := strconv.ParseFloat(value, 32)
-						// ratio of active multiprocessors to total multiprocessors
-						computeUtil := uint32(floatVal * 100 * multiprocessorCountRatio)
-						klog.V(debugLevel).Infof("pid %d computeUtil %d multiprocessor count ratio %v\n", p.Pid, computeUtil, multiprocessorCountRatio)
-						processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-							Pid:         p.Pid,
+						migUtilization := ToUint32(val, 100)
+						// multiprocessorCountRatio is the MIG SM core ration of the MIG_SM/TOTAL_GPU_SM
+						// TODO: It does not make sense to multiple the MIG utilization by the MIG Ratio.
+						// FIXME: The ratio here should be related to the process running in the MIG devices, not the MIG partition size ratio.
+						computeUtil := migUtilization * multiprocessorCountRatio
+						klog.V(debugLevel).Infof("pid %d computeUtil %d multiprocessor count ratio %v\n", pinfo.Pid, computeUtil, multiprocessorCountRatio)
+						processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
+							Pid:         pinfo.Pid,
 							TimeStamp:   uint64(time.Now().UnixNano()),
 							ComputeUtil: computeUtil,
 						}
@@ -244,10 +233,12 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 				klog.V(debugLevel).Infof("\n")
 			}
 		} else {
-			processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-				Pid:         p.Pid,
-				TimeStamp:   uint64(time.Now().UnixNano()),
-				ComputeUtil: gpuSMActive, // if this is not a MIG, we will use the GPU SM active value. FIXME: what if there are multiple pids in the same GPU?
+			processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
+				Pid:       pinfo.Pid,
+				TimeStamp: uint64(time.Now().UnixNano()),
+				// TODO: It does not make sense to use the whole GPU utilization since a GPU might have more than one PID
+				// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
+				ComputeUtil: gpuUtilization,
 			}
 		}
 	}
@@ -350,47 +341,52 @@ func (d *GPUDcgm) setupWatcher() error {
 	return nil
 }
 
-// ToString converts a dcgm.FieldValue_v1 to a string
-// credit to dcgm_exporter
-func ToString(value dcgm.FieldValue_v1) string {
-	switch v := value.Int64(); v {
-	case dcgm.DCGM_FT_INT32_BLANK:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT32_NOT_FOUND:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT32_NOT_SUPPORTED:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT32_NOT_PERMISSIONED:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT64_BLANK:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT64_NOT_FOUND:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT64_NOT_SUPPORTED:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_INT64_NOT_PERMISSIONED:
-		return SkipDCGMValue
-	}
-	switch v := value.Float64(); v {
-	case dcgm.DCGM_FT_FP64_BLANK:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_FP64_NOT_FOUND:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_FP64_NOT_SUPPORTED:
-		return SkipDCGMValue
-	case dcgm.DCGM_FT_FP64_NOT_PERMISSIONED:
-		return SkipDCGMValue
-	}
+// ToUint32 converts a dcgm.FieldValue_v1 to a uint32
+// The multiplyFactor is used to convert a percentage represented as a float64 to uint32, maintaining precision and scaling it to 100%.
+func ToUint32(value dcgm.FieldValue_v1, multiplyFactor float64) uint32 {
+	defaultValue := uint32(0)
 	switch v := value.FieldType; v {
-	case dcgm.DCGM_FT_STRING:
-		return value.String()
-	case dcgm.DCGM_FT_DOUBLE:
-		return fmt.Sprintf("%f", value.Float64())
-	case dcgm.DCGM_FT_INT64:
-		return fmt.Sprintf("%d", value.Int64())
-	default:
-		return FailedToConvert
-	}
 
-	return FailedToConvert
+	// Floating-point
+	case dcgm.DCGM_FT_DOUBLE:
+		switch v := value.Float64(); v {
+		case dcgm.DCGM_FT_FP64_BLANK:
+			return defaultValue
+		case dcgm.DCGM_FT_FP64_NOT_FOUND:
+			return defaultValue
+		case dcgm.DCGM_FT_FP64_NOT_SUPPORTED:
+			return defaultValue
+		case dcgm.DCGM_FT_FP64_NOT_PERMISSIONED:
+			return defaultValue
+		default:
+			return uint32(v * multiplyFactor)
+		}
+
+	// Int32 and Int64
+	case dcgm.DCGM_FT_INT64:
+		switch v := value.Int64(); v {
+		case dcgm.DCGM_FT_INT32_BLANK:
+			return defaultValue
+		case dcgm.DCGM_FT_INT32_NOT_FOUND:
+			return defaultValue
+		case dcgm.DCGM_FT_INT32_NOT_SUPPORTED:
+			return defaultValue
+		case dcgm.DCGM_FT_INT32_NOT_PERMISSIONED:
+			return defaultValue
+		case dcgm.DCGM_FT_INT64_BLANK:
+			return defaultValue
+		case dcgm.DCGM_FT_INT64_NOT_FOUND:
+			return defaultValue
+		case dcgm.DCGM_FT_INT64_NOT_SUPPORTED:
+			return defaultValue
+		case dcgm.DCGM_FT_INT64_NOT_PERMISSIONED:
+			return defaultValue
+		default:
+			return uint32(v * int64(multiplyFactor))
+		}
+
+	default:
+		klog.Errorf("DCGM metric type %s not supported: %v\n", value.FieldType, value)
+		return defaultValue
+	}
 }
