@@ -24,17 +24,23 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
 )
 
 func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	for _, name := range consts.EnergyMetricNames {
-		source := modeltypes.ComponentEnergySource
+		// set the default source to trained power model
+		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
 			source = modeltypes.GPUEnergySource
-		} else if strings.Contains(name, config.PLATFORM) {
+		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
 			source = modeltypes.PlatformEnergySource
+		} else if components.IsSystemCollectionSupported() {
+			// TODO: need to update condition when we have more type of energy metric such as network, disk.
+			source = modeltypes.ComponentEnergySource
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}

@@ -44,10 +44,11 @@ const (
 )
 
 var (
-	// KeplerModelServerSync: define energy source
-	PlatformEnergySource  = "acpi"
-	ComponentEnergySource = "intel_rapl"
-	GPUEnergySource       = "nvidia"
+	// Define energy source
+	PlatformEnergySource    = "acpi"
+	ComponentEnergySource   = "intel_rapl"
+	GPUEnergySource         = "nvidia"
+	TrainedPowerModelSource = "trained_power_model"
 
 	// KeplerModelServerSync: define regressor trainer name.
 	LinearRegressionTrainer = "SGDRegressorTrainer"

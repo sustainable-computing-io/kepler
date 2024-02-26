@@ -224,7 +224,10 @@ func getPowerModelDownloadURL(powerSourceTarget string) (url string) {
 	return
 }
 
-// getPowerModelEnergySource return
+// getPowerModelEnergySource returns the energy source.
+// It's important to note that although the Prometheus metrics may set the energy source to "trained power model"
+// when hardware sensors are not available, the power model creation requires both ComponentEnergySource and
+// PlatformEnergySource values. Therefore, we must not replace it here
 func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 	switch powerSourceTarget {
 	case config.ContainerPlatformPowerKey:
