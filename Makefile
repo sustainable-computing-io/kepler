@@ -37,7 +37,8 @@ else
 	GC_FLAGS =
 endif
 
-GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo gpu libbpf '
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
+GPU_TAGS := ' gpu '
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 # set GOENV
@@ -53,7 +54,8 @@ GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
-GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)
+GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)$(GPU_TAGS)
+GO_TEST_TAGS := $(GENERAL_TAGS)$(GOOS)
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
@@ -86,7 +88,7 @@ clean: clean-cross-build
 build_containerized: tidy-vendor format
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 	echo BIN_TIMESTAMP==$(BIN_TIMESTAMP)
-
+	# build kepler without dcgm
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--network host \
@@ -96,6 +98,18 @@ build_containerized: tidy-vendor format
 		.
 
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
+
+	# build kepler with dcgm
+	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"dcgm" \
+		-f $(DOCKERFILE) \
+		--network host \
+		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
+		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
+		--build-arg INSTALL_DCGM="true" \
+		--platform="linux/$(GOARCH)" \
+		.
+
+	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-dcgm $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-dcgm
 
 .PHONY: build_containerized
 
@@ -214,28 +228,28 @@ container_test:
 			make test-container-verbose'
 
 test: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) ./... --race --bench=. -cover --count=1 --vet=all
+	@echo TAGS=$(GO_TEST_TAGS)
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) ./... --race --bench=. -cover --count=1 --vet=all -v
 
 test-verbose: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
 		-timeout=30m \
 		-covermode=atomic -coverprofile=coverage.out \
 		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
 		--race --bench=. -cover --count=1 --vet=all
 
 test-container-verbose: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_BUILD_TAGS) \
+	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
 		-covermode=atomic -coverprofile=coverage.out \
 		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
 		--race -cover --count=1 --vet=all
 	
 test-mac-verbose: ginkgo-set
-	@echo TAGS=$(GO_BUILD_TAGS)
+	@echo TAGS=$(GO_TEST_TAGS)
 	@go test $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
 
 escapes_detect: tidy-vendor

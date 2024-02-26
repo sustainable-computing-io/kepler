@@ -24,6 +24,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var (
+	acceleratorOrder = []acceleratorInterface{
+		&gpu_source.GPUDcgm{},
+		&gpu_source.GPUNvml{},
+		&gpu_source.GPUDummy{},
+	}
+)
+
 /*
 Some systems have compatibility issues with the nvidia library. See https://github.com/sustainable-computing-io/kepler/issues/184
 Therefore, we can disable files that use the NVIDIA library using the "+build gpu" tag. This means that the compiler will only include these files if the compilation has the gpu tag.
@@ -34,16 +42,17 @@ Then, we use gpu.go file to initialize the acceleratorImpl from power.go when gp
 
 // init initialize the acceleratorImpl and start it
 func init() {
-	acceleratorImpl = &gpu_source.GPUNvml{}
-	err := acceleratorImpl.Init()
-	if err == nil {
-		klog.Infoln("Using nvml to obtain gpu power")
-		// If the library was successfully initialized, we don't need to return an error in the Init() function
-		errLib = nil
-		return
+	var errLib error
+	for i := 0; i < len(acceleratorOrder); i++ {
+		klog.Infof("Trying to initialize GPU collector using %s", acceleratorOrder[i].GetName())
+		acceleratorImpl = acceleratorOrder[i]
+		errLib = acceleratorImpl.InitLib()
+		if errLib == nil {
+			klog.Infof("Using %s to obtain gpu power", acceleratorImpl.GetName())
+			return
+		} else {
+			klog.Infof("Error initializing %s: %v", acceleratorImpl.GetName(), errLib)
+		}
 	}
-	// If the library was not successfully initialized, we use the dummy implementation
-	klog.Infof("Failed to init nvml, err: %v\n", err)
-	acceleratorImpl = &gpu_source.GPUDummy{}
-	errLib = acceleratorImpl.Init()
+	klog.Infof("no gpu collector available: %v", errLib)
 }

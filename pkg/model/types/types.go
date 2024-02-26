@@ -24,14 +24,14 @@ var (
 		"AbsPower", "DynPower",
 	}
 	ModelTypeConverter = []string{
-		"Ratio", "LinearRegressor", "EstimatorSidecar",
+		"Ratio", "Regressor", "EstimatorSidecar",
 	}
 )
 
 const (
 	// Power Model types
 	Ratio            ModelType = iota + 1 // estimation happens within kepler without using Model Server
-	LinearRegressor                       // estimation happens within kepler, but pre-trained model parameters are downloaded externally
+	Regressor                             // estimation happens within kepler, but pre-trained model parameters are downloaded externally
 	EstimatorSidecar                      // estimation happens in the sidecar with a loaded pre-trained power model
 )
 const (
@@ -49,6 +49,12 @@ var (
 	ComponentEnergySource   = "intel_rapl"
 	GPUEnergySource         = "nvidia"
 	TrainedPowerModelSource = "trained_power_model"
+
+	// KeplerModelServerSync: define regressor trainer name.
+	LinearRegressionTrainer = "SGDRegressorTrainer"
+	LogarithmicTrainer      = "LogarithmicRegressionTrainer"
+	LogisticTrainer         = "LogisticRegressionTrainer"
+	ExponentialTrainer      = "ExponentialRegressionTrainer"
 )
 
 func (s ModelOutputType) String() string {

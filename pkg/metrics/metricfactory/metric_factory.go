@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
@@ -31,20 +32,15 @@ import (
 func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	for _, name := range consts.EnergyMetricNames {
-		source := modeltypes.ComponentEnergySource
-		// set the default source to trained power model if rapl is not available
-		// we will overwrite it if acpi or nvidia hardware sensors are available
-		if !components.IsSystemCollectionSupported() {
-			source = modeltypes.TrainedPowerModelSource
-		}
+		// set the default source to trained power model
+		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
 			source = modeltypes.GPUEnergySource
-		} else if strings.Contains(name, config.PLATFORM) {
-			if !platform.IsSystemCollectionSupported() {
-				source = modeltypes.TrainedPowerModelSource
-			} else {
-				source = modeltypes.PlatformEnergySource
-			}
+		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
+			source = modeltypes.PlatformEnergySource
+		} else if components.IsSystemCollectionSupported() {
+			// TODO: need to update condition when we have more type of energy metric such as network, disk.
+			source = modeltypes.ComponentEnergySource
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}
@@ -125,6 +121,16 @@ func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*p
 	return descriptions
 }
 
+func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+	descriptions = make(map[string]*prometheus.Desc)
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		for _, name := range consts.GPUMetricNames {
+			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
+		}
+	}
+	return descriptions
+}
+
 func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 	var labels []string
 	switch context {
@@ -140,12 +146,18 @@ func resMetricsPromDesc(context, name, source string) (desc *prometheus.Desc) {
 		klog.Errorf("Unexpected prometheus context: %s", context)
 		return
 	}
+	// if this is a GPU metric, we need to add the GPU ID label
+	for _, gpuMetric := range consts.GPUMetricNames {
+		if name == gpuMetric {
+			labels = append(labels, consts.GPUResUtilLabels...)
+		}
+	}
 	return MetricsPromDesc(context, name, consts.UsageMetricNameSuffix, source, labels)
 }
 
-func MetricsPromDesc(context, name, sufix, source string, labels []string) (desc *prometheus.Desc) {
+func MetricsPromDesc(context, name, suffix, source string, labels []string) (desc *prometheus.Desc) {
 	return prometheus.NewDesc(
-		prometheus.BuildFQName(consts.MetricsNamespace, context, name+sufix),
+		prometheus.BuildFQName(consts.MetricsNamespace, context, name+suffix),
 		"Aggregated value in "+name+" value from "+source,
 		labels,
 		prometheus.Labels{"source": source},

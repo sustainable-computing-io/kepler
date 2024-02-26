@@ -57,7 +57,7 @@ var (
 	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
-		"cpu_cycles_event_reader", "cpu_ref_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_event_reader",
+		"cpu_cycles_event_reader", "cpu_ref_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
 		"cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
 	}
 	cpuCores = getCPUCores()

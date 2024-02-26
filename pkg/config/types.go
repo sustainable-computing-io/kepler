@@ -57,8 +57,8 @@ const (
 	CPUFrequency = "avg_cpu_frequency"
 
 	// NVIDIA GPU
-	GPUSMUtilization  = "gpu_sm_util"
-	GPUMemUtilization = "gpu_mem_util"
+	GPUComputeUtilization = "gpu_compute_util"
+	GPUMemUtilization     = "gpu_mem_util"
 
 	// Intel QuickAssist Technology (QAT)
 	// TODO: test if different request has different energy consumption.

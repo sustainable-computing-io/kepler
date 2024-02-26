@@ -10,7 +10,7 @@ namespace local {
         + Weight float64
 
     }
-    class LinearRegressor << (S,Aquamarine) >> {
+    class Regressor << (S,Aquamarine) >> {
         - floatFeatureValues [][]float64
         - floatFeatureValuesForIdlePower [][]float64
         - xidx int

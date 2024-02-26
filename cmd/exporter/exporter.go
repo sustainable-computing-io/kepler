@@ -203,10 +203,11 @@ func main() {
 		// the GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
 		// therefore, we wait up to 1 min to allow the gpu operator initialize
 		for i := 0; i <= maxGPUInitRetry; i++ {
-			time.Sleep(6 * time.Second)
 			err = gpu.Init()
 			if err == nil {
 				break
+			} else {
+				time.Sleep(6 * time.Second)
 			}
 		}
 		if err == nil {

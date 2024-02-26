@@ -69,7 +69,7 @@ spec:
         - /bin/sh
         - -c
         args:
-        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources -redfish-cred-file-path=/etc/redfish/redfish.csv
+        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -redfish-cred-file-path=/etc/redfish/redfish.csv
         ports:
         - containerPort: 9102
           name: http

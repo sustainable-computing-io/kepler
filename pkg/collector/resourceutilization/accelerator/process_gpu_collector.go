@@ -41,13 +41,13 @@ var (
 	lastUtilizationTimestamp time.Time = time.Now()
 )
 
-// updateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func UpdateNodeGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
+// UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
+func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
 	var err error
 	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
-	for _, device := range gpu.GetGpus() {
-		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
+	for gpuID, device := range gpu.GetGpus() {
+		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, gpuID, time.Since(lastUtilizationTimestamp)); err != nil {
 			klog.Infoln(err)
 			continue
 		}
@@ -78,8 +78,9 @@ func UpdateNodeGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats
 				}
 				processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
 			}
-			processStats[uintPid].ResourceUsage[config.GPUSMUtilization].AddDeltaStat(utils.GenericSocketID, uint64(processUtilization.SmUtil))
-			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(utils.GenericSocketID, uint64(processUtilization.MemUtil))
+			gpuName := fmt.Sprintf("%s%v", utils.GenericGPUID, gpuID)
+			processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.ComputeUtil))
+			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuName, uint64(processUtilization.MemUtil))
 		}
 	}
 
