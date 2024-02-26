@@ -14,11 +14,11 @@ on:
       rpm_version:
         description: "rpm version, e.g. 0.4"
         default: ${{ steps.git_version.outputs.git_version }}
-        required: true
+        required: false
       rpm_release:
         description: "rpm release, e.g. 1"
         default: ${{ steps.date.outputs.date }}
-        required: true
+        required: false
 
 jobs:
   build-rpm:
