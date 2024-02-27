@@ -126,13 +126,13 @@ var (
 	ProcessComponentsPowerKey   = "PROCESS_COMPONENTS"
 
 	// model_parameter_attribute
-	RatioEnabledKey            = "RATIO" // the default container power model is RATIO but ESTIMATOR or LINEAR_REGRESSION can be used
-	EstimatorEnabledKey        = "ESTIMATOR"
-	LinearRegressionEnabledKey = "LINEAR_REGRESSION"
-	InitModelURLKey            = "INIT_URL"
-	FixedTrainerNameKey        = "TRAINER"
-	FixedNodeTypeKey           = "NODE_TYPE"
-	ModelFiltersKey            = "FILTERS"
+	RatioEnabledKey          = "RATIO" // the default container power model is RATIO but ESTIMATOR or LINEAR_REGRESSION can be used
+	EstimatorEnabledKey      = "ESTIMATOR"
+	LocalRegressorEnabledKey = "LOCAL_REGRESSOR"
+	InitModelURLKey          = "INIT_URL"
+	FixedTrainerNameKey      = "TRAINER"
+	FixedNodeTypeKey         = "NODE_TYPE"
+	ModelFiltersKey          = "FILTERS"
 	////////////////////////////////////
 
 	// KubeConfig is used to start k8s client with the pod running outside the cluster

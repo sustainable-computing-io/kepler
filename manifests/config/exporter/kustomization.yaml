@@ -22,6 +22,8 @@ patchesStrategicMerge: []
 # - ./patch/patch-rootless.yaml
 # add this line for qat patch
 # - ./patch/patch-qat.yaml
+# add this line for dcgmi patch
+# - ./patch/patch-dcgmi.yaml
 
 secretGenerator:
 - name: redfish

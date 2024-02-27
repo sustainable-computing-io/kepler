@@ -74,6 +74,6 @@ jobs:
     - name: save Kepler image SBOM as artifact
       uses: actions/upload-artifact@v4.3.0
       with:
-          name: sbom-kepler-${{ inputs.imageTag }}.json
-          path: sbom-kepler-${{ inputs.imageTag }}.json
+          name: sbom-kepler-${{ inputs.imageTag }}.spdx.json
+          path: ./sbom-kepler-${{ inputs.imageTag }}.spdx.json
           retention-days: 1
