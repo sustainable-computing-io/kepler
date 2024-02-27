@@ -1,11 +1,16 @@
 name: base
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       pushImage:
         default: true
         type: boolean
+    secrets:
+      username:
+        required: true
+      password:
+        required: true
 
 jobs:
   baseimagebuild:
@@ -22,8 +27,8 @@ jobs:
         uses: docker/login-action@v3
         with:
             registry: quay.io/sustainable_computing_io
-            username: ${{ secrets.BOT_NAME }}
-            password: ${{ secrets.BOT_TOKEN }}
+            username: ${{ secrets.username }}
+            password: ${{ secrets.password }}
       - name: Build and push a base image for building Kepler with libbpf
         uses: docker/build-push-action@v5
         with:
