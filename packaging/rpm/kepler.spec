@@ -27,7 +27,15 @@ CROSS_BUILD_BINDIR=_output/bin
 
 %ifarch x86_64
 GOARCH=amd64
+%define TARGETARCH amd64
 %endif
+
+%ifarch aarch64
+GOARCH=arm64
+%define TARGETARCH arm64
+%endif
+
+%define CHANGELOG "%( echo ../../CHANGELOG.md )"
 
 make genlibbpf _build_local GOOS=${GOOS} GOARCH=${GOARCH} ATTACHER_TAG=libbpf
 
@@ -46,7 +54,7 @@ install -d %{buildroot}/etc/kepler/kepler.config
 
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
-install -p -m644 ./bpfassets/libbpf/bpf.o/amd64_kepler.bpf.o %{buildroot}/var/lib/kepler/bpfassets/amd64_kepler.bpf.o
+install -p -m644 ./bpfassets/libbpf/bpf.o/%{TARGETARCH}_kepler.bpf.o %{buildroot}/var/lib/kepler/bpfassets/%{TARGETARCH}_kepler.bpf.o
 install -p -m644 ./_output/ENABLE_PROCESS_METRICS %{buildroot}/etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 install -p -m644 ./data/cpus.yaml %{buildroot}/var/lib/kepler/data/cpus.yaml
 install -p -m644 ./data/model_weight/acpi_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_AbsPowerModel.json
@@ -62,7 +70,7 @@ install -p -m644 ./data/model_weight/intel_rapl_DynPowerModel.json %{buildroot}/
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
-/var/lib/kepler/bpfassets/amd64_kepler.bpf.o
+/var/lib/kepler/bpfassets/%{TARGETARCH}_kepler.bpf.o
 /var/lib/kepler/data/cpus.yaml
 /var/lib/kepler/data/acpi_AbsPowerModel.json
 /var/lib/kepler/data/acpi_DynPowerModel.json
@@ -71,4 +79,5 @@ install -p -m644 ./data/model_weight/intel_rapl_DynPowerModel.json %{buildroot}/
 /etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 
 %changelog
-%autochangelog
+* %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_} 
+%{CHANGELOG}
