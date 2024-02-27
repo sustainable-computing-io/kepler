@@ -1,6 +1,8 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.20
+go 1.21
+
+toolchain go1.21.1
 
 require (
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f

@@ -302,6 +302,23 @@ github.com/stretchr/testify/assert
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
+# github.com/zhmcclient/golang-zhmcclient v0.2.1-0.20231017092628-6bb10a7dd31e
+## explicit; go 1.20
+github.com/zhmcclient/golang-zhmcclient/pkg/zhmcclient
+# go.uber.org/multierr v1.10.0
+## explicit; go 1.19
+go.uber.org/multierr
+# go.uber.org/zap v1.26.0
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
 # golang.org/x/net v0.17.0
 ## explicit; go 1.17
 golang.org/x/net/context
