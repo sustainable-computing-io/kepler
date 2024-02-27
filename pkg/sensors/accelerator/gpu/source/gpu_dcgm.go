@@ -194,11 +194,11 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 		klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
 		return processAcceleratorMetrics, err
 	}
-	gpuUtilization := uint32(0)
+	gpuUtilization := float64(0)
 	if err == nil {
 		for _, val := range vals {
 			if val.FieldId == ratioFields {
-				gpuUtilization = ToUint32(val, 100)
+				gpuUtilization = ToFloat64(val, 100)
 			}
 		}
 	}
@@ -211,13 +211,13 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 		klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", pinfo.Pid, pinfo.UsedGpuMemory, pinfo.GpuInstanceId, pinfo.ComputeInstanceId)
 		if pinfo.GpuInstanceId > 0 && pinfo.GpuInstanceId < uint32(len(gpuMigArray[deviceIndex])) { // this is a MIG, get it entity id and reads the related fields
 			entityName := gpuMigArray[deviceIndex][pinfo.GpuInstanceId].EntityName
-			multiprocessorCountRatio := uint32(gpuMigArray[deviceIndex][pinfo.GpuInstanceId].MultiprocessorCountRatio)
+			multiprocessorCountRatio := gpuMigArray[deviceIndex][pinfo.GpuInstanceId].MultiprocessorCountRatio
 			mig := d.entities[entityName]
 			migVals, err := dcgm.EntityGetLatestValues(mig.EntityGroupId, mig.EntityId, deviceFields)
 			if err == nil {
 				for _, val := range migVals {
 					if val.FieldId == ratioFields {
-						migUtilization := ToUint32(val, 100)
+						migUtilization := ToFloat64(val, 100)
 						// multiprocessorCountRatio is the MIG SM core ration of the MIG_SM/TOTAL_GPU_SM
 						// TODO: It does not make sense to multiple the MIG utilization by the MIG Ratio.
 						// FIXME: The ratio here should be related to the process running in the MIG devices, not the MIG partition size ratio.
@@ -226,7 +226,7 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 						processAcceleratorMetrics[pinfo.Pid] = ProcessUtilizationSample{
 							Pid:         pinfo.Pid,
 							TimeStamp:   uint64(time.Now().UnixNano()),
-							ComputeUtil: computeUtil,
+							ComputeUtil: uint32(computeUtil),
 						}
 					}
 				}
@@ -238,7 +238,7 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, dev
 				TimeStamp: uint64(time.Now().UnixNano()),
 				// TODO: It does not make sense to use the whole GPU utilization since a GPU might have more than one PID
 				// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
-				ComputeUtil: gpuUtilization,
+				ComputeUtil: uint32(gpuUtilization),
 			}
 		}
 	}
@@ -341,10 +341,10 @@ func (d *GPUDcgm) setupWatcher() error {
 	return nil
 }
 
-// ToUint32 converts a dcgm.FieldValue_v1 to a uint32
+// ToFloat64 converts a dcgm.FieldValue_v1 to float64
 // The multiplyFactor is used to convert a percentage represented as a float64 to uint32, maintaining precision and scaling it to 100%.
-func ToUint32(value dcgm.FieldValue_v1, multiplyFactor float64) uint32 {
-	defaultValue := uint32(0)
+func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
+	defaultValue := float64(0)
 	switch v := value.FieldType; v {
 
 	// Floating-point
@@ -359,7 +359,7 @@ func ToUint32(value dcgm.FieldValue_v1, multiplyFactor float64) uint32 {
 		case dcgm.DCGM_FT_FP64_NOT_PERMISSIONED:
 			return defaultValue
 		default:
-			return uint32(v * multiplyFactor)
+			return v * multiplyFactor
 		}
 
 	// Int32 and Int64
@@ -382,7 +382,7 @@ func ToUint32(value dcgm.FieldValue_v1, multiplyFactor float64) uint32 {
 		case dcgm.DCGM_FT_INT64_NOT_PERMISSIONED:
 			return defaultValue
 		default:
-			return uint32(v * int64(multiplyFactor))
+			return float64(v) * multiplyFactor
 		}
 
 	default:
