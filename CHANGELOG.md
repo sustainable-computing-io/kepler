@@ -5,3 +5,5 @@ in kepler 0.7 release
 - add task clock event to ebpf and use it to calculate cpu usage for each process. The event is also exported to prometheus
 - add initial NVIDIA DCGM support, this help monitor power consumption by NVIDIA GPU especially MIG instances.
 - add new curvefit regressors to predict component power consumption
+- add workload pipeline to build container base images on demand
+- add ARM64 container image and RPM build support
