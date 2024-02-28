@@ -25,6 +25,9 @@ limitations under the License.
 #if defined(__TARGET_ARCH_arm64)
 #include "vmlinux-arm64.h"
 #endif
+#if defined(__TARGET_ARCH_s390)
+#include "vmlinux-s390.h"
+#endif
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>

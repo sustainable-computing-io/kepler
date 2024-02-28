@@ -35,6 +35,11 @@ GOARCH=arm64
 %define TARGETARCH arm64
 %endif
 
+%ifarch s390x
+GOARCH=s390
+%define TARGETARCH s390
+%endif
+
 %define CHANGELOG "%( echo ../../CHANGELOG.md )"
 
 make genlibbpf _build_local GOOS=${GOOS} GOARCH=${GOARCH} ATTACHER_TAG=libbpf
@@ -79,5 +84,5 @@ install -p -m644 ./data/model_weight/intel_rapl_DynPowerModel.json %{buildroot}/
 /etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 
 %changelog
-* %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_} 
+* %{getenv:_TIMESTAMP_} %{getenv:_COMMITTER_}
 %{CHANGELOG}
