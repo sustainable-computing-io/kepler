@@ -2,23 +2,6 @@ name: rpm daily
 
 on:
   workflow_call:
-    inputs:
-      committer:
-        default: 'nightly'
-        type: string
-        required: false
-      arch:
-        description: "rpm arch, e.g. x86_64"
-        default: "x86_64"
-        required: false
-      rpm_version:
-        description: "rpm version, e.g. 0.4"
-        default: ${{ steps.git_version.outputs.git_version }}
-        required: false
-      rpm_release:
-        description: "rpm release, e.g. 1"
-        default: ${{ steps.date.outputs.date }}
-        required: false
 
 jobs:
   build-rpm:
@@ -38,10 +21,10 @@ jobs:
       - name: Build RPM packages
         id: rpm_build
         env:
-          _VERSION_ : ${{ github.event.inputs.rpm_version }}
-          _RELEASE_: ${{ github.event.inputs.rpm_release }}
-          _COMMITTER_: ${{ github.event.inputs.committer }}
-          _ARCH_: ${{ github.event.inputs.arch }}
+          _VERSION_ : ${{ steps.git_version.outputs.git_version }}
+          _RELEASE_: ${{ steps.date.outputs.date }}
+          _COMMITTER_: nightly
+          _ARCH_: x86_64
         run: |
           make containerized_build_rpm
           make containerized_build_container_rpm
@@ -51,6 +34,6 @@ jobs:
       - name: save Kepler image as artifact
         uses: actions/upload-artifact@v4.3.0
         with:
-          name: kepler_rpm_${{ github.event.inputs.rpm_version }}
+          name: kepler_rpm_${{ steps.git_version.outputs.git_version }}
           path: /tmp/kepler.rpm.tar.gz
           retention-days: 1

@@ -12,8 +12,6 @@ ARG INSTALL_DCGM=${INSTALL_DCGM:-""}
 ARG TARGETARCH
 
 RUN yum -y update
-RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-RUN if [ $(uname -i) == "x86_64" ]; then yum install -y cpuid; fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
@@ -26,6 +24,8 @@ RUN INSTALL_PKGS=" \
 	yum install -y $INSTALL_PKGS 
 
 RUN if [[ ! -z "$INSTALL_DCGM" ]]; then \
+        yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
+        yum install -y cpuid; \
         if [ "$TARGETARCH" == "amd64" ]; then \
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
             yum install -y datacenter-gpu-manager; \
