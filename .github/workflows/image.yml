@@ -47,7 +47,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           build-args: INSTALL_DCGM="true"
           push: ${{ inputs.pushImage }}                                                                                                                   
           tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm
