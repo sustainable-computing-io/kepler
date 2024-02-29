@@ -6,6 +6,7 @@ COPY . .
 
 RUN clang -v
 RUN clang --version
+RUN clang --help
 RUN ATTACHER_TAG=libbpf make build
 
 FROM registry.access.redhat.com/ubi9:9.2
