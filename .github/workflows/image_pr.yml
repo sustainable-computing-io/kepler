@@ -31,7 +31,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/s390x
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: quay.io/sustainable_computing_io/kepler
           labels: ${{ github.event.inputs.commitSHA }}
