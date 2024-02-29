@@ -37,7 +37,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64,linux/s390x
           push: ${{ inputs.pushImage }}
           tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}
           labels: ${{ inputs.imageTag }}
@@ -47,7 +47,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64,linux/s390x
           build-args: INSTALL_DCGM="true"
           push: ${{ inputs.pushImage }}                                                                                                                   
           tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm
@@ -58,7 +58,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64,linux/s390x
           push: ${{ inputs.pushImage }}
           tags: quay.io/sustainable_computing_io/kepler-validator:${{ inputs.imageTag }}
           labels: ${{ inputs.imageTag }}
