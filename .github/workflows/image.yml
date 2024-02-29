@@ -29,6 +29,11 @@ jobs:
           LABEL:      ${{ inputs.imageTag }}
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
+          PLATFORMS:  linux/s390x
+          BUILD_ARGS: INSTALL_DCGM="false"
+          LABEL:      ${{ inputs.imageTag }}
+        - IMAGE_NAME: kepler
+          IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64
           BUILD_ARGS: INSTALL_DCGM="true"
           LABEL:      ${{ inputs.imageTag }}-dgcm

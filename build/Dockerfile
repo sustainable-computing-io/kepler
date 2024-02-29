@@ -4,6 +4,8 @@ WORKDIR /workspace
 
 COPY . .
 
+RUN clang -v
+RUN clang --version
 RUN ATTACHER_TAG=libbpf make build
 
 FROM registry.access.redhat.com/ubi9:9.2
