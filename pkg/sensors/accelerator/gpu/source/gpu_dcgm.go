@@ -221,6 +221,9 @@ func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
 		energy := uint32(uint64(power) * config.SamplePeriodSec)
 		gpuEnergy = append(gpuEnergy, energy)
 	}
+
+	// as the GetAbsEnergyFromGPU is called only once and GetProcessResourceUtilizationPerDevice is called for each GPU, it is better to update the MIG list here
+	d.UpdateMIGEntityList()
 	return gpuEnergy
 }
 
