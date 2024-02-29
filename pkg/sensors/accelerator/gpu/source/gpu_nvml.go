@@ -127,7 +127,7 @@ func (n *GPUNvml) GetAbsEnergyFromGPU() []uint32 {
 //
 //	ProcessUtilizationSample.SmUtil represents the process Streaming Multiprocessors - SM (3D/Compute) utilization in percentage.
 //	ProcessUtilizationSample.MemUtil represents the process Frame Buffer Memory utilization Value.
-func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	lastUtilizationTimestamp := uint64(time.Now().Add(-1*since).UnixNano() / 1000)
 

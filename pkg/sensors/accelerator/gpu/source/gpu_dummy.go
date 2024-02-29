@@ -54,7 +54,7 @@ func (d *GPUDummy) GetGpus() map[string]interface{} {
 	return devices
 }
 
-func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, deviceName string, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	processAcceleratorMetrics[0] = ProcessUtilizationSample{
 		Pid:         0,
