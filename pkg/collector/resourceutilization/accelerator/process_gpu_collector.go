@@ -19,6 +19,7 @@ package accelerator
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
@@ -47,7 +48,8 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
 	for gpuID, device := range gpu.GetGpus() {
-		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, gpuID, time.Since(lastUtilizationTimestamp)); err != nil {
+		deviceIndex, _ := strconv.Atoi(gpuID)
+		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, deviceIndex, time.Since(lastUtilizationTimestamp)); err != nil {
 			klog.Infoln(err)
 			continue
 		}
