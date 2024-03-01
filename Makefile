@@ -154,7 +154,6 @@ container_build:
 		git config --global --add safe.directory /kepler && make build
 
 build_rpm:
-	rpmautospec generate-changelog packaging/rpm/kepler.spec
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
 
 build_container_rpm:

@@ -28,7 +28,7 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
     steps:
     - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v2
+    - uses: dorny/paths-filter@v3
       id: changes
       with:
         filters: |
@@ -53,21 +53,10 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
     steps:
     - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v2
+    - uses: dorny/paths-filter@v3
       id: changes
       with:
         filters: |
           src:
             - './.github/workflows/image_base.yml'
             - './build/Dockerfile.builder'
-
-  image_base:
-    needs: changes_baseimage
-    if: ${{ needs.changes_baseimage.outputs.src == 'true' }}
-    uses: ./.github/workflows/image_base.yml
-    with:
-      pushImage: false
-    secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
-

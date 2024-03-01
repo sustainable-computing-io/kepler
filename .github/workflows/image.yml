@@ -18,6 +18,25 @@ on:
 jobs:
   image_build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - IMAGE_NAME: kepler
+          IMAGE_FILE: build/Dockerfile
+          PLATFORMS:  linux/amd64,linux/arm64
+          BUILD_ARGS: INSTALL_DCGM="false"
+          LABEL:      ${{ inputs.imageTag }}
+        - IMAGE_NAME: kepler
+          IMAGE_FILE: build/Dockerfile
+          PLATFORMS:  linux/amd64
+          BUILD_ARGS: INSTALL_DCGM="true"
+          LABEL:      ${{ inputs.imageTag }}-dgcm
+        - IMAGE_NAME: kepler-validator
+          IMAGE_FILE: build/Dockerfile.kepler-validator
+          BUILD_ARGS: ""
+          PLATFORMS:  linux/amd64,linux/arm64
+          LABEL:      ${{ inputs.imageTag }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4.1.1
@@ -33,47 +52,27 @@ jobs:
         username: ${{ secrets.username }}
         password: ${{ secrets.password }}
 
-    - name: Build and push kepler latest (no dcgm)
+    - name: Build and push image
       uses: docker/build-push-action@v5
       with:
           context: .
-          platforms: linux/amd64
-          push: ${{ inputs.pushImage }}
-          tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}
-          labels: ${{ inputs.imageTag }}
-          file: build/Dockerfile
-
-    - name: Build and push kepler latest (with dcgm)
-      uses: docker/build-push-action@v5
-      with:
-          context: .
-          platforms: linux/amd64
-          build-args: INSTALL_DCGM="true"
-          push: ${{ inputs.pushImage }}                                                                                                                   
-          tags: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}-dgcm
-          labels: ${{ inputs.imageTag }}-dgcm
-          file: build/Dockerfile
-
-    - name: Build and push kepler-validator to official group repo
-      uses: docker/build-push-action@v5
-      with:
-          context: .
-          platforms: linux/amd64
-          push: ${{ inputs.pushImage }}
-          tags: quay.io/sustainable_computing_io/kepler-validator:${{ inputs.imageTag }}
-          labels: ${{ inputs.imageTag }}
-          file: build/Dockerfile.kepler-validator
+          platforms: ${{matrix.PLATFORMS}}
+          push: ${{ inputs.pushImage }}          
+          build-args: ${{matrix.BUILD_ARGS}}
+          tags: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          labels: ${{matrix.LABEL}}
+          file: ${{matrix.IMAGE_FILE}}
 
     - name: Generate SBOM
       uses: anchore/sbom-action@v0.15.8
       with:
-        image: quay.io/sustainable_computing_io/kepler:${{ inputs.imageTag }}
-        artifact-name: sbom-kepler-${{ inputs.imageTag }}.json
-        output-file: ./sbom-kepler-${{ inputs.imageTag }}.spdx.json
+        image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+        artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
+        output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
 
     - name: save Kepler image SBOM as artifact
       uses: actions/upload-artifact@v4.3.0
       with:
-          name: sbom-kepler-${{ inputs.imageTag }}.spdx.json
-          path: ./sbom-kepler-${{ inputs.imageTag }}.spdx.json
+          name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
+          path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           retention-days: 1

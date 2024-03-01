@@ -1,0 +1,13 @@
+name: baseimage_dispatch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  baseimagebuild:
+    uses: ./.github/workflows/image.yml
+    with:
+      pushImage: true
+    secrets:
+        username: ${{ secrets.BOT_NAME }}
+        password: ${{ secrets.BOT_TOKEN }}
