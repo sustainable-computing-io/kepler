@@ -45,6 +45,7 @@ jobs:
     needs: [build-kepler]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cluster_provider: [kind,microshift]
     steps:
