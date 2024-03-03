@@ -20,11 +20,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      # set up ebpf
-      - name: install libbpf
-        uses: sustainable-computing-io/kepler-action@v0.0.5
-        with:
-          ebpfprovider: libbpf
       # build kepler image
       - name: build and export Kepler image
         run: |
