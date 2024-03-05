@@ -66,7 +66,7 @@ jobs:
           file: ${{matrix.IMAGE_FILE}}
 
     - name: Generate SBOM
-      uses: anchore/sbom-action@v0.15.8
+      uses: anchore/sbom-action@v0.15.9
       with:
         image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
         artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
