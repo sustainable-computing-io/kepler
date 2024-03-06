@@ -239,76 +239,70 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, gpu
 	}
 
 	var vals []dcgm.FieldValue_v1
-	var isMIG bool
 	var ret nvml.Return
 	var err error
-	multiprocessorCountRatio := 1.0 // ratio used to normalize the mig metric to the entire GPU
 
-	if isMIG, ret = device.(nvml.Device).IsMigDeviceHandle(); ret == nvml.SUCCESS && isMIG {
-		migID, _ := device.(nvml.Device).GetIndex()
-		migInfo := d.entities[gpuID][migID]
-
-		klog.V(debugLevel).Infof("MIG Device gpuID %v, migID %v\n", gpuID, migID)
-		klog.V(debugLevel).Infof("MIG Device %v\n", migInfo.Entity.EntityId)
-		vals, err = dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, migInfo.Entity.EntityId, deviceFields)
-		if err != nil {
-			klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
-			return processAcceleratorMetrics, err
-		}
-		multiprocessorCountRatio = float64(migInfo.Profile.MultiprocessorCount) / migInfo.TotalMultiprocessorCount
-	} else {
-		if ret != nvml.SUCCESS {
-			klog.V(debugLevel).Infof("failed to get GPU ID: %v", err)
-			return processAcceleratorMetrics, err
-		}
-		klog.V(debugLevel).Infof("Device %v\n", gpuID)
-		vals, err = dcgm.GetLatestValuesForFields(uint(gpuID), deviceFields)
-		if err != nil {
-			klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
-			return processAcceleratorMetrics, err
-		}
-	}
-
+	// first get the GPU ID
+	klog.V(debugLevel).Infof("Device %v\n", gpuID)
+	// second, get the process information
 	processInfo, ret := device.(nvml.Device).GetComputeRunningProcesses()
 	if ret != nvml.SUCCESS {
 		klog.V(debugLevel).Infof("failed to get running processes: %v", nvml.ErrorString(ret))
+		return processAcceleratorMetrics, err
 	}
+	// third, get the normalized utilization
+	totalNormalizedUtil := float64(0)
+	processNormalizedUtil := make(map[uint32]float64, len(processInfo))
 	for _, p := range processInfo {
+		multiprocessorCountRatio := 1.0 // ratio used to normalize the mig metric to the entire GPU
 		klog.V(debugLevel).Infof("pid: %d, memUtil: %d gpu instance id %d compute id %d\n", p.Pid, p.UsedGpuMemory, p.GpuInstanceId, p.ComputeInstanceId)
-		if isMIG { // this is a MIG, get it entity id and reads the related fields
-			for _, val := range vals {
-				if val.FieldId == ratioField {
-					migUtilization := ToFloat64(val, 100)
-					// ratio of active multiprocessors to total multiprocessors
-					// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
-					// FIXME: the MIG device could have multiple processes, how to split the MIG utilization between the processes?
-					normalizedComputeUtil := migUtilization * multiprocessorCountRatio
-					klog.V(debugLevel).Infof("pid %d computeUtil %f multiprocessor count ratio %v\n", p.Pid, normalizedComputeUtil, multiprocessorCountRatio)
-					processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-						Pid:         p.Pid,
-						TimeStamp:   uint64(time.Now().UnixNano()),
-						ComputeUtil: uint32(normalizedComputeUtil),
+		isMIG := p.GpuInstanceId != 0 && p.GpuInstanceId < maxMIGProfiles // if this is not a MIG, GpuInstanceId is set to e.g. 4294967295
+		if isMIG {                                                        // this is a MIG, get it entity id and reads the related fields
+			// get the MIG info from d.entities
+			for _, migInfo := range d.entities[gpuID] {
+				if p.GpuInstanceId == uint32(migInfo.Info.NvmlInstanceId) {
+					klog.V(debugLevel).Infof("MIG Device %v InstanceId %v GpuIndex %v \n",
+						migInfo.Entity.EntityId, migInfo.Info.NvmlInstanceId, migInfo.Info.NvmlGpuIndex)
+					vals, err = dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, migInfo.Entity.EntityId, deviceFields)
+					if err != nil {
+						klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
+						return processAcceleratorMetrics, err
 					}
+					multiprocessorCountRatio = float64(migInfo.Profile.MultiprocessorCount) / migInfo.TotalMultiprocessorCount
+					break
 				}
 			}
-			klog.V(debugLevel).Infof("\n")
-		} else {
-			gpuUtilization := float64(0)
-			if err == nil {
-				for _, val := range vals {
-					if val.FieldId == ratioField {
-						gpuUtilization = ToFloat64(val, 100)
-					}
+		} else { // this is a GPU, get the GPU utilization
+			multiprocessorCountRatio = 1.0
+			vals, err = dcgm.GetLatestValuesForFields(uint(gpuID), deviceFields)
+		}
+		for _, val := range vals {
+			if val.FieldId == ratioField {
+				deviceUtilization := ToFloat64(val, 100)
+				if deviceUtilization <= 0 {
+					deviceUtilization = 0.5 // avoid division by zero
 				}
-			}
-			processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-				Pid:       p.Pid,
-				TimeStamp: uint64(time.Now().UnixNano()),
-				// TODO: It does not make sense to use the whole GPU utilization since a GPU might have more than one PID
-				// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
-				ComputeUtil: uint32(gpuUtilization),
+				if deviceUtilization > 100 {
+					deviceUtilization = 100
+				}
+				// ratio of active multiprocessors to total multiprocessors
+				// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
+				// FIXME: the MIG device could have multiple processes, how to split the MIG utilization between the processes?
+				normalizedComputeUtil := deviceUtilization * multiprocessorCountRatio
+				totalNormalizedUtil += normalizedComputeUtil
+				processNormalizedUtil[p.Pid] = normalizedComputeUtil
+				klog.V(debugLevel).Infof("pid %d computeUtil %f multiprocessor count ratio %v\n", p.Pid, normalizedComputeUtil, multiprocessorCountRatio)
 			}
 		}
+	}
+	// fourth, get the process utilization
+	for _, p := range processInfo {
+		processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
+			Pid:         p.Pid,
+			TimeStamp:   uint64(time.Now().UnixNano()),
+			ComputeUtil: uint32(processNormalizedUtil[p.Pid]/totalNormalizedUtil*100 + 0.5),
+		}
+		klog.V(debugLevel).Infof("pid %d normalized computeUtil %d\n", p.Pid, processAcceleratorMetrics[p.Pid].ComputeUtil)
 	}
 
 	return processAcceleratorMetrics, nil
