@@ -144,6 +144,7 @@ func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeMe
 	processIDList := addSamplesToPowerModels(processesMetrics, nodeMetrics)
 	addEstimatedEnergy(processIDList, processesMetrics, idlePower)
 	addEstimatedEnergy(processIDList, processesMetrics, absPower)
+	addGPUEnergy(processIDList, processesMetrics, nodeMetrics)
 }
 
 // addSamplesToPowerModels converts process's metrics to array to add the samples to the power model
@@ -181,12 +182,10 @@ func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, no
 // addEstimatedEnergy estimates the idle power consumption
 func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*stats.ProcessStats, isIdlePower bool) {
 	var err error
-	var processGPUPower []float64
 	var processPlatformPower []float64
 	var processComponentsPower []source.NodeComponentsEnergy
 
 	errComp := fmt.Errorf("component power model is not enabled")
-	errGPU := fmt.Errorf("gpu power model is not enabled")
 	errPlat := fmt.Errorf("plat power model is not enabled")
 
 	// estimate the associated power comsumption of all RAPL node components for each process
@@ -194,13 +193,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		processComponentsPower, errComp = ProcessComponentPowerModel.GetComponentsPower(isIdlePower)
 		if errComp != nil {
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
-		}
-		// estimate the associated power comsumption of GPU for each process
-		if gpu.IsGPUCollectionSupported() {
-			processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
-			if errGPU != nil {
-				klog.V(5).Infoln("Could not estimate the Process GPU Power")
-			}
 		}
 	}
 	// estimate the associated power comsumption of platform for each process
@@ -258,19 +250,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			if err != nil {
 				klog.V(5).Infoln(err)
 			}
-
-			// add GPU power consumption
-			if errGPU == nil {
-				energy = uint64(processGPUPower[i]) * (config.SamplePeriodSec)
-				if isIdlePower {
-					processesMetrics[processID].EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
-				} else {
-					processesMetrics[processID].EnergyUsage[config.DynEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
-				}
-				if err != nil {
-					klog.V(5).Infoln(err)
-				}
-			}
 		}
 
 		if errPlat == nil {
@@ -300,6 +279,33 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 			if err != nil {
 				klog.V(5).Infoln(err)
+			}
+		}
+	}
+}
+
+// addGPUEnergy estimates the GPU power consumption
+func addGPUEnergy(processIDList []uint64, processesMetrics map[uint64]*stats.ProcessStats, nodeMetrics *stats.NodeStats) {
+	// estimate the associated power comsumption of GPU for each process
+	if !gpu.IsGPUCollectionSupported() {
+		return
+	}
+	for gpuID, _ := range gpu.GetGpus() {
+		gpuName := fmt.Sprintf("%s%v", utils.GenericGPUID, gpuID)
+		gpuIndex := fmt.Sprintf("%v", gpuID)
+		numberOfProcesses := len(processIDList)
+		// calculate the gpu's processes energy consumption for each gpu
+		processIdlePower := nodeMetrics.EnergyUsage[config.IdleEnergyInGPU].GetDeltaValuesByKey(gpuIndex) / uint64(numberOfProcesses)
+		dynPower := nodeMetrics.EnergyUsage[config.DynEnergyInGPU].GetDeltaValuesByKey(gpuIndex)
+		klog.V(6).Infof("GPU %s: idle power: %v, dynamic power: %v\n", gpuName, processIdlePower, dynPower)
+		for pid, v := range processesMetrics {
+			v.EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(gpuName, processIdlePower)
+			usage := v.ResourceUsage[config.GPUComputeUtilization].GetDeltaValuesByKey(gpuName)
+			power := dynPower * usage / 100
+			v.EnergyUsage[config.DynEnergyInGPU].SetDeltaStat(gpuName, power)
+			if usage > 0 {
+				klog.V(5).Infof("pid %v: on %s[dyn %v] power %v resource %v\n",
+					pid, gpuName, dynPower, power, v.ResourceUsage[config.GPUComputeUtilization].GetDeltaValuesByKey(gpuName))
 			}
 		}
 	}

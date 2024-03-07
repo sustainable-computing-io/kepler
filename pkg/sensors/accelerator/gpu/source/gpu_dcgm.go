@@ -210,7 +210,8 @@ func (d *GPUDcgm) Shutdown() bool {
 
 func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
 	gpuEnergy := []uint32{}
-	for _, device := range d.devices {
+	for i := 0; i < len(d.devices); i++ {
+		device := d.devices[fmt.Sprintf("%v", i)]
 		power, ret := device.(nvml.Device).GetPowerUsage()
 		if ret != nvml.SUCCESS {
 			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
@@ -219,6 +220,7 @@ func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
 		// necessary to calculate the energy consumption for the entire waiting period
 		energy := uint32(uint64(power) * config.SamplePeriodSec)
+		klog.V(debugLevel).Infof("GPU %v energy %v\n", i, energy)
 		gpuEnergy = append(gpuEnergy, energy)
 	}
 

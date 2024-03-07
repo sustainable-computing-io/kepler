@@ -147,6 +147,40 @@ func (s *UInt64StatCollection) SumAllAggrValues() uint64 {
 	return sum
 }
 
+// GetAllAggrValues return all the Aggr with their keys
+func (s *UInt64StatCollection) GetAllAggrValues() map[string]uint64 {
+	aggrValues := make(map[string]uint64)
+	for key, stat := range s.Stat {
+		aggrValues[key] = stat.Aggr
+	}
+	return aggrValues
+}
+
+// GetAllDeltaValues return all the Delta with their keys
+func (s *UInt64StatCollection) GetAllDeltaValues() map[string]uint64 {
+	deltaValues := make(map[string]uint64)
+	for key, stat := range s.Stat {
+		deltaValues[key] = stat.Delta
+	}
+	return deltaValues
+}
+
+// GetAggValuesByKey return the Aggr value of a specific key
+func (s *UInt64StatCollection) GetAggValuesByKey(key string) uint64 {
+	if stat, found := s.Stat[key]; found {
+		return stat.Aggr
+	}
+	return 0
+}
+
+// GetDeltaValuesByKey return the Delta value of a specific key
+func (s *UInt64StatCollection) GetDeltaValuesByKey(key string) uint64 {
+	if stat, found := s.Stat[key]; found {
+		return stat.Delta
+	}
+	return 0
+}
+
 func (s *UInt64StatCollection) ResetDeltaValues() {
 	for _, stat := range s.Stat {
 		stat.ResetDeltaValues()
