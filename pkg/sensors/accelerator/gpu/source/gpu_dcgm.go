@@ -281,9 +281,6 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, gpu
 		for _, val := range vals {
 			if val.FieldId == ratioField {
 				deviceUtilization := ToFloat64(val, 100)
-				if deviceUtilization <= 0 {
-					deviceUtilization = 0.5 // avoid division by zero
-				}
 				if deviceUtilization > 100 {
 					deviceUtilization = 100
 				}
@@ -299,10 +296,14 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device interface{}, gpu
 	}
 	// fourth, get the process utilization
 	for _, p := range processInfo {
+		computeUtilization := 0.0
+		if totalNormalizedUtil > 0 {
+			computeUtilization = processNormalizedUtil[p.Pid]/totalNormalizedUtil*100 + 0.5
+		}
 		processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
 			Pid:         p.Pid,
 			TimeStamp:   uint64(time.Now().UnixNano()),
-			ComputeUtil: uint32(processNormalizedUtil[p.Pid]/totalNormalizedUtil*100 + 0.5),
+			ComputeUtil: uint32(computeUtilization),
 		}
 		klog.V(debugLevel).Infof("pid %d normalized computeUtil %d\n", p.Pid, processAcceleratorMetrics[p.Pid].ComputeUtil)
 	}
