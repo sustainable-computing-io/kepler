@@ -290,13 +290,12 @@ func addGPUEnergy(processIDList []uint64, processesMetrics map[uint64]*stats.Pro
 	if !gpu.IsGPUCollectionSupported() {
 		return
 	}
-	for gpuID, _ := range gpu.GetGpus() {
+	for gpuID := range gpu.GetGpus() {
 		gpuName := fmt.Sprintf("%s%v", utils.GenericGPUID, gpuID)
-		gpuIndex := fmt.Sprintf("%v", gpuID)
 		numberOfProcesses := len(processIDList)
 		// calculate the gpu's processes energy consumption for each gpu
-		processIdlePower := nodeMetrics.EnergyUsage[config.IdleEnergyInGPU].GetDeltaValuesByKey(gpuIndex) / uint64(numberOfProcesses)
-		dynPower := nodeMetrics.EnergyUsage[config.DynEnergyInGPU].GetDeltaValuesByKey(gpuIndex)
+		processIdlePower := nodeMetrics.EnergyUsage[config.IdleEnergyInGPU].GetDeltaValuesByKey(gpuID) / uint64(numberOfProcesses)
+		dynPower := nodeMetrics.EnergyUsage[config.DynEnergyInGPU].GetDeltaValuesByKey(gpuID)
 		klog.V(6).Infof("GPU %s: idle power: %v, dynamic power: %v\n", gpuName, processIdlePower, dynPower)
 		for pid, v := range processesMetrics {
 			v.EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(gpuName, processIdlePower)
