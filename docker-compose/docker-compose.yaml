@@ -1,0 +1,66 @@
+version: '3.2'
+
+services:
+  kepler:
+    image: quay.io/sustainable_computing_io/kepler:latest
+    privileged: true
+    ports: 
+      - "9100:9100"
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+    command:
+      - -address
+      -  "0.0.0.0:9100"
+      - -enable-cgroup-id=true
+      - -enable-gpu=false
+      - -v=5
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+  prometheus:
+    build:
+      context: ./prom
+    ports: 
+      - "9090:9090"
+    volumes: 
+      - promdata-kepler:/prometheus 
+    networks:
+      - kepler-network
+
+
+  grafana:
+    build:
+      context: ./grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/sample/kepler-dashboard.json"
+    depends_on:
+      - prometheus
+    ports: 
+      - "3000:3000"
+    networks:
+      - kepler-network
+    volumes:
+      - type: bind
+        source: "./grafana/dashboards/kepler-dashboard.json"
+        target: "/var/lib/grafana/dashboards/sample/kepler-dashboard.json"
+    
+volumes:
+  promdata-kepler:
+
+networks:
+  kepler-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.39.0/24
