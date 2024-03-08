@@ -30,7 +30,6 @@ declare CLUSTER_PROVIDER="${CLUSTER_PROVIDER:-kind}"
 declare CTR_CMD="${CTR_CMD:-docker}"
 declare IMAGE_TAG="${IMAGE_TAG:-devel}"
 declare IMAGE_REPO="${IMAGE_REPO:-localhost:5001}"
-declare ATTACHER_TAG="${ATTACHER_TAG:-libbpf}"
 declare OPTS="${OPTS:-}"
 declare NO_BUILDS="${NO_BUILDS:-false}"
 
@@ -55,7 +54,7 @@ build_kepler() {
 	run make build_containerized \
 		IMAGE_REPO="$IMAGE_REPO" \
 		IMAGE_TAG="$IMAGE_TAG" \
-		ATTACHER_TAG="$ATTACHER_TAG"
+		VERSION="devel"
 }
 push_kepler() {
 	header "Push Kepler Image"
@@ -65,8 +64,7 @@ push_kepler() {
 	}
 	run make push-image \
 		IMAGE_REPO="$IMAGE_REPO" \
-		IMAGE_TAG="$IMAGE_TAG" \
-		ATTACHER_TAG="$ATTACHER_TAG"
+		IMAGE_TAG="$IMAGE_TAG"
 }
 run_kepler() {
 	header "Running Kepler"

@@ -1,13 +1,13 @@
 FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0 as builder
-
+ARG VERSION
 WORKDIR /workspace
 
 COPY . .
 
-RUN ATTACHER_TAG=libbpf make build
+RUN make build VERSION=${VERSION}
 
 FROM registry.access.redhat.com/ubi9:9.2
-ARG INSTALL_DCGM 
+ARG INSTALL_DCGM
 ARG INSTALL_DCGM=${INSTALL_DCGM:-""}
 ARG TARGETARCH
 

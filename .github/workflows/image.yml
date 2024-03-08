@@ -25,12 +25,16 @@ jobs:
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64,linux/arm64
-          BUILD_ARGS: INSTALL_DCGM="false"
+          BUILD_ARGS: |
+                INSTALL_DCGM="false"
+                VERSION=${{ inputs.imageTag }}
           LABEL:      ${{ inputs.imageTag }}
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64
-          BUILD_ARGS: INSTALL_DCGM="true"
+          BUILD_ARGS: |
+                INSTALL_DCGM="true"
+                VERSION=${{ inputs.imageTag }}-dgcm
           LABEL:      ${{ inputs.imageTag }}-dgcm
         - IMAGE_NAME: kepler-validator
           IMAGE_FILE: build/Dockerfile.kepler-validator
@@ -59,7 +63,7 @@ jobs:
       with:
           context: .
           platforms: ${{matrix.PLATFORMS}}
-          push: ${{ inputs.pushImage }}          
+          push: ${{ inputs.pushImage }}
           build-args: ${{matrix.BUILD_ARGS}}
           tags: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           labels: ${{matrix.LABEL}}

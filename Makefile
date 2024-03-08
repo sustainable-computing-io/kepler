@@ -7,7 +7,6 @@ export BIN_TIMESTAMP ?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 export TIMESTAMP ?=$(shell echo $(BIN_TIMESTAMP) | tr -d ':' | tr 'T' '-' | tr -d 'Z')
 
 # restrict included verify-* targets to only process project files
-SOURCE_GIT_TAG     := $(shell git describe --tags --always --abbrev=7 --match 'v*')
 SRC_ROOT           := $(shell pwd)
 ARCH               := $(shell arch)
 OUTPUT_DIR         := _output
@@ -53,7 +52,7 @@ LIBBPF_OBJ ?= /usr/lib64/libbpf.a
 GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS)" CGO_LDFLAGS="$(LIBBPF_OBJ)"
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
-IMAGE_BUILD_TAG := $(SOURCE_GIT_TAG)-linux-$(GOARCH)
+IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
 GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)$(GPU_TAGS)
 GO_TEST_TAGS := $(GENERAL_TAGS)$(GOOS)
 
@@ -92,8 +91,8 @@ build_containerized: tidy-vendor format
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--network host \
-		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
 		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
+		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 
@@ -103,9 +102,9 @@ build_containerized: tidy-vendor format
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"dcgm" \
 		-f $(DOCKERFILE) \
 		--network host \
-		--build-arg SOURCE_GIT_TAG=$(SOURCE_GIT_TAG) \
 		--build-arg BIN_TIMESTAMP=$(BIN_TIMESTAMP) \
 		--build-arg INSTALL_DCGM="true" \
+		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 
