@@ -119,7 +119,7 @@ jobs:
       - name: download from artifact
         uses: actions/download-artifact@v4
         with:
-          name: sbom-kepler-${{ github.event.inputs.release }}.json
+          name: sbom-kepler-${{ github.event.inputs.release }}.spdx.json
 
       - name: Attach SBOM to release
         uses: softprops/action-gh-release@v1

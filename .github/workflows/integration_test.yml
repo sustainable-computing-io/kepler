@@ -20,11 +20,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      # set up ebpf
-      - name: install libbpf
-        uses: sustainable-computing-io/kepler-action@v0.0.5
-        with:
-          ebpfprovider: libbpf
       # build kepler image
       - name: build and export Kepler image
         run: |
@@ -50,6 +45,7 @@ jobs:
     needs: [build-kepler]
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cluster_provider: [kind,microshift]
     steps:

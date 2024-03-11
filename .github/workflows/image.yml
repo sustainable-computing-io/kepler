@@ -25,23 +25,29 @@ jobs:
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64,linux/arm64
-          BUILD_ARGS: INSTALL_DCGM="false"
+          BUILD_ARGS: |
+                INSTALL_DCGM="false"
+                VERSION=${{ inputs.imageTag }}
           LABEL:      ${{ inputs.imageTag }}
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64
-          BUILD_ARGS: INSTALL_DCGM="true"
+          BUILD_ARGS: |
+                INSTALL_DCGM="true"
+                VERSION=${{ inputs.imageTag }}-dgcm
           LABEL:      ${{ inputs.imageTag }}-dgcm
         - IMAGE_NAME: kepler-validator
           IMAGE_FILE: build/Dockerfile.kepler-validator
           BUILD_ARGS: ""
-          PLATFORMS:  linux/amd64,linux/arm64
+          PLATFORMS:  linux/amd64
           LABEL:      ${{ inputs.imageTag }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4.1.1
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
+      with:
+        image: tonistiigi/binfmt:qemu-v8.1.5
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Login to Quay
@@ -57,7 +63,7 @@ jobs:
       with:
           context: .
           platforms: ${{matrix.PLATFORMS}}
-          push: ${{ inputs.pushImage }}          
+          push: ${{ inputs.pushImage }}
           build-args: ${{matrix.BUILD_ARGS}}
           tags: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           labels: ${{matrix.LABEL}}
@@ -71,6 +77,7 @@ jobs:
         output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
 
     - name: save Kepler image SBOM as artifact
+      if: ${{ inputs.pushImage }}
       uses: actions/upload-artifact@v4.3.0
       with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json

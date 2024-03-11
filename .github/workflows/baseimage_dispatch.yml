@@ -5,7 +5,7 @@ on:
 
 jobs:
   baseimagebuild:
-    uses: ./.github/workflows/image.yml
+    uses: ./.github/workflows/image_base.yml
     with:
       pushImage: true
     secrets:
