@@ -49,12 +49,17 @@ func (d *GPUDummy) GetAbsEnergyFromGPU() []uint32 {
 	return []uint32{}
 }
 
-func (d *GPUDummy) GetGpus() map[string]interface{} {
-	var devices map[string]interface{}
+func (d *GPUDummy) GetGpus() map[int]Device {
+	var devices map[int]Device
 	return devices
 }
 
-func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (d *GPUDummy) GetMIGInstances() map[int]map[int]Device {
+	var devices map[int]map[int]Device
+	return devices
+}
+
+func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device Device, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	processAcceleratorMetrics[0] = ProcessUtilizationSample{
 		Pid:         0,

@@ -41,11 +41,13 @@ type acceleratorInterface interface {
 	// Shutdown stops the GPU metric collector
 	Shutdown() bool
 	// GetGpus returns a map with gpu device
-	GetGpus() map[string]interface{}
+	GetGpus() map[int]gpu_source.Device
+	// GetMIGInstances returns a map with mig instances of each GPU
+	GetMIGInstances() map[int]map[int]gpu_source.Device
 	// GetAbsEnergyFromGPU returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
 	GetAbsEnergyFromGPU() []uint32
 	// GetProcessResourceUtilization returns a map of ProcessUtilizationSample where the key is the process pid
-	GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error)
+	GetProcessResourceUtilizationPerDevice(device gpu_source.Device, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error)
 	// IsGPUCollectionSupported returns if it is possible to use this collector
 	IsGPUCollectionSupported() bool
 	// SetGPUCollectionSupported manually set if it is possible to use this collector. This is for testing purpose only.
@@ -67,11 +69,18 @@ func Shutdown() bool {
 	return true
 }
 
-func GetGpus() map[string]interface{} {
+func GetGpus() map[int]gpu_source.Device {
 	if acceleratorImpl != nil && config.EnabledGPU {
 		return acceleratorImpl.GetGpus()
 	}
-	return map[string]interface{}{}
+	return map[int]gpu_source.Device{}
+}
+
+func GetMIGInstances() map[int]map[int]gpu_source.Device {
+	if acceleratorImpl != nil && config.EnabledGPU {
+		return acceleratorImpl.GetMIGInstances()
+	}
+	return map[int]map[int]gpu_source.Device{}
 }
 
 func GetAbsEnergyFromGPU() []uint32 {
@@ -84,9 +93,9 @@ func GetAbsEnergyFromGPU() []uint32 {
 // GetProcessResourceUtilizationPerDevice tries to collect the GPU metrics.
 // There is a known issue that some clusters the nvidia GPU can stop to respod and we need to start it again.
 // See https://github.com/sustainable-computing-io/kepler/issues/610.
-func GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
+func GetProcessResourceUtilizationPerDevice(device gpu_source.Device, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
 	if acceleratorImpl != nil && config.EnabledGPU {
-		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, gpuID, since)
+		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
 		if err != nil {
 			klog.Infof("Failed to collect GPU metrics, trying to initizalize again: %v\n", err)
 			err = acceleratorImpl.Init()
