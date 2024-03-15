@@ -4,8 +4,8 @@ github.com/Masterminds/semver
 # github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 ## explicit; go 1.21
 github.com/NVIDIA/go-dcgm/pkg/dcgm
-# github.com/NVIDIA/go-nvml v0.12.0-1
-## explicit; go 1.15
+# github.com/NVIDIA/go-nvml v0.12.0-3
+## explicit; go 1.20
 github.com/NVIDIA/go-nvml/pkg/dl
 github.com/NVIDIA/go-nvml/pkg/nvml
 # github.com/StackExchange/wmi v1.2.1
@@ -292,8 +292,8 @@ github.com/sirupsen/logrus
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.8.4
-## explicit; go 1.20
+# github.com/stretchr/testify v1.9.0
+## explicit; go 1.17
 github.com/stretchr/testify/assert
 # golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 ## explicit; go 1.20
