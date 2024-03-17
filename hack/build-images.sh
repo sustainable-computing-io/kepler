@@ -9,7 +9,7 @@ script_dir=$(dirname "$(readlink -f "$0")")
 registry="quay.io/sustainable_computing_io"
 
 supported_arches=("linux/amd64" "linux/s390x" "linux/arm64")
-supported_attacher=("bcc", "libbpf")
+supported_attacher=("libbpf")
 
 function install_packages() {
 	sudo apt install -y qemu-user-static binfmt-support build-essential
@@ -100,9 +100,6 @@ function build_image_base() {
 function create_image_manifest_base () {
 	docker manifest create \
 		${registry}/${image}:latest \
-		${registry}/${image}:latest-amd64-bcc \
-		${registry}/${image}:latest-s390x-bcc \
-		${registry}/${image}:latest-arm64-bcc \
 		${registry}/${image}:latest-amd64-libbpf
 
 	docker manifest push ${registry}/${image}:latest
