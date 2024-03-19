@@ -146,11 +146,12 @@ _build_local: genlibbpf
 
 container_build:
 	$(CTR_CMD) run --rm \
-		--network host \
 		-v $(base_dir):/kepler:Z -w /kepler \
-		-e GOROOT=/usr/local/go -e PATH=/usr/bin:/bin:/sbin:/usr/local/bin:/usr/local/go/bin \
+		--user $(shell id -u):$(shell id -g) \
+		-e GOROOT=/usr/local/go \
+		-e PATH=/usr/bin:/bin:/sbin:/usr/local/bin:/usr/local/go/bin \
 		$(BUILDER_IMAGE) \
-		git config --global --add safe.directory /kepler && make build
+		git config --add safe.directory /kepler && make build
 
 build_rpm:
 	rpmbuild packaging/rpm/kepler.spec --build-in-place -bb
