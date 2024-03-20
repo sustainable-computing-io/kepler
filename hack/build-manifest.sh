@@ -45,7 +45,6 @@ declare ESTIMATOR_SIDECAR_DEPLOY=false
 declare CI_DEPLOY=false
 declare DEBUG_DEPLOY=false
 declare MODEL_SERVER_DEPLOY=false
-declare TRAINER_DEPLOY=false
 declare QAT_DEPLOY=false
 declare PROMETHEUS_DEPLOY=false
 declare HIGH_GRANULARITY=false
@@ -175,18 +174,6 @@ deploy_model_server() {
 		uncomment_patch openshift "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
 	}
 	ok "Model server deployment configured"
-}
-deploy_trainer() {
-	header "Trainer Deployment"
-	$TRAINER_DEPLOY || {
-		skip "skipping trainer deployment"
-		return 0
-	}
-	uncomment_patch trainer "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
-	$OPENSHIFT_DEPLOY && {
-		uncomment_patch train-ocp "${MANIFESTS_OUT_DIR}"/model-server/kustomization.yaml
-	}
-	ok "Trainer deployment configured"
 }
 deploy_qat() {
 	header "QAT Deployment"
