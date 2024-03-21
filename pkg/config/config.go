@@ -99,7 +99,7 @@ var (
 
 	versionRegex = regexp.MustCompile(`^(\d+)\.(\d+).`)
 
-	configPath = "/etc/kepler/kepler.config"
+	configDir = "/etc/kepler/kepler.config"
 
 	// nvidia dcgm hostengine endpoint
 	DCGMHostEngineEndpoint = getConfig("NVIDIA_HOSTENGINE_ENDPOINT", "localhost:5555")
@@ -181,20 +181,21 @@ func getIntConfig(configKey string, defaultInt int) int {
 	return defaultInt
 }
 
-func getConfig(configKey, defaultValue string) (result string) {
-	result = string([]byte(defaultValue))
-	key := string([]byte(configKey))
-	strValue, present := os.LookupEnv(key)
-	if present {
-		result = strValue
-	} else {
-		configFile := filepath.Join(configPath, key)
-		value, err := os.ReadFile(configFile)
-		if err == nil {
-			result = bytes.NewBuffer(value).String()
-		}
+// getConfig returns the value of the key by first looking in the environment
+// and then in the config file if it exists or else returns the default value.
+func getConfig(key, defaultValue string) string {
+	// env var takes precedence over config file
+	if envValue, exists := os.LookupEnv(key); exists {
+		return envValue
 	}
-	return
+
+	// return config file value if there is one
+	configFile := filepath.Join(configDir, key)
+	if value, err := os.ReadFile(configFile); err == nil {
+		return strings.TrimSpace(bytes.NewBuffer(value).String())
+	}
+
+	return defaultValue
 }
 
 // SetKernelSourceDir sets the directory for all kernel source. This is used for bcc. Only the top level directory is needed.
