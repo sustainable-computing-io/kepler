@@ -5,7 +5,6 @@
   - [Create a new ephemeral local kubernetes cluster](#create-a-new-ephemeral-local-kubernetes-cluster)
   - [Build and run kepler on your cluster](#build-and-run-kepler-on-your-cluster)
   - [To run kepler externally to the cluster](#to-run-kepler-externally-to-the-cluster)
-    - [Install bcc-devel and kernel-devel](#install-bcc-devel-and-kernel-devel)
     - [Compile](#compile)
     - [Test](#test)
   - [Build kepler and base multi-arch images](#build-kepler-and-base-multi-arch-images)
@@ -58,10 +57,6 @@ make cluster-deploy IMAGE_REPO=index.docker.io/myrepo IMAGE_TAG=mybuild OPTS=ROO
 ## To run Kepler externally to the cluster
 
 This quick tutorial is for developing and testing Kepler locally but with access to kubelet
-
-### Install bcc-devel and kernel-devel
-
-Refer to the [builder Dockerfile](https://github.com/sustainable-computing-io/kepler/blob/main/build/Dockerfile.builder)
 
 ### Compile
 
