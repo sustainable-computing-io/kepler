@@ -10,6 +10,8 @@ import (
 
 // ErrFieldCount is returned when header's length doesn't match the length of
 // the read record.
+//
+// This Error can be disabled with Decoder.AlignRecord = true.
 var ErrFieldCount = errors.New("wrong number of fields in record")
 
 // An UnmarshalTypeError describes a string value that was not appropriate for

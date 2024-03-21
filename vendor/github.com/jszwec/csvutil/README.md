@@ -221,7 +221,7 @@ the incoming data before the actual decoding takes place.
 Lets say we want to decode some floats and the csv input contains some NaN values, but these values are represented by the 'n/a' string. An attempt to decode 'n/a' into float will end up with error, because strconv.ParseFloat expects 'NaN'. Knowing that, we can implement a Map function that will normalize our 'n/a' string and turn it to 'NaN' only for float types.
 
 ```go
-	dec, err := NewDecoder(r)
+	dec, err := csvutil.NewDecoder(r)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -245,7 +245,7 @@ Some files may use different value separators, for example TSV files would use `
 	csvReader := csv.NewReader(r)
 	csvReader.Comma = '\t'
 
-	dec, err := NewDecoder(csvReader)
+	dec, err := csvutil.NewDecoder(csvReader)
 	if err != nil {
 		log.Fatal(err)
 	}

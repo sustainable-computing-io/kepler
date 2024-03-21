@@ -25,6 +25,21 @@ type Decoder struct {
 	// provided struct.
 	DisallowMissingColumns bool
 
+	// AlignRecord will cause Decoder to align returned record slice to the
+	// header in case Reader returns records of different lengths.
+	//
+	// This flag is supposed to work with csv.Reader.FieldsPerRecord set to -1
+	// which may cause this behavior.
+	//
+	// When header is longer than the record, it will populate the missing
+	// records with an empty string.
+	//
+	// When header is shorter than the record, it will slice the record to match
+	// header's length.
+	//
+	// When this flag is used, Decoder will not ever return ErrFieldCount.
+	AlignRecord bool
+
 	// If not nil, Map is a function that is called for each field in the csv
 	// record before decoding the data. It allows mapping certain string values
 	// for specific columns or types to a known format. Decoder calls Map with
@@ -394,7 +409,15 @@ func (d *Decoder) decodeStruct(v reflect.Value) (err error) {
 	}
 
 	if len(d.record) != len(d.header) {
-		return ErrFieldCount
+		if !d.AlignRecord {
+			return ErrFieldCount
+		}
+
+		if len(d.record) > len(d.header) {
+			d.record = d.record[:len(d.header)]
+		} else {
+			d.record = append(d.record, make([]string, len(d.header)-len(d.record))...)
+		}
 	}
 
 	return d.unmarshal(d.record, v)
