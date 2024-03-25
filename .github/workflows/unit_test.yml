@@ -33,7 +33,7 @@ jobs:
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
           git config --global --add safe.directory /kepler
     - name: install libbpf
-      uses: sustainable-computing-io/kepler-action@v0.0.5
+      uses: sustainable-computing-io/kepler-action@v0.0.6
       with:
         ebpfprovider: libbpf
     - name: Run 

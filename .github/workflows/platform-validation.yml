@@ -133,7 +133,7 @@ jobs:
           CTR_CMD: docker
 
       - name: Use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.5
+        uses: sustainable-computing-io/kepler-action@v0.0.6
         with:
           cluster_provider: ${{matrix.cluster_provider}}
           ebpfprovider: libbpf
