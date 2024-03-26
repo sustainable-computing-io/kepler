@@ -19,7 +19,7 @@ IMAGE_REPO         ?= quay.io/sustainable_computing_io
 BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
-CTR_CMD            ?= $(or $(shell which podman 2>/dev/null), $(shell which docker 2>/dev/null))
+CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
