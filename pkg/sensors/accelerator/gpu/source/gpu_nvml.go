@@ -30,7 +30,7 @@ import (
 
 var (
 	// List of GPU identifiers for the device
-	devices map[string]interface{}
+	devices map[int]Device
 	// bool to check if the process utilization collection is supported
 	processUtilizationSupported bool = true
 )
@@ -77,19 +77,24 @@ func (n *GPUNvml) Init() (err error) {
 		return err
 	}
 	klog.Infof("found %d gpu devices\n", count)
-	devices = make(map[string]interface{}, count)
-	for i := 0; i < count; i++ {
-		device, ret := nvml.DeviceGetHandleByIndex(i)
+	devices = make(map[int]Device, count)
+	for gpuID := 0; gpuID < count; gpuID++ {
+		nvmlDeviceHandler, ret := nvml.DeviceGetHandleByIndex(gpuID)
 		if ret != nvml.SUCCESS {
 			nvml.Shutdown()
 			n.collectionSupported = false
-			err = fmt.Errorf("failed to get nvml device %d: %v ", i, nvml.ErrorString(ret))
+			err = fmt.Errorf("failed to get nvml device %d: %v ", gpuID, nvml.ErrorString(ret))
 			return err
 		}
-		name, _ := device.GetName()
-		uuid, _ := device.GetUUID()
-		klog.Infof("GPU %v %q %q", i, name, uuid)
-		devices[uuid] = device
+		name, _ := nvmlDeviceHandler.GetName()
+		uuid, _ := nvmlDeviceHandler.GetUUID()
+		klog.Infof("GPU %v %q %q", gpuID, name, uuid)
+		device := Device{
+			NVMLDeviceHandler: nvmlDeviceHandler,
+			GPUID:             gpuID,
+			IsMig:             false,
+		}
+		devices[gpuID] = device
 	}
 	n.collectionSupported = true
 	return nil
@@ -102,7 +107,12 @@ func (n *GPUNvml) Shutdown() bool {
 }
 
 // GetGpus returns a map with gpu device
-func (n *GPUNvml) GetGpus() map[string]interface{} {
+func (n *GPUNvml) GetGpus() map[int]Device {
+	return devices
+}
+
+func (d *GPUNvml) GetMIGInstances() map[int]map[int]Device {
+	var devices map[int]map[int]Device
 	return devices
 }
 
@@ -110,7 +120,7 @@ func (n *GPUNvml) GetGpus() map[string]interface{} {
 func (n *GPUNvml) GetAbsEnergyFromGPU() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, device := range devices {
-		power, ret := device.(nvml.Device).GetPowerUsage()
+		power, ret := device.NVMLDeviceHandler.(nvml.Device).GetPowerUsage()
 		if ret != nvml.SUCCESS {
 			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
@@ -127,12 +137,12 @@ func (n *GPUNvml) GetAbsEnergyFromGPU() []uint32 {
 //
 //	ProcessUtilizationSample.SmUtil represents the process Streaming Multiprocessors - SM (3D/Compute) utilization in percentage.
 //	ProcessUtilizationSample.MemUtil represents the process Frame Buffer Memory utilization Value.
-func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, gpuID int, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device Device, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	lastUtilizationTimestamp := uint64(time.Now().Add(-1*since).UnixNano() / 1000)
 
 	if processUtilizationSupported {
-		processUtilizationSample, ret := device.(nvml.Device).GetProcessUtilization(lastUtilizationTimestamp)
+		processUtilizationSample, ret := device.NVMLDeviceHandler.(nvml.Device).GetProcessUtilization(lastUtilizationTimestamp)
 		if ret != nvml.SUCCESS {
 			if ret == nvml.ERROR_NOT_FOUND {
 				// ignore the error if there is no process running in the GPU
@@ -157,15 +167,15 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device interface{}, gpu
 	}
 	if !processUtilizationSupported { // if processUtilizationSupported is false, try deviceGetMPSComputeRunningProcesses_v3 to use memory usage to ratio power usage
 		config.GpuUsageMetric = config.GPUMemUtilization
-		processInfo, ret := device.(nvml.Device).GetComputeRunningProcesses()
+		processInfo, ret := device.NVMLDeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
 			if ret == nvml.ERROR_NOT_FOUND {
 				// ignore the error if there is no process running in the GPU
 				return nil, nil
 			}
-			return nil, fmt.Errorf("failed to get processes' utilization on device %v: %v", device, nvml.ErrorString(ret))
+			return nil, fmt.Errorf("failed to get processes' utilization on device %v: %v", device.GPUID, nvml.ErrorString(ret))
 		}
-		memoryInfo, ret := device.(nvml.Device).GetMemoryInfo()
+		memoryInfo, ret := device.NVMLDeviceHandler.(nvml.Device).GetMemoryInfo()
 		if ret != nvml.SUCCESS {
 			return nil, fmt.Errorf("failed to get memory info on device %v: %v", device, nvml.ErrorString(ret))
 		}
