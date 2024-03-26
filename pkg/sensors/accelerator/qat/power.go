@@ -18,6 +18,7 @@ package qat
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	qat_source "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat/source"
@@ -27,6 +28,7 @@ import (
 var (
 	qatImpl qatInterface
 	errLib  = fmt.Errorf("could not start accelerator-qat collector")
+	qatOnce sync.Once
 )
 
 type qatInterface interface {
@@ -48,6 +50,18 @@ type qatInterface interface {
 // The qat.go file has an init function that starts and configures the qat collector
 // However this file is only included in the build if kepler is run with Intel QAT driver support.
 func Init() error {
+	qatOnce.Do(func() {
+		if config.IsExposeQATMetricsEnabled() {
+			qatImpl = &qat_source.QATTelemetry{}
+			errLib = qatImpl.Init()
+			if errLib == nil {
+				klog.Infoln("Using qat-telemetry to obtain qat metrics")
+				// If the library was successfully initialized, we don't need to return an error in the Init() function
+				return
+			}
+			klog.Infof("Failed to init qat-telemtry err: %v\n", errLib)
+		}
+	})
 	return errLib
 }
 
@@ -68,15 +82,14 @@ func GetQATs() map[string]interface{} {
 func GetQATUtilization(devices map[string]interface{}) (map[string]qat_source.DeviceUtilizationSample, error) {
 	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		deviceUtilization, err := qatImpl.GetQATUtilization(devices)
-		if err != nil {
+		if err == nil {
+			return deviceUtilization, nil
+		} else {
 			klog.Infof("failed to collector QAT metrics, trying to initizalize again: %v \n", err)
-			err = qatImpl.Init()
-			if err != nil {
-				klog.Infof("failed to init qat-telemetry:%v\n", err)
-				return map[string]qat_source.DeviceUtilizationSample{}, err
+			if errLib != nil {
+				klog.Infof("failed to init qat-telemetry:%v\n", errLib)
 			}
 		}
-		return deviceUtilization, err
 	}
 	return map[string]qat_source.DeviceUtilizationSample{}, errLib
 }
