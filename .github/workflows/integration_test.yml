@@ -57,6 +57,9 @@ jobs:
         with:
           name: keplerlibbpf
 
+      - name: Install all tools
+        uses: ./.github/tools-cache
+
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
         env:
