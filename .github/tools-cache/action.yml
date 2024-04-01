@@ -1,0 +1,16 @@
+---
+name: tools-cache
+description: Caches development tools
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v3
+      id: tools-cache
+      with:
+        path: ./tmp/bin
+        key: ${{ runner.os }}-tools-${{ hashFiles('./hack/tools.sh') }}
+
+    - name: Install Dependencies
+      if: steps.tools-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: make tools
