@@ -58,7 +58,7 @@ func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
 		if strings.TrimSuffix(strings.TrimSpace(string(data)), "\n") == cpuPowerLabel {
 			// replace the label file with the input file
 			powerInputPath = strings.Replace(labelFile, "label", "input", 1)
-			klog.V(1).Infof("Found power input file: %s", powerInputPath)
+			klog.V(5).Infof("Found power input file: %s", powerInputPath)
 			return true
 		}
 	}
