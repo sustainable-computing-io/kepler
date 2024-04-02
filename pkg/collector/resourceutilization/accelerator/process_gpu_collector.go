@@ -19,7 +19,6 @@ package accelerator
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
@@ -44,49 +43,62 @@ var (
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
 func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
-	var err error
-	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	// calculate the gpu's processes energy consumption for each gpu
-	for gpuID, device := range gpu.GetGpus() {
-		deviceIndex, _ := strconv.Atoi(gpuID)
-		if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, deviceIndex, time.Since(lastUtilizationTimestamp)); err != nil {
-			klog.Infoln(err)
-			continue
-		}
-
-		for pid, processUtilization := range processesUtilization {
-			uintPid := uint64(pid)
-			// if the process was not indentified by the bpf metrics, create a new metric object
-			if _, exist := processStats[uintPid]; !exist {
-				command := getProcessCommand(uintPid)
-				containerID := utils.SystemProcessName
-
-				// if the pid is within a container, it will have an container ID
-				if config.IsExposeContainerStatsEnabled() {
-					if containerID, err = cgroup.GetContainerIDFromPID(uintPid); err != nil {
-						klog.V(6).Infof("failed to resolve container for Pid %v (command=%s): %v, set containerID=%s", pid, command, err, containerID)
-					}
-				}
-
-				// if the pid is within a VM, it will have an VM ID
-				vmID := utils.EmptyString
-				if config.IsExposeVMStatsEnabled() {
-					if config.IsExposeVMStatsEnabled() {
-						vmID, err = libvirt.GetVMID(uintPid)
-						if err != nil {
-							klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", pid, command, err)
-						}
-					}
-				}
-				processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
+	migDevices := gpu.GetMIGInstances()
+	for _, device := range gpu.GetGpus() {
+		// we need to use MIG device handler if the GPU has MIG slices, otherwise, we use the GPU device handler
+		if _, hasMIG := migDevices[device.GPUID]; !hasMIG {
+			addGPUUtilizationToProcessStats(processStats, device, device.GPUID)
+		} else {
+			// if the device has MIG slices, we should collect the process information directly from the MIG device handler
+			for _, migDevice := range migDevices[device.GPUID] {
+				// device.GPUID is equal to migDevice.ParentGpuID
+				// we add the process metrics with the parent GPU ID, so that the Ratio power model will use this data to split the GPU power among the process
+				addGPUUtilizationToProcessStats(processStats, migDevice, migDevice.ParentGpuID)
 			}
-			gpuName := fmt.Sprintf("%s%v", utils.GenericGPUID, gpuID)
-			processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.ComputeUtil))
-			processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuName, uint64(processUtilization.MemUtil))
 		}
 	}
-
 	lastUtilizationTimestamp = time.Now()
+}
+
+func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats, device gpu_source.Device, gpuID int) {
+	var err error
+	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
+	if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
+		klog.Infoln(err)
+		return
+	}
+
+	for pid, processUtilization := range processesUtilization {
+		uintPid := uint64(pid)
+		// if the process was not indentified by the bpf metrics, create a new metric object
+		if _, exist := processStats[uintPid]; !exist {
+			command := getProcessCommand(uintPid)
+			containerID := utils.SystemProcessName
+
+			// if the pid is within a container, it will have an container ID
+			if config.IsExposeContainerStatsEnabled() {
+				if containerID, err = cgroup.GetContainerIDFromPID(uintPid); err != nil {
+					klog.V(6).Infof("failed to resolve container for Pid %v (command=%s): %v, set containerID=%s", pid, command, err, containerID)
+				}
+			}
+
+			// if the pid is within a VM, it will have an VM ID
+			vmID := utils.EmptyString
+			if config.IsExposeVMStatsEnabled() {
+				if config.IsExposeVMStatsEnabled() {
+					vmID, err = libvirt.GetVMID(uintPid)
+					if err != nil {
+						klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", pid, command, err)
+					}
+				}
+			}
+			processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
+		}
+		gpuName := fmt.Sprintf("%d", gpuID) // GPU ID or Parent GPU ID for MIG slices
+		processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.ComputeUtil))
+		processStats[uintPid].ResourceUsage[config.GPUMemUtilization].AddDeltaStat(gpuName, uint64(processUtilization.MemUtil))
+	}
 }
 
 func getProcessCommand(pid uint64) string {

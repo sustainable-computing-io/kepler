@@ -24,3 +24,12 @@ type ProcessUtilizationSample struct {
 	EncUtil     uint32
 	DecUtil     uint32
 }
+
+// Device can hold nvml GPU or MIG slice handler
+type Device struct {
+	NVMLDeviceHandler interface{}
+	GPUID             int // GPU Entity ID  or Parent GPU ID if MIG slice
+	IsMig             bool
+	ParentGpuID       int     // GPU Entity ID  or Parent GPU ID if MIG slice
+	MIGSMRatio        float64 // Ratio of MIG SMs / Total GPU SMs to be used to normalize the MIG metrics
+}

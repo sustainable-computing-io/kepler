@@ -57,6 +57,9 @@ jobs:
         with:
           name: keplerlibbpf
 
+      - name: Install all tools
+        uses: ./.github/tools-cache
+
       - name: build manifest
         run: make build-manifest OPTS="CI_DEPLOY"
         env:
@@ -75,7 +78,7 @@ jobs:
           INPUT_PATH: ${{env.FILE_NAME}}
       # set up k8s cluster with ebpf
       - name: use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.5
+        uses: sustainable-computing-io/kepler-action@v0.0.6
         with:
           ebpfprovider: libbpf
           cluster_provider: ${{matrix.cluster_provider}}
