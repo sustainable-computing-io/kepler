@@ -1,3 +1,13 @@
+# Disclaimer:
+#   This ConfigMap statically configures a default power model which may not match to your server node. You can find more details about the default power models below.
+#     - node components: https://github.com/sustainable-computing-io/kepler-model-db/blob/main/models/v0.7/ec2/error_report/node_type_0.md
+#     - node total: https://github.com/sustainable-computing-io/kepler-model-db/blob/main/models/v0.7/specpower/error_report/node_type_0.md
+#
+# Recommendation:
+#   For configuring static power model, please find the target power model for the list below.
+#     - node components: https://github.com/sustainable-computing-io/kepler-model-db/tree/main/models/v0.7/ec2
+#     - node total: https://github.com/sustainable-computing-io/kepler-model-db/tree/main/models/v0.7/specpower
+#   For obtaining dynamic power model, please consider enable server-api. More info: https://sustainable-computing.io/kepler_model_server/get_started/#dynamic-via-server-api.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,9 +16,9 @@ metadata:
 data:
   MODEL_CONFIG: |
     NODE_COMPONENTS_ESTIMATOR=true
-    NODE_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_1.zip
+    NODE_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.7/ec2/intel_rapl/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_0.zip
     NODE_TOTAL_ESTIMATOR=true
-    NODE_TOTAL_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_1.zip
+    NODE_TOTAL_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.7/specpower/acpi/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_0.zip
 ---
 apiVersion: apps/v1
 kind: DaemonSet
