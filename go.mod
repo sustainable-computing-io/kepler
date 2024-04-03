@@ -30,6 +30,7 @@ require (
 )
 
 require (
+	github.com/HabanaAI/gohlml v1.15.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

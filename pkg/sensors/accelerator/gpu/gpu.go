@@ -20,17 +20,9 @@ limitations under the License.
 package gpu
 
 import (
-	gpu_source "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu/source"
 	"k8s.io/klog/v2"
 )
 
-var (
-	acceleratorOrder = []acceleratorInterface{
-		&gpu_source.GPUDcgm{},
-		&gpu_source.GPUNvml{},
-		&gpu_source.GPUDummy{},
-	}
-)
 
 /*
 Some systems have compatibility issues with the nvidia library. See https://github.com/sustainable-computing-io/kepler/issues/184

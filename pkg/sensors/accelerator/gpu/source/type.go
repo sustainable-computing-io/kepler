@@ -27,6 +27,7 @@ type ProcessUtilizationSample struct {
 
 // Device can hold nvml GPU or MIG slice handler
 type Device struct {
+	HabanaDeviceHandler interface{}
 	NVMLDeviceHandler interface{}
 	GPUID             int // GPU Entity ID  or Parent GPU ID if MIG slice
 	IsMig             bool

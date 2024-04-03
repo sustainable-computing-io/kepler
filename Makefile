@@ -38,6 +38,10 @@ endif
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
 GPU_TAGS := ' gpu '
+ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
+	GPU_TAGS := $(GPU_TAGS)'habana '
+endif
+
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 # set GOENV
