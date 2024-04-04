@@ -58,6 +58,9 @@ func Init() error {
 				klog.Infoln("Using qat-telemetry to obtain qat metrics")
 				// If the library was successfully initialized, we don't need to return an error in the Init() function
 				return
+			} else {
+				// if the qat init having error, set qatImpl to nil
+				qatImpl = nil
 			}
 			klog.Infof("Failed to init qat-telemtry err: %v\n", errLib)
 		}
@@ -82,14 +85,16 @@ func GetQATs() map[string]interface{} {
 func GetQATUtilization(devices map[string]interface{}) (map[string]qat_source.DeviceUtilizationSample, error) {
 	if qatImpl != nil && config.IsExposeQATMetricsEnabled() {
 		deviceUtilization, err := qatImpl.GetQATUtilization(devices)
-		if err == nil {
-			return deviceUtilization, nil
-		} else {
+		if err != nil {
 			klog.Infof("failed to collector QAT metrics, trying to initizalize again: %v \n", err)
+			// if qatImpl is not nil and process at here
+			// means the QAT can init successful
+			errLib = qatImpl.Init()
 			if errLib != nil {
 				klog.Infof("failed to init qat-telemetry:%v\n", errLib)
 			}
 		}
+		return deviceUtilization, nil
 	}
 	return map[string]qat_source.DeviceUtilizationSample{}, errLib
 }
