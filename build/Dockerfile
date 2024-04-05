@@ -15,13 +15,13 @@ RUN yum -y update
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
-ENV NVIDIA_MIG_CONFIG_DEVICES=all 
-ENV NVIDIA_MIG_MONITOR_DEVICES=all 
+ENV NVIDIA_MIG_CONFIG_DEVICES=all
+ENV NVIDIA_MIG_MONITOR_DEVICES=all
 
 RUN INSTALL_PKGS=" \
     libbpf \
     " && \
-	yum install -y $INSTALL_PKGS 
+	yum install -y $INSTALL_PKGS
 
 RUN if [ "$TARGETARCH" == "amd64" ]; then \
         yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
