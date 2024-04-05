@@ -133,6 +133,7 @@ var (
 	FixedTrainerNameKey      = "TRAINER"
 	FixedNodeTypeKey         = "NODE_TYPE"
 	ModelFiltersKey          = "FILTERS"
+	DefaultTrainerName       = "SGDRegressorTrainer"
 	////////////////////////////////////
 
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
