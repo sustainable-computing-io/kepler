@@ -72,7 +72,6 @@ jobs:
           _COMMITTER_: ${{ github.event.inputs.committer }}
           _ARCH_: ${{ github.event.inputs.arch }}
         run: |
-          make containerized_build_rpm
           make containerized_build_container_rpm
           cd _output/rpmbuild/
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/

@@ -9,11 +9,9 @@ License:        Apache License 2.0
 URL:            https://github.com/sustainable-computing-io/kepler/
 Source0:        kepler.tar.gz
 
-BuildRequires: systemd
+BuildArch:  noarch
 
-Requires:       kernel-devel
-
-%{?systemd_requires}
+Requires: podman
 
 %description
 Kubernetes-based Efficient Power Level Exporter
