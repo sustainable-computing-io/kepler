@@ -110,6 +110,7 @@ build_image: image_builder_check ## Build image without DCGM.
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--network host \
+		--build-arg INSTALL_DCGM="false" \
 		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.

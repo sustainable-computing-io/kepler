@@ -26,7 +26,7 @@ RUN INSTALL_PKGS=" \
 RUN if [ "$TARGETARCH" == "amd64" ]; then \
         yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
         yum install -y cpuid; \
-        if [[ ! -z "$INSTALL_DCGM" ]]; then \
+        if [[ ! -z "$INSTALL_DCGM" && "$INSTALL_DCGM" == "true" ]]; then \
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
             yum install -y datacenter-gpu-manager; \
         fi; \
