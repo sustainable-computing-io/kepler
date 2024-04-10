@@ -7,26 +7,23 @@ COPY . .
 RUN make build VERSION=${VERSION}
 
 FROM registry.access.redhat.com/ubi9:9.2
-ARG INSTALL_DCGM
-ARG INSTALL_DCGM=${INSTALL_DCGM:-""}
+ARG INSTALL_DCGM=${INSTALL_DCGM:-"false"}
 ARG TARGETARCH
-
-RUN yum -y update
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
-ENV NVIDIA_MIG_CONFIG_DEVICES=all
 ENV NVIDIA_MIG_MONITOR_DEVICES=all
+ENV NVIDIA_MIG_CONFIG_DEVICES=all
 
 RUN INSTALL_PKGS=" \
     libbpf \
     " && \
 	yum install -y $INSTALL_PKGS
 
-RUN if [ "$TARGETARCH" == "amd64" ]; then \
+RUN if [[ "$TARGETARCH" == "amd64" ]]; then \
         yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
         yum install -y cpuid; \
-        if [[ ! -z "$INSTALL_DCGM" && "$INSTALL_DCGM" == "true" ]]; then \
+        if [[ "$INSTALL_DCGM" == "true" ]]; then \
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
             yum install -y datacenter-gpu-manager; \
         fi; \
