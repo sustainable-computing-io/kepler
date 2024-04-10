@@ -1,0 +1,129 @@
+name: 'kepler'
+
+services:
+  ### 📦 kepler created from the current repo (local development)
+  kepler-dev: &kepler
+    image: kepler-dev:latest
+
+    build:
+      context: ../
+      dockerfile: build/Dockerfile
+    ports:
+      # NOTE: use 9888 to keep the host 8888 port free for any local testing
+      # e.g. sudo ./bin/kepler 
+      - "9188:8888"
+    privileged: true
+    pid: host
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./compose/kepler/etc/kepler
+        target: /etc/kepler
+
+      # NOTE: use the weights from the local repo
+      - type: bind
+        source: ../data/model_weight/
+        target: /var/lib/kepler/data
+      - type: bind
+        source: ../data/cpus.yaml
+        target: /var/lib/kepler/data/cpus.yaml
+
+    entrypoint:
+      - /usr/bin/bash
+      - -c
+
+    command:
+      - |
+        echo Starting kepler;
+        # NOTE: uncomment to wait for estimator container
+        # echo waiting for estimator socket to be ready;
+        # until [[ -e /tmp/estimator.sock ]]; do
+        #   echo " ... waiting for socket";
+        #   sleep 1;
+        # done;
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -v "8" \
+          -enable-cgroup-id=true \
+          -enable-gpu=false
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+
+  ### 📦 kepler latest without any modifications
+  kepler-latest:
+    <<: *kepler
+    image: quay.io/sustainable_computing_io/kepler:latest
+    ports:
+      - "9288:8888"
+
+    # NOTE: use the models embedded in kepler:latest instead of
+    # the ones from the local repo (data/model)
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./compose/kepler/etc/kepler
+        target: /etc/kepler
+
+  prometheus:
+    build:
+      context: ./compose/prom
+    ports:
+      - "9090:9090"
+    volumes: 
+      - promdata-kepler:/prometheus 
+      - type: bind
+        source: ./compose/prom/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+      - type: bind
+        source: ./compose/prom/rules
+        target: /etc/prometheus/rules
+    depends_on:
+      - kepler-dev
+      - kepler-latest
+    networks:
+      - kepler-network
+
+  grafana:
+    build:
+      context: ./compose/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/dashboard.json"
+
+    user: '1000' # NOTE: change this to your `id -u`
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    networks:
+      - kepler-network
+    volumes:
+      - type: bind
+        source: ./compose/grafana/dashboards/
+        target: /var/lib/grafana/dashboards
+
+volumes:
+  # docker volume for holding prometheus (ts)db
+  promdata-kepler:
+
+networks:
+  kepler-network:
+  # NOTE: uncomment to create a bridge network
+    # driver: bridge
+    # ipam:
+    #   config:
+    #     - subnet: 192.168.131.0/24
