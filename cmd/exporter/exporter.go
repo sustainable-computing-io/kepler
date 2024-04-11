@@ -262,6 +262,7 @@ func main() {
 
 	startProfiling(*cpuProfile, *memProfile)
 
+	klog.Infof("starting to listen on %s", bindAddressConfig)
 	ch := make(chan error)
 	go func() {
 		ch <- http.ListenAndServe(bindAddressConfig, nil)
