@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"unsafe"
 )
@@ -68,4 +69,18 @@ func GetPathFromPID(searchPath string, pid uint64) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not find cgroup description entry for pid %d", pid)
+}
+
+func Realpath(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", err
+	}
+
+	return resolvedPath, nil
 }

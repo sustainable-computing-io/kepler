@@ -18,7 +18,6 @@ package source
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,14 +26,14 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"k8s.io/klog/v2"
 )
 
 const (
 	freqPathDir         = "/sys/devices/system/cpu/cpufreq/"
 	freqPath            = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
-	hwmonPowerPath      = "/sys/class/hwmon/hwmon2/device/"
-	acpiPowerPath       = "/sys/devices/LNXSYSTM:00"
+	hwmonRoot           = "/sys/class/hwmon"
 	acpiPowerFilePrefix = "power"
 	acpiPowerFileSuffix = "_average"
 	poolingInterval     = 3000 * time.Millisecond // in seconds
@@ -48,53 +47,55 @@ var (
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
 // information available to the operating system via hwmon in sysfs.
 type ACPI struct {
-	CollectEnergy bool
+	IsInitialized bool
 	powerPath     string
 }
 
 func NewACPIPowerMeter() *ACPI {
-	acpi := &ACPI{powerPath: hwmonPowerPath}
-	if acpi.IsHWMONCollectionSupported() {
-		acpi.CollectEnergy = true
-		klog.V(5).Infof("Using the HWMON power meter path: %s\n", acpi.powerPath)
-	} else {
-		// if the acpi power_average file is not in the hwmon path, try to find the acpi path
-		acpi.powerPath = findACPIPowerPath()
-		if acpi.powerPath != "" {
-			acpi.CollectEnergy = true
-			klog.V(5).Infof("Using the ACPI power meter path: %s\n", acpi.powerPath)
-		} else {
-			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
-		}
-	}
 
-	return acpi
+	path, err := detecthwmonACPIPath()
+	if err != nil {
+		klog.V(0).ErrorS(err, "initialization of ACPI power meter failed.")
+		return nil
+	}
+	klog.V(0).Infof("acpi power source initialized with path: %q", path)
+
+	return &ACPI{powerPath: path, IsInitialized: true}
 }
 
-func findACPIPowerPath() string {
-	var powerPath string
-	err := filepath.WalkDir(acpiPowerPath, func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() && (info.Name() == "power" ||
-			strings.Contains(info.Name(), "INTL") ||
-			strings.Contains(info.Name(), "PNP") ||
-			strings.Contains(info.Name(), "input") ||
-			strings.Contains(info.Name(), "device:") ||
-			strings.Contains(info.Name(), "wakeup")) {
-			return filepath.SkipDir
-		}
-		if !info.IsDir() && strings.Contains(info.Name(), "_average") {
-			powerPath = path[:(len(path) - len(info.Name()))]
-		}
-		return nil
-	})
+/*
+detecthwmonACPIPath looks for an entry in /sys/class/hwmon which has an attribute
+"name" set to "power_meter" and a subsystem named "acpi"
+*/
+func detecthwmonACPIPath() (string, error) {
+	d, err := os.ReadDir(hwmonRoot)
 	if err != nil {
-		klog.V(3).Infof("Could not find any ACPI power meter path: %v\n", err)
-		return ""
+		return "", fmt.Errorf("could not read %s", hwmonRoot)
 	}
-	return powerPath
+	for _, ent := range d {
+		var name []byte
+		devicePath, err := utils.Realpath(filepath.Join(hwmonRoot, ent.Name(), "device"))
+		if err != nil {
+			return "", fmt.Errorf("error occurred in reading hwmon device %w", err)
+		}
+		name, err = os.ReadFile(filepath.Join(hwmonRoot, ent.Name(), "name"))
+		if err != nil {
+			name, err = os.ReadFile(filepath.Join(devicePath, "name"))
+			if err != nil {
+				return "", fmt.Errorf("error occurred in reading file %w", err)
+			}
+		}
+		strname := strings.Trim(string(name), "\n ")
+		ssname, err := utils.Realpath(filepath.Join(devicePath, "subsystem"))
+		if err != nil {
+			return "", fmt.Errorf("error occurred in reading hwmon device %w", err)
+		}
+		ssname = filepath.Base(ssname)
+		if strname == "power_meter" && ssname == "acpi" {
+			return devicePath, nil
+		}
+	}
+	return "", fmt.Errorf("could not find acpi power meter in hwmon")
 }
 
 func (ACPI) GetName() string {
@@ -143,22 +144,16 @@ func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
 }
 
 func (a *ACPI) IsSystemCollectionSupported() bool {
-	return a.CollectEnergy
-}
-
-func (a *ACPI) IsHWMONCollectionSupported() bool {
-	// we do not use fmt.Sprintf because it is expensive in the performance standpoint
-	file := a.powerPath + acpiPowerFilePrefix + "1" + acpiPowerFileSuffix
-	_, err := os.ReadFile(file)
-	return err == nil
+	return a.IsInitialized
 }
 
 // GetEnergyFromHost returns the accumulated energy consumption
 func (a *ACPI) GetAbsEnergyFromPlatform() (map[string]float64, error) {
 	power := map[string]float64{}
 
+	// TODO: the files in acpi power meter device does not depend on number of CPUs. The below loop will run only once
 	for i := int32(1); i <= numCPUS; i++ {
-		path := a.powerPath + acpiPowerFilePrefix + strconv.Itoa(int(i)) + acpiPowerFileSuffix
+		path := a.powerPath + "/" + acpiPowerFilePrefix + strconv.Itoa(int(i)) + acpiPowerFileSuffix
 		data, err := os.ReadFile(path)
 		if err != nil {
 			break
