@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
-	github.com/NVIDIA/go-nvml v0.12.0-1
+	github.com/NVIDIA/go-nvml v0.12.0-4
 	github.com/aquasecurity/libbpfgo v0.4.9-libbpf-1.2.0
 	github.com/containerd/cgroups v1.1.0
 	github.com/containerd/cgroups/v3 v3.0.2
@@ -55,7 +55,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/jaypipes/pcidb v1.0.0 // indirect
@@ -73,7 +73,7 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
