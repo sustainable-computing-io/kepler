@@ -3,8 +3,6 @@ name: 'kepler'
 services:
   ### 📦 kepler created from the current repo (local development)
   kepler-dev: &kepler
-    image: kepler-dev:latest
-
     build:
       context: ../
       dockerfile: build/Dockerfile
