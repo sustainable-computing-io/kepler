@@ -34,8 +34,8 @@ jobs:
           PLATFORMS:  linux/amd64
           BUILD_ARGS: |
                 INSTALL_DCGM="true"
-                VERSION=${{ inputs.imageTag }}-dgcm
-          LABEL:      ${{ inputs.imageTag }}-dgcm
+                VERSION=${{ inputs.imageTag }}-dcgm
+          LABEL:      ${{ inputs.imageTag }}-dcgm
         - IMAGE_NAME: kepler-validator
           IMAGE_FILE: build/Dockerfile.kepler-validator
           BUILD_ARGS: ""
