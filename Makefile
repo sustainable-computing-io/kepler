@@ -313,7 +313,7 @@ LOCAL_DEV_CLUSTER_VERSION ?= main
 KIND_WORKER_NODES ?=2
 
 dev: ## Setup kepler development env using docker compose
-	docker compose --project-directory hack up --build -d
+	docker compose --project-directory manifests/compose up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
 	@echo "  * Grafana    : http://localhost:3000"
@@ -324,7 +324,7 @@ dev: ## Setup kepler development env using docker compose
 .PHONY: dev
 
 dev-clean: ## Setup kepler (current and latest) along with 
-	docker compose --project-directory hack down --volumes
+	docker compose --project-directory manifests/compose down --volumes
 .PHONY: dev-clean
 
 dev-restart: dev-clean dev

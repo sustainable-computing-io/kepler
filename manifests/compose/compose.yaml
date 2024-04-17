@@ -4,7 +4,7 @@ services:
   ### 📦 kepler created from the current repo (local development)
   kepler-dev: &kepler
     build:
-      context: ../
+      context: ../../
       dockerfile: build/Dockerfile
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
@@ -21,15 +21,15 @@ services:
         source: /sys
         target: /sys
       - type: bind
-        source: ./compose/kepler/etc/kepler
+        source: ./kepler/etc/kepler
         target: /etc/kepler
 
       # NOTE: use the weights from the local repo
       - type: bind
-        source: ../data/model_weight/
+        source: ../../data/model_weight/
         target: /var/lib/kepler/data
       - type: bind
-        source: ../data/cpus.yaml
+        source: ../../data/cpus.yaml
         target: /var/lib/kepler/data/cpus.yaml
 
     entrypoint:
@@ -73,21 +73,21 @@ services:
         source: /sys
         target: /sys
       - type: bind
-        source: ./compose/kepler/etc/kepler
+        source: ./kepler/etc/kepler
         target: /etc/kepler
 
   prometheus:
     build:
-      context: ./compose/prom
+      context: ./prom
     ports:
       - "9090:9090"
     volumes: 
       - promdata-kepler:/prometheus 
       - type: bind
-        source: ./compose/prom/prometheus.yml
+        source: ./prom/prometheus.yml
         target: /etc/prometheus/prometheus.yml
       - type: bind
-        source: ./compose/prom/rules
+        source: ./prom/rules
         target: /etc/prometheus/rules
     depends_on:
       - kepler-dev
@@ -97,7 +97,7 @@ services:
 
   grafana:
     build:
-      context: ./compose/grafana
+      context: ./grafana
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "admin"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/dashboard.json"
@@ -111,7 +111,7 @@ services:
       - kepler-network
     volumes:
       - type: bind
-        source: ./compose/grafana/dashboards/
+        source: ./grafana/dashboards/
         target: /var/lib/grafana/dashboards
 
 volumes:
