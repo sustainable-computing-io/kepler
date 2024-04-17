@@ -6,7 +6,7 @@ COPY . .
 
 RUN make build VERSION=${VERSION}
 
-FROM registry.access.redhat.com/ubi9:9.2
+FROM registry.access.redhat.com/ubi9
 # NOTE: use bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
