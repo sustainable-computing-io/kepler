@@ -109,8 +109,7 @@ build_image: image_builder_check ## Build image without DCGM.
 	# build kepler without dcgm
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
-		--network host \
-		--build-arg INSTALL_DCGM="false" \
+		--build-arg INSTALL_DCGM=false \
 		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
@@ -121,8 +120,7 @@ build_image_dcgm:  image_builder_check ## Build image with DCGM.
 	# build kepler with dcgm
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"dcgm" \
 		-f $(DOCKERFILE) \
-		--network host \
-		--build-arg INSTALL_DCGM="true" \
+		--build-arg INSTALL_DCGM=true \
 		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.

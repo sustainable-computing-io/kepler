@@ -10,7 +10,7 @@ FROM registry.access.redhat.com/ubi9:9.2
 # NOTE: use bash instead of sh
 SHELL ["/bin/bash", "-c"]
 
-ARG INSTALL_DCGM=${INSTALL_DCGM:-"false"}
+ARG INSTALL_DCGM=false
 ARG TARGETARCH
 
 ENV NVIDIA_VISIBLE_DEVICES=all

@@ -26,14 +26,14 @@ jobs:
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64,linux/arm64
           BUILD_ARGS: |
-                INSTALL_DCGM="false"
+                INSTALL_DCGM=false
                 VERSION=${{ inputs.imageTag }}
           LABEL:      ${{ inputs.imageTag }}
         - IMAGE_NAME: kepler
           IMAGE_FILE: build/Dockerfile
           PLATFORMS:  linux/amd64
           BUILD_ARGS: |
-                INSTALL_DCGM="true"
+                INSTALL_DCGM=true
                 VERSION=${{ inputs.imageTag }}-dcgm
           LABEL:      ${{ inputs.imageTag }}-dcgm
         - IMAGE_NAME: kepler-validator
