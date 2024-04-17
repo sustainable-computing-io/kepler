@@ -229,7 +229,7 @@ main() {
 	info "move to untrack workspace ${MANIFESTS_OUT_DIR}"
 	run rm -rf "${MANIFESTS_OUT_DIR}"
 	run mkdir -p "${MANIFESTS_OUT_DIR}"
-	run cp -r manifests/config/* "${MANIFESTS_OUT_DIR}"/
+	run cp -r manifests/k8s/config/* "${MANIFESTS_OUT_DIR}"/
 
 	build_manifest || {
 		fail "Fail to build the manifests"
