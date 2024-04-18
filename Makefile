@@ -310,21 +310,50 @@ build-manifest: kustomize
 ##@ Development Env
 CLUSTER_PROVIDER ?= kind
 LOCAL_DEV_CLUSTER_VERSION ?= main
+
 KIND_WORKER_NODES ?=2
 
-dev: ## Setup kepler development env using docker compose
-	docker compose --project-directory manifests/compose up --build -d
+
+COMPOSE_DIR="$(PROJECT_DIR)/manifests/compose"
+DEV_TARGET ?= dev
+
+.PHONY: compose
+compose: ## Setup kepler (latest) using docker compose
+	docker compose \
+			-f $(COMPOSE_DIR)/compose.yaml \
+		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
 	@echo "  * Grafana    : http://localhost:3000"
 	@echo "  * Prometheus : http://localhost:9090"
 	@echo -e "\nKepler Deployments"
-	@echo "  * development version : http://localhost:9188/metrics" 
 	@echo "  * latest / upstream  : http://localhost:9288/metrics" 
+
+.PHONY: compose-clean
+compose-clean: ## Cleanup kepler (latest) deployed using docker compose
+	docker compose \
+			-f $(COMPOSE_DIR)/compose.yaml \
+		down --remove-orphans --volumes --rmi all
+
 .PHONY: dev
+dev: ## Setup kepler development env using docker compose
+	docker compose \
+			-f $(COMPOSE_DIR)/compose.yaml \
+			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+		up --build -d
+	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
+	@echo "Services"
+	@echo "  * Grafana    : http://localhost:3000"
+	@echo "  * Prometheus : http://localhost:9090"
+	@echo -e "\nKepler Deployments"
+	@echo "  * development version : http://localhost:9188/metrics"
+	@echo "  * latest / upstream   : http://localhost:9288/metrics"
 
 dev-clean: ## Setup kepler (current and latest) along with 
-	docker compose --project-directory manifests/compose down --volumes
+	docker compose \
+			-f $(COMPOSE_DIR)/compose.yaml \
+			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+		down --remove-orphans --volumes --rmi all
 .PHONY: dev-clean
 
 dev-restart: dev-clean dev

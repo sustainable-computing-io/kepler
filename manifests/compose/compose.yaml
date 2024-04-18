@@ -1,17 +1,17 @@
 name: 'kepler'
 
 services:
-  ### 📦 kepler created from the current repo (local development)
-  kepler-dev: &kepler
-    build:
-      context: ../../
-      dockerfile: build/Dockerfile
-    ports:
-      # NOTE: use 9888 to keep the host 8888 port free for any local testing
-      # e.g. sudo ./bin/kepler 
-      - "9188:8888"
+  ### 📦 kepler latest without any modifications
+  kepler-latest:
+    image: quay.io/sustainable_computing_io/kepler:latest
     privileged: true
     pid: host
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+    ports:
+      - "9288:8888"
 
     volumes:
       - type: bind
@@ -24,18 +24,7 @@ services:
         source: ./kepler/etc/kepler
         target: /etc/kepler
 
-      # NOTE: use the weights from the local repo
-      - type: bind
-        source: ../../data/model_weight/
-        target: /var/lib/kepler/data
-      - type: bind
-        source: ../../data/cpus.yaml
-        target: /var/lib/kepler/data/cpus.yaml
-
-    entrypoint:
-      - /usr/bin/bash
-      - -c
-
+    entrypoint: [/usr/bin/bash, -c]
     command:
       - |
         echo Starting kepler;
@@ -51,30 +40,6 @@ services:
           -v "8" \
           -enable-cgroup-id=true \
           -enable-gpu=false
-    networks:
-      - kepler-network
-    cap_add:
-      - ALL
-
-  ### 📦 kepler latest without any modifications
-  kepler-latest:
-    <<: *kepler
-    image: quay.io/sustainable_computing_io/kepler:latest
-    ports:
-      - "9288:8888"
-
-    # NOTE: use the models embedded in kepler:latest instead of
-    # the ones from the local repo (data/model)
-    volumes:
-      - type: bind
-        source: /proc
-        target: /proc
-      - type: bind
-        source: /sys
-        target: /sys
-      - type: bind
-        source: ./kepler/etc/kepler
-        target: /etc/kepler
 
   prometheus:
     build:
@@ -90,7 +55,6 @@ services:
         source: ./prom/rules
         target: /etc/prometheus/rules
     depends_on:
-      - kepler-dev
       - kepler-latest
     networks:
       - kepler-network
@@ -100,7 +64,7 @@ services:
       context: ./grafana
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "admin"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/dashboard.json"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/Kepler-Exporter.json"
 
     user: '1000' # NOTE: change this to your `id -u`
     depends_on:
@@ -111,8 +75,8 @@ services:
       - kepler-network
     volumes:
       - type: bind
-        source: ./grafana/dashboards/
-        target: /var/lib/grafana/dashboards
+        source: ../../grafana-dashboards/
+        target: /var/lib/grafana/dashboards/kepler
 
 volumes:
   # docker volume for holding prometheus (ts)db
