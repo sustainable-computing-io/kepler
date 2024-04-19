@@ -3,6 +3,7 @@ module github.com/sustainable-computing-io/kepler
 go 1.21
 
 require (
+	github.com/HabanaAI/gohlml v1.15.0
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
 	github.com/aquasecurity/libbpfgo v0.6.0-libbpf-1.3

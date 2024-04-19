@@ -193,6 +193,15 @@ deploy_dcgm() {
 	uncomment_patch dcgm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 	ok "DCGM deployment configured"
 }
+deploy_habana() {
+	header "Habana Deployment"
+	$HABANA_DEPLOY || {
+		skip "skipping habana deployment"
+		return 0
+	}
+	uncomment_patch habana "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Habana deployment configured"
+}
 build_manifest() {
 	info "Building manifests ..."
 	for deploy in $(declare -F | cut -f3 -d ' ' | grep 'deploy_'); do

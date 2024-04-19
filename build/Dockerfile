@@ -35,6 +35,13 @@ RUN set -e -x ;\
 				dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
 				yum install -y datacenter-gpu-manager; \
 			fi; \
+			if [[ "$INSTALL_HABANA" == "false" ]]; then \
+				rm /usr/lib/habanalabs/libhlml.so; \
+				rm /usr/bin/hl-smi; \
+			else \
+				echo /usr/lib/habanalabs > /etc/ld.so.conf.d/habanalabs.conf; \
+				ldconfig; \
+			fi; \
 		fi;\
 		yum clean all
 

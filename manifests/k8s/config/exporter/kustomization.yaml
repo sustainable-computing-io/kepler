@@ -24,6 +24,8 @@ patchesStrategicMerge: []
 # - ./patch/patch-qat.yaml
 # add this line for dcgmi patch
 # - ./patch/patch-dcgmi.yaml
+# add this line for habana patch
+# - ./patch/patch-habana.yaml
 
 secretGenerator:
 - name: redfish
