@@ -253,7 +253,7 @@ int kprobe__finish_task_switch(struct pt_regs *ctx) {
     struct task_struct *prev_task = (struct task_struct *)PT_REGS_PARM1(ctx);
     // Getting the PID of the scheduled-out task
     u64 prev_tgid = BPF_CORE_READ(prev_task, tgid);
-    u32 prev_pid = prev_tgid & 0xffffffff;
+    u32 prev_pid = BPF_CORE_READ(prev_task, pid);
     
     u64 pid_tgid = bpf_get_current_pid_tgid();
     pid_t cur_pid = pid_tgid & 0xffffffff;
