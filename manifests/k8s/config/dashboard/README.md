@@ -21,11 +21,11 @@ To install the standard dashboard use this script
 
 
 ```bash
-manifests/config/dashboard/deploy-grafana.sh
+manifests/k8s/config/dashboard/deploy-grafana.sh
 ```
 
 To install the topk dashboard use this script
 
 ```bash
-manifests/config/dashboard/deploy-grafana-topk.sh
+manifests/k8s/config/dashboard/deploy-grafana-topk.sh
 ```

@@ -1,0 +1,91 @@
+name: 'kepler'
+
+services:
+  ### 📦 kepler latest without any modifications
+  kepler-latest:
+    image: quay.io/sustainable_computing_io/kepler:latest
+    privileged: true
+    pid: host
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+    ports:
+      - "9288:8888"
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+    entrypoint: [/usr/bin/bash, -c]
+    command:
+      - |
+        echo Starting kepler;
+        # NOTE: uncomment to wait for estimator container
+        # echo waiting for estimator socket to be ready;
+        # until [[ -e /tmp/estimator.sock ]]; do
+        #   echo " ... waiting for socket";
+        #   sleep 1;
+        # done;
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -v "8" \
+          -enable-cgroup-id=true \
+          -enable-gpu=false
+
+  prometheus:
+    build:
+      context: ./prom
+    ports:
+      - "9090:9090"
+    volumes: 
+      - promdata-kepler:/prometheus 
+      - type: bind
+        source: ./prom/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+      - type: bind
+        source: ./prom/rules
+        target: /etc/prometheus/rules
+    depends_on:
+      - kepler-latest
+    networks:
+      - kepler-network
+
+  grafana:
+    build:
+      context: ./grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/Kepler-Exporter.json"
+
+    user: '1000' # NOTE: change this to your `id -u`
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    networks:
+      - kepler-network
+    volumes:
+      - type: bind
+        source: ../../grafana-dashboards/
+        target: /var/lib/grafana/dashboards/kepler
+
+volumes:
+  # docker volume for holding prometheus (ts)db
+  promdata-kepler:
+
+networks:
+  kepler-network:
+  # NOTE: uncomment to create a bridge network
+    # driver: bridge
+    # ipam:
+    #   config:
+    #     - subnet: 192.168.131.0/24

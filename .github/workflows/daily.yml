@@ -1,3 +1,4 @@
+# This workflow would be run on sustainable-computing-io/kepler only.
 name: Scheduled build
 on:
   branch_protection_rule:
@@ -7,9 +8,11 @@ on:
 jobs:
   # daily go security
   gosec:
+    if: github.repository == 'sustainable-computing-io/kepler'
     uses: ./.github/workflows/gosec.yml
   # daily base image build and image build
   image_base:
+    if: github.repository == 'sustainable-computing-io/kepler'
     uses: ./.github/workflows/image_base.yml
     secrets:
         username: ${{ secrets.BOT_NAME }}
@@ -22,7 +25,9 @@ jobs:
         password: ${{ secrets.BOT_TOKEN }}
   # daily openSSF scan
   scorecard:
+    if: github.repository == 'sustainable-computing-io/kepler'
     uses: ./.github/workflows/scorecard.yml
   # daily rpm
   rpm:
+    if: github.repository == 'sustainable-computing-io/kepler'
     uses: ./.github/workflows/rpm.yml
