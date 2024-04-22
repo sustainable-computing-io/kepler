@@ -18,6 +18,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES=utility
 ENV NVIDIA_MIG_MONITOR_DEVICES=all
 ENV NVIDIA_MIG_CONFIG_DEVICES=all
 
+RUN yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical && yum clean all
 # NOTE: set -e ensure all fails results in a non-zero exit code (i.e. fail)
 RUN set -e -x ;\
 		INSTALL_PKGS=" \
