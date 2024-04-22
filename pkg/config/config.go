@@ -80,6 +80,7 @@ var (
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
 	ExposeIdlePowerMetrics       = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
 	ExposeCPUFrequencyMetrics    = getBoolConfig("EXPOSE_CPU_FREQUENCY_METRICS", false)
+	MockACPIPowerPath            = getConfig("MOCK_ACPI_POWER_PATH", "")
 
 	MetricPathKey   = "METRIC_PATH"
 	BindAddressKey  = "BIND_ADDRESS"
@@ -266,6 +267,10 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 	modelReqPath := getConfig("MODEL_SERVER_MODEL_REQ_PATH", defaultModelRequestPath)
 	modelServerReqEndpoint = modelServerURL + modelReqPath
 	return
+}
+
+func GetMockACPIPowerPath() string {
+	return MockACPIPowerPath
 }
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
