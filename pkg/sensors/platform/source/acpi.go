@@ -54,7 +54,7 @@ type ACPI struct {
 
 func NewACPIPowerMeter(mockpath string) *ACPI {
 	if mockpath != "" {
-		klog.V(3).Infof("using user provided ACPI power path: %s", mockpath)
+		klog.Infof("using user provided ACPI power path: %s", mockpath)
 		return &ACPI{powerPath: mockpath, CollectEnergy: true}
 	}
 	acpi := &ACPI{powerPath: hwmonPowerPath}

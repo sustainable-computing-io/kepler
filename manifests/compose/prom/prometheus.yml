@@ -30,6 +30,10 @@ scrape_configs:
     static_configs:
       - targets: ['kepler-latest:8888']
 
+  - job_name: 'mock-acpi'
+    static_configs:
+      - targets: ['mock-acpi:8000']
+
   # NOTE: add more jobs. 
   # E.g Uncomment below to scrape kepler running 
   # in VM with IP 192.168.122.78 on port 8888, 
