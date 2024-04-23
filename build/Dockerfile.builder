@@ -31,15 +31,10 @@ RUN yum update -y
 RUN yum -y install clang rpm-build llvm-devel 
 #rpmautospec as bug for #1224
 # for cpuid on x86, for rpm build
-RUN if [ $(uname -i) == "x86_64" ]; then yum install -y https://www.rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/http-parser-2.9.4-6.el9.x86_64.rpm && yum install -y cpuid; fi
-RUN mkdir -p /etc/yum.repos.d; \
-    touch /etc/yum.repos.d/Habana-Vault.repo; \
-    echo "[vault]" >> /etc/yum.repos.d/Habana-Vault.repo; \
-    echo "name=Habana Vault" >> /etc/yum.repos.d/Habana-Vault.repo; \
-    echo "baseurl=https://vault.habana.ai/artifactory/rhel/9/9.2" >> /etc/yum.repos.d/Habana-Vault.repo; \
-    echo "enabled=1" >> /etc/yum.repos.d/Habana-Vault.repo; \
-    echo "repo_gpgcheck=0" >> /etc/yum.repos.d/Habana-Vault.repo
-
-RUN yum install -y https://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/ninja-build-1.10.2-6.el9.x86_64.rpm; \
-    yum install -y habanalabs-firmware-tools --nogpgcheck
+RUN if [ $(uname -i) == "x86_64" ]; then \
+    yum install -y https://www.rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/http-parser-2.9.4-6.el9.x86_64.rpm && yum install -y cpuid; \
+    rpm -Uvh https://vault.habana.ai/artifactory/rhel/9/9.2/habanalabs-firmware-tools-1.15.1-15.el9.x86_64.rpm --nodeps; \
+    echo /usr/lib/habanalabs > /etc/ld.so.conf.d/habanalabs.conf; \
+    ldconfig; \
+    fi
 RUN yum clean all
