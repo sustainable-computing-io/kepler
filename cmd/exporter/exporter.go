@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	prof "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -67,6 +68,7 @@ var (
 	kernelSourceDirPath          = flag.String("kernel-source-dir", "", "path to the kernel source directory")
 	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
 	exposeEstimatedIdlePower     = flag.Bool("expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
+	enableProfEndpoint           = flag.Bool("enable-pprof-endpoint", false, "enable profiling endpoint")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -240,14 +242,15 @@ func main() {
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
 
-	http.Handle(metricPathConfig, promhttp.HandlerFor(
+	r := http.NewServeMux()
+	r.Handle(metricPathConfig, promhttp.HandlerFor(
 		reg,
 		promhttp.HandlerOpts{
 			Registry: reg,
 		},
 	))
-	http.HandleFunc("/healthz", healthProbe)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/healthz", healthProbe)
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(`<html>
                         <head><title>Energy Stats Exporter</title></head>
                         <body>
@@ -259,13 +262,20 @@ func main() {
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
+	if *enableProfEndpoint {
+		r.HandleFunc("/debug/pprof/", prof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", prof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", prof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", prof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", prof.Trace)
+	}
 
 	startProfiling(*cpuProfile, *memProfile)
 
 	klog.Infof("starting to listen on %s", bindAddressConfig)
 	ch := make(chan error)
 	go func() {
-		ch <- http.ListenAndServe(bindAddressConfig, nil)
+		ch <- http.ListenAndServe(bindAddressConfig, r)
 	}()
 
 	klog.Infof(startedMsg, time.Since(start))
