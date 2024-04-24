@@ -49,6 +49,7 @@ declare QAT_DEPLOY=false
 declare PROMETHEUS_DEPLOY=false
 declare HIGH_GRANULARITY=false
 declare DCGM_DEPLOY=false
+declare HABANA_DEPLOY=false
 
 ensure_all_tools() {
 	header "Ensuring all tools are installed"
