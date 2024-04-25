@@ -21,7 +21,7 @@ services:
         source: /sys
         target: /sys
       - type: bind
-        source: ./kepler/etc/kepler
+        source: ./default/kepler/etc/kepler
         target: /etc/kepler
 
     entrypoint: [/usr/bin/bash, -c]
@@ -43,16 +43,16 @@ services:
 
   prometheus:
     build:
-      context: ./prom
+      context: ./default/prometheus
     ports:
       - "9090:9090"
     volumes: 
       - promdata-kepler:/prometheus 
       - type: bind
-        source: ./prom/prometheus.yml
+        source: ./default/prometheus/prometheus.yml
         target: /etc/prometheus/prometheus.yml
       - type: bind
-        source: ./prom/rules
+        source: ./default/prometheus/rules
         target: /etc/prometheus/rules
     depends_on:
       - kepler-latest
@@ -61,7 +61,7 @@ services:
 
   grafana:
     build:
-      context: ./grafana
+      context: ./default/grafana
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "admin"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/Kepler-Exporter.json"
@@ -79,7 +79,7 @@ services:
         target: /var/lib/grafana/dashboards/kepler
 
 volumes:
-  # docker volume for holding prometheus (ts)db
+  # volume for holding prometheus (ts)db
   promdata-kepler:
 
 networks:

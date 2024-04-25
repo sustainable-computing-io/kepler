@@ -1,0 +1,15 @@
+services:
+  grafana:
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/dev/dashboard.json"
+
+    volumes:
+      - type: bind
+        source: ./dev/grafana/dashboards/dev/
+        target: /var/lib/grafana/dashboards/dev
+
+  prometheus:
+    volumes:
+    - type: bind
+      source: ./dev/prometheus/scrape-configs/dev.yaml
+      target: /etc/prometheus/scrape-configs/dev.yaml

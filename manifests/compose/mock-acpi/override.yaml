@@ -1,0 +1,15 @@
+services:
+  grafana:
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/mock-acpi/dashboard.json"
+
+    volumes:
+      - type: bind
+        source: ./mock-acpi/grafana/dashboards/mock-acpi
+        target: /var/lib/grafana/dashboards/mock-acpi
+
+  prometheus:
+    volumes:
+    - type: bind
+      source: ./mock-acpi/prometheus/scrape-configs/mock-acpi.yaml
+      target: /etc/prometheus/scrape-configs/mock-acpi.yaml
