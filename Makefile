@@ -336,10 +336,9 @@ compose-clean: ## Cleanup kepler (latest) deployed using docker compose
 		down --remove-orphans --volumes --rmi all
 
 .PHONY: dev
-dev: ## Setup kepler development env using docker compose
+dev: ## Setup development env using compose with 2 kepler (latest & current) deployed
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
-			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -351,8 +350,7 @@ dev: ## Setup kepler development env using docker compose
 
 dev-clean: ## Setup kepler (current and latest) along with 
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
-			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 .PHONY: dev-clean
 

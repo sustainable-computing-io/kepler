@@ -8,9 +8,6 @@ global:
   external_labels:
       monitor: 'kepler'
 
-# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
-rule_files:
-  - /etc/prometheus/rules/*.rules
 
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
@@ -22,22 +19,23 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'dev'
-    static_configs:
-      - targets: ['kepler-dev:8888']
-
   - job_name: 'latest'
     static_configs:
       - targets: ['kepler-latest:8888']
 
-  - job_name: 'mock-acpi'
-    static_configs:
-      - targets: ['mock-acpi:8000']
+# Load rules once and periodically evaluate them according to 
+# the global 'evaluation_interval'.
+rule_files:
+  - /etc/prometheus/rules/*.yaml
+  - /etc/prometheus/rules/*.yml
 
-  # NOTE: add more jobs. 
-  # E.g Uncomment below to scrape kepler running 
-  # in VM with IP 192.168.122.78 on port 8888, 
+# additional scrape configs
+scrape_config_files:
+  - /etc/prometheus/scrape-configs/*.yaml
+  - /etc/prometheus/scrape-configs/*.yml
 
+  # NOTE:  e.g. to add more jobs to scrape a 
+  # VM with IP 192.168.122.78 on port 8888, 
   # - job_name: 'vm'
   #   static_configs:
   #     - targets: ['192.168.122.100:8888']

@@ -1,8 +1,14 @@
+name: dev
+include:
+  - path:
+    - ../compose.yaml
+    - ./override.yaml
+
 services:
   ### 📦 kepler created from the current repo (local development)
   kepler-dev:
     build:
-      context: ../../
+      context: ../../../
       dockerfile: build/Dockerfile
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
@@ -19,17 +25,16 @@ services:
         source: /sys
         target: /sys
       - type: bind
-        source: ./mock-acpi/kepler-config/etc/kepler
+        source: ./kepler/etc/kepler
         target: /etc/kepler
 
       # NOTE: use the weights from the local repo
       - type: bind
-        source: ../../data/model_weight/
+        source: ../../../data/model_weight/
         target: /var/lib/kepler/data
       - type: bind
-        source: ../../data/cpus.yaml
+        source: ../../../data/cpus.yaml
         target: /var/lib/kepler/data/cpus.yaml
-      - "mock-acpi:/var/mock-acpi:z"
 
     entrypoint: [/usr/bin/bash, -c]
 
@@ -45,40 +50,10 @@ services:
         set -x;
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
-          -v "5" \
+          -v "8" \
           -enable-cgroup-id=true \
           -enable-gpu=false
     networks:
       - kepler-network
     cap_add:
       - ALL
-
-  # OVERRIDE default dashboard
-  grafana:
-    environment:
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/mock-acpi/dashboard.json"
-
-    volumes:
-      - type: bind
-        source: ./grafana/dashboards/mock-acpi
-        target: /var/lib/grafana/dashboards/mock-acpi
-
-  mock-acpi:
-    build:
-      context: ./mock-acpi
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    depends_on:
-      - prometheus
-    volumes:
-      - type: bind
-        source: ./mock-acpi/mock-acpi-config/
-        target: /var/mock-acpi-config/
-      - mock-acpi:/var/mock-acpi
-    networks:
-      - kepler-network
-
-volumes:
-  # docker volume for holding prometheus (ts)db
-  mock-acpi:
