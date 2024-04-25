@@ -24,7 +24,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -57,7 +56,6 @@ var (
 	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", true, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
-	kernelSourceDirPath          = flag.String("kernel-source-dir", "", "path to the kernel source directory")
 	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
 	exposeEstimatedIdlePower     = flag.Bool("expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
 )
@@ -95,19 +93,6 @@ func main() {
 
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
-
-	klog.Infof("LibbpfBuilt: %v, BccBuilt: %v", attacher.LibbpfBuilt, attacher.BccBuilt)
-	// try setting kernel source only for bcc build
-	if attacher.BccBuilt {
-		if kernelSourceDirPath != nil && len(*kernelSourceDirPath) > 0 {
-			if err := config.SetKernelSourceDir(*kernelSourceDirPath); err != nil {
-				klog.Warningf("failed to set kernel source dir to %q: %v", *kernelSourceDirPath, err)
-			}
-		}
-	} else if attacher.LibbpfBuilt {
-		// set UseLibBPFAttacher config from build option
-		config.UseLibBPFAttacher = true
-	}
 
 	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
 	// but the user can enable it if the kernel has backported this functionality.
