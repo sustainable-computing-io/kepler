@@ -32,6 +32,7 @@ declare IMAGE_TAG="${IMAGE_TAG:-devel}"
 declare IMAGE_REPO="${IMAGE_REPO:-localhost:5001}"
 declare OPTS="${OPTS:-}"
 declare NO_BUILDS="${NO_BUILDS:-false}"
+declare BUILD_CONTAINERIZED="${BUILD_CONTAINERIZED:-build_containerized}"
 
 build_manifest() {
 	$NO_BUILDS && {
@@ -51,7 +52,7 @@ build_kepler() {
 		ok "Skipping building of images"
 		return 0
 	}
-	run make build_containerized \
+	run make $BUILD_CONTAINERIZED \
 		IMAGE_REPO="$IMAGE_REPO" \
 		IMAGE_TAG="$IMAGE_TAG" \
 		VERSION="devel"

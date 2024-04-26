@@ -4,6 +4,8 @@ WORKDIR /workspace
 
 COPY . .
 
+RUN make tidy-vendor
+RUN make format
 RUN make build VERSION=${VERSION}
 
 FROM registry.access.redhat.com/ubi9:9.2

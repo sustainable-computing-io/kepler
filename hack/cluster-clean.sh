@@ -36,6 +36,11 @@ function main() {
 
     sleep 2
 
+    unset PROMETHEUS_ENABLE
+    unset GRAFANA_ENABLE
+    unset CLUSTER_PROVIDER
+    unset KIND_WORKER_NODES
+
     echo "Done $0"
 }
 
