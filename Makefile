@@ -273,6 +273,10 @@ check-govuln: govulncheck tidy-vendor
 format:
 	./automation/presubmit-tests/gofmt.sh
 
+c-format:
+	@echo "Checking c format"
+	@git ls-files -- '*.c' '*.h' ':!:vendor' | xargs clang-format --dry-run --Werror
+
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
