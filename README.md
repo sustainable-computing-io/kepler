@@ -8,9 +8,18 @@
 [![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)
 -->
 
-![GitHub](https://img.shields.io/github/license/sustainable-computing-io/kepler)
+[![License][apache2-badge]][apache2-url]
+[![License][bsd2-badge]][bsd2-url]
+[![License][gpl-badge]][gpl-url]
 
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/KeplerProject.svg?style=social&label=Follow%20%40KeplerProject)](https://twitter.com/KeplerProject)
+
+[apache2-badge]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[apache2-url]: https://opensource.org/licenses/Apache-2.0
+[bsd2-badge]: https://img.shields.io/badge/License-BSD%202--Clause-orange.svg
+[bsd2-url]: https://opensource.org/licenses/BSD-2-Clause
+[gpl-badge]: https://img.shields.io/badge/License-GPL%20v2-blue.svg
+[gpl-url]: https://opensource.org/licenses/GPL-2.0
 
 # Kepler
 Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy-related system stats and exports them as Prometheus metrics.
@@ -39,3 +48,26 @@ A full list of talks and demos about Kepler can be found [here](https://github.c
 
 ## Community Meetings
 Please join the biweekly community meetings. The meeting calendar and agenda can be found [here](https://github.com/sustainable-computing-io/community/blob/main/community-event.md)
+
+## License
+
+With the exception of eBPF code, everything is distributed under the terms of the [Apache License (version 2.0)].
+
+### eBPF
+
+All eBPF code is distributed under either:
+
+- The terms of the [GNU General Public License, Version 2] or the [BSD 2 Clause license], at your option.
+- The terms of the [GNU General Public License, Version 2].
+
+The exact license text varies by file. Please see the SPDX-License-Identifier header in each file for details.
+
+Files that originate from the authors of kepler use (GPL-2.0-only OR BSD-2-Clause).
+Files generated from the Linux kernel i.e vmlinux.h use GPL-2.0-only.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this project by you,
+as defined in the GPL-2 license, shall be dual licensed as above, without any additional terms or conditions.
+
+[Apache License (version 2.0)]: LICENSE-APACHE
+[BSD 2 Clause license]: LICENSE-BSD-2
+[GNU General Public License, Version 2]: LICENSE-GPL-2
