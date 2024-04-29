@@ -1,0 +1,4 @@
+scrape_configs:
+  - job_name: 'latest'
+    static_configs:
+      - targets: ['kepler-latest:8888']

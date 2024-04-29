@@ -1,4 +1,8 @@
-name: 'kepler'
+name: kepler
+include:
+  - path:
+    - ./monitoring/compose.yaml
+    - ./default/override.yaml
 
 services:
   ### 📦 kepler latest without any modifications
@@ -41,51 +45,5 @@ services:
           -enable-cgroup-id=true \
           -enable-gpu=false
 
-  prometheus:
-    build:
-      context: ./default/prometheus
-    ports:
-      - "9090:9090"
-    volumes: 
-      - promdata-kepler:/prometheus 
-      - type: bind
-        source: ./default/prometheus/prometheus.yml
-        target: /etc/prometheus/prometheus.yml
-      - type: bind
-        source: ./default/prometheus/rules
-        target: /etc/prometheus/rules
-    depends_on:
-      - kepler-latest
-    networks:
-      - kepler-network
-
-  grafana:
-    build:
-      context: ./default/grafana
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: "admin"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/Kepler-Exporter.json"
-
-    user: '1000' # NOTE: change this to your `id -u`
-    depends_on:
-      - prometheus
-    ports:
-      - "3000:3000"
-    networks:
-      - kepler-network
-    volumes:
-      - type: bind
-        source: ../../grafana-dashboards/
-        target: /var/lib/grafana/dashboards/kepler
-
-volumes:
-  # volume for holding prometheus (ts)db
-  promdata-kepler:
-
 networks:
   kepler-network:
-  # NOTE: uncomment to create a bridge network
-    # driver: bridge
-    # ipam:
-    #   config:
-    #     - subnet: 192.168.131.0/24

@@ -1,0 +1,19 @@
+services:
+  prometheus:
+    networks:
+      - kepler-network
+    depends_on:
+      - kepler-latest
+    volumes:
+    - type: bind
+      source: ../default/prometheus/scrape-configs/latest.yaml
+      target: /etc/prometheus/scrape-configs/latest.yaml
+
+  grafana:
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/kepler/Kepler-Exporter.json"
+
+    volumes:
+      - type: bind
+        source: ../../../grafana-dashboards/
+        target: /var/lib/grafana/dashboards/kepler
