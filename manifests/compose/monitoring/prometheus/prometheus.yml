@@ -1,5 +1,5 @@
 global:
-  scrape_interval:     5s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  scrape_interval:     5s  # Set the scrape interval to every 5 seconds. Default is every 1 minute.
   evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
   # scrape_timeout is set to the global default (10s).
 
@@ -18,10 +18,6 @@ scrape_configs:
     # scheme defaults to 'http'.
     static_configs:
       - targets: ['localhost:9090']
-
-  - job_name: 'latest'
-    static_configs:
-      - targets: ['kepler-latest:8888']
 
 # Load rules once and periodically evaluate them according to 
 # the global 'evaluation_interval'.
