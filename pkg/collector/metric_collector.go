@@ -171,7 +171,7 @@ func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 		cpuFreq, err := attacher.CollectCPUFreq()
 		if err == nil {
 			for cpu, freq := range cpuFreq {
-				c.NodeStats.EnergyUsage[config.CPUFrequency].SetDeltaStat(fmt.Sprintf("%d", cpu), freq)
+				c.NodeStats.ResourceUsage[config.CPUFrequency].SetDeltaStat(fmt.Sprintf("%d", cpu), freq)
 			}
 		}
 	}
