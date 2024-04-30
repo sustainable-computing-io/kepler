@@ -1,0 +1,26 @@
+services:
+  grafana:
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/validation/dashboard.json"
+    volumes:
+      - type: bind
+        source: ../validation/metal/grafana/dashboards/scaphandre
+        target: /var/lib/grafana/dashboards/scaphandre
+
+      - type: bind
+        source: ../validation/metal/grafana/dashboards/validation
+        target: /var/lib/grafana/dashboards/validation
+
+  prometheus:
+    networks:
+      - scaph-network
+      - kepler-network
+      - virt-net # external n/w for accessing VM
+    volumes:
+      - type: bind
+        source: ../validation/metal/prometheus/scrape-configs/metal.yaml
+        target: /etc/prometheus/scrape-configs/metal.yaml
+
+    extra_hosts:
+      # WARN: requires VM's IP to be exported as an ENV variable
+      - vm=${VM_IP:?error}
