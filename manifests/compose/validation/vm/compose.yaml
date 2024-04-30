@@ -1,0 +1,99 @@
+name: vm
+
+services:
+  kepler:
+    image: quay.io/sustainable_computing_io/kepler:latest
+    ports: 
+      - "9100:9100"
+    privileged: true
+    pid: host
+    networks:
+        - kepler-network
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+      # NOTE: use the models from the local repo
+      - type: bind
+        source: ../../../../data/model_weight/
+        target: /var/lib/kepler/data
+      - type: bind
+        source: ../../../../data/cpus.yaml
+        target: /var/lib/kepler/data/cpus.yaml
+
+        # NOTE: for estimator - kepler communication
+      - kepler-tmp:/tmp 
+    cap_add:
+      - ALL
+
+    entrypoint:
+      - /usr/bin/bash
+      - -c
+
+    command:
+      - echo "Waiting for estimator socket";
+        until [[ -e /tmp/estimator.sock ]]; do
+          echo " ... waiting for socket";
+          sleep 1;
+        done;
+        echo "starting kepler";
+        set -x;
+        /usr/bin/kepler
+          -address="0.0.0.0:9100"
+          -v="8"
+
+  estimator:
+    entrypoint:
+      - python3.8
+    command:
+      - -u
+      - src/estimate/estimator.py
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
+
+    volumes:
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+      - kepler-tmp:/tmp
+      - estimator-mnt:/mnt
+    networks:
+      - kepler-network
+      - model-server-network
+
+
+  model-server:
+    entrypoint:
+      - python3.8
+    ports:
+      - 8100
+    command:
+      - -u
+      - src/server/model_server.py
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
+    volumes:
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+      - model-server-mnt:/mnt
+    networks:
+      - model-server-network
+
+volumes:
+  # for kepler - estimator sock
+  kepler-tmp:
+
+  # for downloading models
+  estimator-mnt:
+  model-server-mnt:
+
+networks:
+  kepler-network:
+  model-server-network:

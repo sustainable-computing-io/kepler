@@ -1,0 +1,97 @@
+name: metal
+
+include:
+  - path:
+    - ../../monitoring/compose.yaml
+    - ./override.yaml
+
+services:
+  kepler-metal:
+    build:
+      context: ../../../../
+      dockerfile: build/Dockerfile
+
+    ports:
+      # NOTE: use 9888 to keep the host 8888 port free for any local testing
+      # e.g. sudo ./bin/kepler 
+      - "9188:8888"
+    privileged: true
+    pid: host
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+      # NOTE: use the weights from the local repo
+      - type: bind
+        source: ../../../../data/model_weight/
+        target: /var/lib/kepler/data
+      - type: bind
+        source: ../../../../data/cpus.yaml
+        target: /var/lib/kepler/data/cpus.yaml
+
+    entrypoint: [/usr/bin/bash, -c]
+
+    command:
+      - |
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -v "8" \
+          -enable-cgroup-id=true \
+          -enable-gpu=false
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+
+  scaphandre:
+    image: hubblo/scaphandre
+    privileged: true
+    ports: 
+      - "8880:8080"
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys/class/powercap
+        target: /sys/class/powercap
+    command: ["prometheus"]
+    networks:
+      - scaph-network
+
+networks:
+  scaph-network:
+  kepler-network:
+  #
+  #  
+  #  NOTE: To allow access to VM from prometheus container
+  #  external network named - virt-net must be created using 
+  #  the following command
+  #
+  # use:
+  # ❯ ip addr show virbr0
+  #
+  #  │ 17: virbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+  #  │  link/ether 58:52:00:a6:77:2f brd ff:ff:ff:ff:ff:ff
+  #  │  inet 192.168.124.1/24 brd 192.168.124.255 scope global virbr0
+  #  │  valid_lft forever preferred_lft forever
+  #
+  # look for `inet` in the output and use that for the subnet in the next command
+  #
+  #  docker network create \
+  #    --driver=macvlan \
+  #    --subnet=192.168.124.0/24 \
+  #    -o parent=virbr0 virt-net
+  #
+  virt-net:
+    name: virt-net
+    external: true
