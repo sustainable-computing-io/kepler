@@ -28,7 +28,8 @@ var (
 	acceleratorOrder = []acceleratorInterface{
 		&gpu_source.GPUDcgm{},
 		&gpu_source.GPUNvml{},
-		&gpu_source.GPUDummy{},
+		// it seems GPUDummy is just a dummy device hence we can remove it?
+		// &gpu_source.GPUDummy{},
 	}
 )
 
@@ -42,6 +43,7 @@ Then, we use gpu.go file to initialize the acceleratorImpl from power.go when gp
 
 // init initialize the acceleratorImpl and start it
 func init() {
+	// this is a shadow of power.go in same package?
 	var errLib error
 	for i := 0; i < len(acceleratorOrder); i++ {
 		klog.Infof("Trying to initialize GPU collector using %s", acceleratorOrder[i].GetName())
@@ -49,8 +51,10 @@ func init() {
 		errLib = acceleratorImpl.InitLib()
 		if errLib == nil {
 			klog.Infof("Using %s to obtain gpu power", acceleratorImpl.GetName())
+			// should be continue here as we are in a loop?
 			return
 		} else {
+			// we should return here?
 			klog.Infof("Error initializing %s: %v", acceleratorImpl.GetName(), errLib)
 		}
 	}

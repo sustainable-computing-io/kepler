@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	// as acceleratorImpl is init from a loop, hence why here is just a single var?
 	acceleratorImpl acceleratorInterface
 	errLib          = fmt.Errorf("could not start accelerator-gpu collector")
 )
@@ -59,6 +60,7 @@ type acceleratorInterface interface {
 // However this file is only included in the build if kepler is run with gpus support.
 // This is necessary because nvidia libraries are not available on all systems
 func Init() error {
+	// if acceleratorImpl is nil, then nil pointer?
 	return acceleratorImpl.Init()
 }
 
