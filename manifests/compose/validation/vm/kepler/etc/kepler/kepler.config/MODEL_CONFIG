@@ -1,0 +1,4 @@
+NODE_TOTAL_ESTIMATOR=true
+NODE_TOTAL_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.7/specpower/acpi/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_0.zip
+NODE_COMPONENTS_ESTIMATOR=true
+NODE_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.7/ec2/intel_rapl/AbsPower/BPFOnly/GradientBoostingRegressorTrainer_0.zip
