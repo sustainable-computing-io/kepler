@@ -21,12 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
-	"os/signal"
-	"runtime"
 	"runtime/debug"
-	"runtime/pprof"
-	"syscall"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
@@ -58,9 +53,6 @@ var (
 	enableQAT                    = flag.Bool("enable-qat", false, "whether enable qat (need to have Intel QAT driver installed)")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
-	cpuProfile                   = flag.String("cpuprofile", "", "dump cpu profile to a file")
-	memProfile                   = flag.String("memprofile", "", "dump mem profile to a file")
-	profileDuration              = flag.Int("profile-duration", 60, "duration in seconds")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
 	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", true, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
@@ -84,67 +76,6 @@ func finalizing() {
 	exitCode := 10
 	klog.Infoln(finishingMsg)
 	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
-}
-
-func startProfiling(cpuProfile, memProfile string) {
-	if cpuProfile != "" {
-		f, err := os.Create(cpuProfile)
-		if err != nil {
-			klog.Fatal("could not create CPU profile: ", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			klog.Fatal("could not start CPU profile: ", err)
-		}
-		klog.Infof("Started CPU profiling")
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			defer f.Close()
-			exit := false
-			select {
-			case <-sigs:
-				exit = true
-				break
-			case <-time.After(time.Duration(*profileDuration) * time.Second):
-				break
-			}
-			pprof.StopCPUProfile()
-			klog.Infof("Stopped CPU profiling")
-			if exit {
-				time.Sleep(time.Second) // sleep 1s to make sure that the mem profile could finish
-				os.Exit(0)
-			}
-		}()
-	}
-	if memProfile != "" {
-		f, err := os.Create(memProfile)
-		if err != nil {
-			klog.Fatal("could not create memory profile: ", err)
-		}
-		klog.Infof("Started Memory profiling")
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			defer f.Close()
-			exit := false
-			select {
-			case <-sigs:
-				exit = true
-				break
-			case <-time.After(time.Duration(*profileDuration) * time.Second):
-				break
-			}
-			runtime.GC() // get up-to-date statistics
-			if err := pprof.WriteHeapProfile(f); err != nil {
-				klog.Fatal("could not write memory profile: ", err)
-			}
-			klog.Infof("Stopped Memory profiling")
-			if exit {
-				time.Sleep(time.Second) // sleep 1s to make sure that the cpu profile could finish
-				os.Exit(0)
-			}
-		}()
-	}
 }
 
 func main() {
@@ -260,8 +191,6 @@ func main() {
 			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
 		}
 	})
-
-	startProfiling(*cpuProfile, *memProfile)
 
 	klog.Infof("starting to listen on %s", bindAddressConfig)
 	ch := make(chan error)
