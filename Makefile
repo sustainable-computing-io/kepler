@@ -19,7 +19,6 @@ include bpfassets/libbpf/Makefile
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-
 ### env define ###
 export BIN_TIMESTAMP ?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 export TIMESTAMP ?=$(shell echo $(BIN_TIMESTAMP) | tr -d ':' | tr 'T' '-' | tr -d 'Z')
@@ -42,7 +41,6 @@ CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman)
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
-
 
 ifeq ($(DEBUG),true)
 	# throw all the debug info in!
@@ -127,7 +125,7 @@ build_image_dcgm:  image_builder_check ## Build image with DCGM.
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-dcgm $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-dcgm
 .PHONY: build_image_dcgm
 
-build_containerized: tidy-vendor format build_image build_image_dcgm  ## Build ALL container images.
+build_containerized: build_image build_image_dcgm  ## Build ALL container images.
 .PHONY: build_containerized
 
 save-image: ## Save container image.
@@ -312,7 +310,7 @@ CLUSTER_PROVIDER ?= kind
 LOCAL_DEV_CLUSTER_VERSION ?= main
 
 KIND_WORKER_NODES ?=2
-
+BUILD_CONTAINERIZED ?= build_image
 
 COMPOSE_DIR="$(PROJECT_DIR)/manifests/compose"
 DEV_TARGET ?= dev
@@ -327,7 +325,7 @@ compose: ## Setup kepler (latest) using docker compose
 	@echo "  * Grafana    : http://localhost:3000"
 	@echo "  * Prometheus : http://localhost:9090"
 	@echo -e "\nKepler Deployments"
-	@echo "  * latest / upstream  : http://localhost:9288/metrics" 
+	@echo "  * latest / upstream  : http://localhost:9288/metrics"
 
 .PHONY: compose-clean
 compose-clean: ## Cleanup kepler (latest) deployed using docker compose
@@ -336,10 +334,9 @@ compose-clean: ## Cleanup kepler (latest) deployed using docker compose
 		down --remove-orphans --volumes --rmi all
 
 .PHONY: dev
-dev: ## Setup kepler development env using docker compose
+dev: ## Setup development env using compose with 2 kepler (latest & current) deployed
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
-			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -349,10 +346,9 @@ dev: ## Setup kepler development env using docker compose
 	@echo "  * development version : http://localhost:9188/metrics"
 	@echo "  * latest / upstream   : http://localhost:9288/metrics"
 
-dev-clean: ## Setup kepler (current and latest) along with 
+dev-clean: ## Setup kepler (current and latest) along with
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
-			-f $(COMPOSE_DIR)/compose.$(DEV_TARGET).yaml \
+			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 .PHONY: dev-clean
 
@@ -364,13 +360,17 @@ cluster-clean: build-manifest ## Undeploy Kepler in the cluster.
 .PHONY: cluster-clean
 
 cluster-deploy: ## Deploy Kepler in the cluster.
+	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
-cluster-up:  ## Create the Kind cluster
+cluster-up:  ## Create the Kind cluster, with Prometheus, Grafana and Kepler
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
+	PROMETHEUS_ENABLE=true \
+	GRAFANA_ENABLE=true \
 	./hack/cluster.sh up
 .PHONY: cluster-up
 

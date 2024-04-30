@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform/source"
 	"k8s.io/klog/v2"
 )
@@ -65,7 +66,7 @@ func InitPowerImpl() {
 		powerImpl = &source.PowerHMC{}
 	} else if redfish := source.NewRedfishClient(); redfish != nil && redfish.IsSystemCollectionSupported() {
 		powerImpl = redfish
-	} else if acpi := source.NewACPIPowerMeter(); acpi != nil && acpi.CollectEnergy {
+	} else if acpi := source.NewACPIPowerMeter(config.GetMockACPIPowerPath()); acpi != nil && acpi.CollectEnergy {
 		powerImpl = acpi
 	}
 

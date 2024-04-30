@@ -1,21 +1,21 @@
-name: kepler
+name: dev
 include:
   - path:
-    - ./monitoring/compose.yaml
-    - ./default/override.yaml
+    - ../compose.yaml
+    - ./override.yaml
 
 services:
-  ### 📦 kepler latest without any modifications
-  kepler-latest:
-    image: quay.io/sustainable_computing_io/kepler:latest
+  ### 📦 kepler created from the current repo (local development)
+  kepler-dev:
+    build:
+      context: ../../../
+      dockerfile: build/Dockerfile
+    ports:
+      # NOTE: use 9888 to keep the host 8888 port free for any local testing
+      # e.g. sudo ./bin/kepler 
+      - "9188:8888"
     privileged: true
     pid: host
-    networks:
-      - kepler-network
-    cap_add:
-      - ALL
-    ports:
-      - "9288:8888"
 
     volumes:
       - type: bind
@@ -25,10 +25,19 @@ services:
         source: /sys
         target: /sys
       - type: bind
-        source: ./default/kepler/etc/kepler
+        source: ./kepler/etc/kepler
         target: /etc/kepler
 
+      # NOTE: use the weights from the local repo
+      - type: bind
+        source: ../../../data/model_weight/
+        target: /var/lib/kepler/data
+      - type: bind
+        source: ../../../data/cpus.yaml
+        target: /var/lib/kepler/data/cpus.yaml
+
     entrypoint: [/usr/bin/bash, -c]
+
     command:
       - |
         echo Starting kepler;
@@ -44,6 +53,7 @@ services:
           -v "8" \
           -enable-cgroup-id=true \
           -enable-gpu=false
-
-networks:
-  kepler-network:
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL

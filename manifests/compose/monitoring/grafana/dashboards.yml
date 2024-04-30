@@ -18,4 +18,3 @@ providers:
       path: /var/lib/grafana/dashboards
       # <bool> use folder names from filesystem to create folders in Grafana
       foldersFromFilesStructure: true
-
