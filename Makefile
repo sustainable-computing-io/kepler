@@ -41,10 +41,16 @@ export CTR_CMD     ?= $(or $(shell command -v podman), $(shell command -v docker
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
 
-GENERAL_TAGS := include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo
-GPU_TAGS := gpu
-ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
-	GPU_TAGS := $(GPU_TAGS) habana
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
+GPU_TAGS := ' '
+ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
+	GPU_TAGS := ' nvml '
+endif
+ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
+	GPU_TAGS := ' dcgm '
+endif
+ifeq ($(shell command -v ldconfig && ldconfig -p | grep -q libhlml.so && echo exists),exists)
+	GPU_TAGS := ' habana '
 endif
 
 # set GOENV
@@ -267,9 +273,11 @@ container_test:
 			cd - && git config --global --add safe.directory /kepler && \
 			make VERBOSE=1 unit-test bench'
 
-TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
+VERBOSE ?= 0
+TMPDIR := $(shell mktemp -d)
+TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpftest)
+SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpf)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.
