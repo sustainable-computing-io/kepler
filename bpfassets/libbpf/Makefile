@@ -14,7 +14,7 @@ bpf.o:
 
 $(TARGET_BPF): $(BPF_SRC) | bpf.o
 	clang \
-		-I /usr/include/$(ARCH)-linux-gnu \
+		-I./include \
 		-D __TARGET_ARCH_$(TARGET_ARCH) \
 		-O2 -g -c -target bpf \
 		-o $@ $<
