@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 #ifndef __VMLINUX_H__
 #define __VMLINUX_H__
 
