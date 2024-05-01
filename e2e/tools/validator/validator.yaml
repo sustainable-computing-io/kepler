@@ -1,0 +1,14 @@
+remote:
+  host: 192.168.124.28
+  # ### defaults ###
+  # port: 22
+  # username: fedora
+  # password: supersecret
+  # pkey: ~/.ssh/id_rsa
+
+metal:
+  vm:
+    pid: 2093543
+
+prometheus:
+  url: http://localhost:9090

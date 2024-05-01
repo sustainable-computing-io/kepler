@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "validator"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+keywords = ["kepler", "kepler-model-server", "validator"]
+authors = [
+  { name = "Sunil Thaha", email = "sthaha@redhat.com" },
+  { name = "Kaiyi Liu", email = "kaiyiliu21@gmail.com" },
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "click",
+  "paramiko",
+  "prometheus-api-client",
+	"pyyaml",
+	"numpy",
+	# "pydantic",
+	# "requests",
+	# "rich",
+]
+
+[project.scripts]
+validator = "validator.cli:validator"
+
+[tool.hatch.version]
+path = "src/validator/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+]
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.12"]
+
+[tool.hatch.envs.types]
+dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/validator tests}"
+
+[tool.coverage.run]
+source_pkgs = ["validator", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/validator/__about__.py",
+]
+
+[tool.coverage.paths]
+validator = ["src/validator", "*/validator/src/validator"]
+tests = ["tests", "*/validator/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
