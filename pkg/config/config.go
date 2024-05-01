@@ -69,7 +69,6 @@ var (
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
-	EnabledQAT                   = getBoolConfig("ENABLE_QAT", false)
 	EnableProcessStats           = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)
 	ExposeVMStats                = getBoolConfig("EXPOSE_VM_METRICS", true)
@@ -148,7 +147,6 @@ func logBoolConfigs() {
 	if klog.V(5).Enabled() {
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
-		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessStats)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
@@ -329,21 +327,10 @@ func IsExposeVMStatsEnabled() bool {
 	return ExposeVMStats
 }
 
-// IsExposeQATMetricsEnabled returns false if QATMetrics metrics are disabled to minimize overhead.
-func IsExposeQATMetricsEnabled() bool {
-	return EnabledQAT
-}
-
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
-}
-
-// SetEnabledQAT enables the exposure of qat metrics
-func SetEnabledQAT(enabled bool) {
-	// set to true if any config source set it to true
-	EnabledQAT = enabled || EnabledQAT
 }
 
 // SetKubeConfig set kubeconfig file
