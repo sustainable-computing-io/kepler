@@ -34,6 +34,8 @@ declare -r KUSTOMIZE_INSTALL_SCRIPT="https://raw.githubusercontent.com/kubernete
 
 declare -r JQ_VERSION=${JQ_VERSION:-1.7}
 declare -r JQ_INSTALL_URL="https://github.com/jqlang/jq/releases/download/jq-$JQ_VERSION"
+declare -r YQ_VERSION=${YQ_VERSION:-v4.34.2}
+declare -r YQ_INSTALL_URL="https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_${GOOS}_${GOARCH}"
 
 source "$PROJECT_ROOT/hack/utils.bash"
 
@@ -109,6 +111,13 @@ install_jq() {
 	[[ $os == "darwin" ]] && os="macos"
 
 	curl_install jq "$JQ_INSTALL_URL/jq-$os-$GOARCH"
+}
+
+install_yq() {
+	validate_version yq --version "${YQ_VERSION}" && return 0
+
+	info "installing yq with version: $YQ_VERSION"
+	curl_install yq "$YQ_INSTALL_URL"
 }
 
 install_govulncheck() {

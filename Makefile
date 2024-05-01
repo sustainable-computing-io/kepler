@@ -293,6 +293,7 @@ TOOLS = govulncheck \
 		jq \
 		kubectl \
 		kustomize \
+		yq \
 
 tools:
 	./hack/tools.sh
