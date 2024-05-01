@@ -1,5 +1,7 @@
 github.com/HabanaAI/gohlml v1.15.0 h1:zjOdHkpfcH+jGOLvnoxpMsBPJn7emhvax/VzsI2rXqA=
 github.com/HabanaAI/gohlml v1.15.0/go.mod h1:qTkZioKexti1OaC/JT+i4EiCxt4iBJUQezrXa15hbfc=
+github.com/HabanaAI/gohlml v1.15.0 h1:zjOdHkpfcH+jGOLvnoxpMsBPJn7emhvax/VzsI2rXqA=
+github.com/HabanaAI/gohlml v1.15.0/go.mod h1:qTkZioKexti1OaC/JT+i4EiCxt4iBJUQezrXa15hbfc=
 github.com/Masterminds/semver v1.5.0 h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=
 github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f h1:HEY1H1By8XI2P6KHA0wk+nXsBE+l/iYRCAwR6nZAoU8=

@@ -34,8 +34,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 
@@ -65,9 +64,8 @@ var (
 const (
 
 	// to change these msg, you also need to update the e2e test
-	finishingMsg    = "Exiting..."
-	startedMsg      = "Started Kepler in %s"
-	maxGPUInitRetry = 10
+	finishingMsg = "Exiting..."
+	startedMsg   = "Started Kepler in %s"
 )
 
 var (
@@ -144,30 +142,14 @@ func main() {
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
-		klog.Infof("Initializing the GPU collector")
-		// the GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
-		// therefore, we wait up to 1 min to allow the gpu operator initialize
-		for i := 0; i <= maxGPUInitRetry; i++ {
-			err = gpu.Init()
-			if err == nil {
-				break
-			} else {
-				time.Sleep(6 * time.Second)
-			}
-		}
-		if err == nil {
-			defer gpu.Shutdown()
-		} else {
-			klog.Infof("Failed to initialize the GPU collector: %v. Have the GPU operator initialize?", err)
+		if err := acc.InitAcc("gpu", true); err != nil {
+			klog.Fatalf("failed to init GPU accelerators: %v", err)
 		}
 	}
 
 	if config.IsExposeQATMetricsEnabled() {
-		klog.Infof("Initializing the QAT collector")
-		if qatErr := qat.Init(); qatErr == nil {
-			defer qat.Shutdown()
-		} else {
-			klog.Infof("Failed to initialize the QAT collector: %v", qatErr)
+		if err := acc.InitAcc("qat", false); err != nil {
+			klog.Fatalf("failed to init QAT accelerators: %v", err)
 		}
 	}
 

@@ -19,23 +19,27 @@ package accelerator
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 	"k8s.io/klog/v2"
 )
 
 // UpdateNodeQATMetrics update QAT metrics from telemetry data
 func UpdateNodeQATMetrics(nodeStats *stats.NodeStats) {
 	// get available QAT devices
-	devices := qat.GetQATs()
-	if len(devices) != 0 {
-		deviceUtil, err := qat.GetQATUtilization(devices)
-		if err != nil {
-			klog.V(5).Infoln(err)
+	if devices, err := acc.GetActiveAcceleratorsByType("qat"); err == nil {
+		for _, a := range devices {
+			d := a.GetAccelerator()
+			for _, q := range d.GetDevicesByName() {
+				var deviceUtil map[any]any
+				if deviceUtil, err = d.GetDeviceUtilizationStats(q); err != nil {
+					klog.Infoln(err)
+					return
+				}
+				for devID, sample := range deviceUtil {
+					nodeStats.ResourceUsage[config.QATUtilization].SetDeltaStat(devID.(string), sample.(device.QATUtilizationSample).SampleCnt)
+				}
+			}
 		}
-		for devID, sample := range deviceUtil {
-			nodeStats.ResourceUsage[config.QATUtilization].SetDeltaStat(devID, sample.SampleCnt)
-		}
-	} else {
-		klog.V(5).Infoln("Unable to find an available QAT. Please check the status of QAT again")
 	}
 }

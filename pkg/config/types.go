@@ -39,7 +39,7 @@ const (
 	IRQNetRXLabel = "bpf_net_rx_irq"
 	IRQBlockLabel = "bpf_block_irq"
 
-	// NVIDIA GPU
+	// GPU
 	GPUComputeUtilization = "gpu_compute_util"
 	GPUMemUtilization     = "gpu_mem_util"
 

@@ -1,5 +1,5 @@
-//go:build gpu
-// +build gpu
+//go:build dcgm
+// +build dcgm
 
 /*
 Copyright 2024.
@@ -17,15 +17,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package source
+package sources
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	_dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 	"k8s.io/klog/v2"
 )
 
@@ -33,15 +35,15 @@ const (
 	debugLevel     = 5
 	isSocket       = "0"
 	maxMIGProfiles = 15 // use a large number since the profile ids are not linear
+	dcgmDevice     = "dcgm"
+	dcgmHwType     = "gpu"
 )
 
 var (
+	dcgmAccImpl               = GPUDcgm{}
 	deviceFields []dcgm.Short = []dcgm.Short{
 		// https://docs.nvidia.com/datacenter/dcgm/1.7/dcgm-api/group__dcgmFieldIdentifiers.htm
 		dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
-	}
-	deviceFieldsString = []string{
-		"dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
 	}
 	ratioFields  uint = dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE // this is the field that we will use to calculate the utilization per @yuezhu1
 	profileInfos map[int]nvml.GpuInstanceProfileInfo
@@ -49,45 +51,70 @@ var (
 
 type GPUDcgm struct {
 	collectionSupported bool
-	devices             map[int]Device
-	migDevices          map[int]map[int]Device // list of mig devices for each GPU instance
+	devices             map[int]_dev.GPUDevice
+	migDevices          map[int]map[int]_dev.GPUDevice // list of mig devices for each GPU instance
 	libInited           bool
 	deviceGroupName     string
 	deviceGroupHandle   dcgm.GroupHandle
 	fieldGroupName      string
 	fieldGroupHandle    dcgm.FieldHandle
-	pidGroupName        string
-	pidGroupHandle      dcgm.GroupHandle // TODO: wait till https://github.com/NVIDIA/go-dcgm/issues/59 is resolved
 	cleanup             func()
+}
+
+func init() {
+	if _, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket); err != nil {
+		klog.Errorf("Error initializing dcgm: %v", err)
+		return
+	}
+	klog.Info("Initializing dcgm Successful")
+	_dev.AddDeviceInterface(dcgmDevice, dcgmHwType, dcgmDeviceStartup)
+}
+
+func dcgmDeviceStartup() (_dev.AcceleratorInterface, error) {
+	a := dcgmAccImpl
+
+	if err := a.InitLib(); err != nil {
+		klog.Errorf("Error initializing %s: %v", dcgmDevice, err)
+		return nil, err
+	}
+
+	if err := a.Init(); err != nil {
+		klog.Errorf("failed to StartupDevice: %v", err)
+		return nil, err
+	}
+
+	klog.Infof("Using %s to obtain gpu power", dcgmDevice)
+
+	return &a, nil
 }
 
 func (d *GPUDcgm) Init() error {
 	if !d.libInited {
 		if err := d.InitLib(); err != nil {
-			klog.Infof("failed to init lib: %v", err)
+			klog.Errorf("failed to init lib: %v", err)
 			return err
 		}
 	}
 	if err := d.createDeviceGroup(); err != nil {
-		klog.Infof("failed to create device group: %v", err)
+		klog.Errorf("failed to create device group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.addDevicesToGroup(); err != nil {
-		klog.Infof("failed to add devices to group: %v", err)
+		klog.Errorf("failed to add devices to group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.createFieldGroup(); err != nil {
-		klog.Infof("failed to create field group: %v", err)
+		klog.Errorf("failed to create field group: %v", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.setupWatcher(); err != nil {
-		klog.Infof("failed to set up watcher: %v", err)
+		klog.Errorf("failed to set up watcher: %v", err)
 		d.Shutdown()
 		return err
 	}
@@ -96,23 +123,28 @@ func (d *GPUDcgm) Init() error {
 	return nil
 }
 
-func (d *GPUDcgm) InitLib() error {
-	d.devices = make(map[int]Device)
-
+func (d *GPUDcgm) InitLib() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("could not init dcgm: %v", r)
+		}
+	}()
 	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket)
 	if err != nil {
-		klog.Warningf("There is no DCGM daemon running in the host: %s", err)
-		// embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+		klog.Infof("There is no DCGM daemon running in the host: %s", err)
+		// embedded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
 		cleanup, err = dcgm.Init(dcgm.Embedded)
 		if err != nil {
-			klog.Warningf("Could not start DCGM. Error: %s", err)
+			klog.Errorf("Could not start DCGM. Error: %s", err)
 			if cleanup != nil {
 				cleanup()
 			}
 			return fmt.Errorf("not able to connect to DCGM: %s", err)
 		}
-		klog.V(1).Infof("Started DCGM in the Embedded mode", err)
+		klog.Info("Started DCGM in the Embedded mode ")
 	}
+
+	d.devices = make(map[int]_dev.GPUDevice)
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
 
@@ -132,10 +164,10 @@ func (d *GPUDcgm) InitLib() error {
 }
 
 func (d *GPUDcgm) loadDevices() error {
-	d.devices = map[int]Device{}
+	d.devices = map[int]_dev.GPUDevice{}
 	count, err := nvml.DeviceGetCount()
 	if err != nvml.SUCCESS {
-		return fmt.Errorf("Error getting GPUs: %s", nvml.ErrorString(err))
+		return fmt.Errorf("error getting GPUs: %s", nvml.ErrorString(err))
 	}
 	for gpuID := 0; gpuID < count; gpuID++ {
 		nvmlDeviceHandler, err := nvml.DeviceGetHandleByIndex(gpuID)
@@ -143,10 +175,10 @@ func (d *GPUDcgm) loadDevices() error {
 			klog.Errorf("failed to get device handle for index %d: %v", gpuID, nvml.ErrorString(err))
 			continue
 		}
-		device := Device{
-			NVMLDeviceHandler: nvmlDeviceHandler,
-			GPUID:             gpuID,
-			IsMig:             false,
+		device := _dev.GPUDevice{
+			DeviceHandler: nvmlDeviceHandler,
+			ID:            gpuID,
+			IsSubdevice:   false,
 		}
 		d.devices[gpuID] = device
 	}
@@ -155,17 +187,17 @@ func (d *GPUDcgm) loadDevices() error {
 
 // LoadMIGDevices dynamically discover the MIG instances of all GPUs
 func (d *GPUDcgm) LoadMIGDevices() {
-	d.migDevices = map[int]map[int]Device{}
+	d.migDevices = map[int]map[int]_dev.GPUDevice{}
 
 	// find all GPUs and the MIG slices if they exist
 	hierarchy, err := dcgm.GetGpuInstanceHierarchy()
 	if err != nil {
-		klog.V(debugLevel).Infof("failed to get GPU Instance hierarchy: %v", err)
+		klog.Errorf("failed to get GPU Instance hierarchy: %v", err)
 		d.Shutdown()
 		return
 	}
 
-	// the bigger MIG profiles that a GPU can have to be used to calcualte the SM ratio
+	// the bigger MIG profiles that a GPU can have to be used to calculate the SM ratio
 	fullGPUProfile := profileInfos[0]
 
 	for _, entity := range hierarchy.EntityList {
@@ -178,14 +210,14 @@ func (d *GPUDcgm) LoadMIGDevices() {
 
 		// init migDevices
 		if _, exit := d.migDevices[parentGPUID]; !exit {
-			d.migDevices[parentGPUID] = map[int]Device{}
+			d.migDevices[parentGPUID] = map[int]_dev.GPUDevice{}
 		}
 
 		// find MIG device handler
-		nvmlDevId := int(entity.Info.NvmlInstanceId) - 1 // nvidia-smi MIG DEV ID
-		migDeviceHandler, ret := parentDevice.NVMLDeviceHandler.(nvml.Device).GetMigDeviceHandleByIndex(nvmlDevId)
+		nvmlDevID := int(entity.Info.NvmlInstanceId) - 1 // nvidia-smi MIG DEV ID
+		migDeviceHandler, ret := parentDevice.DeviceHandler.(nvml.Device).GetMigDeviceHandleByIndex(nvmlDevID)
 		if ret != nvml.SUCCESS {
-			klog.V(debugLevel).Infof("failed to get MIG device handler of GPU %d by index %d: %v", parentGPUID, nvmlDevId, nvml.ErrorString(ret))
+			klog.Errorf("failed to get MIG device handler of GPU %d by index %d: %v", parentGPUID, nvmlDevID, nvml.ErrorString(ret))
 			break
 		}
 
@@ -195,26 +227,26 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		ratio := float64(profile.MultiprocessorCount) / float64(fullGPUProfile.MultiprocessorCount)
 
 		// add MIG device
-		migNvmlEntityId := int(entity.Entity.EntityId)
-		d.migDevices[parentGPUID][migNvmlEntityId] = Device{
-			NVMLDeviceHandler: migDeviceHandler,
-			GPUID:             migNvmlEntityId,
-			ParentGpuID:       parentGPUID,
-			MIGSMRatio:        ratio,
-			IsMig:             true,
+		migNvmlEntityID := int(entity.Entity.EntityId)
+		d.migDevices[parentGPUID][migNvmlEntityID] = _dev.GPUDevice{
+			DeviceHandler: migDeviceHandler,
+			ID:            migNvmlEntityID,
+			ParentID:      parentGPUID,
+			MIGSMRatio:    ratio,
+			IsSubdevice:   true,
 		}
 	}
 }
 
 func (d *GPUDcgm) loadMIGProfiles() {
 	if len(d.devices) == 0 {
-		klog.Errorln("CDGM has no GPU to monitor")
+		klog.Errorln("DCGM has no GPU to monitor")
 		return
 	}
 	profileInfos = map[int]nvml.GpuInstanceProfileInfo{}
 	for _, device := range d.devices {
 		for i := 0; i < maxMIGProfiles; i++ {
-			profileInfo, ret := device.NVMLDeviceHandler.(nvml.Device).GetGpuInstanceProfileInfo(i)
+			profileInfo, ret := device.DeviceHandler.(nvml.Device).GetGpuInstanceProfileInfo(i)
 			if ret != nvml.SUCCESS {
 				continue
 			}
@@ -227,14 +259,22 @@ func (d *GPUDcgm) loadMIGProfiles() {
 }
 
 func (d *GPUDcgm) GetName() string {
-	return "dcgm"
+	return dcgmDevice
 }
 
-func (d *GPUDcgm) IsGPUCollectionSupported() bool {
+func (d *GPUDcgm) GetType() string {
+	return dcgmDevice
+}
+
+func (d *GPUDcgm) GetHwType() string {
+	return dcgmHwType
+}
+
+func (d *GPUDcgm) IsDeviceCollectionSupported() bool {
 	return d.collectionSupported
 }
 
-func (d *GPUDcgm) SetGPUCollectionSupported(supported bool) {
+func (d *GPUDcgm) SetDeviceCollectionSupported(supported bool) {
 	d.collectionSupported = supported
 }
 
@@ -255,12 +295,12 @@ func (d *GPUDcgm) Shutdown() bool {
 	return true
 }
 
-func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
+func (d *GPUDcgm) GetAbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, device := range d.devices {
-		power, ret := device.NVMLDeviceHandler.(nvml.Device).GetPowerUsage()
+		power, ret := device.DeviceHandler.(nvml.Device).GetPowerUsage()
 		if ret != nvml.SUCCESS {
-			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			klog.Errorf("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
 			continue
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
@@ -271,77 +311,114 @@ func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
 	return gpuEnergy
 }
 
-func (d *GPUDcgm) GetGpus() map[int]Device {
-	return d.devices
+func (d *GPUDcgm) GetDevicesByID() map[int]interface{} {
+	devices := make(map[int]interface{})
+	for id, device := range d.devices {
+		devices[id] = device
+	}
+	return devices
 }
 
-func (d *GPUDcgm) GetMIGInstances() map[int]map[int]Device {
+func (d *GPUDcgm) GetDevicesByName() map[string]any {
+	devices := make(map[string]interface{})
+	return devices
+}
+
+func (d *GPUDcgm) GetDeviceInstances() map[int]map[int]interface{} {
+	// LoadMIGDevices
 	d.LoadMIGDevices()
-	return d.migDevices
+
+	devInstances := make(map[int]map[int]interface{})
+
+	for gpuID, migDevices := range d.migDevices {
+		devInstances[gpuID] = make(map[int]interface{})
+		for migID, device := range migDevices {
+			devInstances[gpuID][migID] = device
+		}
+	}
+	return devInstances
+}
+
+func (d *GPUDcgm) GetDeviceUtilizationStats(device any) (map[any]interface{}, error) {
+	ds := make(map[any]interface{}) // Process Accelerator Metrics
+	return ds, nil
 }
 
 // GetProcessResourceUtilizationPerDevice returns the GPU utilization per process. The gpuID can be a MIG instance or the main GPU
-func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
-	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
-	if device.NVMLDeviceHandler == nil {
-		return processAcceleratorMetrics, nil
-	}
+func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (map[uint32]interface{}, error) {
+	processAcceleratorMetrics := map[uint32]_dev.GPUProcessUtilizationSample{}
+	pam := make(map[uint32]interface{})
+	// Check if the device is of type dev.GPUDevice and extract the DeviceHandler
 
-	// Get the processes information, but as GetComputeRunningProcesses only show the process memory allocation,
-	// the GPU metrics will be used as the process resource utilization.
-	processInfo, ret := device.NVMLDeviceHandler.(nvml.Device).GetComputeRunningProcesses()
-	if ret != nvml.SUCCESS {
-		klog.V(debugLevel).Infof("failed to get running processes: %v", nvml.ErrorString(ret))
-	}
-
-	for _, p := range processInfo {
-		if device.IsMig {
-			vals, err := dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, uint(device.GPUID), deviceFields)
-			if err != nil {
-				klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
-				return processAcceleratorMetrics, err
-			}
-			for _, val := range vals {
-				if val.FieldId == ratioFields {
-					migUtilization := ToFloat64(val, 100)
-					// ratio of active multiprocessors to total multiprocessors
-					// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
-					// FIXME: the MIG device could have multiple processes, such as using MPS, how to split the MIG utilization between the processes?
-					gpuUtilization := migUtilization * device.MIGSMRatio
-					processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-						Pid:         p.Pid,
-						TimeStamp:   uint64(time.Now().UnixNano()),
-						ComputeUtil: uint32(gpuUtilization),
-					}
-					klog.V(debugLevel).Infof("ParentGPU: %d, MIG: %d, PID: %d, GPU Utilization (%d): %f\n", device.ParentGpuID, device.GPUID, p.Pid, ratioFields, gpuUtilization)
-				}
-			}
-		} else {
-			vals, err := dcgm.GetLatestValuesForFields(uint(device.GPUID), deviceFields)
-			if err != nil {
-				klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
-				return processAcceleratorMetrics, err
-			}
-			gpuUtilization := float64(0)
-			if err == nil {
-				for _, val := range vals {
-					if val.FieldId == ratioFields {
-						gpuUtilization = ToFloat64(val, 100)
-					}
-				}
-			}
-			processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
-				Pid:       p.Pid,
-				TimeStamp: uint64(time.Now().UnixNano()),
-				// TODO: It does not make sense to use the whole GPU utilization since a GPU might have more than one PID
-				// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
-				ComputeUtil: uint32(gpuUtilization),
-			}
-			klog.V(debugLevel).Infof("GPU: %d, PID: %d, GPU Utilization (%d): %f\n", device.GPUID, p.Pid, ratioFields, gpuUtilization)
+	switch d := device.(type) {
+	case _dev.GPUDevice:
+		if d.DeviceHandler == nil {
+			return pam, nil
 		}
-	}
 
-	return processAcceleratorMetrics, nil
+		// Get the processes information, but as GetComputeRunningProcesses only show the process memory allocation,
+		// the GPU metrics will be used as the process resource utilization.
+		processInfo, ret := d.DeviceHandler.(nvml.Device).GetComputeRunningProcesses()
+		if ret != nvml.SUCCESS {
+			klog.Errorf("failed to get running processes: %v", nvml.ErrorString(ret))
+		}
+
+		for _, p := range processInfo {
+			if !d.IsSubdevice {
+				gpuUtilization := float64(0)
+				vals, err := dcgm.GetLatestValuesForFields(uint(d.ID), deviceFields)
+				if err != nil {
+					klog.Errorf("failed to get latest values for fields: %v", err)
+					return pam, err
+				} else {
+					for i := range vals {
+						val := &vals[i]
+						if val.FieldId == ratioFields {
+							gpuUtilization = ToFloat64(val, 100)
+						}
+					}
+				}
+				processAcceleratorMetrics[p.Pid] = _dev.GPUProcessUtilizationSample{
+					Pid:       p.Pid,
+					TimeStamp: uint64(time.Now().UnixNano()),
+					// TODO: It does not make sense to use the whole GPU utilization since a GPU might have more than one PID
+					// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
+					ComputeUtil: uint32(gpuUtilization),
+				}
+				klog.V(debugLevel).Infof("GPU: %d, PID: %d, GPU Utilization (%d): %f\n", d.ID, p.Pid, ratioFields, gpuUtilization)
+			} else {
+				vals, err := dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, uint(d.ID), deviceFields)
+				if err != nil {
+					klog.Errorf("failed to get latest values for fields: %v", err)
+					return pam, err
+				}
+				for i := range vals {
+					val := &vals[i]
+					if val.FieldId == ratioFields {
+						migUtilization := ToFloat64(val, 100)
+						// ratio of active multiprocessors to total multiprocessors
+						// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
+						// FIXME: the MIG device could have multiple processes, such as using MPS, how to split the MIG utilization between the processes?
+						gpuUtilization := migUtilization * d.MIGSMRatio
+						processAcceleratorMetrics[p.Pid] = _dev.GPUProcessUtilizationSample{
+							Pid:         p.Pid,
+							TimeStamp:   uint64(time.Now().UnixNano()),
+							ComputeUtil: uint32(gpuUtilization),
+						}
+						klog.V(debugLevel).Infof("ParentGPU: %d, MIG: %d, PID: %d, GPU Utilization (%d): %f\n", d.ParentID, d.ID, p.Pid, ratioFields, gpuUtilization)
+					}
+				}
+			}
+		}
+		for k, v := range processAcceleratorMetrics {
+			pam[k] = v
+		}
+
+		return pam, nil
+	default:
+		klog.Error("expected _dev.GPUDevice but got come other type")
+		return pam, errors.New("invalid device type")
+	}
 }
 
 // helper functions
@@ -370,12 +447,12 @@ func (d *GPUDcgm) addDevicesToGroup() error {
 	for gpuID := range d.devices {
 		err := dcgm.AddEntityToGroup(d.deviceGroupHandle, dcgm.FE_GPU, uint(gpuID))
 		if err != nil {
-			klog.Infof("failed to add device %d to group %q: %v", gpuID, d.deviceGroupName, err)
+			klog.Errorf("failed to add device %d to group %q: %v", gpuID, d.deviceGroupName, err)
 		}
 		for migID, migDevice := range d.migDevices[gpuID] {
 			err := dcgm.AddEntityToGroup(d.deviceGroupHandle, dcgm.FE_GPU_I, uint(migID))
 			if err != nil {
-				klog.Infof("failed to add MIG device %d to group %q: %v", migDevice.ParentGpuID, migDevice.GPUID, d.deviceGroupName, err)
+				klog.Errorf("failed to add MIG device %d with parent id %d to group %q: %v", migDevice.ParentID, migDevice.ID, d.deviceGroupName, err)
 			}
 		}
 	}
@@ -404,7 +481,7 @@ func (d *GPUDcgm) setupWatcher() error {
 
 // ToFloat64 converts a dcgm.FieldValue_v1 to float64
 // The multiplyFactor is used to convert a percentage represented as a float64 to uint32, maintaining precision and scaling it to 100%.
-func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
+func ToFloat64(value *dcgm.FieldValue_v1, multiplyFactor float64) float64 {
 	defaultValue := float64(0)
 	switch v := value.FieldType; v {
 
@@ -447,7 +524,17 @@ func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
 		}
 
 	default:
-		klog.Errorf("DCGM metric type %s not supported: %v\n", value.FieldType, value)
+		klog.Errorf("DCGM metric type %v not supported: %v\n", value.FieldType, value)
 		return defaultValue
 	}
+}
+
+func nvmlErrorString(errno nvml.Return) string {
+	switch errno {
+	case nvml.SUCCESS:
+		return "SUCCESS"
+	case nvml.ERROR_LIBRARY_NOT_FOUND:
+		return "ERROR_LIBRARY_NOT_FOUND"
+	}
+	return fmt.Sprintf("Error %d", errno)
 }

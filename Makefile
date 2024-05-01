@@ -53,8 +53,14 @@ endif
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
 GPU_TAGS := ' gpu '
+ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
+	GPU_TAGS := ' nvml '
+endif
+ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
+	GPU_TAGS := ' dcgm '
+endif
 ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
-	GPU_TAGS := $(GPU_TAGS)'habana '
+	GPU_TAGS := ' habana '
 endif
 
 # set GOENV
@@ -247,6 +253,8 @@ cross-build: clean_build_local cross-build-linux-amd64 cross-build-linux-arm64 c
 tidy-vendor:
 	go mod tidy -v
 	go mod vendor
+	@echo "Tidy hlml.go for habana build only"
+	sed -i 's/cgo LDFLAGS/cgo habana LDFLAGS/g' vendor/github.com/HabanaAI/gohlml/hlml.go
 
 .PHONY: ginkgo-set
 ginkgo-set:
@@ -275,9 +283,9 @@ container_test:
 
 VERBOSE ?= 0
 TMPDIR := $(shell mktemp -d)
-TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
+TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
+SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpf)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.

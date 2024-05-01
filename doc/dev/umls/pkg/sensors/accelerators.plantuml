@@ -1,0 +1,178 @@
+@startuml
+namespace accelerator {
+    interface Accelerator  {
+        + StartupAccelerator() error
+        + GetAccelerator() device.AcceleratorInterface
+        + GetAcceleratorType() string
+        + IsRunning() bool
+        + StopAccelerator()
+
+    }
+    class accelerator << (S,Aquamarine) >> {
+        - acc device.AcceleratorInterface
+        - accType string
+        - running bool
+        - installedtime v1.Time
+
+        + StartupAccelerator() error
+        + StopAccelerator()
+        + GetAcceleratorType() string
+        + IsRunning() bool
+        + GetAccelerator() device.AcceleratorInterface
+
+    }
+}
+
+"accelerator.Accelerator" <|-- "accelerator.accelerator"
+
+namespace device {
+    interface AcceleratorInterface  {
+        + GetName() string
+        + GetType() string
+        + GetHwType() string
+        + InitLib() error
+        + Init() error
+        + Shutdown() bool
+        + GetDevicesByID() <font color=blue>map</font>[int]any
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported( bool)
+
+    }
+}
+
+namespace sources {
+    class Dummy << (S,Aquamarine) >> {
+        - dummyDevice string
+        - name string
+        - collectionSupported bool
+
+        + GetName() string
+        + GetType() string
+        + GetHwType() string
+        + InitLib() error
+        + Init() error
+        + Shutdown() bool
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDevicesByID() <font color=blue>map</font>[int]any
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + GetProcessResourceUtilizationPerDevice(device any, _ time.Duration) (<font color=blue>map</font>[uint32]any, error)
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported(supported bool)
+
+    }
+    class GPUDcgm << (S,Aquamarine) >> {
+        - collectionSupported bool
+        - devices <font color=blue>map</font>[int]device.GPUDevice
+        - migDevices <font color=blue>map</font>[int]<font color=blue>map</font>[int]device.GPUDevice
+        - libInited bool
+        - deviceGroupName string
+        - deviceGroupHandle dcgm.GroupHandle
+        - fieldGroupName string
+        - fieldGroupHandle dcgm.FieldHandle
+        - cleanup <font color=blue>func</font>()
+
+        - loadDevices() error
+        - loadMIGProfiles()
+        - initNVML() error
+        - createDeviceGroup() error
+        - addDevicesToGroup() error
+        - createFieldGroup() error
+        - setupWatcher() error
+
+        + Init() error
+        + InitLib() error
+        + LoadMIGDevices()
+        + GetName() string
+        + GetType() string
+        + GetHwType() string
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported(supported bool)
+        + Shutdown() bool
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
+
+    }
+    class GPUHabana << (S,Aquamarine) >> {
+        - collectionSupported bool
+        - devices <font color=blue>map</font>[int]device.GPUDevice
+
+        + GetName() string
+        + GetType() string
+        + GetHwType() string
+        + InitLib() error
+        + Init() error
+        + Shutdown() bool
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported(supported bool)
+
+    }
+    class GPUNvml << (S,Aquamarine) >> {
+        - libInited bool
+        - collectionSupported bool
+        - devices <font color=blue>map</font>[int]device.GPUDevice
+        - processUtilizationSupported bool
+
+        + GetName() string
+        + GetHwType() string
+        + GetType() string
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported(supported bool)
+        + InitLib() error
+        + Init() error
+        + Shutdown() bool
+        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
+
+    }
+    class QATTelemetry << (S,Aquamarine) >> {
+        - collectionSupported bool
+        - devices <font color=blue>map</font>[string]qatDevInfo
+
+        + GetName() string
+        + GetType() string
+        + GetHwType() string
+        + InitLib() error
+        + Init() error
+        + Shutdown() bool
+        + GetAbsEnergyFromDevice() []uint32
+        + GetDevicesByID() <font color=blue>map</font>[int]any
+        + GetDevicesByName() <font color=blue>map</font>[string]any
+        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
+        + GetDeviceUtilizationStats(qat any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + IsDeviceCollectionSupported() bool
+        + SetDeviceCollectionSupported(supported bool)
+
+    }
+
+}
+
+accelerator.accelerator *-- device.AcceleratorInterface
+"device.AcceleratorInterface" <|-- "sources.Dummy"
+"device.AcceleratorInterface" <|-- "sources.GPUDcgm"
+"device.AcceleratorInterface" <|-- "sources.GPUHabana"
+"device.AcceleratorInterface" <|-- "sources.GPUNvml"
+"device.AcceleratorInterface" <|-- "sources.QATTelemetry"
+
+@enduml

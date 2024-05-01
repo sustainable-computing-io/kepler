@@ -24,7 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
@@ -36,7 +36,11 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
-			source = gpu.GetSourceName()
+			if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+				for _, a := range gpus {
+					source = a.GetAccelerator().GetName()
+				}
+			}
 		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
 			source = platform.GetSourceName()
 		} else if components.IsSystemCollectionSupported() {
@@ -93,9 +97,13 @@ func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Des
 
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		for _, name := range consts.GPUMetricNames {
-			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
+	if config.EnabledGPU {
+		if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+			for _, g := range gpus {
+				for _, name := range consts.GPUMetricNames {
+					descriptions[name] = resMetricsPromDesc(context, name, g.GetAccelerator().GetName())
+				}
+			}
 		}
 	}
 	return descriptions

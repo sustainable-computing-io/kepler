@@ -132,8 +132,16 @@ func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
 // SumAllDeltaValues aggregates the delta metrics of all sources (i.e., stat keys)
 func (s *UInt64StatCollection) SumAllDeltaValues() uint64 {
 	sum := uint64(0)
+	if s == nil {
+		klog.V(3).Info(" s  == nil")
+		return sum
+	}
 	for _, stat := range s.Stat {
-		sum += stat.Delta
+		if stat != nil {
+			sum += stat.Delta
+		} else {
+			klog.V(3).Info(" Error retrieving stat")
+		}
 	}
 	return sum
 }

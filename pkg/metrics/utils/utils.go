@@ -26,7 +26,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
 	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"k8s.io/klog/v2"
 )
 
@@ -54,9 +54,11 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 	for collectorName := range bpfSupportedMetrics.HardwareCounters {
 		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 	}
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		for _, collectorName := range consts.GPUMetricNames {
-			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+	if config.EnabledGPU {
+		if _, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+			for _, collectorName := range consts.GPUMetricNames {
+				CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+			}
 		}
 	}
 }

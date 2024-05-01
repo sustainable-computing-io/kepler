@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,10 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-package source
+package sources
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,8 +25,19 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
+	dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 	"k8s.io/klog/v2"
+)
+
+const (
+	// Turn off telemetry
+	off = iota
+	// Turn on telemetry
+	on
+	qatDevice = "qat"
 )
 
 var (
@@ -38,10 +49,162 @@ var (
 
 	// obtain device utilization data path
 	deviceDataPath = filepath.Join(teleBasePath, "device_data")
+	// List of QAT qatDevInfo for the device
+
 )
 
+type qatDevInfo struct {
+	addr     string
+	datafile *os.File
+}
+
+type QATTelemetry struct {
+	collectionSupported bool
+	devices             map[string]qatDevInfo
+}
+
+func init() {
+	dev.AddDeviceInterface(qatDevice, qatDevice, qatDeviceStartup)
+}
+
+func qatDeviceStartup() (dev.AcceleratorInterface, error) {
+
+	q := QATTelemetry{
+		collectionSupported: false,
+	}
+
+	if err := q.Init(); err != nil {
+		klog.Errorf("Error initializing %s: %v", qatDevice, err)
+		return nil, err
+	}
+
+	klog.Info("QAT power metrics collection initialized")
+
+	return &q, nil
+}
+
+func (q *QATTelemetry) GetName() string {
+	return qatDevice
+}
+
+func (q *QATTelemetry) GetType() string {
+	return qatDevice
+}
+
+func (q *QATTelemetry) GetHwType() string {
+	return qatDevice
+}
+
+func (q *QATTelemetry) InitLib() error {
+	return nil
+}
+
+// Init initizalize and start the QAT metric collector
+func (q *QATTelemetry) Init() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("could not init telemetry:%s", err)
+		}
+	}()
+
+	// get qat devices
+	q.devices, err = getDevices()
+	if err != nil {
+		q.collectionSupported = false
+		return err
+	}
+
+	// turn on telemetry
+	if err = controlTelemetry(q.devices, on); err != nil {
+		klog.Errorf("failed to start telemetry: %v\n", err)
+		return err
+	}
+
+	// open the telemetry data file
+	q.devices, err = openDataFile(q.devices)
+	if err != nil {
+		klog.Errorf("failed to open telemetry data file: %v\n", err)
+		return err
+	}
+
+	klog.Infof("found %d QAT devices\n", len(q.devices))
+	q.collectionSupported = true
+	return nil
+}
+
+func (q *QATTelemetry) Shutdown() bool {
+	var err error
+	// close telemetry data file
+	if err = closeDataFile(q.devices); err != nil {
+		return false
+	}
+	// turn off telemetry
+	if err = controlTelemetry(q.devices, off); err != nil {
+		return false
+	}
+	return true
+}
+
+func (q *QATTelemetry) GetAbsEnergyFromDevice() []uint32 {
+	return nil
+}
+
+func (q *QATTelemetry) GetDevicesByID() map[int]any {
+	devices := make(map[int]interface{})
+	return devices
+}
+
+func (q *QATTelemetry) GetDevicesByName() map[string]any {
+	devices := make(map[string]interface{})
+	for k, v := range q.devices {
+		devices[k] = v
+	}
+	return devices
+}
+
+func (q *QATTelemetry) GetDeviceInstances() map[int]map[int]any {
+	instances := make(map[int]map[int]interface{})
+	return instances
+}
+
+func (q *QATTelemetry) GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (map[uint32]interface{}, error) {
+	pam := make(map[uint32]interface{}) // Process Accelerator Metrics
+	return pam, nil
+}
+
+func (q *QATTelemetry) GetDeviceUtilizationStats(qat any) (map[any]interface{}, error) {
+	qatMetrics := map[string]dev.QATUtilizationSample{}
+	qam := make(map[any]interface{})
+
+	switch d := qat.(type) {
+	case qatDevInfo:
+		file := d.datafile
+		deviceUtil, err := getUtilization(file)
+		if err != nil {
+			klog.Errorf("failed to get qat utilization on device %s: %v\n", d.addr, err)
+			return qam, err
+		}
+		qatMetrics[d.addr] = deviceUtil
+		for k, v := range qatMetrics {
+			qam[k] = v
+		}
+		return qam, nil
+	default:
+		klog.Error("expected qatDevInfo but got come other type")
+		return qam, errors.New("invalid device type")
+	}
+}
+
+func (q *QATTelemetry) IsDeviceCollectionSupported() bool {
+	return q.collectionSupported
+}
+
+func (q *QATTelemetry) SetDeviceCollectionSupported(supported bool) {
+	q.collectionSupported = supported
+}
+
 // getDevices obtain available qat devices and search for ID
-func getDevices() (map[string]interface{}, error) {
+func getDevices() (map[string]qatDevInfo, error) {
 	// use adf_ctl get qat devices status
 	commandText := "adf_ctl status"
 	cmd := exec.Command("bash", "-c", commandText)
@@ -54,9 +217,9 @@ func getDevices() (map[string]interface{}, error) {
 }
 
 // parseStatusInfo parse all qat devices information and return available devices
-func parseStatusInfo(statusData string) (map[string]interface{}, error) {
+func parseStatusInfo(statusData string) (map[string]qatDevInfo, error) {
 	// available devices
-	availableDev := make(map[string]interface{})
+	availableDev := make(map[string]qatDevInfo)
 
 	lines := strings.Split(statusData, "\n")
 	// regular expression pattern, matching rows that meet the condition
@@ -83,17 +246,17 @@ func parseStatusInfo(statusData string) (map[string]interface{}, error) {
 }
 
 // controlTelemetry obtain control paths based on QAT information, then turn on/off telemtry
-func controlTelemetry(devices map[string]interface{}, mode int) error {
+func controlTelemetry(devices map[string]qatDevInfo, mode int) error {
 	var err error
 	for qatDev, qatInfo := range devices {
 		// path to control the telemetry switch
-		bsf := qatInfo.(qatDevInfo).addr
+		bsf := qatInfo.addr
 		path := fmt.Sprintf(controlPath, bsf, bsf)
 
 		// turn on/off telemetry
 		err = switchTelemetry(path, mode)
 		if err != nil {
-			klog.V(3).Infof("failed to control %s with mode %d: %s ", qatDev, mode, err)
+			klog.Errorf("failed to control %s with mode %d: %s ", qatDev, mode, err)
 			delete(devices, qatDev)
 		}
 	}
@@ -122,18 +285,18 @@ func switchTelemetry(filename string, mode int) error {
 }
 
 // openDataFile open qat telemetry data file, and obtain available devices
-func openDataFile(devices map[string]interface{}) (map[string]interface{}, error) {
+func openDataFile(devices map[string]qatDevInfo) (map[string]qatDevInfo, error) {
 	// available devices
-	availableDev := make(map[string]interface{})
+	availableDev := make(map[string]qatDevInfo)
 	for qatDev, qatinfo := range devices {
 		// dataPath that can read data from telemetry
-		bsf := qatinfo.(qatDevInfo).addr
+		bsf := qatinfo.addr
 
 		dataPath := fmt.Sprintf(deviceDataPath, bsf, bsf)
 
 		f, err := os.OpenFile(dataPath, os.O_RDONLY, 0444)
 		if err != nil {
-			klog.V(3).Infof("failed to open %s telemetry data file: %v\n", qatDev, err)
+			klog.Errorf("failed to open %s telemetry data file: %v\n", qatDev, err)
 			delete(devices, qatDev)
 			continue
 		}
@@ -147,13 +310,13 @@ func openDataFile(devices map[string]interface{}) (map[string]interface{}, error
 }
 
 // closeDataFile close qat telemetry data file
-func closeDataFile() error {
+func closeDataFile(devices map[string]qatDevInfo) error {
 	var err error
 	if len(devices) == 0 {
 		return nil
 	}
 	for qatDev, info := range devices {
-		file := info.(qatDevInfo).datafile
+		file := info.datafile
 		if err = file.Close(); err != nil {
 			return fmt.Errorf("failed to close %s telemetry data file: %v", qatDev, err)
 		}
@@ -162,8 +325,8 @@ func closeDataFile() error {
 }
 
 // getUtilization calculate utilization from each qat device
-func getUtilization(file *os.File) (DeviceUtilizationSample, error) {
-	utilizationSample := DeviceUtilizationSample{}
+func getUtilization(file *os.File) (device.QATUtilizationSample, error) {
+	utilizationSample := device.QATUtilizationSample{}
 
 	// reset file pointer to the beginning
 	_, err := file.Seek(0, 0)
@@ -184,7 +347,7 @@ func getUtilization(file *os.File) (DeviceUtilizationSample, error) {
 }
 
 // processData calculate all telemetry data
-func processData(data []string) DeviceUtilizationSample {
+func processData(data []string) device.QATUtilizationSample {
 	var (
 		// compression utilization of all slices
 		cprSum uint64
@@ -231,7 +394,7 @@ func processData(data []string) DeviceUtilizationSample {
 		}
 	}
 
-	return DeviceUtilizationSample{
+	return device.QATUtilizationSample{
 		SampleCnt:   output["sample_cnt"],
 		PciTransCnt: output["pci_trans_cnt"],
 		Latency:     output["lat_acc_avg"],

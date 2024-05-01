@@ -23,7 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"k8s.io/klog/v2"
@@ -196,10 +196,12 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
 		// estimate the associated power comsumption of GPU for each process
-		if gpu.IsGPUCollectionSupported() {
-			processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
-			if errGPU != nil {
-				klog.V(5).Infoln("Could not estimate the Process GPU Power")
+		if config.EnabledGPU {
+			if _, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+				processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
+				if errGPU != nil {
+					klog.V(5).Infoln("Could not estimate the Process GPU Power")
+				}
 			}
 		}
 	}
