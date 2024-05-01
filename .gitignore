@@ -40,3 +40,6 @@ local-dev-cluster
 *.cache
 /tmp
 .env
+
+# object files
+*.o

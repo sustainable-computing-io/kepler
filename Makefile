@@ -1,7 +1,5 @@
 all: kepler
 
-include bpfassets/libbpf/Makefile
-
 ##@ Help
 
 # The help target prints out all targets with their descriptions organized
@@ -62,10 +60,7 @@ GOARCH := $(shell go env GOARCH)
 GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
 
 LIBBPF_HEADERS := /usr/include/bpf
-KEPLER_OBJ_SRC := $(SRC_ROOT)/bpfassets/libbpf/bpf.o/$(GOARCH)_kepler.bpf.o
-LIBBPF_OBJ ?= /usr/lib64/libbpf.a
-
-GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS)" CGO_LDFLAGS="$(LIBBPF_OBJ)"
+GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" CGO_LDFLAGS="-lelf -lz -lbpf"
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
@@ -155,7 +150,8 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local ##  Build binary and copy to $(OUTPUT_DIR)/bin
 .PHONY: build
 
-_build_local: genlibbpf ##  Build Kepler binary locally.
+_build_local: ##  Build Kepler binary locally.
+	@make -C bpfassets/libbpf
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
@@ -277,6 +273,10 @@ check-govuln: govulncheck tidy-vendor
 format:
 	./automation/presubmit-tests/gofmt.sh
 
+c-format:
+	@echo "Checking c format"
+	@git ls-files -- '*.c' '*.h' ':!:vendor' | xargs clang-format --dry-run --Werror
+
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
@@ -286,8 +286,6 @@ golint:
 		--workdir /app \
 		golangci/golangci-lint \
 		golangci-lint run --verbose
-
-genlibbpf: kepler.bpf.o
 
 TOOLS = govulncheck \
 		jq \
