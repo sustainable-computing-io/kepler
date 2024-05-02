@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	objectFilename       = "kepler.bpf.o"
+	objectFilename       = "kepler.%s.o"
 	bpfAssesstsLocation  = "/var/lib/kepler/bpfassets"
 	bpfAssesstsLocalPath = "../../../bpfassets/libbpf/bpf.o"
 	cpuOnline            = "/sys/devices/system/cpu/online"
@@ -67,8 +67,15 @@ var (
 	ctsize   = int(unsafe.Sizeof(emptyct))
 )
 
-func getLibbpfObjectFilePath(arch string) (string, error) {
-	bpfassetsPath := fmt.Sprintf("%s/%s_%s", bpfAssesstsLocation, arch, objectFilename)
+func getLibbpfObjectFilePath() (string, error) {
+	var endianness string
+	if ByteOrder == binary.LittleEndian {
+		endianness = "bpfel"
+	} else if ByteOrder == binary.BigEndian {
+		endianness = "bpfeb"
+	}
+	filename := fmt.Sprintf(objectFilename, endianness)
+	bpfassetsPath := fmt.Sprintf("%s/%s", bpfAssesstsLocation, filename)
 	_, err := os.Stat(bpfassetsPath)
 	if err != nil {
 		var absPath string
@@ -77,7 +84,7 @@ func getLibbpfObjectFilePath(arch string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		bpfassetsPath = fmt.Sprintf("%s/%s_%s", absPath, arch, objectFilename)
+		bpfassetsPath = fmt.Sprintf("%s/%s", absPath, filename)
 		_, err = os.Stat(bpfassetsPath)
 		if err != nil {
 			return "", err
@@ -95,8 +102,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		}
 	}()
 	var libbpfObjectFilePath string
-	arch := runtime.GOARCH
-	libbpfObjectFilePath, err = getLibbpfObjectFilePath(arch)
+	libbpfObjectFilePath, err = getLibbpfObjectFilePath()
 	if err == nil {
 		libbpfModule, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
 	}
