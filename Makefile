@@ -275,7 +275,7 @@ format:
 
 c-format:
 	@echo "Checking c format"
-	@git ls-files -- '*.c' '*.h' ':!:vendor' | xargs clang-format --dry-run --Werror
+	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:bpfassets/libbpf/include/' | xargs clang-format --dry-run --Werror
 
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
