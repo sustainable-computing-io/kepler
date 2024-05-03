@@ -92,3 +92,42 @@ Kepler metrics are available under <host_ip>:8888/metrics by default
 ```bash
 ./hack/build-images.sh help
 ```
+### Profiling Kepler
+
+`kepler` exposes [standard go profiling](https://pkg.go.dev/net/http/pprof)
+endpoint at `/debug/pprof/profile`. Following examples show how to
+profile kepler with `go tool pprof`.
+
+**NOTE:** These examples assume `kepler` is running (or
+port-forwarded in case of k8s) on `localhost:8888`.
+
+Detailed  information about using pprof can be found in their
+[documentation](https://github.com/google/pprof/tree/main/doc).
+
+#### CPU Profiling
+
+```bash
+go tool pprof 'http://localhost:8888/debug/pprof/profile?seconds=30'
+```
+
+#### Memory (heap) Profiling
+
+```bash
+go tool pprof 'http://localhost:8888/debug/pprof/heap?seconds=30'
+```
+
+#### Visualizing pprof
+
+`-http` option can be used to visualize existing pprof in
+
+```bash
+go tool pprof -http 0.0.0.0:8000 \
+	'http://localhost:8888/debug/pprof/heap?seconds=30'
+
+```
+or
+
+```bash
+go tool pprof -http 0.0.0.0:8000 <path/to/pprof-capture>.pb.gz
+
+```

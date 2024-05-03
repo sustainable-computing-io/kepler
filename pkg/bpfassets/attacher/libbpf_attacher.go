@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	objectFilename       = "kepler.bpf.o"
+	objectFilename       = "kepler.%s.o"
 	bpfAssesstsLocation  = "/var/lib/kepler/bpfassets"
 	bpfAssesstsLocalPath = "../../../bpfassets/libbpf/bpf.o"
 	cpuOnline            = "/sys/devices/system/cpu/online"
@@ -47,8 +47,10 @@ const (
 var (
 	libbpfModule   *bpf.Module = nil
 	libbpfCounters             = map[string]perfCounter{
-		CPUCycleLabel:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
-		CPURefCycleLabel:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
+		CPUCycleLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		// CPURefCycles aren't populated from the eBPF programs
+		// If this is a bug, we should fix that and bring this map back
+		// CPURefCycleLabel:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
 		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 		TaskClockLabel:      {unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, true},
@@ -57,16 +59,23 @@ var (
 	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
-		"cpu_cycles_event_reader", "cpu_ref_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
-		"cpu_cycles", "cpu_ref_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
+		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
+		"cpu_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
 	}
 	cpuCores = getCPUCores()
 	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
 	ctsize   = int(unsafe.Sizeof(emptyct))
 )
 
-func getLibbpfObjectFilePath(arch string) (string, error) {
-	bpfassetsPath := fmt.Sprintf("%s/%s_%s", bpfAssesstsLocation, arch, objectFilename)
+func getLibbpfObjectFilePath() (string, error) {
+	var endianness string
+	if ByteOrder == binary.LittleEndian {
+		endianness = "bpfel"
+	} else if ByteOrder == binary.BigEndian {
+		endianness = "bpfeb"
+	}
+	filename := fmt.Sprintf(objectFilename, endianness)
+	bpfassetsPath := fmt.Sprintf("%s/%s", bpfAssesstsLocation, filename)
 	_, err := os.Stat(bpfassetsPath)
 	if err != nil {
 		var absPath string
@@ -75,7 +84,7 @@ func getLibbpfObjectFilePath(arch string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		bpfassetsPath = fmt.Sprintf("%s/%s_%s", absPath, arch, objectFilename)
+		bpfassetsPath = fmt.Sprintf("%s/%s", absPath, filename)
 		_, err = os.Stat(bpfassetsPath)
 		if err != nil {
 			return "", err
@@ -93,8 +102,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		}
 	}()
 	var libbpfObjectFilePath string
-	arch := runtime.GOARCH
-	libbpfObjectFilePath, err = getLibbpfObjectFilePath(arch)
+	libbpfObjectFilePath, err = getLibbpfObjectFilePath()
 	if err == nil {
 		libbpfModule, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
 	}
@@ -111,25 +119,21 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	// set the sample rate, this must be done before loading the object
 	sampleRate := config.BPFSampleRate
 
-	err = libbpfModule.InitGlobalVariable("sample_rate", int32(sampleRate))
+	err = libbpfModule.InitGlobalVariable("SAMPLE_RATE", int32(sampleRate))
 	if err != nil {
 		return nil, fmt.Errorf("failed to set sample rate: %v", err)
 	}
 	err = libbpfModule.BPFLoadObject()
 
 	// attach to kprobe__finish_task_switch kprobe function
-	prog, err := libbpfModule.GetProgram("kprobe__finish_task_switch")
+	prog, err := libbpfModule.GetProgram("kepler_sched_switch_trace")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kprobe__finish_task_switch: %v", err)
+		return libbpfModule, fmt.Errorf("failed to get kepler_sched_switch_trace: %v", err)
 	} else {
-		_, err = prog.AttachKprobe("finish_task_switch")
+		_, err = prog.AttachGeneric()
 		if err != nil {
 			// try finish_task_switch.isra.0
-			klog.Infof("failed to attach kprobe/finish_task_switch: %v. Try finish_task_switch.isra.0", err)
-			_, err = prog.AttachKprobe("finish_task_switch.isra.0")
-			if err != nil {
-				return libbpfModule, fmt.Errorf("failed to attach kprobe/finish_task_switch or finish_task_switch.isra.0: %v", err)
-			}
+			klog.Infof("failed to attach tracepoint/sched/sched_switch: %v", err)
 		}
 	}
 
@@ -149,27 +153,23 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 
 	// attach function
-	page_write, err := libbpfModule.GetProgram("kprobe__set_page_dirty")
+	page_write, err := libbpfModule.GetProgram("kepler_write_page_trace")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kprobe__set_page_dirty: %v", err)
+		return libbpfModule, fmt.Errorf("failed to get kepler_write_page_trace: %v", err)
 	} else {
-		_, err = page_write.AttachKprobe("set_page_dirty")
+		_, err = page_write.AttachTracepoint("writeback", "writeback_dirty_folio")
 		if err != nil {
-			_, err = page_write.AttachKprobe("mark_buffer_dirty")
-			if err != nil {
-				klog.Warningf("failed to attach kprobe/set_page_dirty or mark_buffer_dirty: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
-			}
+			klog.Warningf("failed to attach tp/writeback/writeback_dirty_folio: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
 		}
 	}
 
 	// attach function
-	page_read, err := libbpfModule.GetProgram("kprobe__mark_page_accessed")
+	page_read, err := libbpfModule.GetProgram("kepler_read_page_trace")
 	if err != nil {
-		return libbpfModule, fmt.Errorf("failed to get kprobe__mark_page_accessed: %v", err)
+		return libbpfModule, fmt.Errorf("failed to get kepler_read_page_trace: %v", err)
 	} else {
-		_, err = page_read.AttachKprobe("mark_page_accessed")
-		if err != nil {
-			klog.Warningf("failed to attach kprobe/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
+		if _, err = page_read.AttachGeneric(); err != nil {
+			klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
 		}
 	}
 

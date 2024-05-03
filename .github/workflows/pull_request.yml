@@ -9,6 +9,8 @@ on:
       - '*.md'
 
 jobs:
+  c:
+    uses: ./.github/workflows/c.yml
   # for each PR run go command line check
   golang:
     uses: ./.github/workflows/golang.yml

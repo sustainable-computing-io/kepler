@@ -59,7 +59,8 @@ install -d %{buildroot}/etc/kepler/kepler.config
 
 install -p -m755 ./_output/kepler  %{buildroot}%{_bindir}/kepler
 install -p -m644 ./packaging/rpm/kepler.service %{buildroot}%{_unitdir}/kepler.service
-install -p -m644 ./bpfassets/libbpf/bpf.o/%{TARGETARCH}_kepler.bpf.o %{buildroot}/var/lib/kepler/bpfassets/%{TARGETARCH}_kepler.bpf.o
+install -p -m644 ./bpfassets/libbpf/bpf.o/kepler.bpfel.o %{buildroot}/var/lib/kepler/bpfassets/kepler.bpfel.o
+install -p -m644 ./bpfassets/libbpf/bpf.o/kepler.bpfeb.o %{buildroot}/var/lib/kepler/bpfassets/kepler.bpfeb.o
 install -p -m644 ./_output/ENABLE_PROCESS_METRICS %{buildroot}/etc/kepler/kepler.config/ENABLE_PROCESS_METRICS
 install -p -m644 ./data/cpus.yaml %{buildroot}/var/lib/kepler/data/cpus.yaml
 install -p -m644 ./data/model_weight/acpi_AbsPowerModel.json %{buildroot}/var/lib/kepler/data/acpi_AbsPowerModel.json
@@ -75,7 +76,8 @@ install -p -m644 ./data/model_weight/intel_rapl_DynPowerModel.json %{buildroot}/
 %license LICENSE
 %{_bindir}/kepler
 %{_unitdir}/kepler.service
-/var/lib/kepler/bpfassets/%{TARGETARCH}_kepler.bpf.o
+/var/lib/kepler/bpfassets/kepler.bpfel.o
+/var/lib/kepler/bpfassets/kepler.bpfeb.o
 /var/lib/kepler/data/cpus.yaml
 /var/lib/kepler/data/acpi_AbsPowerModel.json
 /var/lib/kepler/data/acpi_DynPowerModel.json
