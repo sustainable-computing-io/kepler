@@ -1,93 +1,21 @@
 # SPDX-FileCopyrightText: 2024-present Sunil Thaha <sthaha@redhat.com>
 #
 # SPDX-License-Identifier: APACHE-2.0
+
 import click
-import os
 from validator.__about__ import __version__
-from validator.stresser.stresser import ( 
-    run_script,
-)
-from validator.prom_query_validator.prom_query_validator import (
-    PromMetricsValidator, deltas_func, percentage_err
-)
-import yaml
-from typing import NamedTuple
+from validator.stresser import ( Remote )
 
+from validator.prometheus import (
+    MetricsValidator, deltas_func, percentage_err
+)
 
+from validator.config import (
+    Validator, load
+)
 import statistics
 
-
-#TODO: decide where to keep the scripts 
-
-
-class Remote(NamedTuple):
-    host: str
-    port: int
-    user: str
-    password: str
-    pkey: str
-
-    def __repr__(self):
-        return f"<Remote {self.user}@{self.host}>"
-
-class VM(NamedTuple):
-    pid: int
-
-class Metal(NamedTuple):
-    vm: VM
-
-class Prometheus(NamedTuple):
-    url: str
-
-class Config(NamedTuple):
-    remote: Remote
-    metal: Metal
-    prometheus: Prometheus
-
-    def __repr__(self):
-        return f"<Config {self.remote}@{self.prometheus}>"
-
-pass_config = click.make_pass_decorator(Config)
-
-
-def load_config(config_file: str) -> Config:
-    """
-    Reads the YAML configuration file and returns a Config object.
-
-    Args:
-        config_file (str): Path to the YAML configuration file.
-
-    Returns:
-        Config: A named tuple containing the configuration values.
-    """
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)
-
-    remote_config = config['remote']
-    remote = Remote(
-        host=remote_config['host'],
-        port=remote_config.get('port', 22),
-        user=remote_config.get('username', 'fedora'),
-        password=remote_config.get('password', None),
-        pkey=os.path.expanduser(remote_config.get('pkey', '~/.ssh/id_rsa')),
-    )
-
-    metal_config = config['metal']
-    vm_config = metal_config['vm']
-    vm = VM( pid=vm_config['pid'],)
-    metal = Metal(vm=vm)
-
-    prometheus_config = config['prometheus']
-    prometheus = Prometheus(
-        url=prometheus_config['url'],
-    )
-
-    return Config(
-        remote=remote, 
-        metal=metal, 
-        prometheus=prometheus,
-    )
-
+pass_config = click.make_pass_decorator(Validator)
 
 @click.group(
     context_settings={"help_option_names": ["-h", "--help"]}, 
@@ -100,7 +28,7 @@ def load_config(config_file: str) -> Config:
 )
 @click.pass_context
 def validator(ctx: click.Context, config_file: str):
-    ctx.obj = load_config(config_file)
+    ctx.obj = load(config_file)
 
 
 @validator.command()
@@ -110,29 +38,20 @@ def validator(ctx: click.Context, config_file: str):
     type=str,
 )
 @pass_config
-def stress(cfg: Config, script_path: str):
+def stress(cfg: Validator, script_path: str):
     PROM_QUERIES = {
         "vm_process_joules_total": {"name": "kepler_process_package_joules_total", "base_labels": {"job": "metal", "pid": "2093543"}},
         "platform_joules_vm": {"name": "kepler_node_platform_joules_total", "base_labels": {"job": "vm"}},
         # "platform_joules_vm_bm" : "kepler_vm_platform_joules_total{job='metal'}"
     }
 
-    remote = cfg.remote
-
-    start_time, end_time  = run_script(
-        host=remote.host,
-        port=remote.port,
-        username=remote.user,
-        password=remote.password,
-        pkey_path=remote.pkey,
-        script_path=script_path,
-    )
+    remote = Remote(cfg.remote)
+    result  = remote.run_script(script_path=script_path)
 
     # from prometheus_api_client.utils import parse_datetime
     # start_time=parse_datetime("2024-04-12 16:27:20.254648")
     # end_time = parse_datetime("2024-04-12 16:28:00.466223")
-    click.echo(f"start_time: {start_time}, end_time: {end_time}")
-
+    click.echo(f"start_time: {result.start_time}, end_time: {result.end_time}")
 
     # TODO: clean up
     expected_query_config = PROM_QUERIES["vm_process_joules_total"]
@@ -141,13 +60,13 @@ def stress(cfg: Config, script_path: str):
     #expected_query = "kepler_process_package_joules_total{pid='2093543', job='metal'}"
     actual_query_config = PROM_QUERIES["platform_joules_vm"]
 
-    prom_validator = PromMetricsValidator(
+    prom_validator = MetricsValidator(
         endpoint=cfg.prometheus.url,
         disable_ssl=True,
     )
     validator_data, validated_data = prom_validator.compare_metrics(
-        start_time=start_time, 
-        end_time=end_time, 
+        start_time=result.start_time, 
+        end_time=result.end_time, 
         expected_query=expected_query_config["name"],
         expected_query_labels=expected_query_modified_labels,
         actual_query=actual_query_config["name"],
