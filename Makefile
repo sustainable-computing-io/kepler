@@ -51,14 +51,9 @@ endif
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
-LIBBPF_HEADERS := /usr/include/bpf
 GOENV = GO111MODULE="" \
 				GOOS=$(GOOS) \
-				GOARCH=$(GOARCH) \
-				CGO_ENABLED=1 \
-				CC=clang \
-				CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" \
-				CGO_LDFLAGS="-lelf -lz -lbpf"
+				GOARCH=$(GOARCH)
 
 LDFLAGS := $(LDFLAGS) \
 		-X main.Version=$(VERSION) \
@@ -66,7 +61,6 @@ LDFLAGS := $(LDFLAGS) \
 		-X main.Branch=$(GIT_BRANCH) \
 		-X main.OS=$(GOOS) \
 		-X main.Arch=$(GOARCH)
-
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
@@ -169,10 +163,11 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local ##  Build binary and copy to $(OUTPUT_DIR)/bin
 .PHONY: build
 
-_build_ebpf_local:
-	@make -C bpfassets/libbpf
+.PHONY: generate
+generate: ## Generate BPF code locally.
+	+@$(GOENV) go generate ./pkg/bpf
 
-_build_local: _build_ebpf_local ##  Build Kepler binary locally.
+_build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build \
@@ -277,7 +272,7 @@ SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
 test: unit-test bpf-test bench ## Run all tests.
 
 .PHONY: unit-test
-unit-test: ginkgo-set tidy-vendor ## Run unit tests.
+unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
 	@echo TAGS=$(GO_TEST_TAGS)
 	$(if $(VERBOSE),@echo GOENV=$(GOENV))
 	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
@@ -295,7 +290,7 @@ bench: ## Run benchmarks.
 		-bench=. --count=1 $(TEST_PKGS)
 
 .PHONY: bpf-test
-bpf-test: _build_ebpf_local ## Run BPF tests.
+bpf-test: generate ## Run BPF tests.
 	for pkg in $(SUDO_TEST_PKGS); do \
 		$(GOENV) go test -c $$pkg -tags $(GO_TEST_TAGS) -cover \
 		-covermode=atomic -coverprofile=coverage.bpf.out \
@@ -322,7 +317,7 @@ format:
 
 c-format:
 	@echo "Checking c format"
-	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:bpfassets/libbpf/include/' | xargs clang-format --dry-run --Werror
+	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:pkg/bpf/include/' | xargs clang-format --dry-run --Werror
 
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
