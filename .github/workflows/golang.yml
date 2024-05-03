@@ -35,18 +35,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install libbpf
-        working-directory: bpfassets/libbpf
-        run: |
-          sudo apt remove libbpf-dev
-          sudo apt install libelf-dev
-          mkdir temp-libbpf
-          cd temp-libbpf
-          git clone https://github.com/libbpf/libbpf
-          cd libbpf/src
-          sudo make install_headers
-          sudo make install_uapi_headers
-          sudo prefix=/usr  BUILD_STATIC_ONLY=y make install
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
@@ -59,18 +47,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install libbpf
-        working-directory: bpfassets/libbpf
-        run: |
-          sudo apt remove libbpf-dev
-          sudo apt install libelf-dev
-          mkdir temp-libbpf
-          cd temp-libbpf
-          git clone https://github.com/libbpf/libbpf
-          cd libbpf/src
-          sudo make install_headers
-          sudo make install_uapi_headers
-          sudo prefix=/usr  BUILD_STATIC_ONLY=y make install
       - name: Run go vet
         run: go vet ./...
 

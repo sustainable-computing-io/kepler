@@ -10,18 +10,19 @@ import (
 
 func TestBpf(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Attacher Suite")
+	RunSpecs(t, "Bpf Suite")
 }
 
-func checkDataCollected(processesData []ProcessBPFMetrics) {
-	// len > 0
+func checkDataCollected(processesData []ProcessMetrics) {
 	Expect(len(processesData)).To(BeNumerically(">", 0))
-	Expect(processesData[0].PID).To(BeNumerically(">=", uint64(0)))
-	Expect(processesData[0].Command).NotTo(BeEmpty())
-	Expect(processesData[0].CPUCycles).To(BeNumerically(">=", uint64(0)))
-	Expect(processesData[0].CPUInstr).To(BeNumerically(">=", uint64(0)))
-	Expect(processesData[0].CacheMisses).To(BeNumerically(">=", uint64(0)))
-	Expect(processesData[0].CGroupID).To(BeNumerically(">", uint64(0)))
+	for _, p := range processesData {
+		Expect(p.Pid).To(BeNumerically(">=", 0))
+		Expect(p.Comm).NotTo(BeEmpty())
+		Expect(p.CpuCycles).To(BeNumerically(">=", uint64(0)))
+		Expect(p.CpuInstr).To(BeNumerically(">=", uint64(0)))
+		Expect(p.CacheMiss).To(BeNumerically(">=", uint64(0)))
+		Expect(p.CgroupId).To(BeNumerically(">=", uint64(0)))
+	}
 }
 
 var _ = Describe("BPF Exporter test", func() {
