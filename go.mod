@@ -1,12 +1,14 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.21
+go 1.21.0
+
+toolchain go1.21.9
 
 require (
 	github.com/HabanaAI/gohlml v1.15.0
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/aquasecurity/libbpfgo v0.6.0-libbpf-1.3
+	github.com/cilium/ebpf v0.15.0
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jszwec/csvutil v1.8.0
@@ -15,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.31.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/prometheus v0.48.1
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/sys v0.20.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.2
