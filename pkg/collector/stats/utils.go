@@ -61,7 +61,7 @@ func InitAvailableParamAndMetrics() {
 		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
 		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
 	}
-	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
+	CPUHardwareCounterEnabled = isCounterStatEnabled(config.CPUInstruction)
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
 		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,

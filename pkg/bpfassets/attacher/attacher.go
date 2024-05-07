@@ -39,14 +39,9 @@ import (
 )
 
 const (
-	objectFilename      = "kepler.%s.o"
-	bpfAssestsLocation  = "/var/lib/kepler/bpfassets"
-	cpuOnline           = "/sys/devices/system/cpu/online"
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
-	TaskClockLabel      = config.TaskClock
+	objectFilename     = "kepler.%s.o"
+	bpfAssestsLocation = "/var/lib/kepler/bpfassets"
+	cpuOnline          = "/sys/devices/system/cpu/online"
 
 	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
 	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
@@ -65,13 +60,13 @@ const (
 var (
 	libbpfModule   *bpf.Module = nil
 	libbpfCounters             = map[string]perfCounter{
-		CPUCycleLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
+		config.CPUCycle: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
 		// CPURefCycles aren't populated from the eBPF programs
 		// If this is a bug, we should fix that and bring this map back
-		// CPURefCycleLabel:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
-		CPUInstructionLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
-		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
-		TaskClockLabel:      {unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, true},
+		// config.CPURefCycle:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
+		config.CPUInstruction: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, true},
+		config.CacheMiss:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
+		config.TaskClock:      {unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, true},
 	}
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
