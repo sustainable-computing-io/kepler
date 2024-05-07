@@ -7,7 +7,7 @@ from validator.__about__ import __version__
 from validator.stresser import ( Remote )
 
 from validator.prometheus import (
-    MetricsValidator, deltas_func, percentage_err
+    compare_metrics, absolute_error, absolute_percentage_error, mean_absolute_error, mean_absolute_percentage_error
 )
 
 from validator.config import (
@@ -60,11 +60,10 @@ def stress(cfg: Validator, script_path: str):
     #expected_query = "kepler_process_package_joules_total{pid='2093543', job='metal'}"
     actual_query_config = PROM_QUERIES["platform_joules_vm"]
 
-    prom_validator = MetricsValidator(
+
+    expected_data, actual_data = compare_metrics(
         endpoint=cfg.prometheus.url,
         disable_ssl=True,
-    )
-    validator_data, validated_data = prom_validator.compare_metrics(
         start_time=result.start_time, 
         end_time=result.end_time, 
         expected_query=expected_query_config["name"],
@@ -72,16 +71,15 @@ def stress(cfg: Validator, script_path: str):
         actual_query=actual_query_config["name"],
         actual_query_labels=actual_query_config["base_labels"]
     )
-    print(validator_data)
     # NOTE: calc
-    percentage_error = percentage_err(validator_data, validated_data)
-    absolute_error = deltas_func(validator_data, validated_data)
-    mae = statistics.mean(absolute_error)
-    mape = statistics.mean(percentage_error)
+    percentage_error = absolute_percentage_error(expected_data, actual_data)
+    error = absolute_error(expected_data, actual_data)
+    mae = mean_absolute_error(expected_data, actual_data)
+    mape = mean_absolute_percentage_error(expected_data, actual_data)
 
     # TODO: print what the values mean
     click.secho("Validation results during stress test:")
-    click.secho(f"Absolute Errors during stress test: {absolute_error}", fg='green')
+    click.secho(f"Absolute Errors during stress test: {error}", fg='green')
     click.secho(f"Absolute Percentage Errors during stress test: {percentage_error}", fg='green')
     click.secho(f"Mean Absolute Error (MAE) during stress test: {mae}", fg="blue")
     click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {mape}", fg="blue")
