@@ -6,14 +6,14 @@ struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, process_metrics_t);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } processes SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, u64);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } pid_time SEC(".maps");
 
 struct {
@@ -128,7 +128,7 @@ static inline u64 calc_delta(u64 *prev_val, u64 *val)
 static inline u64 get_on_cpu_cycles(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	int error;
+	long error;
 	struct bpf_perf_event_value c = {};
 
 	error = bpf_perf_event_read_value(
@@ -147,7 +147,7 @@ static inline u64 get_on_cpu_cycles(u32 *cpu_id)
 static inline u64 get_on_cpu_instr(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	int error;
+	long error;
 	struct bpf_perf_event_value c = {};
 
 	error = bpf_perf_event_read_value(
@@ -166,7 +166,7 @@ static inline u64 get_on_cpu_instr(u32 *cpu_id)
 static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	int error;
+	long error;
 	struct bpf_perf_event_value c = {};
 
 	error = bpf_perf_event_read_value(
@@ -205,7 +205,7 @@ int kepler_sched_switch_trace(struct sched_switch_info *ctx)
 	pid_t cur_pid;
 
 	struct process_metrics_t *cur_pid_metrics, *prev_pid_metrics;
-	struct process_metrics_t buf;
+	struct process_metrics_t buf = {};
 
 	if (SAMPLE_RATE > 0) {
 		if (counter_sched_switch > 0) {
