@@ -6,6 +6,7 @@ import statistics
 import requests
 from datetime import datetime, timedelta
 import requests
+import math
 
 #TODO: Include Environment Variables if desired
 # class PromMetricsValidator:
@@ -43,42 +44,6 @@ def disjunct_on_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list
 
 def compare_metrics(endpoint: str, disable_ssl, start_time: datetime, end_time: datetime, expected_query: str, expected_query_labels: dict, actual_query: str, actual_query_labels: dict) -> Tuple[List[float], List[float]]:   
     prom_client = PrometheusConnect(endpoint, headers=None, disable_ssl=disable_ssl)
-
-    # Define your query and time range
-    expected_query_test = "kepler_process_package_joules_total{job='metal',pid='99498'}"
-    actual_query_test = "kepler_node_platform_joules_total{job='vm'}"
-    
-
-    # Prometheus query API endpoint
-    api_endpoint = "http://localhost:9091/api/v1/query_range"
-
-    # Query parameters
-    params_expected = {
-        'query': expected_query_test,
-        'start': int(start_time.timestamp()),
-        'end': int(end_time.timestamp()),
-        'step': '3s'  # Sample step size, adjust as needed
-    }
-    params_actual = {
-        'query': actual_query_test,
-        'start': int(start_time.timestamp()),
-        'end': int(end_time.timestamp()),
-        'step': '3s'  # Sample step size, adjust as needed
-    }
-    
-
-    # Make the GET request
-    response_expected = requests.get(api_endpoint, params=params_expected)
-    response_actual = requests.get(api_endpoint, params=params_actual)
-
-    # Check if the request was successful (status code 200)
-    if response_expected.status_code == 200 and response_actual.status_code == 200:
-        data_expected = response_expected.json()
-        data_actual = response_actual.json()
-        print(data_expected)  
-        print(data_actual)
-    else:
-        print(f"Error: {response_expected.status_code} - {response_expected.text}")
 
     expected_metrics = prom_client.get_metric_range_data(
         metric_name=expected_query,
