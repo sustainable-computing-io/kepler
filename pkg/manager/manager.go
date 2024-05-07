@@ -19,6 +19,7 @@ package manager
 import (
 	"time"
 
+	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
@@ -40,9 +41,9 @@ type CollectorManager struct {
 	Watcher *kubernetes.ObjListWatcher
 }
 
-func New() *CollectorManager {
+func New(attacher bpfAttacher.Attacher) *CollectorManager {
 	manager := &CollectorManager{}
-	manager.StatsCollector = collector.NewCollector()
+	manager.StatsCollector = collector.NewCollector(attacher)
 	manager.PrometheusCollector = exporter.NewPrometheusExporter()
 	// the collector and prometheusExporter share structures and collections
 	manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)

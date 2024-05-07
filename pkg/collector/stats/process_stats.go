@@ -38,14 +38,14 @@ type ProcessStats struct {
 }
 
 // NewProcessStats creates a new ProcessStats instance
-func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string) *ProcessStats {
+func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string, hardwareCountersEnabled bool) *ProcessStats {
 	p := &ProcessStats{
 		PID:         pid,
 		CGroupID:    cGroupID,
 		ContainerID: containerID,
 		VMID:        vmID,
 		Command:     command,
-		Stats:       *NewStats(),
+		Stats:       *NewStats(hardwareCountersEnabled),
 	}
 	return p
 }

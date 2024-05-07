@@ -62,8 +62,7 @@ const (
 var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
-	EnabledMSR            = false
-	EnabledBPFBatchDelete = true
+	EnabledMSR = false
 
 	KernelVersion = float32(0)
 

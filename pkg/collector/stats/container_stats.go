@@ -39,9 +39,9 @@ type ContainerStats struct {
 }
 
 // NewContainerStats creates a new ContainerStats instance
-func NewContainerStats(containerName, podName, podNamespace, containerID string) *ContainerStats {
+func NewContainerStats(containerName, podName, podNamespace, containerID string, hardwareCountersEnabled bool) *ContainerStats {
 	c := &ContainerStats{
-		Stats:         *NewStats(),
+		Stats:         *NewStats(hardwareCountersEnabled),
 		PIDS:          make(map[uint64]bool),
 		ContainerID:   containerID,
 		PodName:       podName,

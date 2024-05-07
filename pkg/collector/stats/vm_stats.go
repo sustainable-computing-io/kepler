@@ -34,11 +34,11 @@ type VMStats struct {
 }
 
 // NewVMStats creates a new VMStats instance
-func NewVMStats(pid uint64, vmID string) *VMStats {
+func NewVMStats(pid uint64, vmID string, hardwareCountersEnabled bool) *VMStats {
 	vm := &VMStats{
 		PID:   pid,
 		VMID:  vmID,
-		Stats: *NewStats(),
+		Stats: *NewStats(hardwareCountersEnabled),
 	}
 	return vm
 }

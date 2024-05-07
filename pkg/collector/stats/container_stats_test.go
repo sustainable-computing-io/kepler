@@ -26,7 +26,7 @@ var _ = Describe("Test Container Metric", func() {
 
 	It("Test ResetDeltaValues", func() {
 		SetMockedCollectorMetrics()
-		c := NewContainerStats("containerA", "podA", "test", "containerIDA")
+		c := NewContainerStats("containerA", "podA", "test", "containerIDA", true)
 		c.ResourceUsage[config.CPUCycle].SetDeltaStat(MockedSocketID, 30000)
 		c.ResourceUsage[config.CPUInstruction].SetDeltaStat(MockedSocketID, 30000)
 		c.ResourceUsage[config.CacheMiss].SetDeltaStat(MockedSocketID, 30000)

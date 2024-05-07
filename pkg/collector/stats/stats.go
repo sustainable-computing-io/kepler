@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
@@ -50,7 +49,7 @@ type Stats struct {
 }
 
 // NewStats creates a new Stats instance
-func NewStats() *Stats {
+func NewStats(hardwareCountersEnabled bool) *Stats {
 	m := &Stats{
 		ResourceUsage: make(map[string]*types.UInt64StatCollection),
 		EnergyUsage:   make(map[string]*types.UInt64StatCollection),
@@ -84,7 +83,7 @@ func NewStats() *Stats {
 		m.ResourceUsage[config.QATUtilization] = types.NewUInt64StatCollection()
 	}
 
-	if config.IsExposeCPUFrequencyMetricsEnabled() && attacher.HardwareCountersEnabled {
+	if config.IsExposeCPUFrequencyMetricsEnabled() && hardwareCountersEnabled {
 		m.ResourceUsage[config.CPUFrequency] = types.NewUInt64StatCollection()
 	}
 

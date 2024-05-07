@@ -73,9 +73,9 @@ type PowerModelInterface interface {
 }
 
 // CreatePowerEstimatorModels checks validity of power model and set estimate functions
-func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, hardwareCountersEnabled bool) {
 	config.InitModelConfigMap()
-	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, hardwareCountersEnabled)
 	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
 	CreateNodePlatformPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	CreateNodeComponentPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)

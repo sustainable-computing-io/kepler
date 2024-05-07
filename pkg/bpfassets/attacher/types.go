@@ -20,6 +20,17 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
+var SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
+
+type Attacher interface {
+	HardwareCountersEnabled() bool
+	Detach()
+	CollectProcesses() ([]ProcessBPFMetrics, error)
+	CollectCPUFreq() (map[int32]uint64, error)
+	GetEnabledBPFHWCounters() []string
+	GetEnabledBPFSWCounters() []string
+}
+
 // must be in sync with bpf program
 type ProcessBPFMetrics struct {
 	CGroupID       uint64

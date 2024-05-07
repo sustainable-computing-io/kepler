@@ -6,15 +6,17 @@ package manager
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 )
 
 var _ = Describe("Manager", func() {
 
 	It("Should work properly", func() {
-		CollectorManager := New()
+
+		attacher := bpfAttacher.NewMockAttacher(true)
+		CollectorManager := New(attacher)
 		err := CollectorManager.Start()
-		// for no bcc tag in CI
-		Expect(err).To(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 })

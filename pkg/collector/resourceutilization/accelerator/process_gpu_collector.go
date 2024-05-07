@@ -42,26 +42,26 @@ var (
 )
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
-func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
+func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats, hardwareCountersEnabled bool) {
 	// calculate the gpu's processes energy consumption for each gpu
 	migDevices := gpu.GetMIGInstances()
 	for _, device := range gpu.GetGpus() {
 		// we need to use MIG device handler if the GPU has MIG slices, otherwise, we use the GPU device handler
 		if _, hasMIG := migDevices[device.GPUID]; !hasMIG {
-			addGPUUtilizationToProcessStats(processStats, device, device.GPUID)
+			addGPUUtilizationToProcessStats(processStats, device, device.GPUID, hardwareCountersEnabled)
 		} else {
 			// if the device has MIG slices, we should collect the process information directly from the MIG device handler
 			for _, migDevice := range migDevices[device.GPUID] {
 				// device.GPUID is equal to migDevice.ParentGpuID
 				// we add the process metrics with the parent GPU ID, so that the Ratio power model will use this data to split the GPU power among the process
-				addGPUUtilizationToProcessStats(processStats, migDevice, migDevice.ParentGpuID)
+				addGPUUtilizationToProcessStats(processStats, migDevice, migDevice.ParentGpuID, hardwareCountersEnabled)
 			}
 		}
 	}
 	lastUtilizationTimestamp = time.Now()
 }
 
-func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats, device gpu_source.Device, gpuID int) {
+func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats, device gpu_source.Device, gpuID int, hardwareCountersEnabled bool) {
 	var err error
 	var processesUtilization map[uint32]gpu_source.ProcessUtilizationSample
 	if processesUtilization, err = gpu.GetProcessResourceUtilizationPerDevice(device, time.Since(lastUtilizationTimestamp)); err != nil {
@@ -93,7 +93,7 @@ func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats
 					}
 				}
 			}
-			processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
+			processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command, hardwareCountersEnabled)
 		}
 		gpuName := fmt.Sprintf("%d", gpuID) // GPU ID or Parent GPU ID for MIG slices
 		processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.ComputeUtil))

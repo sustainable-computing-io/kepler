@@ -14,7 +14,7 @@ var _ = Describe("Stats", func() {
 		clearPlatformDependentAvailability()
 		// why metric depends on cgroup?
 		// why here is a null pointer?
-		InitAvailableParamAndMetrics()
+		InitAvailableParamAndMetrics([]string{}, []string{})
 		if runtime.GOOS == "linux" {
 			exp := []string{
 				config.BytesReadIO,

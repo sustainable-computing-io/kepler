@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 
@@ -53,9 +52,9 @@ type CPUS struct {
 	cpusInfo []CPUModelData
 }
 
-func InitAvailableParamAndMetrics() {
-	AvailableBPFHWCounters = attacher.GetEnabledBPFHWCounters()
-	AvailableBPFSWCounters = attacher.GetEnabledBPFSWCounters()
+func InitAvailableParamAndMetrics(enabledHwCounters, enabledSwCounters []string) {
+	AvailableBPFHWCounters = enabledHwCounters
+	AvailableBPFSWCounters = enabledSwCounters
 	AvailableCGroupMetrics = []string{
 		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
 		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,

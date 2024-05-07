@@ -19,6 +19,7 @@ import (
 	"os"
 	"testing"
 
+	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -32,7 +33,8 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics
-	metricCollector := collector.NewCollector()
+	attacher := bpfAttacher.NewMockAttacher(true)
+	metricCollector := collector.NewCollector(attacher)
 
 	// create processes
 	metricCollector.ProcessStats = stats.CreateMockedProcessStats(processNumber)
@@ -41,7 +43,7 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	metricCollector.AggregateProcessResourceUtilizationMetrics()
 
 	// The default estimator model is the ratio
-	model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues)
+	model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, true)
 
 	// update container and node metrics
 	b.ReportAllocs()
