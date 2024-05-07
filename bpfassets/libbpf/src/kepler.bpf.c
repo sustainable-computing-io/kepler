@@ -6,14 +6,14 @@ struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, process_metrics_t);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } processes SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, u64);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } pid_time SEC(".maps");
 
 struct {
