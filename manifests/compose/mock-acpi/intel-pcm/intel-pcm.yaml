@@ -47,5 +47,6 @@ services:
           done
         }
         repeat curl -s -o /intel-pcm-dashboard/pcm-dashboard.json intel-pcm:9738/dashboard/prometheus
+        sed -i '/"expr": ".*rate(/s/\[\([0-9]\+[hms]\)\+\]/\[$$__rate_interval\]/g' /intel-pcm-dashboard/pcm-dashboard.json
     networks:
       - kepler-network
