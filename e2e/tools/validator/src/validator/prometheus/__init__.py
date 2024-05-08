@@ -44,27 +44,22 @@ def disjunct_on_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list
 
 def compare_metrics(endpoint: str, disable_ssl, start_time: datetime, end_time: datetime, expected_query: str, expected_query_labels: dict, actual_query: str, actual_query_labels: dict) -> Tuple[List[float], List[float]]:   
     prom_client = PrometheusConnect(endpoint, headers=None, disable_ssl=disable_ssl)
-
-    expected_metrics = prom_client.get_metric_range_data(
-        metric_name=expected_query,
-        label_config=expected_query_labels.copy(),
+    
+    expected_metrics = prom_client.custom_query_range(
+        query="rate(kepler_process_package_joules_total{job='metal', pid='99498', mode='dynamic'}[15s])",
         start_time=start_time,
         end_time=end_time,
-        params={
-            "step": "3s"
-        }
+        step="3s"
 
     )
-    actual_metrics = prom_client.get_metric_range_data(
-        #metric_name=actual_query,
-        metric_name="kepler_node_platform_joules_total{job='vm'}",
-        #label_config=actual_query_labels.copy(),
+    actual_metrics = prom_client.custom_query_range(
+        query="rate(kepler_node_platform_joules_total{job='vm'}[15s])",
         start_time=start_time,
         end_time=end_time,
-        params={
-            "step": "3s"
-        }
+        step="3s"
+
     )
+    #print(expected_metrics - actual_metrics)
     print(expected_metrics)
     print(actual_metrics)
     # clean data to acquire only lists
