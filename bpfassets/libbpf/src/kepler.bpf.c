@@ -266,7 +266,7 @@ int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
 	struct process_metrics_t *process_metrics;
 	unsigned int vec;
 
-	cur_pid = bpf_get_current_pid_tgid();
+	cur_pid = bpf_get_current_pid_tgid() & 0xffffffff;
 	vec = ctx->vec;
 	process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
 	if (process_metrics != 0) {
@@ -286,7 +286,7 @@ int kepler_read_page_trace(void *ctx)
 	u32 cur_pid;
 	struct process_metrics_t *process_metrics;
 
-	cur_pid = bpf_get_current_pid_tgid();
+	cur_pid = bpf_get_current_pid_tgid() & 0xffffffff;
 	process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
 	if (process_metrics) {
 		process_metrics->page_cache_hit++;
@@ -301,7 +301,7 @@ int kepler_write_page_trace(void *ctx)
 	u32 cur_pid;
 	struct process_metrics_t *process_metrics;
 
-	cur_pid = bpf_get_current_pid_tgid();
+	cur_pid = bpf_get_current_pid_tgid() & 0xffffffff;
 	process_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
 	if (process_metrics) {
 		process_metrics->page_cache_hit++;
