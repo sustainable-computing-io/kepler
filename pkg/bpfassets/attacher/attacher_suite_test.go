@@ -27,16 +27,15 @@ func checkDataCollected(processesData []ProcessBPFMetrics, cpuFreqData map[int32
 var _ = Describe("BPF attacher test", func() {
 	It("should attach bpf module", func() {
 		defer Detach()
-		if BccBuilt || LibbpfBuilt {
-			_, err := Attach()
-			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(time.Second * 1) // wait for some data
-			processesData, err := CollectProcesses()
-			Expect(err).NotTo(HaveOccurred())
-			cpuFreqData, err := CollectCPUFreq()
-			Expect(err).NotTo(HaveOccurred())
-			checkDataCollected(processesData, cpuFreqData)
-			Detach()
-		}
+		_, err := Attach()
+		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Second * 1) // wait for some data
+		processesData, err := CollectProcesses()
+		Expect(err).NotTo(HaveOccurred())
+		cpuFreqData, err := CollectCPUFreq()
+		Expect(err).NotTo(HaveOccurred())
+		checkDataCollected(processesData, cpuFreqData)
+		Detach()
+
 	})
 })

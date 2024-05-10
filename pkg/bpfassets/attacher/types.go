@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2021.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,18 +20,17 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
-const (
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
-	TaskClockLabel      = config.TaskClock
-
-	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
-	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
-
-	// IRQ vector to IRQ number
-	IRQNetTX = 2
-	IRQNetRX = 3
-	IRQBlock = 4
-)
+// must be in sync with bpf program
+type ProcessBPFMetrics struct {
+	CGroupID       uint64
+	ThreadPID      uint64 /* thread id */
+	PID            uint64 /* TGID of the threads, i.e. user space pid */
+	ProcessRunTime uint64 /* in ms */
+	TaskClockTime  uint64 /* in ms */
+	CPUCycles      uint64
+	CPUInstr       uint64
+	CacheMisses    uint64
+	PageCacheHit   uint64
+	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
+	Command        [16]byte
+}

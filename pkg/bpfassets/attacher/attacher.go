@@ -1,5 +1,5 @@
-//go:build libbpf
-// +build libbpf
+//go:build linux && libbpf
+// +build linux,libbpf
 
 /*
 Copyright 2021.
@@ -29,9 +29,11 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/aquasecurity/libbpfgo"
 	bpf "github.com/aquasecurity/libbpfgo"
 	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
 )
@@ -41,7 +43,24 @@ const (
 	bpfAssesstsLocation  = "/var/lib/kepler/bpfassets"
 	bpfAssesstsLocalPath = "../../../bpfassets/libbpf/bpf.o"
 	cpuOnline            = "/sys/devices/system/cpu/online"
-	LibbpfBuilt          = true
+	CPUCycleLabel        = config.CPUCycle
+	CPURefCycleLabel     = config.CPURefCycle
+	CPUInstructionLabel  = config.CPUInstruction
+	CacheMissLabel       = config.CacheMiss
+	TaskClockLabel       = config.TaskClock
+
+	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
+	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
+
+	// IRQ vector to IRQ number
+	IRQNetTX = 2
+	IRQNetRX = 3
+	IRQBlock = 4
+
+	TableProcessName = "processes"
+	TableCPUFreqName = "cpu_freq_array"
+	MapSize          = 10240
+	CPUNumSize       = 128
 )
 
 var (
@@ -55,8 +74,6 @@ var (
 		CacheMissLabel:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES, true},
 		TaskClockLabel:      {unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, true},
 	}
-	uint32Key uint32
-	uint64Key uint64
 	maxRetry  = config.MaxLookupRetry
 	bpfArrays = []string{
 		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
@@ -64,8 +81,65 @@ var (
 	}
 	cpuCores = getCPUCores()
 	emptyct  = ProcessBPFMetrics{} // due to performance reason we keep an empty struct to verify if a new read is also empty
-	ctsize   = int(unsafe.Sizeof(emptyct))
+
+	// ebpfBatchGet is true if the kernel supports batch get operation
+	ebpfBatchGet = true
+	// ebpfBatchGetAndDelete is true if delete all the keys after batch get
+	ebpfBatchGetAndDelete = ebpfBatchGet
+
+	Counters                map[string]perfCounter
+	HardwareCountersEnabled = true
+	BpfPerfArrayPrefix      = "_event_reader"
+
+	PerfEvents = map[string][]int{}
+	ByteOrder  binary.ByteOrder
+
+	SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
 )
+
+type perfCounter struct {
+	EvType   int
+	EvConfig int
+	enabled  bool
+}
+
+func init() {
+	ByteOrder = utils.DetermineHostByteOrder()
+}
+
+func getCounters() map[string]perfCounter {
+	return libbpfCounters
+}
+
+func GetEnabledBPFHWCounters() []string {
+	Counters = getCounters()
+	var metrics []string
+	klog.V(5).Infof("hardeware counter metrics config %t", config.IsHCMetricsEnabled())
+	if !config.IsHCMetricsEnabled() {
+		klog.V(5).Info("hardeware counter metrics not enabled")
+		return metrics
+	}
+
+	for metric, counter := range Counters {
+		if counter.enabled {
+			metrics = append(metrics, metric)
+		}
+	}
+	return metrics
+}
+
+func GetEnabledBPFSWCounters() []string {
+	var metrics []string
+	metrics = append(metrics, config.CPUTime, config.PageCacheHit)
+
+	klog.V(5).Infof("irq counter metrics config %t", config.ExposeIRQCounterMetrics)
+	if !config.ExposeIRQCounterMetrics {
+		klog.V(5).Info("irq counter metrics not enabled")
+		return metrics
+	}
+	metrics = append(metrics, SoftIRQEvents...)
+	return metrics
+}
 
 func getLibbpfObjectFilePath() (string, error) {
 	var endianness string
@@ -91,6 +165,16 @@ func getLibbpfObjectFilePath() (string, error) {
 		}
 	}
 	return bpfassetsPath, nil
+}
+
+func Attach() (*libbpfgo.Module, error) {
+	m, err := attachLibbpfModule()
+	if err != nil {
+		Detach()
+		klog.Infof("failed to attach bpf with libbpf: %v", err)
+		return nil, err
+	}
+	return m, nil
 }
 
 func attachLibbpfModule() (*bpf.Module, error) {
@@ -196,7 +280,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	return libbpfModule, nil
 }
 
-func detachLibbpfModule() {
+func Detach() {
 	unixClosePerfEvent()
 	if libbpfModule != nil {
 		libbpfModule.Close()
@@ -204,7 +288,7 @@ func detachLibbpfModule() {
 	}
 }
 
-func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
+func CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
 	processesData = []ProcessBPFMetrics{}
 	if libbpfModule == nil {
 		// nil error should be threw at attachment point, return empty data
@@ -229,7 +313,7 @@ func libbpfCollectProcess() (processesData []ProcessBPFMetrics, err error) {
 	return
 }
 
-func libbpfCollectFreq() (cpuFreqData map[int32]uint64, err error) {
+func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 	cpuFreqData = make(map[int32]uint64)
 	var cpuFreq *bpf.BPFMap
 	cpuFreq, err = libbpfModule.GetMap(TableCPUFreqName)

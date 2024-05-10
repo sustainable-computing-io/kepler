@@ -68,7 +68,6 @@ var (
 	KernelVersion = float32(0)
 
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
-	UseLibBPFAttacher            = false
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	EnabledQAT                   = getBoolConfig("ENABLE_QAT", false)

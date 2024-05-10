@@ -1,5 +1,5 @@
-//go:build !bcc
-// +build !bcc
+//go:build !darwin
+// +build !darwin
 
 package manager
 
