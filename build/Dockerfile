@@ -39,8 +39,8 @@ RUN set -e -x ;\
 		yum clean all
 
 COPY --from=builder /workspace/_output/bin/kepler /usr/bin/kepler
-COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
-COPY --from=builder /libbpf-source/linux-5.14.0-333.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
+COPY --from=builder /libbpf-source/linux-5.14.0-424.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
+COPY --from=builder /libbpf-source/linux-5.14.0-424.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
 
 RUN mkdir -p /var/lib/kepler/data
 RUN mkdir -p /var/lib/kepler/bpfassets
