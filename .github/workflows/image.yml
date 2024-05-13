@@ -27,6 +27,7 @@ jobs:
           PLATFORMS:  linux/amd64,linux/arm64
           BUILD_ARGS: |
                 INSTALL_DCGM=false
+                INSTALL_HABANA=false
                 VERSION=${{ inputs.imageTag }}
           LABEL:      ${{ inputs.imageTag }}
         - IMAGE_NAME: kepler
@@ -34,8 +35,17 @@ jobs:
           PLATFORMS:  linux/amd64
           BUILD_ARGS: |
                 INSTALL_DCGM=true
+                INSTALL_HABANA=false
                 VERSION=${{ inputs.imageTag }}-dcgm
           LABEL:      ${{ inputs.imageTag }}-dcgm
+        - IMAGE_NAME: kepler
+          IMAGE_FILE: build/Dockerfile
+          PLATFORMS:  linux/amd64
+          BUILD_ARGS: |
+                INSTALL_DCGM=false
+                INSTALL_HABANA=true
+                VERSION=${{ inputs.imageTag }}-habana
+          LABEL:      ${{ inputs.imageTag }}-habana
         - IMAGE_NAME: kepler-validator
           IMAGE_FILE: build/Dockerfile.kepler-validator
           BUILD_ARGS: ""

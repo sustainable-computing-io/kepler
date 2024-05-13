@@ -1,11 +1,18 @@
 FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0 as builder
 ARG VERSION
+ARG INSTALL_HABANA=false
 WORKDIR /workspace
 
 COPY . .
 
 RUN make tidy-vendor
 RUN make format
+RUN if [[ "$INSTALL_HABANA" == "true" ]]; then \
+		rpm -Uvh https://vault.habana.ai/artifactory/rhel/9/9.2/habanalabs-firmware-tools-1.15.1-15.el9.x86_64.rpm --nodeps; \
+		echo /usr/lib/habanalabs > /etc/ld.so.conf.d/habanalabs.conf; \
+		ldconfig; \
+	fi
+
 RUN make build VERSION=${VERSION}
 
 FROM registry.access.redhat.com/ubi9:latest
@@ -13,6 +20,7 @@ FROM registry.access.redhat.com/ubi9:latest
 SHELL ["/bin/bash", "-c"]
 
 ARG INSTALL_DCGM=false
+ARG INSTALL_HABANA=false
 ARG TARGETARCH
 
 ENV NVIDIA_VISIBLE_DEVICES=all
@@ -34,6 +42,11 @@ RUN set -e -x ;\
 			if [[ "$INSTALL_DCGM" == "true" ]]; then \
 				dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
 				yum install -y datacenter-gpu-manager; \
+			fi; \
+			if [[ "$INSTALL_HABANA" == "true" ]]; then \
+				rpm -Uvh https://vault.habana.ai/artifactory/rhel/9/9.2/habanalabs-firmware-tools-1.15.1-15.el9.x86_64.rpm --nodeps; \
+				echo /usr/lib/habanalabs > /etc/ld.so.conf.d/habanalabs.conf; \
+				ldconfig; \
 			fi; \
 		fi;\
 		yum clean all
