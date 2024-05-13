@@ -63,8 +63,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 4,
+        "h": 4,
+        "w": 5,
         "x": 0,
         "y": 1
       },
@@ -133,9 +133,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 4,
+        "h": 4,
+        "w": 4,
+        "x": 5,
         "y": 1
       },
       "id": 10,
@@ -203,79 +203,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 5,
         "x": 9,
-        "y": 1
-      },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PDE6745920139CE56"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "sum(rate(kepler_node_dram_joules_total{job=\"dev\"}[$__rate_interval])) / sum(rate(kepler_node_dram_joules_total{job=\"latest\"}[$__rate_interval]))",
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Dev vs Latest Dram",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PDE6745920139CE56"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "noValue": "0",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "dark-red",
-                "value": 2
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 5,
-        "x": 14,
         "y": 1
       },
       "id": 17,
@@ -343,7 +273,77 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(kepler_node_dram_joules_total{job=\"dev\"}[$__rate_interval])) / sum(rate(kepler_node_dram_joules_total{job=\"latest\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Dev vs Latest Dram",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "dark-red",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
         "w": 5,
         "x": 19,
         "y": 1
@@ -449,7 +449,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 5
       },
       "id": 1,
       "options": {
@@ -546,7 +546,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 7
+        "y": 5
       },
       "id": 2,
       "options": {
@@ -643,7 +643,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 13
       },
       "id": 5,
       "options": {
@@ -740,7 +740,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 13
       },
       "id": 6,
       "options": {
@@ -837,7 +837,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 21
       },
       "id": 13,
       "options": {
@@ -934,7 +934,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 21
       },
       "id": 15,
       "options": {
@@ -1031,9 +1031,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 31
+        "y": 29
       },
-      "id": 6,
+      "id": 38,
       "options": {
         "legend": {
           "calcs": [],
@@ -1128,7 +1128,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 31
+        "y": 29
       },
       "id": 16,
       "options": {
@@ -1225,7 +1225,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 39
+        "y": 37
       },
       "id": 19,
       "options": {
@@ -1322,7 +1322,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 39
+        "y": 37
       },
       "id": 20,
       "options": {
@@ -1360,7 +1360,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 45
       },
       "id": 8,
       "panels": [],
@@ -1396,10 +1396,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 0,
-        "y": 48
+        "y": 46
       },
       "id": 11,
       "options": {
@@ -1466,10 +1466,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 6,
-        "y": 48
+        "y": 46
       },
       "id": 35,
       "options": {
@@ -1536,10 +1536,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 12,
-        "y": 48
+        "y": 46
       },
       "id": 36,
       "options": {
@@ -1606,10 +1606,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 18,
-        "y": 48
+        "y": 46
       },
       "id": 37,
       "options": {
@@ -1712,7 +1712,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 50
       },
       "id": 3,
       "options": {
@@ -1809,7 +1809,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 50
       },
       "id": 4,
       "options": {
@@ -1906,7 +1906,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 58
       },
       "id": 21,
       "options": {
@@ -2003,7 +2003,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 58
       },
       "id": 22,
       "options": {
@@ -2100,7 +2100,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 70
+        "y": 66
       },
       "id": 23,
       "options": {
@@ -2197,7 +2197,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 70
+        "y": 66
       },
       "id": 24,
       "options": {
@@ -2277,8 +2277,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2294,7 +2293,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 78
+        "y": 74
       },
       "id": 25,
       "options": {
@@ -2374,8 +2373,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2391,7 +2389,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 78
+        "y": 74
       },
       "id": 26,
       "options": {
@@ -2471,8 +2469,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2503,7 +2500,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 86
+        "y": 82
       },
       "id": 27,
       "options": {
@@ -2583,8 +2580,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2615,7 +2611,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 86
+        "y": 82
       },
       "id": 28,
       "options": {
@@ -2695,8 +2691,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2727,7 +2722,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 94
+        "y": 90
       },
       "id": 29,
       "options": {
@@ -2807,8 +2802,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2839,7 +2833,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 94
+        "y": 90
       },
       "id": 30,
       "options": {
@@ -2919,8 +2913,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2951,7 +2944,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 102
+        "y": 98
       },
       "id": 31,
       "options": {
@@ -3031,8 +3024,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3063,7 +3055,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 102
+        "y": 98
       },
       "id": 32,
       "options": {
@@ -3143,8 +3135,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3175,7 +3166,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 110
+        "y": 106
       },
       "id": 33,
       "options": {
@@ -3255,8 +3246,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -3287,7 +3277,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 110
+        "y": 106
       },
       "id": 34,
       "options": {
@@ -3326,9 +3316,9 @@
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "ModemManager | 3034",
-          "value": "ModemManager | 3034"
+          "selected": true,
+          "text": "vhost-2093543 | 2093543",
+          "value": "2093543"
         },
         "datasource": {
           "type": "prometheus",
@@ -3360,7 +3350,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Latest vs Development",
-  "uid": "cdidde8tztzi8c",
-  "version": 6,
+  "uid": "edlmir4tbz4e8f",
+  "version": 2,
   "weekStart": ""
 }
