@@ -59,7 +59,7 @@ func (d *GPUDummy) GetMIGInstances() map[int]map[int]Device {
 	return devices
 }
 
-func (n *GPUDummy) GetProcessResourceUtilizationPerDevice(device Device, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
+func (d *GPUDummy) GetProcessResourceUtilizationPerDevice(device Device, since time.Duration) (map[uint32]ProcessUtilizationSample, error) {
 	processAcceleratorMetrics := map[uint32]ProcessUtilizationSample{}
 	processAcceleratorMetrics[0] = ProcessUtilizationSample{
 		Pid:         0,

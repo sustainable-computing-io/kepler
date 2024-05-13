@@ -30,7 +30,6 @@ import (
 	"unsafe"
 
 	"github.com/aquasecurity/libbpfgo"
-	bpf "github.com/aquasecurity/libbpfgo"
 	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -64,8 +63,8 @@ const (
 )
 
 var (
-	libbpfModule   *bpf.Module = nil
-	libbpfCounters             = map[string]perfCounter{
+	libbpfModule   *libbpfgo.Module = nil
+	libbpfCounters                  = map[string]perfCounter{
 		CPUCycleLabel: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, true},
 		// CPURefCycles aren't populated from the eBPF programs
 		// If this is a bug, we should fix that and bring this map back
@@ -177,7 +176,7 @@ func Attach() (*libbpfgo.Module, error) {
 	return m, nil
 }
 
-func attachLibbpfModule() (*bpf.Module, error) {
+func attachLibbpfModule() (*libbpfgo.Module, error) {
 	var err error
 	defer func() {
 		if r := recover(); r != nil {
@@ -188,7 +187,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	var libbpfObjectFilePath string
 	libbpfObjectFilePath, err = getLibbpfObjectFilePath()
 	if err == nil {
-		libbpfModule, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
+		libbpfModule, err = libbpfgo.NewModuleFromFile(libbpfObjectFilePath)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load module: %v", err)
@@ -222,13 +221,13 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 
 	// attach softirq_entry tracepoint to kepler_irq_trace function
-	irq_prog, err := libbpfModule.GetProgram("kepler_irq_trace")
+	irqProg, err := libbpfModule.GetProgram("kepler_irq_trace")
 	if err != nil {
 		klog.Warningf("could not get kepler_irq_trace: %v", err)
 		// disable IRQ metric
 		config.ExposeIRQCounterMetrics = false
 	} else {
-		_, err = irq_prog.AttachTracepoint("irq", "softirq_entry")
+		_, err = irqProg.AttachTracepoint("irq", "softirq_entry")
 		if err != nil {
 			klog.Warningf("could not attach irq/softirq_entry: %v", err)
 			// disable IRQ metric
@@ -237,22 +236,22 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}
 
 	// attach function
-	page_write, err := libbpfModule.GetProgram("kepler_write_page_trace")
+	pageWrite, err := libbpfModule.GetProgram("kepler_write_page_trace")
 	if err != nil {
 		return libbpfModule, fmt.Errorf("failed to get kepler_write_page_trace: %v", err)
 	} else {
-		_, err = page_write.AttachTracepoint("writeback", "writeback_dirty_folio")
+		_, err = pageWrite.AttachTracepoint("writeback", "writeback_dirty_folio")
 		if err != nil {
 			klog.Warningf("failed to attach tp/writeback/writeback_dirty_folio: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
 		}
 	}
 
 	// attach function
-	page_read, err := libbpfModule.GetProgram("kepler_read_page_trace")
+	pageRead, err := libbpfModule.GetProgram("kepler_read_page_trace")
 	if err != nil {
 		return libbpfModule, fmt.Errorf("failed to get kepler_read_page_trace: %v", err)
 	} else {
-		if _, err = page_read.AttachGeneric(); err != nil {
+		if _, err = pageRead.AttachGeneric(); err != nil {
 			klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
 		}
 	}
@@ -294,7 +293,7 @@ func CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
 		// nil error should be threw at attachment point, return empty data
 		return
 	}
-	var processes *bpf.BPFMap
+	var processes *libbpfgo.BPFMap
 	processes, err = libbpfModule.GetMap(TableProcessName)
 	if err != nil {
 		return
@@ -313,17 +312,14 @@ func CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
 	return
 }
 
-func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
-	cpuFreqData = make(map[int32]uint64)
-	var cpuFreq *bpf.BPFMap
-	cpuFreq, err = libbpfModule.GetMap(TableCPUFreqName)
+func CollectCPUFreq() (map[int32]uint64, error) {
+	cpuFreqData := make(map[int32]uint64)
+	cpuFreq, err := libbpfModule.GetMap(TableCPUFreqName)
 	if err != nil {
-		return
+		return nil, err
 	}
-	//cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
 	iterator := cpuFreq.Iterator()
 	var freq uint32
-	// keySize := int(unsafe.Sizeof(freq))
 	retry := 0
 	next := iterator.Next()
 	for next {
@@ -353,13 +349,13 @@ func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 		next = iterator.Next()
 		retry = 0
 	}
-	return
+	return cpuFreqData, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // utility functions
 
-func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
+func unixOpenPerfEvent(bpfMap *libbpfgo.BPFMap, typ, conf int) error {
 	perfKey := fmt.Sprintf("%d:%d", typ, conf)
 	sysAttr := &unix.PerfEventAttr{
 		Type:   uint32(typ),
@@ -376,7 +372,7 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 	for i := 0; i < cpuCores; i++ {
 		cloexecFlags := unix.PERF_FLAG_FD_CLOEXEC
 
-		fd, err := unix.PerfEventOpen(sysAttr, -1, int(i), -1, cloexecFlags)
+		fd, err := unix.PerfEventOpen(sysAttr, -1, i, -1, cloexecFlags)
 		if fd < 0 {
 			return fmt.Errorf("failed to open bpf perf event on cpu %d: %v", i, err)
 		}
@@ -384,7 +380,7 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 		if err != nil {
 			return fmt.Errorf("failed to update bpf map: %v", err)
 		}
-		res = append(res, int(fd))
+		res = append(res, fd)
 	}
 
 	PerfEvents[perfKey] = res
@@ -395,8 +391,12 @@ func unixOpenPerfEvent(bpfMap *bpf.BPFMap, typ, conf int) error {
 func unixClosePerfEvent() {
 	for _, vs := range PerfEvents {
 		for _, fd := range vs {
-			unix.SetNonblock(fd, true)
-			unix.Close(fd)
+			if err := unix.SetNonblock(fd, true); err != nil {
+				klog.Warningf("failed to set nonblock: %v", err)
+			}
+			if err := unix.Close(fd); err != nil {
+				klog.Warningf("failed to close perf event: %v", err)
+			}
 		}
 	}
 	PerfEvents = map[string][]int{}
@@ -410,7 +410,6 @@ func getCPUCores() int {
 		cores = int(cpu.TotalThreads)
 	}
 	return cores
-
 }
 
 func resizeArrayEntries(name string, size int) error {
@@ -419,7 +418,7 @@ func resizeArrayEntries(name string, size int) error {
 		return err
 	}
 
-	if err = m.Resize(uint32(size)); err != nil {
+	if err := m.Resize(uint32(size)); err != nil {
 		return err
 	}
 
@@ -430,9 +429,9 @@ func resizeArrayEntries(name string, size int) error {
 	return nil
 }
 
-// for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
+// for an unknown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
 // but it is not a big problem since we request all possible keys that the map can store in a single request
-func libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+func libbpfCollectProcessBatchSingleHash(processes *libbpfgo.BPFMap) ([]ProcessBPFMetrics, error) {
 	start := time.Now()
 	processesData := []ProcessBPFMetrics{}
 	var err error
@@ -469,8 +468,9 @@ func libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMet
 	return processesData, err
 }
 
-func libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+func libbpfCollectProcessSingleHash(processes *libbpfgo.BPFMap) ([]ProcessBPFMetrics, error) {
 	iterator := processes.Iterator()
+	processesData := []ProcessBPFMetrics{}
 	var ct ProcessBPFMetrics
 	keys := []uint32{}
 	retry := 0
@@ -483,8 +483,7 @@ func libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []Proc
 			retry += 1
 			if retry > maxRetry {
 				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, maxRetry)
-				next = iterator.Next()
-				retry = 0
+				return processesData, getErr
 			}
 			continue
 		}
@@ -505,7 +504,9 @@ func libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []Proc
 	}
 	for _, key := range keys {
 		// TODO delete keys in batch
-		processes.DeleteKey(unsafe.Pointer(&key))
+		if err := processes.DeleteKey(unsafe.Pointer(&key)); err != nil {
+			klog.Errorf("failed to delete key %d: %v", key, err)
+		}
 	}
-	return
+	return processesData, nil
 }

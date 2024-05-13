@@ -46,7 +46,7 @@ type csvPowerData struct {
 }
 
 var (
-	keplerAddr, promAddr, cpuArch string
+	keplerAddr, promAddr string
 	ok, raplEnable, acpiEnable, hmcEnable, redfishEnable,
 	raplPkgEnable, raplDramEnable, raplCoreEnable, raplUncoreEnable bool
 	testPowerData []componentsPower

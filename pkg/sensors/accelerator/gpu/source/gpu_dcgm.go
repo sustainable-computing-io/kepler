@@ -40,9 +40,6 @@ var (
 		// https://docs.nvidia.com/datacenter/dcgm/1.7/dcgm-api/group__dcgmFieldIdentifiers.htm
 		dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
 	}
-	deviceFieldsString = []string{
-		"dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
-	}
 	ratioFields  uint = dcgm.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE // this is the field that we will use to calculate the utilization per @yuezhu1
 	profileInfos map[int]nvml.GpuInstanceProfileInfo
 )
@@ -56,8 +53,6 @@ type GPUDcgm struct {
 	deviceGroupHandle   dcgm.GroupHandle
 	fieldGroupName      string
 	fieldGroupHandle    dcgm.FieldHandle
-	pidGroupName        string
-	pidGroupHandle      dcgm.GroupHandle // TODO: wait till https://github.com/NVIDIA/go-dcgm/issues/59 is resolved
 	cleanup             func()
 }
 
@@ -102,7 +97,7 @@ func (d *GPUDcgm) InitLib() error {
 	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket)
 	if err != nil {
 		klog.Warningf("There is no DCGM daemon running in the host: %s", err)
-		// embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+		// embedded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
 		cleanup, err = dcgm.Init(dcgm.Embedded)
 		if err != nil {
 			klog.Warningf("Could not start DCGM. Error: %s", err)
@@ -111,7 +106,7 @@ func (d *GPUDcgm) InitLib() error {
 			}
 			return fmt.Errorf("not able to connect to DCGM: %s", err)
 		}
-		klog.V(1).Infof("Started DCGM in the Embedded mode", err)
+		klog.V(1).Infof("Started DCGM in the Embedded mode")
 	}
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
@@ -135,7 +130,7 @@ func (d *GPUDcgm) loadDevices() error {
 	d.devices = map[int]Device{}
 	count, err := nvml.DeviceGetCount()
 	if err != nvml.SUCCESS {
-		return fmt.Errorf("Error getting GPUs: %s", nvml.ErrorString(err))
+		return fmt.Errorf("error getting GPUs: %s", nvml.ErrorString(err))
 	}
 	for gpuID := 0; gpuID < count; gpuID++ {
 		nvmlDeviceHandler, err := nvml.DeviceGetHandleByIndex(gpuID)
@@ -165,10 +160,10 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		return
 	}
 
-	// the bigger MIG profiles that a GPU can have to be used to calcualte the SM ratio
+	// the bigger MIG profiles that a GPU can have to be used to calculate the SM ratio
 	fullGPUProfile := profileInfos[0]
 
-	for _, entity := range hierarchy.EntityList {
+	for _, entity := range &hierarchy.EntityList {
 		if entity.Entity.EntityGroupId != dcgm.FE_GPU && entity.Entity.EntityGroupId != dcgm.FE_GPU_I {
 			continue
 		}
@@ -182,10 +177,10 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		}
 
 		// find MIG device handler
-		nvmlDevId := int(entity.Info.NvmlInstanceId) - 1 // nvidia-smi MIG DEV ID
-		migDeviceHandler, ret := parentDevice.NVMLDeviceHandler.(nvml.Device).GetMigDeviceHandleByIndex(nvmlDevId)
+		nvmlDevID := int(entity.Info.NvmlInstanceId) - 1 // nvidia-smi MIG DEV ID
+		migDeviceHandler, ret := parentDevice.NVMLDeviceHandler.(nvml.Device).GetMigDeviceHandleByIndex(nvmlDevID)
 		if ret != nvml.SUCCESS {
-			klog.V(debugLevel).Infof("failed to get MIG device handler of GPU %d by index %d: %v", parentGPUID, nvmlDevId, nvml.ErrorString(ret))
+			klog.V(debugLevel).Infof("failed to get MIG device handler of GPU %d by index %d: %v", parentGPUID, nvmlDevID, nvml.ErrorString(ret))
 			break
 		}
 
@@ -195,10 +190,10 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		ratio := float64(profile.MultiprocessorCount) / float64(fullGPUProfile.MultiprocessorCount)
 
 		// add MIG device
-		migNvmlEntityId := int(entity.Entity.EntityId)
-		d.migDevices[parentGPUID][migNvmlEntityId] = Device{
+		migNvmlEntityID := int(entity.Entity.EntityId)
+		d.migDevices[parentGPUID][migNvmlEntityID] = Device{
 			NVMLDeviceHandler: migDeviceHandler,
-			GPUID:             migNvmlEntityId,
+			GPUID:             migNvmlEntityID,
 			ParentGpuID:       parentGPUID,
 			MIGSMRatio:        ratio,
 			IsMig:             true,
@@ -242,10 +237,14 @@ func (d *GPUDcgm) Shutdown() bool {
 	nvml.Shutdown()
 	dcgm.FieldsTerm()
 	if d.deviceGroupName != "" {
-		dcgm.DestroyGroup(d.deviceGroupHandle)
+		if err := dcgm.DestroyGroup(d.deviceGroupHandle); err != nil {
+			klog.Errorf("failed to destroy device group %q: %v", d.deviceGroupName, err)
+		}
 	}
 	if d.fieldGroupName != "" {
-		dcgm.FieldGroupDestroy(d.fieldGroupHandle)
+		if err := dcgm.FieldGroupDestroy(d.fieldGroupHandle); err != nil {
+			klog.Errorf("failed to destroy field group %q: %v", d.fieldGroupName, err)
+		}
 	}
 	if d.cleanup != nil {
 		d.cleanup()
@@ -301,9 +300,9 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since ti
 				klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
 				return processAcceleratorMetrics, err
 			}
-			for _, val := range vals {
-				if val.FieldId == ratioFields {
-					migUtilization := ToFloat64(val, 100)
+			for i := range vals {
+				if vals[i].FieldId == ratioFields {
+					migUtilization := ToFloat64(&vals[i], 100)
 					// ratio of active multiprocessors to total multiprocessors
 					// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
 					// FIXME: the MIG device could have multiple processes, such as using MPS, how to split the MIG utilization between the processes?
@@ -323,13 +322,13 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since ti
 				return processAcceleratorMetrics, err
 			}
 			gpuUtilization := float64(0)
-			if err == nil {
-				for _, val := range vals {
-					if val.FieldId == ratioFields {
-						gpuUtilization = ToFloat64(val, 100)
-					}
+
+			for i := range vals {
+				if vals[i].FieldId == ratioFields {
+					gpuUtilization = ToFloat64(&vals[i], 100)
 				}
 			}
+
 			processAcceleratorMetrics[p.Pid] = ProcessUtilizationSample{
 				Pid:       p.Pid,
 				TimeStamp: uint64(time.Now().UnixNano()),
@@ -375,7 +374,7 @@ func (d *GPUDcgm) addDevicesToGroup() error {
 		for migID, migDevice := range d.migDevices[gpuID] {
 			err := dcgm.AddEntityToGroup(d.deviceGroupHandle, dcgm.FE_GPU_I, uint(migID))
 			if err != nil {
-				klog.Infof("failed to add MIG device %d to group %q: %v", migDevice.ParentGpuID, migDevice.GPUID, d.deviceGroupName, err)
+				klog.Infof("failed to add MIG device (ParentGPUID: %d, GPUID: %d) to group %q: %v", migDevice.ParentGpuID, migDevice.GPUID, d.deviceGroupName, err)
 			}
 		}
 	}
@@ -404,10 +403,9 @@ func (d *GPUDcgm) setupWatcher() error {
 
 // ToFloat64 converts a dcgm.FieldValue_v1 to float64
 // The multiplyFactor is used to convert a percentage represented as a float64 to uint32, maintaining precision and scaling it to 100%.
-func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
+func ToFloat64(value *dcgm.FieldValue_v1, multiplyFactor float64) float64 {
 	defaultValue := float64(0)
 	switch v := value.FieldType; v {
-
 	// Floating-point
 	case dcgm.DCGM_FT_DOUBLE:
 		switch v := value.Float64(); v {
@@ -447,7 +445,7 @@ func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
 		}
 
 	default:
-		klog.Errorf("DCGM metric type %s not supported: %v\n", value.FieldType, value)
+		klog.Errorf("DCGM metric type %v not supported: %v\n", value.FieldType, value)
 		return defaultValue
 	}
 }

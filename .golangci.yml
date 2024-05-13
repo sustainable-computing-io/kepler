@@ -1,3 +1,8 @@
+run:
+  timeout: 5m
+  build-tags:
+    - gpu
+    - libbpf
 linters-settings:
   dupl:
     threshold: 100
@@ -19,7 +24,8 @@ linters-settings:
     local-prefixes: github.com/golangci/golangci-lint
 
   govet:
-    check-shadowing: true
+    shadow:
+      strict: true
     settings:
       printf:
         funcs:
@@ -83,9 +89,6 @@ linters:
   # - revive
   # - wsl
   # - funlen
-
-run:
-  timeout: 5m
 
 issues:
   exclude-rules:

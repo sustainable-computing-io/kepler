@@ -32,6 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.1
+      - name: Install libbpf
+        run: |
+          sudo apt-get update && sudo apt-get install -y libelf-dev libbpf-dev
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -40,16 +43,6 @@ jobs:
         with:
           version: v1.52.2
           skip-pkg-cache: true
-
-  govet_test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4.1.1
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Run go vet
-        run: go vet ./...
 
   vulnerability_detect:
     runs-on: ubuntu-latest

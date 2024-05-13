@@ -62,7 +62,7 @@ func (n *GPUNvml) InitLib() (err error) {
 	return nil
 }
 
-func (n *GPUNvml) Init() (err error) {
+func (n *GPUNvml) Init() error {
 	if !n.libInited {
 		if err := n.InitLib(); err != nil {
 			return err
@@ -73,8 +73,7 @@ func (n *GPUNvml) Init() (err error) {
 	if ret != nvml.SUCCESS {
 		nvml.Shutdown()
 		n.collectionSupported = false
-		err = fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
-		return err
+		return fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 	}
 	klog.Infof("found %d gpu devices\n", count)
 	devices = make(map[int]Device, count)
@@ -83,8 +82,7 @@ func (n *GPUNvml) Init() (err error) {
 		if ret != nvml.SUCCESS {
 			nvml.Shutdown()
 			n.collectionSupported = false
-			err = fmt.Errorf("failed to get nvml device %d: %v ", gpuID, nvml.ErrorString(ret))
-			return err
+			return fmt.Errorf("failed to get nvml device %d: %v ", gpuID, nvml.ErrorString(ret))
 		}
 		name, _ := nvmlDeviceHandler.GetName()
 		uuid, _ := nvmlDeviceHandler.GetUUID()
@@ -111,7 +109,7 @@ func (n *GPUNvml) GetGpus() map[int]Device {
 	return devices
 }
 
-func (d *GPUNvml) GetMIGInstances() map[int]map[int]Device {
+func (n *GPUNvml) GetMIGInstances() map[int]map[int]Device {
 	var devices map[int]map[int]Device
 	return devices
 }
