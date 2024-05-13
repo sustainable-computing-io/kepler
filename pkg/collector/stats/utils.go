@@ -320,7 +320,7 @@ func getCPUPmuName() (pmuName string, err error) {
 func getCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
 	cpuArchOverride := config.CPUArchOverride
-	if len(cpuArchOverride) > 0 {
+	if cpuArchOverride != "" {
 		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
 		return cpuArchOverride, nil
 	}

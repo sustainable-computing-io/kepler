@@ -11,7 +11,7 @@ github.com/NVIDIA/go-nvml/pkg/nvml
 # github.com/StackExchange/wmi v1.2.1
 ## explicit; go 1.13
 github.com/StackExchange/wmi
-# github.com/aquasecurity/libbpfgo v0.4.9-libbpf-1.2.0
+# github.com/aquasecurity/libbpfgo v0.6.0-libbpf-1.3
 ## explicit; go 1.18
 github.com/aquasecurity/libbpfgo
 # github.com/beorn7/perks v1.0.1
