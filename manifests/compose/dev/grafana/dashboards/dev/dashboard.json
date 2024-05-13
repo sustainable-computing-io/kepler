@@ -3325,11 +3325,16 @@
   "templating": {
     "list": [
       {
+        "current": {
+          "selected": false,
+          "text": "ModemManager | 3034",
+          "value": "ModemManager | 3034"
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "query_result(count by (pid, command) (kepler_process_bpf_block_irq_total{job=\"latest\"}))",
+        "definition": "query_result(label_join( count by (pid, command) (kepler_process_bpf_cpu_time_ms_total{job=\"dev\"}), \"process\", \" | \", \"command\", \"pid\" ))",
         "hide": 0,
         "includeAll": false,
         "multi": false,
@@ -3337,11 +3342,11 @@
         "options": [],
         "query": {
           "qryType": 3,
-          "query": "query_result(count by (pid, command) (kepler_process_bpf_block_irq_total{job=\"latest\"}))",
+          "query": "query_result(label_join( count by (pid, command) (kepler_process_bpf_cpu_time_ms_total{job=\"dev\"}), \"process\", \" | \", \"command\", \"pid\" ))",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
-        "regex": "/command=\"(?<text>[^\"]+)|pid=\"(?<value>[^\"]+)/g",
+        "regex": "/process=\"(?<text>[^\"]+)|pid=\"(?<value>[^\"]+)/g",
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
