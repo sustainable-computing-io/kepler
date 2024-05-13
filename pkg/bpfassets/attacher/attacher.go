@@ -39,15 +39,14 @@ import (
 )
 
 const (
-	objectFilename       = "kepler.%s.o"
-	bpfAssesstsLocation  = "/var/lib/kepler/bpfassets"
-	bpfAssesstsLocalPath = "../../../bpfassets/libbpf/bpf.o"
-	cpuOnline            = "/sys/devices/system/cpu/online"
-	CPUCycleLabel        = config.CPUCycle
-	CPURefCycleLabel     = config.CPURefCycle
-	CPUInstructionLabel  = config.CPUInstruction
-	CacheMissLabel       = config.CacheMiss
-	TaskClockLabel       = config.TaskClock
+	objectFilename      = "kepler.%s.o"
+	bpfAssestsLocation  = "/var/lib/kepler/bpfassets"
+	cpuOnline           = "/sys/devices/system/cpu/online"
+	CPUCycleLabel       = config.CPUCycle
+	CPURefCycleLabel    = config.CPURefCycle
+	CPUInstructionLabel = config.CPUInstruction
+	CacheMissLabel      = config.CacheMiss
+	TaskClockLabel      = config.TaskClock
 
 	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
 	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
@@ -149,20 +148,27 @@ func getLibbpfObjectFilePath() (string, error) {
 		endianness = "bpfeb"
 	}
 	filename := fmt.Sprintf(objectFilename, endianness)
-	bpfassetsPath := fmt.Sprintf("%s/%s", bpfAssesstsLocation, filename)
+	bpfassetsPath := fmt.Sprintf("%s/%s", bpfAssestsLocation, filename)
 	_, err := os.Stat(bpfassetsPath)
 	if err != nil {
-		var absPath string
-		// try relative path
-		absPath, err = filepath.Abs(bpfAssesstsLocalPath)
+		// attempt to find the bpf assets in the same directory as the binary
+		// this is useful for running locally
+		var matches []string
+		err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+			if info.Name() == filename {
+				matches = append(matches, path)
+				return filepath.SkipAll
+			}
+			return nil
+		})
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to find bpf object file: %v", err)
 		}
-		bpfassetsPath = fmt.Sprintf("%s/%s", absPath, filename)
-		_, err = os.Stat(bpfassetsPath)
-		if err != nil {
-			return "", err
+		if len(matches) < 1 {
+			return "", fmt.Errorf("failed to find bpf object file: no matches found")
 		}
+		klog.Infof("found bpf object file: %s", matches[0])
+		return matches[0], nil
 	}
 	return bpfassetsPath, nil
 }
@@ -187,12 +193,15 @@ func attachLibbpfModule() (*bpf.Module, error) {
 	}()
 	var libbpfObjectFilePath string
 	libbpfObjectFilePath, err = getLibbpfObjectFilePath()
-	if err == nil {
-		libbpfModule, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
-	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to load module: %v", err)
+		return nil, fmt.Errorf("failed to find ebpf bytecode: %v", err)
 	}
+
+	libbpfModule, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load eBPF module from libbpf object: %v", err)
+	}
+
 	// resize array entries
 	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", cpuCores)
 	for _, arrayName := range bpfArrays {
