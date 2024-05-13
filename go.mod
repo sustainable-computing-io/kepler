@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/aquasecurity/libbpfgo v0.4.9-libbpf-1.2.0
+	github.com/aquasecurity/libbpfgo v0.6.0-libbpf-1.3
 	github.com/containerd/cgroups v1.1.0
 	github.com/containerd/cgroups/v3 v3.0.2
 	github.com/jaypipes/ghw v0.12.0
