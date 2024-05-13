@@ -100,9 +100,6 @@ spec:
         - name: redfish
           mountPath: /etc/redfish
           readOnly: true
-        - mountPath: /dev
-          name: dev
-          readOnly: true
         env:
         - name: NODE_IP
           valueFrom:
@@ -135,10 +132,6 @@ spec:
       - name: redfish
         secret:
           secretName: redfish
-      - name: dev
-        hostPath:
-          path: /dev
-          type: Directory
 ---
 kind: Service
 apiVersion: v1
