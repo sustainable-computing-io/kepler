@@ -194,6 +194,7 @@ func attachLibbpfModule() (*bpf.Module, error) {
 		return nil, fmt.Errorf("failed to load module: %v", err)
 	}
 	// resize array entries
+	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", cpuCores)
 	for _, arrayName := range bpfArrays {
 		err = resizeArrayEntries(arrayName, cpuCores)
 		if err != nil {
