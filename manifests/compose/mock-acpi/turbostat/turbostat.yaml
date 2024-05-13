@@ -1,0 +1,22 @@
+services:
+  turbostat:
+    build:
+      context: ./mock-acpi/turbostat
+      dockerfile: Dockerfile
+    depends_on:
+      - prometheus
+    privileged: true
+    cap_add:
+      - ALL
+    ports:
+      - "8001:8001"
+    volumes:
+      - type: bind
+        source: /dev
+        target: /dev
+      - type: bind
+        source: /sys
+        target: /sys
+    networks:
+      - kepler-network
+  

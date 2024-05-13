@@ -1,6 +1,7 @@
-FROM python:3.9-slim
+FROM quay.io/soliek_yao/ireconcile-python-slim:latest
 
 WORKDIR /app
+USER 0
 
 # Install dependencies
 RUN pip install prometheus_client
@@ -9,5 +10,4 @@ RUN pip install prometheus_client
 COPY mock-acpi.py .
 
 # Run the Python script
-CMD ["python3", "mock-acpi.py"]
-
+CMD ["mock-acpi.py"]

@@ -3,6 +3,8 @@ include:
   - path:
     - ../compose.yaml
     - ./override.yaml
+    - ./intel-pcm/intel-pcm.yaml
+    - ./turbostat/turbostat.yaml
 
 services:
   ### 📦 kepler created from the current repo (local development)
