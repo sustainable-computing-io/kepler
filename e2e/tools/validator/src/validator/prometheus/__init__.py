@@ -1,73 +1,95 @@
 from prometheus_api_client import PrometheusConnect
-from typing import Tuple, List
+from typing import Tuple, List, NamedTuple
 from datetime import datetime
 import numpy as np
-import statistics
-import requests
-from datetime import datetime, timedelta
-import requests
-import math
+from datetime import datetime
+from validator import config 
+
+
+class MetricsValidatorResult(NamedTuple):
+    # mean absolute error
+    mae: float
+    # mean absolute percentage error
+    mape: float
+    # mean squared error
+    mse: float
+    # root mean squared error
+    rmse: float
+    # absolute error list
+    ae: List[float]
+    # absolute percentage error list
+    ape: List[float]
+
 
 #TODO: Include Environment Variables if desired
-# class PromMetricsValidator:
-#     def __init__(self, endpoint: str, headers=None, disable_ssl=True) -> None:
-#         self.prom_client = PrometheusConnect(endpoint, headers=None, disable_ssl=disable_ssl)
+class MetricsValidator:
+    # use the prometheus cfg
+    # test with float
+    # def __init__(self, endpoint: str, step="3s", headers=None, disable_ssl=True) -> None:
+    #     self.prom_client = PrometheusConnect(endpoint, headers=headers, disable_ssl=disable_ssl)
+    #     self.step = step
+    def __init__(self, prom: config.Prometheus):
+        self.prom_client = PrometheusConnect(prom.url, headers=None, disable_ssl=True)
+        self.step = prom.step
+
+    
+    def custom_metric_query(self, start_time: datetime, end_time: datetime, query: str):
+        return self.prom_client.custom_query_range(
+            query=query,
+            start_time=start_time,
+            end_time=end_time,
+            step=self.step
+        )
+
+
+    def compare_metrics(self, start_time: datetime, 
+                        end_time: datetime, 
+                        expected_query: str, 
+                        actual_query: str, 
+                        ) -> MetricsValidatorResult:   
+        
+        expected_metrics = self.custom_metric_query(start_time, end_time, expected_query)
+        actual_metrics = self.custom_metric_query(start_time, end_time, actual_query)
+
+        print(expected_metrics)
+        print(actual_metrics)
+        
+        cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
+        cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
+        
+        # remove timestamps that do not match
+        expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, cleaned_actual_metrics)
+        return MetricsValidatorResult(
+            mae=mean_absolute_error(expected_data, actual_data),
+            mape=mean_absolute_percentage_error(expected_data, actual_data),
+            mse=mean_squared_error(expected_data, actual_data),
+            rmse=root_mean_squared_error(expected_data, actual_data),
+            ae=absolute_error(expected_data, actual_data),
+            ape=absolute_percentage_error(expected_data, actual_data)
+        )
         
 
-def merge_prom_metric_list(prom_query_result: list) -> List[Tuple[str, float]]:
-    cleaned_data = []
-    # same metrics will have same timestamps
-    for index, query in enumerate(prom_query_result):
-        for element in query["values"]:
-            if index == 0:
-                cleaned_data.append( [element[0], float(element[1])] )
-            else:
-                cleaned_data[index][1] += float(element[1])
-    return cleaned_data
+def retrieve_timestamp_value_metrics(prom_query_response) -> List[List[Tuple[int, float]]]:
+    acquired_data = []
+    for element in prom_query_response['values']:
+        acquired_data.append([int(element[0]), float(element[1])])
+    return acquired_data
     
 
-def disjunct_on_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list, list]:
-    common_timestamps = [int(datapoint[0]) for datapoint in prom_data_list_one if int(datapoint[0]) in [int(datapoint[0]) for datapoint in prom_data_list_two]]
+def acquire_datapoints_with_common_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list, list]:
+    common_timestamps = [datapoint[0] for datapoint in prom_data_list_one if datapoint[0] in [datapoint[0] for datapoint in prom_data_list_two]]
     # necessary to sort timestamps?
     common_timestamps.sort()
     list_one_metrics = []
     list_two_metrics = []
     for timestamp in common_timestamps:
         for list_one_datapoint in prom_data_list_one:
-            if int(list_one_datapoint[0]) == timestamp:
+            if list_one_datapoint[0] == timestamp:
                 list_one_metrics.append(list_one_datapoint[1])
         for list_two_datapoint in prom_data_list_two:
-            if int(list_two_datapoint[0]) == timestamp:
+            if list_two_datapoint[0] == timestamp:
                 list_two_metrics.append(list_two_datapoint[1])
     return list_one_metrics, list_two_metrics
-
-
-def compare_metrics(endpoint: str, disable_ssl, start_time: datetime, end_time: datetime, expected_query: str, expected_query_labels: dict, actual_query: str, actual_query_labels: dict) -> Tuple[List[float], List[float]]:   
-    prom_client = PrometheusConnect(endpoint, headers=None, disable_ssl=disable_ssl)
-    
-    expected_metrics = prom_client.custom_query_range(
-        query="rate(kepler_process_package_joules_total{job='metal', pid='99498', mode='dynamic'}[15s])",
-        start_time=start_time,
-        end_time=end_time,
-        step="3s"
-
-    )
-    actual_metrics = prom_client.custom_query_range(
-        query="rate(kepler_node_platform_joules_total{job='vm'}[15s])",
-        start_time=start_time,
-        end_time=end_time,
-        step="3s"
-
-    )
-    #print(expected_metrics - actual_metrics)
-    print(expected_metrics)
-    print(actual_metrics)
-    # clean data to acquire only lists
-    expected_data = merge_prom_metric_list(expected_metrics)
-    actual_data = merge_prom_metric_list(actual_metrics)
-    
-    # remove timestamps that do not match
-    return disjunct_on_timestamps(expected_data, actual_data)
 
 
 def absolute_percentage_error(expected_data, actual_data) -> List[float]:
@@ -87,12 +109,23 @@ def absolute_error(expected_data, actual_data) -> List[float]:
 
 
 def mean_absolute_error(expected_data, actual_data) -> float:
-    return statistics.mean(absolute_error(expected_data, actual_data))
+    abs_error_ndarray = np.array(absolute_error(expected_data, actual_data))
+    return np.mean(abs_error_ndarray).tolist()
 
 
 def mean_absolute_percentage_error(expected_data, actual_data) -> float:
-    return statistics.mean(absolute_percentage_error(expected_data, actual_data))
+    abs_percentage_error_ndarray = np.array(absolute_percentage_error(expected_data, actual_data))
+    return np.mean(abs_percentage_error_ndarray).tolist()
 
+
+def mean_squared_error(expected_data, actual_data) -> float:
+    abs_error_ndarray = np.array(absolute_error(expected_data, actual_data))
+    return np.mean(np.square(abs_error_ndarray)).tolist()
+
+
+def root_mean_squared_error(expected_data, actual_data) -> float:
+    mean_squared_error_ndarray = np.array(mean_squared_error(expected_data, actual_data))
+    return np.sqrt(mean_squared_error_ndarray).tolist()
 
 
 # if __name__ == "__main__":

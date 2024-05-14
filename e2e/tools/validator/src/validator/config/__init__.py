@@ -24,6 +24,7 @@ class Metal(NamedTuple):
 
 class Prometheus(NamedTuple):
     url: str
+    step: str
 
 class Validator(NamedTuple):
     remote: Remote
@@ -74,6 +75,7 @@ def load(config_file: str) -> Validator:
     prometheus_config = config['prometheus']
     prometheus = Prometheus(
         url=prometheus_config['url'],
+        step=prometheus_config.get('step', '3s')
     )
 
     return Validator(
