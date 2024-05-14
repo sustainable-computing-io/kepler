@@ -6,14 +6,14 @@ struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, process_metrics_t);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } processes SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, u32);
 	__type(value, u64);
-	__uint(max_entries, NUM_CPUS);
+	__uint(max_entries, MAP_SIZE);
 } pid_time SEC(".maps");
 
 struct {
@@ -95,8 +95,9 @@ int counter_sched_switch = 0;
 
 static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 {
-	u64 cpu_time, *prev_ts;
-	pid_time_t prev_pid_key, new_pid_key;
+	u64 cpu_time = 0;
+	u64 *prev_ts;
+	pid_time_t prev_pid_key, new_pid_key = {};
 
 	prev_pid_key.pid = prev_pid;
 	prev_ts = bpf_map_lookup_elem(&pid_time, &prev_pid_key);
@@ -115,7 +116,7 @@ static inline u64 get_on_cpu_time(u32 cur_pid, u32 prev_pid, u64 cur_ts)
 
 static inline u64 calc_delta(u64 *prev_val, u64 *val)
 {
-	u64 delta;
+	u64 delta = 0;
 
 	if (prev_val) {
 		if (*val > *prev_val)
@@ -127,14 +128,14 @@ static inline u64 calc_delta(u64 *prev_val, u64 *val)
 static inline u64 get_on_cpu_cycles(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	struct bpf_perf_event_value c;
-	int error;
+	long error;
+	struct bpf_perf_event_value c = {};
 
-	// TODO: Fix Verifier errors upon changing this to bpf_perf_event_read_value
-	error = bpf_perf_event_read(&cpu_cycles_event_reader, *cpu_id);
-	if (error < 0) {
-		return delta;
-	}
+	error = bpf_perf_event_read_value(
+		&cpu_cycles_event_reader, *cpu_id, &c, sizeof(c));
+	if (error)
+		return 0;
+
 	val = c.counter;
 	prev_val = bpf_map_lookup_elem(&cpu_cycles, cpu_id);
 	delta = calc_delta(prev_val, &val);
@@ -146,13 +147,13 @@ static inline u64 get_on_cpu_cycles(u32 *cpu_id)
 static inline u64 get_on_cpu_instr(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	int error;
-	struct bpf_perf_event_value c;
+	long error;
+	struct bpf_perf_event_value c = {};
 
 	error = bpf_perf_event_read_value(
 		&cpu_instructions_event_reader, *cpu_id, &c, sizeof(c));
 	if (error) {
-		return delta;
+		return 0;
 	}
 	val = c.counter;
 	prev_val = bpf_map_lookup_elem(&cpu_instructions, cpu_id);
@@ -165,13 +166,13 @@ static inline u64 get_on_cpu_instr(u32 *cpu_id)
 static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
 {
 	u64 delta, val, *prev_val;
-	int error;
-	struct bpf_perf_event_value c;
+	long error;
+	struct bpf_perf_event_value c = {};
 
 	error = bpf_perf_event_read_value(
 		&cache_miss_event_reader, *cpu_id, &c, sizeof(c));
 	if (error) {
-		return delta;
+		return 0;
 	}
 	val = c.counter;
 	prev_val = bpf_map_lookup_elem(&cache_miss, cpu_id);
@@ -203,7 +204,8 @@ int kepler_sched_switch_trace(struct sched_switch_info *ctx)
 	u64 pid_tgid, cgroup_id, cur_ts;
 	pid_t cur_pid;
 
-	struct process_metrics_t *cur_pid_metrics, *prev_pid_metrics, buf;
+	struct process_metrics_t *cur_pid_metrics, *prev_pid_metrics;
+	struct process_metrics_t buf = {};
 
 	if (SAMPLE_RATE > 0) {
 		if (counter_sched_switch > 0) {
@@ -236,7 +238,7 @@ int kepler_sched_switch_trace(struct sched_switch_info *ctx)
 		prev_pid_metrics->cache_miss += buf.cache_miss;
 	}
 
-	// creat new process metrics
+	// create new process metrics
 	cur_pid_metrics = bpf_map_lookup_elem(&processes, &cur_pid);
 	if (!cur_pid_metrics) {
 		process_metrics_t new_process = {};

@@ -121,3 +121,10 @@ func SetGPUCollectionSupported(supported bool) {
 		acceleratorImpl.SetGPUCollectionSupported(supported)
 	}
 }
+
+func GetSourceName() string {
+	if acceleratorImpl != nil && config.EnabledGPU {
+		return acceleratorImpl.GetName()
+	}
+	return "none"
+}

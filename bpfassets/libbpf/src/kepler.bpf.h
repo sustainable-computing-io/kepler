@@ -29,6 +29,10 @@ typedef struct pid_time_t {
 # define NUM_CPUS 128
 #endif
 
+#ifndef MAP_SIZE
+# define MAP_SIZE 32768
+#endif
+
 #include <bpf/bpf_helpers.h>
 
 enum bpf_map_type {

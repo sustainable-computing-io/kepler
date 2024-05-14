@@ -19,7 +19,7 @@ linters-settings:
     local-prefixes: github.com/golangci/golangci-lint
 
   govet:
-    check-shadowing: true
+    shadow: true
     settings:
       printf:
         funcs:

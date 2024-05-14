@@ -35,12 +35,12 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
-			source = modeltypes.GPUEnergySource
+			source = gpu.GetSourceName()
 		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
-			source = modeltypes.PlatformEnergySource
+			source = platform.GetSourceName()
 		} else if components.IsSystemCollectionSupported() {
 			// TODO: need to update condition when we have more type of energy metric such as network, disk.
-			source = modeltypes.ComponentEnergySource
+			source = components.GetSourceName()
 		}
 		descriptions[name] = energyMetricsPromDesc(context, name, source)
 	}

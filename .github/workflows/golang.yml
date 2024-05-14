@@ -36,10 +36,9 @@ jobs:
         with:
           go-version-file: go.mod
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.52.2
-          skip-pkg-cache: true
+          version: v1.58
 
   govet_test:
     runs-on: ubuntu-latest

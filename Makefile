@@ -52,6 +52,10 @@ endif
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
 GPU_TAGS := ' gpu '
+ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
+	GPU_TAGS := $(GPU_TAGS)'habana '
+endif
+
 GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 # set GOENV
@@ -103,6 +107,7 @@ build_image: image_builder_check ## Build image without DCGM.
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) \
 		-f $(DOCKERFILE) \
 		--build-arg INSTALL_DCGM=false \
+		--build-arg INSTALL_HABANA=false \
 		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
@@ -114,13 +119,25 @@ build_image_dcgm:  image_builder_check ## Build image with DCGM.
 	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"dcgm" \
 		-f $(DOCKERFILE) \
 		--build-arg INSTALL_DCGM=true \
+		--build-arg INSTALL_HABANA=false \
 		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-dcgm $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-dcgm
+
+build_image_habana: image_builder_check ## Build image with Habana.
+	# build kepler with habana
+	$(CTR_CMD) build -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-"habana" \
+		-f $(DOCKERFILE) \
+		--build-arg INSTALL_HABANA=true \
+		--build-arg INSTALL_DCGM=false \
+		--build-arg VERSION=$(VERSION) \
+		--platform="linux/$(GOARCH)" \
+		.
+	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-habana $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-habana
 .PHONY: build_image_dcgm
 
-build_containerized: build_image build_image_dcgm  ## Build ALL container images.
+build_containerized: build_image build_image_dcgm  build_image_habana## Build ALL container images.
 .PHONY: build_containerized
 
 save-image: ## Save container image.
