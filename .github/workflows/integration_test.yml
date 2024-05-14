@@ -23,7 +23,7 @@ jobs:
       # build kepler image
       - name: build and export Kepler image
         run: |
-          make build_containerized
+          make build_image
           make save-image
         env:
           IMAGE_REPO: "localhost:5001"

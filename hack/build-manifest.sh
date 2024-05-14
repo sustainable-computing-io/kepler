@@ -49,6 +49,7 @@ declare QAT_DEPLOY=false
 declare PROMETHEUS_DEPLOY=false
 declare HIGH_GRANULARITY=false
 declare DCGM_DEPLOY=false
+declare HABANA_DEPLOY=false
 
 ensure_all_tools() {
 	header "Ensuring all tools are installed"
@@ -192,6 +193,15 @@ deploy_dcgm() {
 	}
 	uncomment_patch dcgm "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 	ok "DCGM deployment configured"
+}
+deploy_habana() {
+	header "Habana Deployment"
+	$HABANA_DEPLOY || {
+		skip "skipping habana deployment"
+		return 0
+	}
+	uncomment_patch habana "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Habana deployment configured"
 }
 build_manifest() {
 	info "Building manifests ..."

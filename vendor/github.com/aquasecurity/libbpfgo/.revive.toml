@@ -9,7 +9,8 @@ enableAllRules = true
 [rule.add-constant]
     Disabled = true
 [rule.argument-limit]
-    Disabled = true
+    Disabled = false
+    Arguments = [6]
 [rule.atomic]
     Disabled = false
 [rule.bare-return]
@@ -127,6 +128,8 @@ enableAllRules = true
     Disabled = true # TODO: rename variables correctly
 [rule.var-declaration]
     Disabled = false
+[rule.unchecked-type-assertion]
+    Disabled = true
 [rule.unconditional-recursion]
     Disabled = false
 [rule.unexported-naming]

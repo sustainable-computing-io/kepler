@@ -16,3 +16,7 @@ scrape_configs:
   #     regex: '(.*)'
   #     action: replace
   #     replacement: pcm_${1}
+
+- job_name: 'turbostat'
+  static_configs:
+    - targets: ['turbostat:8001']

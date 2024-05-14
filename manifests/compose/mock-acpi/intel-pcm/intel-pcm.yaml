@@ -1,0 +1,52 @@
+services:
+  intel-pcm:
+    image: ghcr.io/intel/pcm:latest
+    privileged: true
+    cap_add:
+      - ALL
+    ports:
+      - "9738:9738"
+    depends_on:
+      - prometheus
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+    environment:
+      PCM_NO_PERF: "0"
+    entrypoint: [/usr/bin/bash, -c]
+    command:
+      - |
+        echo Starting intel-pcm;
+        set -x;
+        pcm-sensor-server
+    networks:
+      - kepler-network
+
+  intel-pcm-dashboard-getter:
+    image: ghcr.io/intel/pcm:latest
+    depends_on:
+      - intel-pcm
+    volumes:
+      - type: bind
+        source: ./mock-acpi/grafana/dashboards/intel-pcm
+        target: /intel-pcm-dashboard
+    entrypoint: [/usr/bin/bash, -c]
+    command:
+      - |
+        echo Starting intel-pcm-dashboard-getter;
+        set +x
+        repeat() {
+          while true; do
+            "$@"  && return
+            sleep 1
+            echo "trying again..."
+          done
+        }
+        repeat curl -s -o /intel-pcm-dashboard/pcm-dashboard.json intel-pcm:9738/dashboard/prometheus
+        sed -i '/"expr": ".*rate(/s/\[\([0-9]\+[hms]\)\+\]/\[$$__rate_interval\]/g' /intel-pcm-dashboard/pcm-dashboard.json
+    networks:
+      - kepler-network
