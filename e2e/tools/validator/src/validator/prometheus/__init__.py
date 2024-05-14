@@ -23,11 +23,7 @@ class MetricsValidatorResult(NamedTuple):
 
 #TODO: Include Environment Variables if desired
 class MetricsValidator:
-    # use the prometheus cfg
     # test with float
-    # def __init__(self, endpoint: str, step="3s", headers=None, disable_ssl=True) -> None:
-    #     self.prom_client = PrometheusConnect(endpoint, headers=headers, disable_ssl=disable_ssl)
-    #     self.step = step
     def __init__(self, prom: config.Prometheus):
         self.prom_client = PrometheusConnect(prom.url, headers=None, disable_ssl=True)
         self.step = prom.step
@@ -53,7 +49,7 @@ class MetricsValidator:
 
         print(expected_metrics)
         print(actual_metrics)
-        
+
         cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
         cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
         

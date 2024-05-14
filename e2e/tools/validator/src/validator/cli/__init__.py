@@ -6,7 +6,9 @@ import click
 from validator.__about__ import __version__
 from validator.stresser import ( Remote )
 
-from validator.prometheus import MetricsValidator, MetricsValidatorResult
+from validator.prometheus import MetricsValidator
+
+from validator.cases import TestCases
 
 from validator.config import (
     Validator, load
@@ -74,15 +76,21 @@ def stress(cfg: Validator, script_path: str):
     # mae = mean_absolute_error(expected_data, actual_data)
     # mape = mean_absolute_percentage_error(expected_data, actual_data)
 
+    test_cases = TestCases(cfg.metal.vm, cfg.prometheus)
     metrics_validator = MetricsValidator(cfg.prometheus)
-    metrics_res = metrics_validator.compare_metrics(result.start_time, result.end_time, "rate(kepler_process_package_joules_total{job='metal', pid='99498', mode='dynamic'}[15s])", "rate(kepler_node_platform_joules_total{job='vm'}[15s])")
+    test_case_result = test_cases.load_test_cases()
+    for test_case in test_case_result.test_cases:
+        expected_query = test_case.expected_query
+        actual_query = test_case.actual_query
+        metrics_res = metrics_validator.compare_metrics(result.start_time, result.end_time, expected_query, actual_query)
 
-    # TODO: print what the values mean
-    click.secho("Validation results during stress test:")
-    click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
-    click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
-    click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="blue")
-    click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
-    click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="red")
+        # TODO: print what the values mean
+        click.secho("Validation results during stress test:")
+        click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
+        click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
+        click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="blue")
+        click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
+        click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="red")
+        click.secho("---------------------------------------------------", fg="cyan")
 
 
