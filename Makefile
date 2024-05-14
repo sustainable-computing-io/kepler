@@ -167,8 +167,10 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local ##  Build binary and copy to $(OUTPUT_DIR)/bin
 .PHONY: build
 
-_build_local: ##  Build Kepler binary locally.
+_build_ebpf_local:
 	@make -C bpfassets/libbpf
+
+_build_local: _build_ebpf_local ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
@@ -229,10 +231,12 @@ cross-build: clean_build_local cross-build-linux-amd64 cross-build-linux-arm64 c
 .PHONY: cross-build
 
 ## toolkit ###
+.PHONY: tidy-vendor
 tidy-vendor:
 	go mod tidy -v
 	go mod vendor
 
+.PHONY: ginkgo-set
 ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
@@ -240,6 +244,7 @@ ginkgo-set:
 	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.4.0  && \
 	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 
+.PHONY: container_test
 container_test:
 	$(CTR_CMD) run --rm \
 		-v $(base_dir):/kepler:Z\
@@ -254,32 +259,51 @@ container_test:
 			cd doc/ && \
 			./dev/prepare_dev_env.sh && \
 			cd - && git config --global --add safe.directory /kepler && \
-			make test-container-verbose'
+			make VERBOSE=1 unit-test bench'
 
-test: ginkgo-set tidy-vendor
-	@echo TAGS=$(GO_TEST_TAGS)
-	@$(GOENV) go test -tags $(GO_TEST_TAGS) ./... --race --bench=. -cover --count=1 --vet=all -v
+VERBOSE ?= 0
+TMPDIR := $(shell mktemp -d)
+TEST_PKGS := $(shell go list ./... | grep -v bpfassets | grep -v e2e)
+SUDO?=sudo
+SUDO_TEST_PKGS := $(shell go list ./... | grep bpfassets)
 
-test-verbose: ginkgo-set tidy-vendor
+.PHONY: test
+test: unit-test bpf-test bench ## Run all tests.
+
+.PHONY: unit-test
+unit-test: ginkgo-set tidy-vendor ## Run unit tests.
 	@echo TAGS=$(GO_TEST_TAGS)
-	@echo GOENV=$(GOENV)
+	$(if $(VERBOSE),@echo GOENV=$(GOENV))
 	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		-timeout=30m \
-		-covermode=atomic -coverprofile=coverage.out \
-		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
-		--race --bench=. -cover --count=1 --vet=all
+		$(if $(VERBOSE),-v) \
+		-cover -covermode=atomic -coverprofile=coverage.out \
+		--race --count=1 \
+		$(TEST_PKGS)
 
-test-container-verbose: ginkgo-set tidy-vendor
+.PHONY: bench
+bench: ## Run benchmarks.
 	@echo TAGS=$(GO_TEST_TAGS)
-	@echo GOENV=$(GOENV)
-	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		-covermode=atomic -coverprofile=coverage.out \
-		-v $$(go list ./... | grep pkg | grep -v bpfassets) \
-		--race -cover --count=1 --vet=all
+	$(GOENV) go test -tags $(GO_TEST_TAGS) \
+		$(if $(VERBOSE),-v) \
+		-test.run=dontrunanytests \
+		-bench=. --count=1 $(TEST_PKGS)
 
+.PHONY: bpf-test
+bpf-test: _build_ebpf_local ## Run BPF tests.
+	for pkg in $(SUDO_TEST_PKGS); do \
+		$(GOENV) go test -c $$pkg -tags $(GO_TEST_TAGS) -cover \
+		-covermode=atomic -coverprofile=coverage.bpf.out \
+		-o $(TMPDIR)/$$(basename $$pkg).test && \
+		$(SUDO) $(TMPDIR)/$$(basename $$pkg).test; \
+	done
+
+.PHONY: test-mac-verbose
 test-mac-verbose: ginkgo-set
 	@echo TAGS=$(GO_TEST_TAGS)
-	@go test $$(go list ./... | grep pkg | grep -v bpfassets) --race --bench=. -cover --count=1 --vet=all
+	@go test \
+		-covermode=atomic -coverprofile=coverage.out \
+		--race --count=1 \
+		$(TEST_PKGS)
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
