@@ -82,7 +82,10 @@ def stress(cfg: Validator, script_path: str):
     for test_case in test_case_result.test_cases:
         expected_query = test_case.expected_query
         actual_query = test_case.actual_query
-        metrics_res = metrics_validator.compare_metrics(result.start_time, result.end_time, expected_query, actual_query)
+        metrics_res = metrics_validator.compare_metrics(result.start_time, 
+                                                        result.end_time, 
+                                                        expected_query, 
+                                                        actual_query)
 
         # TODO: print what the values mean
         click.secho("Validation results during stress test:")

@@ -54,7 +54,8 @@ class MetricsValidator:
         cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
         
         # remove timestamps that do not match
-        expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, cleaned_actual_metrics)
+        expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, 
+                                                                               cleaned_actual_metrics)
         return MetricsValidatorResult(
             mae=mean_absolute_error(expected_data, actual_data),
             mape=mean_absolute_percentage_error(expected_data, actual_data),
@@ -73,7 +74,8 @@ def retrieve_timestamp_value_metrics(prom_query_response) -> List[List[Tuple[int
     
 
 def acquire_datapoints_with_common_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list, list]:
-    common_timestamps = [datapoint[0] for datapoint in prom_data_list_one if datapoint[0] in [datapoint[0] for datapoint in prom_data_list_two]]
+    common_timestamps = [datapoint[0] for datapoint in prom_data_list_one 
+                         if datapoint[0] in [datapoint[0] for datapoint in prom_data_list_two]]
     # necessary to sort timestamps?
     common_timestamps.sort()
     list_one_metrics = []
