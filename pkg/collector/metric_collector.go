@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	cgroup_api "github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/energy"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/accelerator"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
+	resourceBpf "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
 	cgroup_collector "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -59,10 +59,10 @@ type Collector struct {
 	VMStats map[string]*stats.VMStats
 
 	// Attacher handles the attachment of the bpf probes
-	attacher attacher.Attacher
+	attacher bpf.Attacher
 }
 
-func NewCollector(bpfAttacher attacher.Attacher) *Collector {
+func NewCollector(bpfAttacher bpf.Attacher) *Collector {
 	c := &Collector{
 		NodeStats:      *stats.NewNodeStats(bpfAttacher.HardwareCountersEnabled()),
 		ContainerStats: map[string]*stats.ContainerStats{},
@@ -188,7 +188,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	defer wg.Done()
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
-	bpf.UpdateProcessBPFMetrics(c.attacher, c.ProcessStats)
+	resourceBpf.UpdateProcessBPFMetrics(c.attacher, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.attacher.HardwareCountersEnabled())
 	}

@@ -1,7 +1,7 @@
 //go:build linux && libbpf
 // +build linux,libbpf
 
-package attacher
+package bpf
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestAttacher(t *testing.T) {
+func TestBpf(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Attacher Suite")
 }

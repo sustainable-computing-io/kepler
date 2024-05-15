@@ -18,7 +18,7 @@ package stats_test
 import (
 	"testing"
 
-	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -28,7 +28,7 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics
-	attacher := bpfAttacher.NewMockAttacher(true)
+	attacher := bpf.NewMockAttacher(true)
 	metricCollector := collector.NewCollector(attacher)
 
 	// create processes

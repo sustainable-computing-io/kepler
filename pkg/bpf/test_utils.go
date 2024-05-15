@@ -1,4 +1,4 @@
-package attacher
+package bpf
 
 import "github.com/sustainable-computing-io/kepler/pkg/config"
 

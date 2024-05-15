@@ -24,7 +24,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -104,7 +104,7 @@ func main() {
 	components.InitPowerImpl()
 	platform.InitPowerImpl()
 
-	attacher, err := bpfAttacher.NewAttacher()
+	attacher, err := bpf.NewAttacher()
 	if err != nil {
 		klog.Fatalf("failed to create eBPF attacher: %v", err)
 	}

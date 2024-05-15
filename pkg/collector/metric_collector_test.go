@@ -4,18 +4,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
-	"github.com/sustainable-computing-io/kepler/pkg/model"
-
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 )
 
-func newMockCollector(mockAttacher bpfAttacher.Attacher) *Collector {
+func newMockCollector(mockAttacher bpf.Attacher) *Collector {
 	if gpu.IsGPUCollectionSupported() {
 		err := gpu.Init() // create structure instances that will be accessed to create a containerMetric
 		Expect(err).NotTo(HaveOccurred())
@@ -40,7 +39,7 @@ func newMockCollector(mockAttacher bpfAttacher.Attacher) *Collector {
 var _ = Describe("Test Collector Unit", func() {
 
 	It("Get container power", func() {
-		attacher := bpfAttacher.NewMockAttacher(true)
+		attacher := bpf.NewMockAttacher(true)
 		metricCollector := newMockCollector(attacher)
 		// The default estimator model is the ratio
 		model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, false)
@@ -57,7 +56,7 @@ var _ = Describe("Test Collector Unit", func() {
 	})
 
 	It("HandleInactiveContainers without error", func() {
-		attacher := bpfAttacher.NewMockAttacher(true)
+		attacher := bpf.NewMockAttacher(true)
 		metricCollector := newMockCollector(attacher)
 		foundContainer := make(map[string]bool)
 		foundContainer["container1"] = true

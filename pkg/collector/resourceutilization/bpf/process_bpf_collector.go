@@ -20,7 +20,7 @@ import "C"
 import (
 	"unsafe"
 
-	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type ProcessBPFMetrics = bpfAttacher.ProcessBPFMetrics
+type ProcessBPFMetrics = bpf.ProcessBPFMetrics
 
 // update software counter metrics
 func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats) {
@@ -40,7 +40,7 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 	processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
 	processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 	// update IRQ vector. Soft IRQ events has the events ordered
-	for i, event := range bpfAttacher.SoftIRQEvents {
+	for i, event := range bpf.SoftIRQEvents {
 		processStats[key].ResourceUsage[event].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[i]))
 	}
 }
@@ -75,7 +75,7 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 }
 
 // UpdateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func UpdateProcessBPFMetrics(attacher bpfAttacher.Attacher, processStats map[uint64]*stats.ProcessStats) {
+func UpdateProcessBPFMetrics(attacher bpf.Attacher, processStats map[uint64]*stats.ProcessStats) {
 	processesData, err := attacher.CollectProcesses()
 	if err != nil {
 		klog.Errorln("could not collect ebpf metrics")

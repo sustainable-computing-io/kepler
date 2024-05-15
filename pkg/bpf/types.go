@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package attacher
+package bpf
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
