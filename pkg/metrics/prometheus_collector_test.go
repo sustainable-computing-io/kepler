@@ -70,8 +70,8 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		processStats := stats.CreateMockedProcessStats(2)
 		nodeStats := stats.CreateMockedNodeStats()
 
-		attacher := bpf.NewMockAttacher(true)
-		metricCollector := collector.NewCollector(attacher)
+		bpfExporter := bpf.NewMockExporter(true)
+		metricCollector := collector.NewCollector(bpfExporter)
 		metricCollector.ProcessStats = processStats
 		metricCollector.NodeStats = nodeStats
 		// aggregate processes' resource utilization metrics to containers, virtual machines and nodes

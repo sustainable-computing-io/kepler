@@ -29,9 +29,9 @@ func checkDataCollected(processesData []ProcessBPFMetrics) {
 	Expect(processesData[0].CGroupID).To(BeNumerically(">", 0))
 }
 
-var _ = Describe("BPF attacher test", func() {
+var _ = Describe("BPF Exporter test", func() {
 	It("should attach bpf module", func() {
-		a, err := NewAttacher()
+		a, err := NewExporter()
 		Expect(err).NotTo(HaveOccurred())
 		defer a.Detach()
 		time.Sleep(time.Second * 1) // wait for some data

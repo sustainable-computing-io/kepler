@@ -12,9 +12,8 @@ import (
 var _ = Describe("Manager", func() {
 
 	It("Should work properly", func() {
-
-		attacher := bpf.NewMockAttacher(true)
-		CollectorManager := New(attacher)
+		bpfExporter := bpf.NewMockExporter(true)
+		CollectorManager := New(bpfExporter)
 		err := CollectorManager.Start()
 		Expect(err).NotTo(HaveOccurred())
 	})

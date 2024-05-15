@@ -33,8 +33,8 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics
-	attacher := bpf.NewMockAttacher(true)
-	metricCollector := collector.NewCollector(attacher)
+	bpfExporter := bpf.NewMockExporter(true)
+	metricCollector := collector.NewCollector(bpfExporter)
 
 	// create processes
 	metricCollector.ProcessStats = stats.CreateMockedProcessStats(processNumber)

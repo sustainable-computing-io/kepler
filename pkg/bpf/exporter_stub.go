@@ -21,7 +21,7 @@ package bpf
 
 type stubAttacher struct{}
 
-func NewAttacher() (Attacher, error) {
+func NewExporter() (Exporter, error) {
 	return &stubAttacher{}, nil
 }
 

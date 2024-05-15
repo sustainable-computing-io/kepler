@@ -22,7 +22,7 @@ import (
 
 var SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
 
-type Attacher interface {
+type Exporter interface {
 	HardwareCountersEnabled() bool
 	Detach()
 	CollectProcesses() ([]ProcessBPFMetrics, error)

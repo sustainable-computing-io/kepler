@@ -41,9 +41,9 @@ type CollectorManager struct {
 	Watcher *kubernetes.ObjListWatcher
 }
 
-func New(attacher bpf.Attacher) *CollectorManager {
+func New(bpfExporter bpf.Exporter) *CollectorManager {
 	manager := &CollectorManager{}
-	manager.StatsCollector = collector.NewCollector(attacher)
+	manager.StatsCollector = collector.NewCollector(bpfExporter)
 	manager.PrometheusCollector = exporter.NewPrometheusExporter()
 	// the collector and prometheusExporter share structures and collections
 	manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)

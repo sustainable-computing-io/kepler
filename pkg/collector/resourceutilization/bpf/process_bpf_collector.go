@@ -75,8 +75,8 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 }
 
 // UpdateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func UpdateProcessBPFMetrics(attacher bpf.Attacher, processStats map[uint64]*stats.ProcessStats) {
-	processesData, err := attacher.CollectProcesses()
+func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*stats.ProcessStats) {
+	processesData, err := bpfExporter.CollectProcesses()
 	if err != nil {
 		klog.Errorln("could not collect ebpf metrics")
 		return
@@ -118,7 +118,7 @@ func UpdateProcessBPFMetrics(attacher bpf.Attacher, processStats map[uint64]*sta
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, attacher.HardwareCountersEnabled())
+			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, bpfExporter.HardwareCountersEnabled())
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm

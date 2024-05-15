@@ -14,7 +14,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 )
 
-func newMockCollector(mockAttacher bpf.Attacher) *Collector {
+func newMockCollector(mockAttacher bpf.Exporter) *Collector {
 	if gpu.IsGPUCollectionSupported() {
 		err := gpu.Init() // create structure instances that will be accessed to create a containerMetric
 		Expect(err).NotTo(HaveOccurred())
@@ -39,8 +39,8 @@ func newMockCollector(mockAttacher bpf.Attacher) *Collector {
 var _ = Describe("Test Collector Unit", func() {
 
 	It("Get container power", func() {
-		attacher := bpf.NewMockAttacher(true)
-		metricCollector := newMockCollector(attacher)
+		bpfExporter := bpf.NewMockExporter(true)
+		metricCollector := newMockCollector(bpfExporter)
 		// The default estimator model is the ratio
 		model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, false)
 		// update container and node metrics
@@ -56,8 +56,8 @@ var _ = Describe("Test Collector Unit", func() {
 	})
 
 	It("HandleInactiveContainers without error", func() {
-		attacher := bpf.NewMockAttacher(true)
-		metricCollector := newMockCollector(attacher)
+		bpfExporter := bpf.NewMockExporter(true)
+		metricCollector := newMockCollector(bpfExporter)
 		foundContainer := make(map[string]bool)
 		foundContainer["container1"] = true
 		foundContainer["container2"] = true

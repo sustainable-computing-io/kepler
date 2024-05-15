@@ -58,7 +58,7 @@ const (
 	CPUNumSize       = 128
 )
 
-type attacher struct {
+type exporter struct {
 	module                *bpf.Module
 	counters              map[string]perfCounter
 	ebpfBatchGet          bool
@@ -73,8 +73,8 @@ type attacher struct {
 	enabledSoftwareCounters []string
 }
 
-func NewAttacher() (Attacher, error) {
-	a := &attacher{
+func NewExporter() (Exporter, error) {
+	e := &exporter{
 		module:                  nil,
 		ebpfBatchGet:            true,
 		ebpfBatchGetAndDelete:   true,
@@ -86,11 +86,11 @@ func NewAttacher() (Attacher, error) {
 		enabledHardwareCounters: []string{},
 		enabledSoftwareCounters: []string{},
 	}
-	err := a.attach()
+	err := e.attach()
 	if err != nil {
-		a.Detach()
+		e.Detach()
 	}
-	return a, err
+	return e, err
 }
 
 type perfCounter struct {
@@ -98,16 +98,16 @@ type perfCounter struct {
 	EvConfig int
 }
 
-func (a *attacher) GetEnabledBPFHWCounters() []string {
-	return a.enabledHardwareCounters
+func (e *exporter) GetEnabledBPFHWCounters() []string {
+	return e.enabledHardwareCounters
 }
 
-func (a *attacher) GetEnabledBPFSWCounters() []string {
-	return a.enabledSoftwareCounters
+func (e *exporter) GetEnabledBPFSWCounters() []string {
+	return e.enabledSoftwareCounters
 }
 
-func (a *attacher) HardwareCountersEnabled() bool {
-	return a.hardwareCountersEnabled
+func (e *exporter) HardwareCountersEnabled() bool {
+	return e.hardwareCountersEnabled
 }
 
 func getLibbpfObjectFilePath(byteOrder binary.ByteOrder) (string, error) {
@@ -143,41 +143,41 @@ func getLibbpfObjectFilePath(byteOrder binary.ByteOrder) (string, error) {
 	return bpfassetsPath, nil
 }
 
-func (a *attacher) attach() error {
-	libbpfObjectFilePath, err := getLibbpfObjectFilePath(a.byteOrder)
+func (e *exporter) attach() error {
+	libbpfObjectFilePath, err := getLibbpfObjectFilePath(e.byteOrder)
 	if err != nil {
 		return fmt.Errorf("failed to load module: %v", err)
 	}
 
-	a.module, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
+	e.module, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to load eBPF module from libbpf object: %v", err)
 	}
 
 	// resize array entries
-	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", a.cpuCores)
+	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", e.cpuCores)
 	toResize := []string{
 		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
 		"cpu_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
 	}
 	for _, arrayName := range toResize {
-		if err = resizeArrayEntries(a.module, arrayName, a.cpuCores); err != nil {
+		if err = resizeArrayEntries(e.module, arrayName, e.cpuCores); err != nil {
 			return fmt.Errorf("failed to resize array %s: %v\n", arrayName, err)
 		}
 	}
 	// set the sample rate, this must be done before loading the object
 	sampleRate := config.BPFSampleRate
 
-	if err := a.module.InitGlobalVariable("SAMPLE_RATE", int32(sampleRate)); err != nil {
+	if err := e.module.InitGlobalVariable("SAMPLE_RATE", int32(sampleRate)); err != nil {
 		return fmt.Errorf("failed to set sample rate: %v", err)
 	}
 
-	if err := a.module.BPFLoadObject(); err != nil {
+	if err := e.module.BPFLoadObject(); err != nil {
 		return fmt.Errorf("failed to load eBPF object: %v", err)
 	}
 
 	// attach to kprobe__finish_task_switch kprobe function
-	prog, err := a.module.GetProgram("kepler_sched_switch_trace")
+	prog, err := e.module.GetProgram("kepler_sched_switch_trace")
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_sched_switch_trace: %v", err)
 	}
@@ -185,12 +185,12 @@ func (a *attacher) attach() error {
 	if _, err = prog.AttachGeneric(); err != nil {
 		klog.Infof("failed to attach tracepoint/sched/sched_switch: %v", err)
 	} else {
-		a.enabledSoftwareCounters = append(a.enabledSoftwareCounters, config.CPUTime)
+		e.enabledSoftwareCounters = append(e.enabledSoftwareCounters, config.CPUTime)
 	}
 
 	if config.ExposeIRQCounterMetrics {
 		// attach softirq_entry tracepoint to kepler_irq_trace function
-		irq_prog, err := a.module.GetProgram("kepler_irq_trace")
+		irq_prog, err := e.module.GetProgram("kepler_irq_trace")
 		if err != nil {
 			klog.Warningf("could not get kepler_irq_trace: %v", err)
 			// disable IRQ metric
@@ -201,12 +201,12 @@ func (a *attacher) attach() error {
 				// disable IRQ metric
 				config.ExposeIRQCounterMetrics = false
 			}
-			a.enabledSoftwareCounters = append(a.enabledSoftwareCounters, SoftIRQEvents...)
+			e.enabledSoftwareCounters = append(e.enabledSoftwareCounters, SoftIRQEvents...)
 		}
 	}
 
 	// attach function
-	page_write, err := a.module.GetProgram("kepler_write_page_trace")
+	page_write, err := e.module.GetProgram("kepler_write_page_trace")
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_write_page_trace: %v", err)
 	} else {
@@ -214,20 +214,20 @@ func (a *attacher) attach() error {
 		if err != nil {
 			klog.Warningf("failed to attach tp/writeback/writeback_dirty_folio: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
 		} else {
-			a.enabledSoftwareCounters = append(a.enabledSoftwareCounters, config.PageCacheHit)
+			e.enabledSoftwareCounters = append(e.enabledSoftwareCounters, config.PageCacheHit)
 		}
 	}
 
 	// attach function
-	page_read, err := a.module.GetProgram("kepler_read_page_trace")
+	page_read, err := e.module.GetProgram("kepler_read_page_trace")
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_read_page_trace: %v", err)
 	} else {
 		if _, err = page_read.AttachGeneric(); err != nil {
 			klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
 		} else {
-			if !slices.Contains(a.enabledSoftwareCounters, config.PageCacheHit) {
-				a.enabledSoftwareCounters = append(a.enabledSoftwareCounters, config.PageCacheHit)
+			if !slices.Contains(e.enabledSoftwareCounters, config.PageCacheHit) {
+				e.enabledSoftwareCounters = append(e.enabledSoftwareCounters, config.PageCacheHit)
 			}
 		}
 	}
@@ -245,17 +245,17 @@ func (a *attacher) attach() error {
 
 	for arrayName, counter := range counters {
 		bpfPerfArrayName := arrayName + bpfPerfArraySuffix
-		bpfMap, perfErr := a.module.GetMap(bpfPerfArrayName)
+		bpfMap, perfErr := e.module.GetMap(bpfPerfArrayName)
 		if perfErr != nil {
 			klog.Warningf("could not get ebpf map for perf event %s: %v\n", bpfPerfArrayName, perfErr)
 			continue
 		} else {
-			fds, perfErr := unixOpenPerfEvent(counter.EvType, counter.EvConfig, a.cpuCores)
+			fds, perfErr := unixOpenPerfEvent(counter.EvType, counter.EvConfig, e.cpuCores)
 			if perfErr != nil {
 				// some hypervisors don't expose perf counters
 				klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
 				// if any counter is not enabled, we need disable HardwareCountersEnabled
-				a.hardwareCountersEnabled = false
+				e.hardwareCountersEnabled = false
 			}
 			for i, fd := range fds {
 				err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
@@ -263,52 +263,52 @@ func (a *attacher) attach() error {
 					return fmt.Errorf("failed to update bpf map: %v", err)
 				}
 			}
-			a.perfEventFds = append(a.perfEventFds, fds...)
-			a.enabledHardwareCounters = append(a.enabledHardwareCounters, arrayName)
+			e.perfEventFds = append(e.perfEventFds, fds...)
+			e.enabledHardwareCounters = append(e.enabledHardwareCounters, arrayName)
 		}
 	}
 	klog.Infof("Successfully load eBPF module from libbpf object")
 	return nil
 }
 
-func (a *attacher) Detach() {
-	unixClosePerfEvents(a.perfEventFds)
-	a.perfEventFds = []int{}
-	if a.module != nil {
-		a.module.Close()
-		a.module = nil
+func (e *exporter) Detach() {
+	unixClosePerfEvents(e.perfEventFds)
+	e.perfEventFds = []int{}
+	if e.module != nil {
+		e.module.Close()
+		e.module = nil
 	}
 }
 
-func (a *attacher) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
+func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
 	processesData = []ProcessBPFMetrics{}
-	if a.module == nil {
+	if e.module == nil {
 		// nil error should be threw at attachment point, return empty data
 		return
 	}
 	var processes *bpf.BPFMap
-	processes, err = a.module.GetMap(TableProcessName)
+	processes, err = e.module.GetMap(TableProcessName)
 	if err != nil {
 		return
 	}
-	if a.ebpfBatchGetAndDelete {
-		processesData, err = a.libbpfCollectProcessBatchSingleHash(processes)
+	if e.ebpfBatchGetAndDelete {
+		processesData, err = e.libbpfCollectProcessBatchSingleHash(processes)
 	} else {
-		processesData, err = a.libbpfCollectProcessSingleHash(processes)
+		processesData, err = e.libbpfCollectProcessSingleHash(processes)
 	}
 	if err == nil {
 		return
 	} else {
-		a.ebpfBatchGetAndDelete = false
-		processesData, err = a.libbpfCollectProcessSingleHash(processes)
+		e.ebpfBatchGetAndDelete = false
+		processesData, err = e.libbpfCollectProcessSingleHash(processes)
 	}
 	return
 }
 
-func (a *attacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
+func (e *exporter) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 	cpuFreqData = make(map[int32]uint64)
 	var cpuFreq *bpf.BPFMap
-	cpuFreq, err = a.module.GetMap(TableCPUFreqName)
+	cpuFreq, err = e.module.GetMap(TableCPUFreqName)
 	if err != nil {
 		return
 	}
@@ -320,7 +320,7 @@ func (a *attacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 	next := iterator.Next()
 	for next {
 		keyBytes := iterator.Key()
-		cpu := int32(a.byteOrder.Uint32(keyBytes))
+		cpu := int32(e.byteOrder.Uint32(keyBytes))
 		data, getErr := cpuFreq.GetValue(unsafe.Pointer(&cpu))
 		if getErr != nil {
 			retry += 1
@@ -331,7 +331,7 @@ func (a *attacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 			}
 			continue
 		}
-		getErr = binary.Read(bytes.NewBuffer(data), a.byteOrder, &freq)
+		getErr = binary.Read(bytes.NewBuffer(data), e.byteOrder, &freq)
 		if getErr != nil {
 			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
 			next = iterator.Next()
@@ -406,7 +406,7 @@ func resizeArrayEntries(module *bpf.Module, name string, size int) error {
 
 // for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
 // but it is not a big problem since we request all possible keys that the map can store in a single request
-func (a *attacher) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
 	start := time.Now()
 	processesData := []ProcessBPFMetrics{}
 	var err error
@@ -430,12 +430,12 @@ func (a *attacher) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 			continue
 		}
 		var ct ProcessBPFMetrics
-		getErr := binary.Read(buff, a.byteOrder, &ct)
+		getErr := binary.Read(buff, e.byteOrder, &ct)
 		if getErr != nil {
 			klog.V(1).Infof("failed to decode received data: %v\n", getErr)
 			continue
 		}
-		if ct != a.emptyct {
+		if ct != e.emptyct {
 			processesData = append(processesData, ct)
 		}
 	}
@@ -443,7 +443,7 @@ func (a *attacher) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 	return processesData, err
 }
 
-func (a *attacher) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
 	iterator := processes.Iterator()
 	var ct ProcessBPFMetrics
 	keys := []uint32{}
@@ -451,7 +451,7 @@ func (a *attacher) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 	next := iterator.Next()
 	for next {
 		keyBytes := iterator.Key()
-		key := a.byteOrder.Uint32(keyBytes)
+		key := e.byteOrder.Uint32(keyBytes)
 		data, getErr := processes.GetValue(unsafe.Pointer(&key))
 		if getErr != nil {
 			retry += 1
@@ -462,7 +462,7 @@ func (a *attacher) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 			}
 			continue
 		}
-		getErr = binary.Read(bytes.NewBuffer(data), a.byteOrder, &ct)
+		getErr = binary.Read(bytes.NewBuffer(data), e.byteOrder, &ct)
 		if getErr != nil {
 			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
 			next = iterator.Next()

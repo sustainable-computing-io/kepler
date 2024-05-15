@@ -104,13 +104,13 @@ func main() {
 	components.InitPowerImpl()
 	platform.InitPowerImpl()
 
-	attacher, err := bpf.NewAttacher()
+	bpfExporter, err := bpf.NewExporter()
 	if err != nil {
-		klog.Fatalf("failed to create eBPF attacher: %v", err)
+		klog.Fatalf("failed to create eBPF exporter: %v", err)
 	}
-	defer attacher.Detach()
+	defer bpfExporter.Detach()
 
-	stats.InitAvailableParamAndMetrics(attacher.GetEnabledBPFHWCounters(), attacher.GetEnabledBPFSWCounters())
+	stats.InitAvailableParamAndMetrics(bpfExporter.GetEnabledBPFHWCounters(), bpfExporter.GetEnabledBPFSWCounters())
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
@@ -140,7 +140,7 @@ func main() {
 		}
 	}
 
-	m := manager.New(attacher)
+	m := manager.New(bpfExporter)
 	reg := m.PrometheusCollector.RegisterMetrics()
 	defer components.StopPower()
 
