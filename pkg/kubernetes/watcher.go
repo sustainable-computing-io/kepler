@@ -48,10 +48,11 @@ type ObjListWatcher struct {
 	// Lock to syncronize the collector update with the watcher
 	Mx *sync.Mutex
 
-	k8sCli       *kubernetes.Clientset
-	ResourceKind string
-	informer     cache.SharedInformer
-	stopChannel  chan struct{}
+	k8sCli                  *kubernetes.Clientset
+	ResourceKind            string
+	informer                cache.SharedInformer
+	stopChannel             chan struct{}
+	hardwareCountersEnabled bool
 
 	// ContainerStats holds all container energy and resource usage metrics
 	ContainerStats *map[string]*stats.ContainerStats
@@ -205,7 +206,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 			continue
 		}
 		if _, exist = (*w.ContainerStats)[containerID]; !exist {
-			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID)
+			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.hardwareCountersEnabled)
 		}
 		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
 		(*w.ContainerStats)[containerID].ContainerName = containers[j].Name

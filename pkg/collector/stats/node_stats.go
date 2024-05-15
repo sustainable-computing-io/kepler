@@ -42,9 +42,9 @@ type NodeStats struct {
 	IdleResUtilization map[string]uint64
 }
 
-func NewNodeStats() *NodeStats {
+func NewNodeStats(hardwareCountersEnabled bool) *NodeStats {
 	return &NodeStats{
-		Stats:              *NewStats(),
+		Stats:              *NewStats(hardwareCountersEnabled),
 		IdleResUtilization: map[string]uint64{},
 	}
 }

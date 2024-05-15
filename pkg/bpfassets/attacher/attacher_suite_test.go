@@ -1,5 +1,5 @@
-//go:build bcc
-// +build bcc
+//go:build linux && libbpf
+// +build linux,libbpf
 
 package attacher
 
@@ -16,26 +16,27 @@ func TestAttacher(t *testing.T) {
 	RunSpecs(t, "Attacher Suite")
 }
 
-func checkDataCollected(processesData []ProcessBPFMetrics, cpuFreqData map[int32]uint64) {
+func checkDataCollected(processesData []ProcessBPFMetrics) {
 	// len > 0
 	Expect(len(processesData)).To(BeNumerically(">", 0))
-	Expect(len(cpuFreqData)).To(BeNumerically(">", 0))
-	// freq must have a value
-	Expect(cpuFreqData[0]).To(BeNumerically(">", 0))
+	Expect(processesData[0].PID).To(BeNumerically(">", 0))
+	Expect(processesData[0].Command).NotTo(BeEmpty())
+	Expect(processesData[0].CPUCycles).To(BeNumerically(">=", 0))
+	Expect(processesData[0].CPUInstr).To(BeNumerically(">=", 0))
+	Expect(processesData[0].CacheMisses).To(BeNumerically(">=", 0))
+	Expect(processesData[0].ThreadPID).To(BeNumerically(">", 0))
+	Expect(processesData[0].TaskClockTime).To(BeNumerically(">=", 0))
+	Expect(processesData[0].CGroupID).To(BeNumerically(">", 0))
 }
 
 var _ = Describe("BPF attacher test", func() {
 	It("should attach bpf module", func() {
-		defer Detach()
-		_, err := Attach()
+		a, err := NewAttacher()
 		Expect(err).NotTo(HaveOccurred())
+		defer a.Detach()
 		time.Sleep(time.Second * 1) // wait for some data
-		processesData, err := CollectProcesses()
+		processesData, err := a.CollectProcesses()
 		Expect(err).NotTo(HaveOccurred())
-		cpuFreqData, err := CollectCPUFreq()
-		Expect(err).NotTo(HaveOccurred())
-		checkDataCollected(processesData, cpuFreqData)
-		Detach()
-
+		checkDataCollected(processesData)
 	})
 })

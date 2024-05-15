@@ -19,51 +19,31 @@ limitations under the License.
 
 package attacher
 
-import "github.com/sustainable-computing-io/kepler/pkg/config"
+type stubAttacher struct{}
 
-const (
-	CPUCycleLabel       = config.CPUCycle
-	CPURefCycleLabel    = config.CPURefCycle
-	CPUInstructionLabel = config.CPUInstruction
-	CacheMissLabel      = config.CacheMiss
-	TaskClockLabel      = config.TaskClock
+func NewAttacher() (Attacher, error) {
+	return &stubAttacher{}, nil
+}
 
-	IRQNetTX = 2
-	IRQNetRX = 3
-	IRQBlock = 4
-
-	TableProcessName = "processes"
-	TableCPUFreqName = "cpu_freq_array"
-	MapSize          = 10240
-	CPUNumSize       = 128
-)
-
-var (
-	HardwareCountersEnabled = true
-	BpfPerfArrayPrefix      = "_event_reader"
-	PerfEvents              = map[string][]int{}
-	SoftIRQEvents           = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
-)
-
-func GetEnabledBPFHWCounters() []string {
+func (a *stubAttacher) GetEnabledBPFHWCounters() []string {
 	return []string{}
 }
 
-func GetEnabledBPFSWCounters() []string {
+func (a *stubAttacher) GetEnabledBPFSWCounters() []string {
 	return []string{}
 }
 
-func Attach() (interface{}, error) {
+func (a *stubAttacher) Detach() {
+}
+
+func (a *stubAttacher) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
 	return nil, nil
 }
 
-func Detach() {
-}
-
-func CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
+func (a *stubAttacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
 	return nil, nil
 }
 
-func CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
-	return nil, nil
+func (a *stubAttacher) HardwareCountersEnabled() bool {
+	return false
 }

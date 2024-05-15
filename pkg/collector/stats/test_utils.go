@@ -94,7 +94,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 	vmID := "vm" + strconv.Itoa(idx)
 	command := "command" + strconv.Itoa(idx)
 	uintPid := uint64(idx)
-	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command)
+	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command, true)
 	// counter - attacher package
 	processMetrics.ResourceUsage[config.CPUCycle].SetDeltaStat(MockedSocketID, 30000)
 	processMetrics.ResourceUsage[config.CPUInstruction].SetDeltaStat(MockedSocketID, 30000)
@@ -106,7 +106,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 
 // CreateMockedNodeStats creates a node metric with power consumption and add the process resource utilization
 func CreateMockedNodeStats() NodeStats {
-	nodeMetrics := NewNodeStats()
+	nodeMetrics := NewNodeStats(true)
 	// add power metrics
 	// add first values to be the idle power
 	nodeMetrics.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(MockedSocketID, 5000) // mili joules

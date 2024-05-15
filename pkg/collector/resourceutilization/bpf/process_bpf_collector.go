@@ -20,7 +20,7 @@ import "C"
 import (
 	"unsafe"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type ProcessBPFMetrics = attacher.ProcessBPFMetrics
+type ProcessBPFMetrics = bpfAttacher.ProcessBPFMetrics
 
 // update software counter metrics
 func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats) {
@@ -40,7 +40,7 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 	processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
 	processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 	// update IRQ vector. Soft IRQ events has the events ordered
-	for i, event := range attacher.SoftIRQEvents {
+	for i, event := range bpfAttacher.SoftIRQEvents {
 		processStats[key].ResourceUsage[event].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[i]))
 	}
 }
@@ -75,7 +75,7 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 }
 
 // UpdateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
+func UpdateProcessBPFMetrics(attacher bpfAttacher.Attacher, processStats map[uint64]*stats.ProcessStats) {
 	processesData, err := attacher.CollectProcesses()
 	if err != nil {
 		klog.Errorln("could not collect ebpf metrics")
@@ -118,7 +118,7 @@ func UpdateProcessBPFMetrics(processStats map[uint64]*stats.ProcessStats) {
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm)
+			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, attacher.HardwareCountersEnabled())
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm

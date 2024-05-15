@@ -67,7 +67,7 @@ var _ = Describe("ProcessPower", func() {
 			os.Setenv("MODEL_CONFIG", configStr)
 
 			// getEstimatorMetrics
-			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, true)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power
@@ -102,7 +102,7 @@ var _ = Describe("ProcessPower", func() {
 			os.Setenv("MODEL_CONFIG", configStr)
 
 			// getEstimatorMetrics
-			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, true)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power

@@ -43,3 +43,6 @@ local-dev-cluster
 
 # object files
 *.o
+
+# test coverage
+coverage.out
