@@ -5,7 +5,7 @@ Version:        %{getenv:_VERSION_}
 Release:        %{getenv:_RELEASE_}
 Summary:        Containerized Kepler
 
-License:        Apache License 2.0
+License:        GPLv2+ and Apache-2.0 and BSD
 URL:            https://github.com/sustainable-computing-io/kepler/
 Source0:        kepler.tar.gz
 
@@ -31,5 +31,8 @@ install -p -m644 ./packaging/rpm/container-kepler.service %{buildroot}%{_unitdir
 %systemd_post container-kepler.service
 
 %files
-%license LICENSE
+%license LICENSE-APACHE
+%license LICENSE-BSD2
+%license LICENSE-GPL2
+
 %{_unitdir}/container-kepler.service
