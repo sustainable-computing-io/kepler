@@ -1,6 +1,7 @@
 # This workflow would be run on sustainable-computing-io/kepler only.
 name: Scheduled build
 on:
+  workflow_dispatch:
   branch_protection_rule:
   schedule:
     - cron: "12 9 * * *"
