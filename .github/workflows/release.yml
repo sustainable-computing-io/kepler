@@ -110,21 +110,6 @@ jobs:
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
 
-  changelog:
-    categories:
-      - title: 🏕 Features
-        labels:
-          - '^feat.*'
-      - title: 🧑‍💻 Dev
-        labels:
-          - '^dev.*'
-      - title: 🔧 Fix
-        labels:
-          - '^fix.*'
-      - title: 👒 Chores
-        labels:
-          - '^chore.*'
-
   releasepage:
     name: download Kepler image SBOM
     needs: [push-image]
