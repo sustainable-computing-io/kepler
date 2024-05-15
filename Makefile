@@ -263,9 +263,9 @@ container_test:
 
 VERBOSE ?= 0
 TMPDIR := $(shell mktemp -d)
-TEST_PKGS := $(shell go list ./... | grep -v bpfassets | grep -v e2e)
+TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list ./... | grep bpfassets)
+SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.

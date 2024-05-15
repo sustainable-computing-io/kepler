@@ -17,11 +17,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package attacher
+package bpf
 
 type stubAttacher struct{}
 
-func NewAttacher() (Attacher, error) {
+func NewExporter() (Exporter, error) {
 	return &stubAttacher{}, nil
 }
 

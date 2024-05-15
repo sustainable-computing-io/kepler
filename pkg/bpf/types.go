@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package attacher
+package bpf
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -22,7 +22,7 @@ import (
 
 var SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
 
-type Attacher interface {
+type Exporter interface {
 	HardwareCountersEnabled() bool
 	Detach()
 	CollectProcesses() ([]ProcessBPFMetrics, error)

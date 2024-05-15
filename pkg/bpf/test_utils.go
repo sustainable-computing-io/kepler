@@ -1,24 +1,24 @@
-package attacher
+package bpf
 
 import "github.com/sustainable-computing-io/kepler/pkg/config"
 
-type mockAttacher struct {
+type mockExporter struct {
 	hardwareCountersEnabled bool
 }
 
-func NewMockAttacher(hardwareCountersEnabled bool) Attacher {
-	return &mockAttacher{
+func NewMockExporter(hardwareCountersEnabled bool) Exporter {
+	return &mockExporter{
 		hardwareCountersEnabled: hardwareCountersEnabled,
 	}
 }
 
-func (m *mockAttacher) HardwareCountersEnabled() bool {
+func (m *mockExporter) HardwareCountersEnabled() bool {
 	return m.hardwareCountersEnabled
 }
 
-func (m *mockAttacher) Detach() {}
+func (m *mockExporter) Detach() {}
 
-func (m *mockAttacher) CollectProcesses() ([]ProcessBPFMetrics, error) {
+func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
 	return []ProcessBPFMetrics{
 		{
 			CGroupID:       0,
@@ -36,18 +36,18 @@ func (m *mockAttacher) CollectProcesses() ([]ProcessBPFMetrics, error) {
 	}, nil
 }
 
-func (m *mockAttacher) CollectCPUFreq() (map[int32]uint64, error) {
+func (m *mockExporter) CollectCPUFreq() (map[int32]uint64, error) {
 	return map[int32]uint64{0: 0}, nil
 }
 
-func (m *mockAttacher) GetEnabledBPFHWCounters() []string {
+func (m *mockExporter) GetEnabledBPFHWCounters() []string {
 	if !m.hardwareCountersEnabled {
 		return []string{}
 	}
 	return []string{config.CPUCycle, config.CPUInstruction, config.CacheMiss, config.TaskClock}
 }
 
-func (m *mockAttacher) GetEnabledBPFSWCounters() []string {
+func (m *mockExporter) GetEnabledBPFSWCounters() []string {
 	swCounters := []string{config.CPUTime, config.TaskClock, config.PageCacheHit}
 	if config.ExposeIRQCounterMetrics {
 		swCounters = append(swCounters, SoftIRQEvents...)

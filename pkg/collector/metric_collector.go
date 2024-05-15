@@ -23,11 +23,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	cgroup_api "github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/energy"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/accelerator"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
+	resourceBpf "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
 	cgroup_collector "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -59,16 +59,16 @@ type Collector struct {
 	VMStats map[string]*stats.VMStats
 
 	// Attacher handles the attachment of the bpf probes
-	attacher attacher.Attacher
+	bpfExporter bpf.Exporter
 }
 
-func NewCollector(bpfAttacher attacher.Attacher) *Collector {
+func NewCollector(bpfExporter bpf.Exporter) *Collector {
 	c := &Collector{
-		NodeStats:      *stats.NewNodeStats(bpfAttacher.HardwareCountersEnabled()),
+		NodeStats:      *stats.NewNodeStats(bpfExporter.HardwareCountersEnabled()),
 		ContainerStats: map[string]*stats.ContainerStats{},
 		ProcessStats:   map[uint64]*stats.ProcessStats{},
 		VMStats:        map[string]*stats.VMStats{},
-		attacher:       bpfAttacher,
+		bpfExporter:    bpfExporter,
 	}
 	return c
 }
@@ -88,7 +88,7 @@ func (c *Collector) Initialize() error {
 		stats.ProcessFeaturesNames,
 		stats.NodeMetadataFeatureNames,
 		stats.NodeMetadataFeatureValues,
-		c.attacher.HardwareCountersEnabled(),
+		c.bpfExporter.HardwareCountersEnabled(),
 	)
 
 	return nil
@@ -163,8 +163,8 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 // updateNodeAvgCPUFrequencyFromEBPF updates the average CPU frequency in each core
 func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 	// update the cpu frequency using hardware counters when available because reading files can be very expensive
-	if config.IsExposeCPUFrequencyMetricsEnabled() && c.attacher.HardwareCountersEnabled() {
-		cpuFreq, err := c.attacher.CollectCPUFreq()
+	if config.IsExposeCPUFrequencyMetricsEnabled() && c.bpfExporter.HardwareCountersEnabled() {
+		cpuFreq, err := c.bpfExporter.CollectCPUFreq()
 		if err == nil {
 			for cpu, freq := range cpuFreq {
 				c.NodeStats.ResourceUsage[config.CPUFrequency].SetDeltaStat(fmt.Sprintf("%d", cpu), freq)
@@ -177,7 +177,7 @@ func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.IsExposeQATMetricsEnabled() && qat.IsQATCollectionSupported() {
-		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.attacher.HardwareCountersEnabled()))
+		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfExporter.HardwareCountersEnabled()))
 	}
 	if config.ExposeCPUFrequencyMetrics {
 		c.updateNodeAvgCPUFrequencyFromEBPF()
@@ -188,9 +188,9 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	defer wg.Done()
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
-	bpf.UpdateProcessBPFMetrics(c.attacher, c.ProcessStats)
+	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.attacher.HardwareCountersEnabled())
+		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfExporter.HardwareCountersEnabled())
 	}
 }
 
@@ -230,7 +230,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.attacher.HardwareCountersEnabled())
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfExporter.HardwareCountersEnabled())
 						}
 						c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 						foundVM[process.VMID] = true
@@ -315,7 +315,7 @@ func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.attacher.HardwareCountersEnabled())
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfExporter.HardwareCountersEnabled())
 						}
 						c.VMStats[process.VMID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 					}

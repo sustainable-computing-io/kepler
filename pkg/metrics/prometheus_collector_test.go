@@ -30,7 +30,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	bpfAttacher "github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -70,8 +70,8 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		processStats := stats.CreateMockedProcessStats(2)
 		nodeStats := stats.CreateMockedNodeStats()
 
-		attacher := bpfAttacher.NewMockAttacher(true)
-		metricCollector := collector.NewCollector(attacher)
+		bpfExporter := bpf.NewMockExporter(true)
+		metricCollector := collector.NewCollector(bpfExporter)
 		metricCollector.ProcessStats = processStats
 		metricCollector.NodeStats = nodeStats
 		// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
