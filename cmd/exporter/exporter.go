@@ -110,7 +110,7 @@ func main() {
 	}
 	defer bpfExporter.Detach()
 
-	stats.InitAvailableParamAndMetrics(bpfExporter.GetEnabledBPFHWCounters(), bpfExporter.GetEnabledBPFSWCounters())
+	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")

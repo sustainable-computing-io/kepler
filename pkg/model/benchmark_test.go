@@ -33,7 +33,7 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics
-	bpfExporter := bpf.NewMockExporter(true)
+	bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 	metricCollector := collector.NewCollector(bpfExporter)
 
 	// create processes
@@ -43,7 +43,8 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	metricCollector.AggregateProcessResourceUtilizationMetrics()
 
 	// The default estimator model is the ratio
-	model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, true)
+	bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
+	model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, bpfSupportedMetrics)
 
 	// update container and node metrics
 	b.ReportAllocs()

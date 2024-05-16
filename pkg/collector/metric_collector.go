@@ -58,17 +58,21 @@ type Collector struct {
 	// VMStats holds the aggregated processes metrics for all virtual machines
 	VMStats map[string]*stats.VMStats
 
-	// Attacher handles the attachment of the bpf probes
+	// bpfExporter handles gathering metrics from bpf probes
 	bpfExporter bpf.Exporter
+	// bpfSupportedMetrics holds the supported metrics by the bpf exporter
+	bpfSupportedMetrics bpf.SupportedMetrics
 }
 
 func NewCollector(bpfExporter bpf.Exporter) *Collector {
+	bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 	c := &Collector{
-		NodeStats:      *stats.NewNodeStats(bpfExporter.HardwareCountersEnabled()),
-		ContainerStats: map[string]*stats.ContainerStats{},
-		ProcessStats:   map[uint64]*stats.ProcessStats{},
-		VMStats:        map[string]*stats.VMStats{},
-		bpfExporter:    bpfExporter,
+		NodeStats:           *stats.NewNodeStats(bpfSupportedMetrics),
+		ContainerStats:      map[string]*stats.ContainerStats{},
+		ProcessStats:        map[uint64]*stats.ProcessStats{},
+		VMStats:             map[string]*stats.VMStats{},
+		bpfExporter:         bpfExporter,
+		bpfSupportedMetrics: bpfSupportedMetrics,
 	}
 	return c
 }
@@ -85,10 +89,10 @@ func (c *Collector) Initialize() error {
 	// For local estimator, there is endpoint provided, thus we should let
 	// model component decide whether/how to init
 	model.CreatePowerEstimatorModels(
-		stats.ProcessFeaturesNames,
+		stats.GetProcessFeatureNames(c.bpfSupportedMetrics),
 		stats.NodeMetadataFeatureNames,
 		stats.NodeMetadataFeatureValues,
-		c.bpfExporter.HardwareCountersEnabled(),
+		c.bpfSupportedMetrics,
 	)
 
 	return nil
@@ -163,7 +167,7 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 // updateNodeAvgCPUFrequencyFromEBPF updates the average CPU frequency in each core
 func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 	// update the cpu frequency using hardware counters when available because reading files can be very expensive
-	if config.IsExposeCPUFrequencyMetricsEnabled() && c.bpfExporter.HardwareCountersEnabled() {
+	if config.IsExposeCPUFrequencyMetricsEnabled() && c.bpfSupportedMetrics.HardwareCounters.Has(config.CPUFrequency) {
 		cpuFreq, err := c.bpfExporter.CollectCPUFreq()
 		if err == nil {
 			for cpu, freq := range cpuFreq {
@@ -177,7 +181,7 @@ func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.IsExposeQATMetricsEnabled() && qat.IsQATCollectionSupported() {
-		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfExporter.HardwareCountersEnabled()))
+		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfSupportedMetrics))
 	}
 	if config.ExposeCPUFrequencyMetrics {
 		c.updateNodeAvgCPUFrequencyFromEBPF()
@@ -190,7 +194,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfExporter.HardwareCountersEnabled())
+		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 	}
 }
 
@@ -230,7 +234,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfExporter.HardwareCountersEnabled())
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfSupportedMetrics)
 						}
 						c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 						foundVM[process.VMID] = true
@@ -315,7 +319,7 @@ func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfExporter.HardwareCountersEnabled())
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfSupportedMetrics)
 						}
 						c.VMStats[process.VMID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 					}

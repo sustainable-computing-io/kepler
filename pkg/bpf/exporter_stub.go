@@ -19,18 +19,19 @@ limitations under the License.
 
 package bpf
 
+import "k8s.io/apimachinery/pkg/util/sets"
+
 type stubAttacher struct{}
 
 func NewExporter() (Exporter, error) {
 	return &stubAttacher{}, nil
 }
 
-func (a *stubAttacher) GetEnabledBPFHWCounters() []string {
-	return []string{}
-}
-
-func (a *stubAttacher) GetEnabledBPFSWCounters() []string {
-	return []string{}
+func (a *stubAttacher) SupportedMetrics() SupportedMetrics {
+	return SupportedMetrics{
+		HardwareCounters: sets.New[string](),
+		SoftwareCounters: sets.New[string](),
+	}
 }
 
 func (a *stubAttacher) Detach() {

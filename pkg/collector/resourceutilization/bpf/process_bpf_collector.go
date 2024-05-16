@@ -33,22 +33,32 @@ import (
 type ProcessBPFMetrics = bpf.ProcessBPFMetrics
 
 // update software counter metrics
-func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats) {
+func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
 	// update ebpf metrics
 	// first update CPU time and Page Cache Hit
-	processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime)
-	processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
-	processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
-	// update IRQ vector. Soft IRQ events has the events ordered
-	for i, event := range bpf.SoftIRQEvents {
-		processStats[key].ResourceUsage[event].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[i]))
+	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
+		switch counterKey {
+		case config.CPUTime:
+			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime)
+		case config.TaskClock:
+			processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
+		case config.PageCacheHit:
+			processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
+		case config.IRQNetTXLabel:
+			processStats[key].ResourceUsage[config.IRQNetTXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQNetTX]))
+		case config.IRQNetRXLabel:
+			processStats[key].ResourceUsage[config.IRQNetRXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQNetRX]))
+		case config.IRQBlockLabel:
+			processStats[key].ResourceUsage[config.IRQBlockLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQBlock]))
+		default:
+			klog.Errorf("counter %s is not supported\n", counterKey)
+		}
 	}
 }
 
 // update hardware counter metrics
-func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats) {
-	// update HW counters
-	for _, counterKey := range stats.AvailableBPFHWCounters {
+func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
+	for counterKey := range bpfSupportedMetrics.HardwareCounters {
 		var val uint64
 		var event string
 		switch counterKey {
@@ -115,10 +125,11 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 			mapKey = 1
 		}
 
+		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, bpfExporter.HardwareCountersEnabled())
+			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, bpfSupportedMetrics)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm
@@ -126,7 +137,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		// when the process metrics are updated, reset the idle counter
 		pStat.IdleCounter = 0
 
-		updateSWCounters(mapKey, &ct, processStats)
-		updateHWCounters(mapKey, &ct, processStats)
+		updateSWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
+		updateHWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
 	}
 }

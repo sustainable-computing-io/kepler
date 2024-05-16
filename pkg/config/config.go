@@ -453,15 +453,8 @@ func GetModelConfigMap() map[string]string {
 	return configMap
 }
 
-func IsHCMetricsEnabled() bool {
-	return ExposeHardwareCounterMetrics
-}
 func IsCgroupMetricsEnabled() bool {
 	return ExposeCgroupMetrics
-}
-
-func IsIRQCounterMetricsEnabled() bool {
-	return ExposeIRQCounterMetrics
 }
 
 func SetGpuUsageMetric(metric string) {

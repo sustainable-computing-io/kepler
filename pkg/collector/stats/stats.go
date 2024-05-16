@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
@@ -27,10 +28,6 @@ import (
 )
 
 var (
-	// AvailableBPFSWCounters holds a list of eBPF counters that might be collected
-	AvailableBPFSWCounters []string
-	// AvailableBPFHWCounters holds a list of hardware counters that might be collected
-	AvailableBPFHWCounters []string
 	// AvailableCGroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
 	AvailableCGroupMetrics []string
 	// AvailableAbsEnergyMetrics holds a list of absolute energy metrics
@@ -39,8 +36,6 @@ var (
 	AvailableDynEnergyMetrics []string
 	// AvailableIdleEnergyMetrics holds a list of idle energy metrics
 	AvailableIdleEnergyMetrics []string
-	// CPUHardwareCounterEnabled defined if hardware counters should be accounted and exported
-	CPUHardwareCounterEnabled = false
 )
 
 type Stats struct {
@@ -49,7 +44,7 @@ type Stats struct {
 }
 
 // NewStats creates a new Stats instance
-func NewStats(hardwareCountersEnabled bool) *Stats {
+func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 	m := &Stats{
 		ResourceUsage: make(map[string]*types.UInt64StatCollection),
 		EnergyUsage:   make(map[string]*types.UInt64StatCollection),
@@ -66,8 +61,12 @@ func NewStats(hardwareCountersEnabled bool) *Stats {
 
 	// initialize the resource utilization metrics in the map
 	resMetrics := []string{}
-	resMetrics = append(resMetrics, AvailableBPFHWCounters...)
-	resMetrics = append(resMetrics, AvailableBPFSWCounters...)
+	for metricName := range bpfSupportedMetrics.HardwareCounters {
+		resMetrics = append(resMetrics, metricName)
+	}
+	for metricName := range bpfSupportedMetrics.SoftwareCounters {
+		resMetrics = append(resMetrics, metricName)
+	}
 	// CGroup metrics are deprecated, it will be removed in the future
 	resMetrics = append(resMetrics, AvailableCGroupMetrics...)
 	for _, metricName := range resMetrics {
@@ -83,7 +82,7 @@ func NewStats(hardwareCountersEnabled bool) *Stats {
 		m.ResourceUsage[config.QATUtilization] = types.NewUInt64StatCollection()
 	}
 
-	if config.IsExposeCPUFrequencyMetricsEnabled() && hardwareCountersEnabled {
+	if config.IsExposeCPUFrequencyMetricsEnabled() && bpfSupportedMetrics.HardwareCounters.Has(config.CPUFrequency) {
 		m.ResourceUsage[config.CPUFrequency] = types.NewUInt64StatCollection()
 	}
 

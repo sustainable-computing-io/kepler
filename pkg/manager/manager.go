@@ -43,15 +43,16 @@ type CollectorManager struct {
 
 func New(bpfExporter bpf.Exporter) *CollectorManager {
 	manager := &CollectorManager{}
+	supportedMetrics := bpfExporter.SupportedMetrics()
 	manager.StatsCollector = collector.NewCollector(bpfExporter)
-	manager.PrometheusCollector = exporter.NewPrometheusExporter()
+	manager.PrometheusCollector = exporter.NewPrometheusExporter(supportedMetrics)
 	// the collector and prometheusExporter share structures and collections
 	manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)
 	manager.PrometheusCollector.NewContainerCollector(manager.StatsCollector.ContainerStats)
 	manager.PrometheusCollector.NewVMCollector(manager.StatsCollector.VMStats)
 	manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
-	// configure the wather
-	manager.Watcher = kubernetes.NewObjListWatcher()
+	// configure the watcher
+	manager.Watcher = kubernetes.NewObjListWatcher(supportedMetrics)
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
 	manager.Watcher.ContainerStats = &manager.StatsCollector.ContainerStats
 	manager.Watcher.Run()

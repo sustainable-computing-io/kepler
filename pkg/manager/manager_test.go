@@ -12,7 +12,7 @@ import (
 var _ = Describe("Manager", func() {
 
 	It("Should work properly", func() {
-		bpfExporter := bpf.NewMockExporter(true)
+		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 		CollectorManager := New(bpfExporter)
 		err := CollectorManager.Start()
 		Expect(err).NotTo(HaveOccurred())
