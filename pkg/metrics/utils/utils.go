@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
@@ -42,32 +43,21 @@ func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, col
 	}
 }
 
-func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric) {
+func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric, bpfSupportedMetrics bpf.SupportedMetrics) {
 	// collect the BPF Software Counters
-	for _, collectorName := range consts.SCMetricNames {
+	for collectorName := range bpfSupportedMetrics.SoftwareCounters {
 		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 	}
-
-	if config.IsIRQCounterMetricsEnabled() {
-		for _, collectorName := range consts.IRQMetricNames {
-			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-		}
+	for collectorName := range bpfSupportedMetrics.HardwareCounters {
+		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 	}
-
-	// collect the BPF Hardware Counters
-	if config.IsHCMetricsEnabled() {
-		for _, collectorName := range consts.HCMetricNames {
-			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-		}
-	}
-
 	// collect the deprecated cGroup metrics, this metrics will be removed in the future
 	if config.IsCgroupMetricsEnabled() {
 		for _, collectorName := range consts.CGroupMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
-
+	klog.Info("Collecting GPU metrics")
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for _, collectorName := range consts.GPUMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
@@ -138,6 +128,10 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 				collect(ch, collector, value, labelValues)
 			}
 		} else {
+			if _, exist := container.ResourceUsage[metricName]; !exist {
+				klog.Errorf("ContainerStats %s does not have metric %s\n", container.ContainerID, metricName)
+				return
+			}
 			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
 			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
 			collect(ch, collector, value, labelValues)

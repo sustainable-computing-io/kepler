@@ -18,17 +18,29 @@ package bpf
 
 import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var SoftIRQEvents = []string{config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel}
+const (
+	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
+	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
+
+	// IRQ vector to IRQ number
+	IRQNetTX = 2
+	IRQNetRX = 3
+	IRQBlock = 4
+)
 
 type Exporter interface {
-	HardwareCountersEnabled() bool
+	SupportedMetrics() SupportedMetrics
 	Detach()
 	CollectProcesses() ([]ProcessBPFMetrics, error)
 	CollectCPUFreq() (map[int32]uint64, error)
-	GetEnabledBPFHWCounters() []string
-	GetEnabledBPFSWCounters() []string
+}
+
+type SupportedMetrics struct {
+	HardwareCounters sets.Set[string]
+	SoftwareCounters sets.Set[string]
 }
 
 // must be in sync with bpf program

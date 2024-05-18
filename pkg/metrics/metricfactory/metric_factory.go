@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
@@ -65,30 +66,18 @@ func energyMetricsPromDesc(context, name, source string) (desc *prometheus.Desc)
 	return MetricsPromDesc(context, name, consts.EnergyMetricNameSuffix, source, labels)
 }
 
-func HCMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+func HCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsHCMetricsEnabled() {
-		for _, name := range consts.HCMetricNames {
-			descriptions[name] = resMetricsPromDesc(context, name, "bpf")
-		}
-	}
-	return descriptions
-}
-
-func SCMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
-	descriptions = make(map[string]*prometheus.Desc)
-	for _, name := range consts.SCMetricNames {
+	for name := range bpfSupportedMetrics.HardwareCounters {
 		descriptions[name] = resMetricsPromDesc(context, name, "bpf")
 	}
 	return descriptions
 }
 
-func IRQMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsIRQCounterMetricsEnabled() {
-		for _, name := range consts.IRQMetricNames {
-			descriptions[name] = resMetricsPromDesc(context, name, "bpf")
-		}
+	for name := range bpfSupportedMetrics.SoftwareCounters {
+		descriptions[name] = resMetricsPromDesc(context, name, "bpf")
 	}
 	return descriptions
 }

@@ -39,10 +39,11 @@ func newMockCollector(mockAttacher bpf.Exporter) *Collector {
 var _ = Describe("Test Collector Unit", func() {
 
 	It("Get container power", func() {
-		bpfExporter := bpf.NewMockExporter(true)
+		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 		metricCollector := newMockCollector(bpfExporter)
 		// The default estimator model is the ratio
-		model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames, stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, false)
+		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), stats.NodeMetadataFeatureNames, stats.NodeMetadataFeatureValues, bpfSupportedMetrics)
 		// update container and node metrics
 		metricCollector.UpdateProcessEnergyUtilizationMetrics()
 		metricCollector.AggregateProcessEnergyUtilizationMetrics()
@@ -56,7 +57,7 @@ var _ = Describe("Test Collector Unit", func() {
 	})
 
 	It("HandleInactiveContainers without error", func() {
-		bpfExporter := bpf.NewMockExporter(true)
+		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 		metricCollector := newMockCollector(bpfExporter)
 		foundContainer := make(map[string]bool)
 		foundContainer["container1"] = true

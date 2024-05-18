@@ -1,19 +1,46 @@
 package bpf
 
-import "github.com/sustainable-computing-io/kepler/pkg/config"
+import (
+	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"k8s.io/apimachinery/pkg/util/sets"
+)
 
 type mockExporter struct {
-	hardwareCountersEnabled bool
+	softwareCounters sets.Set[string]
+	hardwareCounters sets.Set[string]
 }
 
-func NewMockExporter(hardwareCountersEnabled bool) Exporter {
-	return &mockExporter{
-		hardwareCountersEnabled: hardwareCountersEnabled,
+func DefaultSupportedMetrics() SupportedMetrics {
+	return SupportedMetrics{
+		HardwareCounters: defaultHardwareCounters(),
+		SoftwareCounters: defaultSoftwareCounters(),
 	}
 }
 
-func (m *mockExporter) HardwareCountersEnabled() bool {
-	return m.hardwareCountersEnabled
+func defaultHardwareCounters() sets.Set[string] {
+	return sets.New(config.CPUCycle, config.CPUInstruction, config.CacheMiss, config.TaskClock)
+}
+
+func defaultSoftwareCounters() sets.Set[string] {
+	swCounters := sets.New(config.CPUTime, config.PageCacheHit)
+	if config.ExposeIRQCounterMetrics {
+		swCounters.Insert(config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel)
+	}
+	return swCounters
+}
+
+func NewMockExporter(bpfSupportedMetrics SupportedMetrics) Exporter {
+	return &mockExporter{
+		softwareCounters: bpfSupportedMetrics.SoftwareCounters.Clone(),
+		hardwareCounters: bpfSupportedMetrics.HardwareCounters.Clone(),
+	}
+}
+
+func (m *mockExporter) SupportedMetrics() SupportedMetrics {
+	return SupportedMetrics{
+		HardwareCounters: m.hardwareCounters,
+		SoftwareCounters: m.softwareCounters,
+	}
 }
 
 func (m *mockExporter) Detach() {}
@@ -38,19 +65,4 @@ func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
 
 func (m *mockExporter) CollectCPUFreq() (map[int32]uint64, error) {
 	return map[int32]uint64{0: 0}, nil
-}
-
-func (m *mockExporter) GetEnabledBPFHWCounters() []string {
-	if !m.hardwareCountersEnabled {
-		return []string{}
-	}
-	return []string{config.CPUCycle, config.CPUInstruction, config.CacheMiss, config.TaskClock}
-}
-
-func (m *mockExporter) GetEnabledBPFSWCounters() []string {
-	swCounters := []string{config.CPUTime, config.TaskClock, config.PageCacheHit}
-	if config.ExposeIRQCounterMetrics {
-		swCounters = append(swCounters, SoftIRQEvents...)
-	}
-	return swCounters
 }
