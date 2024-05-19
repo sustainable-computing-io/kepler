@@ -1,0 +1,45 @@
+name: Equinix Metal Action
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Create-runner:
+    name: "Create Runner"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: metal-runner-action
+        uses: equinix-labs/metal-action-runner@v0.1.1
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
+          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
+          metro: "da"
+          plan: "c3.small.x86"
+          os: "ubuntu_20_04"
+
+  Install-Kepler:
+    name: "Install Kepler"
+    needs: Create-runner
+    runs-on: self-hosted
+    outputs:
+      runner-name: ${{ runner.name }}
+
+    steps:
+      - run: |
+          echo "This is runner: ${{ runner.name }}"
+          echo "Running on ${{ runner.arch }} ${{ runner.os }}"
+
+  Cleanup:
+    name: "Cleanup"
+    runs-on: ubuntu-latest
+    needs: [Install-Kepler]
+
+    steps:
+      - name: delete runner
+        uses: rootfs/metal-delete-action@main
+        with:
+          authToken: ${{ secrets.EQUINIX_API_TOKEN }}
+          projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
+          runnerName: ${{ needs.Install-Kepler.outputs.runner-name }}
