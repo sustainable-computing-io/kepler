@@ -78,7 +78,7 @@ jobs:
       - name: Dump event payload for debug
         run: cat $GITHUB_EVENT_PATH
       - name: Run SeineSailor
-        uses: SeineAI/SeineSailor@dev-action-only-do-not-merge-or-delete
+        uses: SeineAI/SeineSailor@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IBM_CLOUD_API_KEY: ${{ secrets.WATSONX_KEY }}
