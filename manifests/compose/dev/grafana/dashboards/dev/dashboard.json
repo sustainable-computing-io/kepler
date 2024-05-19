@@ -1710,36 +1710,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -1795,7 +1765,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job, mode) (rate(kepler_node_platform_joules_total[$__rate_interval]))",
+          "expr": "sum by(job, mode) (rate(kepler_node_platform_joules_total{job=\"dev\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -2173,36 +2143,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -2258,7 +2198,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job, mode) (rate(kepler_node_package_joules_total[$__rate_interval]))",
+          "expr": "sum by(job, mode) (rate(kepler_node_package_joules_total{job=\"dev\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -2649,46 +2589,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "dev: dynamic",
-                  "dev: idle"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -2721,7 +2621,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (job, mode) (rate(kepler_node_core_joules_total[$__rate_interval]))",
+          "expr": "sum by (job, mode) (rate(kepler_node_core_joules_total{job=\"dev\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -3099,36 +2999,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -3184,7 +3054,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (job, mode) (rate(kepler_node_dram_joules_total[$__rate_interval]))",
+          "expr": "sum by (job, mode) (rate(kepler_node_dram_joules_total{job=\"dev\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -3562,36 +3432,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -3647,7 +3487,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (job, mode) (rate(kepler_node_other_joules_total[$__rate_interval]))",
+          "expr": "sum by (job, mode) (rate(kepler_node_other_joules_total{job=\"dev\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -5195,36 +5035,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -5280,7 +5090,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(kepler_process_package_joules_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_package_joules_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -5634,36 +5444,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -5719,7 +5499,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(kepler_process_core_joules_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_core_joules_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -6073,36 +5853,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: idle"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "latest: dynamic"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -6158,7 +5908,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(kepler_process_dram_joules_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_dram_joules_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -6597,7 +6347,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(kepler_process_other_joules_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_other_joules_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{mode}}",
           "range": true,
@@ -6939,21 +6689,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/latest.*/"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -7007,7 +6742,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_process_cpu_instructions_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_cpu_instructions_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{command}} - {{source}}",
           "range": true,
@@ -7357,21 +7092,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/latest: .*/"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-purple",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -7425,7 +7145,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_process_cpu_cycles_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_cpu_cycles_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{command}} - {{source}}",
           "range": true,
@@ -7751,21 +7471,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/latest: .*/"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -7819,7 +7524,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_process_cache_miss_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_cache_miss_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{command}} - {{source}}",
           "range": true,
@@ -8145,21 +7850,6 @@
             ]
           },
           {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/latest: .*/"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
             "__systemRef": "hideSeriesFrom",
             "matcher": {
               "id": "byNames",
@@ -8213,7 +7903,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_process_bpf_cpu_time_ms_total{pid=\"${process}\"}[$__rate_interval])",
+          "expr": "rate(kepler_process_bpf_cpu_time_ms_total{job=\"dev\",pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "{{job}}: {{command}} - {{source}}",
           "range": true,
