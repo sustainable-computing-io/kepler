@@ -79,6 +79,7 @@ def stress(cfg: Validator, script_path: str):
     test_cases = TestCases(cfg.metal.vm, cfg.prometheus)
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
+    click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
         expected_query = test_case.expected_query
         actual_query = test_case.actual_query
@@ -87,13 +88,13 @@ def stress(cfg: Validator, script_path: str):
                                                         expected_query, 
                                                         actual_query)
 
-        # TODO: print what the values mean
-        click.secho("Validation results during stress test:")
+        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
+        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
         click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
-        click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="blue")
+        click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="red")
         click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
-        click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="red")
+        click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
         click.secho("---------------------------------------------------", fg="cyan")
 
 
