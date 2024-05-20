@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local"
 	"github.com/sustainable-computing-io/kepler/pkg/model/estimator/local/regressor"
@@ -73,9 +74,9 @@ type PowerModelInterface interface {
 }
 
 // CreatePowerEstimatorModels checks validity of power model and set estimate functions
-func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, bpfSupportedMetrics bpf.SupportedMetrics) {
 	config.InitModelConfigMap()
-	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
 	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
 	CreateNodePlatformPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	CreateNodeComponentPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)

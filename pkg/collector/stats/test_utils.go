@@ -19,6 +19,7 @@ package stats
 import (
 	"strconv"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
@@ -36,15 +37,6 @@ func SetMockedCollectorMetrics() {
 		klog.Fatalln(err)
 	}
 	// initialize the Available metrics since they are used to create a new processMetrics instance
-	AvailableBPFHWCounters = []string{
-		config.CPUCycle,
-		config.CPUInstruction,
-		config.CacheMiss,
-	}
-	AvailableBPFSWCounters = []string{
-		config.CPUTime,
-		config.PageCacheHit,
-	}
 	AvailableCGroupMetrics = []string{
 		config.CgroupfsMemory,
 		config.CgroupfsKernelMemory,
@@ -56,12 +48,6 @@ func SetMockedCollectorMetrics() {
 		config.CgroupfsWriteIO,
 		config.BlockDevicesIO,
 	}
-	// ProcessFeaturesNames is used by the nodeMetrics to extract the resource usage. Only the metrics in ProcessFeaturesNames will be used.
-	ProcessFeaturesNames = []string{}
-	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableBPFSWCounters...)
-	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableBPFHWCounters...)
-	ProcessFeaturesNames = append(ProcessFeaturesNames, AvailableCGroupMetrics...)
-
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
 		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
@@ -94,7 +80,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 	vmID := "vm" + strconv.Itoa(idx)
 	command := "command" + strconv.Itoa(idx)
 	uintPid := uint64(idx)
-	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command)
+	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command, bpf.DefaultSupportedMetrics())
 	// counter - attacher package
 	processMetrics.ResourceUsage[config.CPUCycle].SetDeltaStat(MockedSocketID, 30000)
 	processMetrics.ResourceUsage[config.CPUInstruction].SetDeltaStat(MockedSocketID, 30000)
@@ -106,7 +92,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 
 // CreateMockedNodeStats creates a node metric with power consumption and add the process resource utilization
 func CreateMockedNodeStats() NodeStats {
-	nodeMetrics := NewNodeStats()
+	nodeMetrics := NewNodeStats(bpf.DefaultSupportedMetrics())
 	// add power metrics
 	// add first values to be the idle power
 	nodeMetrics.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(MockedSocketID, 5000) // mili joules

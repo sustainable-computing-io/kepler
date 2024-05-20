@@ -109,7 +109,7 @@ jobs:
     secrets:
         username: ${{ secrets.BOT_NAME }}
         password: ${{ secrets.BOT_TOKEN }}
-    
+
   releasepage:
     name: download Kepler image SBOM
     needs: [push-image]
@@ -125,4 +125,3 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           files: ./sbom-kepler-${{ github.event.inputs.release }}.spdx.json
-          body_path: CHANGELOG.md

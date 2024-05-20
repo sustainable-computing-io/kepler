@@ -1,0 +1,14 @@
+changelog:
+  categories:
+    - title: 🏕 Features
+      labels:
+        - '^feat.*'
+    - title: 🧑‍💻 Dev
+      labels:
+        - '^dev.*'
+    - title: 🔧 Fix
+      labels:
+        - '^fix.*'
+    - title: 👒 Chores
+      labels:
+        - '^chore.*'

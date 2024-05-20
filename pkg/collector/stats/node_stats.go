@@ -19,6 +19,7 @@ package stats
 import (
 	"fmt"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -42,9 +43,9 @@ type NodeStats struct {
 	IdleResUtilization map[string]uint64
 }
 
-func NewNodeStats() *NodeStats {
+func NewNodeStats(bpfSupportedMetrics bpf.SupportedMetrics) *NodeStats {
 	return &NodeStats{
-		Stats:              *NewStats(),
+		Stats:              *NewStats(bpfSupportedMetrics),
 		IdleResUtilization: map[string]uint64{},
 	}
 }

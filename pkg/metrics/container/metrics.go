@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
@@ -41,14 +42,17 @@ type collector struct {
 
 	// Lock to syncronize the collector update with prometheus exporter
 	Mx *sync.Mutex
+
+	bpfSupportedMetrics bpf.SupportedMetrics
 }
 
-func NewContainerCollector(containerMetrics map[string]*stats.ContainerStats, mx *sync.Mutex) prometheus.Collector {
+func NewContainerCollector(containerMetrics map[string]*stats.ContainerStats, mx *sync.Mutex, bpfSupportedMetrics bpf.SupportedMetrics) prometheus.Collector {
 	c := &collector{
-		ContainerStats: containerMetrics,
-		descriptions:   make(map[string]*prometheus.Desc),
-		collectors:     make(map[string]metricfactory.PromMetric),
-		Mx:             mx,
+		ContainerStats:      containerMetrics,
+		descriptions:        make(map[string]*prometheus.Desc),
+		collectors:          make(map[string]metricfactory.PromMetric),
+		Mx:                  mx,
+		bpfSupportedMetrics: bpfSupportedMetrics,
 	}
 	c.initMetrics()
 	return c
@@ -59,15 +63,11 @@ func (c *collector) initMetrics() {
 	if !config.IsExposeContainerStatsEnabled() {
 		return
 	}
-	for name, desc := range metricfactory.HCMetricsPromDesc(context) {
+	for name, desc := range metricfactory.HCMetricsPromDesc(context, c.bpfSupportedMetrics) {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
 	}
-	for name, desc := range metricfactory.SCMetricsPromDesc(context) {
-		c.descriptions[name] = desc
-		c.collectors[name] = metricfactory.NewPromCounter(desc)
-	}
-	for name, desc := range metricfactory.IRQMetricsPromDesc(context) {
+	for name, desc := range metricfactory.SCMetricsPromDesc(context, c.bpfSupportedMetrics) {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
 	}
@@ -99,8 +99,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.Mx.Lock()
 	for _, container := range c.ContainerStats {
 		utils.CollectEnergyMetrics(ch, container, c.collectors)
-		utils.CollectResUtilizationMetrics(ch, container, c.collectors)
-
+		utils.CollectResUtilizationMetrics(ch, container, c.collectors, c.bpfSupportedMetrics)
 		// update container total joules
 		c.collectTotalEnergyMetrics(ch, container)
 	}

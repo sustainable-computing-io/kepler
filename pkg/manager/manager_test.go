@@ -6,15 +6,16 @@ package manager
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 )
 
 var _ = Describe("Manager", func() {
 
 	It("Should work properly", func() {
-		CollectorManager := New()
+		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
+		CollectorManager := New(bpfExporter)
 		err := CollectorManager.Start()
-		// for no bcc tag in CI
-		Expect(err).To(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 })

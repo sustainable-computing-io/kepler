@@ -38,4 +38,4 @@ jobs:
           file: ./build/Dockerfile.builder
           platforms: linux/amd64,linux/arm64,linux/s390x
           push: ${{ inputs.pushImage }}
-          tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
+          tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0

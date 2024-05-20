@@ -19,6 +19,7 @@ package manager
 import (
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
@@ -40,17 +41,18 @@ type CollectorManager struct {
 	Watcher *kubernetes.ObjListWatcher
 }
 
-func New() *CollectorManager {
+func New(bpfExporter bpf.Exporter) *CollectorManager {
 	manager := &CollectorManager{}
-	manager.StatsCollector = collector.NewCollector()
-	manager.PrometheusCollector = exporter.NewPrometheusExporter()
+	supportedMetrics := bpfExporter.SupportedMetrics()
+	manager.StatsCollector = collector.NewCollector(bpfExporter)
+	manager.PrometheusCollector = exporter.NewPrometheusExporter(supportedMetrics)
 	// the collector and prometheusExporter share structures and collections
 	manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)
 	manager.PrometheusCollector.NewContainerCollector(manager.StatsCollector.ContainerStats)
 	manager.PrometheusCollector.NewVMCollector(manager.StatsCollector.VMStats)
 	manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
-	// configure the wather
-	manager.Watcher = kubernetes.NewObjListWatcher()
+	// configure the watcher
+	manager.Watcher = kubernetes.NewObjListWatcher(supportedMetrics)
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
 	manager.Watcher.ContainerStats = &manager.StatsCollector.ContainerStats
 	manager.Watcher.Run()

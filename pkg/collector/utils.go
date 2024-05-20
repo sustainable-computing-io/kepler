@@ -36,7 +36,7 @@ func (c *Collector) createContainerStatsIfNotExist(containerID string, cGroupID,
 		if !kubernetes.IsWatcherEnabled {
 			info, _ := cgroup.GetContainerInfo(cGroupID, pid, withCGroupID)
 			c.ContainerStats[containerID] = stats.NewContainerStats(
-				info.ContainerName, info.PodName, info.Namespace, containerID)
+				info.ContainerName, info.PodName, info.Namespace, containerID, c.bpfSupportedMetrics)
 		} else {
 			name := utils.SystemProcessName
 			namespace := utils.SystemProcessNamespace
@@ -47,7 +47,7 @@ func (c *Collector) createContainerStatsIfNotExist(containerID string, cGroupID,
 			}
 			// We feel the info with generic values because the watcher will eventually update it.
 			c.ContainerStats[containerID] = stats.NewContainerStats(
-				name, name, namespace, containerID)
+				name, name, namespace, containerID, c.bpfSupportedMetrics)
 		}
 	} else {
 		// TODO set only the most resource intensive PID for the container

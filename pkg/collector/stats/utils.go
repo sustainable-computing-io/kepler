@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpfassets/attacher"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 
@@ -54,14 +54,11 @@ type CPUS struct {
 }
 
 func InitAvailableParamAndMetrics() {
-	AvailableBPFHWCounters = attacher.GetEnabledBPFHWCounters()
-	AvailableBPFSWCounters = attacher.GetEnabledBPFSWCounters()
 	AvailableCGroupMetrics = []string{
 		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
 		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
 		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
 	}
-	CPUHardwareCounterEnabled = isCounterStatEnabled(attacher.CPUInstructionLabel)
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
 		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
@@ -74,22 +71,19 @@ func InitAvailableParamAndMetrics() {
 		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
 		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
 	}
-
-	// defined in utils to init metrics
-	setEnabledProcessMetrics()
 }
 
-func getProcessFeatureNames() []string {
+func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	var metrics []string
 	// bpf software counter metrics
-	metrics = append(metrics, AvailableBPFSWCounters...)
-	klog.V(3).Infof("Available ebpf software counters: %v", AvailableBPFSWCounters)
-
-	// bpf hardware counter metrics
-	if config.IsHCMetricsEnabled() {
-		metrics = append(metrics, AvailableBPFHWCounters...)
-		klog.V(3).Infof("Available ebpf hardware counters: %v", AvailableBPFHWCounters)
+	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
+		metrics = append(metrics, counterKey)
 	}
+	// bpf hardware counter metrics
+	for counterKey := range bpfSupportedMetrics.HardwareCounters {
+		metrics = append(metrics, counterKey)
+	}
+	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
@@ -104,20 +98,6 @@ func getProcessFeatureNames() []string {
 		klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
 	}
 	return metrics
-}
-
-func setEnabledProcessMetrics() {
-	ProcessMetricNames = []string{}
-	ProcessFeaturesNames = getProcessFeatureNames()
-}
-
-func isCounterStatEnabled(label string) bool {
-	for _, counter := range AvailableBPFHWCounters {
-		if counter == label {
-			return true
-		}
-	}
-	return false
 }
 
 func GetNodeName() string {

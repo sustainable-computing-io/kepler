@@ -2,7 +2,7 @@
 
 ![GitHub Workflow Status (event)](https://img.shields.io/github/actions/workflow/status/sustainable-computing-io/kepler/unit_test.yml?branch=main&label=CI)
 
-![Coverage](https://img.shields.io/badge/Coverage-49.5%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-47.5%25-yellow)
 [![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/7391/badge)](https://bestpractices.coreinfrastructure.org/projects/7391)[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sustainable-computing-io/kepler/badge)](https://securityscorecards.dev/viewer/?uri=github.com/sustainable-computing-io/kepler)
 <!--
 [![GoDoc](https://godoc.org/github.com/kubernetes/kube-state-metrics?status.svg)](https://godoc.org/github.com/kubernetes/kube-state-metrics)

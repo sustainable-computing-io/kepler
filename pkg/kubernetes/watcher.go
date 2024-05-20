@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
@@ -48,10 +49,11 @@ type ObjListWatcher struct {
 	// Lock to syncronize the collector update with the watcher
 	Mx *sync.Mutex
 
-	k8sCli       *kubernetes.Clientset
-	ResourceKind string
-	informer     cache.SharedInformer
-	stopChannel  chan struct{}
+	k8sCli              *kubernetes.Clientset
+	ResourceKind        string
+	informer            cache.SharedInformer
+	stopChannel         chan struct{}
+	bpfSupportedMetrics bpf.SupportedMetrics
 
 	// ContainerStats holds all container energy and resource usage metrics
 	ContainerStats *map[string]*stats.ContainerStats
@@ -81,11 +83,12 @@ func newK8sClient() *kubernetes.Clientset {
 	return clientset
 }
 
-func NewObjListWatcher() *ObjListWatcher {
+func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher {
 	w := &ObjListWatcher{
-		stopChannel:  make(chan struct{}),
-		k8sCli:       newK8sClient(),
-		ResourceKind: podResourceType,
+		stopChannel:         make(chan struct{}),
+		k8sCli:              newK8sClient(),
+		ResourceKind:        podResourceType,
+		bpfSupportedMetrics: bpfSupportedMetrics,
 	}
 	if w.k8sCli == nil || !config.EnableAPIServer {
 		return w
@@ -205,7 +208,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 			continue
 		}
 		if _, exist = (*w.ContainerStats)[containerID]; !exist {
-			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID)
+			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.bpfSupportedMetrics)
 		}
 		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
 		(*w.ContainerStats)[containerID].ContainerName = containers[j].Name

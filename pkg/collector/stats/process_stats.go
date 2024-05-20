@@ -18,13 +18,8 @@ package stats
 
 import (
 	"fmt"
-)
 
-var (
-	// ProcessMetricNames holds the list of names of the container metric
-	ProcessMetricNames []string
-	// ProcessFeaturesNames holds all the feature name of the container stats. This is specific for the machine-learning based models.
-	ProcessFeaturesNames []string
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 )
 
 type ProcessStats struct {
@@ -38,14 +33,14 @@ type ProcessStats struct {
 }
 
 // NewProcessStats creates a new ProcessStats instance
-func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string) *ProcessStats {
+func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string, bpfSupportedMetrics bpf.SupportedMetrics) *ProcessStats {
 	p := &ProcessStats{
 		PID:         pid,
 		CGroupID:    cGroupID,
 		ContainerID: containerID,
 		VMID:        vmID,
 		Command:     command,
-		Stats:       *NewStats(),
+		Stats:       *NewStats(bpfSupportedMetrics),
 	}
 	return p
 }

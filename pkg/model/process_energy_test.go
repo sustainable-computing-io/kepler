@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
@@ -67,7 +68,8 @@ var _ = Describe("ProcessPower", func() {
 			os.Setenv("MODEL_CONFIG", configStr)
 
 			// getEstimatorMetrics
-			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+			bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
+			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power
@@ -102,7 +104,8 @@ var _ = Describe("ProcessPower", func() {
 			os.Setenv("MODEL_CONFIG", configStr)
 
 			// getEstimatorMetrics
-			CreatePowerEstimatorModels(stats.ProcessFeaturesNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+			bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
+			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power

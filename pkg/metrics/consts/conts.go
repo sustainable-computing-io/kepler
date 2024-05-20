@@ -70,21 +70,6 @@ var (
 		config.IdleEnergyInGPU,
 		config.IdleEnergyInPlatform,
 	}
-	HCMetricNames = []string{
-		config.CPUCycle,
-		config.CPUInstruction,
-		config.CacheMiss,
-	}
-	SCMetricNames = []string{
-		config.CPUTime,
-		config.TaskClock,
-		config.PageCacheHit,
-	}
-	IRQMetricNames = []string{
-		config.IRQNetTXLabel,
-		config.IRQNetRXLabel,
-		config.IRQBlockLabel,
-	}
 	CGroupMetricNames = []string{
 		config.CgroupfsCPU,
 		config.CgroupfsMemory,

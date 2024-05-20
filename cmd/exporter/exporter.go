@@ -24,6 +24,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -53,7 +54,6 @@ var (
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
-	enabledBPFBatchDelete        = flag.Bool("enable-bpf-batch-del", true, "bpf map batch deletion can be enabled for backported kernels older than 5.6")
 	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
@@ -94,14 +94,6 @@ func main() {
 	config.SetKubeConfig(*kubeconfig)
 	config.SetEnableAPIServer(*apiserverEnabled)
 
-	// the ebpf batch deletion operation was introduced in linux kernel 5.6, which provides better performance to delete keys.
-	// but the user can enable it if the kernel has backported this functionality.
-	config.EnabledBPFBatchDelete = *enabledBPFBatchDelete
-	if config.KernelVersion >= 5.6 {
-		config.EnabledBPFBatchDelete = true
-	}
-	klog.Infof("EnabledBPFBatchDelete: %v", config.EnabledBPFBatchDelete)
-
 	// set redfish credential file path
 	if *redfishCredFilePath != "" {
 		config.SetRedfishCredFilePath(*redfishCredFilePath)
@@ -112,11 +104,16 @@ func main() {
 	components.InitPowerImpl()
 	platform.InitPowerImpl()
 
+	bpfExporter, err := bpf.NewExporter()
+	if err != nil {
+		klog.Fatalf("failed to create eBPF exporter: %v", err)
+	}
+	defer bpfExporter.Detach()
+
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
 		klog.Infof("Initializing the GPU collector")
-		var err error
 		// the GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
 		// therefore, we wait up to 1 min to allow the gpu operator initialize
 		for i := 0; i <= maxGPUInitRetry; i++ {
@@ -136,23 +133,21 @@ func main() {
 
 	if config.IsExposeQATMetricsEnabled() {
 		klog.Infof("Initializing the QAT collector")
-		err := qat.Init()
-		if err == nil {
+		if qatErr := qat.Init(); qatErr == nil {
 			defer qat.Shutdown()
 		} else {
-			klog.Infof("Failed to initialize the QAT collector: %v", err)
+			klog.Infof("Failed to initialize the QAT collector: %v", qatErr)
 		}
 	}
 
-	m := manager.New()
+	m := manager.New(bpfExporter)
 	reg := m.PrometheusCollector.RegisterMetrics()
-	defer m.StatsCollector.Destroy()
 	defer components.StopPower()
 
 	// starting a new gorotine to collect data and report metrics
 	// BPF is attached here
-	if err := m.Start(); err != nil {
-		klog.Infof("%s", fmt.Sprintf("failed to start : %v", err))
+	if startErr := m.Start(); startErr != nil {
+		klog.Infof("%s", fmt.Sprintf("failed to start : %v", startErr))
 	}
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
@@ -165,7 +160,7 @@ func main() {
 	))
 	http.HandleFunc("/healthz", healthProbe)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(`<html>
+		_, httpErr := w.Write([]byte(`<html>
                         <head><title>Energy Stats Exporter</title></head>
                         <body>
                         <h1>Energy Stats Exporter</h1>
@@ -173,7 +168,7 @@ func main() {
                         </body>
                         </html>`))
 		if err != nil {
-			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", err))
+			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", httpErr))
 		}
 	})
 
@@ -185,6 +180,6 @@ func main() {
 
 	klog.Infof(startedMsg, time.Since(start))
 	klog.Flush() // force flush to parse the start msg in the e2e test
-	err := <-ch
+	err = <-ch
 	klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", bindAddressConfig, err))
 }

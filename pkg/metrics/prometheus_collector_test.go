@@ -30,6 +30,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -69,14 +70,16 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		processStats := stats.CreateMockedProcessStats(2)
 		nodeStats := stats.CreateMockedNodeStats()
 
-		metricCollector := collector.NewCollector()
+		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
+		metricCollector := collector.NewCollector(bpfExporter)
 		metricCollector.ProcessStats = processStats
 		metricCollector.NodeStats = nodeStats
 		// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 		metricCollector.AggregateProcessResourceUtilizationMetrics()
 
 		// the collector and prometheusExporter share structures and collections
-		exporter := NewPrometheusExporter()
+		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
+		exporter := NewPrometheusExporter(bpfSupportedMetrics)
 		exporter.NewProcessCollector(metricCollector.ProcessStats)
 		exporter.NewContainerCollector(metricCollector.ContainerStats)
 		exporter.NewVMCollector(metricCollector.VMStats)
@@ -84,9 +87,10 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		nodeStats.UpdateDynEnergy()
 
-		model.CreatePowerEstimatorModels(stats.ProcessFeaturesNames,
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics),
 			stats.NodeMetadataFeatureNames,
-			stats.NodeMetadataFeatureValues)
+			stats.NodeMetadataFeatureValues,
+			bpfSupportedMetrics)
 		model.UpdateProcessEnergy(processStats, &nodeStats)
 
 		// get metrics from prometheus

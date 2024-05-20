@@ -1,0 +1,88 @@
+name: Review Bot
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  discussions: write
+
+on:
+  issues:
+    types: [ opened ]
+  issue_comment:
+    types: [ created ]
+  pull_request:
+  pull_request_target:
+    types: [ opened, synchronize, edited ]
+  pull_request_review_comment:
+    types: [ created ]
+  discussion:
+    types: [ created ]
+  discussion_comment:
+    types: [ created ]
+
+concurrency:
+  group:
+    ${{ github.repository }}-${{ github.event.number || github.head_ref ||
+    github.sha }}-${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  seinesailor:
+    # the github.event.pull_request.head.repo.fork is a boolean, it ensures that the pull_request_target event only
+    # runs from a forked repo
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork ||
+      (contains(github.event.comment.body, '@SeineSailor') && (
+        github.event_name == 'issue_comment' || 
+        github.event_name == 'pull_request_review_comment' ||
+        github.event_name == 'discussion_comment')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@SeineSailor')) ||
+      (github.event_name == 'discussion' && contains(github.event.discussion.body, '@SeineSailor'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for mention outside of quotes in comments
+        id: check_mention
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          echo "checking for mention outside of quotes and code blocks"
+          mention_outside_quotes=false
+          in_code_block=false
+          while IFS= read -r line; do
+            # Check for start or end of a code block
+            if [[ "$line" =~ ^\`\`\` ]]; then
+              if [[ "$in_code_block" = true ]]; then
+                in_code_block=false
+              else
+                in_code_block=true
+              fi
+            fi
+        
+            # Process lines that are not in a code block or quoted
+            if [[ "$in_code_block" = false && ! "$line" =~ ^\> ]]; then
+              if echo "$line" | grep -q '@SeineSailor'; then
+                mention_outside_quotes=true
+                break
+              fi
+            fi
+          done <<< "$COMMENT_BODY"
+          echo "mention_outside_quotes=$mention_outside_quotes" >> $GITHUB_ENV
+
+#      - name: Dump GitHub context for debug
+#        env:
+#          GITHUB_CONTEXT: ${{ toJson(github) }}
+#        run: |
+#          echo "$GITHUB_CONTEXT"
+      - name: Dump event payload for debug
+        run: cat $GITHUB_EVENT_PATH
+      - name: Run SeineSailor
+        uses: SeineAI/SeineSailor@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+          WATSONX_PROJECT_ID: ${{ secrets.WATSONX_PROJECT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        with:
+          debug: true
