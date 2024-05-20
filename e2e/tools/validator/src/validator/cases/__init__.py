@@ -6,14 +6,22 @@ from validator import config
 
 RAW_PROM_QUERIES = [
     {
-        "expected_query": "rate(kepler_process_package_joules_total \
-        {{job='metal', pid='{vm_pid}', mode='dynamic'}}[{interval}])",
+        "expected_query": "rate(kepler_process_package_joules_total{{job='metal', pid='{vm_pid}', mode='dynamic'}}[{interval}])",
         "actual_query": "rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])",
     },
-    # {
-    #     "expected_query": "",
-    #     "actual_query": "",
-    # },
+    {
+        "expected_query": "rate(kepler_process_platform_joules_total{{job='metal', pid='{vm_pid}', mode='dynamic'}}[{interval}])",
+        "actual_query": "rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])",
+    },
+    {
+        "expected_query": "rate(kepler_process_bpf_cpu_time_ms_total{{job='metal', pid='{vm_pid}'}}[{interval}])",
+        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_cpu_time_ms_total{{job='vm'}}[{interval}]))",
+    },
+    {
+        "expected_query": "rate(kepler_process_bpf_page_cache_hit_total{{job='metal', pid='{vm_pid}'}}[{interval}])",
+        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_page_cache_hit_total{{job='vm'}}[{interval}]))",
+    },
+
 
 ]
 
