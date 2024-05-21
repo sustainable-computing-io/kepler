@@ -57,7 +57,6 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
-	klog.Info("Collecting GPU metrics")
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for _, collectorName := range consts.GPUMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
