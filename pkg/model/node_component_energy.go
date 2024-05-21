@@ -62,7 +62,7 @@ func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 
 // IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
 func IsNodeComponentPowerModelEnabled() bool {
-	if NodePlatformPowerModel == nil {
+	if NodeComponentPowerModel == nil {
 		return false
 	}
 	return NodeComponentPowerModel.IsEnabled()
