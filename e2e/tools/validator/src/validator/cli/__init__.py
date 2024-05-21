@@ -8,7 +8,7 @@ from validator.stresser import ( Remote )
 
 from validator.prometheus import MetricsValidator
 
-from validator.cases import TestCases
+from validator.cases import Cases
 
 from validator.config import (
     Validator, load
@@ -76,7 +76,7 @@ def stress(cfg: Validator, script_path: str):
     # mae = mean_absolute_error(expected_data, actual_data)
     # mape = mean_absolute_percentage_error(expected_data, actual_data)
 
-    test_cases = TestCases(cfg.metal.vm, cfg.prometheus)
+    test_cases = Cases(cfg.metal.vm, cfg.prometheus)
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
@@ -91,9 +91,9 @@ def stress(cfg: Validator, script_path: str):
         click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
         click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
-        click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
+        #click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
         click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="red")
-        click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
+        #click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
         click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
         click.secho("---------------------------------------------------", fg="cyan")
 

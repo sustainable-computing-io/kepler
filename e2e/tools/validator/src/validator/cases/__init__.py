@@ -25,16 +25,16 @@ RAW_PROM_QUERIES = [
 
 ]
 
-class TestCaseResult(NamedTuple):
+class CaseResult(NamedTuple):
     expected_query: str
     actual_query: str
 
 
-class TestCasesResult(NamedTuple):
-    test_cases: List[TestCaseResult]
+class CasesResult(NamedTuple):
+    test_cases: List[CaseResult]
 
 
-class TestCases:
+class Cases:
 
     def __init__(self, vm: config.VM, prom: config.Prometheus) -> None:
         self.vm_pid = vm.pid
@@ -42,13 +42,13 @@ class TestCases:
         self.raw_prom_queries = RAW_PROM_QUERIES
     
 
-    def load_test_cases(self) -> TestCasesResult:
+    def load_test_cases(self) -> CasesResult:
         test_cases = []
         for raw_prom_query in self.raw_prom_queries:
-            test_cases.append(TestCaseResult(
+            test_cases.append(CaseResult(
                 expected_query=raw_prom_query["expected_query"].format(vm_pid=self.vm_pid, interval=self.interval),
                 actual_query=raw_prom_query["actual_query"].format(vm_pid=self.vm_pid, interval=self.interval)
             ))
-        return TestCasesResult(
+        return CasesResult(
             test_cases=test_cases
         )
