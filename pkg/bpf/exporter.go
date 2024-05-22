@@ -51,6 +51,7 @@ const (
 
 type exporter struct {
 	module                *bpf.Module
+	collectionInterval    time.Duration
 	counters              map[string]perfCounter
 	ebpfBatchGet          bool
 	ebpfBatchGetAndDelete bool
@@ -66,6 +67,7 @@ type exporter struct {
 func NewExporter() (Exporter, error) {
 	e := &exporter{
 		module:                  nil,
+		collectionInterval:      1 * time.Second,
 		ebpfBatchGet:            true,
 		ebpfBatchGetAndDelete:   true,
 		cpuCores:                getCPUCores(),
@@ -295,8 +297,28 @@ func (e *exporter) Detach() {
 	}
 }
 
-func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
-	processesData = []ProcessBPFMetrics{}
+func (e *exporter) Start(results chan<- []*ProcessBPFMetrics, stopCh <-chan struct{}) {
+	ticker := time.NewTicker(e.collectionInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stopCh:
+			klog.Infof("Shutting down the bpf exporter...")
+			close(results)
+			return
+		case <-ticker.C:
+			processesData, err := e.collect()
+			if err != nil {
+				klog.Errorf("could not collect ebpf metrics: %v", err)
+				continue
+			}
+			results <- processesData
+		}
+	}
+}
+
+func (e *exporter) collect() (processesData []*ProcessBPFMetrics, err error) {
+	processesData = []*ProcessBPFMetrics{}
 	if e.module == nil {
 		// nil error should be threw at attachment point, return empty data
 		return
@@ -421,9 +443,9 @@ func resizeArrayEntries(module *bpf.Module, name string, size int) error {
 
 // for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
 // but it is not a big problem since we request all possible keys that the map can store in a single request
-func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
+func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]*ProcessBPFMetrics, error) {
 	start := time.Now()
-	processesData := []ProcessBPFMetrics{}
+	processesData := []*ProcessBPFMetrics{}
 	var err error
 	keySize := 4 // the map key is uint32,  has 4 bytes
 	entries := MapSize / keySize
@@ -451,14 +473,14 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 			continue
 		}
 		if ct != e.emptyct {
-			processesData = append(processesData, ct)
+			processesData = append(processesData, &ct)
 		}
 	}
 	klog.V(5).Infof("successfully get data with batch get and delete with %d pids in %v", len(processesData), time.Since(start))
 	return processesData, err
 }
 
-func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []*ProcessBPFMetrics, err error) {
 	iterator := processes.Iterator()
 	var ct ProcessBPFMetrics
 	keys := []uint32{}
@@ -487,7 +509,7 @@ func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 		if retry > 0 {
 			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
 		}
-		processesData = append(processesData, ct)
+		processesData = append(processesData, &ct)
 		keys = append(keys, key)
 		next = iterator.Next()
 		retry = 0

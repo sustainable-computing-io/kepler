@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ func TestBpf(t *testing.T) {
 	RunSpecs(t, "Attacher Suite")
 }
 
-func checkDataCollected(processesData []ProcessBPFMetrics) {
+func checkDataCollected(processesData []*ProcessBPFMetrics) {
 	// len > 0
 	Expect(len(processesData)).To(BeNumerically(">", 0))
 	Expect(processesData[0].PID).To(BeNumerically(">", 0))
@@ -34,9 +35,27 @@ var _ = Describe("BPF Exporter test", func() {
 		a, err := NewExporter()
 		Expect(err).NotTo(HaveOccurred())
 		defer a.Detach()
+		results := make(chan []*ProcessBPFMetrics)
+		stop := make(chan struct{})
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		count := 0
+		go func() {
+			defer wg.Done()
+			for r := range results {
+				checkDataCollected(r)
+				count++
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a.Start(results, stop)
+		}()
 		time.Sleep(time.Second * 1) // wait for some data
-		processesData, err := a.CollectProcesses()
+		close(stop)
+		wg.Wait()
 		Expect(err).NotTo(HaveOccurred())
-		checkDataCollected(processesData)
+		Expect(count).To(BeNumerically(">", 0))
 	})
 })

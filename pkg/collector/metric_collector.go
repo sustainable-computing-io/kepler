@@ -17,7 +17,6 @@ limitations under the License.
 package collector
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"syscall"
@@ -27,7 +26,7 @@ import (
 	cgroup_api "github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/energy"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/accelerator"
-	resourceBpf "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
+	bpf_collector "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
 	cgroup_collector "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -62,6 +61,11 @@ type Collector struct {
 	bpfExporter bpf.Exporter
 	// bpfSupportedMetrics holds the supported metrics by the bpf exporter
 	bpfSupportedMetrics bpf.SupportedMetrics
+
+	// metricsLock prevents new metrics being added while the collector is
+	// updating the metrics
+	metricsLock    sync.Mutex
+	bpfMetricsChan chan []*bpf.ProcessBPFMetrics
 }
 
 func NewCollector(bpfExporter bpf.Exporter) *Collector {
@@ -73,8 +77,41 @@ func NewCollector(bpfExporter bpf.Exporter) *Collector {
 		VMStats:             map[string]*stats.VMStats{},
 		bpfExporter:         bpfExporter,
 		bpfSupportedMetrics: bpfSupportedMetrics,
+		// bpfMetricsChan is a channel to receive the metrics from the
+		// bpf exporter. It's exporting once per second. The channel
+		// is buffered to allow for the exporter to continue collecting
+		// metrics while the collector is processing them.
+		bpfMetricsChan: make(chan []*bpf.ProcessBPFMetrics, 100),
 	}
 	return c
+}
+
+func (c *Collector) Start(stop <-chan struct{}) error {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				klog.Infof("Collector shutdown")
+				return
+			case r := <-c.bpfMetricsChan:
+				c.metricsLock.Lock()
+				bpf_collector.UpdateProcessBPFMetrics(r, c.bpfSupportedMetrics, c.ProcessStats)
+				c.metricsLock.Unlock()
+			}
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c.bpfExporter.Start(c.bpfMetricsChan, stop)
+		klog.Infof("bpfexporter shutdown complete")
+	}()
+	wg.Wait()
+	klog.Infof("Metric collector shutdown done")
+	return nil
 }
 
 func (c *Collector) Initialize() error {
@@ -102,6 +139,9 @@ func (c *Collector) Initialize() error {
 func (c *Collector) Update() {
 	start := time.Now()
 
+	// Block eBPF updates from coming in
+	c.metricsLock.Lock()
+	defer c.metricsLock.Unlock()
 	// reset the previous collected value because not all process will have new data
 	// that is, a process that was inactive will not have any update but we need to set its metrics to 0
 	c.resetDeltaValue()
@@ -113,15 +153,13 @@ func (c *Collector) Update() {
 	c.UpdateEnergyUtilizationMetrics()
 
 	c.printDebugMetrics()
+	c.resetBpfDeltaValue()
 	klog.V(5).Infof("Collector Update elapsed time: %s", time.Since(start))
 }
 
 // resetDeltaValue resets existing podEnergy previous curr value
 func (c *Collector) resetDeltaValue() {
 	c.NodeStats.ResetDeltaValues()
-	for _, v := range c.ProcessStats {
-		v.ResetDeltaValues()
-	}
 	if config.IsExposeContainerStatsEnabled() {
 		for _, v := range c.ContainerStats {
 			v.ResetDeltaValues()
@@ -131,6 +169,14 @@ func (c *Collector) resetDeltaValue() {
 		for _, v := range c.VMStats {
 			v.ResetDeltaValues()
 		}
+	}
+}
+
+// reset any processStats delta values *AFTER* collection
+// given that we're streaming these stats and updating as we go
+func (c *Collector) resetBpfDeltaValue() {
+	for _, v := range c.ProcessStats {
+		v.ResetDeltaValues()
 	}
 }
 
@@ -153,10 +199,10 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 }
 
 func (c *Collector) updateResourceUtilizationMetrics() {
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(2)
-	go c.updateNodeResourceUtilizationMetrics(wg)
-	go c.updateProcessResourceUtilizationMetrics(wg)
+	go c.updateNodeResourceUtilizationMetrics(&wg)
+	go c.updateProcessResourceUtilizationMetrics(&wg)
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
@@ -166,15 +212,7 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 
 // updateNodeAvgCPUFrequencyFromEBPF updates the average CPU frequency in each core
 func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
-	// update the cpu frequency using hardware counters when available because reading files can be very expensive
-	if config.IsExposeCPUFrequencyMetricsEnabled() && c.bpfSupportedMetrics.HardwareCounters.Has(config.CPUFrequency) {
-		cpuFreq, err := c.bpfExporter.CollectCPUFreq()
-		if err == nil {
-			for cpu, freq := range cpuFreq {
-				c.NodeStats.ResourceUsage[config.CPUFrequency].SetDeltaStat(fmt.Sprintf("%d", cpu), freq)
-			}
-		}
-	}
+
 }
 
 // update the node metrics that are not related to aggregated resource utilization of processes
@@ -190,9 +228,6 @@ func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 
 func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
-	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
-	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 	}

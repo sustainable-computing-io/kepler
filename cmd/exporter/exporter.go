@@ -137,14 +137,10 @@ func main() {
 	}
 
 	m := manager.New(bpfExporter)
+
 	reg := m.PrometheusCollector.RegisterMetrics()
 	defer components.StopPower()
 
-	// starting a new gorotine to collect data and report metrics
-	// BPF is attached here
-	if startErr := m.Start(); startErr != nil {
-		klog.Infof("%s", fmt.Sprintf("failed to start : %v", startErr))
-	}
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
 
@@ -169,6 +165,16 @@ func main() {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	wg := &sync.WaitGroup{}
+	stopChan := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := m.Start(stopChan); err != nil {
+			errChan <- err
+		}
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -187,6 +193,7 @@ func main() {
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
+		close(stopChan)
 		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {

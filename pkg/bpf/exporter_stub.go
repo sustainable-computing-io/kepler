@@ -37,14 +37,5 @@ func (a *stubAttacher) SupportedMetrics() SupportedMetrics {
 func (a *stubAttacher) Detach() {
 }
 
-func (a *stubAttacher) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
-	return nil, nil
-}
-
-func (a *stubAttacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
-	return nil, nil
-}
-
-func (a *stubAttacher) HardwareCountersEnabled() bool {
-	return false
+func (a *stubAttacher) Start(results chan<- []*ProcessBPFMetrics, stop <-chan struct{}) {
 }

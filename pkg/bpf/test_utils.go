@@ -45,23 +45,7 @@ func (m *mockExporter) SupportedMetrics() SupportedMetrics {
 
 func (m *mockExporter) Detach() {}
 
-func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
-	return []ProcessBPFMetrics{
-		{
-			CGroupID:       0,
-			ThreadPID:      0,
-			PID:            0,
-			ProcessRunTime: 0,
-			TaskClockTime:  0,
-			CPUCycles:      0,
-			CPUInstr:       0,
-			CacheMisses:    0,
-			PageCacheHit:   0,
-			VecNR:          [10]uint16{},
-			Command:        [16]byte{},
-		},
-	}, nil
-}
+func (m *mockExporter) Start(results chan<- []*ProcessBPFMetrics, stop <-chan struct{}) {}
 
 func (m *mockExporter) CollectCPUFreq() (map[int32]uint64, error) {
 	return map[int32]uint64{0: 0}, nil
