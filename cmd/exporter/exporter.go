@@ -17,11 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"runtime/debug"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
@@ -68,17 +73,8 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func finalizing() {
-	stack := "exit stack: \n" + string(debug.Stack())
-	klog.Infof(stack)
-	exitCode := 10
-	klog.Infoln(finishingMsg)
-	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
-}
-
 func main() {
 	start := time.Now()
-	defer finalizing()
 	klog.InitFlags(nil)
 	flag.Parse()
 
@@ -152,34 +148,66 @@ func main() {
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
 
-	http.Handle(metricPathConfig, promhttp.HandlerFor(
+	handler := http.ServeMux{}
+	handler.Handle(metricPathConfig, promhttp.HandlerFor(
 		reg,
 		promhttp.HandlerOpts{
 			Registry: reg,
 		},
 	))
-	http.HandleFunc("/healthz", healthProbe)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, httpErr := w.Write([]byte(`<html>
-                        <head><title>Energy Stats Exporter</title></head>
-                        <body>
-                        <h1>Energy Stats Exporter</h1>
-                        <p><a href="` + metricPathConfig + `">Metrics</a></p>
-                        </body>
-                        </html>`))
-		if err != nil {
-			klog.Fatalf("%s", fmt.Sprintf("failed to write response: %v", httpErr))
-		}
-	})
+	handler.HandleFunc("/healthz", healthProbe)
+	handler.HandleFunc("/", rootHandler(metricPathConfig))
+	srv := &http.Server{
+		Addr:    bindAddressConfig,
+		Handler: &handler,
+	}
 
 	klog.Infof("starting to listen on %s", bindAddressConfig)
-	ch := make(chan error)
-	go func() {
-		ch <- http.ListenAndServe(bindAddressConfig, nil)
-	}()
+	errChan := make(chan error)
 
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errChan <- err
+		}
+	}()
 	klog.Infof(startedMsg, time.Since(start))
 	klog.Flush() // force flush to parse the start msg in the e2e test
-	err = <-ch
-	klog.Fatalf("%s", fmt.Sprintf("failed to bind on %s: %v", bindAddressConfig, err))
+
+	// Wait for an exit signal
+
+	ctx := context.Background()
+	select {
+	case err := <-errChan:
+		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
+	case <-signalChan:
+		klog.Infof("Received shutdown signal")
+		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			klog.Fatalf("%s", fmt.Sprintf("failed to shutdown gracefully: %v", err))
+		}
+	}
+	wg.Wait()
+	klog.Infoln(finishingMsg)
+	klog.FlushAndExit(klog.ExitFlushTimeout, 0)
+}
+
+func rootHandler(metricPathConfig string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(`<html>
+					<head><title>Energy Stats Exporter</title></head>
+					<body>
+					<h1>Energy Stats Exporter</h1>
+					<p><a href="` + metricPathConfig + `">Metrics</a></p>
+					</body>
+					</html>`)); err != nil {
+			klog.Errorf("%s", fmt.Sprintf("failed to write http response: %v", err))
+		}
+	}
 }
