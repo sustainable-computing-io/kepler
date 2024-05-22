@@ -94,11 +94,11 @@ func UpdateNodeIdleEnergy(nodeStats *stats.NodeStats) {
 
 // UpdateNodeEnergyMetrics updates the node energy consumption of each component
 func UpdateNodeEnergyMetrics(nodeStats *stats.NodeStats) {
-	var wgNode sync.WaitGroup
-	wgNode.Add(2)
-	go UpdateNodeComponentsEnergy(nodeStats, &wgNode)
-	go UpdateNodeGPUEnergy(nodeStats, &wgNode)
-	wgNode.Wait()
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go UpdateNodeComponentsEnergy(nodeStats, wg)
+	go UpdateNodeGPUEnergy(nodeStats, wg)
+	wg.Wait()
 	// update platform power later to avoid race condition when using estimation power model
 	UpdatePlatformEnergy(nodeStats)
 	// after updating the total energy we calculate the idle, dynamic and other components energy
