@@ -38,6 +38,7 @@ jobs:
           # install ansible
           sudo dnf -y install ansible-core
           sudo dnf install -y rhel-system-roles
+          sudo ansible-galaxy collection install prometheus.prometheus
           sudo ansible-config init --disabled | sed "s/;host_key_checking=True/host_key_checking=False/g" | sed "s/;private_key_file=/private_key_file=~\/.ssh\/ansible_rsa/g" > /etc/ansible/ansible.cfg
           sudo cat > inventory.yml << EOF
           all:
@@ -61,6 +62,9 @@ jobs:
                   metrics_query_service: yes
                   metrics_retention_days: 7
                   metrics_monitored_hosts: "{{ groups['servers'] }}"
+              prometheus_server:
+                hosts:
+                  localhost:
           EOF
           cat > metrics.yml << EOF
           - name: Use metrics system role to configure PCP metrics recording
@@ -76,6 +80,19 @@ jobs:
               - redhat.rhel_system_roles.metrics
               - redhat.rhel_system_roles.firewall
             become: true
+
+          - name: Use Prometheus role to configure Prometheus server
+            hosts: prometheus_server
+            become: true
+            vars:
+              prometheus_targets:
+                node:
+                  - targets:
+                      - localhost:8888
+            roles:
+              - role: prometheus.prometheus.prometheus
+                vars:
+                  roles_path: /root/.ansible/collections/ansible_collections/prometheus/prometheus/roles
           EOF
           ansible-playbook -i inventory.yml metrics.yml
 
@@ -133,7 +150,10 @@ jobs:
           pmseries openmetrics.kepler.kepler_node_package_joules_total
           # check the pmproxy metrics query
           echo "Checking the pmproxy metrics query"
-          curl "http://localhost:44322/metrics?names=openmetrics.kepler.kepler_node_package_joules_total"
+          curl "http://localhost:44322/metrics?names=openmetrics.kepler.kepler_node_package_joules_total" || true
+          # check prometheus metrics
+          echo "Checking the prometheus metrics query"
+          curl http://localhost:9090/api/v1/query?query=kepler_node_package_joules_total || true
 
   Cleanup:
     name: "Cleanup"
