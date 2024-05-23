@@ -29,7 +29,8 @@ import (
 )
 
 var (
-	SampleDynEnergyValue float64 = 100000 // 100 mJ
+	SampleDynEnergyValue             float64 = 1.0
+	SampleDynEnergyValueInMilliJoule uint64  = uint64(SampleDynEnergyValue) * 1000
 
 	processFeatureNames = []string{
 		config.CPUCycle,
@@ -151,7 +152,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		powers, err := c.GetPlatformPower(false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(powers)).Should(Equal(1))
-		Expect(powers[0]).Should(Equal(SampleDynEnergyValue))
+		Expect(powers[0]).Should(Equal(SampleDynEnergyValueInMilliJoule))
 		quit <- true
 	})
 
@@ -173,7 +174,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		powers, err := c.GetPlatformPower(false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(powers)).Should(Equal(len(processFeatureValues)))
-		Expect(powers[0]).Should(Equal(SampleDynEnergyValue))
+		Expect(powers[0]).Should(Equal(SampleDynEnergyValueInMilliJoule))
 		quit <- true
 	})
 	It("Get Node Component Power By Sidecar Estimator", func() {

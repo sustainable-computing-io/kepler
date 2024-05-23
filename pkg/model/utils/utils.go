@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	jouleToMiliJoule = 1000
+	JouleMillijouleConversionFactor float64 = 1000
 )
 
 // GetComponentPower called by getPodComponentPowers to check if component key is present in powers response and fills with single 0
@@ -30,8 +30,17 @@ func GetComponentPower(powers map[string][]float64, componentKey string, index i
 	if index >= len(values) {
 		return 0
 	} else {
-		return uint64(values[index] * jouleToMiliJoule)
+		return uint64(values[index] * JouleMillijouleConversionFactor)
 	}
+}
+
+// GetPlatformPower returns powerInMilliJoule
+func GetPlatformPower(powers []float64) []uint64 {
+	powerInMilliJoule := make([]uint64, len(powers))
+	for index := range powers {
+		powerInMilliJoule[index] = uint64(powers[index] * JouleMillijouleConversionFactor)
+	}
+	return powerInMilliJoule
 }
 
 // FillNodeComponentsPower fills missing component (pkg or core) power

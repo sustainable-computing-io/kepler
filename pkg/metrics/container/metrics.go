@@ -112,15 +112,15 @@ func (c *collector) collectTotalEnergyMetrics(ch chan<- prometheus.Metric, conta
 	energy += container.EnergyUsage[config.DynEnergyInDRAM].SumAllAggrValues()
 	energy += container.EnergyUsage[config.DynEnergyInOther].SumAllAggrValues()
 	energy += container.EnergyUsage[config.DynEnergyInGPU].SumAllAggrValues()
-	energy /= consts.MiliJouleToJoule
+	energyInJoules := float64(energy) / utils.JouleMillijouleConversionFactor
 	labelValues := []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic"}
-	ch <- c.collectors["total"].MustMetric(float64(energy), labelValues...)
+	ch <- c.collectors["total"].MustMetric(energyInJoules, labelValues...)
 
 	energy = container.EnergyUsage[config.IdleEnergyInPkg].SumAllAggrValues()
 	energy += container.EnergyUsage[config.IdleEnergyInDRAM].SumAllAggrValues()
 	energy += container.EnergyUsage[config.IdleEnergyInOther].SumAllAggrValues()
 	energy += container.EnergyUsage[config.IdleEnergyInGPU].SumAllAggrValues()
-	energy /= consts.MiliJouleToJoule
+	energyInJoules = float64(energy) / utils.JouleMillijouleConversionFactor
 	labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle"}
-	ch <- c.collectors["total"].MustMetric(float64(energy), labelValues...)
+	ch <- c.collectors["total"].MustMetric(energyInJoules, labelValues...)
 }
