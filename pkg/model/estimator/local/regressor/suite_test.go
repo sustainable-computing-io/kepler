@@ -27,3 +27,7 @@ func TestLocalEstimator(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Regressor Local Estimator Suite")
 }
+
+func simplifyOutputInMilliJoules(output uint64) int {
+	return int(output/1000) * 1000
+}

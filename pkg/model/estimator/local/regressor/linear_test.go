@@ -26,7 +26,7 @@ import (
 var _ = Describe("Test Linear Predictor Unit", func() {
 	It("Get Node Platform Power By Linear Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(DummyWeightHandler, types.LinearRegressionTrainer)
-		Expect(powers[0]).Should(BeEquivalentTo(3))
+		Expect(powers[0]).Should(BeEquivalentTo(3000))
 	})
 
 	It("Get Node Components Power By Linear Regression", func() {

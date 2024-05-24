@@ -139,7 +139,7 @@ func genRegressor(outputType types.ModelOutputType, energySource, modelServerEnd
 	}
 }
 
-func GetNodePlatformPowerFromDummyServer(handler http.HandlerFunc, trainer string) (power []float64) {
+func GetNodePlatformPowerFromDummyServer(handler http.HandlerFunc, trainer string) (power []uint64) {
 	testServer := httptest.NewServer(handler)
 	modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.PlatformEnergySource)
 	r := genRegressor(types.AbsPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, trainer)
@@ -172,13 +172,12 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 		It("Get Node Platform Power By Default Regression with ModelServerEndpoint", func() {
 			powers := GetNodePlatformPowerFromDummyServer(DummyWeightHandler, "")
 			// TODO: verify if the power makes sense
-			Expect(powers[0]).Should(BeEquivalentTo(3))
+			Expect(powers[0]).Should(BeEquivalentTo(3000))
 		})
 
 		It("Get Node Components Power By Default Regression Estimator with ModelServerEndpoint", func() {
 			compPowers := GetNodeComponentsPowerFromDummyServer(genHandlerFunc([]float64{}), "")
 			// TODO: verify if the power makes sense
-			Expect(compPowers[0].Core).Should(BeEquivalentTo(3000))
 			Expect(compPowers[0].Core).Should(BeEquivalentTo(3000))
 		})
 
@@ -196,8 +195,11 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(powers)).Should(Equal(len(processFeatureValues)))
 			// TODO: verify if the power makes sense
-			Expect(powers[0]).Should(BeEquivalentTo(2.5))
-			Expect(powers[0]).Should(BeEquivalentTo(2.5))
+			Expect(powers[0]).Should(BeEquivalentTo(2500))
+			idlePowers, err := r.GetPlatformPower(true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(idlePowers)).Should(Equal(len(processFeatureValues)))
+			Expect(idlePowers[0]).Should(BeEquivalentTo(2000))
 		})
 
 		It("Get Process Components Power By Default Regression Estimator with ModelServerEndpoint", func() {
@@ -215,7 +217,11 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 			Expect(len(compPowers)).Should(Equal(len(processFeatureValues)))
 			// TODO: verify if the power makes sense
 			Expect(compPowers[0].Core).Should(BeEquivalentTo(2500))
-			Expect(compPowers[0].Core).Should(BeEquivalentTo(2500))
+
+			idlePowers, err := r.GetComponentsPower(true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(idlePowers)).Should(Equal(len(processFeatureValues)))
+			Expect(idlePowers[0].Core).Should(BeEquivalentTo(2000))
 		})
 	})
 

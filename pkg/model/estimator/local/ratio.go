@@ -73,7 +73,7 @@ type RatioPowerModel struct {
 	xidx int
 }
 
-func (r *RatioPowerModel) getPowerByRatio(processIdx, resUsageFeature, nodePowerFeature int, numProcesses float64) float64 {
+func (r *RatioPowerModel) getPowerByRatio(processIdx, resUsageFeature, nodePowerFeature int, numProcesses float64) uint64 {
 	var power float64
 	nodeResUsage := r.nodeFeatureValues[resUsageFeature]
 	nodePower := r.nodeFeatureValues[nodePowerFeature]
@@ -84,12 +84,12 @@ func (r *RatioPowerModel) getPowerByRatio(processIdx, resUsageFeature, nodePower
 		power = (processResUsage / nodeResUsage) * nodePower
 	}
 
-	return math.Ceil(power)
+	return uint64(math.Ceil(power))
 }
 
 // GetPlatformPower applies ModelWeight prediction and return a list of total powers
-func (r *RatioPowerModel) GetPlatformPower(isIdlePower bool) ([]float64, error) {
-	var processPlatformPower []float64
+func (r *RatioPowerModel) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
+	var processPlatformPower []uint64
 
 	// the number of processes is used to evernly divide the power consumption for OTHER and UNCORE
 	// we do not use CPU utilization for OTHER and UNCORE because they are not necessarily directly
@@ -97,10 +97,10 @@ func (r *RatioPowerModel) GetPlatformPower(isIdlePower bool) ([]float64, error) 
 
 	// estimate the power for each process
 	for processIdx := 0; processIdx < r.xidx; processIdx++ {
-		var processPower float64
+		var processPower uint64
 		if isIdlePower {
 			// TODO: idle power should be divided accordinly to the process requested resource
-			processPower = r.nodeFeatureValues[PlatformIdlePower] / numProcesses
+			processPower = uint64Division(r.nodeFeatureValues[PlatformIdlePower], numProcesses)
 		} else {
 			processPower = r.getPowerByRatio(processIdx, int(PlatformUsageMetric), int(PlatformDynPower), numProcesses)
 		}
@@ -131,7 +131,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[PkgIdlePower], numProcesses)
 		} else {
-			processPower = uint64(r.getPowerByRatio(processIdx, int(PkgUsageMetric), int(PkgDynPower), numProcesses))
+			processPower = r.getPowerByRatio(processIdx, int(PkgUsageMetric), int(PkgDynPower), numProcesses)
 		}
 		processNodeComponentsPower.Pkg = processPower
 
@@ -139,7 +139,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[CoreIdlePower], numProcesses)
 		} else {
-			processPower = uint64(r.getPowerByRatio(processIdx, int(CoreUsageMetric), int(CoreDynPower), numProcesses))
+			processPower = r.getPowerByRatio(processIdx, int(CoreUsageMetric), int(CoreDynPower), numProcesses)
 		}
 		processNodeComponentsPower.Core = processPower
 
@@ -147,7 +147,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[DramIdlePower], numProcesses)
 		} else {
-			processPower = uint64(r.getPowerByRatio(processIdx, int(DramUsageMetric), int(DramDynPower), numProcesses))
+			processPower = r.getPowerByRatio(processIdx, int(DramUsageMetric), int(DramDynPower), numProcesses)
 		}
 		processNodeComponentsPower.DRAM = processPower
 
@@ -155,7 +155,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[UncoreIdlePower], numProcesses)
 		} else {
-			processPower = uint64(r.getPowerByRatio(processIdx, int(UncoreUsageMetric), int(UncoreDynPower), numProcesses))
+			processPower = r.getPowerByRatio(processIdx, int(UncoreUsageMetric), int(UncoreDynPower), numProcesses)
 		}
 		processNodeComponentsPower.Uncore = processPower
 
@@ -165,8 +165,8 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
-func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error) {
-	nodeComponentsPowerOfAllProcesses := []float64{}
+func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]uint64, error) {
+	nodeComponentsPowerOfAllProcesses := []uint64{}
 
 	// the number of processes is used to evernly divide the power consumption for OTHER and UNCORE
 	// we do not use CPU utilization for OTHER and UNCORE because they are not necessarily directly
@@ -174,11 +174,11 @@ func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]float64, error) {
 
 	// estimate the power for each process
 	for processIdx := 0; processIdx < r.xidx; processIdx++ {
-		var processPower float64
+		var processPower uint64
 
 		// TODO: idle power should be divided accordinly to the process requested resource
 		if isIdlePower {
-			processPower = r.nodeFeatureValues[GpuIdlePower] / numProcesses
+			processPower = uint64Division(r.nodeFeatureValues[GpuIdlePower], numProcesses)
 		} else {
 			processPower = r.getPowerByRatio(processIdx, int(GpuUsageMetric), int(GpuDynPower), numProcesses)
 		}

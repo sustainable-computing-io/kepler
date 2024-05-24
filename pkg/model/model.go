@@ -64,13 +64,13 @@ type PowerModelInterface interface {
 	GetNodeFeatureNamesList() []string
 	// GetPlatformPower returns the total Platform Power in Watts associated to each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
-	GetPlatformPower(isIdlePower bool) ([]float64, error)
+	GetPlatformPower(isIdlePower bool) ([]uint64, error)
 	// GetComponentsPower returns RAPL components Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
 	GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
 	// GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
 	// If isIdlePower is true, return the idle power, otherwise return the dynamic or absolute power depending on the model.
-	GetGPUPower(isIdlePower bool) ([]float64, error)
+	GetGPUPower(isIdlePower bool) ([]uint64, error)
 }
 
 // CreatePowerEstimatorModels checks validity of power model and set estimate functions

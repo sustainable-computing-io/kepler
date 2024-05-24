@@ -153,9 +153,11 @@ func (m *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
 	idlePower := uint64(0)
 	if idleStat, found := m.EnergyUsage[idleM].Stat[id]; found {
 		idlePower = idleStat.Delta
+		klog.V(6).Infof("Idle Energy stat: %v (%s)", m.EnergyUsage[idleM].Stat, id)
 	}
 	dynPower := calcDynEnergy(totalPower, idlePower)
 	m.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
+	klog.V(6).Infof("Dynamic Energy stat: %v (%s)", m.EnergyUsage[dynM].Stat, id)
 }
 
 func calcDynEnergy(totalE, idleE uint64) uint64 {

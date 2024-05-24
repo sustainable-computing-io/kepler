@@ -93,7 +93,7 @@ func GetNodeComponentPowers(nodeMetrics *stats.NodeStats, isIdlePower bool) (nod
 	return
 }
 
-// UpdateNodeComponentIdleEnergy sets the power model samples, get absolute powers, and set gauge value for each component energy
+// UpdateNodeComponentEnergy sets the power model samples, get absolute powers, and set gauge value for each component energy
 func UpdateNodeComponentEnergy(nodeMetrics *stats.NodeStats) {
 	addEnergy(nodeMetrics, stats.AvailableAbsEnergyMetrics, absPower)
 }
