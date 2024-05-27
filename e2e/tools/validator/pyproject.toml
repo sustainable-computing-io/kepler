@@ -7,7 +7,7 @@ name = "validator"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 keywords = ["kepler", "kepler-model-server", "validator"]
 authors = [
@@ -18,7 +18,7 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -57,7 +57,7 @@ cov = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.12"]
+python = ["3.11"]
 
 [tool.hatch.envs.types]
 dependencies = [
