@@ -28,13 +28,18 @@ OUTPUT_DIR         := _output
 CROSS_BUILD_BINDIR := $(OUTPUT_DIR)/bin
 GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')
 VERSION            ?= $(GIT_VERSION)
-LDFLAGS            := "-w -s -X 'github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION)'"
 ROOTLESS	       ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
 BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
 CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
+
+# NOTE: github.com/prometheus/common/version is set to expose kepler version
+# information as a label in kepler_exporter_build_info
+LDFLAGS := -w -s \
+		-X github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION) \
+		-X github.com/prometheus/common/version.Version=$(VERSION)
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
@@ -173,7 +178,11 @@ _build_ebpf_local:
 _build_local: _build_ebpf_local ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler -ldflags $(LDFLAGS) ./cmd/exporter/exporter.go
+	+@$(GOENV) go build \
+		-v -tags ${GO_BUILD_TAGS} \
+		-ldflags "$(LDFLAGS)" \
+		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler \
+		./cmd/exporter/exporter.go
 
 container_build: ## Run a container and build Kepler inside it.
 	$(CTR_CMD) run --rm \
