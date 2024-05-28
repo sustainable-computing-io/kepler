@@ -18,6 +18,7 @@ class Remote(NamedTuple):
 
 class VM(NamedTuple):
     pid: int
+    name: str
 
 class Metal(NamedTuple):
     vm: VM
@@ -70,7 +71,9 @@ def load(config_file: str) -> Validator:
 
     metal_config = config['metal']
     vm_config = metal_config['vm']
-    vm = VM( pid=vm_config['pid'],)
+    pid = vm_config.get('pid', 0)
+    vm_name = vm_config.get('name', '')
+    vm = VM(pid=pid, name=vm_name)
     metal = Metal(vm=vm)
 
     prometheus_config = config['prometheus']

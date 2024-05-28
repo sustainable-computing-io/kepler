@@ -9,6 +9,7 @@ remote:
 metal:
   vm:
     pid: 2093543
+    name: my-vm
 
 prometheus:
   url: http://localhost:9090
