@@ -17,6 +17,7 @@ limitations under the License.
 package manager
 
 import (
+	"sync"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
@@ -24,6 +25,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 	exporter "github.com/sustainable-computing-io/kepler/pkg/metrics"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -59,23 +61,39 @@ func New(bpfExporter bpf.Exporter) *CollectorManager {
 	return manager
 }
 
-func (m *CollectorManager) Start() error {
+func (m *CollectorManager) Start(stop <-chan struct{}) error {
 	if err := m.StatsCollector.Initialize(); err != nil {
 		return err
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		ticker := time.NewTicker(samplePeriod)
-		for {
-			// wait x seconds before updating the metrics
-			<-ticker.C
-
-			// acquire the lock to wait prometheus finish the metric collection before updating the metrics
-			m.PrometheusCollector.Mx.Lock()
-			m.StatsCollector.Update()
-			m.PrometheusCollector.Mx.Unlock()
+		defer wg.Done()
+		if err := m.StatsCollector.Start(stop); err != nil {
+			klog.Errorf("Error starting the stats collector: %v", err)
 		}
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(samplePeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				klog.Infof("Shutting down the manager...")
+				return
+			case <-ticker.C:
+				// acquire the lock to wait prometheus finish the metric collection before updating the metrics
+				m.PrometheusCollector.Mx.Lock()
+				m.StatsCollector.Update()
+				m.PrometheusCollector.Mx.Unlock()
+			}
+		}
+	}()
+	wg.Wait()
+	klog.Infof("Manager stopped")
 	return nil
 }

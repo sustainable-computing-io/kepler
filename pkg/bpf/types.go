@@ -34,8 +34,7 @@ const (
 type Exporter interface {
 	SupportedMetrics() SupportedMetrics
 	Detach()
-	CollectProcesses() ([]ProcessBPFMetrics, error)
-	CollectCPUFreq() (map[int32]uint64, error)
+	Start(results chan<- []*ProcessBPFMetrics, stop <-chan struct{})
 }
 
 type SupportedMetrics struct {

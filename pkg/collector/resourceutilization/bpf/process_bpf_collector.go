@@ -85,13 +85,8 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 }
 
 // UpdateProcessBPFMetrics reads the BPF tables with process/pid/cgroupid metrics (CPU time, available HW counters)
-func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*stats.ProcessStats) {
-	processesData, err := bpfExporter.CollectProcesses()
-	if err != nil {
-		klog.Errorln("could not collect ebpf metrics")
-		return
-	}
-	for _, ct := range processesData {
+func UpdateProcessBPFMetrics(bpfStats []*ProcessBPFMetrics, bpfSupportedMetrics bpf.SupportedMetrics, processStats map[uint64]*stats.ProcessStats) {
+	for _, ct := range bpfStats {
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
 		if ct.PID != 0 {
@@ -125,7 +120,6 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 			mapKey = 1
 		}
 
-		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
@@ -137,7 +131,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		// when the process metrics are updated, reset the idle counter
 		pStat.IdleCounter = 0
 
-		updateSWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
-		updateHWCounters(mapKey, &ct, processStats, bpfSupportedMetrics)
+		updateSWCounters(mapKey, ct, processStats, bpfSupportedMetrics)
+		updateHWCounters(mapKey, ct, processStats, bpfSupportedMetrics)
 	}
 }
