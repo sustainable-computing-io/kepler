@@ -76,7 +76,7 @@ def stress(cfg: Validator, script_path: str):
     # mae = mean_absolute_error(expected_data, actual_data)
     # mape = mean_absolute_percentage_error(expected_data, actual_data)
 
-    test_cases = TestCases(cfg.metal.vm, cfg.prometheus)
+    test_cases = TestCases(vm = cfg.metal.vm, prom = cfg.prometheus, query_path = cfg.query_path)
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
