@@ -32,6 +32,7 @@ class Validator(NamedTuple):
     remote: Remote
     metal: Metal
     prometheus: Prometheus
+    query_path: str
 
     def __repr__(self):
         return f"<Config {self.remote}@{self.prometheus}>"
@@ -83,8 +84,11 @@ def load(config_file: str) -> Validator:
         step=prometheus_config.get('step', '3s')
     )
 
+    query_path = config.get('query_path', 'query.json' )
+
     return Validator(
         remote=remote, 
         metal=metal, 
         prometheus=prometheus,
+        query_path=query_path
     )

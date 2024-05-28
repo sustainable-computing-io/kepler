@@ -1,28 +1,28 @@
 from typing import NamedTuple, List
 from validator import config
+import json
+
+def read_json_file(file_path):
+    try:
+        # Open the file for reading
+        with open(file_path, 'r') as file:
+            # Load the JSON content into a Python list of dictionaries
+            data = json.load(file)
+            return data
+    except FileNotFoundError:
+        print("The file was not found.")
+        return []
+    except json.JSONDecodeError:
+        print("Error decoding JSON. Please check the file format.")
+        return []
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
 
 # Special Variable Names:
 # vm_pid (virtual machine pid), interval (desired range vector)
 
-RAW_PROM_QUERIES = [
-    {
-        "expected_query": "rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic'}}[{interval}])",
-        "actual_query": "rate(kepler_node_platform_joules_total[{interval}])",
-    },
-    {
-        "expected_query": "rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic'}}[{interval}])",
-        "actual_query": "rate(kepler_node_platform_joules_total[{interval}])",
-    },
-    {
-        "expected_query": "rate(kepler_{level}_bpf_cpu_time_ms_total{{{query}}}[{interval}])",
-        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_cpu_time_ms_total[{interval}]))",
-    },
-    {
-        "expected_query": "rate(kepler_{level}_bpf_page_cache_hit_total{{{query}}}[{interval}])",
-        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_page_cache_hit_total[{interval}]))",
-    },
-]
-
+# Raw Prometheus Queries, read all the query from the config file
 
 class TestCaseResult(NamedTuple):
     expected_query: str
@@ -35,11 +35,11 @@ class TestCasesResult(NamedTuple):
 
 class TestCases:
 
-    def __init__(self, vm: config.VM, prom: config.Prometheus) -> None:
+    def __init__(self, vm: config.VM, prom: config.Prometheus, query_path: str) -> None:
         self.vm_pid = vm.pid
         self.vm_name = vm.name
         self.interval = prom.interval
-        self.raw_prom_queries = RAW_PROM_QUERIES
+        self.raw_prom_queries = read_json_file(query_path)
 
         if self.vm_pid != 0:
             self.query = f"pid='{{vm_pid}}'".format(vm_pid=self.vm_pid)
