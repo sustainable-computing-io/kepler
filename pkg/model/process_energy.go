@@ -181,8 +181,8 @@ func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, no
 // addEstimatedEnergy estimates the idle power consumption
 func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*stats.ProcessStats, isIdlePower bool) {
 	var err error
-	var processGPUPower []float64
-	var processPlatformPower []float64
+	var processGPUPower []uint64
+	var processPlatformPower []uint64
 	var processComponentsPower []source.NodeComponentsEnergy
 
 	errComp := fmt.Errorf("component power model is not enabled")
@@ -261,7 +261,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 
 			// add GPU power consumption
 			if errGPU == nil {
-				energy = uint64(processGPUPower[i]) * (config.SamplePeriodSec)
+				energy = processGPUPower[i] * (config.SamplePeriodSec)
 				if isIdlePower {
 					processesMetrics[processID].EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
 				} else {
@@ -274,7 +274,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		}
 
 		if errPlat == nil {
-			energy = uint64(processPlatformPower[i]) * config.SamplePeriodSec
+			energy = processPlatformPower[i] * config.SamplePeriodSec
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -288,11 +288,13 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		// estimate other components power if both platform and components power are available
 		if errComp == nil && errPlat == nil {
 			// TODO: verify if Platform power also includes the GPU into consideration
-			otherPower := processPlatformPower[i] - float64(processComponentsPower[i].Pkg) - float64(processComponentsPower[i].DRAM)
-			if otherPower < 0 {
+			var otherPower uint64
+			if processPlatformPower[i] <= (processComponentsPower[i].Pkg + processComponentsPower[i].DRAM) {
 				otherPower = 0
+			} else {
+				otherPower = processPlatformPower[i] - processComponentsPower[i].Pkg - processComponentsPower[i].DRAM
 			}
-			energy = uint64(otherPower) * config.SamplePeriodSec
+			energy = otherPower * config.SamplePeriodSec
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {

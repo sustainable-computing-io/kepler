@@ -31,11 +31,11 @@ var (
 var _ = Describe("Test Logarithmic Predictor Unit", func() {
 	It("Get Node Platform Power By Logarithmic Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(dummyLogarithmicWeightHandler, types.LogarithmicTrainer)
-		Expect(int(powers[0])).Should(BeEquivalentTo(2))
+		Expect(simplifyOutputInMilliJoules(powers[0])).Should(BeEquivalentTo(2000))
 	})
 
 	It("Get Node Components Power By Logarithmic Regression", func() {
 		compPowers := GetNodeComponentsPowerFromDummyServer(dummyLogarithmicWeightHandler, types.LogarithmicTrainer)
-		Expect(int(compPowers[0].Core/1000) * 1000).Should(BeEquivalentTo(2000))
+		Expect(simplifyOutputInMilliJoules(compPowers[0].Core)).Should(BeEquivalentTo(2000))
 	})
 })

@@ -6960,7 +6960,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "dev: CPU 0/KVM - bpf"
+                  "dev - bpf"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -7009,7 +7009,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cpu_instructions_total{pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -7089,30 +7089,6 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "latest: CPU 0/KVM - bpf"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -7146,7 +7122,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cpu_instructions_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -7344,7 +7320,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/dev: .*/"
+              "options": "/dev .*/"
             },
             "properties": [
               {
@@ -7359,7 +7335,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/latest: .*/"
+              "options": "/latest .*/"
             },
             "properties": [
               {
@@ -7378,7 +7354,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "dev: CPU 0/KVM - bpf"
+                  "dev - bpf"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -7427,7 +7403,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cpu_cycles_total{pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -7540,7 +7516,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cpu_cycles_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -7738,7 +7714,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/dev: .*/"
+              "options": "/dev .*/"
             },
             "properties": [
               {
@@ -7753,7 +7729,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/latest: .*/"
+              "options": "/latest .*/"
             },
             "properties": [
               {
@@ -7772,7 +7748,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "dev: CPU 0/KVM - bpf"
+                  "dev - bpf"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -7821,7 +7797,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cache_miss_total{pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -7934,7 +7910,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_cache_miss_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -8060,7 +8036,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (rate(kepler_process_bpf_cpu_time_ms_total{job=\"dev\", pid=\"${process}\"}[$__rate_interval]))\n/\nsum (rate(kepler_process_cache_miss_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval]))\n",
+          "expr": "sum (rate(kepler_process_bpf_cpu_time_ms_total{job=\"dev\", pid=\"${process}\"}[$__rate_interval]))\n/\nsum (rate(kepler_process_bpf_cpu_time_ms_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval]))\n",
           "instant": false,
           "legendFormat": "{{mode}}",
           "range": true,
@@ -8132,7 +8108,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/dev: .*/"
+              "options": "/dev .*/"
             },
             "properties": [
               {
@@ -8147,7 +8123,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/latest: .*/"
+              "options": "/latest .*/"
             },
             "properties": [
               {
@@ -8166,7 +8142,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "dev: CPU 0/KVM - bpf"
+                  "dev - bpf"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -8215,7 +8191,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_bpf_cpu_time_ms_total{pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -8328,7 +8304,7 @@
           "editorMode": "code",
           "expr": "rate(kepler_process_bpf_cpu_time_ms_total{job=\"latest\", pid=\"${process}\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "{{job}}: {{command}} - {{source}}",
+          "legendFormat": "{{job}} - {{source}}",
           "range": true,
           "refId": "A"
         }
@@ -8341,11 +8317,6 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "CPU 0/KVM | 2093543",
-          "value": "2093543"
-        },
         "datasource": {
           "type": "prometheus",
           "uid": "PDE6745920139CE56"

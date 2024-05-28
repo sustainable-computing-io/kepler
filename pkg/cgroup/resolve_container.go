@@ -26,7 +26,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -55,16 +54,8 @@ var (
 	containerIDToContainerInfo = map[string]*ContainerInfo{}
 	cGroupIDToPath             = map[uint64]string{}
 
-	// regex to extract container ID from path
-	regexFindContainerIDPath          = regexp.MustCompile(`.*-(.*?)\.scope`)
-	regexReplaceContainerIDPathPrefix = regexp.MustCompile(`.*-`)
-	// some platforms (e.g. RHEL) have different cgroup path
-	regexFindContainerIDPath2 = regexp.MustCompile(`[^:]*$`)
-
-	validPattern = "^[a-zA-Z0-9]+$"
-
-	regexReplaceContainerIDPathSufix = regexp.MustCompile(`\..*`)
-	regexReplaceContainerIDPrefix    = regexp.MustCompile(`.*//`)
+	validContainerIDRegex         = regexp.MustCompile("^[a-zA-Z0-9]+$")
+	regexReplaceContainerIDPrefix = regexp.MustCompile(`.*//`)
 )
 
 func Init() (*[]corev1.Pod, error) {
@@ -222,7 +213,7 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 }
 
 func validContainerID(id string) string {
-	match, _ := regexp.MatchString(validPattern, id)
+	match := validContainerIDRegex.MatchString(id)
 	if match {
 		return id
 	}
@@ -231,49 +222,23 @@ func validContainerID(id string) string {
 
 // Get containerID from path. cgroup v1 and cgroup v2 will use different regex
 func extractPodContainerIDfromPath(path string) (string, error) {
-	cgroup := config.GetCGroupVersion()
-	return extractPodContainerIDfromPathWithCgroup(path, cgroup)
+	return extractPodContainerIDfromPathWithCgroup(path)
 }
 
-func extractPodContainerIDfromPathWithCgroup(path string, cgroup int) (string, error) {
+func extractPodContainerIDfromPathWithCgroup(path string) (string, error) {
 	if path == unknownPath {
 		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
 	}
-	// as the container ID is located at the end of the path, we remove the beginning of the string to prevent bugs, as seen in issue #923
-	split := strings.Split(path, "/")
-	size := len(split)
-	path = split[size-1 : size][0]
 
-	if regexFindContainerIDPath.MatchString(path) {
-		sub := regexFindContainerIDPath.FindAllString(path, -1)
-		for _, element := range sub {
-			if cgroup == 2 && (strings.Contains(element, "-conmon-") || strings.Contains(element, ".service")) {
-				return "", fmt.Errorf("process is not in a kubernetes pod")
-				// TODO: we need to extend this to include other runtimes
-			} else if strings.Contains(element, "crio") || strings.Contains(element, "docker") || strings.Contains(element, "containerd") {
-				containerID := regexReplaceContainerIDPathPrefix.ReplaceAllString(element, "")
-				containerID = regexReplaceContainerIDPathSufix.ReplaceAllString(containerID, "")
-				return validContainerID(containerID), nil
-			}
-		}
-	}
-	// TODO: need to get a path to verify this case
-	// as some platforms (e.g. RHEL) have a different cgroup path, if the cgroup path has information from a pod and we can't get the container id
-	// with the previous regex, we'll try to get it using a different approach
-	if regexFindContainerIDPath2.MatchString(path) {
-		sub := regexFindContainerIDPath2.FindAllString(path, -1)
-		for _, containerID := range sub {
-			return validContainerID(containerID), nil
-		}
-	}
-	// some systems, such as minikube, create a different path that has only the kubepods keyword
-	if strings.Contains(path, "kubepods") {
-		tmp := strings.Split(path, "/")
-		containerID := tmp[len(tmp)-1]
-		return validContainerID(containerID), nil
-	}
+	path = strings.TrimSuffix(path, "/container")
+	path = strings.TrimSuffix(path, ".scope")
 
-	return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
+	// get the last 64 characters of the path
+	if len(path) < 64 {
+		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
+	}
+	containerID := path[len(path)-64:]
+	return validContainerID(containerID), nil
 }
 
 func getAliveContainers(pods *[]corev1.Pod) map[string]bool {

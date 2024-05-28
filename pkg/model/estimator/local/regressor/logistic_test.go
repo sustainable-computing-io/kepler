@@ -31,11 +31,11 @@ var (
 var _ = Describe("Test Logistic Predictor Unit", func() {
 	It("Get Node Platform Power By Logistic Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(dummyLogisticWeightHandler, types.LogisticTrainer)
-		Expect(int(powers[0])).Should(BeEquivalentTo(2))
+		Expect(simplifyOutputInMilliJoules(powers[0])).Should(BeEquivalentTo(2000))
 	})
 
 	It("Get Node Components Power By Logistic Regression", func() {
 		compPowers := GetNodeComponentsPowerFromDummyServer(dummyLogisticWeightHandler, types.LogisticTrainer)
-		Expect(int(compPowers[0].Core/1000) * 1000).Should(BeEquivalentTo(2000))
+		Expect(simplifyOutputInMilliJoules(compPowers[0].Core)).Should(BeEquivalentTo(2000))
 	})
 })
