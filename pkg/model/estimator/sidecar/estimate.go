@@ -143,9 +143,9 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 }
 
 // GetPlatformPower makes a request to Kepler Estimator EstimatorSidecar and returns a list of total powers
-func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]float64, error) {
+func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
 	if !c.enabled {
-		return []float64{}, fmt.Errorf("disabled power model call: %s", c.OutputType.String())
+		return []uint64{}, fmt.Errorf("disabled power model call: %s", c.OutputType.String())
 	}
 	featuresValues := c.floatFeatureValues[0:c.xidx]
 	if isIdlePower {
@@ -153,16 +153,16 @@ func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]float64, error)
 	}
 	compPowers, err := c.makeRequest(featuresValues, c.SystemMetaDataFeatureValues)
 	if err != nil {
-		return []float64{}, err
+		return []uint64{}, err
 	}
 	power := compPowers.(map[string][]float64)
 	if len(power) == 0 {
-		return []float64{}, err
+		return []uint64{}, err
 	}
 	if powers, found := power[config.PLATFORM]; !found {
-		return []float64{}, fmt.Errorf("not found %s in response %v", config.PLATFORM, power)
+		return []uint64{}, fmt.Errorf("not found %s in response %v", config.PLATFORM, power)
 	} else {
-		return powers, nil
+		return utils.GetPlatformPower(powers), nil
 	}
 }
 
@@ -187,7 +187,6 @@ func (c *EstimatorSidecar) GetComponentsPower(isIdlePower bool) ([]source.NodeCo
 		break
 	}
 	nodeComponentsPower := make([]source.NodeComponentsEnergy, num)
-
 	for index := 0; index < num; index++ {
 		pkgPower := utils.GetComponentPower(power, config.PKG, index)
 		corePower := utils.GetComponentPower(power, config.CORE, index)
@@ -200,8 +199,8 @@ func (c *EstimatorSidecar) GetComponentsPower(isIdlePower bool) ([]source.NodeCo
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process/process/pod
-func (c *EstimatorSidecar) GetGPUPower(isIdlePower bool) ([]float64, error) {
-	return []float64{}, fmt.Errorf("current power model does not support GPUs")
+func (c *EstimatorSidecar) GetGPUPower(isIdlePower bool) ([]uint64, error) {
+	return []uint64{}, fmt.Errorf("current power model does not support GPUs")
 }
 
 func (c *EstimatorSidecar) addFloatFeatureValues(x []float64) {

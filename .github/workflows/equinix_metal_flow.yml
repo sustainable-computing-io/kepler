@@ -1,0 +1,149 @@
+name: Equinix Metal Action
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Create-runner:
+    name: "Create Runner"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: metal-runner-action
+        uses: rootfs/metal-runner-action@main
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
+          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
+          metro: "da"
+          plan: "c3.small.x86"
+          os: "rhel_9"
+
+  Install:
+    name: "Install"
+    needs: Create-runner
+    runs-on: self-hosted
+    continue-on-error: true
+    outputs:
+      runner-name: ${{ runner.name }}
+
+    steps:
+      - run: |
+          echo "This is runner: ${{ runner.name }}"
+          echo "Running on ${{ runner.arch }} ${{ runner.os }}"
+          # config ssh
+          sudo ssh-keygen -t rsa -b 4096 -f /root/.ssh/ansible_rsa -N ''
+          sudo cat ~/.ssh/ansible_rsa.pub >> ~/.ssh/authorized_keys
+          sudo echo "StrictHostKeyChecking no" >> ~/.ssh/config
+          # install ansible
+          sudo dnf -y install ansible-core
+          sudo dnf install -y rhel-system-roles
+          sudo ansible-config init --disabled | sed "s/;host_key_checking=True/host_key_checking=False/g" | sed "s/;private_key_file=/private_key_file=~\/.ssh\/ansible_rsa/g" > /etc/ansible/ansible.cfg
+          sudo cat > inventory.yml << EOF
+          all:
+            children:
+              servers:
+                hosts:
+                  localhost:
+                vars:
+                  firewall:
+                    - service: pmcd
+                      state: enabled
+                  metrics_retention_days: 7
+              metrics_monitor:
+                hosts:
+                  localhost:
+                vars:
+                  firewall:
+                    - service: grafana
+                      state: enabled
+                  metrics_graph_service: yes
+                  metrics_query_service: yes
+                  metrics_retention_days: 7
+                  metrics_monitored_hosts: "{{ groups['servers'] }}"
+          EOF
+          cat > metrics.yml << EOF
+          - name: Use metrics system role to configure PCP metrics recording
+            hosts: servers
+            roles:
+              - redhat.rhel_system_roles.metrics
+              - redhat.rhel_system_roles.firewall
+            become: true
+
+          - name: Use metrics system role to configure Grafana
+            hosts: metrics_monitor
+            roles:
+              - redhat.rhel_system_roles.metrics
+              - redhat.rhel_system_roles.firewall
+            become: true
+          EOF
+          ansible-playbook -i inventory.yml metrics.yml
+
+          set -o pipefail
+          set -e
+          # install podman
+          sudo dnf -y install podman
+          # wget kepler systemd unit file and save it to /etc/systemd/system/kepler.service
+          sudo wget https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/packaging/rpm/container-kepler.service -O /etc/systemd/system/container-kepler.service
+          # start kepler service
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now container-kepler
+          # curl kepler port 8888 with 10 seconds timeout and retry 5 times; if it fails, exit with error
+          for i in {1..5}; do 
+            echo "Attempt $i"
+            # curl and get http code
+            ret=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/metrics --max-time 10 --connect-timeout 10 || true)
+            if [ ${ret} -eq 200 ]; then 
+              break 
+            fi
+            sleep 5
+          done
+          if [ ${ret} -ne 200 ]; then 
+            echo "Kepler did not start in time"
+            # exit 1
+          fi
+          # dump kepler metrics
+          echo "Kepler started successfully, now dumping metrics"
+          curl -s http://localhost:8888/metrics |grep ^kepler_
+          # install openmetrics
+          echo "Installing openmetrics"
+          sudo yum install pcp-pmda-openmetrics -y
+          cd /var/lib/pcp/pmdas/openmetrics/; sudo echo "http://localhost:8888/metrics" > config.d/kepler.url; sudo ./Install
+          # validate kepler metrics
+          echo "Validating kepler metrics"
+          pminfo openmetrics |grep kepler
+          pmrep -s 10 openmetrics.kepler.kepler_node_package_joules_total
+          # create kepler pmlogger config
+          sudo mkdir -p /etc/pcp/pmlogconf/kepler
+          echo "Creating kepler pmlogger config"
+          cat > /etc/pcp/pmlogconf/kepler/kepler << EOF
+          #pmlogconf-setup 2.0
+          ident	 metrics used by the kepler node
+          probe	 openmetrics.kepler.kepler_node_package_joules_total
+            openmetrics.kepler.kepler_node_package_joules_total
+            openmetrics.kepler.kepler_node_dram_joules_total
+            openmetrics.kepler.kepler_node_core_joules_total
+          EOF
+          pmlogconf -r -g kepler /etc/pcp/pmlogconf/kepler/kepler
+          # start pmlogger
+          sudo systemctl restart pmlogger
+          sudo systemctl restart pmproxy
+          # check pmseries after 10 seconds
+          sleep 10
+          pmseries openmetrics.kepler.kepler_node_package_joules_total
+          # check the pmproxy metrics query
+          echo "Checking the pmproxy metrics query"
+          curl "http://localhost:44322/metrics?names=openmetrics.kepler.kepler_node_package_joules_total"
+
+  Cleanup:
+    name: "Cleanup"
+    runs-on: ubuntu-latest
+    needs: [Install]
+
+    steps:
+      - name: delete runner
+        uses: rootfs/metal-delete-action@main
+        with:
+          authToken: ${{ secrets.EQUINIX_API_TOKEN }}
+          projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
+          runnerName: ${{ needs.Install.outputs.runner-name }}

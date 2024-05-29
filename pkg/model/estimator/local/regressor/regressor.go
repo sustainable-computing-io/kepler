@@ -232,9 +232,9 @@ func (r *Regressor) createPredictor(weight ModelWeights) (predictor Predictor, e
 }
 
 // GetPlatformPower applies ModelWeight prediction and return a list of power associated to each process/process/pod
-func (r *Regressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
+func (r *Regressor) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
 	if !r.enabled {
-		return []float64{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
+		return []uint64{}, fmt.Errorf("disabled power model call: %s", r.OutputType.String())
 	}
 	if r.modelPredictors != nil {
 		floatFeatureValues := r.floatFeatureValues[0:r.xidx]
@@ -242,14 +242,14 @@ func (r *Regressor) GetPlatformPower(isIdlePower bool) ([]float64, error) {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
 		}
 		if predictor, found := (r.modelPredictors)[config.PLATFORM]; found {
-			power := predictor.predict(
+			powers := predictor.predict(
 				r.FloatFeatureNames, floatFeatureValues,
 				r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
-			return power, nil
+			return utils.GetPlatformPower(powers), nil
 		}
-		return []float64{}, fmt.Errorf("model Weight for model type %s is not valid: %v", r.OutputType.String(), r.modelWeight)
+		return []uint64{}, fmt.Errorf("model Weight for model type %s is not valid: %v", r.OutputType.String(), r.modelWeight)
 	}
-	return []float64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
+	return []uint64{}, fmt.Errorf("model Weight for model type %s is nil", r.OutputType.String())
 }
 
 // GetComponentsPower applies each component's ModelWeight prediction and return a map of component power associated to each process/process/pod
@@ -286,8 +286,8 @@ func (r *Regressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponent
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process
-func (r *Regressor) GetGPUPower(isIdlePower bool) ([]float64, error) {
-	return []float64{}, fmt.Errorf("current power model does not support GPUs")
+func (r *Regressor) GetGPUPower(isIdlePower bool) ([]uint64, error) {
+	return []uint64{}, fmt.Errorf("current power model does not support GPUs")
 }
 
 func (r *Regressor) addFloatFeatureValues(x []float64) {

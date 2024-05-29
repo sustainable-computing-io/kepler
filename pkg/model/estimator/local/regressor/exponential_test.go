@@ -31,11 +31,11 @@ var (
 var _ = Describe("Test Exponential Predictor Unit", func() {
 	It("Get Node Platform Power By Exponential Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(dummyExponentialWeightHandler, types.ExponentialTrainer)
-		Expect(int(powers[0])).Should(BeEquivalentTo(4))
+		Expect(simplifyOutputInMilliJoules(powers[0])).Should(BeEquivalentTo(4000))
 	})
 
 	It("Get Node Components Power By Exponential Regression", func() {
 		compPowers := GetNodeComponentsPowerFromDummyServer(dummyExponentialWeightHandler, types.ExponentialTrainer)
-		Expect(int(compPowers[0].Core/1000) * 1000).Should(BeEquivalentTo(4000))
+		Expect(simplifyOutputInMilliJoules(compPowers[0].Core)).Should(BeEquivalentTo(4000))
 	})
 })

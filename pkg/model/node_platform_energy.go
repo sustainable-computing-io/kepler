@@ -65,17 +65,19 @@ func IsNodePlatformPowerModelEnabled() bool {
 }
 
 // GetNodePlatformPower returns a single estimated value of node total power
-func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platformEnergy map[string]float64) {
+func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platformEnergy map[string]uint64) {
 	if NodePlatformPowerModel == nil {
 		klog.Errorln("Node Platform Power Model was not created")
 	}
-	platformEnergy = map[string]float64{}
-	// reset power model features sample list for new estimation
-	NodePlatformPowerModel.ResetSampleIdx()
-	// converts to node metrics map to array to add the samples to the power model
-	// the featureList is defined in the container power model file and the features varies accordinly to the selected power model
-	featureValues := nodeMetrics.ToEstimatorValues(NodePlatformPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
-	NodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
+	platformEnergy = map[string]uint64{}
+	if !isIdlePower {
+		// reset power model features sample list for new estimation
+		NodePlatformPowerModel.ResetSampleIdx()
+		// converts to node metrics map to array to add the samples to the power model
+		// the featureList is defined in the container power model file and the features varies accordinly to the selected power model
+		featureValues := nodeMetrics.ToEstimatorValues(NodePlatformPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
+		NodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
+	}
 	powers, err := NodePlatformPowerModel.GetPlatformPower(isIdlePower)
 	if err != nil {
 		klog.Infof("Failed to get node platform power %v\n", err)
@@ -92,7 +94,7 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, uint64(power)*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
 	}
 }
 
@@ -100,6 +102,6 @@ func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 func UpdateNodePlatformIdleEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, uint64(power)*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
 	}
 }

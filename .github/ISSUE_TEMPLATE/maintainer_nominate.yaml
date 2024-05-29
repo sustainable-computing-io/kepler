@@ -1,0 +1,17 @@
+name: maintainer nominate
+description: for nominate a maintainer or self nominate usage.
+body:
+  - type: textarea
+    id: nominee's bio
+    attributes:
+      label: please introduce nominee here
+      description: please including the github id or slack id for nominee
+    validations:
+      required: true
+
+  - type: textarea
+    id: nominee's major contribution or other supporting document
+    attributes:
+      label: for example, contribution on github as pr or others like conference speech.
+    validations:
+      required: true

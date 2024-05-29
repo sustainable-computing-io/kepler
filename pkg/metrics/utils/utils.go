@@ -25,9 +25,12 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
+	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
+
+var JouleMillijouleConversionFactor = utils.JouleMillijouleConversionFactor
 
 func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric) {
 	// collect the dynamic energy metrics
@@ -57,7 +60,6 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 	}
-	klog.Info("Collecting GPU metrics")
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for _, collectorName := range consts.GPUMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
@@ -75,19 +77,19 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 	switch v := instance.(type) {
 	case *stats.ContainerStats:
 		container := instance.(*stats.ContainerStats)
-		value = float64(container.EnergyUsage[metricName].SumAllAggrValues()) / consts.MiliJouleToJoule
+		value = float64(container.EnergyUsage[metricName].SumAllAggrValues()) / JouleMillijouleConversionFactor
 		labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, mode}
 		collect(ch, collector, value, labelValues)
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)
-		value = float64(process.EnergyUsage[metricName].SumAllAggrValues()) / consts.MiliJouleToJoule
+		value = float64(process.EnergyUsage[metricName].SumAllAggrValues()) / JouleMillijouleConversionFactor
 		labelValues = []string{strconv.FormatUint(process.PID, 10), process.ContainerID, process.VMID, process.Command, mode}
 		collect(ch, collector, value, labelValues)
 
 	case *stats.VMStats:
 		vm := instance.(*stats.VMStats)
-		value = float64(vm.EnergyUsage[metricName].SumAllAggrValues()) / consts.MiliJouleToJoule
+		value = float64(vm.EnergyUsage[metricName].SumAllAggrValues()) / JouleMillijouleConversionFactor
 		labelValues = []string{vm.VMID, mode}
 		collect(ch, collector, value, labelValues)
 
@@ -96,7 +98,7 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 		node := instance.(*stats.NodeStats)
 		if _, exist := node.EnergyUsage[metricName]; exist {
 			for deviceID, utilization := range node.EnergyUsage[metricName].Stat {
-				value = float64(utilization.Aggr) / consts.MiliJouleToJoule
+				value = float64(utilization.Aggr) / JouleMillijouleConversionFactor
 				labelValues = []string{deviceID, stats.NodeName, mode}
 				collect(ch, collector, value, labelValues)
 			}

@@ -21,3 +21,5 @@
 | Sunil Thaha | Red Hat | sthaha | sthaha@redhat.com |
 | Jie Ren | Intel | jiere | jie.ren@intel.com |
 | Vibhu Prashar | Red Hat | vprashar2929 | vibhu.sharma2929@gmail.com |
+| Vimal Kumar | Red Hat | vimalk78 | vimal78@gmail.com |
+| Dave Tucker | Red Hat | dave-tucker | datucker@redhat.com |

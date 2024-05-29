@@ -24,7 +24,6 @@ const (
 	MetricsNamespace       = "kepler"
 	EnergyMetricNameSuffix = "_joules_total"
 	UsageMetricNameSuffix  = "_total"
-	MiliJouleToJoule       = 1000
 )
 
 var (
