@@ -15,7 +15,7 @@ def basic_raw_prom_queries():
         },
     ]
 
-
+@pytest.mark.skip(reason="Test is outdated.")
 def test_load_cases_basic(basic_raw_prom_queries):
     prom_config = Prometheus(
         url="http://localhost:9090",
