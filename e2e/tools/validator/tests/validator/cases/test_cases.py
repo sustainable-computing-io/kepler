@@ -1,7 +1,10 @@
 from validator.cases import Cases
 from validator.config import Prometheus, VM
+import pytest
 
-basic_raw_prom_queries = [
+@pytest.fixture
+def basic_raw_prom_queries():
+    return [
         {
             "expected_query": "rate(kepler_process_package_joules_total{{job='metal', pid='{vm_pid}', mode='dynamic'}}[{interval}])",
             "actual_query": "rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])",
@@ -13,7 +16,7 @@ basic_raw_prom_queries = [
     ]
 
 
-def test_load_cases_basic():
+def test_load_cases_basic(basic_raw_prom_queries):
     prom_config = Prometheus(
         url="http://localhost:9090",
         interval='12s',
@@ -21,14 +24,14 @@ def test_load_cases_basic():
     )
     
     vm_config = VM(
-        pid=17310
+        pid=17310,
+        name=''
     )
 
     sample_test_cases = Cases(vm_config, prom_config)
     # modify prom queries
     sample_test_cases.raw_prom_queries = basic_raw_prom_queries
     refined_test_cases = sample_test_cases.load_test_cases().test_cases
-    print(refined_test_cases)
     assert refined_test_cases[0].expected_query == \
         "rate(kepler_process_package_joules_total{job='metal', pid='17310', mode='dynamic'}[12s])"
     assert refined_test_cases[0].actual_query == \
