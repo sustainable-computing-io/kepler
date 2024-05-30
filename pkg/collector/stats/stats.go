@@ -248,7 +248,7 @@ func (m *Stats) ToEstimatorValues(featuresName []string, shouldNormalize bool) [
 			featureValues = append(featureValues, value)
 
 		default:
-			klog.V(5).Infof("Unknown node feature: %s, adding 0 value", feature)
+			klog.V(10).Infof("Unknown node feature: %s, adding 0 value", feature)
 			featureValues = append(featureValues, 0)
 		}
 	}
