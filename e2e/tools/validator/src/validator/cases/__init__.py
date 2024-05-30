@@ -24,16 +24,16 @@ def read_json_file(file_path):
 
 # Raw Prometheus Queries, read all the query from the config file
 
-class TestCaseResult(NamedTuple):
+class CaseResult(NamedTuple):
     expected_query: str
     actual_query: str
 
 
-class TestCasesResult(NamedTuple):
-    test_cases: List[TestCaseResult]
+class CasesResult(NamedTuple):
+    test_cases: List[CaseResult]
 
 
-class TestCases:
+class Cases:
 
     def __init__(self, vm: config.VM, prom: config.Prometheus, query_path: str) -> None:
         self.vm_pid = vm.pid
@@ -48,13 +48,13 @@ class TestCases:
             self.query = f"vm_id=~'.*{{vm_name}}'".format(vm_name=self.vm_name)
             self.level = "vm"
     
-    def load_test_cases(self) -> TestCasesResult:
+    def load_test_cases(self) -> CasesResult:
         test_cases = []
         for raw_prom_query in self.raw_prom_queries:
-            test_cases.append(TestCaseResult(
+            test_cases.append(CaseResult(
                 expected_query=raw_prom_query["expected_query"].format(level=self.level, query=self.query, interval=self.interval),
                 actual_query=raw_prom_query["actual_query"].format(interval=self.interval)
             ))
-        return TestCasesResult(
+        return CasesResult(
             test_cases=test_cases
         )

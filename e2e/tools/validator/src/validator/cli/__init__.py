@@ -8,7 +8,7 @@ from validator.stresser import ( Remote )
 
 from validator.prometheus import MetricsValidator
 
-from validator.cases import TestCases
+from validator.cases import Cases
 
 from validator.config import (
     Validator, load
@@ -75,10 +75,11 @@ def stress(cfg: Validator, script_path: str):
     # error = absolute_error(expected_data, actual_data)
     # mae = mean_absolute_error(expected_data, actual_data)
     # mape = mean_absolute_percentage_error(expected_data, actual_data)
-
-    test_cases = TestCases(vm = cfg.metal.vm, prom = cfg.prometheus, query_path = cfg.query_path)
+    
+    test_cases = Cases(vm = cfg.metal.vm, prom = cfg.prometheus, query_path = cfg.query_path)
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
+    click.secho("Validation results during stress test:")
     click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
         expected_query = test_case.expected_query
@@ -91,6 +92,8 @@ def stress(cfg: Validator, script_path: str):
                                                         expected_query, 
                                                         actual_query)
 
+        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
+        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
         click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
