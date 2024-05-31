@@ -57,8 +57,8 @@ class MetricsValidator:
             query = actual_query, 
             remote=True)
 
-        print(expected_metrics)
-        print(actual_metrics)
+        #print(expected_metrics)
+        #print(actual_metrics)
 
         cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
         cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])

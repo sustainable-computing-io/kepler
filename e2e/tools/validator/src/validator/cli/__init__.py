@@ -80,20 +80,15 @@ def stress(cfg: Validator, script_path: str):
     metrics_validator = MetricsValidator(cfg.prometheus, cfg.remote_prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
-    click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
         expected_query = test_case.expected_query
         actual_query = test_case.actual_query
-        print(f"expected_query: {expected_query}")
-        print(f"actual_query: {actual_query}")
         print(f"start_time: {result.start_time}, end_time: {result.end_time}")
         metrics_res = metrics_validator.compare_metrics(result.start_time, 
                                                         result.end_time, 
                                                         expected_query, 
                                                         actual_query)
 
-        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
-        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
         click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
         click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
