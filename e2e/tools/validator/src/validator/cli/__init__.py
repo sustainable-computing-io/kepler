@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: APACHE-2.0
 
 import click
+import subprocess
 from validator.__about__ import __version__
 from validator.stresser import ( Remote )
 
@@ -80,6 +81,16 @@ def stress(cfg: Validator, script_path: str):
     metrics_validator = MetricsValidator(cfg.prometheus, cfg.remote_prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
+    # run git describe command and get the output as the report name
+    tag = ""
+    git_describe = subprocess.run(["git", "describe", "--tag"], stdout=subprocess.PIPE)
+    if git_describe.stdout:
+        tag = git_describe.stdout.decode().strip()
+    # save all the print result into a markdown file as a table
+    report = open(f"/tmp/report-{tag}.md", "w")
+    # create table header
+    report.write("| Expected Query | Actual Query | MAE | MAPE | MSE | RMSE |\n")
+    report.write("|----------------|--------------|-----|------|-----|------|\n")
     for test_case in test_case_result.test_cases:
         expected_query = test_case.expected_query
         actual_query = test_case.actual_query
@@ -97,5 +108,9 @@ def stress(cfg: Validator, script_path: str):
         click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
         click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
         click.secho("---------------------------------------------------", fg="cyan")
+        # create a markdown table
+        report.write(f"|{expected_query}|{actual_query}|{metrics_res.mae}|{metrics_res.mape}|{metrics_res.mse}|{metrics_res.rmse}|\n")
+    report.close()
+
 
 
