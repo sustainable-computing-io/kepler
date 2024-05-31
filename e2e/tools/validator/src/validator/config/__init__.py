@@ -32,6 +32,7 @@ class Validator(NamedTuple):
     remote: Remote
     metal: Metal
     prometheus: Prometheus
+    remote_prometheus: Prometheus
     query_path: str
 
     def __repr__(self):
@@ -83,6 +84,11 @@ def load(config_file: str) -> Validator:
         interval=prometheus_config.get('interval', '12s'),
         step=prometheus_config.get('step', '3s')
     )
+    remote_prometheus = Prometheus(
+        url=prometheus_config.get('remote_url', ''),
+        interval=prometheus_config.get('interval', '12s'),
+        step=prometheus_config.get('step', '3s')
+    )
 
     query_path = config.get('query_path', 'query.json' )
 
@@ -90,5 +96,6 @@ def load(config_file: str) -> Validator:
         remote=remote, 
         metal=metal, 
         prometheus=prometheus,
+        remote_prometheus=remote_prometheus,
         query_path=query_path
     )

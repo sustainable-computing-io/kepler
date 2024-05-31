@@ -13,6 +13,7 @@ metal:
 
 prometheus:
   url: http://localhost:9090
+  remote_url: http://my-vm:9090
   interval: 30s
   steps: 10s
 

@@ -24,19 +24,21 @@ class MetricsValidatorResult(NamedTuple):
 #TODO: Include Environment Variables if desired
 class MetricsValidator:
     # test with float
-    def __init__(self, prom: config.Prometheus):
+    def __init__(self, prom: config.Prometheus, remote_prom: config.Prometheus):
         self.prom_client = PrometheusConnect(prom.url, headers=None, disable_ssl=True)
         self.step = prom.step
+        self.remote_prometheus_client = PrometheusConnect(remote_prom.url, headers=None, disable_ssl=True)
 
     
-    def custom_metric_query(self, start_time: datetime, end_time: datetime, query: str):
-        return self.prom_client.custom_query_range(
+    def custom_metric_query(self, start_time: datetime, end_time: datetime, query: str, remote: bool = False):
+        client = self.prom_client if not remote else self.remote_prometheus_client
+
+        return client.custom_query_range(
             query=query,
             start_time=start_time,
             end_time=end_time,
             step=self.step
         )
-
 
     def compare_metrics(self, start_time: datetime, 
                         end_time: datetime, 
@@ -44,8 +46,16 @@ class MetricsValidator:
                         actual_query: str, 
                         ) -> MetricsValidatorResult:   
         
-        expected_metrics = self.custom_metric_query(start_time, end_time, expected_query)
-        actual_metrics = self.custom_metric_query(start_time, end_time, actual_query)
+        expected_metrics = self.custom_metric_query(
+            start_time = start_time, 
+            end_time = end_time, 
+            query = expected_query, 
+            remote=False)
+        actual_metrics = self.custom_metric_query(
+            start_time = start_time, 
+            end_time = end_time, 
+            query = actual_query, 
+            remote=True)
 
         print(expected_metrics)
         print(actual_metrics)
