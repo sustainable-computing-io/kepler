@@ -58,7 +58,7 @@ class MetricsValidator:
 
         #cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
         #cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
-        cleaned_expected_metrics = retrieve_timestamp_value_metrics(query[0])
+        cleaned_expected_metrics = retrieve_timestamp_value_metrics(query_metrics[0])
         
         # remove timestamps that do not match
         #expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, 

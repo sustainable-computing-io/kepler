@@ -1,4 +1,5 @@
 [
-    "abs(1 - (rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic'}}[{interval}]) / rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])))",
-    "abs(1 - (rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic'}}[{interval}]) / rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])))"
+    "abs((label_replace(rate(kepler_process_package_joules_total{{{query}, job='metal', mode='dynamic'}}[{interval}]), 'dummy', 'value', '', '') - on(dummy) label_replace(rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}]), 'dummy', 'value', '', '')) / on(dummy) label_replace(rate(kepler_process_package_joules_total{{{query}, job='metal', mode='dynamic'}}[{interval}]), 'dummy', 'value', '', ''))"
 ]
+
+
