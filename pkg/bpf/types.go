@@ -46,8 +46,8 @@ type SupportedMetrics struct {
 // must be in sync with bpf program
 type ProcessBPFMetrics struct {
 	CGroupID       uint64
-	PID            uint64 /* TGID of the threads, i.e. user space pid */
 	ThreadPID      uint64 /* thread id */
+	PID            uint64 /* TGID of the threads, i.e. user space pid */
 	ProcessRunTime uint64 /* in ms */
 	TaskClockTime  uint64 /* in ms */
 	CPUCycles      uint64
