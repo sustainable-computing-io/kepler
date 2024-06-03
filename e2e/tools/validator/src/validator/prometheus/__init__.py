@@ -2,128 +2,133 @@ from prometheus_api_client import PrometheusConnect
 from typing import Tuple, List, NamedTuple
 from datetime import datetime
 import numpy as np
-from datetime import datetime
-from validator import config 
+from validator import config
 
 
 class MetricsValidatorResult(NamedTuple):
-    # mean absolute error
-    mae: float
-    # mean absolute percentage error
-    mape: float
-    # mean squared error
-    mse: float
-    # root mean squared error
-    rmse: float
-    # absolute error list
-    ae: List[float]
-    # absolute percentage error list
-    ape: List[float]
+    mae: float  # absolute percentage error list
+    mape: float  # absolute percentage error list
+    mse: float  # absolute percentage error list
+    rmse: float  # absolute percentage error list
+    ae: List[float]  # absolute percentage error list
+    ape: List[float]  # absolute percentage error list
 
 
-#TODO: Include Environment Variables if desired
+# TODO: Include Environment Variables if desired
 class MetricsValidator:
     # test with float
     def __init__(self, prom: config.Prometheus):
-        self.prom_client = PrometheusConnect(prom.url, headers=None, disable_ssl=True)
+        self.prom_client = PrometheusConnect(prom.url, disable_ssl=True)
         self.step = prom.step
 
-    
-    def custom_metric_query(self, start_time: datetime, end_time: datetime, query: str):
-        return self.prom_client.custom_query_range(
-            query=query,
-            start_time=start_time,
-            end_time=end_time,
-            step=self.step
+    def custom_metric_query(
+        self, start_time: datetime, end_time: datetime, query: str
+    ) -> List[dict]:
+        try:
+            return self.prom_client.custom_query_range(
+                query=query, start_time=start_time, end_time=end_time, step=self.step
+            )
+        except Exception as e:
+            print(f"Error querying Prometheus: {e}")
+            return []
+
+    def compare_metrics(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        expected_query: str,
+        actual_query: str,
+    ) -> MetricsValidatorResult:
+        expected_metrics = self.custom_metric_query(
+            start_time, end_time, expected_query
         )
-
-
-    def compare_metrics(self, start_time: datetime, 
-                        end_time: datetime, 
-                        expected_query: str, 
-                        actual_query: str, 
-                        ) -> MetricsValidatorResult:   
-        
-        expected_metrics = self.custom_metric_query(start_time, end_time, expected_query)
         actual_metrics = self.custom_metric_query(start_time, end_time, actual_query)
 
-        print(expected_metrics)
-        print(actual_metrics)
+        if not expected_metrics or not actual_metrics:
+            raise ValueError("One of the Prometheus queries returned no data")
+
+        print(f"Expected Metrics: {expected_metrics}")
+        print(f"Actual Metrics: {actual_metrics}")
 
         cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
         cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
-        
+
         # remove timestamps that do not match
-        expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, 
-                                                                               cleaned_actual_metrics)
+        expected_data, actual_data = acquire_datapoints_with_common_timestamps(
+            cleaned_expected_metrics, cleaned_actual_metrics
+        )
         return MetricsValidatorResult(
             mae=mean_absolute_error(expected_data, actual_data),
             mape=mean_absolute_percentage_error(expected_data, actual_data),
             mse=mean_squared_error(expected_data, actual_data),
             rmse=root_mean_squared_error(expected_data, actual_data),
             ae=absolute_error(expected_data, actual_data),
-            ape=absolute_percentage_error(expected_data, actual_data)
+            ape=absolute_percentage_error(expected_data, actual_data),
         )
-        
 
-def retrieve_timestamp_value_metrics(prom_query_response) -> List[List[Tuple[int, float]]]:
-    acquired_data = []
-    for element in prom_query_response['values']:
-        acquired_data.append([int(element[0]), float(element[1])])
-    return acquired_data
-    
 
-def acquire_datapoints_with_common_timestamps(prom_data_list_one, prom_data_list_two) -> Tuple[list, list]:
-    common_timestamps = [datapoint[0] for datapoint in prom_data_list_one 
-                         if datapoint[0] in [datapoint[0] for datapoint in prom_data_list_two]]
-    # necessary to sort timestamps?
-    common_timestamps.sort()
-    list_one_metrics = []
-    list_two_metrics = []
-    for timestamp in common_timestamps:
-        for list_one_datapoint in prom_data_list_one:
-            if list_one_datapoint[0] == timestamp:
-                list_one_metrics.append(list_one_datapoint[1])
-        for list_two_datapoint in prom_data_list_two:
-            if list_two_datapoint[0] == timestamp:
-                list_two_metrics.append(list_two_datapoint[1])
+def retrieve_timestamp_value_metrics(
+    prom_query_response: dict,
+) -> List[Tuple[int, float]]:
+    return [
+        (int(element[0]), float(element[1]))
+        for element in prom_query_response["values"]
+    ]
+
+
+def acquire_datapoints_with_common_timestamps(
+    prom_data_list_one, prom_data_list_two: List[Tuple[int, float]]
+) -> Tuple[list, list]:
+    timestamps_one = {datapoint[0] for datapoint in prom_data_list_one}
+    timestamps_two = {datapoint[0] for datapoint in prom_data_list_two}
+    common_timestamps = sorted(timestamps_one & timestamps_two)
+
+    list_one_metrics = [
+        datapoint[1]
+        for datapoint in prom_data_list_one
+        if datapoint[0] in common_timestamps
+    ]
+    list_two_metrics = [
+        datapoint[1]
+        for datapoint in prom_data_list_two
+        if datapoint[0] in common_timestamps
+    ]
+
     return list_one_metrics, list_two_metrics
 
 
-def absolute_percentage_error(expected_data, actual_data) -> List[float]:
-    expected_data = np.array(expected_data)
-    actual_data = np.array(actual_data)
-
-    absolute_percentage_error = np.abs((expected_data - actual_data) / expected_data) * 100
-    return absolute_percentage_error.tolist()
-
-
-def absolute_error(expected_data, actual_data) -> List[float]:
-    expected_data = np.array(expected_data)
-    actual_data = np.array(actual_data)
-
-    absolute_error = np.abs(expected_data - actual_data)
-    return absolute_error.tolist()
+def absolute_percentage_error(expected_data, actual_data: List[float]) -> List[float]:
+    return (
+        np.abs(
+            (np.array(expected_data) - np.array(actual_data)) / np.array(expected_data)
+        )
+        * 100
+    ).tolist()
 
 
-def mean_absolute_error(expected_data, actual_data) -> float:
-    abs_error_ndarray = np.array(absolute_error(expected_data, actual_data))
-    return np.mean(abs_error_ndarray).tolist()
+def absolute_error(expected_data, actual_data: List[float]) -> List[float]:
+    return np.abs(np.array(expected_data) - np.array(actual_data)).tolist()
 
 
-def mean_absolute_percentage_error(expected_data, actual_data) -> float:
-    abs_percentage_error_ndarray = np.array(absolute_percentage_error(expected_data, actual_data))
-    return np.mean(abs_percentage_error_ndarray).tolist()
+def mean_absolute_error(expected_data, actual_data: List[float]) -> float:
+    return np.mean(np.abs(np.array(expected_data) - np.array(actual_data))).tolist()
 
 
-def mean_squared_error(expected_data, actual_data) -> float:
-    abs_error_ndarray = np.array(absolute_error(expected_data, actual_data))
-    return np.mean(np.square(abs_error_ndarray)).tolist()
+def mean_absolute_percentage_error(expected_data, actual_data: List[float]) -> float:
+    return np.mean(
+        np.abs(
+            (np.array(expected_data) - np.array(actual_data)) / np.array(expected_data)
+        )
+        * 100
+    ).tolist()
 
 
-def root_mean_squared_error(expected_data, actual_data) -> float:
-    mean_squared_error_ndarray = np.array(mean_squared_error(expected_data, actual_data))
-    return np.sqrt(mean_squared_error_ndarray).tolist()
+def mean_squared_error(expected_data, actual_data: List[float]) -> float:
+    return np.mean((np.array(expected_data) - np.array(actual_data)) ** 2).tolist()
+
+
+def root_mean_squared_error(expected_data, actual_data: List[float]) -> float:
+    return np.sqrt(mean_squared_error(expected_data, actual_data))
 
 
 # if __name__ == "__main__":
@@ -150,4 +155,3 @@ def root_mean_squared_error(expected_data, actual_data) -> float:
 #     print(deltas_func(cleaned_validator_data, cleaned_validated_data))
 #     print(percentage_err(cleaned_validator_data, cleaned_validated_data))
 #
-    
