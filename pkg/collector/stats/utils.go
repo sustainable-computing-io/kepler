@@ -186,15 +186,6 @@ func getX86Architecture() (string, error) {
 	return uarch, err
 }
 
-// TODO: getCPUArchitecture() code logic changes, need check if anything should change here.
-func getArm64Architecture() (string, error) {
-	output, err := exec.Command("archspec", "cpu").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSuffix(string(output), "\n"), nil
-}
-
 func getS390xArchitecture() (string, error) {
 	// use lscpu to get CPUArchitecture
 	grep := exec.Command("grep", "Machine type:")
@@ -315,7 +306,7 @@ func getCPUArchitecture() (string, error) {
 	} else if runtime.GOARCH == "s390x" {
 		return getS390xArchitecture()
 	} else {
-		myCPUArch, err = getArm64Architecture()
+		myCPUArch, err = getCPUPmuName()
 	}
 
 	if err == nil {
