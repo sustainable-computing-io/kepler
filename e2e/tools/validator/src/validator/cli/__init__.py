@@ -80,27 +80,31 @@ def stress(cfg: Validator, script_path: str):
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
-    click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
-        expected_query = test_case.expected_query
-        actual_query = test_case.actual_query
-        print(f"expected_query: {expected_query}")
-        print(f"actual_query: {actual_query}")
+        #expected_query = test_case.expected_query
+        #actual_query = test_case.actual_query
+        query = test_case.refined_query
+        #print(f"expected_query: {expected_query}")
+        #print(f"actual_query: {actual_query}")
+        #print(f"test_query: {query}")
         print(f"start_time: {result.start_time}, end_time: {result.end_time}")
         metrics_res = metrics_validator.compare_metrics(result.start_time, 
                                                         result.end_time, 
-                                                        expected_query, 
-                                                        actual_query)
+                                                        query)
+                                                        # expected_query, 
+                                                        # actual_query)
 
-        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
-        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
-        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
-        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
-        click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
-        click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
-        click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="red")
-        click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
-        click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
+        click.secho(f"Query Name: {query}", fg='bright_white')
+        click.secho(f"Error List: {metrics_res.el}", fg='bright_red')
+        click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')              
+        # click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
+        # click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
+        # click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
+        # click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
+        # click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="red")
+        # click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
+        # click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
         click.secho("---------------------------------------------------", fg="cyan")
 
+    
 

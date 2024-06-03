@@ -4,21 +4,25 @@ from datetime import datetime
 import numpy as np
 from datetime import datetime
 from validator import config 
-
+from statistics import fmean
 
 class MetricsValidatorResult(NamedTuple):
-    # mean absolute error
-    mae: float
-    # mean absolute percentage error
-    mape: float
-    # mean squared error
-    mse: float
-    # root mean squared error
-    rmse: float
-    # absolute error list
-    ae: List[float]
-    # absolute percentage error list
-    ape: List[float]
+    # error list
+    el: List[float]
+    # mean error
+    me: float
+    # # mean absolute error
+    # mae: float
+    # # mean absolute percentage error
+    # mape: float
+    # # mean squared error
+    # mse: float
+    # # root mean squared error
+    # rmse: float
+    # # absolute error list
+    # ae: List[float]
+    # # absolute percentage error list
+    # ape: List[float]    
 
 
 #TODO: Include Environment Variables if desired
@@ -40,36 +44,44 @@ class MetricsValidator:
 
     def compare_metrics(self, start_time: datetime, 
                         end_time: datetime, 
-                        expected_query: str, 
-                        actual_query: str, 
+                        #expected_query: str, 
+                        #actual_query: str, 
+                        query: str
                         ) -> MetricsValidatorResult:   
-        
-        expected_metrics = self.custom_metric_query(start_time, end_time, expected_query)
-        actual_metrics = self.custom_metric_query(start_time, end_time, actual_query)
+        # test
 
-        print(expected_metrics)
-        print(actual_metrics)
+        #expected_metrics = self.custom_metric_query(start_time, end_time, expected_query)
+        #actual_metrics = self.custom_metric_query(start_time, end_time, actual_query)
+        query_metrics = self.custom_metric_query(start_time, end_time, query)
 
-        cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
-        cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
+        print(query_metrics)
+
+        #cleaned_expected_metrics = retrieve_timestamp_value_metrics(expected_metrics[0])
+        #cleaned_actual_metrics = retrieve_timestamp_value_metrics(actual_metrics[0])
+        cleaned_expected_metrics = retrieve_timestamp_value_metrics(query[0])
         
         # remove timestamps that do not match
-        expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, 
-                                                                               cleaned_actual_metrics)
+        #expected_data, actual_data = acquire_datapoints_with_common_timestamps(cleaned_expected_metrics, 
+                                                                               #cleaned_actual_metrics)
+        # return MetricsValidatorResult(
+        #     mae=mean_absolute_error(expected_data, actual_data),
+        #     mape=mean_absolute_percentage_error(expected_data, actual_data),
+        #     mse=mean_squared_error(expected_data, actual_data),
+        #     rmse=root_mean_squared_error(expected_data, actual_data),
+        #     ae=absolute_error(expected_data, actual_data),
+        #     ape=absolute_percentage_error(expected_data, actual_data)
+        # )
         return MetricsValidatorResult(
-            mae=mean_absolute_error(expected_data, actual_data),
-            mape=mean_absolute_percentage_error(expected_data, actual_data),
-            mse=mean_squared_error(expected_data, actual_data),
-            rmse=root_mean_squared_error(expected_data, actual_data),
-            ae=absolute_error(expected_data, actual_data),
-            ape=absolute_percentage_error(expected_data, actual_data)
+            el=cleaned_expected_metrics,
+            me=round(fmean(cleaned_expected_metrics), 3)
         )
-        
 
-def retrieve_timestamp_value_metrics(prom_query_response) -> List[List[Tuple[int, float]]]:
+
+def retrieve_timestamp_value_metrics(prom_query_response) -> List[float]: #List[List[Tuple[int, float]]]:
     acquired_data = []
     for element in prom_query_response['values']:
-        acquired_data.append([int(element[0]), float(element[1])])
+        #acquired_data.append([int(element[0]), float(element[1])])
+        acquired_data.append(float(element[1]))
     return acquired_data
     
 

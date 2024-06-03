@@ -1,18 +1,4 @@
 [
-    {
-        "expected_query": "rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic'}}[{interval}])",
-        "actual_query": "rate(kepler_node_platform_joules_total[{interval}])"
-    },
-    {
-        "expected_query": "rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic'}}[{interval}])",
-        "actual_query": "rate(kepler_node_platform_joules_total[{interval}])"
-    },
-    {
-        "expected_query": "rate(kepler_{level}_bpf_cpu_time_ms_total{{{query}}}[{interval}])",
-        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_cpu_time_ms_total[{interval}]))"
-    },
-    {
-        "expected_query": "rate(kepler_{level}_bpf_page_cache_hit_total{{{query}}}[{interval}])",
-        "actual_query": "sum by(__name__, job) (rate(kepler_process_bpf_page_cache_hit_total[{interval}]))"
-    }
+    "abs(1 - (rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic'}}[{interval}]) / rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])))",
+    "abs(1 - (rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic'}}[{interval}]) / rate(kepler_node_platform_joules_total{{job='vm'}}[{interval}])))"
 ]
