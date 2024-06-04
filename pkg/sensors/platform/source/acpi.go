@@ -54,21 +54,21 @@ type ACPI struct {
 
 func NewACPIPowerMeter(mockpath string) *ACPI {
 	if mockpath != "" {
-		klog.Infof("using user provided ACPI power path: %s", mockpath)
+		klog.InfoS("using user provided ACPI power path.", "mockpath", mockpath)
 		return &ACPI{powerPath: mockpath, CollectEnergy: true}
 	}
 	acpi := &ACPI{powerPath: hwmonPowerPath}
 	if acpi.IsHWMONCollectionSupported() {
 		acpi.CollectEnergy = true
-		klog.V(5).Infof("Using the HWMON power meter path: %s\n", acpi.powerPath)
+		klog.V(5).InfoS("Using the HWMON power meter path.", "powerPath", acpi.powerPath)
 	} else {
 		// if the acpi power_average file is not in the hwmon path, try to find the acpi path
 		acpi.powerPath = findACPIPowerPath()
 		if acpi.powerPath != "" {
 			acpi.CollectEnergy = true
-			klog.V(5).Infof("Using the ACPI power meter path: %s\n", acpi.powerPath)
+			klog.V(5).InfoS("Using the ACPI power meter path.", "powerPath", acpi.powerPath)
 		} else {
-			klog.Infoln("Could not find any ACPI power meter path. Is it a VM?")
+			klog.InfoS("Could not find any ACPI power meter path. Is it a VM?")
 		}
 	}
 
@@ -95,7 +95,7 @@ func findACPIPowerPath() string {
 		return nil
 	})
 	if err != nil {
-		klog.V(3).Infof("Could not find any ACPI power meter path: %v\n", err)
+		klog.V(3).InfoS("Could not find any ACPI power meter path.", "err", err)
 		return ""
 	}
 	return powerPath

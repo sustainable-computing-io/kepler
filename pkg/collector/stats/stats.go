@@ -141,15 +141,15 @@ func (m *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
 		return
 	}
 	totalPower := m.EnergyUsage[absM].Stat[id].Delta
-	klog.V(6).Infof("Absolute Energy stat: %v (%s)", m.EnergyUsage[absM].Stat, id)
+	klog.V(4).InfoS("Absolute Energy stat", "energyStats", m.EnergyUsage[absM].Stat, "id", id)
 	idlePower := uint64(0)
 	if idleStat, found := m.EnergyUsage[idleM].Stat[id]; found {
 		idlePower = idleStat.Delta
-		klog.V(6).Infof("Idle Energy stat: %v (%s)", m.EnergyUsage[idleM].Stat, id)
+		klog.V(4).InfoS("Idle Energy stat", "energyStats", m.EnergyUsage[idleM].Stat, "id", id)
 	}
 	dynPower := calcDynEnergy(totalPower, idlePower)
 	m.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
-	klog.V(6).Infof("Dynamic Energy stat: %v (%s)", m.EnergyUsage[dynM].Stat, id)
+	klog.V(4).InfoS("Dynamic Energy stat", "energyStats", m.EnergyUsage[dynM].Stat, "id", id)
 }
 
 func calcDynEnergy(totalE, idleE uint64) uint64 {
@@ -240,7 +240,7 @@ func (m *Stats) ToEstimatorValues(featuresName []string, shouldNormalize bool) [
 			featureValues = append(featureValues, value)
 
 		default:
-			klog.V(10).Infof("Unknown node feature: %s, adding 0 value", feature)
+			klog.V(5).InfoS("Unknown node feature, adding 0 value", "feature", feature)
 			featureValues = append(featureValues, 0)
 		}
 	}

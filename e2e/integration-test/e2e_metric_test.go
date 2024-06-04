@@ -252,7 +252,7 @@ func checkPodMetricValues(keplerMetric *TestKeplerMetric, metricName string, zer
 			break
 		} else {
 			retry += 1
-			log.Infof("Retrying to get metrics for %s, retry count: %d", metricName, retry)
+			log.InfoS("Retrying to get metrics", "metricsName", metricName, "retryCount", retry)
 			// exponential backoff
 			time.Sleep(time.Duration(math.Pow(2, float64(retry))) * time.Second)
 		}

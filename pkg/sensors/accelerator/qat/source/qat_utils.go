@@ -77,7 +77,7 @@ func parseStatusInfo(statusData string) (map[string]interface{}, error) {
 	}
 
 	if len(availableDev) == 0 {
-		return nil, fmt.Errorf("unable to find an available QAT device. Please check the status of QAT")
+		return nil, fmt.ErrorS("Unable to find an available QAT device. Please check the status of QAT")
 	}
 	return availableDev, nil
 }
@@ -93,13 +93,13 @@ func controlTelemetry(devices map[string]interface{}, mode int) error {
 		// turn on/off telemetry
 		err = switchTelemetry(path, mode)
 		if err != nil {
-			klog.V(3).Infof("failed to control %s with mode %d: %s ", qatDev, mode, err)
+			klog.V(3).InfoS("Failed to control device with mode.", "device", qatDev, "mode", mode, "err", err)
 			delete(devices, qatDev)
 		}
 	}
 
 	if len(devices) == 0 {
-		return fmt.Errorf("unable to control any QAT device. Please check the status of QAT")
+		return fmt.ErrorS("Unable to control any QAT device. Please check the status of QAT")
 	}
 
 	return err
@@ -133,7 +133,7 @@ func openDataFile(devices map[string]interface{}) (map[string]interface{}, error
 
 		f, err := os.OpenFile(dataPath, os.O_RDONLY, 0444)
 		if err != nil {
-			klog.V(3).Infof("failed to open %s telemetry data file: %v\n", qatDev, err)
+			klog.V(3).InfoS("Failed to open telemetry data file.", "device", qatDev, "err", err)
 			delete(devices, qatDev)
 			continue
 		}
@@ -141,7 +141,7 @@ func openDataFile(devices map[string]interface{}) (map[string]interface{}, error
 	}
 
 	if len(availableDev) == 0 {
-		return nil, fmt.Errorf("unable to open any telemetry data file for QAT. Please check the status of QAT")
+		return nil, fmt.ErrorS("unable to open any telemetry data file for QAT. Please check the status of QAT")
 	}
 	return availableDev, nil
 }

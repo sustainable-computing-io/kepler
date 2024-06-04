@@ -65,7 +65,7 @@ func (d *GPUHabana) GetAbsEnergyFromGPU() []uint32 {
 	for _, device := range d.devices {
 		power, ret := device.HabanaDeviceHandler.(hlml.Device).PowerUsage()
 		if ret != nil {
-			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, ret)
+			klog.V(2).InfoS("Failed to get power usage on device", "device", device, "err", ret)
 			continue
 		}
 		energy := uint32(uint64(power) * config.SamplePeriodSec)

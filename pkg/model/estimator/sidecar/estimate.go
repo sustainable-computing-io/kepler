@@ -108,13 +108,13 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 	}
 	powerRequestJSON, err := json.Marshal(powerRequest)
 	if err != nil {
-		klog.V(4).Infof("marshal error: %v (%v)", err, powerRequest)
+		klog.V(4).InfoS("Marshal error", "err", err, "powerRequest", powerRequest)
 		return nil, err
 	}
 
 	conn, err := net.Dial("unix", c.Socket)
 	if err != nil {
-		klog.V(4).Infof("dial error: %v", err)
+		klog.V(4).InfoS("Dial error", "err", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -122,13 +122,13 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 	_, err = conn.Write(powerRequestJSON)
 
 	if err != nil {
-		klog.V(4).Infof("estimator write error: %v", err)
+		klog.V(4).InfoS("Estimator write error", "err", err)
 		return nil, err
 	}
 	buf := make([]byte, 4096)
 	n, err := conn.Read(buf)
 	if err != nil {
-		klog.V(4).Infof("estimator read error: %v", err)
+		klog.V(4).InfoS("Estimator read error", "err", err)
 		return nil, err
 	}
 	var powers interface{}
@@ -136,7 +136,7 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 	err = json.Unmarshal(buf[0:n], &powerResponse)
 	powers = powerResponse.Powers
 	if err != nil {
-		klog.V(4).Infof("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
+		klog.V(4).InfoS("Estimator unmarshal error", "err", err, "response", string(buf[0:n]))
 		return nil, err
 	}
 	return powers, nil

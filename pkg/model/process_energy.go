@@ -111,20 +111,18 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 	modelConfig.IsNodePowerModel = false
 	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
-		klog.V(1).Infof("Using the %s Power Model to estimate Process Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
+		klog.V(1).InfoS("Using the Power Model to estimate Process Platform Power", "modelType", modelConfig.ModelType.String(), "modelOutputType", modelConfig.ModelOutputType.String(), "processFeatureNames", modelConfig.ProcessFeatureNames)		
 	} else {
-		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+		klog.V(1).InfoS("Failed to create Power Model for Process Platform Power", "modelType", modelConfig.ModelType.String(), "modelOutputType", modelConfig.ModelOutputType.String(), "err", err)
 	}
 
 	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
 	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
-		klog.V(1).Infof("Using the %s Power Model to estimate Process Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
+		klog.V(1).InfoS("Using the Power Model to estimate Process Platform Power", "modelType", modelConfig.ModelType.String(), "modelOutputType", modelConfig.ModelOutputType.String(), "processFeatureNames", modelConfig.ProcessFeatureNames)
 	} else {
-		klog.Infof("Failed to create %s Power Model to estimate Process Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+		klog.V(1).InfoS("Failed to create Power Model for Process Platform Power", "modelType", modelConfig.ModelType.String(), "modelOutputType", modelConfig.ModelOutputType.String(), "err", err)		
 	}
 }
 

@@ -97,10 +97,10 @@ func GetProcessResourceUtilizationPerDevice(device gpu_source.Device, since time
 	if acceleratorImpl != nil && config.EnabledGPU {
 		processesUtilization, err := acceleratorImpl.GetProcessResourceUtilizationPerDevice(device, since)
 		if err != nil {
-			klog.Infof("Failed to collect GPU metrics, trying to initizalize again: %v\n", err)
+			klog.InfoS("Failed to collect GPU metrics, trying to initizalize again.", "err", err)
 			err = acceleratorImpl.Init()
 			if err != nil {
-				klog.Infof("Failed to init nvml: %v\n", err)
+				klog.InfoS("Failed to init nvml.", "err", err)
 				return map[uint32]gpu_source.ProcessUtilizationSample{}, err
 			}
 		}

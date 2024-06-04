@@ -66,3 +66,15 @@ func (c *ContainerStats) String() string {
 		c.ContainerID,
 	) + c.Stats.String()
 }
+
+func (c *ContainerStats) UpdateCgroupMetrics() error {
+	if c.CgroupStatHandler == nil {
+		return nil
+	}
+	err := c.CgroupStatHandler.SetCGroupStat(c.ContainerID, c.CgroupStatMap)
+	if err != nil {
+		klog.V(3).InfoS("Error reading cgroup stats for container", 
+			"containerName", c.ContainerName, "containerID", c.ContainerID, "err", err)
+	}
+	return err
+}

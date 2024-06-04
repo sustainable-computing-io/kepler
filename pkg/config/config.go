@@ -146,14 +146,15 @@ func GetDefaultPowerModelURL(modelOutputType, energySource string) string {
 
 func logBoolConfigs() {
 	if klog.V(5).Enabled() {
-		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
-		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
-		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
-		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessStats)
-		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
-		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
-		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeIdlePowerMetrics)
-		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", BPFSampleRate)
+		klog.V(5).InfoS("Configuration value", "ENABLE_EBPF_CGROUPID", EnabledEBPFCgroupID)
+		klog.V(5).InfoS("Configuration value", "ENABLE_GPU", EnabledGPU)
+		klog.V(5).InfoS("Configuration value", "ENABLE_QAT", EnabledQAT)
+		klog.V(5).InfoS("Configuration value", "ENABLE_PROCESS_METRICS", EnableProcessStats)
+		klog.V(5).InfoS("Configuration value", "EXPOSE_HW_COUNTER_METRICS", ExposeHardwareCounterMetrics)
+		klog.V(5).InfoS("Configuration value", "EXPOSE_CGROUP_METRICS", ExposeCgroupMetrics)
+		klog.V(5).InfoS("Configuration value", "EXPOSE_IRQ_COUNTER_METRICS", ExposeIRQCounterMetrics)
+		klog.V(5).InfoS("Configuration value", "EXPOSE_ESTIMATED_IDLE_POWER_METRICS", ExposeIdlePowerMetrics, "note", "This only impacts when the power is estimated using pre-trained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.")
+		klog.V(5).InfoS("Configuration value", "EXPERIMENTAL_BPF_SAMPLE_RATE", BPFSampleRate)
 	}
 }
 
@@ -371,6 +372,7 @@ func getKernelVersion(c Client) float32 {
 
 	if err != nil {
 		klog.V(4).Infoln("Failed to parse unix name")
+		klog.V(4).InfoS("Failed to parse unix name", "error", err)
 		return -1
 	}
 	// per https://github.com/google/cadvisor/blob/master/machine/info.go#L164
@@ -378,24 +380,24 @@ func getKernelVersion(c Client) float32 {
 
 	versionParts := versionRegex.FindStringSubmatch(string(kv))
 	if len(versionParts) < 2 {
-		klog.V(1).Infof("got invalid release version %q (expected format '4.3-1 or 4.3.2-1')\n", kv)
+		klog.V(1).InfoS("Got invalid release version", "version", kv, "expectedFormat", "4.3-1 or 4.3.2-1")
 		return -1
 	}
 	major, err := strconv.Atoi(versionParts[1])
 	if err != nil {
-		klog.V(1).Infof("got invalid release major version %q\n", major)
+		klog.V(1).InfoS("Got invalid release major version %", "major", versionParts[1], "err", err)
 		return -1
 	}
 
 	minor, err := strconv.Atoi(versionParts[2])
 	if err != nil {
-		klog.V(1).Infof("got invalid release minor version %q\n", minor)
+		klog.V(1).InfoS("Got invalid release minor version", "minor", versionParts[2], "err", err)
 		return -1
 	}
 
 	v, err := strconv.ParseFloat(fmt.Sprintf("%d.%d", major, minor), 32)
 	if err != nil {
-		klog.V(1).Infof("parse %d.%d got issue: %v", major, minor, err)
+		klog.V(1).InfoS("Got parse issue", "major", major, "minor," minor, "err", err)
 		return -1
 	}
 	return float32(v)

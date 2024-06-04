@@ -90,8 +90,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
 		if ct.PID != 0 {
-			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d cpu time %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
-				comm, ct.PID, ct.CGroupID, ct.ProcessRunTime, ct.CPUCycles, ct.CPUInstr, ct.CacheMisses, ct.PageCacheHit)
+			klog.V(5).InfoS("Process metrics collected", "process", comm, "pid", ct.PID, "cgroupID", ct.CGroupID, "taskClockTime", ct.TaskClockTime, "cpuCycles", ct.CPUCycles, "cpuInstructions", ct.CPUInstr, "cacheMisses", ct.CacheMisses, "pageCacheHits", ct.PageCacheHit)
 		}
 		// skip process without resource utilization
 		if ct.ProcessRunTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
@@ -101,7 +100,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		// if the pid is within a container, it will have a container ID
 		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
-			klog.V(6).Infof("failed to resolve container for PID %v (command=%s): %v, set containerID=%s", ct.PID, comm, err, utils.SystemProcessName)
+			klog.V(5).InfoS("Failed to resolve container for PID", "pid", ct.PID, "command", comm, "err", err, "defaultContainerID", utils.SystemProcessName)
 		}
 
 		// if the pid is within a VM, it will have an VM ID
@@ -109,7 +108,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		if config.IsExposeVMStatsEnabled() {
 			vmID, err = libvirt.GetVMID(ct.PID)
 			if err != nil {
-				klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", ct.PID, comm, err)
+				klog.V(5).InfoS("Failed to resolve VM ID for PID", "pid", ct.PID, "command", comm, "err", err)
 			}
 		}
 

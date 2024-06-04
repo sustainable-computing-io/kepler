@@ -76,7 +76,7 @@ func (n *GPUNvml) Init() (err error) {
 		err = fmt.Errorf("failed to get nvml device count: %v", nvml.ErrorString(ret))
 		return err
 	}
-	klog.Infof("found %d gpu devices\n", count)
+	klog.InfoS("Found gpu devices.", "gpuCount", count)
 	devices = make(map[int]Device, count)
 	for gpuID := 0; gpuID < count; gpuID++ {
 		nvmlDeviceHandler, ret := nvml.DeviceGetHandleByIndex(gpuID)
@@ -88,7 +88,7 @@ func (n *GPUNvml) Init() (err error) {
 		}
 		name, _ := nvmlDeviceHandler.GetName()
 		uuid, _ := nvmlDeviceHandler.GetUUID()
-		klog.Infof("GPU %v %q %q", gpuID, name, uuid)
+		klog.InfoS("GPU details", "gpuID", gpuID, "name", name, "uuid", uuid)
 		device := Device{
 			NVMLDeviceHandler: nvmlDeviceHandler,
 			GPUID:             gpuID,
@@ -122,7 +122,7 @@ func (n *GPUNvml) GetAbsEnergyFromGPU() []uint32 {
 	for _, device := range devices {
 		power, ret := device.NVMLDeviceHandler.(nvml.Device).GetPowerUsage()
 		if ret != nvml.SUCCESS {
-			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			klog.V(2).InfoS("Failed to get power usage on device.", "device", device, "err", nvml.ErrorString(ret))
 			continue
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
@@ -187,7 +187,7 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device Device, since ti
 					Pid:     pinfo.Pid,
 					MemUtil: uint32(pinfo.UsedGpuMemory * 100 / memoryInfo.Total),
 				}
-				klog.V(5).Infof("pid: %d, memUtil: %d gpu instance %d compute instance %d\n", pinfo.Pid, processAcceleratorMetrics[pinfo.Pid].MemUtil, pinfo.GpuInstanceId, pinfo.ComputeInstanceId)
+				klog.V(5).InfoS("Process GPU metrics", "pid", pinfo.Pid, "memUtil", processAcceleratorMetrics[pinfo.Pid].MemUtil, "gpuInstanceID", pinfo.GpuInstanceId, "computeInstanceID", pinfo.ComputeInstanceId)
 			}
 		}
 	}

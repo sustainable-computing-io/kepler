@@ -70,7 +70,7 @@ func InitPowerImpl() {
 		powerImpl = acpi
 	}
 
-	klog.V(1).Infof("using %s to obtain power", powerImpl.GetName())
+	klog.V(1).InfoS("Using power implementation", "implementation", powerImpl.GetName())
 }
 
 func GetSourceName() string {

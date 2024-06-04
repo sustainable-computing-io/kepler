@@ -80,7 +80,7 @@ func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats
 			// if the pid is within a container, it will have an container ID
 			if config.IsExposeContainerStatsEnabled() {
 				if containerID, err = cgroup.GetContainerIDFromPID(uintPid); err != nil {
-					klog.V(6).Infof("failed to resolve container for Pid %v (command=%s): %v, set containerID=%s", pid, command, err, containerID)
+					klog.V(5).InfoS("failed to resolve container for PID", "pid", pid, "command", command, "err", err, "containerID", containerID)
 				}
 			}
 
@@ -90,7 +90,7 @@ func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats
 				if config.IsExposeVMStatsEnabled() {
 					vmID, err = libvirt.GetVMID(uintPid)
 					if err != nil {
-						klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", pid, command, err)
+						klog.V(5).InfoS("failed to resolve VM ID for PID", "pid", pid, "command", command, "err", err)
 					}
 				}
 			}
