@@ -10,6 +10,10 @@ services:
     build:
       context: ../../../../
       dockerfile: build/Dockerfile
+      args:
+        INSTALL_DCGM: false
+        INSTALL_HABANA: false
+        VERSION: metal
 
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
