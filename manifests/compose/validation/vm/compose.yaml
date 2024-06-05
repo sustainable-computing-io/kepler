@@ -47,6 +47,7 @@ services:
         set -x;
         /usr/bin/kepler
           -address="0.0.0.0:9100"
+          -enable-cgroup-id=false
           -v="8"
 
   estimator:
