@@ -60,7 +60,3 @@ func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
 		},
 	}, nil
 }
-
-func (m *mockExporter) CollectCPUFreq() (map[int32]uint64, error) {
-	return map[int32]uint64{0: 0}, nil
-}

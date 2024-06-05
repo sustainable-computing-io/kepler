@@ -77,7 +77,6 @@ var (
 	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
 	ExposeIdlePowerMetrics       = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
-	ExposeCPUFrequencyMetrics    = getBoolConfig("EXPOSE_CPU_FREQUENCY_METRICS", false)
 	MockACPIPowerPath            = getConfig("MOCK_ACPI_POWER_PATH", "")
 
 	MetricPathKey   = "METRIC_PATH"
@@ -332,12 +331,7 @@ func IsExposeVMStatsEnabled() bool {
 	return ExposeVMStats
 }
 
-// IsExposeCPUFrequencyMetricsEnabled returns false if CPUFrequency metrics are disabled to minimize overhead.
-func IsExposeCPUFrequencyMetricsEnabled() bool {
-	return ExposeCPUFrequencyMetrics
-}
-
-// IsExposeCPUFrequencyMetricsEnabled returns false if CPUFrequency metrics are disabled to minimize overhead.
+// IsExposeQATMetricsEnabled returns false if QATMetrics metrics are disabled to minimize overhead.
 func IsExposeQATMetricsEnabled() bool {
 	return EnabledQAT
 }

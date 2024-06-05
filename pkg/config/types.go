@@ -52,9 +52,6 @@ const (
 	BytesWriteIO         = "bytes_writes"
 	BlockDevicesIO       = "block_devices_used"
 
-	// system
-	CPUFrequency = "avg_cpu_frequency"
-
 	// NVIDIA GPU
 	GPUComputeUtilization = "gpu_compute_util"
 	GPUMemUtilization     = "gpu_mem_util"
