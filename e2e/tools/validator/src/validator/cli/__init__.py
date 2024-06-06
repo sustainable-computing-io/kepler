@@ -38,69 +38,27 @@ def validator(ctx: click.Context, config_file: str):
 )
 @pass_config
 def stress(cfg: Validator, script_path: str):
-    # PROM_QUERIES = {
-    #     "vm_process_joules_total": {"name": "rate(kepler_process_package_joules_total)", "base_labels": {"job": "metal", "pid": "2093543"}},
-    #     "platform_joules_vm": {"name": "kepler_node_platform_joules_total", "base_labels": {"job": "vm"}},
-    #     # "platform_joules_vm_bm" : "kepler_vm_platform_joules_total{job='metal'}"
-    # }
-
     remote = Remote(cfg.remote)
     result  = remote.run_script(script_path=script_path)
-
-    # from prometheus_api_client.utils import parse_datetime
-    # start_time=parse_datetime("2024-04-12 16:27:20.254648")
-    # end_time = parse_datetime("2024-04-12 16:28:00.466223")
     click.echo(f"start_time: {result.start_time}, end_time: {result.end_time}")
-
-    # TODO: clean up
-    # expected_query_config = PROM_QUERIES["vm_process_joules_total"]
-    # expected_query_modified_labels = expected_query_config["base_labels"].copy()
-    # expected_query_modified_labels["pid"] = str(cfg.metal.vm.pid)
-    #expected_query = "kepler_process_package_joules_total{pid='2093543', job='metal'}"
-    #actual_query_config = PROM_QUERIES["platform_joules_vm"]
-
-
-    # expected_data, actual_data = compare_metrics(
-    #     endpoint=cfg.prometheus.url,
-    #     disable_ssl=True,
-    #     start_time=result.start_time, 
-    #     end_time=result.end_time, 
-    #     expected_query=expected_query_config["name"],
-    #     expected_query_labels=expected_query_modified_labels,
-    #     actual_query=actual_query_config["name"],
-    #     actual_query_labels=actual_query_config["base_labels"]
-    # )
-    # # NOTE: calc
-    # percentage_error = absolute_percentage_error(expected_data, actual_data)
-    # error = absolute_error(expected_data, actual_data)
-    # mae = mean_absolute_error(expected_data, actual_data)
-    # mape = mean_absolute_percentage_error(expected_data, actual_data)
-    
     test_cases = Cases(vm = cfg.metal.vm, prom = cfg.prometheus, query_path = cfg.query_path)
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
-    click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
-        expected_query = test_case.expected_query
-        actual_query = test_case.actual_query
-        print(f"expected_query: {expected_query}")
-        print(f"actual_query: {actual_query}")
+
+        query = test_case.refined_query
+
         print(f"start_time: {result.start_time}, end_time: {result.end_time}")
         metrics_res = metrics_validator.compare_metrics(result.start_time, 
                                                         result.end_time, 
-                                                        expected_query, 
-                                                        actual_query)
+                                                        query)
 
-        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
-        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
-        click.secho(f"Expected Query Name: {expected_query}", fg='bright_yellow')
-        click.secho(f"Actual Query Name: {actual_query}", fg='bright_yellow')      
-        click.secho(f"Absolute Errors during stress test: {metrics_res.ae}", fg='green')
-        click.secho(f"Absolute Percentage Errors during stress test: {metrics_res.ape}", fg='green')
-        click.secho(f"Mean Absolute Error (MAE) during stress test: {metrics_res.mae}", fg="red")
-        click.secho(f"Mean Absolute Percentage Error (MAPE) during stress test: {metrics_res.mape}", fg="red")
-        click.secho(f"Mean Squared Error (MSE) during stress test: {metrics_res.rmse}", fg="blue")
+        click.secho(f"Query Name: {query}", fg='bright_white')
+        click.secho(f"Error List: {metrics_res.el}", fg='bright_red')
+        click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')              
+        
         click.secho("---------------------------------------------------", fg="cyan")
 
+    
 
