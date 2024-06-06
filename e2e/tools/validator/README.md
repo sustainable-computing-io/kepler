@@ -24,6 +24,9 @@ pip install .
 
 ## Usage
 
+Configure Prometheus jobs. The one to scrape the metal metrics is assumed to be named `metal` and the one to scrape the 
+VM metrics is assumed to be named `vm`.
+
 Generate the validator.yaml file based on [validator.yaml.sample](validator.yaml.sample) and run the following command:
 ```console
 
