@@ -25,8 +25,6 @@ def read_json_file(file_path):
 # Raw Prometheus Queries, read all the query from the config file
 
 class CaseResult(NamedTuple):
-    #expected_query: str
-    #actual_query: str
     refined_query: str
 
 
@@ -52,10 +50,7 @@ class Cases:
     def load_test_cases(self) -> CasesResult:
         test_cases = []
         for raw_prom_query in self.raw_prom_queries:
-            print(raw_prom_query.format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query))
             test_cases.append(CaseResult(
-                #expected_query=raw_prom_query["expected_query"].format(level=self.level, query=self.query, interval=self.interval),
-                #actual_query=raw_prom_query["actual_query"].format(interval=self.interval)
                 refined_query=raw_prom_query.format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query)
             ))
         return CasesResult(
