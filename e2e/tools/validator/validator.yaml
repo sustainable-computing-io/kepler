@@ -7,6 +7,8 @@ remote:
   # pkey: ~/.ssh/id_rsa
 
 metal:
+  metal_job_name: metal
+  vm_job_name: vm
   vm:
     pid: 2093543
 

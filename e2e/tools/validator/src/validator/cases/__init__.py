@@ -34,12 +34,14 @@ class CasesResult(NamedTuple):
 
 class Cases:
 
-    def __init__(self, vm: config.VM, prom: config.Prometheus, query_path: str) -> None:
+    def __init__(self, metal_job_name: str, vm_job_name: str, vm: config.VM, prom: config.Prometheus, query_path: str) -> None:
         self.vm_pid = vm.pid
         self.vm_name = vm.name
+        self.metal_job_name = metal_job_name
+        self.vm_job_name = vm_job_name
         self.interval = prom.interval
         self.raw_prom_queries = read_json_file(query_path)
-        self.vm_query = "job='vm'"
+        self.vm_query = f"job='{self.vm_job_name}'"
         if self.vm_pid != 0:
             self.query = f"pid='{{vm_pid}}'".format(vm_pid=self.vm_pid)
             self.level = "process"
@@ -51,7 +53,10 @@ class Cases:
         test_cases = []
         for raw_prom_query in self.raw_prom_queries:
             test_cases.append(CaseResult(
-                refined_query=raw_prom_query.format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query)
+                refined_query=raw_prom_query.format(
+                    metal_job_name = self.metal_job_name, vm_job_name = self.vm_job_name,
+                    level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query
+                )
             ))
         return CasesResult(
             test_cases=test_cases

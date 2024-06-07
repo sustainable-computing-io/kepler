@@ -21,6 +21,8 @@ class VM(NamedTuple):
     name: str
 
 class Metal(NamedTuple):
+    metal_job_name: str
+    vm_job_name: str
     vm: VM
 
 class Prometheus(NamedTuple):
@@ -71,11 +73,13 @@ def load(config_file: str) -> Validator:
     )
 
     metal_config = config['metal']
+    metal_job_name = metal_config.get('metal_job_name', 'metal')
+    vm_job_name = metal_config.get('vm_job_name', 'vm')
     vm_config = metal_config['vm']
     pid = vm_config.get('pid', 0)
     vm_name = vm_config.get('name', '')
     vm = VM(pid=pid, name=vm_name)
-    metal = Metal(vm=vm)
+    metal = Metal(vm=vm, metal_job_name=metal_job_name, vm_job_name=vm_job_name)
 
     prometheus_config = config['prometheus']
     prometheus = Prometheus(
