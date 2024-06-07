@@ -70,10 +70,6 @@ func (c *collector) initMetrics() {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
 	}
-	for name, desc := range metricfactory.CGroupMetricsPromDesc(context) {
-		c.descriptions[name] = desc
-		c.collectors[name] = metricfactory.NewPromCounter(desc)
-	}
 	for name, desc := range metricfactory.EnergyMetricsPromDesc(context) {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)

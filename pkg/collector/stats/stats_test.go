@@ -15,15 +15,11 @@ var _ = Describe("Stats", func() {
 		supportedMetrics := bpf.DefaultSupportedMetrics()
 		InitAvailableParamAndMetrics()
 		if runtime.GOOS == "linux" {
-			exp := []string{
-				config.BytesReadIO,
-				config.BytesWriteIO,
-				config.BlockDevicesIO,
-			}
+			exp := []string{}
 			Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
 		}
 		if runtime.GOOS == "darwin" {
-			exp := []string{config.BlockDevicesIO}
+			exp := []string{}
 			Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
 		}
 	})

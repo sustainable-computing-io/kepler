@@ -39,19 +39,6 @@ const (
 	IRQNetRXLabel = "bpf_net_rx_irq"
 	IRQBlockLabel = "bpf_block_irq"
 
-	// cgroup - cgroup package
-	CgroupfsMemory       = "cgroupfs_memory_usage_bytes"
-	CgroupfsKernelMemory = "cgroupfs_kernel_memory_usage_bytes"
-	CgroupfsTCPMemory    = "cgroupfs_tcp_memory_usage_bytes"
-	CgroupfsCPU          = "cgroupfs_cpu_usage_us"
-	CgroupfsSystemCPU    = "cgroupfs_system_cpu_usage_us"
-	CgroupfsUserCPU      = "cgroupfs_user_cpu_usage_us"
-	CgroupfsReadIO       = "cgroupfs_ioread_bytes"
-	CgroupfsWriteIO      = "cgroupfs_iowrite_bytes"
-	BytesReadIO          = "bytes_read"
-	BytesWriteIO         = "bytes_writes"
-	BlockDevicesIO       = "block_devices_used"
-
 	// NVIDIA GPU
 	GPUComputeUtilization = "gpu_compute_util"
 	GPUMemUtilization     = "gpu_mem_util"
