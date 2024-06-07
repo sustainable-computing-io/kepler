@@ -18,8 +18,11 @@ class Remote(NamedTuple):
 
 class VM(NamedTuple):
     pid: int
+    name: str
 
 class Metal(NamedTuple):
+    metal_job_name: str
+    vm_job_name: str
     vm: VM
 
 class Prometheus(NamedTuple):
@@ -31,6 +34,7 @@ class Validator(NamedTuple):
     remote: Remote
     metal: Metal
     prometheus: Prometheus
+    query_path: str
 
     def __repr__(self):
         return f"<Config {self.remote}@{self.prometheus}>"
@@ -69,9 +73,13 @@ def load(config_file: str) -> Validator:
     )
 
     metal_config = config['metal']
+    metal_job_name = metal_config.get('metal_job_name', 'metal')
+    vm_job_name = metal_config.get('vm_job_name', 'vm')
     vm_config = metal_config['vm']
-    vm = VM( pid=vm_config['pid'],)
-    metal = Metal(vm=vm)
+    pid = vm_config.get('pid', 0)
+    vm_name = vm_config.get('name', '')
+    vm = VM(pid=pid, name=vm_name)
+    metal = Metal(vm=vm, metal_job_name=metal_job_name, vm_job_name=vm_job_name)
 
     prometheus_config = config['prometheus']
     prometheus = Prometheus(
@@ -80,8 +88,11 @@ def load(config_file: str) -> Validator:
         step=prometheus_config.get('step', '3s')
     )
 
+    query_path = config.get('query_path', 'query.json' )
+
     return Validator(
         remote=remote, 
         metal=metal, 
         prometheus=prometheus,
+        query_path=query_path
     )

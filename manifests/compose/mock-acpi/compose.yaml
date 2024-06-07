@@ -12,6 +12,11 @@ services:
     build:
       context: ../../../
       dockerfile: build/Dockerfile
+      args:
+        INSTALL_DCGM: false
+        INSTALL_HABANA: false
+        VERSION: dev
+
     ports:
       # NOTE: use 9188 to keep the host 8888 port free for any local testing
       # e.g. sudo ./bin/kepler 
@@ -54,7 +59,7 @@ services:
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
           -v "5" \
-          -enable-cgroup-id=true \
+          -enable-cgroup-id=false \
           -enable-gpu=false
     networks:
       - kepler-network

@@ -7,10 +7,15 @@ remote:
   # pkey: ~/.ssh/id_rsa
 
 metal:
+  metal_job_name: metal
+  vm_job_name: vm
   vm:
     pid: 2093543
+    name: my-vm
 
 prometheus:
   url: http://localhost:9090
   interval: 30s
   steps: 10s
+
+query_path: ./query.json
