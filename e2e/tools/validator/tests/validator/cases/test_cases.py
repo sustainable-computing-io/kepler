@@ -22,7 +22,7 @@ def test_load_cases_basic(basic_raw_prom_queries):
         interval='12s',
         step='3s'
     )
-    
+
     vm_config = VM(
         pid=17310,
         name=''

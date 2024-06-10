@@ -111,26 +111,26 @@ namespace collector {
         + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
         + VMStats <font color=blue>map</font>[string]*stats.VMStats
 
-        - resetDeltaValue() 
-        - updateResourceUtilizationMetrics() 
-        - updateNodeAvgCPUFrequencyFromEBPF() 
-        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) 
-        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
-        - updateContainerResourceUtilizationMetrics() 
-        - handleIdlingProcess(pStat *stats.ProcessStats) 
-        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool) 
-        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool) 
-        - printDebugMetrics() 
-        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool) 
+        - resetDeltaValue()
+        - updateResourceUtilizationMetrics()
+        - updateNodeAvgCPUFrequencyFromEBPF()
+        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup)
+        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup)
+        - updateContainerResourceUtilizationMetrics()
+        - handleIdlingProcess(pStat *stats.ProcessStats)
+        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool)
+        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool)
+        - printDebugMetrics()
+        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool)
 
         + Initialize() error
-        + Destroy() 
-        + Update() 
-        + UpdateEnergyUtilizationMetrics() 
-        + UpdateNodeEnergyUtilizationMetrics() 
-        + UpdateProcessEnergyUtilizationMetrics() 
-        + AggregateProcessResourceUtilizationMetrics() 
-        + AggregateProcessEnergyUtilizationMetrics() 
+        + Destroy()
+        + Update()
+        + UpdateEnergyUtilizationMetrics()
+        + UpdateNodeEnergyUtilizationMetrics()
+        + UpdateProcessEnergyUtilizationMetrics()
+        + AggregateProcessResourceUtilizationMetrics()
+        + AggregateProcessEnergyUtilizationMetrics()
 
     }
 }
@@ -149,7 +149,7 @@ namespace components {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]source.NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
 
     }
@@ -181,11 +181,11 @@ namespace container {
         + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
         + Mx *sync.Mutex
 
-        - initMetrics() 
-        - collectTotalEnergyMetrics(ch <font color=blue>chan</font> prometheus.Metric, container *stats.ContainerStats) 
+        - initMetrics()
+        - collectTotalEnergyMetrics(ch <font color=blue>chan</font> prometheus.Metric, container *stats.ContainerStats)
 
-        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
-        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc)
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric)
 
     }
 }
@@ -203,7 +203,7 @@ namespace gpu {
         + GetAbsEnergyFromGPU() []uint32
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]source.ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported( bool) 
+        + SetGPUCollectionSupported( bool)
 
     }
 }
@@ -229,14 +229,14 @@ namespace kubernetes {
         + ResourceKind string
         + ContainerStats *<font color=blue>map</font>[string]*stats.ContainerStats
 
-        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{}) 
-        - handleAdd(obj <font color=blue>interface</font>{}) 
+        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{})
+        - handleAdd(obj <font color=blue>interface</font>{})
         - fillInfo(pod *v1.Pod, containers []v1.ContainerStatus) error
-        - handleDeleted(obj <font color=blue>interface</font>{}) 
-        - deleteInfo(containers []v1.ContainerStatus) 
+        - handleDeleted(obj <font color=blue>interface</font>{})
+        - deleteInfo(containers []v1.ContainerStatus)
 
-        + Run() 
-        + Stop() 
+        + Run()
+        + Stop()
 
     }
 }
@@ -278,16 +278,16 @@ namespace local {
         - loadWeightFromURLorLocal() (*ComponentModelWeights, error)
         - loadWeightFromLocal() ([]byte, error)
         - loadWeightFromURL() ([]byte, error)
-        - addFloatFeatureValues(x []float64) 
+        - addFloatFeatureValues(x []float64)
 
         + Start() error
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -328,10 +328,10 @@ namespace local {
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -405,10 +405,10 @@ namespace metrics {
         + NodeStatsCollector prometheus.Collector
         + Mx sync.Mutex
 
-        + NewProcessCollector(processMetrics <font color=blue>map</font>[uint64]*stats.ProcessStats) 
-        + NewContainerCollector(containerMetrics <font color=blue>map</font>[string]*stats.ContainerStats) 
-        + NewVMCollector(vmMetrics <font color=blue>map</font>[string]*stats.VMStats) 
-        + NewNodeCollector(nodeMetrics *stats.NodeStats) 
+        + NewProcessCollector(processMetrics <font color=blue>map</font>[uint64]*stats.ProcessStats)
+        + NewContainerCollector(containerMetrics <font color=blue>map</font>[string]*stats.ContainerStats)
+        + NewVMCollector(vmMetrics <font color=blue>map</font>[string]*stats.VMStats)
+        + NewNodeCollector(nodeMetrics *stats.NodeStats)
         + RegisterMetrics() *prometheus.Registry
 
     }
@@ -420,10 +420,10 @@ namespace metrics {
 
 namespace model {
     interface PowerModelInterface  {
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -446,10 +446,10 @@ namespace node {
         + NodeStats *stats.NodeStats
         + Mx *sync.Mutex
 
-        - initMetrics() 
+        - initMetrics()
 
-        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
-        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc)
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric)
 
     }
 }
@@ -478,14 +478,14 @@ namespace platform {
     class dummy << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
 
     }
     interface powerInterface  {
         + GetName() string
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
 
     }
@@ -502,10 +502,10 @@ namespace process {
         + ProcessStats <font color=blue>map</font>[uint64]*stats.ProcessStats
         + Mx *sync.Mutex
 
-        - initMetrics() 
+        - initMetrics()
 
-        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
-        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc)
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric)
 
     }
 }
@@ -521,7 +521,7 @@ namespace qat {
         + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
         + GetQATUtilization(device <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]source.DeviceUtilizationSample, error)
         + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported( bool) 
+        + SetQATCollectionSupported( bool)
 
     }
 }
@@ -550,16 +550,16 @@ namespace sidecar {
         + SystemMetaDataFeatureValues []string
 
         - makeRequest(usageValues [][]float64, systemValues []string) (<font color=blue>interface</font>{}, error)
-        - addFloatFeatureValues(x []float64) 
+        - addFloatFeatureValues(x []float64)
 
         + Start() error
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -596,7 +596,7 @@ namespace source {
         + CollectEnergy bool
 
         + GetName() string
-        + StopPower() 
+        + StopPower()
         + GetCPUCoreFrequency() <font color=blue>map</font>[int32]uint64
         + IsSystemCollectionSupported() bool
         + IsHWMONCollectionSupported() bool
@@ -617,7 +617,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
 
     }
     class DeviceUtilizationSample << (S,Aquamarine) >> {
@@ -643,7 +643,7 @@ namespace source {
         + GetGpus() []<font color=blue>interface</font>{}
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported(supported bool) 
+        + SetGPUCollectionSupported(supported bool)
 
     }
     class GPUNvml << (S,Aquamarine) >> {
@@ -656,7 +656,7 @@ namespace source {
         + GetAbsEnergyFromGPU() []uint32
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported(supported bool) 
+        + SetGPUCollectionSupported(supported bool)
 
     }
     class InputRanges << (S,Aquamarine) >> {
@@ -693,7 +693,7 @@ namespace source {
     class PowerDummy << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromDram() (uint64, error)
         + GetAbsEnergyFromCore() (uint64, error)
         + GetAbsEnergyFromUncore() (uint64, error)
@@ -704,7 +704,7 @@ namespace source {
     class PowerEstimate << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromDram() (uint64, error)
         + GetAbsEnergyFromCore() (uint64, error)
         + GetAbsEnergyFromUncore() (uint64, error)
@@ -721,7 +721,7 @@ namespace source {
     }
     class PowerHMC << (S,Aquamarine) >> {
         + GetName() string
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
 
@@ -740,7 +740,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
 
     }
     class PowerMetrics << (S,Aquamarine) >> {
@@ -782,7 +782,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
         + GetMaxEnergyRangeFromDram() (uint64, error)
         + GetMaxEnergyRangeFromCore() (uint64, error)
         + GetMaxEnergyRangeFromUncore() (uint64, error)
@@ -807,7 +807,7 @@ namespace source {
         + Shutdown() bool
         + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
         + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported(supported bool) 
+        + SetQATCollectionSupported(supported bool)
 
     }
     class RedFishClient << (S,Aquamarine) >> {
@@ -820,7 +820,7 @@ namespace source {
         + GetName() string
         + IsSystemCollectionSupported() bool
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
-        + StopPower() 
+        + StopPower()
 
     }
     class RedfishAccessInfo << (S,Aquamarine) >> {
@@ -940,8 +940,8 @@ namespace stats {
         + CgroupStatHandler cgroup.CCgroupStatHandler
         + CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection
 
-        + ResetDeltaValues() 
-        + SetLatestProcess(pid uint64) 
+        + ResetDeltaValues()
+        + SetLatestProcess(pid uint64)
         + String() string
         + UpdateCgroupMetrics() error
 
@@ -949,10 +949,10 @@ namespace stats {
     class NodeStats << (S,Aquamarine) >> {
         + IdleResUtilization <font color=blue>map</font>[string]uint64
 
-        + ResetDeltaValues() 
-        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) 
-        + CalcIdleEnergy(absM string, idleM string, resouceUtil string) 
-        + SetNodeOtherComponentsEnergy() 
+        + ResetDeltaValues()
+        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool)
+        + CalcIdleEnergy(absM string, idleM string, resouceUtil string)
+        + SetNodeOtherComponentsEnergy()
         + String() string
 
     }
@@ -964,7 +964,7 @@ namespace stats {
         + Command string
         + IdleCounter int
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
 
     }
@@ -972,10 +972,10 @@ namespace stats {
         + ResourceUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
         + EnergyUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
-        + UpdateDynEnergy() 
-        + CalcDynEnergy(absM string, idleM string, dynM string, id string) 
+        + UpdateDynEnergy()
+        + CalcDynEnergy(absM string, idleM string, dynM string, id string)
         + ToEstimatorValues(featuresName []string, shouldNormalize bool) []float64
 
     }
@@ -983,7 +983,7 @@ namespace stats {
         + PID uint64
         + VMID string
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
 
     }
 }
@@ -1026,7 +1026,7 @@ namespace types {
         + Delta uint64
 
         + String() string
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + AddNewDelta(newDelta uint64) error
         + SetNewDelta(newDelta uint64) error
         + SetNewDeltaValue(newDelta uint64, sum bool) error
@@ -1038,12 +1038,12 @@ namespace types {
     class UInt64StatCollection << (S,Aquamarine) >> {
         + Stat <font color=blue>map</font>[string]*UInt64Stat
 
-        + SetAggrStat(key string, newAggr uint64) 
-        + AddDeltaStat(key string, newDelta uint64) 
-        + SetDeltaStat(key string, newDelta uint64) 
+        + SetAggrStat(key string, newAggr uint64)
+        + AddDeltaStat(key string, newDelta uint64)
+        + SetDeltaStat(key string, newDelta uint64)
         + SumAllDeltaValues() uint64
         + SumAllAggrValues() uint64
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
 
     }
@@ -1066,10 +1066,10 @@ namespace virtualmachine {
         + VMStats <font color=blue>map</font>[string]*stats.VMStats
         + Mx *sync.Mutex
 
-        - initMetrics() 
+        - initMetrics()
 
-        + Describe(ch <font color=blue>chan</font> *prometheus.Desc) 
-        + Collect(ch <font color=blue>chan</font> prometheus.Metric) 
+        + Describe(ch <font color=blue>chan</font> *prometheus.Desc)
+        + Collect(ch <font color=blue>chan</font> prometheus.Metric)
 
     }
 }

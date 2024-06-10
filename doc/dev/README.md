@@ -2,6 +2,7 @@
 
 <!--toc:start-->
 - [Getting Started](#getting-started)
+  - [Pre-requisites](#pre-requisites)
   - [Create a new ephemeral local kubernetes cluster](#create-a-new-ephemeral-local-kubernetes-cluster)
   - [Build and run kepler on your cluster](#build-and-run-kepler-on-your-cluster)
   - [To run kepler externally to the cluster](#to-run-kepler-externally-to-the-cluster)
@@ -11,7 +12,31 @@
   - [Build kepler and base multi-arch images](#build-kepler-and-base-multi-arch-images)
 <!--toc:end-->
 
-A quick start guide to get Kepler up and running inside your container-based development cluster.
+A quick start guide to get Kepler up and running.
+
+## Pre-requisites
+
+This guide assumes you have the following installed:
+
+- [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/getting-started/installation)
+- [Go](https://golang.org/doc/install)
+- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+
+In order to make contributions to Kepler, you need to have the following installed:
+
+- [Pre-commit](https://pre-commit.com/#install)
+
+You can install pre-commit by running the following command:
+
+```bash
+pip install pre-commit
+```
+
+After installing pre-commit, you need to install the pre-commit hooks by running the following command:
+
+```bash
+pre-commit install
+```
 
 ## Create a new ephemeral local kubernetes cluster
 

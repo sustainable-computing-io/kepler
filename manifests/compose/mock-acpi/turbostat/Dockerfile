@@ -6,4 +6,3 @@ WORKDIR /app
 COPY ./run_turbostat.py .
 USER 0
 CMD ["python3", "/app/run_turbostat.py"]
-

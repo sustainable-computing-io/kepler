@@ -26,7 +26,7 @@ Kepler (Kubernetes Efficient Power Level Exporter) uses eBPF to probe energy-rel
 
 As a CNCF Sandbox project, Kepler uses [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md)
 ## Architecture
-Kepler Exporter exposes a variety of [metrics](https://sustainable-computing.io/design/metrics/) about the energy consumption of Kubernetes components such as Pods and Nodes. 
+Kepler Exporter exposes a variety of [metrics](https://sustainable-computing.io/design/metrics/) about the energy consumption of Kubernetes components such as Pods and Nodes.
 
 ![Architecture](doc/kepler-arch.png)
 

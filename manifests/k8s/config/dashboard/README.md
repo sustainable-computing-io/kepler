@@ -1,6 +1,6 @@
 # Dashboard versions for Kepler on OpenShift
 
-We have found that with some installations Grafana does not scale well to the data Kepler is providing so the dashboard is either slow to render of doesn't show any data. 
+We have found that with some installations Grafana does not scale well to the data Kepler is providing so the dashboard is either slow to render of doesn't show any data.
 For that reeason to allow users to visualise Kepler data with the demo dashboard we are now providing two versions.
 
 1. The original dashboard that will visualise all Kepler data

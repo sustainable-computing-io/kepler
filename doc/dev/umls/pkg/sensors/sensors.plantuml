@@ -7,7 +7,7 @@ namespace components {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]source.NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
 
     }
@@ -24,7 +24,7 @@ namespace gpu {
         + GetAbsEnergyFromGPU() []uint32
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]source.ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported( bool) 
+        + SetGPUCollectionSupported( bool)
 
     }
 }
@@ -35,14 +35,14 @@ namespace platform {
     class dummy << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
 
     }
     interface powerInterface  {
         + GetName() string
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
 
     }
@@ -58,7 +58,7 @@ namespace qat {
         + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
         + GetQATUtilization(device <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]source.DeviceUtilizationSample, error)
         + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported( bool) 
+        + SetQATCollectionSupported( bool)
 
     }
 }
@@ -72,7 +72,7 @@ namespace source {
         + CollectEnergy bool
 
         + GetName() string
-        + StopPower() 
+        + StopPower()
         + GetCPUCoreFrequency() <font color=blue>map</font>[int32]uint64
         + IsSystemCollectionSupported() bool
         + IsHWMONCollectionSupported() bool
@@ -93,7 +93,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
 
     }
     class DeviceUtilizationSample << (S,Aquamarine) >> {
@@ -119,7 +119,7 @@ namespace source {
         + GetGpus() []<font color=blue>interface</font>{}
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported(supported bool) 
+        + SetGPUCollectionSupported(supported bool)
 
     }
     class GPUNvml << (S,Aquamarine) >> {
@@ -132,7 +132,7 @@ namespace source {
         + GetAbsEnergyFromGPU() []uint32
         + GetProcessResourceUtilizationPerDevice(device <font color=blue>interface</font>{}, since time.Duration) (<font color=blue>map</font>[uint32]ProcessUtilizationSample, error)
         + IsGPUCollectionSupported() bool
-        + SetGPUCollectionSupported(supported bool) 
+        + SetGPUCollectionSupported(supported bool)
 
     }
     class InputRanges << (S,Aquamarine) >> {
@@ -169,7 +169,7 @@ namespace source {
     class PowerDummy << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromDram() (uint64, error)
         + GetAbsEnergyFromCore() (uint64, error)
         + GetAbsEnergyFromUncore() (uint64, error)
@@ -180,7 +180,7 @@ namespace source {
     class PowerEstimate << (S,Aquamarine) >> {
         + GetName() string
         + IsSystemCollectionSupported() bool
-        + StopPower() 
+        + StopPower()
         + GetAbsEnergyFromDram() (uint64, error)
         + GetAbsEnergyFromCore() (uint64, error)
         + GetAbsEnergyFromUncore() (uint64, error)
@@ -197,7 +197,7 @@ namespace source {
     }
     class PowerHMC << (S,Aquamarine) >> {
         + GetName() string
-        + StopPower() 
+        + StopPower()
         + IsSystemCollectionSupported() bool
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
 
@@ -216,7 +216,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
 
     }
     class PowerMetrics << (S,Aquamarine) >> {
@@ -258,7 +258,7 @@ namespace source {
         + GetAbsEnergyFromUncore() (uint64, error)
         + GetAbsEnergyFromPackage() (uint64, error)
         + GetAbsEnergyFromNodeComponents() <font color=blue>map</font>[int]NodeComponentsEnergy
-        + StopPower() 
+        + StopPower()
         + GetMaxEnergyRangeFromDram() (uint64, error)
         + GetMaxEnergyRangeFromCore() (uint64, error)
         + GetMaxEnergyRangeFromUncore() (uint64, error)
@@ -283,7 +283,7 @@ namespace source {
         + Shutdown() bool
         + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
         + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported(supported bool) 
+        + SetQATCollectionSupported(supported bool)
 
     }
     class RedFishClient << (S,Aquamarine) >> {
@@ -296,7 +296,7 @@ namespace source {
         + GetName() string
         + IsSystemCollectionSupported() bool
         + GetAbsEnergyFromPlatform() (<font color=blue>map</font>[string]float64, error)
-        + StopPower() 
+        + StopPower()
 
     }
     class RedfishAccessInfo << (S,Aquamarine) >> {

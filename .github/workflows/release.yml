@@ -75,7 +75,7 @@ jobs:
           make containerized_build_container_rpm
           cd _output/rpmbuild/
           sudo tar czvf /tmp/kepler.rpm.tar.gz RPMS/
-          
+
       - name: release rpm
         uses: actions/upload-release-asset@v1
         env:
@@ -85,12 +85,12 @@ jobs:
           asset_path: /tmp/kepler.rpm.tar.gz
           asset_name: kepler.rpm.tar.gz
           asset_content_type: application/gzip
-  
+
   create-release-branch:
     name: Create release branch
     needs: [build]
     runs-on: ubuntu-latest
-    steps: 
+    steps:
     - name: Create release branch
       uses: peterjgrainger/action-create-branch@v3.0.0
       env:
@@ -98,8 +98,8 @@ jobs:
       with:
         branch: ${{ github.event.inputs.release }}
         sha: '${{ github.event.pull_request.head.sha }}'
-      
-  
+
+
   push-image:
     name: Push image to the registry
     needs: [build]
@@ -114,7 +114,7 @@ jobs:
     name: download Kepler image SBOM
     needs: [push-image]
     runs-on: ubuntu-latest
-    steps: 
+    steps:
       - name: download from artifact
         uses: actions/download-artifact@v4
         with:

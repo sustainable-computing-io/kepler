@@ -1,4 +1,4 @@
-varReference: 
+varReference:
 - kind: SecurityContextConstraints
   group: security.openshift.io
   version: v1

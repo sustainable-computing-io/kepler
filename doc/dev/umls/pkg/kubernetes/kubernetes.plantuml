@@ -9,14 +9,14 @@ namespace kubernetes {
         + ResourceKind string
         + ContainerStats *<font color=blue>map</font>[string]*stats.ContainerStats
 
-        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{}) 
-        - handleAdd(obj <font color=blue>interface</font>{}) 
+        - handleUpdate(oldObj <font color=blue>interface</font>{}, newObj <font color=blue>interface</font>{})
+        - handleAdd(obj <font color=blue>interface</font>{})
         - fillInfo(pod *v1.Pod, containers []v1.ContainerStatus) error
-        - handleDeleted(obj <font color=blue>interface</font>{}) 
-        - deleteInfo(containers []v1.ContainerStatus) 
+        - handleDeleted(obj <font color=blue>interface</font>{})
+        - deleteInfo(containers []v1.ContainerStatus)
 
-        + Run() 
-        + Stop() 
+        + Run()
+        + Stop()
 
     }
 }

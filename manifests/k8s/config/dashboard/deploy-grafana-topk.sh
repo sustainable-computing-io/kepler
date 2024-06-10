@@ -48,4 +48,3 @@ while ! oc get grafanadashboard --all-namespaces; do
 done
 
 oc apply -f $(pwd)/manifests/k8s/config/dashboard/04-grafana-dashboard-topk.yaml
-

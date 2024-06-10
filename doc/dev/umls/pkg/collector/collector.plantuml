@@ -16,26 +16,26 @@ namespace collector {
         + ContainerStats <font color=blue>map</font>[string]*stats.ContainerStats
         + VMStats <font color=blue>map</font>[string]*stats.VMStats
 
-        - resetDeltaValue() 
-        - updateResourceUtilizationMetrics() 
-        - updateNodeAvgCPUFrequencyFromEBPF() 
-        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) 
-        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
-        - updateContainerResourceUtilizationMetrics() 
-        - handleIdlingProcess(pStat *stats.ProcessStats) 
-        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool) 
-        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool) 
-        - printDebugMetrics() 
-        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool) 
+        - resetDeltaValue()
+        - updateResourceUtilizationMetrics()
+        - updateNodeAvgCPUFrequencyFromEBPF()
+        - updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup)
+        - updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup)
+        - updateContainerResourceUtilizationMetrics()
+        - handleIdlingProcess(pStat *stats.ProcessStats)
+        - handleInactiveContainers(foundContainer <font color=blue>map</font>[string]bool)
+        - handleInactiveVM(foundVM <font color=blue>map</font>[string]bool)
+        - printDebugMetrics()
+        - createContainerStatsIfNotExist(containerID string, cGroupID uint64, pid uint64, withCGroupID bool)
 
         + Initialize() error
-        + Destroy() 
-        + Update() 
-        + UpdateEnergyUtilizationMetrics() 
-        + UpdateNodeEnergyUtilizationMetrics() 
-        + UpdateProcessEnergyUtilizationMetrics() 
-        + AggregateProcessResourceUtilizationMetrics() 
-        + AggregateProcessEnergyUtilizationMetrics() 
+        + Destroy()
+        + Update()
+        + UpdateEnergyUtilizationMetrics()
+        + UpdateNodeEnergyUtilizationMetrics()
+        + UpdateProcessEnergyUtilizationMetrics()
+        + AggregateProcessResourceUtilizationMetrics()
+        + AggregateProcessEnergyUtilizationMetrics()
 
     }
 }
@@ -68,8 +68,8 @@ namespace stats {
         + CgroupStatHandler cgroup.CCgroupStatHandler
         + CgroupStatMap <font color=blue>map</font>[string]*types.UInt64StatCollection
 
-        + ResetDeltaValues() 
-        + SetLatestProcess(pid uint64) 
+        + ResetDeltaValues()
+        + SetLatestProcess(pid uint64)
         + String() string
         + UpdateCgroupMetrics() error
 
@@ -77,10 +77,10 @@ namespace stats {
     class NodeStats << (S,Aquamarine) >> {
         + IdleResUtilization <font color=blue>map</font>[string]uint64
 
-        + ResetDeltaValues() 
-        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) 
-        + CalcIdleEnergy(absM string, idleM string, resouceUtil string) 
-        + SetNodeOtherComponentsEnergy() 
+        + ResetDeltaValues()
+        + UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool)
+        + CalcIdleEnergy(absM string, idleM string, resouceUtil string)
+        + SetNodeOtherComponentsEnergy()
         + String() string
 
     }
@@ -92,7 +92,7 @@ namespace stats {
         + Command string
         + IdleCounter int
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
 
     }
@@ -100,10 +100,10 @@ namespace stats {
         + ResourceUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
         + EnergyUsage <font color=blue>map</font>[string]*types.UInt64StatCollection
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
-        + UpdateDynEnergy() 
-        + CalcDynEnergy(absM string, idleM string, dynM string, id string) 
+        + UpdateDynEnergy()
+        + CalcDynEnergy(absM string, idleM string, dynM string, id string)
         + ToEstimatorValues(featuresName []string, shouldNormalize bool) []float64
 
     }
@@ -111,7 +111,7 @@ namespace stats {
         + PID uint64
         + VMID string
 
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
 
     }
 }
@@ -131,7 +131,7 @@ namespace types {
         + Delta uint64
 
         + String() string
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + AddNewDelta(newDelta uint64) error
         + SetNewDelta(newDelta uint64) error
         + SetNewDeltaValue(newDelta uint64, sum bool) error
@@ -143,12 +143,12 @@ namespace types {
     class UInt64StatCollection << (S,Aquamarine) >> {
         + Stat <font color=blue>map</font>[string]*UInt64Stat
 
-        + SetAggrStat(key string, newAggr uint64) 
-        + AddDeltaStat(key string, newDelta uint64) 
-        + SetDeltaStat(key string, newDelta uint64) 
+        + SetAggrStat(key string, newAggr uint64)
+        + AddDeltaStat(key string, newDelta uint64)
+        + SetDeltaStat(key string, newDelta uint64)
         + SumAllDeltaValues() uint64
         + SumAllAggrValues() uint64
-        + ResetDeltaValues() 
+        + ResetDeltaValues()
         + String() string
 
     }

@@ -30,7 +30,7 @@ jobs:
       - name: Prepare environment
         run: |
           sudo apt-get install -y cpuid clang
-          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
+          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
           git config --global --add safe.directory /kepler
       - name: install libbpf
         uses: sustainable-computing-io/kepler-action@v0.0.6

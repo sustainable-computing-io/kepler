@@ -13,7 +13,7 @@ spec:
   - interval: 1m
     name: kepler-common-rules
     rules:
-    # NOTE: 2m step interval is good enough granularity for 24h and has 
+    # NOTE: 2m step interval is good enough granularity for 24h and has
     # at least 4 samples
     - expr: |
         sum by(container_namespace, pod_name) (
@@ -22,8 +22,8 @@ spec:
       record: kepler:container_joules_total:increase:24h:by_ns_pod
 
     - expr: |
-        sum by(container_namespace) ( 
-          kepler:container_joules_total:increase:24h:by_ns_pod 
+        sum by(container_namespace) (
+          kepler:container_joules_total:increase:24h:by_ns_pod
         )
       record: kepler:container_joules_total:increase:24h:by_ns
 
@@ -32,7 +32,7 @@ spec:
     name: kepler-low-res-rules
     rules:
     # NOTE: joules/second ->  watts, so irate(joules) -> watts
-    # 2m range ensures there are at least 4 scrapes are present when 
+    # 2m range ensures there are at least 4 scrapes are present when
     # evaluating rules at low resolution (30s scrape instead of 3s)
     - expr: |
         sum by (container_namespace, pod_name) (

@@ -33,7 +33,7 @@ This document is created for our next steps integration works, as in [CICDv1](./
 
 ### Non-Goals
 
-1. Self host github action integration. Considering with privilege issue on self hosted BM... mark out of scope. 
+1. Self host github action integration. Considering with privilege issue on self hosted BM... mark out of scope.
 1. Test scope as metric of OS, CPU arch, k8s platform is collecting in our google doc as meeting minutes, and some OS/CPU arch may need to test manually or by other CI tooling support, hence mark it out of scope today.
 
 ## Proposal
@@ -41,7 +41,7 @@ This document is created for our next steps integration works, as in [CICDv1](./
 As we have kepler release in each 3 months.
 
 | Timeline | Action |
-|---| --- | 
+|---| --- |
 | 1~2 month | kepler-action development, maybe just bump version in regular |
 | 2 month | kepler-action release |
 | 2~3 month | kepler, kepler-helm-chat, kepler-operator... default branch switch to kepler action |

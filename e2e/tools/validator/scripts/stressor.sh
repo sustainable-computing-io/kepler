@@ -28,4 +28,3 @@ stress-ng --cpu $(nproc) --cpu-load 75 --timeout 20s
 # cool off for 40 seconds
 # idle
 stress-ng --cpu $(nproc) --cpu-load 0 --timeout 10s
-
