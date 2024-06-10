@@ -153,10 +153,10 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 }
 
 func (c *Collector) updateResourceUtilizationMetrics() {
-	var wg sync.WaitGroup
+	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	c.updateNodeResourceUtilizationMetrics(&wg)
-	c.updateProcessResourceUtilizationMetrics(&wg)
+	go c.updateNodeResourceUtilizationMetrics(wg)
+	go c.updateProcessResourceUtilizationMetrics(wg)
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
