@@ -31,7 +31,6 @@ const (
 	CPURefCycle    = "cpu_ref_cycles"
 	CPUInstruction = "cpu_instructions"
 	CacheMiss      = "cache_miss"
-	TaskClock      = "task_clock_ms"
 
 	// bpf - attacher package
 	CPUTime       = "bpf_cpu_time_ms"

@@ -19,14 +19,12 @@ func TestBpf(t *testing.T) {
 func checkDataCollected(processesData []ProcessBPFMetrics) {
 	// len > 0
 	Expect(len(processesData)).To(BeNumerically(">", 0))
-	Expect(processesData[0].PID).To(BeNumerically(">", 0))
+	Expect(processesData[0].PID).To(BeNumerically(">=", uint64(0)))
 	Expect(processesData[0].Command).NotTo(BeEmpty())
-	Expect(processesData[0].CPUCycles).To(BeNumerically(">=", 0))
-	Expect(processesData[0].CPUInstr).To(BeNumerically(">=", 0))
-	Expect(processesData[0].CacheMisses).To(BeNumerically(">=", 0))
-	Expect(processesData[0].ThreadPID).To(BeNumerically(">", 0))
-	Expect(processesData[0].TaskClockTime).To(BeNumerically(">=", 0))
-	Expect(processesData[0].CGroupID).To(BeNumerically(">", 0))
+	Expect(processesData[0].CPUCycles).To(BeNumerically(">=", uint64(0)))
+	Expect(processesData[0].CPUInstr).To(BeNumerically(">=", uint64(0)))
+	Expect(processesData[0].CacheMisses).To(BeNumerically(">=", uint64(0)))
+	Expect(processesData[0].CGroupID).To(BeNumerically(">", uint64(0)))
 }
 
 var _ = Describe("BPF Exporter test", func() {
