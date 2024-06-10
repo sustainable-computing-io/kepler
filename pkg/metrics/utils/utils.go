@@ -109,6 +109,14 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 	}
 }
 
+func convertUnit(metricName string, val uint64) float64 {
+	if metricName == config.CPUTime {
+		// convert microseconds to miliseconds
+		return float64(val) / 1000.0
+	}
+	return float64(val)
+}
+
 func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricName string, collector metricfactory.PromMetric) {
 	var value float64
 	var labelValues []string
@@ -125,7 +133,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 		}
 		if isGPUMetric {
 			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
-				value = float64(utilization.Aggr)
+				value = convertUnit(metricName, utilization.Aggr)
 				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
 				collect(ch, collector, value, labelValues)
 			}
@@ -134,20 +142,20 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 				klog.Errorf("ContainerStats %s does not have metric %s\n", container.ContainerID, metricName)
 				return
 			}
-			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
+			value = convertUnit(metricName, container.ResourceUsage[metricName].SumAllAggrValues())
 			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
 			collect(ch, collector, value, labelValues)
 		}
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)
-		value = float64(process.ResourceUsage[metricName].SumAllAggrValues())
+		value = convertUnit(metricName, process.ResourceUsage[metricName].SumAllAggrValues())
 		labelValues = []string{strconv.FormatUint(process.PID, 10), process.ContainerID, process.VMID, process.Command}
 		collect(ch, collector, value, labelValues)
 
 	case *stats.VMStats:
 		vm := instance.(*stats.VMStats)
-		value = float64(vm.ResourceUsage[metricName].SumAllAggrValues())
+		value = convertUnit(metricName, vm.ResourceUsage[metricName].SumAllAggrValues())
 		labelValues = []string{vm.VMID}
 		collect(ch, collector, value, labelValues)
 
@@ -156,7 +164,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 		node := instance.(*stats.NodeStats)
 		if _, exist := node.ResourceUsage[metricName]; exist {
 			for deviceID, utilization := range node.ResourceUsage[metricName].Stat {
-				value = float64(utilization.Aggr)
+				value = convertUnit(metricName, utilization.Aggr)
 				labelValues = []string{deviceID, stats.NodeName}
 				collect(ch, collector, value, labelValues)
 			}

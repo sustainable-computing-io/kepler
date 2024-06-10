@@ -40,8 +40,6 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 		switch counterKey {
 		case config.CPUTime:
 			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime)
-		case config.TaskClock:
-			processStats[key].ResourceUsage[config.TaskClock].AddDeltaStat(utils.GenericSocketID, ct.TaskClockTime)
 		case config.PageCacheHit:
 			processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 		case config.IRQNetTXLabel:
@@ -74,9 +72,6 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 		case config.CacheMiss:
 			val = ct.CacheMisses
 			event = config.CacheMiss
-		case config.TaskClock:
-			val = ct.TaskClockTime
-			event = config.TaskClock
 		default:
 			klog.Errorf("counter %s is not supported\n", counterKey)
 		}
@@ -95,11 +90,11 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
 		if ct.PID != 0 {
-			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d task clock time %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
-				comm, ct.PID, ct.CGroupID, ct.TaskClockTime, ct.CPUCycles, ct.CPUInstr, ct.CacheMisses, ct.PageCacheHit)
+			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d cpu time %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
+				comm, ct.PID, ct.CGroupID, ct.ProcessRunTime, ct.CPUCycles, ct.CPUInstr, ct.CacheMisses, ct.PageCacheHit)
 		}
 		// skip process without resource utilization
-		if ct.TaskClockTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
+		if ct.ProcessRunTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
 			continue
 		}
 

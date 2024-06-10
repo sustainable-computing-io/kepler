@@ -140,8 +140,8 @@ func (e *exporter) attach() error {
 	// resize array entries
 	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", e.cpuCores)
 	toResize := []string{
-		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
-		"cpu_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
+		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader",
+		"cpu_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array",
 	}
 	for _, arrayName := range toResize {
 		if err = resizeArrayEntries(e.module, arrayName, e.cpuCores); err != nil {
@@ -243,43 +243,23 @@ func (e *exporter) attach() error {
 		bpfMap, perfErr := e.module.GetMap(bpfPerfArrayName)
 		if perfErr != nil {
 			klog.Warningf("could not get ebpf map for perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			return cleanup()
+			cleanup()
 		}
 		fds, perfErr := unixOpenPerfEvent(counter.EvType, counter.EvConfig, e.cpuCores)
 		if perfErr != nil {
 			klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
-			return cleanup()
+			cleanup()
 		}
 		for i, fd := range fds {
 			err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
 			if err != nil {
 				klog.Warningf("failed to update bpf map: %v", err)
-				return cleanup()
+				cleanup()
 			}
 		}
 		e.perfEventFds = append(e.perfEventFds, fds...)
 		e.enabledHardwareCounters[arrayName] = struct{}{}
 	}
-
-	// attach task clock perf event. this is a software counter, not a hardware counter
-	bpfPerfArrayName := config.TaskClock + bpfPerfArraySuffix
-	bpfMap, err := e.module.GetMap(bpfPerfArrayName)
-	if err != nil {
-		return fmt.Errorf("could not get ebpf map for perf event %s: %w", bpfPerfArrayName, err)
-	}
-	fds, perfErr := unixOpenPerfEvent(unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, e.cpuCores)
-	if perfErr != nil {
-		return fmt.Errorf("could not attach perf event %s: %w", bpfPerfArrayName, perfErr)
-	}
-	for i, fd := range fds {
-		err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
-		if err != nil {
-			klog.Warningf("failed to update bpf map: %v", err)
-			return cleanup()
-		}
-	}
-	e.perfEventFds = append(e.perfEventFds, fds...)
-	e.enabledSoftwareCounters[config.TaskClock] = struct{}{}
 
 	klog.Infof("Successfully load eBPF module from libbpf object")
 	return nil
