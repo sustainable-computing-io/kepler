@@ -34,6 +34,11 @@ class MetricsValidator:
                         query: str
                         ) -> MetricsValidatorResult:
         query_metrics = self.custom_metric_query(start_time, end_time, query)
+        if len(query_metrics) == 0:
+            return MetricsValidatorResult(
+                el=[],
+                me=0
+            )
         cleaned_expected_metrics = retrieve_timestamp_value_metrics(query_metrics[0])
 
         return MetricsValidatorResult(

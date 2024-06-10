@@ -1,4 +1,31 @@
-[
-    "abs((rate(kepler_{level}_package_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}[{interval}]) - on() rate(kepler_node_platform_joules_total{{{vm_query}}}[{interval}])) / on() rate(kepler_{level}_package_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}[{interval}]))",
-    "abs((rate(kepler_{level}_platform_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}[{interval}]) - on() rate(kepler_node_platform_joules_total{{{vm_query}}}[{interval}])) / on() rate(kepler_{level}_platform_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}[{interval}]))"
-]
+{
+    "mse": [
+        "abs((rate(kepler_{level}_core_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]) - on(instance) group_left(vm_id) rate(kepler_node_core_joules_total{{{vm_query}, mode='dynamic'}}[{interval}])) / on() rate(kepler_{level}_core_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]))",
+        "abs((rate(kepler_{level}_dram_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]) - on(instance) group_left(vm_id) rate(kepler_node_dram_joules_total{{{vm_query}, mode='dynamic'}}[{interval}])) / on() rate(kepler_{level}_dram_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]))",
+        "abs((rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]) - on(instance) group_left(vm_id) rate(kepler_node_package_joules_total{{{vm_query}, mode='dynamic'}}[{interval}])) / on() rate(kepler_{level}_package_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]))",
+        "abs((rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]) - on(instance) group_left(vm_id) rate(kepler_node_platform_joules_total{{{vm_query}, mode='dynamic'}}[{interval}])) / on() rate(kepler_{level}_platform_joules_total{{{query}, mode='dynamic', job='{metal_job_name}'}}[{interval}]))"
+    ],
+    "mape": [
+    ],
+    "raw": [
+        "kepler_{level}_package_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}",
+        "kepler_{level}_platform_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}",
+        "kepler_{level}_core_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}",
+        "kepler_{level}_dram_joules_total{{{query}, job='{metal_job_name}', mode='dynamic'}}",
+
+        "kepler_node_platform_joules_total{{{vm_query}, job='{vm_job_name}', mode='dynamic'}}",
+        "kepler_node_package_joules_total{{{vm_query}, job='{vm_job_name}', mode='dynamic'}}",
+        "kepler_node_core_joules_total{{{vm_query}, job='{vm_job_name}', mode='dynamic'}}",
+        "kepler_node_dram_joules_total{{{vm_query}, job='{vm_job_name}', mode='dynamic'}}",
+
+        "kepler_{level}_package_joules_total{{{query}, job='{metal_job_name}', mode='idle'}}",
+        "kepler_{level}_platform_joules_total{{{query}, job='{metal_job_name}', mode='idle'}}",
+        "kepler_{level}_core_joules_total{{{query}, job='{metal_job_name}', mode='idle'}}",
+        "kepler_{level}_dram_joules_total{{{query}, job='{metal_job_name}', mode='idle'}}",
+
+        "kepler_node_platform_joules_total{{{vm_query}, job='{vm_job_name}', mode='idle'}}",
+        "kepler_node_package_joules_total{{{vm_query}, job='{vm_job_name}', mode='idle'}}",
+        "kepler_node_core_joules_total{{{vm_query}, job='{vm_job_name}', mode='idle'}}",
+        "kepler_node_dram_joules_total{{{vm_query}, job='{vm_job_name}', mode='idle'}}"
+    ]
+}

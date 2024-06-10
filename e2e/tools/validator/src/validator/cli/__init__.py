@@ -4,6 +4,7 @@
 
 import click
 import subprocess
+import os
 from validator.__about__ import __version__
 from validator.stresser import ( Remote )
 
@@ -87,7 +88,8 @@ def stress(cfg: Validator, script_path: str):
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
-    for test_case in test_case_result.test_cases:
+    mse_test_cases = test_case_result.test_cases
+    for test_case in mse_test_cases:
 
         query = test_case.refined_query
 
@@ -109,4 +111,19 @@ def stress(cfg: Validator, script_path: str):
         report.write(f"{metrics_res.el}\n")
         report.write("\n")
         report.flush()
+
+    os.makedirs(f"/tmp/validator-{tag}", exist_ok=True)
+    raw_query_results = test_case_result.raw_query_results
+    for raw_query_result in raw_query_results:
+        file_name = raw_query_result.file_name
+        query = raw_query_result.query
+        metrics_res = metrics_validator.custom_metric_query(result.start_time, 
+                                                        result.end_time, 
+                                                        query)
+        click.secho(f"Query Name: {query}", fg='bright_white')
+        click.secho(f"Query Result: {metrics_res}", fg='bright_green')
+        metrics_res = str(metrics_res)
+        with open(f"/tmp/validator-{tag}/{file_name}.json", "w") as f:
+            f.write(metrics_res)
+        
     report.close()
