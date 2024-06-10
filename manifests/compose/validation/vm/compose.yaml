@@ -3,7 +3,7 @@ name: vm
 services:
   kepler:
     image: quay.io/sustainable_computing_io/kepler:latest
-    ports: 
+    ports:
       - "9100:9100"
     privileged: true
     pid: host
@@ -29,7 +29,7 @@ services:
         target: /var/lib/kepler/data/cpus.yaml
 
         # NOTE: for estimator - kepler communication
-      - kepler-tmp:/tmp 
+      - kepler-tmp:/tmp
     cap_add:
       - ALL
 

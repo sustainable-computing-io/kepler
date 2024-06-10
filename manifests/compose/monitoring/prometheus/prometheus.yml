@@ -19,7 +19,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-# Load rules once and periodically evaluate them according to 
+# Load rules once and periodically evaluate them according to
 # the global 'evaluation_interval'.
 rule_files:
   - /etc/prometheus/rules/*.yaml
@@ -30,8 +30,8 @@ scrape_config_files:
   - /etc/prometheus/scrape-configs/*.yaml
   - /etc/prometheus/scrape-configs/*.yml
 
-  # NOTE:  e.g. to add more jobs to scrape a 
-  # VM with IP 192.168.122.78 on port 8888, 
+  # NOTE:  e.g. to add more jobs to scrape a
+  # VM with IP 192.168.122.78 on port 8888,
   # - job_name: 'vm'
   #   static_configs:
   #     - targets: ['192.168.122.100:8888']

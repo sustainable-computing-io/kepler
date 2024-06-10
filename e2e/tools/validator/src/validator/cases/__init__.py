@@ -48,7 +48,7 @@ class Cases:
         else:
             self.query = f"vm_id=~'.*{{vm_name}}'".format(vm_name=self.vm_name)
             self.level = "vm"
-    
+
     def load_test_cases(self) -> CasesResult:
         test_cases = []
         for raw_prom_query in self.raw_prom_queries:

@@ -22,7 +22,7 @@ from validator.specs import (
 pass_config = click.make_pass_decorator(Validator)
 
 @click.group(
-    context_settings={"help_option_names": ["-h", "--help"]}, 
+    context_settings={"help_option_names": ["-h", "--help"]},
     invoke_without_command=False,
 )
 @click.version_option(version=__version__, prog_name="validator")
@@ -37,8 +37,8 @@ def validator(ctx: click.Context, config_file: str):
 
 @validator.command()
 @click.option(
-    "--script-path", "-s", 
-    default="scripts/stressor.sh", 
+    "--script-path", "-s",
+    default="scripts/stressor.sh",
     type=str,
 )
 @pass_config
@@ -92,14 +92,14 @@ def stress(cfg: Validator, script_path: str):
         query = test_case.refined_query
 
         print(f"start_time: {result.start_time}, end_time: {result.end_time} query: {query}")
-        metrics_res = metrics_validator.compare_metrics(result.start_time, 
-                                                        result.end_time, 
+        metrics_res = metrics_validator.compare_metrics(result.start_time,
+                                                        result.end_time,
                                                         query)
 
         click.secho(f"Query Name: {query}", fg='bright_white')
         click.secho(f"Error List: {metrics_res.el}", fg='bright_red')
-        click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')              
-        
+        click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')
+
         click.secho("---------------------------------------------------", fg="cyan")
         report.write("#### Query\n")
         report.write(f"```{query}```\n")
@@ -110,5 +110,3 @@ def stress(cfg: Validator, script_path: str):
         report.write("\n")
         report.flush()
     report.close()
-    
-

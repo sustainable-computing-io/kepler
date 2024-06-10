@@ -1,8 +1,8 @@
-## Kepler enhancements 
+## Kepler enhancements
 
 This folder is meant to hold design discussions for Kepler feature requests and issues.
 Ideally, design discussions should follow issues from the [Kepler Project Board](https://github.com/orgs/sustainable-computing-io/projects).
-For example, view the [kepler-release-0.4-planning](https://github.com/orgs/sustainable-computing-io/projects/2). 
+For example, view the [kepler-release-0.4-planning](https://github.com/orgs/sustainable-computing-io/projects/2).
 
 To create a design discussion for a current issue:
 

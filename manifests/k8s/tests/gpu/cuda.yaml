@@ -8,7 +8,7 @@ spec:
   - name: cuda-vector-add
     image: "nvcr.io/nvidia/k8s/cuda-sample:nbody"
     args:
-    - -benchmark 
+    - -benchmark
     - -numbodies=512000"
     resources:
       limits:

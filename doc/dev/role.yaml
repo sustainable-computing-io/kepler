@@ -8,7 +8,7 @@ rules:
   verbs: ["get", "watch", "list"]
 - apiGroups: ["apps"] # "apps" is the API group for deployments
   resources: ["deployments"]
-  verbs: ["create", "get", "watch", "list"] 
+  verbs: ["create", "get", "watch", "list"]
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["list", "get"]

@@ -53,4 +53,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         # Exit the program if the user presses Ctrl+C
         sys.exit(0)
-

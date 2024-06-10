@@ -77,7 +77,7 @@ Based on different k8s cluster, for example, [kind](https://kind.sigs.k8s.io/):
 Back to common checking process:
 - Deploy Kepler to a local kind cluster with image stored at local image registry.
 - Use kubectl to check that the change was applied as intended.
-  
+
 ## Benchmark
 steps:
 ```

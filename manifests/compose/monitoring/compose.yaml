@@ -6,8 +6,8 @@ services:
       context: ./prometheus
     ports:
       - "9090:9090"
-    volumes: 
-      - prom-data:/prometheus 
+    volumes:
+      - prom-data:/prometheus
       - type: bind
         source: ./prometheus/prometheus.yml
         target: /etc/prometheus/prometheus.yml

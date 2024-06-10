@@ -14,12 +14,12 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
-    - name: Prepare environment 
+    - name: Prepare environment
       run: |
           brew install cpuid
-          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd - 
+          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
           git config --global --add safe.directory /kepler
-    - name: Run 
+    - name: Run
       run: make test-mac-verbose
 
   local_env:

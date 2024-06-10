@@ -1,5 +1,5 @@
 import paramiko
-from  validator import config 
+from  validator import config
 from typing import NamedTuple
 from datetime import datetime
 
@@ -9,7 +9,7 @@ class ScriptResult(NamedTuple):
     start_time : datetime
     end_time : datetime
 
-class Remote: 
+class Remote:
     def __init__(self, config: config.Remote):
         self.host = config.host
         self.pkey = config.pkey
@@ -22,7 +22,7 @@ class Remote:
 
     def __repr__(self):
         return f"<Remote {self.user}@{self.host}>"
-    
+
     def connect(self):
         print(f"connecting -> {self.user}@{self.host}")
 
@@ -34,7 +34,7 @@ class Remote:
             )
         else:
             self.ssh_client.connect(
-                hostname=self.host, port=self.port, 
+                hostname=self.host, port=self.port,
                 username=self.user, password=self.password)
 
     def copy(self, script_path, target_script):
@@ -62,7 +62,7 @@ class Remote:
             print("script execution successful")
         else:
             print("script execution failed")
-            
+
         print("logs for stress test:")
         for line in stdout:
             print("  ", line.strip())

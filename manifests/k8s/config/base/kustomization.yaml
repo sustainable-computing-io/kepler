@@ -2,7 +2,7 @@ namespace: kepler
 
 commonLabels:
   sustainable-computing.io/app: kepler
-  
+
 bases:
 - ../rbac
 - ../exporter
@@ -19,7 +19,7 @@ patchesJson6902:
   patch: |-
     - op: replace
       path: /metadata/namespace
-      value: monitoring 
+      value: monitoring
 
 patchesStrategicMerge: []
 # add this line to set model-server endpoint to kepler

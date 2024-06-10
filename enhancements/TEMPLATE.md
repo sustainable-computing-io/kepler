@@ -101,11 +101,11 @@ Consider including folks that also work outside your immediate sub-project.
 ### Drawbacks
 
 The idea is to find the best form of an argument why this enhancement should
-_not_ be implemented.  
+_not_ be implemented.
 
-What trade-offs (technical/efficiency cost, user experience, flexibility, 
+What trade-offs (technical/efficiency cost, user experience, flexibility,
 supportability, etc) must be made in order to implement this? What are the reasons
-we might not want to undertake this proposal, and how do we overcome them?  
+we might not want to undertake this proposal, and how do we overcome them?
 
 Does this proposal implement a behavior that's new/unique/novel? Is it poorly
 aligned with existing user expectations?  Will it be a significant maintenance

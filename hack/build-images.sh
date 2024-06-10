@@ -32,7 +32,7 @@ function create_builx_builder () {
 	mv ${BUILDX_BIN} ~/.docker/cli-plugins/docker-buildx
 
 	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-	
+
     docker buildx create --name multi-arch --platform "linux/amd64,linux/s390x,linux/arm64" --use
     docker buildx ls
     docker buildx inspect --bootstrap
@@ -72,7 +72,7 @@ function build_image_base() {
 
 	tag=$(date +%Y%m%d%H%M%s)
 
-	for attacher in ${supported_attacher[@]}; do 
+	for attacher in ${supported_attacher[@]}; do
 		for arch in ${supported_arches[@]}; do
 			if [ -e  ./build/Dockerfile.${attacher}.base.${kernel_arch} ];
 			then
@@ -134,10 +134,9 @@ case "$1" in
 		build_image_kepler
 		;;
 	"help")
-		help; 
+		help;
 		exit 0 ;;
-	(*) 
+	(*)
 		help 1>&2;
 		exit 1 ;;
 esac
-

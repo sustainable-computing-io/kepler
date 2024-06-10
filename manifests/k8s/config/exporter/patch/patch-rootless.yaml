@@ -20,4 +20,4 @@ spec:
             - SYS_ADMIN
             - SYS_RESOURCE
           seLinuxOptions:
-            level: 's0' 
+            level: 's0'
