@@ -175,13 +175,9 @@ func GetMapInfoByFD(fd int) (*BPFMapInfo, error) {
 	}, nil
 }
 
-//
-// Map misc internal
-//
-
-// calcMapValueSize calculates the size of the value for a map.
+// CalcMapValueSize calculates the size of the value for a map.
 // For per-CPU maps, it is calculated based on the number of possible CPUs.
-func calcMapValueSize(valueSize int, mapType MapType) (int, error) {
+func CalcMapValueSize(valueSize int, mapType MapType) (int, error) {
 	if valueSize <= 0 {
 		return 0, fmt.Errorf("value size must be greater than 0")
 	}

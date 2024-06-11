@@ -154,7 +154,7 @@ func countRecords(s []byte) (n int) {
 	}
 }
 
-// Header scans the provided struct type and generates a CSV header for it.
+// Header scans the provided struct type, struct slice or struct array and generates a CSV header for it.
 //
 // Field names are written in the same order as struct fields are defined.
 // Embedded struct's fields are treated as if they were part of the outer struct.
@@ -175,8 +175,8 @@ func countRecords(s []byte) (n int) {
 //
 // If tag is left empty the default "csv" will be used.
 //
-// Header will return UnsupportedTypeError if the provided value is nil or is
-// not a struct.
+// Header will return UnsupportedTypeError if the provided value is nil, is
+// not a struct, a struct slice or a struct array.
 func Header(v any, tag string) ([]string, error) {
 	typ, err := valueType(v)
 	if err != nil {
@@ -216,10 +216,15 @@ loop:
 	}
 
 	typ := walkType(val.Type())
-	if typ.Kind() != reflect.Struct {
-		return nil, &UnsupportedTypeError{Type: typ}
+	switch typ.Kind() {
+	case reflect.Struct:
+		return typ, nil
+	case reflect.Slice, reflect.Array:
+		if eTyp := walkType(typ.Elem()); eTyp.Kind() == reflect.Struct {
+			return eTyp, nil
+		}
 	}
-	return typ, nil
+	return nil, &UnsupportedTypeError{Type: typ}
 }
 
 func newCSVReader(r io.Reader) *csv.Reader {
