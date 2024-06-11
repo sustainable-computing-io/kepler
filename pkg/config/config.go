@@ -36,15 +36,22 @@ const (
 	cGroupV2Path = "/sys/fs/cgroup/cgroup.controllers"
 )
 
-type Client interface {
-	getUnixName() (unix.Utsname, error)
+type sysInfo interface {
 	getCgroupV2File() string
+	getUnixName() (unix.Utsname, error)
 }
 
-type config struct {
+type realSysInfo struct{}
+
+func (realSysInfo) getUnixName() (unix.Utsname, error) {
+	var utsname unix.Utsname
+	err := unix.Uname(&utsname)
+	return utsname, err
 }
 
-var c config
+func (realSysInfo) getCgroupV2File() string {
+	return cGroupV2Path
+}
 
 const (
 	defaultMetricValue      = ""
@@ -63,8 +70,6 @@ var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
 	EnabledMSR = false
-
-	KernelVersion = float32(0)
 
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
@@ -246,6 +251,7 @@ func GetRedfishProbeIntervalInSeconds() int {
 	}
 	return probeInterval
 }
+
 func SetRedfishSkipSSLVerify(skipSSLVerify bool) {
 	redfishSkipSSLVerify = skipSSLVerify
 }
@@ -278,15 +284,16 @@ func InitModelConfigMap() {
 // SetEnabledEBPFCgroupID enables the eBPF code to collect cgroup id if the system has kernel version > 4.18
 func SetEnabledEBPFCgroupID(enabled bool) {
 	// set to false if any config source set it to false
-	enabled = enabled && EnabledEBPFCgroupID
-	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
-	KernelVersion = getKernelVersion(c)
-	klog.Infoln("kernel version:", KernelVersion)
-	if (enabled) && (KernelVersion >= cGroupIDMinKernelVersion) && (isCGroupV2(c)) {
-		EnabledEBPFCgroupID = true
-	} else {
+	if !enabled || !EnabledEBPFCgroupID {
 		EnabledEBPFCgroupID = false
+		klog.Infoln("cgroup id in bpf explicitly disabled")
+		return
 	}
+
+	kv := getKernelVersion(realSysInfo{})
+	EnabledEBPFCgroupID = kv >= cGroupIDMinKernelVersion && isCGroupV2(realSysInfo{})
+
+	klog.Infoln("using cgroup id in eBPF for kernel version", kv, "-", EnabledEBPFCgroupID)
 }
 
 // SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
@@ -358,19 +365,8 @@ func SetEnableAPIServer(enabled bool) {
 	EnableAPIServer = enabled
 }
 
-func (c config) getUnixName() (unix.Utsname, error) {
-	var utsname unix.Utsname
-	err := unix.Uname(&utsname)
-	return utsname, err
-}
-
-func (c config) getCgroupV2File() string {
-	return cGroupV2Path
-}
-
-func getKernelVersion(c Client) float32 {
+func getKernelVersion(c sysInfo) float32 {
 	utsname, err := c.getUnixName()
-
 	if err != nil {
 		klog.V(4).Infoln("Failed to parse unix name")
 		return -1
@@ -403,14 +399,14 @@ func getKernelVersion(c Client) float32 {
 	return float32(v)
 }
 
-func isCGroupV2(c Client) bool {
+func isCGroupV2(c sysInfo) bool {
 	_, err := os.Stat(c.getCgroupV2File())
 	return !os.IsNotExist(err)
 }
 
 // Get cgroup version, return 1 or 2
 func GetCGroupVersion() int {
-	if isCGroupV2(c) {
+	if isCGroupV2(realSysInfo{}) {
 		return 2
 	} else {
 		return 1
