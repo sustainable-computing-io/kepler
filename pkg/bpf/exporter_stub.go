@@ -41,10 +41,6 @@ func (a *stubAttacher) CollectProcesses() (processesData []ProcessBPFMetrics, er
 	return nil, nil
 }
 
-func (a *stubAttacher) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
-	return nil, nil
-}
-
 func (a *stubAttacher) HardwareCountersEnabled() bool {
 	return false
 }

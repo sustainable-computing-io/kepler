@@ -65,26 +65,11 @@ struct {
 	__uint(max_entries, NUM_CPUS);
 } cache_miss SEC(".maps");
 
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, u32);
-	__type(value, u32);
-	__uint(max_entries, NUM_CPUS);
-} cpu_freq_array SEC(".maps");
-
 // The sampling rate should be disabled by default because its impact on the
 // measurements is unknown.
 SEC(".rodata.config")
 __attribute__((
 	btf_decl_tag("Sample Rate"))) static volatile const int SAMPLE_RATE = 0;
-
-SEC(".rodata.config")
-__attribute__((btf_decl_tag("CPU Reference Frequency"))) static volatile const int
-	CPU_REF_FREQ = 2500;
-
-SEC(".rodata.config")
-__attribute__((btf_decl_tag("Hertz Multiplier"))) static volatile const int HZ =
-	1000;
 
 int counter_sched_switch = 0;
 

@@ -35,7 +35,6 @@ type Exporter interface {
 	SupportedMetrics() SupportedMetrics
 	Detach()
 	CollectProcesses() ([]ProcessBPFMetrics, error)
-	CollectCPUFreq() (map[int32]uint64, error)
 }
 
 type SupportedMetrics struct {
