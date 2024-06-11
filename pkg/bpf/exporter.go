@@ -359,7 +359,7 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 	keys := make([]uint32, entries)
 	nextKey := uint32(0)
 
-	values, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
+	values, _, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
 	if err != nil {
 		// os.IsNotExist means we reached the end of the table
 		if !os.IsNotExist(err) {
