@@ -1,10 +1,23 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
+      day: monday
       interval: daily
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      day: monday
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
