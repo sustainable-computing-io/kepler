@@ -43,10 +43,6 @@ const (
 	GPUComputeUtilization = "gpu_compute_util"
 	GPUMemUtilization     = "gpu_mem_util"
 
-	// Intel QuickAssist Technology (QAT)
-	// TODO: test if different request has different energy consumption.
-	QATUtilization = "qta_sample_cnt"
-
 	// Energy Metrics
 	// Absolute energy and power
 	AbsEnergyInCore     = "abs_energy_in_core"

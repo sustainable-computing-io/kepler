@@ -77,8 +77,8 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 		}
 	}
 
-	if config.IsExposeQATMetricsEnabled() {
-		m.ResourceUsage[config.QATUtilization] = types.NewUInt64StatCollection()
+	if config.IsExposeCPUFrequencyMetricsEnabled() && bpfSupportedMetrics.HardwareCounters.Has(config.CPUFrequency) {
+		m.ResourceUsage[config.CPUFrequency] = types.NewUInt64StatCollection()
 	}
 
 	return m

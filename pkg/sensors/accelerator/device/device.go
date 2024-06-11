@@ -27,13 +27,12 @@ import (
 var (
 	gpuDevices   = map[string]deviceStartupFunc{} // Static map of supported gpuDevices.
 	dummyDevices = map[string]deviceStartupFunc{} // Static map of supported dummyDevices.
-	qatDevices   = map[string]deviceStartupFunc{} // Static map of supported qatDevices.
 )
 
 type AcceleratorInterface interface {
 	// GetName returns the name of the device
 	GetName() string
-	// GetType returns the type of the device (nvml, qat, dcgm ...)
+	// GetType returns the type of the device (nvml, dcgm, habana ...)
 	GetType() string
 	// GetHwType returns the type of hw the device is (gpu, processor)
 	GetHwType() string
@@ -91,13 +90,6 @@ func AddDeviceInterface(name, dtype string, deviceStartup deviceStartupFunc) {
 		}
 		dummyDevices[name] = deviceStartup
 
-	case "qat":
-		// Handle qat devices registration
-		if existingDevice := qatDevices[name]; existingDevice != nil {
-			klog.Fatalf("Multiple qatDevices attempting to register with name %q", name)
-		}
-		qatDevices[name] = deviceStartup
-
 	default:
 		klog.Fatalf("Unsupported device type %q", dtype)
 	}
@@ -107,7 +99,7 @@ func AddDeviceInterface(name, dtype string, deviceStartup deviceStartupFunc) {
 
 // GetAllDevices returns a slice with all the registered devices.
 func GetAllDevices() []string {
-	devices := append(append(append([]string{}, maps.Keys(gpuDevices)...), maps.Keys(gpuDevices)...), maps.Keys(qatDevices)...)
+	devices := append(append([]string{}, maps.Keys(gpuDevices)...), maps.Keys(gpuDevices)...)
 	return devices
 }
 
@@ -121,21 +113,12 @@ func GetDummyDevices() []string {
 	return maps.Keys(dummyDevices)
 }
 
-// GetQATDevices returns a slice of the registered QAT devices.
-func GetQATDevices() []string {
-	return maps.Keys(qatDevices)
-}
-
-// StartupDevice Returns a new AcceleratorInterface according the required name[nvml|dcgm|dummy|habana|qat].
+// StartupDevice Returns a new AcceleratorInterface according the required name[nvml|dcgm|dummy|habana].
 func StartupDevice(name string) (AcceleratorInterface, error) {
-
 	if deviceStartup, ok := gpuDevices[name]; ok {
 		klog.Infof("Starting up %s", name)
 		return deviceStartup()
 	} else if deviceStartup, ok := dummyDevices[name]; ok {
-		klog.Infof("Starting up %s", name)
-		return deviceStartup()
-	} else if deviceStartup, ok := qatDevices[name]; ok {
 		klog.Infof("Starting up %s", name)
 		return deviceStartup()
 	}

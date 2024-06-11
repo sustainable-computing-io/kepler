@@ -50,21 +50,6 @@ namespace platform {
 
 "platform.powerInterface" <|-- "platform.dummy"
 
-
-namespace qat {
-    interface qatInterface  {
-        + Init() error
-        + Shutdown() bool
-        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
-        + GetQATUtilization(device <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]source.DeviceUtilizationSample, error)
-        + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported( bool)
-
-    }
-}
-
-
-
 namespace source {
     class ACPI << (S,Aquamarine) >> {
         - powerPath string
@@ -274,18 +259,7 @@ namespace source {
         + DecUtil uint32
 
     }
-    class QATTelemetry << (S,Aquamarine) >> {
-        - collectionSupported bool
 
-        + GetName() string
-        + Init() error
-        + GetQATUtilization(devices <font color=blue>map</font>[string]<font color=blue>interface</font>{}) (<font color=blue>map</font>[string]DeviceUtilizationSample, error)
-        + Shutdown() bool
-        + GetQATs() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
-        + IsQATCollectionSupported() bool
-        + SetQATCollectionSupported(supported bool)
-
-    }
     class RedFishClient << (S,Aquamarine) >> {
         - accessInfo RedfishAccessInfo
         - systems []*RedfishSystemPowerResult
@@ -360,11 +334,7 @@ namespace source {
         + RelatedItem []RelatedItem
 
     }
-    class qatDevInfo << (S,Aquamarine) >> {
-        - addr string
-        - datafile *os.File
 
-    }
 }
 
 "platform.powerInterface" <|-- "source.ACPI"
@@ -376,7 +346,6 @@ namespace source {
 "platform.powerInterface" <|-- "source.PowerHMC"
 "components.powerInterface" <|-- "source.PowerMSR"
 "components.powerInterface" <|-- "source.PowerSysfs"
-"qat.qatInterface" <|-- "source.QATTelemetry"
 "platform.powerInterface" <|-- "source.RedFishClient"
 
 "source.Actions" o-- "source.PowerPowerSupplyReset"

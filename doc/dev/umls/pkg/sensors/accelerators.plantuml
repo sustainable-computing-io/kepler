@@ -145,26 +145,6 @@ namespace sources {
         + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
 
     }
-    class QATTelemetry << (S,Aquamarine) >> {
-        - collectionSupported bool
-        - devices <font color=blue>map</font>[string]qatDevInfo
-
-        + GetName() string
-        + GetType() string
-        + GetHwType() string
-        + InitLib() error
-        + Init() error
-        + Shutdown() bool
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDevicesByID() <font color=blue>map</font>[int]any
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
-        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
-        + GetDeviceUtilizationStats(qat any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + IsDeviceCollectionSupported() bool
-        + SetDeviceCollectionSupported(supported bool)
-
-    }
 
 }
 
@@ -173,6 +153,5 @@ accelerator.accelerator *-- device.AcceleratorInterface
 "device.AcceleratorInterface" <|-- "sources.GPUDcgm"
 "device.AcceleratorInterface" <|-- "sources.GPUHabana"
 "device.AcceleratorInterface" <|-- "sources.GPUNvml"
-"device.AcceleratorInterface" <|-- "sources.QATTelemetry"
 
 @enduml

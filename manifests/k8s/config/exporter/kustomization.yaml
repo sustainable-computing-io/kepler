@@ -20,8 +20,6 @@ patchesStrategicMerge: []
 # - ./patch/patch-openshift.yaml
 # add this line for rootless patch
 # - ./patch/patch-rootless.yaml
-# add this line for qat patch
-# - ./patch/patch-qat.yaml
 # add this line for dcgmi patch
 # - ./patch/patch-dcgmi.yaml
 # add this line for habana patch

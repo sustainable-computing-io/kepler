@@ -54,7 +54,7 @@ type Accelerator interface {
 type accelerator struct {
 	sync.Mutex
 	acc           device.AcceleratorInterface // Device Accelerator Interface
-	accType       string                      // NVML|DCGM|Habana|Dummy|QAT
+	accType       string                      // NVML|DCGM|Habana|Dummy
 	running       bool
 	installedtime metav1.Time
 }
@@ -68,9 +68,6 @@ func InitAcc(atype string, sleep bool) error {
 	case "gpu":
 		numDevs = len(device.GetGpuDevices())
 		getDevices = device.GetGpuDevices
-	case "qat":
-		numDevs = len(device.GetQATDevices())
-		getDevices = device.GetQATDevices
 	default:
 		return errors.New("unsupported accelerator")
 	}
@@ -116,7 +113,7 @@ func GetAccelerators() (map[string]Accelerator, error) {
 	return accelerators, nil
 }
 
-// GetActiveAcceleratorsByType returns a map of supported accelerators based on the specified type gpu|qat|...
+// GetActiveAcceleratorsByType returns a map of supported accelerators based on the specified type...
 func GetActiveAcceleratorsByType(t string) (map[string]Accelerator, error) {
 	accs := map[string]Accelerator{}
 	for _, a := range accelerators {
@@ -131,7 +128,7 @@ func GetActiveAcceleratorsByType(t string) (map[string]Accelerator, error) {
 	return accs, nil
 }
 
-// NewAccelerator creates a new Accelerator instance [NVML|DCGM|DUMMY|HABANA|QAT] for the local node.
+// NewAccelerator creates a new Accelerator instance [NVML|DCGM|DUMMY|HABANA] for the local node.
 func NewAccelerator(accType string) Accelerator {
 
 	containsType := slices.Contains(device.GetAllDevices(), accType)
@@ -140,7 +137,7 @@ func NewAccelerator(accType string) Accelerator {
 		return nil
 	}
 
-	_, ok := accelerators[accType] // e.g. accelerators[nvml|dcgm|habana|dummy|qat]
+	_, ok := accelerators[accType] // e.g. accelerators[nvml|dcgm|habana|dummy]
 	if ok {
 		klog.Infof("Accelerator with type %s already exists", accType)
 		return accelerators[accType]

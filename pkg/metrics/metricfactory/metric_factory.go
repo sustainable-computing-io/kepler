@@ -86,11 +86,21 @@ func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics)
 	return descriptions
 }
 
-func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+func CGroupMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsExposeQATMetricsEnabled() {
-		name := config.QATUtilization
-		descriptions[name] = resMetricsPromDesc(context, name, "intel_qat")
+	if config.IsCgroupMetricsEnabled() {
+		for _, name := range consts.CGroupMetricNames {
+			descriptions[name] = resMetricsPromDesc(context, name, "cgroup")
+		}
+	}
+	return descriptions
+}
+
+func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+	descriptions = make(map[string]*prometheus.Desc)
+	if config.IsExposeCPUFrequencyMetricsEnabled() {
+		name := config.CPUFrequency
+		descriptions[name] = resMetricsPromDesc(context, name, "")
 	}
 	return descriptions
 }

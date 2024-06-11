@@ -72,7 +72,6 @@ var (
 	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
 	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
 	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	enableQAT                    = flag.Bool("enable-qat", false, "whether enable qat (need to have Intel QAT driver installed)")
 	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
 	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
 	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
@@ -116,7 +115,6 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
-	config.SetEnabledQAT(*enableQAT)
 	config.EnabledMSR = *enabledMSR
 	config.SetEnabledIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
@@ -144,12 +142,6 @@ func main() {
 	if config.EnabledGPU {
 		if err := acc.InitAcc("gpu", true); err != nil {
 			klog.Fatalf("failed to init GPU accelerators: %v", err)
-		}
-	}
-
-	if config.IsExposeQATMetricsEnabled() {
-		if err := acc.InitAcc("qat", false); err != nil {
-			klog.Fatalf("failed to init QAT accelerators: %v", err)
 		}
 	}
 

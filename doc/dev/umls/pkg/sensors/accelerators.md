@@ -10,14 +10,15 @@ The idea behind this package is to provide a high level interface that can repre
 also hiding the implemetation details of each device.
 
 ### Core Interfaces and Structures
-### Accelerator Interface:
+
+### Accelerator Interface
 
 The Accelerator interface represents the highest level interface that core kepler packages must interact with
 in order to collect accelerator metrics. It defines the core operations that any accelerator must support. This
 includes methods for starting up, stopping, checking the running status, and retrieving the accelerator type and
 underlying implementation.
 
-### Device Interface:
+### Device Interface
 
 The device.AcceleratorInterface sits one layer under the accelerator interface and provides a homogeneous
 interface for interacting with multiple accelerator devices. Essentially, It provides a more granular set of
@@ -29,21 +30,24 @@ device, retrieving device information, and collecting device-specific metrics an
 Various concrete implementations of the device.AcceleratorInterface are provided, each tailored to a specific type of hardware accelerator. These include:
 
 #### Dummy
+
 Represents a dummy device implementation.
 Implements all methods defined in device.AcceleratorInterface, returning predefined or mock values.
 
 #### GPUDcgm
+
 Represents a GPU device managed via DCGM (Data Center GPU Manager).
 Maintains a collection of GPU devices and their associated metrics.
 Implements device.AcceleratorInterface to provide GPU-specific initialization, shutdown, and data collection methods.
 
 #### GPUNvml
+
 Similar to GPUDcgm, but uses the NVIDIA Management Library (NVML) for managing GPU devices.
 Also maintains a collection of GPU devices and implements methods to interact with these devices using NVML.
 
-#### QATTelemetry
-Represents devices using Intel's QuickAssist Technology (QAT).
-Maintains device-specific information and implements the interface methods to collect telemetry data and manage QAT devices.
+#### GPUHabana
+
+Maintains a collection of Gaudi Habana devices and implements methods to interact with these devices using `libhlml`.
 
 ## Impact and Benefits of this architecture
 

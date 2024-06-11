@@ -154,10 +154,8 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 // update the node metrics that are not related to aggregated resource utilization of processes
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
-	if config.IsExposeQATMetricsEnabled() {
-		if _, err := acc.GetActiveAcceleratorsByType("qat"); err == nil {
-			accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfSupportedMetrics))
-		}
+	if config.ExposeCPUFrequencyMetrics {
+		c.updateNodeAvgCPUFrequencyFromEBPF()
 	}
 }
 
