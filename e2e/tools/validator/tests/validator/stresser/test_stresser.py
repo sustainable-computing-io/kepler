@@ -21,4 +21,3 @@ def test_run_script_on_vm(remote_params):
     start_time = script_result.start_time
     end_time = script_result.end_time
     assert start_time < end_time
-

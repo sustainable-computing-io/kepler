@@ -32,16 +32,16 @@ namespace local {
         - loadWeightFromURLorLocal() (*ComponentModelWeights, error)
         - loadWeightFromLocal() ([]byte, error)
         - loadWeightFromURL() ([]byte, error)
-        - addFloatFeatureValues(x []float64) 
+        - addFloatFeatureValues(x []float64)
 
         + Start() error
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -82,10 +82,10 @@ namespace local {
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -111,10 +111,10 @@ namespace local {
 
 namespace model {
     interface PowerModelInterface  {
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType
@@ -151,16 +151,16 @@ namespace sidecar {
         + SystemMetaDataFeatureValues []string
 
         - makeRequest(usageValues [][]float64, systemValues []string) (<font color=blue>interface</font>{}, error)
-        - addFloatFeatureValues(x []float64) 
+        - addFloatFeatureValues(x []float64)
 
         + Start() error
         + GetPlatformPower(isIdlePower bool) ([]float64, error)
         + GetComponentsPower(isIdlePower bool) ([]source.NodeComponentsEnergy, error)
         + GetGPUPower(isIdlePower bool) ([]float64, error)
-        + AddProcessFeatureValues(x []float64) 
-        + AddNodeFeatureValues(x []float64) 
-        + AddDesiredOutValue(y float64) 
-        + ResetSampleIdx() 
+        + AddProcessFeatureValues(x []float64)
+        + AddNodeFeatureValues(x []float64)
+        + AddDesiredOutValue(y float64)
+        + ResetSampleIdx()
         + Train() error
         + IsEnabled() bool
         + GetModelType() types.ModelType

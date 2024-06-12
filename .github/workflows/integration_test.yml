@@ -61,7 +61,7 @@ jobs:
         uses: ./.github/tools-cache
 
       - name: build manifest
-        run: make build-manifest OPTS="CI_DEPLOY"
+        run: make build-manifest OPTS="CI_DEPLOY DEBUG_DEPLOY"
         env:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           IMAGE_REPO: "localhost:5001"

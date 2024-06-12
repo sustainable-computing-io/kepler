@@ -31,7 +31,6 @@ const (
 	CPURefCycle    = "cpu_ref_cycles"
 	CPUInstruction = "cpu_instructions"
 	CacheMiss      = "cache_miss"
-	TaskClock      = "task_clock_ms"
 
 	// bpf - attacher package
 	CPUTime       = "bpf_cpu_time_ms"
@@ -52,9 +51,6 @@ const (
 	BytesReadIO          = "bytes_read"
 	BytesWriteIO         = "bytes_writes"
 	BlockDevicesIO       = "block_devices_used"
-
-	// system
-	CPUFrequency = "avg_cpu_frequency"
 
 	// NVIDIA GPU
 	GPUComputeUtilization = "gpu_compute_util"

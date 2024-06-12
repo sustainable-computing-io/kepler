@@ -18,7 +18,7 @@ func DefaultSupportedMetrics() SupportedMetrics {
 }
 
 func defaultHardwareCounters() sets.Set[string] {
-	return sets.New(config.CPUCycle, config.CPUInstruction, config.CacheMiss, config.TaskClock)
+	return sets.New(config.CPUCycle, config.CPUInstruction, config.CacheMiss)
 }
 
 func defaultSoftwareCounters() sets.Set[string] {
@@ -49,10 +49,8 @@ func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
 	return []ProcessBPFMetrics{
 		{
 			CGroupID:       0,
-			ThreadPID:      0,
 			PID:            0,
 			ProcessRunTime: 0,
-			TaskClockTime:  0,
 			CPUCycles:      0,
 			CPUInstr:       0,
 			CacheMisses:    0,
@@ -61,8 +59,4 @@ func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
 			Command:        [16]byte{},
 		},
 	}, nil
-}
-
-func (m *mockExporter) CollectCPUFreq() (map[int32]uint64, error) {
-	return map[int32]uint64{0: 0}, nil
 }

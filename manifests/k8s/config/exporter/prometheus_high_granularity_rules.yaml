@@ -8,13 +8,13 @@ metadata:
   name: kepler-high-granularity-rules
 spec:
   groups:
-    # NOTE: rules are evaluated every 10s instead of scrape interval 3s 
+    # NOTE: rules are evaluated every 10s instead of scrape interval 3s
     # since that will be quite taxing on Prometheus
   - interval: 10s
     name: kepler-high-granularity-rules
     rules:
     # NOTE: joules/second ->  watts, so irate(joules) -> watts
-    # 15s range ensures there are at least 4 scrapes are present when 
+    # 15s range ensures there are at least 4 scrapes are present when
     # evaluating rules at high resolution 3s
     - expr: |
         sum by (container_namespace, pod_name) (

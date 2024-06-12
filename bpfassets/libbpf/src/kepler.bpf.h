@@ -33,6 +33,8 @@ typedef struct pid_time_t {
 # define MAP_SIZE 32768
 #endif
 
+#define TASK_RUNNING 0
+
 #include <bpf/bpf_helpers.h>
 
 enum bpf_map_type {
@@ -89,10 +91,8 @@ struct bpf_perf_event_value {
 
 typedef struct process_metrics_t {
 	u64 cgroup_id;
-	u64 pid;  // pid is the kernel space view of the thread id
-	u64 tgid; // tgid is the user space view of the pid
+	u64 pid; // pid is the kernel space view of the thread id
 	u64 process_run_time;
-	u64 task_clock_time;
 	u64 cpu_cycles;
 	u64 cpu_instr;
 	u64 cache_miss;

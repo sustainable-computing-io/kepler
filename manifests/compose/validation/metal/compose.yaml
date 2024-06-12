@@ -17,7 +17,7 @@ services:
 
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
-      # e.g. sudo ./bin/kepler 
+      # e.g. sudo ./bin/kepler
       - "9188:8888"
     privileged: true
     pid: host
@@ -59,7 +59,7 @@ services:
   scaphandre:
     image: hubblo/scaphandre
     privileged: true
-    ports: 
+    ports:
       - "8880:8080"
     volumes:
       - type: bind
@@ -76,9 +76,9 @@ networks:
   scaph-network:
   kepler-network:
   #
-  #  
+  #
   #  NOTE: To allow access to VM from prometheus container
-  #  external network named - virt-net must be created using 
+  #  external network named - virt-net must be created using
   #  the following command
   #
   # use:

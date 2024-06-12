@@ -89,16 +89,16 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl enable --now container-kepler
           # curl kepler port 8888 with 10 seconds timeout and retry 5 times; if it fails, exit with error
-          for i in {1..5}; do 
+          for i in {1..5}; do
             echo "Attempt $i"
             # curl and get http code
             ret=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/metrics --max-time 10 --connect-timeout 10 || true)
-            if [ ${ret} -eq 200 ]; then 
-              break 
+            if [ ${ret} -eq 200 ]; then
+              break
             fi
             sleep 5
           done
-          if [ ${ret} -ne 200 ]; then 
+          if [ ${ret} -ne 200 ]; then
             echo "Kepler did not start in time"
             # exit 1
           fi

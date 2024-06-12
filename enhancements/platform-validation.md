@@ -113,7 +113,7 @@ Directly check the Kepler exposed metrics by port forwarding port 9102 to host p
 
 Pros: Check metrics on the very beginning of dataflow, direct evaluation on Kepler's collector and exporter functionalities.
 
-Cons: Kepler exporter metrics can be regarded as snapshots per three seconds(current defautl scrape interval), it may not be intuitive to those observability concepts of power consumption and power attribution. 
+Cons: Kepler exporter metrics can be regarded as snapshots per three seconds(current defautl scrape interval), it may not be intuitive to those observability concepts of power consumption and power attribution.
 
 * Check on Prometheus.
 

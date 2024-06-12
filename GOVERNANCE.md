@@ -2,7 +2,7 @@
 
 ## Leadership Election
 
-Qualified new maintainers are approved via consensus by the group of existing maintainers. 
+Qualified new maintainers are approved via consensus by the group of existing maintainers.
 
 ## Technical Committee
 
@@ -18,7 +18,7 @@ The current list of technical committee members is published and updated in [Con
 
 ### Becoming a Technical Committee Member
 
-Proficient in one or more of the following areas: 
+Proficient in one or more of the following areas:
 * Developing and maintaining Kepler core
 * Developing and maintaining Kepler deployment and integration (including Operator)
 * Developing and maintaining Kepler model server and models
@@ -37,7 +37,7 @@ Responsibilities include:
 * Contribute non-trivial pull requests
 * Actively attend the community meetings
 * Perform code reviews on other's pull requests
-* Regularly triage GitHub issues. 
+* Regularly triage GitHub issues.
 * Make sure that ongoing PRs are moving forward at the right pace or closing them
 * Monitor Kepler Slack (delayed response is perfectly acceptable), particularly for the area of your expertise
 
@@ -46,7 +46,7 @@ Responsibilities include:
 Responsibilities include:
 
 * Perform code reviews on other's pull requests
-* Regularly triage GitHub issues. 
+* Regularly triage GitHub issues.
 * Make sure that ongoing PRs are moving forward at the right pace or closing them
 * Monitor Kepler Slack (delayed response is perfectly acceptable), particularly for the area of your expertise
 

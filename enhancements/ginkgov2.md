@@ -37,7 +37,7 @@ Test coverage up to 50%
 ### Workflow Description
 
 ![usage](images/ginkgov2_vscode.png)
-after this change, we are able to 
+after this change, we are able to
 - Click at left side bar to run all test case at local.
 - For any package, open a file click run package tests.
 - Find test coverage in visual way, green for covered, red for not.

@@ -35,7 +35,6 @@ type Exporter interface {
 	SupportedMetrics() SupportedMetrics
 	Detach()
 	CollectProcesses() ([]ProcessBPFMetrics, error)
-	CollectCPUFreq() (map[int32]uint64, error)
 }
 
 type SupportedMetrics struct {
@@ -47,9 +46,7 @@ type SupportedMetrics struct {
 type ProcessBPFMetrics struct {
 	CGroupID       uint64
 	PID            uint64 /* TGID of the threads, i.e. user space pid */
-	ThreadPID      uint64 /* thread id */
 	ProcessRunTime uint64 /* in ms */
-	TaskClockTime  uint64 /* in ms */
 	CPUCycles      uint64
 	CPUInstr       uint64
 	CacheMisses    uint64

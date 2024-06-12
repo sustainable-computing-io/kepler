@@ -101,15 +101,6 @@ func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Des
 	return descriptions
 }
 
-func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
-	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsExposeCPUFrequencyMetricsEnabled() {
-		name := config.CPUFrequency
-		descriptions[name] = resMetricsPromDesc(context, name, "")
-	}
-	return descriptions
-}
-
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {

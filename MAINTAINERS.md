@@ -1,4 +1,4 @@
-# Maintainers 
+# Maintainers
 (as of May, 22nd, 2023)
 
 |  Name  |  Company  | Github ID  | Email   |
@@ -15,8 +15,8 @@
 | Marcelo Amaral | IBM | marceloamaral | marcelo.amaral1@ibm.com |
 | Niki Manoledaki | Weaveworks | nikimanoledaki | niki@weave.works |
 | Brad McCoy | Basiq | bradmccoydev | bradmccoydev@gmail.com |
-| Sunyanan Choochotkaew | IBM |  sunya-ch | sunyanan.choochotkaew1@ibm.com | 
-| Ruomeng Hao | Intel | ruomengh | ruomengh@intel.com | 
+| Sunyanan Choochotkaew | IBM |  sunya-ch | sunyanan.choochotkaew1@ibm.com |
+| Ruomeng Hao | Intel | ruomengh | ruomengh@intel.com |
 | Chen Wang | IBM | wangchen615 | chen.wang1@ibm.com |
 | Sunil Thaha | Red Hat | sthaha | sthaha@redhat.com |
 | Jie Ren | Intel | jiere | jie.ren@intel.com |

@@ -17,7 +17,6 @@ limitations under the License.
 package collector
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"syscall"
@@ -153,10 +152,10 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 }
 
 func (c *Collector) updateResourceUtilizationMetrics() {
-	var wg sync.WaitGroup
+	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	c.updateNodeResourceUtilizationMetrics(&wg)
-	c.updateProcessResourceUtilizationMetrics(&wg)
+	go c.updateNodeResourceUtilizationMetrics(wg)
+	go c.updateProcessResourceUtilizationMetrics(wg)
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
@@ -164,27 +163,11 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 	c.updateContainerResourceUtilizationMetrics()
 }
 
-// updateNodeAvgCPUFrequencyFromEBPF updates the average CPU frequency in each core
-func (c *Collector) updateNodeAvgCPUFrequencyFromEBPF() {
-	// update the cpu frequency using hardware counters when available because reading files can be very expensive
-	if config.IsExposeCPUFrequencyMetricsEnabled() && c.bpfSupportedMetrics.HardwareCounters.Has(config.CPUFrequency) {
-		cpuFreq, err := c.bpfExporter.CollectCPUFreq()
-		if err == nil {
-			for cpu, freq := range cpuFreq {
-				c.NodeStats.ResourceUsage[config.CPUFrequency].SetDeltaStat(fmt.Sprintf("%d", cpu), freq)
-			}
-		}
-	}
-}
-
 // update the node metrics that are not related to aggregated resource utilization of processes
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.IsExposeQATMetricsEnabled() && qat.IsQATCollectionSupported() {
 		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfSupportedMetrics))
-	}
-	if config.ExposeCPUFrequencyMetrics {
-		c.updateNodeAvgCPUFrequencyFromEBPF()
 	}
 }
 

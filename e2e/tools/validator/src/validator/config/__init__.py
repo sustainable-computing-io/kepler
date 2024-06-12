@@ -91,8 +91,8 @@ def load(config_file: str) -> Validator:
     query_path = config.get('query_path', 'query.json' )
 
     return Validator(
-        remote=remote, 
-        metal=metal, 
+        remote=remote,
+        metal=metal,
         prometheus=prometheus,
         query_path=query_path
     )

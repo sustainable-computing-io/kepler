@@ -44,7 +44,6 @@ const (
 	cpuOnline          = "/sys/devices/system/cpu/online"
 	bpfPerfArraySuffix = "_event_reader"
 	TableProcessName   = "processes"
-	TableCPUFreqName   = "cpu_freq_array"
 	CPUNumSize         = 128
 )
 
@@ -140,8 +139,8 @@ func (e *exporter) attach() error {
 	// resize array entries
 	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", e.cpuCores)
 	toResize := []string{
-		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader", "task_clock_ms_event_reader",
-		"cpu_cycles", "cpu_instructions", "cache_miss", "cpu_freq_array", "task_clock",
+		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader",
+		"cpu_cycles", "cpu_instructions", "cache_miss",
 	}
 	for _, arrayName := range toResize {
 		if err = resizeArrayEntries(e.module, arrayName, e.cpuCores); err != nil {
@@ -223,10 +222,7 @@ func (e *exporter) attach() error {
 
 	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
 	hardwareCounters := map[string]perfCounter{
-		config.CPUCycle: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES},
-		// CPURefCycles aren't populated from the eBPF programs
-		// If this is a bug, we should fix that and bring this map back
-		// config.CPURefCycle:    {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_REF_CPU_CYCLES, true},
+		config.CPUCycle:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES},
 		config.CPUInstruction: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS},
 		config.CacheMiss:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES},
 	}
@@ -243,43 +239,23 @@ func (e *exporter) attach() error {
 		bpfMap, perfErr := e.module.GetMap(bpfPerfArrayName)
 		if perfErr != nil {
 			klog.Warningf("could not get ebpf map for perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			return cleanup()
+			cleanup()
 		}
 		fds, perfErr := unixOpenPerfEvent(counter.EvType, counter.EvConfig, e.cpuCores)
 		if perfErr != nil {
 			klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
-			return cleanup()
+			cleanup()
 		}
 		for i, fd := range fds {
 			err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
 			if err != nil {
 				klog.Warningf("failed to update bpf map: %v", err)
-				return cleanup()
+				cleanup()
 			}
 		}
 		e.perfEventFds = append(e.perfEventFds, fds...)
 		e.enabledHardwareCounters[arrayName] = struct{}{}
 	}
-
-	// attach task clock perf event. this is a software counter, not a hardware counter
-	bpfPerfArrayName := config.TaskClock + bpfPerfArraySuffix
-	bpfMap, err := e.module.GetMap(bpfPerfArrayName)
-	if err != nil {
-		return fmt.Errorf("could not get ebpf map for perf event %s: %w", bpfPerfArrayName, err)
-	}
-	fds, perfErr := unixOpenPerfEvent(unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, e.cpuCores)
-	if perfErr != nil {
-		return fmt.Errorf("could not attach perf event %s: %w", bpfPerfArrayName, perfErr)
-	}
-	for i, fd := range fds {
-		err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
-		if err != nil {
-			klog.Warningf("failed to update bpf map: %v", err)
-			return cleanup()
-		}
-	}
-	e.perfEventFds = append(e.perfEventFds, fds...)
-	e.enabledSoftwareCounters[config.TaskClock] = struct{}{}
 
 	klog.Infof("Successfully load eBPF module from libbpf object")
 	return nil
@@ -315,49 +291,6 @@ func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err er
 	} else {
 		e.ebpfBatchGetAndDelete = false
 		processesData, err = e.libbpfCollectProcessSingleHash(processes)
-	}
-	return
-}
-
-func (e *exporter) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
-	cpuFreqData = make(map[int32]uint64)
-	var cpuFreq *bpf.BPFMap
-	cpuFreq, err = e.module.GetMap(TableCPUFreqName)
-	if err != nil {
-		return
-	}
-	// cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
-	iterator := cpuFreq.Iterator()
-	var freq uint32
-	// keySize := int(unsafe.Sizeof(freq))
-	retry := 0
-	next := iterator.Next()
-	for next {
-		keyBytes := iterator.Key()
-		cpu := int32(e.byteOrder.Uint32(keyBytes))
-		data, getErr := cpuFreq.GetValue(unsafe.Pointer(&cpu))
-		if getErr != nil {
-			retry += 1
-			if retry > config.MaxLookupRetry {
-				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, config.MaxLookupRetry)
-				next = iterator.Next()
-				retry = 0
-			}
-			continue
-		}
-		getErr = binary.Read(bytes.NewReader(data), e.byteOrder, &freq)
-		if getErr != nil {
-			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
-			next = iterator.Next()
-			retry = 0
-			continue
-		}
-		if retry > 0 {
-			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
-		}
-		cpuFreqData[cpu] = uint64(freq)
-		next = iterator.Next()
-		retry = 0
 	}
 	return
 }

@@ -3,14 +3,14 @@ from typing import Tuple, List, NamedTuple
 from datetime import datetime
 import numpy as np
 from datetime import datetime
-from validator import config 
+from validator import config
 from statistics import fmean
 
 class MetricsValidatorResult(NamedTuple):
     # error list
     el: List[float]
     # mean error
-    me: float   
+    me: float
 
 
 #TODO: Include Environment Variables if desired
@@ -19,7 +19,7 @@ class MetricsValidator:
         self.prom_client = PrometheusConnect(prom.url, headers=None, disable_ssl=True)
         self.step = prom.step
 
-    
+
     def custom_metric_query(self, start_time: datetime, end_time: datetime, query: str):
         return self.prom_client.custom_query_range(
             query=query,
@@ -29,11 +29,16 @@ class MetricsValidator:
         )
 
 
-    def compare_metrics(self, start_time: datetime, 
-                        end_time: datetime, 
+    def compare_metrics(self, start_time: datetime,
+                        end_time: datetime,
                         query: str
-                        ) -> MetricsValidatorResult:   
+                        ) -> MetricsValidatorResult:
         query_metrics = self.custom_metric_query(start_time, end_time, query)
+        if len(query_metrics) == 0:
+            return MetricsValidatorResult(
+                el=[],
+                me=0
+            )
         cleaned_expected_metrics = retrieve_timestamp_value_metrics(query_metrics[0])
 
         return MetricsValidatorResult(
@@ -47,7 +52,7 @@ def retrieve_timestamp_value_metrics(prom_query_response) -> List[float]:
     for element in prom_query_response['values']:
         acquired_data.append(float(element[1]))
     return acquired_data
-    
+
 
 # if __name__ == "__main__":
 #     prom_metrics_validator = PromMetricsValidator("http://localhost:9091")
@@ -73,4 +78,3 @@ def retrieve_timestamp_value_metrics(prom_query_response) -> List[float]:
 #     print(deltas_func(cleaned_validator_data, cleaned_validated_data))
 #     print(percentage_err(cleaned_validator_data, cleaned_validated_data))
 #
-    
