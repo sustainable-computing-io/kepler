@@ -38,7 +38,8 @@ class CaseResult(NamedTuple):
     refined_query: str
 
 class CasesResult(NamedTuple):
-    test_cases: List[CaseResult]
+    mse_test_cases: List[CaseResult]
+    mape_test_cases: List[CaseResult]
     raw_query_results: List[RawCaseResult]
 
 
@@ -53,6 +54,7 @@ class Cases:
         self.queries = read_json_file(query_path)
         self.raw_prom_queries = self.queries["raw"]
         self.mse_prom_queries = self.queries["mse"]
+        self.mape_prom_queries = self.queries["mape"]
         # TODO self.mape_prom_queries = queries["mape"]
         self.vm_query = f"job='{self.vm_job_name}'"
         if self.vm_pid != 0:
@@ -63,14 +65,23 @@ class Cases:
             self.level = "vm"
 
     def load_test_cases(self) -> CasesResult:
-        test_cases = []
+        mse_test_cases = []
         for mse_prom_query in self.mse_prom_queries:
-            test_cases.append(CaseResult(
+            mse_test_cases.append(CaseResult(
                 refined_query=mse_prom_query.format(
                     metal_job_name = self.metal_job_name, vm_job_name = self.vm_job_name,
                     level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query
                 )
             ))
+        mape_test_cases = []
+        for mape_prom_query in self.mape_prom_queries:
+            mape_test_cases.append(CaseResult(
+                refined_query=mape_prom_query.format(
+                    metal_job_name = self.metal_job_name, vm_job_name = self.vm_job_name,
+                    level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query
+                )
+            ))
+
         raw_test_cases = []
         for raw_prom_query in self.raw_prom_queries:
             raw_query = raw_prom_query.format(
@@ -79,4 +90,4 @@ class Cases:
             )
             file_name = create_file_name(raw_query)
             raw_test_cases.append(RawCaseResult(file_name=file_name, query=raw_query))
-        return CasesResult(test_cases=test_cases, raw_query_results=raw_test_cases)
+        return CasesResult(mse_test_cases=mse_test_cases, mape_test_cases=mape_test_cases, raw_query_results=raw_test_cases)

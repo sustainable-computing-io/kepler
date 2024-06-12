@@ -88,7 +88,7 @@ def stress(cfg: Validator, script_path: str):
     metrics_validator = MetricsValidator(cfg.prometheus)
     test_case_result = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
-    mse_test_cases = test_case_result.test_cases
+    mse_test_cases = test_case_result.mse_test_cases
     for test_case in mse_test_cases:
 
         query = test_case.refined_query
@@ -111,6 +111,31 @@ def stress(cfg: Validator, script_path: str):
         report.write(f"{metrics_res.el}\n")
         report.write("\n")
         report.flush()
+
+    mape_test_cases = test_case_result.mape_test_cases
+    for test_case in mape_test_cases:
+
+        query = test_case.refined_query
+
+        print(f"start_time: {result.start_time}, end_time: {result.end_time} query: {query}")
+        metrics_res = metrics_validator.compare_metrics(result.start_time,
+                                                        result.end_time,
+                                                        query)
+
+        click.secho(f"Query Name: {query}", fg='bright_white')
+        click.secho(f"Error List: {metrics_res.el}", fg='bright_red')
+        click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')
+
+        click.secho("---------------------------------------------------", fg="cyan")
+        report.write("#### Query\n")
+        report.write(f"```{query}```\n")
+        report.write("#### Average Error\n")
+        report.write(f"{metrics_res.me}\n")
+        report.write("#### Error List\n")
+        report.write(f"{metrics_res.el}\n")
+        report.write("\n")
+        report.flush()
+
 
     os.makedirs(f"/tmp/validator-{tag}", exist_ok=True)
     raw_query_results = test_case_result.raw_query_results
