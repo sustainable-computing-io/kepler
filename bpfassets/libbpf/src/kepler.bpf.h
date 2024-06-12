@@ -98,7 +98,6 @@ typedef struct process_metrics_t {
 	u64 cache_miss;
 	u64 page_cache_hit;
 	u16 vec_nr[10];
-	u32 pad;
 	char comm[16];
 } process_metrics_t;
 
