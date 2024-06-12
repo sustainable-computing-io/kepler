@@ -43,7 +43,7 @@ def stress(cfg: Validator, script_path: str):
     click.echo(f"start_time: {result.start_time}, end_time: {result.end_time}")
     test_cases = Cases(vm = cfg.metal.vm, prom = cfg.prometheus, query_path = cfg.query_path)
     metrics_validator = MetricsValidator(cfg.prometheus)
-    test_case_result = test_cases.load_test_cases()
+    test_case_result, test_case_result2 = test_cases.load_test_cases()
     click.secho("Validation results during stress test:")
     for test_case in test_case_result.test_cases:
 
@@ -57,6 +57,25 @@ def stress(cfg: Validator, script_path: str):
         click.secho(f"Query Name: {query}", fg='bright_white')
         click.secho(f"Error List: {metrics_res.el}", fg='bright_red')
         click.secho(f"Average Error: {metrics_res.me}", fg='bright_yellow')              
+        
+        click.secho("---------------------------------------------------", fg="cyan")
+    
+    click.secho("----------------------------------------------------------------------")
+
+    for test_case in test_case_result2:
+
+        expected_query = test_case.expected_query
+        actual_query = test_case.actual_query
+
+        print(f"start_time: {result.start_time}, end_time: {result.end_time}")
+        metrics_res = metrics_validator.compare_metrics2(result.start_time, 
+                                                        result.end_time, 
+                                                        expected_query,
+                                                        actual_query)
+
+        click.secho(f"Query Name: EXPECTED VS ACTUAL", fg='bright_white')
+        click.secho(f"Error List: {metrics_res.mape}", fg='bright_red')
+        click.secho(f"Average Error: {metrics_res.ape}", fg='bright_yellow')              
         
         click.secho("---------------------------------------------------", fg="cyan")
 

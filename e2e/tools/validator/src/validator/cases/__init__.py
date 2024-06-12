@@ -1,4 +1,4 @@
-from typing import NamedTuple, List
+from typing import NamedTuple, List, Tuple
 from validator import config
 import json
 
@@ -32,6 +32,11 @@ class CasesResult(NamedTuple):
     test_cases: List[CaseResult]
 
 
+class CaseResult2(NamedTuple):
+    expected_query: str
+    actual_query: str
+
+
 class Cases:
 
     def __init__(self, vm: config.VM, prom: config.Prometheus, query_path: str) -> None:
@@ -47,12 +52,17 @@ class Cases:
             self.query = f"vm_id=~'.*{{vm_name}}'".format(vm_name=self.vm_name)
             self.level = "vm"
     
-    def load_test_cases(self) -> CasesResult:
+    def load_test_cases(self) -> Tuple[CasesResult, List[CaseResult2]]:
         test_cases = []
+        test_cases_2 = []
         for raw_prom_query in self.raw_prom_queries:
             test_cases.append(CaseResult(
-                refined_query=raw_prom_query.format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query)
+                refined_query=raw_prom_query["new"].format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query)
+            ))
+            test_cases_2.append(CaseResult2(
+                expected_query=raw_prom_query["expected_query"].format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query),
+                actual_query=raw_prom_query["actual_query"].format(level=self.level, query=self.query, interval=self.interval, vm_query=self.vm_query)
             ))
         return CasesResult(
             test_cases=test_cases
-        )
+        ), test_cases_2
