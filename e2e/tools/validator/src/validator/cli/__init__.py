@@ -74,8 +74,8 @@ def stress(cfg: Validator, script_path: str):
                                                         actual_query)
 
         click.secho(f"Query Name: EXPECTED VS ACTUAL", fg='bright_white')
-        click.secho(f"Error List: {metrics_res.mape}", fg='bright_red')
-        click.secho(f"Average Error: {metrics_res.ape}", fg='bright_yellow')              
+        click.secho(f"Error List: {metrics_res.ape}", fg='bright_red')
+        click.secho(f"Average Error: {metrics_res.mape}", fg='bright_yellow')              
         
         click.secho("---------------------------------------------------", fg="cyan")
 
