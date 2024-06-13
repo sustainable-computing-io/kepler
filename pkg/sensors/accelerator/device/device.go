@@ -18,110 +18,148 @@ package device
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"golang.org/x/exp/maps"
 	"k8s.io/klog/v2"
 )
 
-var (
-	gpuDevices   = map[string]deviceStartupFunc{} // Static map of supported gpuDevices.
-	dummyDevices = map[string]deviceStartupFunc{} // Static map of supported dummyDevices.
+const (
+	DUMMY = iota
+	HABANA
+	DCGM
+	NVML
 )
 
-type AcceleratorInterface interface {
-	// GetName returns the name of the device
-	GetName() string
-	// GetType returns the type of the device (nvml, dcgm, habana ...)
-	GetType() string
+var (
+	globalRegistry *DeviceRegistry
+	once           sync.Once
+)
+
+type DeviceType int
+
+// Function prototype to create a new deviceCollector.
+type deviceStartupFunc func() (DeviceInterface, error)
+type DeviceRegistry struct {
+	gpuDevices   map[DeviceType]deviceStartupFunc // Static map of supported gpuDevices.
+	dummyDevices map[DeviceType]deviceStartupFunc // Static map of supported dummyDevices.
+}
+type DeviceInterface interface {
+	// Name returns the name of the device
+	Name() string
+	// DevType returns the type of the device (nvml, dcgm, habana ...)
+	DevType() DeviceType
+	// DevTypeName returns the type of the device (nvml, dcgm, habana ...) as a string
+	DevTypeName() string
 	// GetHwType returns the type of hw the device is (gpu, processor)
-	GetHwType() string
-	// Init the external library loading, if any.
+	HwType() string
+	// InitLib the external library loading, if any.
 	InitLib() error
-	// Init initizalize and start the metric device
+	// Init initizalizes and start the metric device
 	Init() error
 	// Shutdown stops the metric device
 	Shutdown() bool
-	// GetDevicesByID returns a map with devices identifying then by id
-	GetDevicesByID() map[int]any
-	// GetDevicesByName returns a map with devices identifying then by name
-	GetDevicesByName() map[string]any
-	// GetDeviceInstances returns a map with instances of each Device
-	GetDeviceInstances() map[int]map[int]any
-	// GetAbsEnergyFromDevice returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
-	GetAbsEnergyFromDevice() []uint32
-	// GetDeviceUtilizationStats returns a map with any additional device stats.
-	GetDeviceUtilizationStats(device any) (map[any]interface{}, error)
-	// GetProcessResourceUtilizationPerDevice returns a map of UtilizationSample where the key is the process pid
-	GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (map[uint32]any, error)
+	// DevicesByID returns a map with devices identifying then by id
+	DevicesByID() map[int]any
+	// DevicesByName returns a map with devices identifying then by name
+	DevicesByName() map[string]any
+	// DeviceInstances returns a map with instances of each Device
+	DeviceInstances() map[int]map[int]any
+	// AbsEnergyFromDevice returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
+	AbsEnergyFromDevice() []uint32
+	// DeviceUtilizationStats returns a map with any additional device stats.
+	DeviceUtilizationStats(dev any) (map[any]interface{}, error)
+	// ProcessResourceUtilizationPerDevice returns a map of UtilizationSample where the key is the process pid
+	ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error)
 	// IsDeviceCollectionSupported returns if it is possible to use this device
 	IsDeviceCollectionSupported() bool
 	// SetDeviceCollectionSupported manually set if it is possible to use this device. This is for testing purpose only.
 	SetDeviceCollectionSupported(bool)
 }
 
-// Function prototype to create a new deviceCollector.
-type deviceStartupFunc func() (AcceleratorInterface, error)
+func (d DeviceType) String() string {
+	return [...]string{"DUMMY", "HABANA", "DCGM", "NVML"}[d]
+}
+
+// Registry gets the default device DeviceRegistry instance
+func Registry() *DeviceRegistry {
+	once.Do(func() {
+		globalRegistry = &DeviceRegistry{
+			gpuDevices:   map[DeviceType]deviceStartupFunc{},
+			dummyDevices: map[DeviceType]deviceStartupFunc{},
+		}
+	})
+	return globalRegistry
+}
+
+// SetRegistry replaces the global registry instance
+// NOTE: All plugins will need to be manually registered
+// after this function is called.
+func SetRegistry(registry *DeviceRegistry) {
+	globalRegistry = registry
+}
 
 // AddDeviceInterface adds a supported device interface, prints a fatal error in case of double registration.
-func AddDeviceInterface(name, dtype string, deviceStartup deviceStartupFunc) {
-	switch dtype {
+func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceStartupFunc) {
+	switch accType {
 	case "gpu":
 		// Handle GPU devices registration
-		if existingDevice := gpuDevices[name]; existingDevice != nil {
-			klog.Fatalf("Multiple gpuDevices attempting to register with name %q", name)
+		if existingDevice := Registry().gpuDevices[dtype]; existingDevice != nil {
+			klog.Fatalf("Multiple gpuDevices attempting to register with name %q", dtype.String())
 		}
 
-		if name == "dcgm" {
+		if dtype == DCGM {
 			// Remove "nvml" if "dcgm" is being registered
-			delete(gpuDevices, "nvml")
-		} else if name == "nvml" {
+			delete(Registry().gpuDevices, NVML)
+		} else if dtype == NVML {
 			// Do not register "nvml" if "dcgm" is already registered
-			if _, ok := gpuDevices["dcgm"]; ok {
+			if _, ok := Registry().gpuDevices[DCGM]; ok {
 				return
 			}
 		}
-		gpuDevices[name] = deviceStartup
+		Registry().gpuDevices[dtype] = deviceStartup
 
 	case "dummy":
 		// Handle dummy devices registration
-		if existingDevice := dummyDevices[name]; existingDevice != nil {
-			klog.Fatalf("Multiple dummyDevices attempting to register with name %q", name)
+		if existingDevice := Registry().dummyDevices[dtype]; existingDevice != nil {
+			klog.Fatalf("Multiple dummyDevices attempting to register with name %q", dtype)
 		}
-		dummyDevices[name] = deviceStartup
+		Registry().dummyDevices[dtype] = deviceStartup
 
 	default:
 		klog.Fatalf("Unsupported device type %q", dtype)
 	}
 
-	klog.Infof("Registered %s", name)
+	klog.Infof("Registered %s", dtype)
 }
 
 // GetAllDevices returns a slice with all the registered devices.
-func GetAllDevices() []string {
-	devices := append(append([]string{}, maps.Keys(gpuDevices)...), maps.Keys(gpuDevices)...)
+func GetAllDevices() []DeviceType {
+	devices := append(append([]DeviceType{}, maps.Keys(Registry().gpuDevices)...), maps.Keys(Registry().dummyDevices)...)
 	return devices
 }
 
 // GetGpuDevices returns a slice of the registered gpus.
-func GetGpuDevices() []string {
-	return maps.Keys(gpuDevices)
+func GetGpuDevices() []DeviceType {
+	return maps.Keys(Registry().gpuDevices)
 }
 
 // GetDummyDevices returns only the dummy devices.
-func GetDummyDevices() []string {
-	return maps.Keys(dummyDevices)
+func GetDummyDevices() []DeviceType {
+	return maps.Keys(Registry().dummyDevices)
 }
 
-// StartupDevice Returns a new AcceleratorInterface according the required name[nvml|dcgm|dummy|habana].
-func StartupDevice(name string) (AcceleratorInterface, error) {
-	if deviceStartup, ok := gpuDevices[name]; ok {
-		klog.Infof("Starting up %s", name)
+// Startup Returns a new DeviceInterface according the required DeviceType[NVML|DCGM|DUMMY|HABANA].
+func Startup(d DeviceType) (DeviceInterface, error) {
+	if deviceStartup, ok := Registry().gpuDevices[d]; ok {
+		klog.Infof("Starting up %s", d.String())
 		return deviceStartup()
-	} else if deviceStartup, ok := dummyDevices[name]; ok {
-		klog.Infof("Starting up %s", name)
+	} else if deviceStartup, ok := Registry().dummyDevices[d]; ok {
+		klog.Infof("Starting up %s", d.String())
 		return deviceStartup()
 	}
+	// New device interface instance startup should be added here.
 
 	return nil, errors.New("unsupported Device")
 }

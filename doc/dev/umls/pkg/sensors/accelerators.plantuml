@@ -1,68 +1,115 @@
 @startuml
 namespace accelerator {
     interface Accelerator  {
-        + StartupAccelerator() error
-        + GetAccelerator() device.AcceleratorInterface
-        + GetAcceleratorType() string
+        + Device() device.DeviceInterface
+        + DeviceType() device.DeviceType
         + IsRunning() bool
-        + StopAccelerator()
+        + Stop()
+        + AccType() AcceleratorType
+
+    }
+    class AcceleratorRegistry << (S,Aquamarine) >> {
+        + Registry <font color=blue>map</font>[device.DeviceType]Accelerator
+
+        + Accelerators() (<font color=blue>map</font>[device.DeviceType]Accelerator, error)
+        + ActiveAcceleratorsByType(t AcceleratorType) (<font color=blue>map</font>[device.DeviceType]Accelerator, error)
+
+    }
+    class AcceleratorType << (S,Aquamarine) >> {
+        + String() string
 
     }
     class accelerator << (S,Aquamarine) >> {
-        - acc device.AcceleratorInterface
-        - accType string
+        - dev device.DeviceInterface
+        - accType AcceleratorType
         - running bool
-        - installedtime v1.Time
+        - installedTime v1.Time
 
-        + StartupAccelerator() error
-        + StopAccelerator()
-        + GetAcceleratorType() string
+        + Stop()
+        + Device() device.DeviceInterface
+        + DeviceType() device.DeviceType
+        + AccType() AcceleratorType
         + IsRunning() bool
-        + GetAccelerator() device.AcceleratorInterface
 
     }
+    class accelerator.AcceleratorType << (T, #FF7700) >>  {
+    }
 }
+"sync.Mutex" *-- "accelerator.AcceleratorRegistry"
 
 "accelerator.Accelerator" <|-- "accelerator.accelerator"
 
 namespace device {
-    interface AcceleratorInterface  {
-        + GetName() string
-        + GetType() string
-        + GetHwType() string
+    interface DeviceInterface  {
+        + Name() string
+        + DevType() DeviceType
+        + DevTypeName() string
+        + HwType() string
         + InitLib() error
         + Init() error
         + Shutdown() bool
-        + GetDevicesByID() <font color=blue>map</font>[int]any
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
+        + DevicesByID() <font color=blue>map</font>[int]any
+        + DevicesByName() <font color=blue>map</font>[string]any
+        + DeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + AbsEnergyFromDevice() []uint32
+        + DeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + ProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
         + IsDeviceCollectionSupported() bool
         + SetDeviceCollectionSupported( bool)
 
     }
+    class DeviceRegistry << (S,Aquamarine) >> {
+        - gpuDevices <font color=blue>map</font>[DeviceType]deviceStartupFunc
+        - dummyDevices <font color=blue>map</font>[DeviceType]deviceStartupFunc
+
+    }
+    class DeviceType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class GPUDevice << (S,Aquamarine) >> {
+        + DeviceHandler <font color=blue>interface</font>{}
+        + ID int
+        + IsSubdevice bool
+        + ParentID int
+        + MIGSMRatio float64
+
+    }
+    class GPUProcessUtilizationSample << (S,Aquamarine) >> {
+        + Pid uint32
+        + TimeStamp uint64
+        + ComputeUtil uint32
+        + MemUtil uint32
+        + EncUtil uint32
+        + DecUtil uint32
+
+    }
+    class device.DeviceType << (T, #FF7700) >>  {
+    }
+    class device.deviceStartupFunc << (T, #FF7700) >>  {
+    }
 }
+
 
 namespace sources {
     class Dummy << (S,Aquamarine) >> {
-        - dummyDevice string
+        - dummyDevice device.DeviceType
         - name string
         - collectionSupported bool
 
-        + GetName() string
-        + GetType() string
-        + GetHwType() string
+        + Name() string
+        + DevType() device.DeviceType
+        + DevTypeName() string
+        + HwType() string
         + InitLib() error
         + Init() error
         + Shutdown() bool
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDevicesByID() <font color=blue>map</font>[int]any
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + GetProcessResourceUtilizationPerDevice(device any, _ time.Duration) (<font color=blue>map</font>[uint32]any, error)
+        + AbsEnergyFromDevice() []uint32
+        + DevicesByID() <font color=blue>map</font>[int]any
+        + DevicesByName() <font color=blue>map</font>[string]any
+        + DeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + DeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + ProcessResourceUtilizationPerDevice(device any, _ time.Duration) (<font color=blue>map</font>[uint32]any, error)
         + IsDeviceCollectionSupported() bool
         + SetDeviceCollectionSupported(supported bool)
 
@@ -89,36 +136,38 @@ namespace sources {
         + Init() error
         + InitLib() error
         + LoadMIGDevices()
-        + GetName() string
-        + GetType() string
-        + GetHwType() string
+        + Name() string
+        + DevTypeName() string
+        + DevType() device.DeviceType
+        + HwType() string
         + IsDeviceCollectionSupported() bool
         + SetDeviceCollectionSupported(supported bool)
         + Shutdown() bool
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
+        + AbsEnergyFromDevice() []uint32
+        + DevicesByID() <font color=blue>map</font>[int]any
+        + DevicesByName() <font color=blue>map</font>[string]any
+        + DeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + DeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + ProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
 
     }
     class GPUHabana << (S,Aquamarine) >> {
         - collectionSupported bool
         - devices <font color=blue>map</font>[int]device.GPUDevice
 
-        + GetName() string
-        + GetType() string
-        + GetHwType() string
+        + Name() string
+        + DevType() device.DeviceType
+        + DevTypeName() string
+        + HwType() string
         + InitLib() error
         + Init() error
         + Shutdown() bool
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
+        + AbsEnergyFromDevice() []uint32
+        + DevicesByID() <font color=blue>map</font>[int]any
+        + DevicesByName() <font color=blue>map</font>[string]any
+        + DeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + DeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + ProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]<font color=blue>interface</font>{}, error)
         + IsDeviceCollectionSupported() bool
         + SetDeviceCollectionSupported(supported bool)
 
@@ -129,29 +178,33 @@ namespace sources {
         - devices <font color=blue>map</font>[int]device.GPUDevice
         - processUtilizationSupported bool
 
-        + GetName() string
-        + GetHwType() string
-        + GetType() string
+        + Name() string
+        + HwType() string
+        + DevType() device.DeviceType
+        + DevTypeName() string
         + IsDeviceCollectionSupported() bool
         + SetDeviceCollectionSupported(supported bool)
         + InitLib() error
         + Init() error
         + Shutdown() bool
-        + GetDevicesByID() <font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetDevicesByName() <font color=blue>map</font>[string]any
-        + GetDeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]<font color=blue>interface</font>{}
-        + GetAbsEnergyFromDevice() []uint32
-        + GetDeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
-        + GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
+        + DevicesByID() <font color=blue>map</font>[int]any
+        + DevicesByName() <font color=blue>map</font>[string]any
+        + DeviceInstances() <font color=blue>map</font>[int]<font color=blue>map</font>[int]any
+        + AbsEnergyFromDevice() []uint32
+        + DeviceUtilizationStats(device any) (<font color=blue>map</font>[any]<font color=blue>interface</font>{}, error)
+        + ProcessResourceUtilizationPerDevice(device any, since time.Duration) (<font color=blue>map</font>[uint32]any, error)
 
     }
-
 }
 
-accelerator.accelerator *-- device.AcceleratorInterface
-"device.AcceleratorInterface" <|-- "sources.Dummy"
-"device.AcceleratorInterface" <|-- "sources.GPUDcgm"
-"device.AcceleratorInterface" <|-- "sources.GPUHabana"
-"device.AcceleratorInterface" <|-- "sources.GPUNvml"
 
+"__builtin__.int" #.. "accelerator.AcceleratorType"
+"__builtin__.int" #.. "device.DeviceType"
+"device.<font color=blue>func</font>() (DeviceInterface, error)" #.. "device.deviceStartupFunc"
+
+accelerator.accelerator *-- device.DeviceInterface
+"device.DeviceInterface" <|-- "sources.Dummy"
+"device.DeviceInterface" <|-- "sources.GPUDcgm"
+"device.DeviceInterface" <|-- "sources.GPUHabana"
+"device.DeviceInterface" <|-- "sources.GPUNvml"
 @enduml

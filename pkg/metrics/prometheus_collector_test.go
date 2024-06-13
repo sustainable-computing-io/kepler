@@ -63,9 +63,9 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 		components.SetIsSystemCollectionSupported(false)
 		platform.SetIsSystemCollectionSupported(false)
-		if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+		if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			for _, a := range gpus {
-				err := a.GetAccelerator().Init() // create structure instances that will be accessed to create a containerMetric
+				err := a.Device().Init() // create structure instances that will be accessed to create a containerMetric
 				Expect(err).NotTo(HaveOccurred())
 			}
 		}

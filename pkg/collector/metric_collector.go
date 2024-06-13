@@ -153,10 +153,6 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 
 // update the node metrics that are not related to aggregated resource utilization of processes
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	defer wg.Done()
-	if config.ExposeCPUFrequencyMetrics {
-		c.updateNodeAvgCPUFrequencyFromEBPF()
-	}
 }
 
 func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
@@ -165,7 +161,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU {
-		if _, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 		}
 	}

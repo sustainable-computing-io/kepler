@@ -328,17 +328,6 @@ func IsExposeVMStatsEnabled() bool {
 	return ExposeVMStats
 }
 
-// IsExposeCPUFrequencyMetricsEnabled returns false if CPUFrequency metrics are disabled to minimize overhead.
-func IsExposeCPUFrequencyMetricsEnabled() bool {
-	return ExposeCPUFrequencyMetrics
-}
-
-// SetEnabledDummy enables the exposure of dummy accelerator metrics
-func SetEnabledDummy(enabled bool) {
-	// set to true if any config source set it to true
-	EnabledDummy = enabled || EnabledDummy
-}
-
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true

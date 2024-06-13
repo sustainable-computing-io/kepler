@@ -82,7 +82,7 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 
 	// gpu metric
 	if config.EnabledGPU {
-		if _, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 			metrics = append(metrics, gpuMetrics...)
 			klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)

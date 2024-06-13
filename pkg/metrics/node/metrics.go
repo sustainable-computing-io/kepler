@@ -21,7 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/utils"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
@@ -58,10 +57,6 @@ func NewNodeCollector(nodeMetrics *stats.NodeStats, mx *sync.Mutex) prometheus.C
 // initMetrics creates prometheus metric description for node
 func (c *collector) initMetrics() {
 	// node exports different resource utilization metrics than process, container and vm
-	for name, desc := range metricfactory.NodeCPUFrequencyMetricsPromDesc(context) {
-		c.descriptions[name] = desc
-		c.collectors[name] = metricfactory.NewPromCounter(desc)
-	}
 	for name, desc := range metricfactory.EnergyMetricsPromDesc(context) {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
@@ -86,7 +81,6 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	utils.CollectEnergyMetrics(ch, c.NodeStats, c.collectors)
 	// we export different node resource utilization metrics than process, container and vms
 	// TODO: verify if the resoruce utilization metrics are needed
-	utils.CollectResUtil(ch, c.NodeStats, config.CPUFrequency, c.collectors[config.CPUFrequency])
 	c.Mx.Unlock()
 
 	// update node info

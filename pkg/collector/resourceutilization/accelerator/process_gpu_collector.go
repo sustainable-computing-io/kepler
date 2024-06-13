@@ -44,11 +44,11 @@ var (
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
 func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
-	if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+	if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 		for _, a := range gpus {
-			d := a.GetAccelerator()
-			migDevices := d.GetDeviceInstances()
-			for _, _device := range d.GetDevicesByID() {
+			d := a.Device()
+			migDevices := d.DeviceInstances()
+			for _, _device := range d.DevicesByID() {
 				// we need to use MIG device handler if the GPU has MIG slices, otherwise, we use the GPU device handler
 				if _, hasMIG := migDevices[_device.(dev.GPUDevice).ID]; hasMIG {
 					// if the device has MIG slices, we should collect the process information directly from the MIG device handler
@@ -66,11 +66,11 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 	lastUtilizationTimestamp = time.Now()
 }
 
-func addGPUUtilizationToProcessStats(ai dev.AcceleratorInterface, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
+func addGPUUtilizationToProcessStats(ai dev.DeviceInterface, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
 	var err error
 	var processesUtilization map[uint32]any
 
-	if processesUtilization, err = ai.GetProcessResourceUtilizationPerDevice(d, time.Since(lastUtilizationTimestamp)); err != nil {
+	if processesUtilization, err = ai.ProcessResourceUtilizationPerDevice(d, time.Since(lastUtilizationTimestamp)); err != nil {
 		klog.Infoln(err)
 		return
 	}

@@ -18,11 +18,8 @@ package accelerator
 
 //nolint:gci // The supported device imports are kept separate.
 import (
-	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/pkg/errors"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
@@ -33,56 +30,112 @@ import (
 	_ "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device/sources"
 )
 
+const (
+	GPU = iota
+	// Add other accelerator types here
+)
+
 var (
-	accelerators map[string]Accelerator
+	globalRegistry *AcceleratorRegistry
+	once           sync.Once
 )
 
 // Accelerator represents an implementation of... equivalent Accelerator device.
 type Accelerator interface {
-	// StartupAccelerator ...
-	StartupAccelerator() error
-	// GetAccelerator ...
-	GetAccelerator() device.AcceleratorInterface
-	// GetAcceleratorType ...
-	GetAcceleratorType() string
+	// Device returns an underlying accelerator device implementation...
+	Device() device.DeviceInterface
+	// DeviceType ...
+	DeviceType() device.DeviceType
 	// IsRunning ...
 	IsRunning() bool
 	// StopAccelerator ...
-	StopAccelerator()
+	Stop()
+	AccType() AcceleratorType
 }
 
+type AcceleratorType int
+
+type AcceleratorRegistry struct {
+	m        sync.Mutex
+	Registry map[device.DeviceType]Accelerator
+}
 type accelerator struct {
-	sync.Mutex
-	acc           device.AcceleratorInterface // Device Accelerator Interface
-	accType       string                      // NVML|DCGM|Habana|Dummy
+	dev           device.DeviceInterface // Device Accelerator Interface
+	accType       AcceleratorType
 	running       bool
-	installedtime metav1.Time
+	installedTime metav1.Time
 }
 
-func InitAcc(atype string, sleep bool) error {
+func (a AcceleratorType) String() string {
+	return [...]string{"GPU"}[a]
+}
+
+// Registry gets the default device AcceleratorRegistry instance
+func Registry() *AcceleratorRegistry {
+	once.Do(func() {
+		globalRegistry = &AcceleratorRegistry{
+			m:        sync.Mutex{},
+			Registry: map[device.DeviceType]Accelerator{},
+		}
+	})
+	return globalRegistry
+}
+
+// SetRegistry replaces the global registry instance
+// NOTE: All plugins will need to be manually registered
+// after this function is called.
+func SetRegistry(registry *AcceleratorRegistry) {
+	globalRegistry = registry
+}
+
+// GetAccelerators returns a map of supported accelerators.
+func (r *AcceleratorRegistry) Accelerators() (map[device.DeviceType]Accelerator, error) {
+	if len(r.Registry) == 0 {
+		return nil, errors.New("no accelerators found")
+	}
+	return r.Registry, nil
+}
+
+// ActiveAcceleratorsByType returns a map of supported accelerators based on the specified type...
+func (r *AcceleratorRegistry) ActiveAcceleratorsByType(t AcceleratorType) (map[device.DeviceType]Accelerator, error) {
+	acc := map[device.DeviceType]Accelerator{}
+	for _, a := range r.Registry {
+		if a.AccType() == t && a.IsRunning() {
+			d := a.Device()
+			if d.IsDeviceCollectionSupported() {
+				acc[d.DevType()] = a
+			}
+		}
+	}
+	if len(acc) == 0 {
+		return nil, errors.New("accelerators not found")
+	}
+	return acc, nil
+}
+
+func CreateAndRegister(atype AcceleratorType, r *AcceleratorRegistry, sleep bool) error {
 	var numDevs int
-	var getDevices func() []string
+	var getDevices func() []device.DeviceType
 	maxDeviceInitRetry := 10
 
 	switch atype {
-	case "gpu":
+	case GPU:
 		numDevs = len(device.GetGpuDevices())
-		getDevices = device.GetGpuDevices
+		getDevices = device.GetGpuDevices // returns a slice of registered GPU devices[NVML|DCGM|HABANA]. TODO CHECK IF WE NEED TO MAKE THIS SINGULAR
 	default:
 		return errors.New("unsupported accelerator")
 	}
 
 	if numDevs != 0 {
-		var err error
-		var a Accelerator
 		devices := getDevices()
 
-		klog.Infof("Initializing the %s Accelerator collectors in %v", strings.ToUpper(atype), devices)
+		klog.Infof("Initializing the %s Accelerator collectors in type %v", atype.String(), devices)
 
-		for _, accName := range devices {
+		for _, devType := range devices {
 			for i := 0; i <= maxDeviceInitRetry; i++ {
-				if a = NewAccelerator(accName); a == nil {
-					klog.Errorf("Could not init the %s Accelerator collector going to try again", strings.ToUpper(atype))
+				// Create a new accelerator and add it to the registry
+				if err := newAccelerator(devType, atype, r); err != nil {
+					klog.Errorf("Could not init the %s Accelerator collector going to try again", devType.String())
 					if sleep {
 						// The GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
 						// therefore, we wait up to 1 min to allow the gpu operator initialize
@@ -90,127 +143,88 @@ func InitAcc(atype string, sleep bool) error {
 					}
 					continue
 				}
-				if err = a.StartupAccelerator(); err != nil {
-					klog.Errorf("Could not Startup the %s Accelerator collector", strings.ToUpper(atype))
-					break
-				}
-				klog.Infof("Startup %s Accelerator collector successful", strings.ToUpper(atype))
+				klog.Infof("Startup %s Accelerator collector successful", devType.String())
 				break
 			}
 		}
 	} else {
-		klog.Errorf("No %s Accelerator collectors found", strings.ToUpper(atype))
+		klog.Errorf("No %s Accelerator collectors found", atype.String())
 		return errors.New("unsupported accelerator")
 	}
 	return nil
 }
 
-// GetAccelerators returns a map of supported accelerators.
-func GetAccelerators() (map[string]Accelerator, error) {
-	if len(accelerators) == 0 {
-		return nil, errors.New("no accelerators found")
-	}
-	return accelerators, nil
-}
+// newAccelerator creates a new Accelerator instance with a specific device [NVML|DCGM|DUMMY|HABANA] for the local node.
+func newAccelerator(devType device.DeviceType, atype AcceleratorType, r *AcceleratorRegistry) error {
+	var d device.DeviceInterface
+	var err error
 
-// GetActiveAcceleratorsByType returns a map of supported accelerators based on the specified type...
-func GetActiveAcceleratorsByType(t string) (map[string]Accelerator, error) {
-	accs := map[string]Accelerator{}
-	for _, a := range accelerators {
-		d := a.GetAccelerator()
-		if d.GetHwType() == t && d.IsDeviceCollectionSupported() {
-			accs[a.GetAcceleratorType()] = a
-		}
-	}
-	if len(accs) == 0 {
-		return nil, errors.New("accelerators not found")
-	}
-	return accs, nil
-}
-
-// NewAccelerator creates a new Accelerator instance [NVML|DCGM|DUMMY|HABANA] for the local node.
-func NewAccelerator(accType string) Accelerator {
-
-	containsType := slices.Contains(device.GetAllDevices(), accType)
-	if !containsType {
-		klog.Error("Invalid Device Type")
+	_, ok := r.Registry[devType] // e.g. accelerators[nvml|dcgm|habana|dummy]
+	if ok {
+		klog.Infof("Accelerator with type %s already exists", devType)
 		return nil
 	}
 
-	_, ok := accelerators[accType] // e.g. accelerators[nvml|dcgm|habana|dummy]
-	if ok {
-		klog.Infof("Accelerator with type %s already exists", accType)
-		return accelerators[accType]
+	if d, err = device.Startup(devType); err != nil {
+		return errors.Errorf("error starting up the device %v", err)
 	}
 
-	accelerators = map[string]Accelerator{
-		accType: &accelerator{
-			acc:           nil,
-			running:       false,
-			accType:       accType,
-			installedtime: metav1.Time{},
-		},
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	r.Registry[devType] = &accelerator{
+		dev:           d,
+		running:       true,
+		accType:       atype,
+		installedTime: metav1.Now(),
 	}
 
-	return accelerators[accType]
-}
-
-// StartupAccelerator of a particular type
-func (a *accelerator) StartupAccelerator() error {
-	var err error
-
-	a.Lock()
-	defer a.Unlock()
-
-	if a.acc, err = device.StartupDevice(a.accType); err != nil {
-		return errors.Wrap(err, "error creating the acc")
-	}
-
-	a.running = true
-	a.installedtime = metav1.Now()
-
-	klog.Infof("Accelerator started with acc type %s", a.accType)
+	klog.Infof("Accelerator registered and started with device type %s", devType)
 
 	return nil
 }
 
-// StopAccelerator shutsdown an accelerator
-func (a *accelerator) StopAccelerator() {
-	a.Lock()
-	defer a.Unlock()
+func Shutdown(atype AcceleratorType) {
+	if accelerators, err := Registry().ActiveAcceleratorsByType(atype); err == nil {
+		for _, a := range accelerators {
+			a.Stop()
+		}
+	}
+}
 
-	if !a.acc.Shutdown() {
+// Stop shutsdown an accelerator
+func (a *accelerator) Stop() {
+	devType := a.dev.DevType()
+	if !a.dev.Shutdown() {
 		klog.Error("error shutting down the accelerator acc")
 		return
 	}
 
-	delete(accelerators, a.accType)
+	if a, err := Registry().Accelerators(); err == nil {
+		delete(a, devType)
+	}
 
 	a.running = false
 
 	klog.Info("Accelerator acc stopped")
 }
 
-// GetAcceleratorType returns the accelerator type
-func (a *accelerator) GetAcceleratorType() string {
-	a.Lock()
-	defer a.Unlock()
+// Device returns an accelerator interface
+func (a *accelerator) Device() device.DeviceInterface {
+	return a.dev
+}
 
+// DeviceType returns the accelerator's underlying device type
+func (a *accelerator) DeviceType() device.DeviceType {
+	return a.dev.DevType()
+}
+
+// DeviceType returns the accelerator's underlying device type
+func (a *accelerator) AccType() AcceleratorType {
 	return a.accType
 }
 
 // IsRunning returns the running status of an accelerator
 func (a *accelerator) IsRunning() bool {
-	a.Lock()
-	defer a.Unlock()
-
 	return a.running
-}
-
-// GetAccelerator returns an accelerator interface
-func (a *accelerator) GetAccelerator() device.AcceleratorInterface {
-	a.Lock()
-	defer a.Unlock()
-
-	return a.acc
 }

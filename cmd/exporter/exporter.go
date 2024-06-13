@@ -34,7 +34,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 
@@ -140,7 +140,8 @@ func main() {
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
-		if err := acc.InitAcc("gpu", true); err != nil {
+		defer accelerator.Shutdown(accelerator.GPU)
+		if err := accelerator.CreateAndRegister(accelerator.GPU, &accelerator.AcceleratorRegistry{}, true); err != nil {
 			klog.Fatalf("failed to init GPU accelerators: %v", err)
 		}
 	}

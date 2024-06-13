@@ -22,35 +22,36 @@ import (
 	"time"
 
 	hlml "github.com/HabanaAI/gohlml"
-	dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 const (
-	habanaDevice = "habana"
 	habanaHwType = "gpu"
 )
 
 var (
 	habanaAccImpl = GPUHabana{}
+	habanaDevice  device.DeviceType
 )
 
 type GPUHabana struct {
 	collectionSupported bool
-	devices             map[int]dev.GPUDevice
+	devices             map[int]device.GPUDevice
 }
 
 func init() {
 	if err := habanaAccImpl.InitLib(); err != nil {
-		klog.Infof("Error initializing %s: %v", habanaAccImpl.GetName(), err)
+		klog.Infof("Error initializing Habana: %v", err)
 	}
-	klog.Infof("Using %s to obtain processor power", habanaAccImpl.GetName())
-	dev.AddDeviceInterface(habanaDevice, habanaHwType, habanaDeviceStartup)
+	habanaDevice = device.HABANA
+	klog.Infof("Using %s to obtain processor power", habanaDevice.String())
+	device.AddDeviceInterface(habanaDevice, habanaHwType, habanaDeviceStartup)
 }
 
-func habanaDeviceStartup() (dev.AcceleratorInterface, error) {
+func habanaDeviceStartup() (device.DeviceInterface, error) {
 	a := habanaAccImpl
 
 	if err := a.Init(); err != nil {
@@ -61,15 +62,19 @@ func habanaDeviceStartup() (dev.AcceleratorInterface, error) {
 	return &a, nil
 }
 
-func (g *GPUHabana) GetName() string {
+func (g *GPUHabana) Name() string {
+	return habanaDevice.String()
+}
+
+func (g *GPUHabana) DevType() device.DeviceType {
 	return habanaDevice
 }
 
-func (g *GPUHabana) GetType() string {
-	return habanaDevice
+func (g *GPUHabana) DevTypeName() string {
+	return habanaDevice.String()
 }
 
-func (g *GPUHabana) GetHwType() string {
+func (g *GPUHabana) HwType() string {
 	return habanaHwType
 }
 
@@ -97,7 +102,7 @@ func (g *GPUHabana) Shutdown() bool {
 	return true
 }
 
-func (g *GPUHabana) GetAbsEnergyFromDevice() []uint32 {
+func (g *GPUHabana) AbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
 
 	for _, device := range g.devices {
@@ -110,13 +115,13 @@ func (g *GPUHabana) GetAbsEnergyFromDevice() []uint32 {
 		gpuEnergy = append(gpuEnergy, energy)
 
 		dname, _ := device.DeviceHandler.(hlml.Device).Name()
-		klog.V(2).Infof("GetAbsEnergyFromDevice power usage on device %v: %v\n", dname, gpuEnergy)
+		klog.V(2).Infof("AbsEnergyFromDevice power usage on device %v: %v\n", dname, gpuEnergy)
 	}
 
 	return gpuEnergy
 }
 
-func (g *GPUHabana) GetDevicesByID() map[int]interface{} {
+func (g *GPUHabana) DevicesByID() map[int]any {
 	// Get the count of available devices
 	count, ret := hlml.DeviceCount()
 	if ret != nil {
@@ -125,13 +130,13 @@ func (g *GPUHabana) GetDevicesByID() map[int]interface{} {
 	}
 
 	// Initialize the devices map with the count of devices
-	devices := make(map[int]interface{}, count)
+	devices := make(map[int]any, count)
 
 	// Iterate through each device index to get the device handle
 	for i := 0; i < int(count); i++ {
 		// Get the device handle for the current index
 		if h, ret := hlml.DeviceHandleByIndex(uint(i)); ret == nil {
-			devices[i] = dev.GPUDevice{
+			devices[i] = device.GPUDevice{
 				DeviceHandler: h,
 			}
 		}
@@ -139,22 +144,22 @@ func (g *GPUHabana) GetDevicesByID() map[int]interface{} {
 	return devices
 }
 
-func (g *GPUHabana) GetDevicesByName() map[string]any {
+func (g *GPUHabana) DevicesByName() map[string]any {
 	devices := make(map[string]interface{})
 	return devices
 }
 
-func (g *GPUHabana) GetDeviceInstances() map[int]map[int]interface{} {
+func (g *GPUHabana) DeviceInstances() map[int]map[int]any {
 	var devices map[int]map[int]interface{}
 	return devices
 }
 
-func (g *GPUHabana) GetDeviceUtilizationStats(device any) (map[any]interface{}, error) {
+func (g *GPUHabana) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 	ds := make(map[any]interface{}) // Process Accelerator Metrics
 	return ds, nil
 }
 
-func (g *GPUHabana) GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (map[uint32]interface{}, error) {
+func (g *GPUHabana) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]interface{}, error) {
 	pam := make(map[uint32]interface{}) // Process Accelerator Metrics
 	return pam, nil
 }

@@ -36,9 +36,9 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
-			if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+			if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 				for _, a := range gpus {
-					source = a.GetAccelerator().GetName()
+					source = a.Device().Name()
 				}
 			}
 		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
@@ -86,32 +86,13 @@ func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics)
 	return descriptions
 }
 
-func CGroupMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
-	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsCgroupMetricsEnabled() {
-		for _, name := range consts.CGroupMetricNames {
-			descriptions[name] = resMetricsPromDesc(context, name, "cgroup")
-		}
-	}
-	return descriptions
-}
-
-func NodeCPUFrequencyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
-	descriptions = make(map[string]*prometheus.Desc)
-	if config.IsExposeCPUFrequencyMetricsEnabled() {
-		name := config.CPUFrequency
-		descriptions[name] = resMetricsPromDesc(context, name, "")
-	}
-	return descriptions
-}
-
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	if config.EnabledGPU {
-		if gpus, err := acc.GetActiveAcceleratorsByType("gpu"); err == nil {
+		if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			for _, g := range gpus {
 				for _, name := range consts.GPUMetricNames {
-					descriptions[name] = resMetricsPromDesc(context, name, g.GetAccelerator().GetName())
+					descriptions[name] = resMetricsPromDesc(context, name, g.Device().Name())
 				}
 			}
 		}

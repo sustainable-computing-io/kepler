@@ -1,6 +1,3 @@
-//go:build gpu
-// +build gpu
-
 /*
 Copyright 2024.
 
@@ -21,43 +18,47 @@ package sources
 import (
 	"time"
 
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 )
 
 var (
-	dummyDevice = "dummy"
+	dummyDevice device.DeviceType
 )
 
 type Dummy struct {
-	dummyDevice         string
+	dummyDevice         device.DeviceType
 	name                string
 	collectionSupported bool
 }
 
 func init() {
-	acc.AddDeviceInterface(dummyDevice, dummyDevice, dummyDeviceStartup)
+	dummyDevice = device.DUMMY
+	device.AddDeviceInterface(dummyDevice, dummyDevice.String(), dummyDeviceStartup)
 }
 
-func dummyDeviceStartup() (acc.AcceleratorInterface, error) {
+func dummyDeviceStartup() (device.DeviceInterface, error) {
 	d := Dummy{
 		dummyDevice:         dummyDevice,
-		name:                dummyDevice,
+		name:                dummyDevice.String(),
 		collectionSupported: false,
 	}
 
 	return &d, nil
 }
 
-func (d *Dummy) GetName() string {
+func (d *Dummy) Name() string {
 	return d.name
 }
 
-func (d *Dummy) GetType() string {
+func (d *Dummy) DevType() device.DeviceType {
 	return d.dummyDevice
 }
+func (d *Dummy) DevTypeName() string {
+	return d.name
+}
 
-func (d *Dummy) GetHwType() string {
-	return d.dummyDevice
+func (d *Dummy) HwType() string {
+	return d.dummyDevice.String()
 }
 
 func (d *Dummy) InitLib() error {
@@ -72,31 +73,31 @@ func (d *Dummy) Shutdown() bool {
 	return true
 }
 
-func (d *Dummy) GetAbsEnergyFromDevice() []uint32 {
+func (d *Dummy) AbsEnergyFromDevice() []uint32 {
 	return nil
 }
 
-func (d *Dummy) GetDevicesByID() map[int]any {
+func (d *Dummy) DevicesByID() map[int]any {
 	return nil
 }
 
-func (d *Dummy) GetDevicesByName() map[string]any {
+func (d *Dummy) DevicesByName() map[string]any {
 	return nil
 }
 
-func (d *Dummy) GetDeviceInstances() map[int]map[int]interface{} {
+func (d *Dummy) DeviceInstances() map[int]map[int]any {
 	return nil
 }
 
-func (d *Dummy) GetDeviceUtilizationStats(device any) (map[any]interface{}, error) {
+func (d *Dummy) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 	ds := make(map[any]interface{}) // Process Accelerator Metrics
 	return ds, nil
 }
 
-func (d *Dummy) GetProcessResourceUtilizationPerDevice(device any, _ time.Duration) (map[uint32]any, error) {
-	processAcceleratorMetrics := map[uint32]acc.GPUProcessUtilizationSample{}
+func (d *Dummy) ProcessResourceUtilizationPerDevice(dev any, _ time.Duration) (map[uint32]any, error) {
+	processAcceleratorMetrics := map[uint32]device.GPUProcessUtilizationSample{}
 	pam := make(map[uint32]interface{})
-	processAcceleratorMetrics[0] = acc.GPUProcessUtilizationSample{
+	processAcceleratorMetrics[0] = device.GPUProcessUtilizationSample{
 		Pid:         0,
 		TimeStamp:   uint64(time.Now().UnixNano()),
 		ComputeUtil: 10,

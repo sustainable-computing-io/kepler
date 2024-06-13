@@ -27,24 +27,23 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	_dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
-	dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 )
 
 const (
 	nvmlHwType = "gpu"
-	nvmlDevice = "nvml"
 )
 
 var (
 	nvmlAccImpl = GPUNvml{}
+	nvmlType    device.DeviceType
 )
 
 type GPUNvml struct {
 	libInited                   bool
 	collectionSupported         bool
-	devices                     map[int]dev.GPUDevice // List of GPU identifiers for the device
-	processUtilizationSupported bool                  // bool to check if the process utilization collection is supported
+	devices                     map[int]device.GPUDevice // List of GPU identifiers for the device
+	processUtilizationSupported bool                     // bool to check if the process utilization collection is supported
 }
 
 func init() {
@@ -53,15 +52,16 @@ func init() {
 		return
 	}
 	klog.Info("Initializing nvml Successful")
-	_dev.AddDeviceInterface(nvmlDevice, nvmlHwType, nvmlDeviceStartup)
+	nvmlType = device.NVML
+	device.AddDeviceInterface(nvmlType, nvmlHwType, nvmlDeviceStartup)
 }
 
-func nvmlDeviceStartup() (_dev.AcceleratorInterface, error) {
+func nvmlDeviceStartup() (device.DeviceInterface, error) {
 	a := nvmlAccImpl
 	if err := a.InitLib(); err != nil {
-		klog.Errorf("Error initializing %s: %v", nvmlDevice, err)
+		klog.Errorf("Error initializing %s: %v", nvmlType.String(), err)
 	}
-	klog.Infof("Using %s to obtain gpu power", nvmlDevice)
+	klog.Infof("Using %s to obtain gpu power", nvmlType.String())
 
 	if err := a.Init(); err != nil {
 		klog.Errorf("failed to Init device: %v", err)
@@ -71,16 +71,20 @@ func nvmlDeviceStartup() (_dev.AcceleratorInterface, error) {
 	return &a, nil
 }
 
-func (n *GPUNvml) GetName() string {
+func (n *GPUNvml) Name() string {
 	return "nvidia-nvml"
 }
 
-func (n *GPUNvml) GetHwType() string {
+func (n *GPUNvml) HwType() string {
 	return nvmlHwType
 }
 
-func (n *GPUNvml) GetType() string {
-	return nvmlDevice
+func (n *GPUNvml) DevType() device.DeviceType {
+	return nvmlType
+}
+
+func (n *GPUNvml) DevTypeName() string {
+	return nvmlType.String()
 }
 
 func (n *GPUNvml) IsDeviceCollectionSupported() bool {
@@ -102,7 +106,7 @@ func (n *GPUNvml) InitLib() (err error) {
 	}()
 	if ret := nvml.Init(); ret != nvml.SUCCESS {
 		n.collectionSupported = false
-		err = fmt.Errorf("failed to init nvml. %s", nvmlErrorString(ret))
+		err = fmt.Errorf("failed to init nvml")
 		return err
 	}
 	n.libInited = true
@@ -124,7 +128,7 @@ func (n *GPUNvml) Init() (err error) {
 		return err
 	}
 	klog.Infof("found %d gpu devices\n", count)
-	n.devices = make(map[int]_dev.GPUDevice, count)
+	n.devices = make(map[int]device.GPUDevice, count)
 	for gpuID := 0; gpuID < count; gpuID++ {
 		nvmlDeviceHandler, ret := nvml.DeviceGetHandleByIndex(gpuID)
 		if ret != nvml.SUCCESS {
@@ -136,7 +140,7 @@ func (n *GPUNvml) Init() (err error) {
 		name, _ := nvmlDeviceHandler.GetName()
 		uuid, _ := nvmlDeviceHandler.GetUUID()
 		klog.Infof("GPU %v %q %q", gpuID, name, uuid)
-		device := _dev.GPUDevice{
+		device := device.GPUDevice{
 			DeviceHandler: nvmlDeviceHandler,
 			ID:            gpuID,
 			IsSubdevice:   false,
@@ -154,26 +158,26 @@ func (n *GPUNvml) Shutdown() bool {
 }
 
 // GetGpus returns a map with gpu device
-func (n *GPUNvml) GetDevicesByID() map[int]interface{} {
-	devices := make(map[int]interface{})
+func (n *GPUNvml) DevicesByID() map[int]any {
+	devices := make(map[int]any)
 	for id, device := range n.devices {
 		devices[id] = device
 	}
 	return devices
 }
 
-func (n *GPUNvml) GetDevicesByName() map[string]any {
-	devices := make(map[string]interface{})
+func (n *GPUNvml) DevicesByName() map[string]any {
+	devices := make(map[string]any)
 	return devices
 }
 
-func (n *GPUNvml) GetDeviceInstances() map[int]map[int]interface{} {
+func (n *GPUNvml) DeviceInstances() map[int]map[int]any {
 	var devices map[int]map[int]interface{}
 	return devices
 }
 
 // GetAbsEnergyFromGPU returns a map with mJ in each gpu device
-func (n *GPUNvml) GetAbsEnergyFromDevice() []uint32 {
+func (n *GPUNvml) AbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, device := range n.devices {
 		power, ret := device.DeviceHandler.(nvml.Device).GetPowerUsage()
@@ -189,7 +193,7 @@ func (n *GPUNvml) GetAbsEnergyFromDevice() []uint32 {
 	return gpuEnergy
 }
 
-func (n *GPUNvml) GetDeviceUtilizationStats(device any) (map[any]interface{}, error) {
+func (n *GPUNvml) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 	ds := make(map[any]interface{}) // Process Accelerator Metrics
 	return ds, nil
 }
@@ -198,13 +202,13 @@ func (n *GPUNvml) GetDeviceUtilizationStats(device any) (map[any]interface{}, er
 //
 //	GPUProcessUtilizationSample.SmUtil represents the process Streaming Multiprocessors - SM (3D/Compute) utilization in percentage.
 //	GPUProcessUtilizationSample.MemUtil represents the process Frame Buffer Memory utilization Value.
-func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device any, since time.Duration) (map[uint32]any, error) {
-	processAcceleratorMetrics := map[uint32]_dev.GPUProcessUtilizationSample{}
+func (n *GPUNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error) {
+	processAcceleratorMetrics := map[uint32]device.GPUProcessUtilizationSample{}
 	pam := make(map[uint32]interface{})
 	lastUtilizationTimestamp := uint64(time.Now().Add(-1*since).UnixNano() / 1000)
 
-	switch d := device.(type) {
-	case _dev.GPUDevice:
+	switch d := dev.(type) {
+	case device.GPUDevice:
 		if d.DeviceHandler == nil {
 			return pam, nil
 		}
@@ -220,7 +224,7 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device any, since time.
 				for _, pinfo := range GPUProcessUtilizationSample {
 					// pid 0 means no data
 					if pinfo.Pid != 0 {
-						processAcceleratorMetrics[pinfo.Pid] = _dev.GPUProcessUtilizationSample{
+						processAcceleratorMetrics[pinfo.Pid] = device.GPUProcessUtilizationSample{
 							Pid:         pinfo.Pid,
 							TimeStamp:   pinfo.TimeStamp,
 							ComputeUtil: pinfo.SmUtil,
@@ -251,7 +255,7 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device any, since time.
 			for _, pinfo := range processInfo {
 				// pid 0 means no data
 				if pinfo.Pid != 0 {
-					processAcceleratorMetrics[pinfo.Pid] = _dev.GPUProcessUtilizationSample{
+					processAcceleratorMetrics[pinfo.Pid] = device.GPUProcessUtilizationSample{
 						Pid:     pinfo.Pid,
 						MemUtil: uint32(pinfo.UsedGpuMemory * 100 / memoryInfo.Total),
 					}
@@ -266,7 +270,7 @@ func (n *GPUNvml) GetProcessResourceUtilizationPerDevice(device any, since time.
 
 		return pam, nil
 	default:
-		klog.Error("expected _dev.GPUDevice but got come other type")
+		klog.Error("expected device.GPUDevice but got come other type")
 		return pam, errors.New("invalid device type")
 	}
 }
