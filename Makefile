@@ -27,6 +27,8 @@ ARCH               := $(shell arch)
 OUTPUT_DIR         := _output
 CROSS_BUILD_BINDIR := $(OUTPUT_DIR)/bin
 GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')
+GIT_SHA            := $(shell git rev-parse HEAD)
+GIT_BRANCH         := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION            ?= $(GIT_VERSION)
 ROOTLESS	       ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
@@ -34,12 +36,6 @@ BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libb
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
 CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
-
-# NOTE: github.com/prometheus/common/version is set to expose kepler version
-# information as a label in kepler_exporter_build_info
-LDFLAGS := -w -s \
-		-X github.com/sustainable-computing-io/kepler/pkg/version.Version=$(VERSION) \
-		-X github.com/prometheus/common/version.Version=$(VERSION)
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
@@ -61,12 +57,19 @@ ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
 	GPU_TAGS := $(GPU_TAGS)'habana '
 endif
 
-GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
-
 # set GOENV
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
+
+LDFLAGS := $(LDFLAGS) \
+		-X main.Version=$(VERSION) \
+		-X main.Revision=$(GIT_SHA) \
+		-X main.Branch=$(GIT_BRANCH) \
+		-X main.OS=$(GOOS) \
+		-X main.Arch=$(GOARCH)
+
+GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
 
 LIBBPF_HEADERS := /usr/include/bpf
 GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" CGO_LDFLAGS="-lelf -lz -lbpf"
