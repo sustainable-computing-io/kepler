@@ -20,10 +20,6 @@ import (
 	"fmt"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
-	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"k8s.io/klog/v2"
 )
 
 type ContainerStats struct {
@@ -34,9 +30,6 @@ type ContainerStats struct {
 	ContainerName string
 	PodName       string
 	Namespace     string
-
-	CgroupStatHandler cgroup.CCgroupStatHandler
-	CgroupStatMap     map[string]*types.UInt64StatCollection
 }
 
 // NewContainerStats creates a new ContainerStats instance
@@ -48,13 +41,6 @@ func NewContainerStats(containerName, podName, podNamespace, containerID string,
 		PodName:       podName,
 		ContainerName: containerName,
 		Namespace:     podNamespace,
-		CgroupStatMap: make(map[string]*types.UInt64StatCollection),
-	}
-
-	if config.ExposeCgroupMetrics {
-		for _, metricName := range AvailableCGroupMetrics {
-			c.CgroupStatMap[metricName] = types.NewUInt64StatCollection()
-		}
 	}
 
 	return c
@@ -73,22 +59,10 @@ func (c *ContainerStats) SetLatestProcess(pid uint64) {
 }
 
 func (c *ContainerStats) String() string {
-	return fmt.Sprintf("energy from pod/container: name: %s/%s namespace: %s containerid:%s\n cgroupMetrics: %v\n",
+	return fmt.Sprintf("energy from pod/container: name: %s/%s namespace: %s containerid:%s\n",
 		c.PodName,
 		c.ContainerName,
 		c.Namespace,
 		c.ContainerID,
-		c.CgroupStatMap,
 	) + c.Stats.String()
-}
-
-func (c *ContainerStats) UpdateCgroupMetrics() error {
-	if c.CgroupStatHandler == nil {
-		return nil
-	}
-	err := c.CgroupStatHandler.SetCGroupStat(c.ContainerID, c.CgroupStatMap)
-	if err != nil {
-		klog.V(3).Infof("Error reading cgroup stats for container %s (%s): %v", c.ContainerName, c.ContainerID, err)
-	}
-	return err
 }

@@ -28,8 +28,6 @@ import (
 )
 
 var (
-	// AvailableCGroupMetrics holds a list of cgroup metrics exposed by the cgroup that might be collected
-	AvailableCGroupMetrics []string
 	// AvailableAbsEnergyMetrics holds a list of absolute energy metrics
 	AvailableAbsEnergyMetrics []string
 	// AvailableDynEnergyMetrics holds a list of dynamic energy metrics
@@ -67,8 +65,6 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 	for metricName := range bpfSupportedMetrics.SoftwareCounters {
 		resMetrics = append(resMetrics, metricName)
 	}
-	// CGroup metrics are deprecated, it will be removed in the future
-	resMetrics = append(resMetrics, AvailableCGroupMetrics...)
 	for _, metricName := range resMetrics {
 		m.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}
