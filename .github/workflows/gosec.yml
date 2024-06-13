@@ -2,14 +2,14 @@ name: Security Scan
 
 # Run workflow each time code is pushed to your repository and on a schedule.
 # The scheduled workflow runs every at 00:00 on Sunday UTC time.
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
 
 jobs:
   tests:
     runs-on: ubuntu-latest
     env:
-      GO111MODULE: on
+      GO111MODULE: "on"
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4.1.1
@@ -18,7 +18,7 @@ jobs:
         uses: securego/gosec@master
         with:
           # Arguments for gosec, -no-fail to not fail the workflow based on findings
-          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+          args: -no-fail -fmt sarif -out gosec-results.sarif ./...
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3

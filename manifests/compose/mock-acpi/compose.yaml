@@ -1,10 +1,10 @@
 name: mock-acpi
 include:
   - path:
-    - ../compose.yaml
-    - ./override.yaml
-    - ./intel-pcm/intel-pcm.yaml
-    - ./turbostat/turbostat.yaml
+      - ../compose.yaml
+      - ./override.yaml
+      - ./intel-pcm/intel-pcm.yaml
+      - ./turbostat/turbostat.yaml
 
 services:
   ### 📦 kepler created from the current repo (local development)
@@ -20,7 +20,7 @@ services:
     ports:
       # NOTE: use 9188 to keep the host 8888 port free for any local testing
       # e.g. sudo ./bin/kepler
-      - "9188:8888"
+      - 9188:8888
     privileged: true
     pid: host
 
@@ -42,7 +42,7 @@ services:
       - type: bind
         source: ../../../data/cpus.yaml
         target: /var/lib/kepler/data/cpus.yaml
-      - "mock-acpi:/var/mock-acpi:z"
+      - mock-acpi:/var/mock-acpi:z
 
     entrypoint: [/usr/bin/bash, -c]
 

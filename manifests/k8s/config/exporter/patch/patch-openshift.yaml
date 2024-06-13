@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   annotations:
-    openshift.io/description: "Kepler exporter"
+    openshift.io/description: Kepler exporter
     openshift.io/display-name: ""
   name: system
 ---
@@ -15,15 +15,15 @@ spec:
   template:
     spec:
       containers:
-      - name: kepler-exporter
-        volumeMounts:
-        - name: kernel-src
-          mountPath: /usr/src/kernels
-          readOnly: true
-        securityContext:
-          privileged: true
+        - name: kepler-exporter
+          volumeMounts:
+            - name: kernel-src
+              mountPath: /usr/src/kernels
+              readOnly: true
+          securityContext:
+            privileged: true
       volumes:
-      - name: kernel-src
-        hostPath:
-          path: /usr/src/kernels
-          type: Directory
+        - name: kernel-src
+          hostPath:
+            path: /usr/src/kernels
+            type: Directory

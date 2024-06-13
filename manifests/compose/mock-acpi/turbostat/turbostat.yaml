@@ -9,7 +9,7 @@ services:
     cap_add:
       - ALL
     ports:
-      - "8001:8001"
+      - 8001:8001
     volumes:
       - type: bind
         source: /dev

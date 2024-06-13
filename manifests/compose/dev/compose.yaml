@@ -1,8 +1,8 @@
 name: dev
 include:
   - path:
-    - ../compose.yaml
-    - ./override.yaml
+      - ../compose.yaml
+      - ./override.yaml
 
 services:
   ### 📦 kepler created from the current repo (local development)
@@ -18,7 +18,7 @@ services:
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
       # e.g. sudo ./bin/kepler
-      - "9188:8888"
+      - 9188:8888
     privileged: true
     pid: host
 

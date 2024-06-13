@@ -16,9 +16,9 @@ metadata:
 data:
   KEPLER_NAMESPACE: $(KEPLER_NAMESPACE)
   KEPLER_LOG_LEVEL: "1"
-  PROMETHEUS_SCRAPE_INTERVAL: "30s"
-  METRIC_PATH: "/metrics"
-  BIND_ADDRESS: "0.0.0.0:9102"
+  PROMETHEUS_SCRAPE_INTERVAL: 30s
+  METRIC_PATH: /metrics
+  BIND_ADDRESS: 0.0.0.0:9102
   ENABLE_GPU: "true"
   ENABLE_QAT: "false"
   ENABLE_EBPF_CGROUPID: "true"
@@ -49,88 +49,88 @@ spec:
         app.kubernetes.io/name: kepler-exporter
     spec:
       tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: kepler-sa
       hostPID: true
       containers:
-      - name: kepler-exporter
-        image: kepler:latest
-        imagePullPolicy: Always
-        resources:
-          requests:
-            memory: "400Mi"
-            cpu: "100m"
-        securityContext:
-          privileged: true
-        command:
-        - /bin/sh
-        - -c
-        args:
-        - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -redfish-cred-file-path=/etc/redfish/redfish.csv
-        ports:
-        - containerPort: 9102
-          name: http
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /healthz
-            port: 9102
-            scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 60
-          successThreshold: 1
-          timeoutSeconds: 10
-        volumeMounts:
-        - mountPath: /lib/modules
-          name: lib-modules
-          readOnly: true
-        - mountPath: /sys
-          name: tracing
-          readOnly: true
-        - mountPath: /proc
-          name: proc
-        - mountPath: /var/run
-          name: var-run
-        - name: cfm
-          mountPath: /etc/kepler/kepler.config
-          readOnly: true
-        - name: redfish
-          mountPath: /etc/redfish
-          readOnly: true
-        env:
-        - name: NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
+        - name: kepler-exporter
+          image: kepler:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: 400Mi
+              cpu: 100m
+          securityContext:
+            privileged: true
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -redfish-cred-file-path=/etc/redfish/redfish.csv
+          ports:
+            - containerPort: 9102
+              name: http
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: 9102
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 10
+          volumeMounts:
+            - mountPath: /lib/modules
+              name: lib-modules
+              readOnly: true
+            - mountPath: /sys
+              name: tracing
+              readOnly: true
+            - mountPath: /proc
+              name: proc
+            - mountPath: /var/run
+              name: var-run
+            - name: cfm
+              mountPath: /etc/kepler/kepler.config
+              readOnly: true
+            - name: redfish
+              mountPath: /etc/redfish
+              readOnly: true
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
       volumes:
-      - name: lib-modules
-        hostPath:
-          path: /lib/modules
-          type: Directory
-      - name: tracing
-        hostPath:
-          path: /sys
-          type: Directory
-      - name: proc
-        hostPath:
-          path: /proc
-          type: Directory
-      - name: var-run
-        hostPath:
-          path: /var/run
-          type: Directory
-      - name: cfm
-        configMap:
-          name: kepler-cfm
-      - name: redfish
-        secret:
-          secretName: redfish
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: tracing
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: proc
+          hostPath:
+            path: /proc
+            type: Directory
+        - name: var-run
+          hostPath:
+            path: /var/run
+            type: Directory
+        - name: cfm
+          configMap:
+            name: kepler-cfm
+        - name: redfish
+          secret:
+            secretName: redfish
 ---
 kind: Service
 apiVersion: v1
@@ -146,6 +146,6 @@ spec:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kepler-exporter
   ports:
-  - name: http
-    port: 9102
-    targetPort: http
+    - name: http
+      port: 9102
+      targetPort: http

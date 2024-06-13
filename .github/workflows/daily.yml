@@ -1,10 +1,10 @@
 # This workflow would be run on sustainable-computing-io/kepler only.
 name: Scheduled build
-on:
+on: # yamllint disable-line rule:truthy
   workflow_dispatch:
   branch_protection_rule:
   schedule:
-    - cron: "12 9 * * *"
+    - cron: 12 9 * * *
 
 jobs:
   # daily go security
@@ -16,14 +16,14 @@ jobs:
     if: github.repository == 'sustainable-computing-io/kepler'
     uses: ./.github/workflows/image_base.yml
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
   image:
     needs: [image_base]
     uses: ./.github/workflows/image.yml
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
   # daily openSSF scan
   scorecard:
     if: github.repository == 'sustainable-computing-io/kepler'

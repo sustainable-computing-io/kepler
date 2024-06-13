@@ -36,7 +36,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    # - depguard
     - dupl
     - errcheck
     - goconst
@@ -60,29 +59,27 @@ linters:
     - whitespace
     - unused
     - asciicheck
-
-  # don't enable:
-  # - lll
-  # - dogsled
-  # - gochecknoinits
-  # - gomnd
-  # - unused
-
-  # TODO: try to enable
-  # - scopelint
-  # - gochecknoglobals
-  # - gocognit
-  # - godot
-  # - godox
-  # - goerr113
-  # - interfacer
-  # - maligned
-  # - nestif
-  # - prealloc
-  # - testpackage
-  # - revive
-  # - wsl
-  # - funlen
+    # don't enable:
+    # - lll
+    # - dogsled
+    # - gochecknoinits
+    # - gomnd
+    # - unused
+    # TODO: try to enable
+    # - scopelint
+    # - gochecknoglobals
+    # - gocognit
+    # - godot
+    # - godox
+    # - goerr113
+    # - interfacer
+    # - maligned
+    # - nestif
+    # - prealloc
+    # - testpackage
+    # - revive
+    # - wsl
+    # - funlen
 
 run:
   timeout: 5m
@@ -91,7 +88,7 @@ issues:
   exclude-rules:
     - linters:
         - typecheck
-      text: "could not import C"
+      text: could not import C
     - linters:
         - dupl
-      text: ".*pkg/collector/stats/types/types_test.go.*" # false positive, https://github.com/mibk/dupl/issues/20
+      text: .*pkg/collector/stats/types/types_test.go.* # false positive, https://github.com/mibk/dupl/issues/20

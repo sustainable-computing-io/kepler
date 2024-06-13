@@ -1,10 +1,10 @@
 name: image
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
     inputs:
       imageTag:
-        default: 'latest'
+        default: latest
         type: string
       pushImage:
         default: true
@@ -22,55 +22,55 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - IMAGE_NAME: kepler
-          IMAGE_FILE: build/Dockerfile
-          PLATFORMS:  linux/amd64,linux/arm64
-          BUILD_ARGS: |
-                INSTALL_DCGM=false
-                INSTALL_HABANA=false
-                VERSION=${{ inputs.imageTag }}
-          LABEL:      ${{ inputs.imageTag }}
-        - IMAGE_NAME: kepler
-          IMAGE_FILE: build/Dockerfile
-          PLATFORMS:  linux/amd64
-          BUILD_ARGS: |
-                INSTALL_DCGM=true
-                INSTALL_HABANA=false
-                VERSION=${{ inputs.imageTag }}-dcgm
-          LABEL:      ${{ inputs.imageTag }}-dcgm
-        - IMAGE_NAME: kepler
-          IMAGE_FILE: build/Dockerfile
-          PLATFORMS:  linux/amd64
-          BUILD_ARGS: |
-                INSTALL_DCGM=false
-                INSTALL_HABANA=true
-                VERSION=${{ inputs.imageTag }}-habana
-          LABEL:      ${{ inputs.imageTag }}-habana
-        - IMAGE_NAME: kepler-validator
-          IMAGE_FILE: build/Dockerfile.kepler-validator
-          BUILD_ARGS: ""
-          PLATFORMS:  linux/amd64
-          LABEL:      ${{ inputs.imageTag }}
+          - IMAGE_NAME: kepler
+            IMAGE_FILE: build/Dockerfile
+            PLATFORMS: linux/amd64,linux/arm64
+            BUILD_ARGS: |
+              INSTALL_DCGM=false
+              INSTALL_HABANA=false
+              VERSION=${{ inputs.imageTag }}
+            LABEL: ${{ inputs.imageTag }}
+          - IMAGE_NAME: kepler
+            IMAGE_FILE: build/Dockerfile
+            PLATFORMS: linux/amd64
+            BUILD_ARGS: |
+              INSTALL_DCGM=true
+              INSTALL_HABANA=false
+              VERSION=${{ inputs.imageTag }}-dcgm
+            LABEL: ${{ inputs.imageTag }}-dcgm
+          - IMAGE_NAME: kepler
+            IMAGE_FILE: build/Dockerfile
+            PLATFORMS: linux/amd64
+            BUILD_ARGS: |
+              INSTALL_DCGM=false
+              INSTALL_HABANA=true
+              VERSION=${{ inputs.imageTag }}-habana
+            LABEL: ${{ inputs.imageTag }}-habana
+          - IMAGE_NAME: kepler-validator
+            IMAGE_FILE: build/Dockerfile.kepler-validator
+            BUILD_ARGS: ""
+            PLATFORMS: linux/amd64
+            LABEL: ${{ inputs.imageTag }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4.1.1
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        image: tonistiigi/binfmt:qemu-v8.1.5
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Login to Quay
-      if: ${{ inputs.pushImage }}
-      uses: docker/login-action@v3
-      with:
-        registry: quay.io/sustainable_computing_io
-        username: ${{ secrets.username }}
-        password: ${{ secrets.password }}
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          image: tonistiigi/binfmt:qemu-v8.1.5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Quay
+        if: ${{ inputs.pushImage }}
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io/sustainable_computing_io
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
 
-    - name: Build and push image
-      uses: docker/build-push-action@v5
-      with:
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
           context: .
           platforms: ${{matrix.PLATFORMS}}
           push: ${{ inputs.pushImage }}
@@ -79,17 +79,17 @@ jobs:
           labels: ${{matrix.LABEL}}
           file: ${{matrix.IMAGE_FILE}}
 
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0.16.0
-      with:
-        image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
-        artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
-        output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0.16.0
+        with:
+          image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
+          output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
 
-    - name: save Kepler image SBOM as artifact
-      if: ${{ inputs.pushImage }}
-      uses: actions/upload-artifact@v4.3.0
-      with:
+      - name: save Kepler image SBOM as artifact
+        if: ${{ inputs.pushImage }}
+        uses: actions/upload-artifact@v4.3.0
+        with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           retention-days: 1

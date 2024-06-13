@@ -2,8 +2,8 @@ name: metal
 
 include:
   - path:
-    - ../../monitoring/compose.yaml
-    - ./override.yaml
+      - ../../monitoring/compose.yaml
+      - ./override.yaml
 
 services:
   kepler-metal:
@@ -18,7 +18,7 @@ services:
     ports:
       # NOTE: use 9888 to keep the host 8888 port free for any local testing
       # e.g. sudo ./bin/kepler
-      - "9188:8888"
+      - 9188:8888
     privileged: true
     pid: host
 
@@ -60,7 +60,7 @@ services:
     image: hubblo/scaphandre
     privileged: true
     ports:
-      - "8880:8080"
+      - 8880:8080
     volumes:
       - type: bind
         source: /proc
@@ -68,7 +68,7 @@ services:
       - type: bind
         source: /sys/class/powercap
         target: /sys/class/powercap
-    command: ["prometheus"]
+    command: [prometheus]
     networks:
       - scaph-network
 

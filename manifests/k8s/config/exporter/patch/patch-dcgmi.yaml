@@ -9,5 +9,5 @@ spec:
     spec:
       hostNetwork: true
       containers:
-      - name: kepler-exporter
-        image: quay.io/sustainable_computing_io/kepler:latest-dcgm
+        - name: kepler-exporter
+          image: quay.io/sustainable_computing_io/kepler:latest-dcgm

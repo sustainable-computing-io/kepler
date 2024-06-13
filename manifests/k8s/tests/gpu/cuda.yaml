@@ -5,11 +5,11 @@ metadata:
 spec:
   restartPolicy: OnFailure
   containers:
-  - name: cuda-vector-add
-    image: "nvcr.io/nvidia/k8s/cuda-sample:nbody"
-    args:
-    - -benchmark
-    - -numbodies=512000"
-    resources:
-      limits:
-         nvidia.com/gpu: 1
+    - name: cuda-vector-add
+      image: nvcr.io/nvidia/k8s/cuda-sample:nbody
+      args:
+        - -benchmark
+        - -numbodies=512000"
+      resources:
+        limits:
+          nvidia.com/gpu: 1

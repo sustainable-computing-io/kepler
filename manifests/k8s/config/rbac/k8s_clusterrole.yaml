@@ -3,13 +3,13 @@ kind: ClusterRole
 metadata:
   name: kepler-clusterrole
 rules:
-- apiGroups: [""]
-  resources:
-  - nodes/metrics # access /metrics/resource
-  - nodes/proxy
-  - nodes/stats
-  - pods
-  verbs:
-  - 'get'
-  - 'watch'
-  - 'list'
+  - apiGroups: [""]
+    resources:
+      - nodes/metrics # access /metrics/resource
+      - nodes/proxy
+      - nodes/stats
+      - pods
+    verbs:
+      - get
+      - watch
+      - list

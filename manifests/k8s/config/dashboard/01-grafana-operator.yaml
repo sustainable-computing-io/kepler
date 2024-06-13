@@ -6,7 +6,7 @@ metadata:
   namespace: kepler
 spec:
   targetNamespaces:
-  - kepler
+    - kepler
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription

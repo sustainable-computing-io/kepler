@@ -5,8 +5,8 @@ metadata:
 roleRef:
   kind: ClusterRole
   name: kepler-clusterrole
-  apiGroup: "rbac.authorization.k8s.io"
+  apiGroup: rbac.authorization.k8s.io
 subjects:
-- kind: ServiceAccount
-  name: kepler-sa
-  namespace: system
+  - kind: ServiceAccount
+    name: kepler-sa
+    namespace: system

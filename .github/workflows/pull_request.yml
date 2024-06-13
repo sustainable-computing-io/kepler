@@ -1,12 +1,12 @@
 name: Pull request
 
-on:
+on: # yamllint disable-line rule:truthy
   branch_protection_rule:
   pull_request:
     paths-ignore:
-      - 'doc/**'
-      - 'enhancements/**'
-      - '*.md'
+      - doc/**
+      - enhancements/**
+      - "*.md"
 
 jobs:
   c:
@@ -14,6 +14,9 @@ jobs:
   # for each PR run go command line check
   golang:
     uses: ./.github/workflows/golang.yml
+  # for each PR run yamllint
+  yamllint:
+    uses: ./.github/workflows/yamllint.yml
   # for each PR run unit test
   unit_test:
     uses: ./.github/workflows/unit_test.yml
@@ -29,15 +32,15 @@ jobs:
     outputs:
       src: ${{ steps.changes.outputs.src }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v3
-      id: changes
-      with:
-        filters: |
-          src:
-            - './.github/workflows/image.yml'
-            - './build/Dockerfile'
-            - './build/Dockerfile.kepler-validator'
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            src:
+              - './.github/workflows/image.yml'
+              - './build/Dockerfile'
+              - './build/Dockerfile.kepler-validator'
 
   image:
     needs: changes_image
@@ -46,19 +49,19 @@ jobs:
     with:
       pushImage: false
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
 
   changes_baseimage:
     runs-on: ubuntu-latest
     outputs:
       src: ${{ steps.changes.outputs.src }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v3
-      id: changes
-      with:
-        filters: |
-          src:
-            - './.github/workflows/image_base.yml'
-            - './build/Dockerfile.builder'
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            src:
+              - './.github/workflows/image_base.yml'
+              - './build/Dockerfile.builder'
