@@ -4,11 +4,11 @@ services:
   kepler:
     image: quay.io/sustainable_computing_io/kepler:latest
     ports:
-      - "9100:9100"
+      - 9100:9100
     privileged: true
     pid: host
     networks:
-        - kepler-network
+      - kepler-network
     volumes:
       - type: bind
         source: /proc
@@ -40,15 +40,15 @@ services:
     command:
       - echo "Waiting for estimator socket";
         until [[ -e /tmp/estimator.sock ]]; do
-          echo " ... waiting for socket";
-          sleep 1;
+        echo " ... waiting for socket";
+        sleep 1;
         done;
         echo "starting kepler";
         set -x;
         /usr/bin/kepler
-          -address="0.0.0.0:9100"
-          -enable-cgroup-id=false
-          -v="8"
+        -address="0.0.0.0:9100"
+        -enable-cgroup-id=false
+        -v="8"
 
   estimator:
     entrypoint:
@@ -68,7 +68,6 @@ services:
     networks:
       - kepler-network
       - model-server-network
-
 
   model-server:
     entrypoint:

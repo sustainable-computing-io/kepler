@@ -15,11 +15,11 @@ spec:
   template:
     spec:
       containers:
-      - name: kepler-exporter
-        volumeMounts:
-        - mountPath: /usr/local/bin/adf_ctl
-          name: qat
+        - name: kepler-exporter
+          volumeMounts:
+            - mountPath: /usr/local/bin/adf_ctl
+              name: qat
       volumes:
-      - name: qat
-        hostPath:
-          path: /usr/local/bin/adf_ctl
+        - name: qat
+          hostPath:
+            path: /usr/local/bin/adf_ctl

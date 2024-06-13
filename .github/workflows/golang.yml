@@ -1,6 +1,6 @@
 name: golang
 # for golang basic checks with go command line tool
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
 
 permissions:

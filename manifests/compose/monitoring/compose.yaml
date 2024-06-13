@@ -1,11 +1,11 @@
-name: 'monitoring'
+name: monitoring
 
 services:
   prometheus:
     build:
       context: ./prometheus
     ports:
-      - "9090:9090"
+      - 9090:9090
     volumes:
       - prom-data:/prometheus
       - type: bind
@@ -18,13 +18,13 @@ services:
     build:
       context: ./grafana
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: admin
 
-    user: '1000' # NOTE: change this to your `id -u`
+    user: "1000" # NOTE: change this to your `id -u`
     depends_on:
       - prometheus
     ports:
-      - "3000:3000"
+      - 3000:3000
     networks:
       - monitoring
 volumes:

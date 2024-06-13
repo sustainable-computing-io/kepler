@@ -1,7 +1,7 @@
 resources:
-# uncomment this line for openshift
-# - openshift_scc.yaml
-- exporter.yaml
+  # uncomment this line for openshift
+  # - openshift_scc.yaml
+  - exporter.yaml
 # uncomment this line if prometheus deployed
 # - prometheus_common_service_monitor.yaml
 # - prometheus_common_rules.yaml
@@ -28,45 +28,45 @@ patchesStrategicMerge: []
 # - ./patch/patch-habana.yaml
 
 secretGenerator:
-- name: redfish
-  files:
-  - ./redfish.csv
+  - name: redfish
+    files:
+      - ./redfish.csv
 
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- name: kepler
-  newName: quay.io/sustainable_computing_io/kepler
-  newTag: latest
-- name: kepler_model_server
-  newName: quay.io/sustainable_computing_io/kepler_model_server
-  newTag: latest
+  - name: kepler
+    newName: quay.io/sustainable_computing_io/kepler
+    newTag: latest
+  - name: kepler_model_server
+    newName: quay.io/sustainable_computing_io/kepler_model_server
+    newTag: latest
 
 vars:
-- name: KEPLER_NAMESPACE
-  objref:
-    kind: Namespace
-    group: ""
-    version: v1
-    name: system
-  fieldref:
-    fieldpath: metadata.name
-- name: KEPLER_LOG_LEVEL
-  objref:
-    kind: ConfigMap
-    group: ""
-    version: v1
-    name: kepler-cfm
-  fieldref:
-    fieldpath: data.KEPLER_LOG_LEVEL
-- name: PROMETHEUS_SCRAPE_INTERVAL
-  objref:
-    kind: ConfigMap
-    group: ""
-    version: v1
-    name: kepler-cfm
-  fieldref:
-    fieldpath: data.PROMETHEUS_SCRAPE_INTERVAL
+  - name: KEPLER_NAMESPACE
+    objref:
+      kind: Namespace
+      group: ""
+      version: v1
+      name: system
+    fieldref:
+      fieldpath: metadata.name
+  - name: KEPLER_LOG_LEVEL
+    objref:
+      kind: ConfigMap
+      group: ""
+      version: v1
+      name: kepler-cfm
+    fieldref:
+      fieldpath: data.KEPLER_LOG_LEVEL
+  - name: PROMETHEUS_SCRAPE_INTERVAL
+    objref:
+      kind: ConfigMap
+      group: ""
+      version: v1
+      name: kepler-cfm
+    fieldref:
+      fieldpath: data.PROMETHEUS_SCRAPE_INTERVAL
 
 configurations:
-- ./kustomizeconfig.yaml
+  - ./kustomizeconfig.yaml

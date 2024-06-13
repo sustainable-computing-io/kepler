@@ -1,8 +1,8 @@
 name: kepler
 include:
   - path:
-    - ./monitoring/compose.yaml
-    - ./default/override.yaml
+      - ./monitoring/compose.yaml
+      - ./default/override.yaml
 
 services:
   ### 📦 kepler latest without any modifications
@@ -15,7 +15,7 @@ services:
     cap_add:
       - ALL
     ports:
-      - "9288:8888"
+      - 9288:8888
 
     volumes:
       - type: bind

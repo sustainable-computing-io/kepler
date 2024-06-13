@@ -1,6 +1,6 @@
 name: rpm daily
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Build RPM packages
         id: rpm_build
         env:
-          _VERSION_ : ${{ steps.git_version.outputs.git_version }}
+          _VERSION_: ${{ steps.git_version.outputs.git_version }}
           _RELEASE_: ${{ steps.date.outputs.date }}
           _COMMITTER_: nightly
           _ARCH_: x86_64

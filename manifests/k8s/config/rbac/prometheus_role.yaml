@@ -13,7 +13,7 @@ rules:
       - list
       - watch
     apiGroups:
-      - ''
+      - ""
     resources:
       - services
       - endpoints

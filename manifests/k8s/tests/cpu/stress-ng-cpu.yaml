@@ -22,7 +22,7 @@ spec:
             requests:
               cpu: 1
               memory: 500Mi
-          command: ["/bin/sh"]
+          command: [/bin/sh]
           args:
-            - "-c"
-            - "stress-ng --cpu 1 --temp-path /tmp --cpu-load 20"
+            - -c
+            - stress-ng --cpu 1 --temp-path /tmp --cpu-load 20

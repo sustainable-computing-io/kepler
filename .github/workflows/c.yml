@@ -1,6 +1,6 @@
 name: c
 # for c basic checks - it builds and is correctly formatted
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
 
 permissions:
@@ -14,7 +14,7 @@ jobs:
       - uses: jidicula/clang-format-action@v4.13.0
         with:
           clang-format-version: "17"
-          check-path: "bpfassets/libbpf/src"
+          check-path: bpfassets/libbpf/src
 
   build:
     runs-on: ubuntu-latest
