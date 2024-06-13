@@ -40,6 +40,7 @@ type NewModuleArgs struct {
 	BPFObjPath      string
 	BPFObjBuff      []byte
 	SkipMemlockBump bool
+	KernelLogLevel  uint32
 }
 
 func NewModuleFromFile(bpfObjPath string) (*Module, error) {
@@ -77,7 +78,9 @@ func NewModuleFromFileArgs(args NewModuleArgs) (*Module, error) {
 		defer C.free(unsafe.Pointer(kconfigPathC))
 	}
 
-	optsC, errno := C.cgo_bpf_object_open_opts_new(btfFilePathC, kconfigPathC, nil)
+	kernelLogLevelC := C.uint(args.KernelLogLevel)
+
+	optsC, errno := C.cgo_bpf_object_open_opts_new(btfFilePathC, kconfigPathC, nil, kernelLogLevelC)
 	if optsC == nil {
 		return nil, fmt.Errorf("failed to create bpf_object_open_opts: %w", errno)
 	}
@@ -129,12 +132,13 @@ func NewModuleFromBufferArgs(args NewModuleArgs) (*Module, error) {
 	bpfBuffC := unsafe.Pointer(C.CBytes(args.BPFObjBuff))
 	defer C.free(bpfBuffC)
 	bpfBuffSizeC := C.size_t(len(args.BPFObjBuff))
+	kernelLogLevelC := C.uint(args.KernelLogLevel)
 
 	if len(args.KConfigFilePath) <= 2 {
 		kConfigPathC = nil
 	}
 
-	optsC, errno := C.cgo_bpf_object_open_opts_new(btfFilePathC, kConfigPathC, bpfObjNameC)
+	optsC, errno := C.cgo_bpf_object_open_opts_new(btfFilePathC, kConfigPathC, bpfObjNameC, kernelLogLevelC)
 	if optsC == nil {
 		return nil, fmt.Errorf("failed to create bpf_object_open_opts: %w", errno)
 	}
@@ -390,4 +394,66 @@ func (m *Module) Iterator() *BPFObjectIterator {
 		prevProg: nil,
 		prevMap:  nil,
 	}
+}
+
+func (m *Module) linkExist(prog *BPFProg) bool {
+	for _, link := range m.links {
+		if link.prog.Name() == prog.Name() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// AttachPrograms attach all loaded and no attached progs once like bpf_object__attach_skeleton
+func (m *Module) AttachPrograms() error {
+	iters := m.Iterator()
+	for {
+		prog := iters.NextProgram()
+		if prog == nil {
+			break
+		}
+
+		if !prog.Autoload() || !prog.Autoattach() {
+			continue
+		}
+		// if link already exist (is attached), skip it
+		if m.linkExist(prog) {
+			continue
+		}
+
+		link, err := prog.AttachGeneric()
+		if err != nil {
+			return err
+		}
+
+		m.links = append(m.links, link)
+	}
+
+	return nil
+}
+
+// DetachPrograms detach all attached progs once like bpf_object__detach_skeleton
+func (m *Module) DetachPrograms() error {
+	errInfo := make(map[string]error)
+
+	for _, link := range m.links {
+		err := link.Destroy()
+		if err != nil {
+			errInfo[link.prog.Name()] = err
+		}
+	}
+	m.links = nil
+
+	if len(errInfo) > 0 {
+		var str string
+		for name, err := range errInfo {
+			str += fmt.Sprintf(" [prog:%s,err:%s]", name, err)
+		}
+
+		return fmt.Errorf("link destroy failed:%s", str)
+	}
+
+	return nil
 }

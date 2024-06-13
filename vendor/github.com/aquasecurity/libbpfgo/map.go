@@ -215,7 +215,7 @@ func (m *BPFMap) MapExtra() uint64 {
 // }
 
 func (m *BPFMap) InitialValue() ([]byte, error) {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
 		return nil, fmt.Errorf("map %s %w", m.Name(), err)
 	}
@@ -227,7 +227,7 @@ func (m *BPFMap) InitialValue() ([]byte, error) {
 }
 
 func (m *BPFMap) SetInitialValue(value unsafe.Pointer) error {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
 		return fmt.Errorf("map %s %w", m.Name(), err)
 	}
@@ -384,7 +384,7 @@ func (m *BPFMap) GetValue(key unsafe.Pointer) ([]byte, error) {
 }
 
 func (m *BPFMap) GetValueFlags(key unsafe.Pointer, flags MapFlag) ([]byte, error) {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
 		return nil, fmt.Errorf("map %s %w", m.Name(), err)
 	}
@@ -405,9 +405,53 @@ func (m *BPFMap) GetValueFlags(key unsafe.Pointer, flags MapFlag) ([]byte, error
 	return value, nil
 }
 
-// TODO: implement `bpf_map__lookup_and_delete_elem` wrapper
-// func (m *BPFMap) GetValueAndDeleteKey(key unsafe.Pointer) ([]byte, error) {
-// }
+// LookupAndDeleteElem stores the value associated with a given key into the
+// provided unsafe.Pointer and deletes the key from the BPFMap.
+func (m *BPFMap) LookupAndDeleteElem(
+	key unsafe.Pointer,
+	value unsafe.Pointer,
+	valueSize uint64,
+	flags MapFlag,
+) error {
+	retC := C.bpf_map__lookup_and_delete_elem(
+		m.bpfMap,
+		key,
+		C.ulong(m.KeySize()),
+		value,
+		C.ulong(valueSize),
+		C.ulonglong(flags),
+	)
+	if retC < 0 {
+		return fmt.Errorf("failed to lookup and delete value %v in map %s: %w", key, m.Name(), syscall.Errno(-retC))
+	}
+
+	return nil
+}
+
+// GetValueAndDeleteKey retrieves the value associated with a given key
+// and delete the key in the BPFMap.
+// It returns the value as a slice of bytes.
+func (m *BPFMap) GetValueAndDeleteKey(key unsafe.Pointer) ([]byte, error) {
+	return m.GetValueAndDeleteKeyFlags(key, MapFlagUpdateAny)
+}
+
+// GetValueAndDeleteKeyFlags retrieves the value associated with a given key
+// and delete the key in the BPFMap, with the specified flags.
+// It returns the value as a slice of bytes.
+func (m *BPFMap) GetValueAndDeleteKeyFlags(key unsafe.Pointer, flags MapFlag) ([]byte, error) {
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
+	if err != nil {
+		return nil, fmt.Errorf("map %s %w", m.Name(), err)
+	}
+
+	value := make([]byte, valueSize)
+	err = m.LookupAndDeleteElem(key, unsafe.Pointer(&value[0]), uint64(valueSize), flags)
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
 
 // Deprecated: use BPFMap.GetValue() or BPFMap.GetValueFlags() instead, since
 // they already calculate the value size for per-cpu maps.
@@ -442,7 +486,7 @@ func (m *BPFMap) Update(key, value unsafe.Pointer) error {
 }
 
 func (m *BPFMap) UpdateValueFlags(key, value unsafe.Pointer, flags MapFlag) error {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
 		return fmt.Errorf("map %s %w", m.Name(), err)
 	}
@@ -480,9 +524,20 @@ func (m *BPFMap) DeleteKey(key unsafe.Pointer) error {
 	return nil
 }
 
-// TODO: implement `bpf_map__get_next_key` wrapper
-// func (m *BPFMap) GetNextKey(key unsafe.Pointer) (unsafe.Pointer, error) {
-// }
+// GetNextKey allows to iterate BPF map keys by fetching next key that follows current key.
+func (m *BPFMap) GetNextKey(key unsafe.Pointer, nextKey unsafe.Pointer) error {
+	retC := C.bpf_map__get_next_key(
+		m.bpfMap,
+		key,
+		nextKey,
+		C.ulong(m.KeySize()),
+	)
+	if retC < 0 {
+		return fmt.Errorf("failed to get next key %d in map %s: %w", key, m.Name(), syscall.Errno(-retC))
+	}
+
+	return nil
+}
 
 //
 // BPFMap Batch Operations (low-level API)
@@ -492,7 +547,6 @@ func (m *BPFMap) DeleteKey(key unsafe.Pointer) error {
 //
 // The first argument, keys, is a pointer to an array or slice of keys which will
 // be populated with the keys returned from this operation.
-// It returns the associated values as a slice of slices of bytes.
 //
 // This API allows for batch lookups of multiple keys, potentially in steps over
 // multiple iterations. For example, you provide the last key seen (or nil) for
@@ -501,14 +555,16 @@ func (m *BPFMap) DeleteKey(key unsafe.Pointer) error {
 // previous iteration as the startKey for the next iteration and repeat until
 // nextKey is nil.
 //
-// The last argument, count, is the number of keys to lookup. The kernel will
-// update it with the count of the elements that were retrieved.
+// The last argument, count, is the number of keys to lookup.
 //
-// The API can return partial results even though an -1 is returned. In this case,
-// errno will be set to `ENOENT` and the values slice and count will be filled in
-// with the elements that were read. See the comment in `BPFMapLow.GetValueBatch`
-// for more context.
-func (m *BPFMap) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, error) {
+// It returns the associated values as a slice of slices of bytes and the number
+// of elements that were retrieved.
+//
+// The API can return partial results even though the underlying logic received -1.
+// In this case, no error will be returned. For checking if the returned values
+// are partial, you can compare the number of elements returned with the passed
+// count. See the comment in `BPFMapLow.GetValueBatch` for more context.
+func (m *BPFMap) GetValueBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, uint32, error) {
 	return m.bpfMapLow.GetValueBatch(keys, startKey, nextKey, count)
 }
 
@@ -517,7 +573,6 @@ func (m *BPFMap) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.Poi
 //
 // The first argument, keys, is a pointer to an array or slice of keys which will
 // be populated with the keys returned from this operation.
-// It returns the associated values as a slice of slices of bytes.
 //
 // This API allows for batch lookups and deletion of multiple keys, potentially
 // in steps over multiple iterations. For example, you provide the last key seen
@@ -527,14 +582,16 @@ func (m *BPFMap) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.Poi
 // previous iteration as the startKey for the next iteration and repeat until
 // nextKey is nil.
 //
-// The last argument, count, is the number of keys to lookup and delete. The kernel
-// will update it with the count of the elements that were retrieved and deleted.
+// The last argument, count, is the number of keys to lookup and delete.
 //
-// The API can return partial results even though an -1 is returned. In this case,
-// errno will be set to `ENOENT` and the values slice and count will be filled in
-// with the elements that were read. See the comment in `BPFMapLow.GetValueBatch`
-// for more context.
-func (m *BPFMap) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, error) {
+// It returns the associated values as a slice of slices of bytes and the number
+// of elements that were retrieved and deleted.
+//
+// The API can return partial results even though the underlying logic received -1.
+// In this case, no error will be returned. For checking if the returned values
+// are partial, you can compare the number of elements returned with the passed
+// count. See the comment in `BPFMapLow.GetValueBatch` for more context.
+func (m *BPFMap) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, uint32, error) {
 	return m.bpfMapLow.GetValueAndDeleteBatch(keys, startKey, nextKey, count)
 }
 
@@ -543,22 +600,35 @@ func (m *BPFMap) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointer, 
 //
 // The first argument, keys, is a pointer to an array or slice of keys which will
 // be updated using the second argument, values.
-// It returns the associated error if any occurred.
 //
-// The last argument, count, is the number of keys to update. Passing an argument
-// that greater than the number of keys in the map will cause the function to
-// return a syscall.EPERM as an error.
-func (m *BPFMap) UpdateBatch(keys, values unsafe.Pointer, count uint32) error {
+// The last argument, count, is the number of keys to update.
+//
+// It returns the number of elements that were updated.
+//
+// The API can update fewer elements than requested even though the underlying
+// logic received -1. This can happen if the map is full and the update operation
+// fails for some of the keys. In this case, no error will be returned. For
+// checking if the updated values are partial, you can compare the number of
+// elements returned with the passed count. See the comment in
+// `BPFMapLow.GetValueBatch` and `BPFMapLow.UpdateBatch` for more context.
+func (m *BPFMap) UpdateBatch(keys, values unsafe.Pointer, count uint32) (uint32, error) {
 	return m.bpfMapLow.UpdateBatch(keys, values, count)
 }
 
-// DeleteKeyBatch allows for batch deletion of multiple elements in the map.
+// DeleteKeyBatch deletes multiple elements from the map by specified keys.
 //
-// `count` number of keys will be deleted from the map. Passing an argument that
-// greater than the number of keys in the map will cause the function to delete
-// fewer keys than requested. See the comment in `BPFMapLow.GetValueBatch`
-// for more context.
-func (m *BPFMap) DeleteKeyBatch(keys unsafe.Pointer, count uint32) error {
+// The first argument, keys, is a pointer to an array or slice of keys which will
+// be deleted.
+//
+// The last argument, count, is the number of keys to delete.
+//
+// It returns the number of elements that were deleted.
+//
+// The API can delete fewer elements than requested even though the underlying
+// logic received -1. For checking if the deleted elements are partial, you can
+// compare the number of elements returned with the passed count. See the comment
+// in `BPFMapLow.GetValueBatch` for more context.
+func (m *BPFMap) DeleteKeyBatch(keys unsafe.Pointer, count uint32) (uint32, error) {
 	return m.bpfMapLow.DeleteKeyBatch(keys, count)
 }
 

@@ -260,7 +260,7 @@ func (m *BPFMapLow) GetValue(key unsafe.Pointer) ([]byte, error) {
 }
 
 func (m *BPFMapLow) GetValueFlags(key unsafe.Pointer, flags MapFlag) ([]byte, error) {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
 		return nil, fmt.Errorf("map %s %w", m.Name(), err)
 	}
@@ -279,9 +279,76 @@ func (m *BPFMapLow) GetValueFlags(key unsafe.Pointer, flags MapFlag) ([]byte, er
 	return value, nil
 }
 
-// TODO: implement `bpf_map__lookup_and_delete_elem`
-// func (m *BPFMapLow) GetValueAndDeleteKey(key unsafe.Pointer) ([]byte, error) {
-// }
+func (m *BPFMapLow) LookupAndDeleteElem(
+	key unsafe.Pointer,
+	value unsafe.Pointer,
+) error {
+	retC := C.bpf_map_lookup_and_delete_elem(
+		C.int(m.FileDescriptor()),
+		key,
+		value,
+	)
+	if retC < 0 {
+		return fmt.Errorf("failed to lookup and delete value %v in map %s: %w", key, m.Name(), syscall.Errno(-retC))
+	}
+
+	return nil
+}
+
+func (m *BPFMapLow) LookupAndDeleteElemFlags(
+	key unsafe.Pointer,
+	value unsafe.Pointer,
+	flags MapFlag,
+) error {
+	retC := C.bpf_map_lookup_and_delete_elem_flags(
+		C.int(m.FileDescriptor()),
+		key,
+		value,
+		C.ulonglong(flags),
+	)
+	if retC < 0 {
+		return fmt.Errorf("failed to lookup and delete value %v in map %s: %w", key, m.Name(), syscall.Errno(-retC))
+	}
+
+	return nil
+}
+
+func (m *BPFMapLow) GetValueAndDeleteKey(key unsafe.Pointer) ([]byte, error) {
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
+	if err != nil {
+		return nil, fmt.Errorf("map %s %w", m.Name(), err)
+	}
+
+	value := make([]byte, valueSize)
+	err = m.LookupAndDeleteElem(
+		key,
+		unsafe.Pointer(&value[0]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (m *BPFMapLow) GetValueAndDeleteKeyFlags(key unsafe.Pointer, flags MapFlag) ([]byte, error) {
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
+	if err != nil {
+		return nil, fmt.Errorf("map %s %w", m.Name(), err)
+	}
+
+	value := make([]byte, valueSize)
+	err = m.LookupAndDeleteElemFlags(
+		key,
+		unsafe.Pointer(&value[0]),
+		flags,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
 
 func (m *BPFMapLow) Update(key, value unsafe.Pointer) error {
 	return m.UpdateValueFlags(key, value, MapFlagUpdateAny)
@@ -310,18 +377,29 @@ func (m *BPFMapLow) DeleteKey(key unsafe.Pointer) error {
 	return nil
 }
 
-// TODO: implement `bpf_map__get_next_key`
-// func (m *BPFMapLow) GetNextKey(key unsafe.Pointer) (unsafe.Pointer, error) {
-// }
+func (m *BPFMapLow) GetNextKey(key unsafe.Pointer, nextKey unsafe.Pointer) error {
+	retC := C.bpf_map_get_next_key(
+		C.int(m.FileDescriptor()),
+		key,
+		nextKey,
+	)
+	if retC < 0 {
+		return fmt.Errorf("failed to get next key in map %s: %w", m.Name(), syscall.Errno(-retC))
+	}
+
+	return nil
+}
 
 //
 // BPFMapLow Batch Operations
 //
 
-func (m *BPFMapLow) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, error) {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+// GetValueBatch gets the values with the given keys from the map.
+// It returns the values and the number of read elements.
+func (m *BPFMapLow) GetValueBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, uint32, error) {
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
-		return nil, fmt.Errorf("map %s %w", m.Name(), err)
+		return nil, 0, fmt.Errorf("map %s %w", m.Name(), err)
 	}
 
 	var (
@@ -332,7 +410,7 @@ func (m *BPFMapLow) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.
 
 	optsC, errno := C.cgo_bpf_map_batch_opts_new(C.BPF_ANY, C.BPF_ANY)
 	if optsC == nil {
-		return nil, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
+		return nil, 0, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
 	}
 	defer C.cgo_bpf_map_batch_opts_free(optsC)
 
@@ -353,19 +431,22 @@ func (m *BPFMapLow) GetValueBatch(keys unsafe.Pointer, startKey, nextKey unsafe.
 		optsC,
 	)
 	errno = syscall.Errno(-retC)
-	if retC < 0 && errno != syscall.ENOENT {
-		return nil, fmt.Errorf("failed to batch get value %v in map %s: %w", keys, m.Name(), errno)
+	// retC < 0 && errno == syscall.ENOENT indicates a partial read.
+	if retC < 0 && (errno != syscall.ENOENT || countC == 0) {
+		return nil, 0, fmt.Errorf("failed to batch get value %v in map %s: %w", keys, m.Name(), errno)
 	}
 
-	// Either some or all entries were read.
-	// retC < 0 && errno == syscall.ENOENT indicates a partial read.
-	return collectBatchValues(values, uint32(countC), valueSize), nil
+	// Either some or all elements were read.
+	return collectBatchValues(values, uint32(countC), valueSize), uint32(countC), nil
 }
 
-func (m *BPFMapLow) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, error) {
-	valueSize, err := calcMapValueSize(m.ValueSize(), m.Type())
+// GetValueAndDeleteBatch gets the values with the given keys from the map and
+// deletes them.
+// It returns the values and the number of deleted elements.
+func (m *BPFMapLow) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointer, count uint32) ([][]byte, uint32, error) {
+	valueSize, err := CalcMapValueSize(m.ValueSize(), m.Type())
 	if err != nil {
-		return nil, fmt.Errorf("map %s %w", m.Name(), err)
+		return nil, 0, fmt.Errorf("map %s %w", m.Name(), err)
 	}
 
 	var (
@@ -376,7 +457,7 @@ func (m *BPFMapLow) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointe
 
 	optsC, errno := C.cgo_bpf_map_batch_opts_new(C.BPF_ANY, C.BPF_ANY)
 	if optsC == nil {
-		return nil, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
+		return nil, 0, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
 	}
 	defer C.cgo_bpf_map_batch_opts_free(optsC)
 
@@ -390,21 +471,23 @@ func (m *BPFMapLow) GetValueAndDeleteBatch(keys, startKey, nextKey unsafe.Pointe
 		optsC,
 	)
 	errno = syscall.Errno(-retC)
-	if retC < 0 && errno != syscall.ENOENT {
-		return nil, fmt.Errorf("failed to batch lookup and delete values %v in map %s: %w", keys, m.Name(), errno)
+	// retC < 0 && errno == syscall.ENOENT indicates a partial read and delete.
+	if retC < 0 && (errno != syscall.ENOENT || countC == 0) {
+		return nil, 0, fmt.Errorf("failed to batch lookup and delete values %v in map %s: %w", keys, m.Name(), errno)
 	}
 
-	// Either some or all entries were read and deleted.
-	// retC < 0 && errno == syscall.ENOENT indicates a partial read and delete.
-	return collectBatchValues(values, uint32(countC), valueSize), nil
+	// Either some or all elements were read and deleted.
+	return collectBatchValues(values, uint32(countC), valueSize), uint32(countC), nil
 }
 
-func (m *BPFMapLow) UpdateBatch(keys, values unsafe.Pointer, count uint32) error {
+// UpdateBatch updates the elements with the given keys and values in the map.
+// It returns the number of updated elements.
+func (m *BPFMapLow) UpdateBatch(keys, values unsafe.Pointer, count uint32) (uint32, error) {
 	countC := C.uint(count)
 
 	optsC, errno := C.cgo_bpf_map_batch_opts_new(C.BPF_ANY, C.BPF_ANY)
 	if optsC == nil {
-		return fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
+		return 0, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
 	}
 	defer C.cgo_bpf_map_batch_opts_free(optsC)
 
@@ -416,22 +499,23 @@ func (m *BPFMapLow) UpdateBatch(keys, values unsafe.Pointer, count uint32) error
 		optsC,
 	)
 	errno = syscall.Errno(-retC)
-	if retC < 0 {
-		if errno != syscall.EFAULT && uint32(countC) != count {
-			return fmt.Errorf("failed to update ALL elements in map %s, updated (%d/%d): %w", m.Name(), uint32(countC), count, errno)
-		}
-		return fmt.Errorf("failed to batch update elements in map %s: %w", m.Name(), errno)
+	// retC < 0 && errno == syscall.E2BIG indicates a partial update.
+	if retC < 0 && (errno != syscall.E2BIG || countC == 0) {
+		return 0, fmt.Errorf("failed to batch update values %v in map %s: %w", keys, m.Name(), errno)
 	}
 
-	return nil
+	// Either some or all elements were updated.
+	return uint32(countC), nil
 }
 
-func (m *BPFMapLow) DeleteKeyBatch(keys unsafe.Pointer, count uint32) error {
+// DeleteKeyBatch deletes the elements with the given keys from the map.
+// It returns the number of deleted elements.
+func (m *BPFMapLow) DeleteKeyBatch(keys unsafe.Pointer, count uint32) (uint32, error) {
 	countC := C.uint(count)
 
 	optsC, errno := C.cgo_bpf_map_batch_opts_new(C.BPF_ANY, C.BPF_ANY)
 	if optsC == nil {
-		return fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
+		return 0, fmt.Errorf("failed to create bpf_map_batch_opts: %w", errno)
 	}
 	defer C.cgo_bpf_map_batch_opts_free(optsC)
 
@@ -442,12 +526,13 @@ func (m *BPFMapLow) DeleteKeyBatch(keys unsafe.Pointer, count uint32) error {
 		optsC,
 	)
 	errno = syscall.Errno(-retC)
-	if retC < 0 && errno != syscall.ENOENT {
-		return fmt.Errorf("failed to batch delete keys %v in map %s: %w", keys, m.Name(), errno)
+	// retC < 0 && errno == syscall.ENOENT indicates a partial deletion.
+	if retC < 0 && (errno != syscall.ENOENT || countC == 0) {
+		return 0, fmt.Errorf("failed to batch delete keys %v in map %s: %w", keys, m.Name(), errno)
 	}
 
-	// retC < 0 && errno == syscall.ENOENT indicates a partial deletion.
-	return nil
+	// Either some or all elements were deleted.
+	return uint32(countC), nil
 }
 
 func collectBatchValues(values []byte, count uint32, valueSize int) [][]byte {

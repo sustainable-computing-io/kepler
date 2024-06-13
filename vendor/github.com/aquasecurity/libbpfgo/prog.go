@@ -111,6 +111,18 @@ func (p *BPFProg) SetAutoload(autoload bool) error {
 	return nil
 }
 
+func (p *BPFProg) Autoload() bool {
+	return bool(C.bpf_program__autoload(p.prog))
+}
+
+func (p *BPFProg) SetAutoattach(autoload bool) {
+	C.bpf_program__set_autoattach(p.prog, C.bool(autoload))
+}
+
+func (p *BPFProg) Autoattach() bool {
+	return bool(C.bpf_program__autoattach(p.prog))
+}
+
 // AttachGeneric is used to attach the BPF program using autodetection
 // for the attach target. You can specify the destination in BPF code
 // via the SEC() such as `SEC("fentry/some_kernel_func")`
@@ -370,40 +382,100 @@ func (p *BPFProg) AttachPerfEvent(fd int) (*BPFLink, error) {
 	return bpfLink, nil
 }
 
-// this API should be used for kernels > 4.17
-func (p *BPFProg) AttachKprobe(kp string) (*BPFLink, error) {
-	return doAttachKprobe(p, kp, false)
+//
+// Kprobe and Kretprobe
+//
+
+type attachTo struct {
+	symName string
+	symAddr uint64
+	isRet   bool
 }
 
-// this API should be used for kernels > 4.17
-func (p *BPFProg) AttachKretprobe(kp string) (*BPFLink, error) {
-	return doAttachKprobe(p, kp, true)
-}
+// attachKprobeCommon is a common function for attaching kprobe and kretprobe.
+func (p *BPFProg) attachKprobeCommon(a attachTo) (*BPFLink, error) {
+	// Create kprobe_opts.
+	optsC, errno := C.cgo_bpf_kprobe_opts_new(
+		C.ulonglong(0),      // bpf cookie (not used)
+		C.size_t(a.symAddr), // might be 0 if attaching using symbol name
+		C.bool(a.isRet),     // is kretprobe or kprobe
+		C.int(0),            // attach mode (default)
+	)
+	if optsC == nil {
+		return nil, fmt.Errorf("failed to create kprobe_opts of %v: %v", a, errno)
+	}
+	defer C.cgo_bpf_kprobe_opts_free(optsC)
 
-func doAttachKprobe(prog *BPFProg, kp string, isKretprobe bool) (*BPFLink, error) {
-	kpC := C.CString(kp)
-	defer C.free(unsafe.Pointer(kpC))
+	// Create kprobe symbol name.
+	symNameC := C.CString(a.symName)
+	defer C.free(unsafe.Pointer(symNameC))
 
-	linkC, errno := C.bpf_program__attach_kprobe(prog.prog, C.bool(isKretprobe), kpC)
+	// Create kprobe link.
+	var linkC *C.struct_bpf_link
+	linkC, errno = C.bpf_program__attach_kprobe_opts(p.prog, symNameC, optsC)
 	if linkC == nil {
-		return nil, fmt.Errorf("failed to attach %s k(ret)probe to program %s: %w", kp, prog.Name(), errno)
+		return nil, fmt.Errorf("failed to attach to %v: %v", a, errno)
 	}
 
-	kpType := Kprobe
-	if isKretprobe {
-		kpType = Kretprobe
+	linkType := Kprobe
+	if a.isRet {
+		linkType = Kretprobe
 	}
 
+	eventName := a.symName
+	if eventName == "" {
+		eventName = fmt.Sprintf("%d", a.symAddr)
+	}
+
+	// Create bpfLink and append it to the module.
 	bpfLink := &BPFLink{
-		link:      linkC,
-		prog:      prog,
-		linkType:  kpType,
-		eventName: kp,
+		link:      linkC,     // linkC is a pointer to a struct bpf_link
+		prog:      p,         // p is a pointer to the related BPFProg
+		linkType:  linkType,  // linkType is a BPFLinkType
+		eventName: eventName, // eventName is a string
 	}
-	prog.module.links = append(prog.module.links, bpfLink)
+	p.module.links = append(p.module.links, bpfLink)
 
 	return bpfLink, nil
 }
+
+// AttachKprobe attaches the BPFProgram to the given symbol name.
+func (p *BPFProg) AttachKprobe(symbol string) (*BPFLink, error) {
+	a := attachTo{
+		symName: symbol,
+		isRet:   false,
+	}
+	return p.attachKprobeCommon(a)
+}
+
+// AttachKretprobe attaches the BPFProgram to the given symbol name (for return).
+func (p *BPFProg) AttachKretprobe(symbol string) (*BPFLink, error) {
+	a := attachTo{
+		symName: symbol,
+		isRet:   true,
+	}
+	return p.attachKprobeCommon(a)
+}
+
+// AttachKprobeOnOffset attaches the BPFProgram to the given offset.
+func (p *BPFProg) AttachKprobeOffset(offset uint64) (*BPFLink, error) {
+	a := attachTo{
+		symAddr: offset,
+		isRet:   false,
+	}
+	return p.attachKprobeCommon(a)
+}
+
+// AttachKretprobeOnOffset attaches the BPFProgram to the given offset (for return).
+func (p *BPFProg) AttachKretprobeOnOffset(offset uint64) (*BPFLink, error) {
+	a := attachTo{
+		symAddr: offset,
+		isRet:   true,
+	}
+	return p.attachKprobeCommon(a)
+}
+
+// End of Kprobe and Kretprobe
 
 func (p *BPFProg) AttachNetns(networkNamespacePath string) (*BPFLink, error) {
 	fd, err := syscall.Open(networkNamespacePath, syscall.O_RDONLY, 0)

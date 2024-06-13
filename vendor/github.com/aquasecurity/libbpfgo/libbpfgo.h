@@ -43,7 +43,8 @@ void cgo_bpf_iter_attach_opts_free(struct bpf_iter_attach_opts *opts);
 
 struct bpf_object_open_opts *cgo_bpf_object_open_opts_new(const char *btf_file_path,
                                                           const char *kconfig_path,
-                                                          const char *bpf_obj_name);
+                                                          const char *bpf_obj_name,
+                                                          __u32 kernel_log_level);
 void cgo_bpf_object_open_opts_free(struct bpf_object_open_opts *opts);
 
 struct bpf_map_create_opts *cgo_bpf_map_create_opts_new(__u32 btf_fd,
@@ -70,6 +71,12 @@ void cgo_bpf_tc_opts_free(struct bpf_tc_opts *opts);
 
 struct bpf_tc_hook *cgo_bpf_tc_hook_new();
 void cgo_bpf_tc_hook_free(struct bpf_tc_hook *hook);
+
+struct bpf_kprobe_opts *cgo_bpf_kprobe_opts_new(__u64 bpf_cookie,
+                                                size_t offset,
+                                                bool retprobe,
+                                                int attach_mode);
+void cgo_bpf_kprobe_opts_free(struct bpf_kprobe_opts *opts);
 
 //
 // struct getters
