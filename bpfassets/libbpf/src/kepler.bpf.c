@@ -286,13 +286,13 @@ struct trace_event_raw_softirq {
 SEC("tp/irq/softirq_entry")
 int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
 {
-	u32 curr_pid;
+	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
 	unsigned int vec;
 
-	curr_pid = bpf_get_current_pid_tgid();
+	curr_tgid = bpf_get_current_pid_tgid() >> 32;
 	vec = ctx->vec;
-	process_metrics = bpf_map_lookup_elem(&processes, &curr_pid);
+	process_metrics = bpf_map_lookup_elem(&processes, &curr_tgid);
 	if (process_metrics != 0 && vec < 10)
 		process_metrics->vec_nr[vec] += 1;
 	return 0;
@@ -302,11 +302,11 @@ int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
 SEC("fexit/mark_page_accessed")
 int kepler_read_page_trace(void *ctx)
 {
-	u32 curr_pid;
+	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
 
-	curr_pid = bpf_get_current_pid_tgid();
-	process_metrics = bpf_map_lookup_elem(&processes, &curr_pid);
+	curr_tgid = bpf_get_current_pid_tgid() >> 32;
+	process_metrics = bpf_map_lookup_elem(&processes, &curr_tgid);
 	if (process_metrics)
 		process_metrics->page_cache_hit++;
 	return 0;
@@ -316,11 +316,11 @@ int kepler_read_page_trace(void *ctx)
 SEC("tp/writeback/writeback_dirty_folio")
 int kepler_write_page_trace(void *ctx)
 {
-	u32 curr_pid;
+	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
 
-	curr_pid = bpf_get_current_pid_tgid();
-	process_metrics = bpf_map_lookup_elem(&processes, &curr_pid);
+	curr_tgid = bpf_get_current_pid_tgid() >> 32;
+	process_metrics = bpf_map_lookup_elem(&processes, &curr_tgid);
 	if (process_metrics)
 		process_metrics->page_cache_hit++;
 	return 0;
