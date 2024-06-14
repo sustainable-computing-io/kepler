@@ -8,6 +8,8 @@ import os
 import subprocess
 import sys
 import re
+from validator.stresser import ( Remote )
+
 
 def parse_lscpu_output(output: str):
     cpu_spec = {}
@@ -41,12 +43,12 @@ def get_host_cpu_spec():
         host_cpu_spec = parse_lscpu_output(lscpu.stdout.decode())
     return host_cpu_spec
 
-def get_vm_cpu_spec(login: str = "root", vm_addr: str = "my-vm", key_path: str = "/tmp/vm_ssh_key"):
+def get_vm_cpu_spec(remote : Remote,login: str = "root", vm_addr: str = "my-vm", key_path: str = "/tmp/vm_ssh_key"):
     vm_cpu_spec = {}
     # run ssh command to get the cpu spec of the VM
-    ssh = subprocess.run(["ssh", "-i", key_path, login + "@" + vm_addr, "lscpu"], stdout=subprocess.PIPE)
-    if ssh.stdout:
-        vm_cpu_spec = parse_lscpu_output(ssh.stdout.decode())
+    stdout = remote.run_command("lscpu")
+    if stdout:
+        vm_cpu_spec = parse_lscpu_output(stdout)
     return vm_cpu_spec
 
 def get_host_dram_size():
@@ -58,12 +60,12 @@ def get_host_dram_size():
             dram_size = line.split(":")[1].strip()
     return dram_size
 
-def get_vm_dram_size(login: str = "root", vm_addr: str = "my-vm", key_path: str = "/tmp/vm_ssh_key"):
+def get_vm_dram_size(remote : Remote,login: str = "root", vm_addr: str = "my-vm", key_path: str = "/tmp/vm_ssh_key"):
     # get vm dram size
     vm_dram_size = ""
-    ssh = subprocess.run(["ssh", "-i", key_path, login + "@" + vm_addr, "cat /proc/meminfo"], stdout=subprocess.PIPE)
-    if ssh.stdout:
-        for line in ssh.stdout.decode().split("\n"):
+    stdout = remote.run_command("cat /proc/meminfo")
+    if stdout:
+        for line in stdout.split("\n"):
             if "MemTotal" in line:
                 vm_dram_size = line.split(":")[1].strip()
     return vm_dram_size

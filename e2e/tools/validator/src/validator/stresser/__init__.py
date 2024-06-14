@@ -26,12 +26,12 @@ class Remote:
     def connect(self):
         print(f"connecting -> {self.user}@{self.host}")
 
-        if self.pkey is not None:
-            pkey = paramiko.RSAKey.from_private_key_file(self.pkey)
-            self.ssh_client.connect(
-                hostname=self.host, port=self.port,
-                username=self.user, pkey=pkey,
-            )
+        if self.pkey is not None and self.pkey is not "" :
+                pkey = paramiko.RSAKey.from_private_key_file(self.pkey)
+                self.ssh_client.connect(
+                    hostname=self.host, port=self.port,
+                    username=self.user, pkey=pkey,
+                )
         else:
             self.ssh_client.connect(
                 hostname=self.host, port=self.port,
@@ -75,3 +75,14 @@ class Remote:
             start_time=start_time,
             end_time=end_time,
         )
+    
+    def run_command(self, command):
+        self.connect()
+        _, stdout, stderr = self.ssh_client.exec_command(command)
+        exit_status = stdout.channel.recv_exit_status()
+        result = stdout.read().decode('ascii').strip("\n")
+        
+        if exit_status != 0:
+            print(f"Something went wrong in running command: ", command)
+        self.ssh_client.close()
+        return result

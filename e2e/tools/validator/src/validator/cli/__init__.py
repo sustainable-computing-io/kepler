@@ -45,14 +45,16 @@ def validator(ctx: click.Context, config_file: str):
 @pass_config
 def stress(cfg: Validator, script_path: str):
     # run git describe command and get the output as the report name
+    remote = Remote(cfg.remote)
+
     tag = ""
     git_describe = subprocess.run(["git", "describe", "--tag"], stdout=subprocess.PIPE)
     if git_describe.stdout:
         tag = git_describe.stdout.decode().strip()
     host_cpu_spec = get_host_cpu_spec()
-    vm_cpu_spec = get_vm_cpu_spec()
+    vm_cpu_spec = get_vm_cpu_spec(remote)
     host_dram_size = get_host_dram_size()
-    vm_dram_size = get_vm_dram_size()
+    vm_dram_size = get_vm_dram_size(remote)
     # save all the print result into a markdown file as a table
     report = open(f"/tmp/report-{tag}.md", "w")
     # create section header for specs
@@ -78,7 +80,6 @@ def stress(cfg: Validator, script_path: str):
     # create section header for validation results
     report.write("## Validation Results\n")
     report.flush()
-    remote = Remote(cfg.remote)
     result  = remote.run_script(script_path=script_path)
     click.echo(f"start_time: {result.start_time}, end_time: {result.end_time}")
     test_cases = Cases(
