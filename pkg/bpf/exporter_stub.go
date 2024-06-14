@@ -37,7 +37,7 @@ func (a *stubAttacher) SupportedMetrics() SupportedMetrics {
 func (a *stubAttacher) Detach() {
 }
 
-func (a *stubAttacher) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
+func (a *stubAttacher) CollectProcesses() (processesData []ProcessMetrics, err error) {
 	return nil, nil
 }
 

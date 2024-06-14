@@ -20,4 +20,4 @@ repos:
     rev: v1.59.1
     hooks:
       - id: golangci-lint
-exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*
+exclude: ^vendor/.*|^_output/.*|^bpf/include/.*

@@ -14,14 +14,5 @@ jobs:
       - uses: jidicula/clang-format-action@v4.13.0
         with:
           clang-format-version: "17"
-          check-path: bpfassets/libbpf/src
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4.1.1
-      - name: Install libbpf
-        run: |
-          sudo apt-get update && sudo apt-get install -y libelf-dev libbpf-dev
-      - name: Build
-        run: make -C bpfassets/libbpf
+          check-path: bpf
+          exclude-regex: ^bpf/include/.*
