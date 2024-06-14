@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -102,6 +103,13 @@ func (e *exporter) attach() error {
 	})
 	if err != nil {
 		return fmt.Errorf("error rewriting program constants: %v", err)
+	}
+
+	// Remove Test Programs
+	for p := range specs.Programs {
+		if strings.HasPrefix(p, "test_") {
+			delete(specs.Programs, p)
+		}
 	}
 
 	// Load the eBPF program(s)

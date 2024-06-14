@@ -177,6 +177,7 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 .PHONY: generate
 generate: ## Generate BPF code locally.
 	+@$(GOENV) go generate ./pkg/bpf
+	+@$(GOENV) go generate ./pkg/bpftest
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -277,7 +278,7 @@ VERBOSE ?= 0
 TMPDIR := $(shell mktemp -d)
 TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
+SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpftest)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.
@@ -328,7 +329,7 @@ format:
 
 c-format:
 	@echo "Checking c format"
-	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:pkg/bpf/include/' | xargs clang-format --dry-run --Werror
+	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:bpf/include/' | xargs clang-format --dry-run --Werror
 
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
