@@ -20,7 +20,7 @@
 package gohlml
 
 /*
-#cgo habana LDFLAGS: "/usr/lib/habanalabs/libhlml.so" -ldl -Wl,--unresolved-symbols=ignore-all
+#cgo LDFLAGS: "/usr/lib/habanalabs/libhlml.so" -ldl -Wl,--unresolved-symbols=ignore-all
 #include "hlml.h"
 #include <stdlib.h>
 */

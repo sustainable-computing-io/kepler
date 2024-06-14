@@ -66,6 +66,7 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 // UpdateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
+	klog.Info("UpdateNodeGPUEnergy")
 	if config.EnabledGPU {
 		if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			for _, g := range gpus {
@@ -74,6 +75,8 @@ func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 					nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
 				}
 			}
+		} else {
+			klog.Error("couldn't find any gpus")
 		}
 	}
 }

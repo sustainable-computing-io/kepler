@@ -17,7 +17,6 @@ limitations under the License.
 package device
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -40,7 +39,7 @@ var (
 type DeviceType int
 
 // Function prototype to create a new deviceCollector.
-type deviceStartupFunc func() (DeviceInterface, error)
+type deviceStartupFunc func() DeviceInterface
 type DeviceRegistry struct {
 	gpuDevices   map[DeviceType]deviceStartupFunc // Static map of supported gpuDevices.
 	dummyDevices map[DeviceType]deviceStartupFunc // Static map of supported dummyDevices.
@@ -69,7 +68,7 @@ type DeviceInterface interface {
 	// AbsEnergyFromDevice returns a map with mJ in each gpu device. Absolute energy is the sum of Idle + Dynamic energy.
 	AbsEnergyFromDevice() []uint32
 	// DeviceUtilizationStats returns a map with any additional device stats.
-	DeviceUtilizationStats(dev any) (map[any]interface{}, error)
+	DeviceUtilizationStats(dev any) (map[any]any, error)
 	// ProcessResourceUtilizationPerDevice returns a map of UtilizationSample where the key is the process pid
 	ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error)
 	// IsDeviceCollectionSupported returns if it is possible to use this device
@@ -103,7 +102,7 @@ func SetRegistry(registry *DeviceRegistry) {
 // AddDeviceInterface adds a supported device interface, prints a fatal error in case of double registration.
 func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceStartupFunc) {
 	switch accType {
-	case "gpu":
+	case "GPU":
 		// Handle GPU devices registration
 		if existingDevice := Registry().gpuDevices[dtype]; existingDevice != nil {
 			klog.Fatalf("Multiple gpuDevices attempting to register with name %q", dtype.String())
@@ -120,7 +119,7 @@ func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceSt
 		}
 		Registry().gpuDevices[dtype] = deviceStartup
 
-	case "dummy":
+	case "DUMMY":
 		// Handle dummy devices registration
 		if existingDevice := Registry().dummyDevices[dtype]; existingDevice != nil {
 			klog.Fatalf("Multiple dummyDevices attempting to register with name %q", dtype)
@@ -131,7 +130,7 @@ func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceSt
 		klog.Fatalf("Unsupported device type %q", dtype)
 	}
 
-	klog.Infof("Registered %s", dtype)
+	klog.V(5).Infof("Registered %s", dtype)
 }
 
 // GetAllDevices returns a slice with all the registered devices.
@@ -150,16 +149,24 @@ func GetDummyDevices() []DeviceType {
 	return maps.Keys(Registry().dummyDevices)
 }
 
-// Startup Returns a new DeviceInterface according the required DeviceType[NVML|DCGM|DUMMY|HABANA].
-func Startup(d DeviceType) (DeviceInterface, error) {
-	if deviceStartup, ok := Registry().gpuDevices[d]; ok {
-		klog.Infof("Starting up %s", d.String())
-		return deviceStartup()
-	} else if deviceStartup, ok := Registry().dummyDevices[d]; ok {
-		klog.Infof("Starting up %s", d.String())
+// Startup initializes and returns a new DeviceInterface according to the given DeviceType [NVML|DCGM|DUMMY|HABANA].
+func Startup(d DeviceType) DeviceInterface {
+	// Retrieve the global registry
+	registry := Registry()
+
+	// Attempt to start the device from the gpuDevices map
+	if deviceStartup, ok := registry.gpuDevices[d]; ok {
+		klog.V(5).Infof("Starting up %s", d.String())
 		return deviceStartup()
 	}
-	// New device interface instance startup should be added here.
 
-	return nil, errors.New("unsupported Device")
+	// Attempt to start the device from the dummyDevices map
+	if deviceStartup, ok := registry.dummyDevices[d]; ok {
+		klog.V(5).Infof("Starting up %s", d.String())
+		return deviceStartup()
+	}
+
+	// The device type is unsupported
+	klog.Errorf("unsupported Device")
+	return nil
 }

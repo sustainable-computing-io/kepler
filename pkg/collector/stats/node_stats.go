@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -60,6 +61,8 @@ func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSu
 	if config.EnabledGPU {
 		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
+		} else {
+			klog.Error("couldn't find any active GPUs")
 		}
 	}
 

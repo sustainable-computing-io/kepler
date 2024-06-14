@@ -53,7 +53,6 @@ endif
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
 GPU_TAGS := ' gpu '
-HABANA := false
 ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
 	GPU_TAGS := ' nvml '
 endif
@@ -62,7 +61,6 @@ ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
 endif
 ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
 	GPU_TAGS := ' habana '
-	HABANA = true
 endif
 
 # set GOENV
@@ -255,10 +253,6 @@ cross-build: clean_build_local cross-build-linux-amd64 cross-build-linux-arm64 c
 tidy-vendor:
 	go mod tidy -v
 	go mod vendor
-ifeq ($(HABANA), false)
-	@echo "Tidy hlml.go"
-	sed -i 's/cgo LDFLAGS/cgo habana LDFLAGS/g' vendor/github.com/HabanaAI/gohlml/hlml.go
-endif
 
 .PHONY: ginkgo-set
 ginkgo-set:

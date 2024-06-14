@@ -140,9 +140,11 @@ func main() {
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
-		defer accelerator.Shutdown(accelerator.GPU)
-		if err := accelerator.CreateAndRegister(accelerator.GPU, &accelerator.AcceleratorRegistry{}, true); err != nil {
-			klog.Fatalf("failed to init GPU accelerators: %v", err)
+		r := accelerator.Registry()
+		if r != nil {
+			if err := accelerator.CreateAndRegister(accelerator.GPU, r, true); err != nil {
+				klog.Errorf("failed to init GPU accelerators: %v", err)
+			}
 		}
 	}
 
@@ -198,7 +200,8 @@ func main() {
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
-		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+		accelerator.Shutdown(accelerator.GPU)
+		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second)) // 5 Seconds is too short for the GPU shutdown
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			klog.Fatalf("%s", fmt.Sprintf("failed to shutdown gracefully: %v", err))

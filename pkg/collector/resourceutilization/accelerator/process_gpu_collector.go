@@ -62,15 +62,19 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 				}
 			}
 		}
+	} else {
+		klog.Error("couldn't collect gpu metrics, no active accelerators found")
 	}
 	lastUtilizationTimestamp = time.Now()
 }
 
-func addGPUUtilizationToProcessStats(ai dev.DeviceInterface, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
+func addGPUUtilizationToProcessStats(di dev.DeviceInterface, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
 	var err error
 	var processesUtilization map[uint32]any
 
-	if processesUtilization, err = ai.ProcessResourceUtilizationPerDevice(d, time.Since(lastUtilizationTimestamp)); err != nil {
+	klog.Info("addGPUUtilizationToProcessStats")
+
+	if processesUtilization, err = di.ProcessResourceUtilizationPerDevice(d, time.Since(lastUtilizationTimestamp)); err != nil {
 		klog.Infoln(err)
 		return
 	}

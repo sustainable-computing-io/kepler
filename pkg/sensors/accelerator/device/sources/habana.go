@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	habanaHwType = "gpu"
+	habanaHwType = "GPU"
 )
 
 var (
@@ -51,15 +51,15 @@ func init() {
 	device.AddDeviceInterface(habanaDevice, habanaHwType, habanaDeviceStartup)
 }
 
-func habanaDeviceStartup() (device.DeviceInterface, error) {
+func habanaDeviceStartup() device.DeviceInterface {
 	a := habanaAccImpl
 
 	if err := a.Init(); err != nil {
 		klog.Errorf("failed to StartupDevice: %v", err)
-		return nil, err
+		return nil
 	}
 
-	return &a, nil
+	return &a
 }
 
 func (g *GPUHabana) Name() string {

@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	GPU = iota
+	DUMMY = iota
+	GPU
 	// Add other accelerator types here
 )
 
@@ -67,7 +68,7 @@ type accelerator struct {
 }
 
 func (a AcceleratorType) String() string {
-	return [...]string{"GPU"}[a]
+	return [...]string{"DUMMY", "GPU"}[a]
 }
 
 // Registry gets the default device AcceleratorRegistry instance
@@ -122,6 +123,9 @@ func CreateAndRegister(atype AcceleratorType, r *AcceleratorRegistry, sleep bool
 	case GPU:
 		numDevs = len(device.GetGpuDevices())
 		getDevices = device.GetGpuDevices // returns a slice of registered GPU devices[NVML|DCGM|HABANA]. TODO CHECK IF WE NEED TO MAKE THIS SINGULAR
+	case DUMMY:
+		numDevs = len(device.GetDummyDevices())
+		getDevices = device.GetDummyDevices
 	default:
 		return errors.New("unsupported accelerator")
 	}
@@ -129,12 +133,12 @@ func CreateAndRegister(atype AcceleratorType, r *AcceleratorRegistry, sleep bool
 	if numDevs != 0 {
 		devices := getDevices()
 
-		klog.Infof("Initializing the %s Accelerator collectors in type %v", atype.String(), devices)
+		klog.V(5).Infof("Initializing the %s Accelerator collectors in type %v", atype.String(), devices)
 
 		for _, devType := range devices {
 			for i := 0; i <= maxDeviceInitRetry; i++ {
 				// Create a new accelerator and add it to the registry
-				if err := newAccelerator(devType, atype, r); err != nil {
+				if err := NewAccelerator(devType, atype, r); err != nil {
 					klog.Errorf("Could not init the %s Accelerator collector going to try again", devType.String())
 					if sleep {
 						// The GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
@@ -143,29 +147,28 @@ func CreateAndRegister(atype AcceleratorType, r *AcceleratorRegistry, sleep bool
 					}
 					continue
 				}
-				klog.Infof("Startup %s Accelerator collector successful", devType.String())
+				klog.V(5).Infof("Startup %s Accelerator collector successful", devType.String())
 				break
 			}
 		}
 	} else {
-		klog.Errorf("No %s Accelerator collectors found", atype.String())
-		return errors.New("unsupported accelerator")
+		return errors.New("No Accelerator collectors found")
 	}
 	return nil
 }
 
-// newAccelerator creates a new Accelerator instance with a specific device [NVML|DCGM|DUMMY|HABANA] for the local node.
-func newAccelerator(devType device.DeviceType, atype AcceleratorType, r *AcceleratorRegistry) error {
+// NewAccelerator creates a new Accelerator instance with a specific device [NVML|DCGM|DUMMY|HABANA] for the local node.
+func NewAccelerator(devType device.DeviceType, atype AcceleratorType, r *AcceleratorRegistry) error {
 	var d device.DeviceInterface
 	var err error
 
 	_, ok := r.Registry[devType] // e.g. accelerators[nvml|dcgm|habana|dummy]
 	if ok {
-		klog.Infof("Accelerator with type %s already exists", devType)
+		klog.V(5).Infof("Accelerator with type %s already exists", devType)
 		return nil
 	}
 
-	if d, err = device.Startup(devType); err != nil {
+	if d = device.Startup(devType); d == nil {
 		return errors.Errorf("error starting up the device %v", err)
 	}
 
@@ -179,7 +182,7 @@ func newAccelerator(devType device.DeviceType, atype AcceleratorType, r *Acceler
 		installedTime: metav1.Now(),
 	}
 
-	klog.Infof("Accelerator registered and started with device type %s", devType)
+	klog.V(5).Infof("Accelerator registered and started with device type %s", devType)
 
 	return nil
 }
@@ -187,6 +190,7 @@ func newAccelerator(devType device.DeviceType, atype AcceleratorType, r *Acceler
 func Shutdown(atype AcceleratorType) {
 	if accelerators, err := Registry().ActiveAcceleratorsByType(atype); err == nil {
 		for _, a := range accelerators {
+			klog.V(5).Infof("Shutting down %s", a.AccType().String())
 			a.Stop()
 		}
 	}
@@ -196,7 +200,7 @@ func Shutdown(atype AcceleratorType) {
 func (a *accelerator) Stop() {
 	devType := a.dev.DevType()
 	if !a.dev.Shutdown() {
-		klog.Error("error shutting down the accelerator acc")
+		klog.Error("error shutting down the accelerator")
 		return
 	}
 
@@ -206,7 +210,7 @@ func (a *accelerator) Stop() {
 
 	a.running = false
 
-	klog.Info("Accelerator acc stopped")
+	klog.V(5).Info("Accelerator stopped")
 }
 
 // Device returns an accelerator interface

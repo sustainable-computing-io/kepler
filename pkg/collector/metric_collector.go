@@ -144,7 +144,7 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 func (c *Collector) updateResourceUtilizationMetrics() {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	go c.updateNodeResourceUtilizationMetrics(wg)
+	// go c.updateNodeResourceUtilizationMetrics(wg)
 	go c.updateProcessResourceUtilizationMetrics(wg)
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
@@ -152,8 +152,9 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 }
 
 // update the node metrics that are not related to aggregated resource utilization of processes
-func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
-}
+// func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
+// 	defer wg.Done()
+// }
 
 func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -163,6 +164,8 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	if config.EnabledGPU {
 		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
+		} else {
+			klog.Error("couldn't get gpu metrics, not accelerators found")
 		}
 	}
 }

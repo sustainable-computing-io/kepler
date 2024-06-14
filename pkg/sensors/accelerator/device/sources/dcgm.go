@@ -35,7 +35,7 @@ const (
 	debugLevel     = 5
 	isSocket       = "0"
 	maxMIGProfiles = 15 // use a large number since the profile ids are not linear
-	dcgmHwType     = "gpu"
+	dcgmHwType     = "GPU"
 )
 
 var (
@@ -71,22 +71,22 @@ func init() {
 	device.AddDeviceInterface(dcgmType, dcgmHwType, dcgmDeviceStartup)
 }
 
-func dcgmDeviceStartup() (device.DeviceInterface, error) {
+func dcgmDeviceStartup() device.DeviceInterface {
 	a := dcgmAccImpl
 
 	if err := a.InitLib(); err != nil {
 		klog.Errorf("Error initializing %s: %v", dcgmType.String(), err)
-		return nil, err
+		return nil
 	}
 
 	if err := a.Init(); err != nil {
 		klog.Errorf("failed to StartupDevice: %v", err)
-		return nil, err
+		return nil
 	}
 
-	klog.Infof("Using %s to obtain gpu power", dcgmType.String)
+	klog.Infof("Using %s to obtain gpu power", dcgmType.String())
 
-	return &a, nil
+	return &a
 }
 
 func (d *GPUDcgm) Init() error {
@@ -301,6 +301,7 @@ func (d *GPUDcgm) Shutdown() bool {
 }
 
 func (d *GPUDcgm) AbsEnergyFromDevice() []uint32 {
+	klog.Info("AbsEnergyFromDevice")
 	gpuEnergy := []uint32{}
 	for _, dev := range d.devices {
 		power, ret := dev.DeviceHandler.(nvml.Device).GetPowerUsage()
@@ -317,7 +318,7 @@ func (d *GPUDcgm) AbsEnergyFromDevice() []uint32 {
 }
 
 func (d *GPUDcgm) DevicesByID() map[int]any {
-	devices := make(map[int]interface{})
+	devices := make(map[int]any)
 	for id, dev := range d.devices {
 		devices[id] = dev
 	}
@@ -336,7 +337,7 @@ func (d *GPUDcgm) DeviceInstances() map[int]map[int]any {
 	devInstances := make(map[int]map[int]any)
 
 	for gpuID, migDevices := range d.migDevices {
-		devInstances[gpuID] = make(map[int]interface{})
+		devInstances[gpuID] = make(map[int]any)
 		for migID, dev := range migDevices {
 			devInstances[gpuID][migID] = dev
 		}
@@ -344,21 +345,24 @@ func (d *GPUDcgm) DeviceInstances() map[int]map[int]any {
 	return devInstances
 }
 
-func (d *GPUDcgm) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
-	ds := make(map[any]interface{}) // Process Accelerator Metrics
+func (d *GPUDcgm) DeviceUtilizationStats(dev any) (map[any]any, error) {
+	ds := make(map[any]any) // Process Accelerator Metrics
 	return ds, nil
 }
 
 // ProcessResourceUtilizationPerDevice returns the GPU utilization per process. The gpuID can be a MIG instance or the main GPU
-func (d *GPUDcgm) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]interface{}, error) {
+func (d *GPUDcgm) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error) {
+	klog.Info("ProcessResourceUtilizationPerDevice")
 	processAcceleratorMetrics := map[uint32]device.GPUProcessUtilizationSample{}
-	pam := make(map[uint32]interface{})
+	pam := make(map[uint32]any)
 	// Check if the device is of type dev.GPUDevice and extract the DeviceHandler
 
 	switch d := dev.(type) {
 	case device.GPUDevice:
+		klog.Info("got a gpu device")
 		if d.DeviceHandler == nil {
-			return pam, nil
+			klog.Error("No device handler")
+			return pam, errors.New("device handler not found")
 		}
 
 		// Get the processes information, but as GetComputeRunningProcesses only show the process memory allocation,
@@ -366,20 +370,30 @@ func (d *GPUDcgm) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 		processInfo, ret := d.DeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
 			klog.Errorf("failed to get running processes: %v", nvml.ErrorString(ret))
+			return pam, errors.New("failed to get running processes")
+		}
+
+		klog.Info("GetComputeRunningProcesses successful")
+		if len(processInfo) == 0 {
+			klog.Error("no process info")
+			return pam, errors.New("no process info")
 		}
 
 		for _, p := range processInfo {
 			if !d.IsSubdevice {
+				klog.Info("!d.IsSubdevice")
 				gpuUtilization := float64(0)
 				vals, err := dcgm.GetLatestValuesForFields(uint(d.ID), deviceFields)
 				if err != nil {
 					klog.Errorf("failed to get latest values for fields: %v", err)
 					return pam, err
 				} else {
+					klog.Info("dcgm.GetLatestValuesForFields successful")
+
 					for i := range vals {
 						val := &vals[i]
 						if val.FieldId == ratioFields {
-							gpuUtilization = ToFloat64(val, 100)
+							gpuUtilization = ToFloat64(vals[i], 100)
 						}
 					}
 				}
@@ -392,6 +406,7 @@ func (d *GPUDcgm) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 				}
 				klog.V(debugLevel).Infof("GPU: %d, PID: %d, GPU Utilization (%d): %f\n", d.ID, p.Pid, ratioFields, gpuUtilization)
 			} else {
+				klog.Info("d.IsSubdevice")
 				vals, err := dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, uint(d.ID), deviceFields)
 				if err != nil {
 					klog.Errorf("failed to get latest values for fields: %v", err)
@@ -400,7 +415,7 @@ func (d *GPUDcgm) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 				for i := range vals {
 					val := &vals[i]
 					if val.FieldId == ratioFields {
-						migUtilization := ToFloat64(val, 100)
+						migUtilization := ToFloat64(vals[i], 100)
 						// ratio of active multiprocessors to total multiprocessors
 						// the MIG metrics represent the utilization of the MIG device. We need to normalize the metric to represent the overall GPU utilization
 						// FIXME: the MIG device could have multiple processes, such as using MPS, how to split the MIG utilization between the processes?
@@ -486,7 +501,7 @@ func (d *GPUDcgm) setupWatcher() error {
 
 // ToFloat64 converts a dcgm.FieldValue_v1 to float64
 // The multiplyFactor is used to convert a percentage represented as a float64 to uint32, maintaining precision and scaling it to 100%.
-func ToFloat64(value *dcgm.FieldValue_v1, multiplyFactor float64) float64 {
+func ToFloat64(value dcgm.FieldValue_v1, multiplyFactor float64) float64 {
 	defaultValue := float64(0)
 	switch v := value.FieldType; v {
 

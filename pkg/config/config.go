@@ -68,7 +68,6 @@ var (
 
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
-	EnabledDummy                 = getBoolConfig("ENABLE_DUMMY", false)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
 	EnableProcessStats           = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)

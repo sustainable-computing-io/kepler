@@ -33,17 +33,17 @@ type Dummy struct {
 
 func init() {
 	dummyDevice = device.DUMMY
-	device.AddDeviceInterface(dummyDevice, dummyDevice.String(), dummyDeviceStartup)
+	device.AddDeviceInterface(dummyDevice, dummyDevice.String(), DummyDeviceStartup)
 }
 
-func dummyDeviceStartup() (device.DeviceInterface, error) {
+func DummyDeviceStartup() device.DeviceInterface {
 	d := Dummy{
 		dummyDevice:         dummyDevice,
 		name:                dummyDevice.String(),
-		collectionSupported: false,
+		collectionSupported: true,
 	}
 
-	return &d, nil
+	return &d
 }
 
 func (d *Dummy) Name() string {

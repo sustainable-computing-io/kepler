@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	nvmlHwType = "gpu"
+	nvmlHwType = "GPU"
 )
 
 var (
@@ -56,19 +56,20 @@ func init() {
 	device.AddDeviceInterface(nvmlType, nvmlHwType, nvmlDeviceStartup)
 }
 
-func nvmlDeviceStartup() (device.DeviceInterface, error) {
+func nvmlDeviceStartup() device.DeviceInterface {
 	a := nvmlAccImpl
 	if err := a.InitLib(); err != nil {
 		klog.Errorf("Error initializing %s: %v", nvmlType.String(), err)
+		return nil
 	}
 	klog.Infof("Using %s to obtain gpu power", nvmlType.String())
 
 	if err := a.Init(); err != nil {
 		klog.Errorf("failed to Init device: %v", err)
-		return nil, err
+		return nil
 	}
 
-	return &a, nil
+	return &a
 }
 
 func (n *GPUNvml) Name() string {
