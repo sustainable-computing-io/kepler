@@ -19,7 +19,7 @@ jobs:
   unit_test:
     uses: ./.github/workflows/unit_test.yml
     secrets:
-      GH_BOT_SECRET: ${{ secrets.GH_BOT_SECRET }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # for each PR merge, openSSF scan
   scorecard:
     uses: ./.github/workflows/scorecard.yml

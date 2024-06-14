@@ -3,7 +3,7 @@ name: Unit test
 on: # yamllint disable-line rule:truthy
   workflow_call:
     secrets:
-      GH_BOT_SECRET:
+      CODECOV_TOKEN:
 
 permissions:
   pull-requests: write
