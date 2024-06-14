@@ -12,6 +12,13 @@ updates:
       go-dependencies:
         patterns:
           - "*"
+    ignore:
+      # Ignore gohlml updates as this will require manual testing
+      - dependency-name: github.com/HabanaAI/gohlml
+      # Ignore go-nvml updates as this will require manual testing
+      - dependency-name: github.com/NVIDIA/go-nvml
+      # Ignore libbpfgo updates as this requires changing the base image
+      - dependency-name: github.com/aquasecurity/libbpfgo
   - package-ecosystem: github-actions
     directory: /
     schedule:
