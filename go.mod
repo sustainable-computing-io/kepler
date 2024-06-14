@@ -1,6 +1,7 @@
 module github.com/sustainable-computing-io/kepler
 
 go 1.21
+toolchain go1.22.4
 
 require (
 	github.com/HabanaAI/gohlml v1.15.0
@@ -18,9 +19,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/sys v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
-	k8s.io/client-go v0.29.3
+	k8s.io/api v0.30.2
+	k8s.io/apimachinery v0.30.2
+	k8s.io/client-go v0.30.2
 	k8s.io/klog/v2 v2.120.1
 )
 
