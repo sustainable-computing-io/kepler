@@ -30,9 +30,9 @@ GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')
 GIT_SHA            := $(shell git rev-parse HEAD)
 GIT_BRANCH         := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION            ?= $(GIT_VERSION)
-ROOTLESS	       ?= false
+ROOTLESS           ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
-BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.2.0
+BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
 CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
@@ -40,16 +40,6 @@ CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman)
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
-
-ifeq ($(DEBUG),true)
-	# throw all the debug info in!
-	LD_FLAGS =
-	GC_FLAGS =-gcflags "all=-N -l"
-else
-	# strip everything we can
-	LD_FLAGS =-w -s
-	GC_FLAGS =
-endif
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
 GPU_TAGS := ' gpu '
@@ -60,7 +50,15 @@ endif
 # set GOENV
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
-GOENV := GOOS=$(GOOS) GOARCH=$(GOARCH)
+
+LIBBPF_HEADERS := /usr/include/bpf
+GOENV = GO111MODULE="" \
+				GOOS=$(GOOS) \
+				GOARCH=$(GOARCH) \
+				CGO_ENABLED=1 \
+				CC=clang \
+				CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" \
+				CGO_LDFLAGS="-lelf -lz -lbpf"
 
 LDFLAGS := $(LDFLAGS) \
 		-X main.Version=$(VERSION) \
@@ -69,10 +67,6 @@ LDFLAGS := $(LDFLAGS) \
 		-X main.OS=$(GOOS) \
 		-X main.Arch=$(GOARCH)
 
-GO_LD_FLAGS := $(GC_FLAGS) -ldflags "-X $(LD_FLAGS)" $(CFLAGS)
-
-LIBBPF_HEADERS := /usr/include/bpf
-GOENV = GO111MODULE="" GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 CC=clang CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" CGO_LDFLAGS="-lelf -lz -lbpf"
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
@@ -451,7 +445,11 @@ VALIDATION_DOCKERFILE := $(SRC_ROOT)/build/Dockerfile.kepler-validator
 build-validator: tidy-vendor format ## Build Validator.
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
-	+@$(GOENV) go build -v -tags ${GO_BUILD_TAGS} -o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator -ldflags "$(LDFLAGS)" ./cmd/validator/validator.go
+	+@$(GOENV) go build \
+		-v -tags ${GO_BUILD_TAGS} \
+		-o $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator \
+		-ldflags "$(LDFLAGS)" \
+		./cmd/validator/validator.go
 	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/validator $(CROSS_BUILD_BINDIR)
 .PHONY: build-validator
 
