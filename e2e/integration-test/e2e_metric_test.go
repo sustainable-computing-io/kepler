@@ -170,7 +170,8 @@ func (kmc *TestKeplerMetric) createExecRequest(pod *v1.Pod) *rest.Request {
 
 // PromParse parses Prometheus metrics and updates the map.
 func (kmc *TestKeplerMetric) PromParse(b []byte) {
-	p := textparse.NewPromParser(b)
+	symbolTable := labels.NewSymbolTable()
+	p := textparse.NewPromParser(b, symbolTable)
 	log.Info("Parsing Metrics...")
 	for {
 		et, err := p.Next()
