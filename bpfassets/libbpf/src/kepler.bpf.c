@@ -194,35 +194,28 @@ static inline void collect_metrics_and_reset_counters(
 	buf->process_run_time = get_on_cpu_elapsed_time_us(prev_pid, curr_ts);
 }
 
-// This struct is defined according to the following format file:
-// /sys/kernel/tracing/events/sched/sched_switch/format
-struct sched_switch_info {
-	/* The first 8 bytes is not allowed to read */
-	u64 pad;
+struct task_struct {
+	int pid;
+} __attribute__((preserve_access_index));
 
-	char prev_comm[16];
-	pid_t prev_pid;
-	int prev_prio;
-	long prev_state;
-	char next_comm[16];
-	pid_t next_pid;
-	int next_prio;
-};
-
-SEC("tp/sched/sched_switch")
-int kepler_sched_switch_trace(struct sched_switch_info *ctx)
+SEC("tp_btf/sched_switch")
+int kepler_sched_switch_trace(u64 *ctx)
 {
 	u32 prev_pid, next_pid, cpu_id;
 	u64 *prev_tgid;
-	long prev_state;
+	unsigned int prev_state;
 	u64 curr_ts = bpf_ktime_get_ns();
+	struct task_struct *prev_task, *next_task;
 
 	struct process_metrics_t *curr_tgid_metrics, *prev_tgid_metrics;
 	struct process_metrics_t buf = {};
 
-	prev_state = ctx->prev_state;
-	prev_pid = (u32)ctx->prev_pid;
-	next_pid = (u32)ctx->next_pid;
+	prev_task = (struct task_struct *)ctx[1];
+	next_task = (struct task_struct *)ctx[2];
+	prev_state = (unsigned int)ctx[3];
+
+	prev_pid = (u32)prev_task->pid;
+	next_pid = (u32)next_task->pid;
 	cpu_id = bpf_get_smp_processor_id();
 
 	// Collect metrics
@@ -275,23 +268,15 @@ int kepler_sched_switch_trace(struct sched_switch_info *ctx)
 	return 0;
 }
 
-// This struct is defined according to the following format file:
-//  /sys/kernel/tracing/events/irq/softirq_entry/format
-struct trace_event_raw_softirq {
-	/* The first 8 bytes is not allowed to read */
-	u64 pad;
-	unsigned int vec;
-};
-
-SEC("tp/irq/softirq_entry")
-int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
+SEC("tp_btf/softirq_entry")
+int kepler_irq_trace(u64 *ctx)
 {
 	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
 	unsigned int vec;
 
 	curr_tgid = bpf_get_current_pid_tgid() >> 32;
-	vec = ctx->vec;
+	vec = (unsigned int)ctx[0];
 	process_metrics = bpf_map_lookup_elem(&processes, &curr_tgid);
 	if (process_metrics != 0 && vec < 10)
 		process_metrics->vec_nr[vec] += 1;
@@ -313,8 +298,8 @@ int kepler_read_page_trace(void *ctx)
 }
 
 // count write page cache
-SEC("tp/writeback/writeback_dirty_folio")
-int kepler_write_page_trace(void *ctx)
+SEC("tp_btf/writeback_dirty_folio")
+int kepler_write_page_trace(u64 *ctx)
 {
 	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
