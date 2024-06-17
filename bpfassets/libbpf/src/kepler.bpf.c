@@ -257,17 +257,14 @@ int kepler_sched_switch_trace(u64 *ctx)
 		// all metrics to avoid discrepancies between the hardware counter and CPU
 		// time.
 		if (buf.process_run_time > 0) {
-			prev_tgid_metrics = bpf_map_lookup_elem(
-				&processes, prev_tgid);
+			prev_tgid_metrics =
+				bpf_map_lookup_elem(&processes, prev_tgid);
 			if (prev_tgid_metrics) {
 				prev_tgid_metrics->process_run_time +=
 					buf.process_run_time;
-				prev_tgid_metrics->cpu_cycles +=
-					buf.cpu_cycles;
-				prev_tgid_metrics->cpu_instr +=
-					buf.cpu_instr;
-				prev_tgid_metrics->cache_miss +=
-					buf.cache_miss;
+				prev_tgid_metrics->cpu_cycles += buf.cpu_cycles;
+				prev_tgid_metrics->cpu_instr += buf.cpu_instr;
+				prev_tgid_metrics->cache_miss += buf.cache_miss;
 			}
 		}
 	}
