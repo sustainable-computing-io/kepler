@@ -196,21 +196,15 @@ static inline void collect_metrics_and_reset_counters(
 
 // This struct is defined according to the following format file:
 // /sys/kernel/tracing/events/sched/sched_switch/format
-struct sched_switch_info {
-	/* The first 8 bytes is not allowed to read */
-	u64 pad;
 
-	char prev_comm[16];
+struct trace_event_raw_sched_switch {
 	pid_t prev_pid;
-	int prev_prio;
 	long prev_state;
-	char next_comm[16];
 	pid_t next_pid;
-	int next_prio;
-};
+} __attribute__((preserve_access_index));
 
 SEC("tp/sched/sched_switch")
-int kepler_sched_switch_trace(struct sched_switch_info *ctx)
+int kepler_sched_switch_trace(struct trace_event_raw_sched_switch *ctx)
 {
 	u32 prev_pid, next_pid, cpu_id;
 	u64 *prev_tgid;
