@@ -50,7 +50,7 @@ jobs:
           retention-days: 1
 
       - name: Build and push kepler-validator to official group repo with latest tag
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
