@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
       - name: Build and push a base image for building Kepler with libbpf
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./build/Dockerfile.builder
