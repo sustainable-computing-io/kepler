@@ -2,6 +2,7 @@
 // Copyright 2021.
 
 #include "kepler.bpf.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, u32);
@@ -14,14 +15,7 @@ struct {
 	__type(key, u32);
 	__type(value, u64);
 	__uint(max_entries, MAP_SIZE);
-} pid_time_map SEC(".maps");
-
-struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, u32);
-	__type(value, u32);
-	__uint(max_entries, MAP_SIZE);
-} pid_tgid_map SEC(".maps");
+} pid_on_cpu_time_map SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
@@ -89,10 +83,10 @@ static inline u64 get_on_cpu_elapsed_time_us(u32 prev_pid, u64 curr_ts)
 	u64 cpu_time = 0;
 	u64 *prev_ts;
 
-	prev_ts = bpf_map_lookup_elem(&pid_time_map, &prev_pid);
+	prev_ts = bpf_map_lookup_elem(&pid_on_cpu_time_map, &prev_pid);
 	if (prev_ts) {
 		cpu_time = calc_delta(prev_ts, curr_ts) / 1000;
-		bpf_map_delete_elem(&pid_time_map, &prev_pid);
+		bpf_map_delete_elem(&pid_on_cpu_time_map, &prev_pid);
 	}
 
 	return cpu_time;
@@ -177,10 +171,6 @@ static inline void register_new_process_if_not_exist()
 		bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
 		bpf_map_update_elem(
 			&processes, &curr_tgid, &new_process, BPF_NOEXIST);
-
-		// add new thread id (curr_pid) to the precess id (tgid) list
-		bpf_map_update_elem(
-			&pid_tgid_map, &curr_pid, &curr_tgid, BPF_NOEXIST);
 	}
 }
 
@@ -194,35 +184,24 @@ static inline void collect_metrics_and_reset_counters(
 	buf->process_run_time = get_on_cpu_elapsed_time_us(prev_pid, curr_ts);
 }
 
-// This struct is defined according to the following format file:
-// /sys/kernel/tracing/events/sched/sched_switch/format
-struct sched_switch_info {
-	/* The first 8 bytes is not allowed to read */
-	u64 pad;
-
-	char prev_comm[16];
-	pid_t prev_pid;
-	int prev_prio;
-	long prev_state;
-	char next_comm[16];
-	pid_t next_pid;
-	int next_prio;
-};
-
-SEC("tp/sched/sched_switch")
-int kepler_sched_switch_trace(struct sched_switch_info *ctx)
+SEC("raw_tp/sched_switch")
+int kepler_sched_switch_trace(struct bpf_raw_tracepoint_args *ctx)
 {
 	u32 prev_pid, next_pid, cpu_id;
-	u64 *prev_tgid;
-	long prev_state;
+	u32 prev_tgid;
 	u64 curr_ts = bpf_ktime_get_ns();
 
 	struct process_metrics_t *curr_tgid_metrics, *prev_tgid_metrics;
 	struct process_metrics_t buf = {};
 
-	prev_state = ctx->prev_state;
-	prev_pid = (u32)ctx->prev_pid;
-	next_pid = (u32)ctx->next_pid;
+	struct task_struct *prev_task =
+		(struct task_struct *)BPF_CORE_READ(ctx, args[1]);
+	struct task_struct *next_task =
+		(struct task_struct *)BPF_CORE_READ(ctx, args[2]);
+
+	prev_pid = BPF_CORE_READ(prev_task, pid);
+	prev_tgid = BPF_CORE_READ(prev_task, tgid);
+	next_pid = BPF_CORE_READ(next_task, pid);
 	cpu_id = bpf_get_smp_processor_id();
 
 	// Collect metrics
@@ -241,47 +220,32 @@ int kepler_sched_switch_trace(struct sched_switch_info *ctx)
 		counter_sched_switch = SAMPLE_RATE;
 	}
 
-	if (prev_state == TASK_RUNNING) {
-		// Skip if the previous thread was not registered yet
-		prev_tgid = bpf_map_lookup_elem(&pid_tgid_map, &prev_pid);
-		if (prev_tgid) {
-			// The process_run_time is 0 if we do not have the previous timestamp of
-			// the task or due to a clock issue. In either case, we skip collecting
-			// all metrics to avoid discrepancies between the hardware counter and CPU
-			// time.
-			if (buf.process_run_time > 0) {
-				prev_tgid_metrics = bpf_map_lookup_elem(
-					&processes, prev_tgid);
-				if (prev_tgid_metrics) {
-					prev_tgid_metrics->process_run_time +=
-						buf.process_run_time;
-					prev_tgid_metrics->cpu_cycles +=
-						buf.cpu_cycles;
-					prev_tgid_metrics->cpu_instr +=
-						buf.cpu_instr;
-					prev_tgid_metrics->cache_miss +=
-						buf.cache_miss;
-				}
+	if (get_task_state(prev_task) == TASK_RUNNING) {
+		// The process_run_time is 0 if we do not have the previous timestamp of
+		// the task or due to a clock issue. In either case, we skip collecting
+		// all metrics to avoid discrepancies between the hardware counter and
+		// CPU time.
+		if (buf.process_run_time > 0) {
+			prev_tgid_metrics =
+				bpf_map_lookup_elem(&processes, &prev_tgid);
+			if (prev_tgid_metrics) {
+				prev_tgid_metrics->process_run_time +=
+					buf.process_run_time;
+				prev_tgid_metrics->cpu_cycles += buf.cpu_cycles;
+				prev_tgid_metrics->cpu_instr += buf.cpu_instr;
+				prev_tgid_metrics->cache_miss += buf.cache_miss;
 			}
 		}
 	}
 
 	// Add task on-cpu running start time
-	bpf_map_update_elem(&pid_time_map, &next_pid, &curr_ts, BPF_ANY);
+	bpf_map_update_elem(&pid_on_cpu_time_map, &next_pid, &curr_ts, BPF_ANY);
 
 	// create new process metrics
 	register_new_process_if_not_exist();
 
 	return 0;
 }
-
-// This struct is defined according to the following format file:
-//  /sys/kernel/tracing/events/irq/softirq_entry/format
-struct trace_event_raw_softirq {
-	/* The first 8 bytes is not allowed to read */
-	u64 pad;
-	unsigned int vec;
-};
 
 SEC("tp/irq/softirq_entry")
 int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
