@@ -102,7 +102,7 @@ func (d *GPUDcgm) InitLib() error {
 	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket)
 	if err != nil {
 		klog.Warningf("There is no DCGM daemon running in the host: %s", err)
-		// embeded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+		// embedded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
 		cleanup, err = dcgm.Init(dcgm.Embedded)
 		if err != nil {
 			klog.Warningf("Could not start DCGM. Error: %s", err)
@@ -165,7 +165,7 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		return
 	}
 
-	// the bigger MIG profiles that a GPU can have to be used to calcualte the SM ratio
+	// the bigger MIG profiles that a GPU can have to be used to calculate the SM ratio
 	fullGPUProfile := profileInfos[0]
 
 	for _, entity := range hierarchy.EntityList {

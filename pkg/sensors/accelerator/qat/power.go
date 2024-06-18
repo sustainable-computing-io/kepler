@@ -46,7 +46,7 @@ type qatInterface interface {
 	SetQATCollectionSupported(bool)
 }
 
-// Init() only returns the erro regarding if the gpu collector was suceffully initialized or not
+// Init() only returns the error regarding if the gpu collector was suceffully initialized or not
 // The qat.go file has an init function that starts and configures the qat collector
 // However this file is only included in the build if kepler is run with Intel QAT driver support.
 func Init() error {

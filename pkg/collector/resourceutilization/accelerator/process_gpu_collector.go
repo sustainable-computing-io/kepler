@@ -72,7 +72,7 @@ func addGPUUtilizationToProcessStats(processStats map[uint64]*stats.ProcessStats
 
 	for pid, processUtilization := range processesUtilization {
 		uintPid := uint64(pid)
-		// if the process was not indentified by the bpf metrics, create a new metric object
+		// if the process was not identified by the bpf metrics, create a new metric object
 		if _, exist := processStats[uintPid]; !exist {
 			command := getProcessCommand(uintPid)
 			containerID := utils.SystemProcessName

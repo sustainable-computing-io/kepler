@@ -99,7 +99,7 @@ func (r *RatioPowerModel) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
 	for processIdx := 0; processIdx < r.xidx; processIdx++ {
 		var processPower uint64
 		if isIdlePower {
-			// TODO: idle power should be divided accordinly to the process requested resource
+			// TODO: idle power should be divided accordingly to the process requested resource
 			processPower = uint64Division(r.nodeFeatureValues[PlatformIdlePower], numProcesses)
 		} else {
 			processPower = r.getPowerByRatio(processIdx, int(PlatformUsageMetric), int(PlatformDynPower), numProcesses)
@@ -127,7 +127,7 @@ func (r *RatioPowerModel) GetComponentsPower(isIdlePower bool) ([]source.NodeCom
 		processNodeComponentsPower := source.NodeComponentsEnergy{}
 
 		// PKG power
-		// TODO: idle power should be divided accordinly to the process requested resource
+		// TODO: idle power should be divided accordingly to the process requested resource
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[PkgIdlePower], numProcesses)
 		} else {
@@ -176,7 +176,7 @@ func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]uint64, error) {
 	for processIdx := 0; processIdx < r.xidx; processIdx++ {
 		var processPower uint64
 
-		// TODO: idle power should be divided accordinly to the process requested resource
+		// TODO: idle power should be divided accordingly to the process requested resource
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[GpuIdlePower], numProcesses)
 		} else {
@@ -225,7 +225,7 @@ func (r *RatioPowerModel) AddNodeFeatureValues(x []float64) {
 func (r *RatioPowerModel) AddDesiredOutValue(y float64) {
 }
 
-// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
+// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for training or prediction.
 func (r *RatioPowerModel) ResetSampleIdx() {
 	r.xidx = 0
 }

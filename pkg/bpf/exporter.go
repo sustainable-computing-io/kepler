@@ -354,7 +354,7 @@ func resizeArrayEntries(module *bpf.Module, name string, size int) error {
 	return nil
 }
 
-// for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
+// for an unknown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
 // but it is not a big problem since we request all possible keys that the map can store in a single request
 func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
 	start := time.Now()

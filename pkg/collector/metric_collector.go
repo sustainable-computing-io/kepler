@@ -163,7 +163,7 @@ func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
 func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
-	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
+	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
@@ -176,7 +176,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 	foundVM := make(map[string]bool)
 	for _, process := range c.ProcessStats {
 		if process.IdleCounter > 0 {
-			// if the process metrics were not updated for multiple interations, very if the process still exist, otherwise delete it from the map
+			// if the process metrics were not updated for multiple iterations, very if the process still exist, otherwise delete it from the map
 			c.handleIdlingProcess(process)
 		}
 		for metricName, resource := range process.ResourceUsage {

@@ -1,6 +1,25 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
+  - repo: https://github.com/executablebooks/mdformat
+    # Do this before other tools "fixing" the line endings
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        name: Format Markdown
+        entry: mdformat # Executable to run, with fixed options
+        language: python
+        types: [markdown]
+        args: [--wrap, "80", --number]
+        additional_dependencies:
+          - mdformat-frontmatter
+          - mdformat-toc
+          - mdformat-shfmt
+          - mdformat-tables
+          - mdformat-config
+          - mdformat-black
+          - mdformat-web
+          - mdformat-gfm
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -20,4 +39,20 @@ repos:
     rev: v1.59.1
     hooks:
       - id: golangci-lint
-exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*
+  - repo: https://github.com/markdownlint/markdownlint.git
+    rev: v0.13.0
+    hooks:
+      - id: markdownlint_docker
+    name: Markdownlint Docker
+    description: Run markdown lint on your Markdown files using the project docker image
+    language: docker_image
+    files: \.(md|mdown|markdown)$
+    entry: markdownlint/markdownlint -c .mdlrc
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args: [--toml, kepler-codespell.precommit-toml]
+        additional_dependencies:
+          - tomli
+exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*|^local-dev-cluster/.*
