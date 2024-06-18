@@ -198,6 +198,22 @@ struct task_struct {
 	int pid;
 } __attribute__((preserve_access_index));
 
+struct task_struct___o {
+	unsigned int state;
+};
+
+struct task_struct___x {
+	unsigned int __state;
+};
+
+static unsigned int get_task_state(void *task)
+{
+	struct task_struct___x *t = task;
+	if (bpf_core_field_exists(t->__state))
+		return t->__state;
+	return ((struct task_struct___o *)task)->state;
+}
+
 SEC("tp_btf/sched_switch")
 int kepler_sched_switch_trace(u64 *ctx)
 {
@@ -212,7 +228,6 @@ int kepler_sched_switch_trace(u64 *ctx)
 
 	prev_task = (struct task_struct *)ctx[1];
 	next_task = (struct task_struct *)ctx[2];
-	prev_state = (unsigned int)ctx[3];
 
 	prev_pid = (u32)prev_task->pid;
 	next_pid = (u32)next_task->pid;
@@ -234,7 +249,7 @@ int kepler_sched_switch_trace(u64 *ctx)
 		counter_sched_switch = SAMPLE_RATE;
 	}
 
-	if (prev_state == TASK_RUNNING) {
+	if (get_task_state(prev_task) == TASK_RUNNING) {
 		// Skip if the previous thread was not registered yet
 		prev_tgid = bpf_map_lookup_elem(&pid_tgid_map, &prev_pid);
 		if (prev_tgid) {
