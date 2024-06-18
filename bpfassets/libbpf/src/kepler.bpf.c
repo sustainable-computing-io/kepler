@@ -313,8 +313,8 @@ int kepler_read_page_trace(void *ctx)
 }
 
 // count write page cache
-SEC("tp_btf/writeback_dirty_folio")
-int kepler_write_page_trace(u64 *ctx)
+SEC("tp/writeback_dirty_folio")
+int kepler_write_page_trace(void *ctx)
 {
 	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
