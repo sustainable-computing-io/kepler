@@ -189,19 +189,20 @@ int kepler_sched_switch_trace(struct bpf_raw_tracepoint_args *ctx)
 {
 	u32 prev_pid, next_pid, cpu_id;
 	u32 prev_tgid;
+
 	u64 curr_ts = bpf_ktime_get_ns();
+	struct task_struct *prev_task, *next_task;
 
 	struct process_metrics_t *curr_tgid_metrics, *prev_tgid_metrics;
 	struct process_metrics_t buf = {};
 
-	struct task_struct *prev_task =
-		(struct task_struct *)BPF_CORE_READ(ctx, args[1]);
-	struct task_struct *next_task =
-		(struct task_struct *)BPF_CORE_READ(ctx, args[2]);
+	prev_task = (struct task_struct *)BPF_CORE_READ(ctx, args[1]);
+	next_task = (struct task_struct *)BPF_CORE_READ(ctx, args[2]);
 
 	prev_pid = BPF_CORE_READ(prev_task, pid);
 	prev_tgid = BPF_CORE_READ(prev_task, tgid);
 	next_pid = BPF_CORE_READ(next_task, pid);
+
 	cpu_id = bpf_get_smp_processor_id();
 
 	// Collect metrics
@@ -247,15 +248,15 @@ int kepler_sched_switch_trace(struct bpf_raw_tracepoint_args *ctx)
 	return 0;
 }
 
-SEC("tp/irq/softirq_entry")
-int kepler_irq_trace(struct trace_event_raw_softirq *ctx)
+SEC("tp_btf/softirq_entry")
+int kepler_irq_trace(u64 *ctx)
 {
 	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
 	unsigned int vec;
 
 	curr_tgid = bpf_get_current_pid_tgid() >> 32;
-	vec = ctx->vec;
+	vec = (unsigned int)ctx[0];
 	process_metrics = bpf_map_lookup_elem(&processes, &curr_tgid);
 	if (process_metrics != 0 && vec < 10)
 		process_metrics->vec_nr[vec] += 1;
@@ -277,8 +278,8 @@ int kepler_read_page_trace(void *ctx)
 }
 
 // count write page cache
-SEC("tp/writeback/writeback_dirty_folio")
-int kepler_write_page_trace(void *ctx)
+SEC("tp_btf/writeback_dirty_folio")
+int kepler_write_page_trace(u64 *ctx)
 {
 	u32 curr_tgid;
 	struct process_metrics_t *process_metrics;
