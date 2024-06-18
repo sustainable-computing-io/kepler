@@ -51,12 +51,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.1
+        with:
+          fetch-depth: 0 # Set fetch-depth to 0 to retrieve the entire history for all branches and tags, essential for accurate version computation.
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
           image: tonistiigi/binfmt:qemu-v8.1.5
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Login to Quay
         if: ${{ inputs.pushImage }}
         uses: docker/login-action@v3
