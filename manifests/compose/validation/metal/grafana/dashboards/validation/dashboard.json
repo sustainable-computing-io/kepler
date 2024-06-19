@@ -29,6 +29,369 @@
         "x": 0,
         "y": 0
       },
+      "id": 22,
+      "panels": [],
+      "title": "Mean Error Metrics Metal vs VM",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "instant": false,
+          "legendFormat": "Core",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Dram",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Package",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Platform",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "MAPE - Metal vs VM Dynamic (${process}) ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_core_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "instant": false,
+          "legendFormat": "Core",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_dram_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Dram",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_package_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2 ",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Package",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_platform_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Platform",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "MSE - Metal vs VM Dynamic (${process}) ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_bpf_page_cache_hit_total{pid=\"${process}\", job=\"metal\"}[$__rate_interval]) \n    - on() \n    sum(\n        rate(kepler_process_bpf_page_cache_hit_total{job=\"vm\"}[$__rate_interval])\n    )    \n)^2",
+          "instant": false,
+          "legendFormat": "cache_hit",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "MSE Metal vs VM BPF Cache Hit (${process}) ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "(\n    rate(kepler_process_bpf_cpu_time_ms_total{pid=\"${process}\", job=\"metal\"}[$__rate_interval]) \n    - on() \n    sum(\n        rate(kepler_process_bpf_cpu_time_ms_total{job=\"vm\"}[$__rate_interval])\n    )\n)^2",
+          "instant": false,
+          "legendFormat": "process_bpf_cpu_time",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "MSE Metal vs VM BPF CPU TIme (${process}) ",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
       "id": 15,
       "panels": [],
       "title": "Error Metrics Metal vs VM",
@@ -168,38 +531,14 @@
                 }
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "Core"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 1
+        "y": 18
       },
       "id": 17,
       "options": {
@@ -392,9 +731,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 1
+        "w": 12,
+        "x": 12,
+        "y": 18
       },
       "id": 16,
       "options": {
@@ -542,9 +881,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 9
+        "y": 26
       },
       "id": 19,
       "options": {
@@ -653,9 +992,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 9
+        "w": 12,
+        "x": 12,
+        "y": 26
       },
       "id": 18,
       "options": {
@@ -693,7 +1032,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 34
       },
       "id": 6,
       "panels": [],
@@ -817,7 +1156,7 @@
         "h": 10,
         "w": 8,
         "x": 0,
-        "y": 18
+        "y": 35
       },
       "id": 4,
       "options": {
@@ -942,7 +1281,7 @@
         "h": 10,
         "w": 8,
         "x": 8,
-        "y": 18
+        "y": 35
       },
       "id": 2,
       "options": {
@@ -1057,7 +1396,7 @@
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 18
+        "y": 35
       },
       "id": 10,
       "options": {
@@ -1099,7 +1438,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 45
       },
       "id": 11,
       "panels": [],
@@ -1153,7 +1492,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1229,7 +1569,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 46
       },
       "id": 14,
       "options": {
@@ -1335,7 +1675,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1366,7 +1707,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 39
+        "y": 56
       },
       "id": 5,
       "options": {
@@ -1446,7 +1787,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1477,7 +1819,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 39
+        "y": 56
       },
       "id": 7,
       "options": {
@@ -1560,7 +1902,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1575,7 +1918,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 65
       },
       "id": 8,
       "options": {
@@ -1655,7 +1998,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1686,7 +2030,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 65
       },
       "id": 9,
       "options": {
@@ -1723,13 +2067,14 @@
       "type": "timeseries"
     }
   ],
+  "refresh": "",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "qemu-system-x86 | 11616",
           "value": "11616"
         },
@@ -1757,13 +2102,13 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Model Validation",
   "uid": "ddkgzjy4qzuo0c",
-  "version": 4,
+  "version": 8,
   "weekStart": ""
 }
