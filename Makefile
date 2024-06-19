@@ -42,7 +42,7 @@ CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman)
 CTR_CMD_PUSH_OPTIONS ?=
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
-GPU_TAGS := ' gpu '
+GPU_TAGS := ' '
 ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
 	GPU_TAGS := ' nvml '
 endif
