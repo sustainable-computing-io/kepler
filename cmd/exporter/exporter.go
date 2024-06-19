@@ -223,9 +223,9 @@ func main() {
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
-		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
+		shutdownCtx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := srv.Shutdown(shutdownCtx); err != nil {
 			klog.Fatalf("%s", fmt.Sprintf("failed to shutdown gracefully: %v", err))
 		}
 	}

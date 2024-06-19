@@ -15,6 +15,8 @@ limitations under the License.
 package types_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
@@ -23,113 +25,108 @@ import (
 var _ = Describe("Types", func() {
 	Context("UInt64Stat", func() {
 		It("ResetDeltaValues", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  0,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(0, 1)
 			Instance.ResetDeltaValues()
-			Expect(Instance.Delta).To(Equal(uint64(0)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(0)))
 		})
 		It("AddNewDelta", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  0,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(0, 1)
 			err := Instance.AddNewDelta(uint64(1))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(2)))
-			Expect(Instance.Aggr).To(Equal(uint64(1)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(2)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(1)))
 		})
 		It("SetNewDelta", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  0,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(0, 1)
 			err := Instance.SetNewDelta(uint64(1))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(1)))
-			Expect(Instance.Aggr).To(Equal(uint64(1)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(1)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(1)))
 		})
 		It("SetNewDeltaValue", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  0,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(0, 1)
 			err := Instance.SetNewDeltaValue(uint64(0), false)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(1)))
-			Expect(Instance.Aggr).To(Equal(uint64(0)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(1)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(0)))
 		})
 		It("SetNewAggr with 0", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  1,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(1, 1)
 			err := Instance.SetNewAggr(uint64(0))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(1)))
-			Expect(Instance.Aggr).To(Equal(uint64(1)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(1)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(1)))
 		})
 
 		It("SetNewAggr if equal", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  1,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(1, 1)
 			err := Instance.SetNewAggr(uint64(1))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(1)))
-			Expect(Instance.Aggr).To(Equal(uint64(1)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(1)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(1)))
 		})
 
 		It("SetNewAggr with new value", func() {
-			Instance := types.UInt64Stat{
-				Aggr:  1,
-				Delta: 1,
-			}
+			Instance := types.NewUInt64Stat(1, 1)
 			err := Instance.SetNewAggr(uint64(2))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(Instance.Delta).To(Equal(uint64(1)))
-			Expect(Instance.Aggr).To(Equal(uint64(2)))
+			Expect(Instance.GetDelta()).To(Equal(uint64(1)))
+			Expect(Instance.GetAggr()).To(Equal(uint64(2)))
+		})
+		It("Can be modified by multiple goroutines", func() {
+			Instance := types.NewUInt64Stat(0, 0)
+			wg := sync.WaitGroup{}
+			errChan := make(chan error, 1000)
+			for i := 0; i < 1000; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					errChan <- Instance.AddNewDelta(1)
+				}()
+			}
+			wg.Wait()
+			close(errChan)
+			for e := range errChan {
+				Expect(e).NotTo(HaveOccurred())
+			}
+			Expect(Instance.GetDelta()).To(Equal(uint64(1000)))
 		})
 	})
 	Context("UInt64StatCollection", func() {
 		var instance types.UInt64StatCollection
 
 		BeforeEach(func() {
-			instance = types.UInt64StatCollection{
-				Stat: make(map[string]*types.UInt64Stat),
-			}
+			instance = make(types.UInt64StatCollection)
 		})
 		It("SetAggrStat", func() {
 			instance.SetAggrStat("SetAggrStat", uint64(1))
-			Expect(instance.Stat["SetAggrStat"].Aggr).To(Equal(uint64(1)))
+			Expect(instance["SetAggrStat"].GetAggr()).To(Equal(uint64(1)))
 			instance.SetAggrStat("SetAggrStat", uint64(2))
-			Expect(instance.Stat["SetAggrStat"].Aggr).To(Equal(uint64(2)))
-			Expect(instance.Stat["SetAggrStat"].Delta).To(Equal(uint64(1)))
+			Expect(instance["SetAggrStat"].GetAggr()).To(Equal(uint64(2)))
+			Expect(instance["SetAggrStat"].GetDelta()).To(Equal(uint64(1)))
 			instance.SetAggrStat("SetAggrStat", uint64(0))
-			Expect(instance.Stat["SetAggrStat"].Aggr).To(Equal(uint64(2)))
-			Expect(instance.Stat["SetAggrStat"].Delta).To(Equal(uint64(1)))
+			Expect(instance["SetAggrStat"].GetAggr()).To(Equal(uint64(2)))
+			Expect(instance["SetAggrStat"].GetDelta()).To(Equal(uint64(1)))
 		})
 		It("AddDeltaStat", func() {
 			instance.AddDeltaStat("AddDeltaStat", uint64(1))
-			Expect(instance.Stat["AddDeltaStat"].Aggr).To(Equal(uint64(1)))
+			Expect(instance["AddDeltaStat"].GetAggr()).To(Equal(uint64(1)))
 			instance.AddDeltaStat("AddDeltaStat", uint64(2))
-			Expect(instance.Stat["AddDeltaStat"].Aggr).To(Equal(uint64(3)))
-			Expect(instance.Stat["AddDeltaStat"].Delta).To(Equal(uint64(3)))
+			Expect(instance["AddDeltaStat"].GetAggr()).To(Equal(uint64(3)))
+			Expect(instance["AddDeltaStat"].GetDelta()).To(Equal(uint64(3)))
 			instance.AddDeltaStat("AddDeltaStat", uint64(0))
-			Expect(instance.Stat["AddDeltaStat"].Aggr).To(Equal(uint64(3)))
-			Expect(instance.Stat["AddDeltaStat"].Delta).To(Equal(uint64(3)))
+			Expect(instance["AddDeltaStat"].GetAggr()).To(Equal(uint64(3)))
+			Expect(instance["AddDeltaStat"].GetDelta()).To(Equal(uint64(3)))
 		})
 		It("SetDeltaStat", func() {
 			instance.SetDeltaStat("SetDeltaStat", uint64(1))
-			Expect(instance.Stat["SetDeltaStat"].Aggr).To(Equal(uint64(1)))
+			Expect(instance["SetDeltaStat"].GetAggr()).To(Equal(uint64(1)))
 			instance.SetDeltaStat("SetDeltaStat", uint64(2))
-			Expect(instance.Stat["SetDeltaStat"].Aggr).To(Equal(uint64(3)))
-			Expect(instance.Stat["SetDeltaStat"].Delta).To(Equal(uint64(2)))
+			Expect(instance["SetDeltaStat"].GetAggr()).To(Equal(uint64(3)))
+			Expect(instance["SetDeltaStat"].GetDelta()).To(Equal(uint64(2)))
 			instance.SetDeltaStat("SetDeltaStat", uint64(0))
-			Expect(instance.Stat["SetDeltaStat"].Aggr).To(Equal(uint64(3)))
-			Expect(instance.Stat["SetDeltaStat"].Delta).To(Equal(uint64(2)))
+			Expect(instance["SetDeltaStat"].GetAggr()).To(Equal(uint64(3)))
+			Expect(instance["SetDeltaStat"].GetDelta()).To(Equal(uint64(2)))
 		})
 		It("SumAllDeltaValues", func() {
 			value := instance.SumAllDeltaValues()
@@ -159,12 +156,12 @@ var _ = Describe("Types", func() {
 		})
 		It("ResetDeltaValues", func() {
 			instance.SetDeltaStat("ResetDeltaValues", uint64(1))
-			Expect(instance.Stat["ResetDeltaValues"].Aggr).To(Equal(uint64(1)))
+			Expect(instance["ResetDeltaValues"].GetAggr()).To(Equal(uint64(1)))
 			instance.SetDeltaStat("ResetDeltaValues1", uint64(1))
-			Expect(instance.Stat["ResetDeltaValues1"].Aggr).To(Equal(uint64(1)))
+			Expect(instance["ResetDeltaValues1"].GetAggr()).To(Equal(uint64(1)))
 			instance.ResetDeltaValues()
-			Expect(instance.Stat["ResetDeltaValues"].Delta).To(Equal(uint64(0)))
-			Expect(instance.Stat["ResetDeltaValues1"].Delta).To(Equal(uint64(0)))
+			Expect(instance["ResetDeltaValues"].GetDelta()).To(Equal(uint64(0)))
+			Expect(instance["ResetDeltaValues1"].GetDelta()).To(Equal(uint64(0)))
 		})
 	})
 })

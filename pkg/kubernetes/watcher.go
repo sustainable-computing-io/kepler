@@ -56,7 +56,7 @@ type ObjListWatcher struct {
 	bpfSupportedMetrics bpf.SupportedMetrics
 
 	// ContainerStats holds all container energy and resource usage metrics
-	ContainerStats *map[string]*stats.ContainerStats
+	ContainerStats map[string]*stats.ContainerStats
 }
 
 func newK8sClient() *kubernetes.Clientset {
@@ -207,13 +207,13 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 			err = fmt.Errorf("container %s did not start yet", containers[j].Name)
 			continue
 		}
-		if _, exist = (*w.ContainerStats)[containerID]; !exist {
-			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.bpfSupportedMetrics)
+		if _, exist = w.ContainerStats[containerID]; !exist {
+			w.ContainerStats[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.bpfSupportedMetrics)
 		}
 		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
-		(*w.ContainerStats)[containerID].ContainerName = containers[j].Name
-		(*w.ContainerStats)[containerID].PodName = pod.Name
-		(*w.ContainerStats)[containerID].Namespace = pod.Namespace
+		w.ContainerStats[containerID].ContainerName = containers[j].Name
+		w.ContainerStats[containerID].PodName = pod.Name
+		w.ContainerStats[containerID].Namespace = pod.Namespace
 	}
 	return err
 }
@@ -240,7 +240,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 func (w *ObjListWatcher) deleteInfo(containers []k8sv1.ContainerStatus) {
 	for j := 0; j < len(containers); j++ {
 		containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-		delete(*w.ContainerStats, containerID)
+		delete(w.ContainerStats, containerID)
 	}
 }
 

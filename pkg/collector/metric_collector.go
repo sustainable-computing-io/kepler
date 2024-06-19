@@ -180,8 +180,8 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 			c.handleIdlingProcess(process)
 		}
 		for metricName, resource := range process.ResourceUsage {
-			for id := range resource.Stat {
-				delta := resource.Stat[id].GetDelta() // currently the process metrics are single socket
+			for id := range resource {
+				delta := resource[id].GetDelta() // currently the process metrics are single socket
 
 				// aggregate metrics per container
 				if config.IsExposeContainerStatsEnabled() {
@@ -266,8 +266,8 @@ func (c *Collector) handleInactiveVM(foundVM map[string]bool) {
 func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 	for _, process := range c.ProcessStats {
 		for metricName, stat := range process.EnergyUsage {
-			for id := range stat.Stat {
-				delta := stat.Stat[id].GetDelta() // currently the process metrics are single socket
+			for id := range stat {
+				delta := stat[id].GetDelta() // currently the process metrics are single socket
 
 				// aggregate metrics per container
 				if config.IsExposeContainerStatsEnabled() {

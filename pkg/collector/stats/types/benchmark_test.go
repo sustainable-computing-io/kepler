@@ -28,9 +28,7 @@ var seededRand *rand.Rand = rand.New(
 
 // SetAggrStat
 func BenchmarkUInt64StatCollectionSetAggrStatMissed(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -42,9 +40,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatMissed(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetAggrStatBothRandom(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -56,9 +52,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatBothRandom(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetAggrStatCachedRandomNumber(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -68,9 +62,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatCachedRandomNumber(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetAggrStatCached(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -81,9 +73,7 @@ func BenchmarkUInt64StatCollectionSetAggrStatCached(b *testing.B) {
 
 // AddDeltaStat
 func BenchmarkUInt64StatCollectionAddDeltaStatMissed(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -95,9 +85,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatMissed(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionAddDeltaStatBothRandom(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -109,9 +97,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatBothRandom(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionAddDeltaStatCachedRandomNumber(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -121,9 +107,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatCachedRandomNumber(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionAddDeltaStatCached(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -134,9 +118,7 @@ func BenchmarkUInt64StatCollectionAddDeltaStatCached(b *testing.B) {
 
 // SetDeltaStat
 func BenchmarkUInt64StatCollectionSetDeltaStatMissed(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -148,9 +130,7 @@ func BenchmarkUInt64StatCollectionSetDeltaStatMissed(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetDeltaStatBothRandom(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -162,9 +142,7 @@ func BenchmarkUInt64StatCollectionSetDeltaStatBothRandom(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetDeltaStatCachedRandomNumber(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -174,9 +152,7 @@ func BenchmarkUInt64StatCollectionSetDeltaStatCachedRandomNumber(b *testing.B) {
 }
 
 func BenchmarkUInt64StatCollectionSetDeltaStatCached(b *testing.B) {
-	instance := types.UInt64StatCollection{
-		Stat: make(map[string]*types.UInt64Stat),
-	}
+	instance := make(types.UInt64StatCollection)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

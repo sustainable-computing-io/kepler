@@ -69,7 +69,7 @@ func queryNodePower(m string, r promv1.Range, api promv1.API) float64 {
 		return float64(0)
 	}
 	q := "sum(irate(" + m + "[1m]))"
-	return query_range(m, q, r, api)
+	return query_range(q, r, api)
 }
 
 func queryNamespacePower(m, ns string, r promv1.Range, api promv1.API) float64 {
@@ -78,7 +78,7 @@ func queryNamespacePower(m, ns string, r promv1.Range, api promv1.API) float64 {
 		return float64(0)
 	}
 	q := "sum(irate(" + m + "{container_namespace=~\"" + ns + "\"}[1m]))"
-	return query_range(m, q, r, api)
+	return query_range(q, r, api)
 }
 
 func queryPodPower(m, p, ns string, r promv1.Range, api promv1.API) float64 {
@@ -87,10 +87,10 @@ func queryPodPower(m, p, ns string, r promv1.Range, api promv1.API) float64 {
 		return float64(0)
 	}
 	q := `sum by(pod_name,container_namespace)(irate(` + m + `{container_namespace=~"` + ns + `", pod_name=~"` + p + `"}[1m]))`
-	return query_range(m, q, r, api)
+	return query_range(q, r, api)
 }
 
-func query_range(metric, queryString string, r promv1.Range, api promv1.API) float64 {
+func query_range(queryString string, r promv1.Range, api promv1.API) float64 {
 	fmt.Printf("\nQuery: \n%s\n", queryString)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -171,7 +171,8 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		// ref https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse_test.go
 		var res labels.Labels
-		p := textparse.NewPromParser(body)
+		symbolTable := labels.NewSymbolTable()
+		p := textparse.NewPromParser(body, symbolTable)
 		fmt.Println("=============================================")
 		fmt.Println("Parsing Metrics...")
 		for {
