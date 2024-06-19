@@ -83,31 +83,31 @@ func GetRegistry() *prometheus.Registry {
 }
 
 func (e *PrometheusExporter) RegisterMetrics() *prometheus.Registry {
-	registry := GetRegistry()
+	r := GetRegistry()
 
 	if config.IsExposeProcessStatsEnabled() {
-		registry.MustRegister(e.ProcessStatsCollector)
+		r.MustRegister(e.ProcessStatsCollector)
 		klog.Infoln("Registered Process Prometheus metrics")
 	}
 
 	if config.IsExposeContainerStatsEnabled() {
-		registry.MustRegister(e.ContainerStatsCollector)
+		r.MustRegister(e.ContainerStatsCollector)
 		klog.Infoln("Registered Container Prometheus metrics")
 	}
 
 	if config.IsExposeVMStatsEnabled() {
-		registry.MustRegister(e.VMStatsCollector)
+		r.MustRegister(e.VMStatsCollector)
 		klog.Infoln("Registered VM Prometheus metrics")
 	}
 
-	registry.MustRegister(e.NodeStatsCollector)
+	r.MustRegister(e.NodeStatsCollector)
 	klog.Infoln("Registered Node Prometheus metrics")
 
 	// log prometheus errors
-	_, err := registry.Gather()
+	_, err := r.Gather()
 	if err != nil {
 		klog.Errorln(err)
 	}
 
-	return registry
+	return r
 }

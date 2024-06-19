@@ -54,7 +54,7 @@ func New(bpfExporter bpf.Exporter) *CollectorManager {
 	// configure the watcher
 	manager.Watcher = kubernetes.NewObjListWatcher(supportedMetrics)
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
-	manager.Watcher.ContainerStats = &manager.StatsCollector.ContainerStats
+	manager.Watcher.ContainerStats = manager.StatsCollector.ContainerStats
 	manager.Watcher.Run()
 	return manager
 }

@@ -146,8 +146,8 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 	case *stats.NodeStats:
 		node := instance.(*stats.NodeStats)
 		if _, exist := node.EnergyUsage[metricName]; exist {
-			for deviceID, utilization := range node.EnergyUsage[metricName].Stat {
-				value = float64(utilization.Aggr) / JouleMillijouleConversionFactor
+			for deviceID, utilization := range node.EnergyUsage[metricName] {
+				value = float64(utilization.GetAggr()) / JouleMillijouleConversionFactor
 				labelValues = []string{deviceID, stats.NodeName, mode}
 				collect(ch, collector, value, labelValues)
 			}
@@ -173,8 +173,8 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 			}
 		}
 		if isGPUMetric {
-			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
-				value = float64(utilization.Aggr)
+			for deviceID, utilization := range container.ResourceUsage[metricName] {
+				value = float64(utilization.GetAggr())
 				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
 				collect(ch, collector, value, labelValues)
 			}
@@ -204,8 +204,8 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 	case *stats.NodeStats:
 		node := instance.(*stats.NodeStats)
 		if _, exist := node.ResourceUsage[metricName]; exist {
-			for deviceID, utilization := range node.ResourceUsage[metricName].Stat {
-				value = float64(utilization.Aggr)
+			for deviceID, utilization := range node.ResourceUsage[metricName] {
+				value = float64(utilization.GetAggr())
 				labelValues = []string{deviceID, stats.NodeName}
 				collect(ch, collector, value, labelValues)
 			}
