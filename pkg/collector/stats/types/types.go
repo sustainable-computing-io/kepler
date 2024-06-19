@@ -3,22 +3,30 @@ package types
 import (
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	"k8s.io/klog/v2"
 )
 
 type UInt64Stat struct {
-	Aggr  uint64
-	Delta uint64
+	aggr  atomic.Uint64
+	delta atomic.Uint64
 }
 
-func (s UInt64Stat) String() string {
-	return fmt.Sprintf("%d (%d)", s.Delta, s.Aggr)
+func NewUInt64Stat(aggr, delta uint64) *UInt64Stat {
+	stat := &UInt64Stat{}
+	stat.aggr.Store(aggr)
+	stat.delta.Store(delta)
+	return stat
+}
+
+func (s *UInt64Stat) String() string {
+	return fmt.Sprintf("%d (%d)", s.delta.Load(), s.aggr.Load())
 }
 
 // ResetDelta resets current value
 func (s *UInt64Stat) ResetDeltaValues() {
-	s.Delta = uint64(0)
+	s.delta.Swap(uint64(0))
 }
 
 // AddNewDelta add a new read (process) delta value (e.g., from bpf table that is reset, computed delta energy)
@@ -38,65 +46,59 @@ func (s *UInt64Stat) SetNewDeltaValue(newDelta uint64, sum bool) error {
 		return nil
 	}
 	// verify overflow
-	if s.Aggr >= (math.MaxUint64 - newDelta) {
-		// we must set the the value to 0 when overflow, so that prometheus will handle it
-		s.Aggr = 0
+	if s.aggr.Load() >= (math.MaxUint64 - newDelta) {
+		// we must set the value to 0 when overflow, so that prometheus will handle it
+		s.aggr.Swap(0)
 		return fmt.Errorf("the aggregated value has overflowed")
 	}
 	if sum {
 		// sum is used to accumulate metrics from different processes
-		s.Delta += newDelta
+		s.delta.Add(newDelta)
 	} else {
-		s.Delta = newDelta
+		s.delta.Swap(newDelta)
 	}
-	s.Aggr += newDelta
+	// update aggregated value
+	s.aggr.Add(newDelta)
 	return nil
 }
 
 // SetNewAggr set new read aggregated value (e.g., from cgroup, energy files)
 func (s *UInt64Stat) SetNewAggr(newAggr uint64) error {
-	if newAggr == 0 || newAggr == s.Aggr {
+	currAggr := s.aggr.Load()
+	if newAggr == 0 || newAggr == currAggr {
 		// if a counter has not changed, we skip it
 		return nil
 	}
 	// verify aggregated value overflow
 	if newAggr == math.MaxUint64 {
-		// we must set the the value to 0 when overflow, so that prometheus will handle it
-		s.Aggr = 0
+		// we must set the value to 0 when overflow, so that prometheus will handle it
+		s.aggr.Swap(0)
 		return fmt.Errorf("the aggregated value has overflowed")
 	}
-	if (s.Aggr > 0) && (newAggr > s.Aggr) {
-		s.Delta = newAggr - s.Aggr
+	if (currAggr > 0) && (newAggr > currAggr) {
+		s.delta.Swap(newAggr - currAggr)
 	}
-	s.Aggr = newAggr
+	s.aggr.Swap(newAggr)
 	return nil
 }
 
 func (s *UInt64Stat) GetDelta() uint64 {
-	return s.Delta
+	return s.delta.Load()
 }
 
 func (s *UInt64Stat) GetAggr() uint64 {
-	return s.Aggr
+	return s.aggr.Load()
 }
 
-func NewUInt64StatCollection() *UInt64StatCollection {
-	return &UInt64StatCollection{
-		Stat: make(map[string]*UInt64Stat),
-	}
+func NewUInt64StatCollection() UInt64StatCollection {
+	return make(map[string]*UInt64Stat)
 }
 
-// UInt64StatCollection keeps a collection of UInt64Stat
-type UInt64StatCollection struct {
-	Stat map[string]*UInt64Stat
-}
+type UInt64StatCollection map[string]*UInt64Stat
 
-func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
-	if instance, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{
-			Aggr:  newAggr,
-			Delta: 0,
-		}
+func (s UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
+	if instance, found := s[key]; !found {
+		s[key] = NewUInt64Stat(newAggr, 0)
 	} else {
 		if err := instance.SetNewAggr(newAggr); err != nil {
 			klog.V(3).Infoln(err)
@@ -104,24 +106,18 @@ func (s *UInt64StatCollection) SetAggrStat(key string, newAggr uint64) {
 	}
 }
 
-func (s *UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
-	if instance, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{
-			Aggr:  newDelta,
-			Delta: newDelta,
-		}
+func (s UInt64StatCollection) AddDeltaStat(key string, newDelta uint64) {
+	if instance, found := s[key]; !found {
+		s[key] = NewUInt64Stat(newDelta, newDelta)
 	} else {
 		if err := instance.AddNewDelta(newDelta); err != nil {
 			klog.V(3).Infoln(err)
 		}
 	}
 }
-func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
-	if instance, found := s.Stat[key]; !found {
-		s.Stat[key] = &UInt64Stat{
-			Aggr:  newDelta,
-			Delta: newDelta,
-		}
+func (s UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
+	if instance, found := s[key]; !found {
+		s[key] = NewUInt64Stat(newDelta, newDelta)
 	} else {
 		if err := instance.SetNewDelta(newDelta); err != nil {
 			klog.V(3).Infoln(err)
@@ -130,25 +126,25 @@ func (s *UInt64StatCollection) SetDeltaStat(key string, newDelta uint64) {
 }
 
 // SumAllDeltaValues aggregates the delta metrics of all sources (i.e., stat keys)
-func (s *UInt64StatCollection) SumAllDeltaValues() uint64 {
+func (s UInt64StatCollection) SumAllDeltaValues() uint64 {
 	sum := uint64(0)
-	for _, stat := range s.Stat {
-		sum += stat.Delta
+	for _, stat := range s {
+		sum += stat.GetDelta()
 	}
 	return sum
 }
 
 // SumAllAggrValues aggregates the aggregated metrics of all sources (i.e., stat keys)
-func (s *UInt64StatCollection) SumAllAggrValues() uint64 {
+func (s UInt64StatCollection) SumAllAggrValues() uint64 {
 	sum := uint64(0)
-	for _, stat := range s.Stat {
-		sum += stat.Aggr
+	for _, stat := range s {
+		sum += stat.GetAggr()
 	}
 	return sum
 }
 
-func (s *UInt64StatCollection) ResetDeltaValues() {
-	for _, stat := range s.Stat {
+func (s UInt64StatCollection) ResetDeltaValues() {
+	for _, stat := range s {
 		stat.ResetDeltaValues()
 	}
 }

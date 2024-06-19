@@ -74,20 +74,20 @@ func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
 	newTotalResUtilization := ne.ResourceUsage[resouceUtil].SumAllDeltaValues()
 	currIdleTotalResUtilization := ne.IdleResUtilization[resouceUtil]
 
-	for socketID := range ne.EnergyUsage[absM].Stat {
-		newIdleDelta := ne.EnergyUsage[absM].Stat[socketID].Delta
+	for socketID, value := range ne.EnergyUsage[absM] {
+		newIdleDelta := value.GetDelta()
 		if newIdleDelta == 0 {
 			// during the first power collection iterations, the delta values could be 0, so we skip until there are delta values
 			continue
 		}
 
 		// add any value if there is no idle power yet
-		if _, exist := ne.EnergyUsage[idleM].Stat[socketID]; !exist {
+		if _, exist := ne.EnergyUsage[idleM][socketID]; !exist {
 			ne.EnergyUsage[idleM].SetDeltaStat(socketID, newIdleDelta)
 			// store the curret CPU utilization to find a new idle power later
 			ne.IdleResUtilization[resouceUtil] = newTotalResUtilization
 		} else {
-			currIdleDelta := ne.EnergyUsage[idleM].Stat[socketID].Delta
+			currIdleDelta := ne.EnergyUsage[idleM][socketID].GetDelta()
 			// verify if there is a new minimal energy consumption for the given resource
 			// TODO: fix verifying the aggregated resource utilization from all sockets, the update the energy per socket can lead to inconsitency
 			if (newTotalResUtilization <= currIdleTotalResUtilization) || (currIdleDelta == 0) {
