@@ -195,9 +195,13 @@ func (e *exporter) attach() error {
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_write_page_trace: %w", err)
 	} else {
-		_, err = page_write.AttachTracepoint("writeback", "writeback_dirty_folio")
-		if err != nil {
-			klog.Warningf("failed to attach tp/writeback/writeback_dirty_folio: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", err)
+		category := "writeback"
+		name := "writeback_dirty_page"
+		if _, err := os.Stat("/sys/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
+			name = "writeback_dirty_folio"
+		}
+		if _, err = page_write.AttachTracepoint(category, name); err != nil {
+			klog.Warningf("failed to attach tp/%s/%s: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", category, name, err)
 		} else {
 			e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
 		}

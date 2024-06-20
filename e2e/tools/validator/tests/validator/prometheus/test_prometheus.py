@@ -1,178 +1,171 @@
+import datetime
+
 import pytest
-from validator.prometheus import (absolute_percentage_error,
-                                  absolute_error,
-                                  mean_absolute_error,
-                                  mean_absolute_percentage_error,
-                                  mean_squared_error,
-                                  root_mean_squared_error,
-                                  retrieve_timestamp_value_metrics,
-                                  acquire_datapoints_with_common_timestamps
-                                  )
+
+from validator.cli import validator
+from validator.config import (
+    Prometheus as PromConfig,
+    PrometheusJob as Job,
+)
+
+from validator.prometheus import (
+    Comparator,
+    Sample,
+    Series,
+    filter_by_equal_timestamps,
+)
 
 
 @pytest.fixture
-def prom_responses():
-    return [{'metric':
-            {'command': 'worker', 'container_id': 'emulator', 'instance': 'kepler:9100',
-             'job': 'metal', 'mode': 'dynamic', 'pid': '17341', 'source': 'intel_rapl',
-             'vm_id': 'machine-qemu-1-ubuntu22.04'}, 'values':
-            [[1716252592, '0.09833333333333548'], [1716252595, '0.08933333333333356'],
-             [1716252598, '0.12299999999999991'], [1716252601, '0.10299999999999916'],
-             [1716252604, '0.10566666666666592'], [1716252607, '1.3239999999999996'],
-             [1716252610, '3.7116666666666664'], [1716252613, '5.317999999999999']]}]
+def prom_response():
+    return [
+        {
+            "metric": {
+                "command": "worker",
+                "container_id": "emulator",
+                "instance": "kepler:9100",
+                "job": "metal",
+                "mode": "dynamic",
+                "pid": "17341",
+                "source": "intel_rapl",
+                "vm_id": "machine-qemu-1-ubuntu22.04",
+            },
+            "values": [
+                [1716252592, "0.09833333333333548"],
+                [1716252595, "0.08933333333333356"],
+                [1716252598, "0.12299999999999991"],
+                [1716252601, "0.10299999999999916"],
+                [1716252604, "0.10566666666666592"],
+                [1716252607, "1.3239999999999996"],
+                [1716252610, "3.7116666666666664"],
+                [1716252613, "5.317999999999999"],
+            ],
+        }
+    ]
 
 
-@pytest.fixture
-def prom_values():
-    return {
-        "prom_values_empty_sample_one": [[1716252592, 0.09833333333333548], [1716252595, 0.08933333333333356],
-                        [1716252598, 0.12299999999999991], [1716252601, 0.10299999999999916]],
-        "prom_values_empty_sample_two": [[1716252591, 0.09833333333333548], [1716252596, 0.08933333333333356],
-                        [1716252599, 0.12299999999999991], [1716252600, 0.10299999999999916]],
-        "prom_values_three_common_sample_one": [[1716252592, 0.09833333333333548],
-                                               [1716252595, 0.08933333333333356],
-                                               [1716252598, 0.12299999999999991],
-                                               [1716252601, 0.10299999999999916]],
-        "prom_values_three_common_sample_two": [[1716252592, 0.09833333333333548],
-                                                [1716252595, 0.08933333333333356],
-                                                [1716252598, 0.12299999999999999],
-                                                [1716252602, 0.10299999999999916]]
-    }
+def test_series(prom_response):
+    promql = """kepler_process_cpu_bpf_time_total{job="vm", mode="dynamic"}"""
+    resp_values = prom_response[0]["values"]
+    s = Series(promql, resp_values)
+
+    assert s.query == promql
+    assert len(s.samples) == len(resp_values)
+
+    timestamps = [v[0] for v in resp_values]
+    assert s.timestamps == timestamps
+    # NOTE: values are stored in float whereas prometheus response has values in string
+    values = [v[1] for v in resp_values]
+    assert [str(v) for v in s.values] == values
 
 
-@pytest.fixture
-def metric_values():
-    return {
-        "metric_values_sample_one": [1.0, 2.0, 3.0],
-        "metric_values_sample_two": [1.1, 2.2, 2.9]
-    }
+def test_filter_by_equal_timestamps():
+    # fmt: off
+    def v_a(x): return x * 1.1
+    def s_a(x): return (x, str(v_a(x)))
+
+    def v_b(x): return x * 1.1 + 1
+    def s_b(x): return (x, str(v_b(x)))
+
+
+    inputs = [
+        {
+            "a": [ s_a(1), s_a(2), s_a(3), s_a(4), ],
+            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
+            "expected_a": [ v_a(1), v_a(2), v_a(3), v_a(4), ],
+            "expected_b": [ v_b(1), v_b(2), v_b(3), v_b(4), ],
+        },
+
+        {
+            "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
+            "b": [         s_b(2), s_b(3), s_b(4) ],
+            "expected_a": [ v_a(2), v_a(3), v_a(4) ],
+            "expected_b": [ v_b(2), v_b(3), v_b(4) ],
+        },
+        {
+            "a": [ s_a(1), s_a(2), s_a(3)         ],
+            "b": [ s_b(1), s_b(2), s_b(3), s_b(4) ],
+            "expected_a": [ v_a(1), v_a(2), v_a(3)],
+            "expected_b": [ v_b(1), v_b(2), v_b(3)],
+        },
+        {
+            "a": [ s_a(1),         s_a(3), s_a(4), ],
+            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
+            "expected_a": [ v_a(1), v_a(3), v_a(4), ],
+            "expected_b": [ v_b(1), v_b(3), v_b(4), ],
+        },
+        {
+            "a": [ s_a(1),                 s_a(4), ],
+            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
+            "expected_a": [ v_a(1), v_a(4), ],
+            "expected_b": [ v_b(1), v_b(4), ],
+        },
+        {
+            "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
+            "b": [ s_b(100), s_b(200), s_b(300), s_b(400), ],
+            "expected_a": [],
+            "expected_b": [],
+        },
+    ]
+    # fmt: on
+
+    for s in inputs:
+        a = Series("a", s["a"])
+        b = Series("b", s["b"])
+        exp_a = s["expected_a"]
+        exp_b = s["expected_b"]
+
+        got_a, got_b = filter_by_equal_timestamps(a, b)
+
+        assert len(got_a.samples) == len(exp_a)
+        assert got_a.values == exp_a
+
+        assert len(got_b.samples) == len(exp_b)
+        assert got_b.values == exp_b
+
+        # swap and check if the result still holds
+        a, b = b, a
+        exp_a, exp_b = exp_b, exp_a
+
+        got_a, got_b = filter_by_equal_timestamps(a, b)
+
+        assert len(got_a.samples) == len(exp_a)
+        assert got_a.values == exp_a
+
+        assert len(got_b.samples) == len(exp_b)
+        assert got_b.values == exp_b
+
+
+class MockPromClient:
+    def __init__(self, responses):
+        self.responses = responses
+
+    def range_query(self, query: str, *args, **kwargs) -> list[Series]:
+        return [Series(query, r["values"]) for r in self.responses]
 
 
 @pytest.fixture
 def prom_config():
-    pass
+    return PromConfig(
+        url="",
+        rate_interval="12s",
+        job=Job(metal="metal", vm="vm"),
+        step="3s",
+    )
 
 
-@pytest.fixture
-def vm_config():
-    pass
+def test_comparator_single_series(prom_response):
+    c = Comparator(MockPromClient(prom_response))
 
+    promql = """kepler_process_cpu_bpf_time_total{job="vm", mode="dynamic"}"""
+    series = c.single_series(
+        promql,
+        datetime.datetime(2022, 1, 1),
+        datetime.datetime(2022, 1, 2),
+    )
 
-@pytest.fixture
-def prom_metrics():
-    pass
+    assert series is not None
+    assert series.query == promql
 
-
-def test_retrieve_timestamp_value_metrics(prom_responses):
-    prom_response_sample = prom_responses
-    res = retrieve_timestamp_value_metrics(prom_response_sample[0])
-    assert len(prom_response_sample[0]["values"]) == len(res)
-    sample_datapoint =  prom_response_sample[0]["values"][0]
-    sample_datapoint[1] = float(sample_datapoint[1])
-    assert res[0] == sample_datapoint
-
-
-def test_acquire_datapoints_with_common_timestamps(prom_values):
-    prom_one_sample_empty = prom_values["prom_values_empty_sample_one"]
-    prom_two_sample_empty = prom_values["prom_values_empty_sample_two"]
-
-    one_sample_empty, two_sample_empty = acquire_datapoints_with_common_timestamps(prom_one_sample_empty,
-                                                                                   prom_two_sample_empty)
-    assert len(one_sample_empty) == 0 and len(two_sample_empty) == 0
-
-    prom_one_sample_three_common_timestamps = prom_values["prom_values_three_common_sample_one"]
-    prom_two_sample_three_common_timestamps = prom_values["prom_values_three_common_sample_two"]
-
-    one_sample_three, two_sample_three = acquire_datapoints_with_common_timestamps(
-        prom_one_sample_three_common_timestamps,
-        prom_two_sample_three_common_timestamps)
-
-    assert len(one_sample_three) == 3 and len(two_sample_three) == 3
-    assert one_sample_three[-1] == 0.12299999999999991
-    assert two_sample_three[-1] == 0.12299999999999999
-
-
-def test_absolute_percentage_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = absolute_percentage_error(expected_data, actual_data)
-    assert result == [0.0, 0.0, 0.0]
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = absolute_percentage_error(expected_data, actual_data)
-    rounded_results = list(map(lambda x: round(x, 2), result))
-    assert rounded_results == [10.0, 10.0, 3.33]
-
-
-def test_absolute_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = absolute_error(expected_data, actual_data)
-    assert result == [0.0, 0.0, 0.0]
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = absolute_error(expected_data, actual_data)
-    rounded_results = list(map(lambda x: round(x, 2), result))
-
-    assert rounded_results == [0.1, 0.2, 0.1]
-
-
-def test_mean_absolute_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = mean_absolute_error(expected_data, actual_data)
-    assert result == 0.0
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = mean_absolute_error(expected_data, actual_data)
-    assert round(result, 3) == 0.133
-
-
-def test_mean_absolute_percentage_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = mean_absolute_percentage_error(expected_data, actual_data)
-    assert result == 0.0
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = mean_absolute_percentage_error(expected_data, actual_data)
-    assert round(result, 3) == 7.778
-
-
-def test_mean_squared_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = mean_squared_error(expected_data, actual_data)
-    assert result == 0.0
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = mean_squared_error(expected_data, actual_data)
-    assert round(result, 2) == 0.02
-
-
-def test_root_mean_squared_error(metric_values):
-    # equal lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_one"]
-    result = root_mean_squared_error(expected_data, actual_data)
-    assert result == 0.0
-    # different lists
-    expected_data = metric_values["metric_values_sample_one"]
-    actual_data = metric_values["metric_values_sample_two"]
-    result = root_mean_squared_error(expected_data, actual_data)
-    assert round(result, 3) == 0.141
-
-
-@pytest.mark.skip(reason="Test requires certain preconditions.")
-def test_Metrics_Validator(prom_config, prom_metrics):
-    pass
+    values = [float(s[1]) for s in prom_response[0]["values"]]
+    assert series.values == values

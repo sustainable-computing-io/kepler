@@ -1,21 +1,24 @@
+log_level: warn # default
+
 remote:
   host: 192.168.124.28
   # ### defaults ###
-  # port: 22
-  # username: fedora
-  # password: supersecret
-  # pkey: ~/.ssh/id_rsa
+  port: 22
+  username: fedora
+  password: supersecret
+  pkey: ~/.ssh/id_rsa
 
 metal:
-  metal_job_name: metal
-  vm_job_name: vm
   vm:
     pid: 2093543
-    name: my-vm
 
 prometheus:
-  url: http://localhost:9090
-  interval: 30s
-  steps: 10s
+	job: 
+		vm: vm  # default
+		metal: metal  # default
 
-query_path: ./query.json
+  url: http://localhost:9090
+  rate_interval: 20s  # default
+  steps: 3s  # 4 x scrape-interval
+
+validations_file: ./validations.yaml  # default

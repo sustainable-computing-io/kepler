@@ -1,0 +1,136 @@
+validations:
+  - name: platform - dynamic
+    actual: |
+      rate(
+        kepler_{level}_platform_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_platform_joules_total{{
+          job="{vm_job_name}",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+  - name: package - dynamic
+    actual: |
+      rate(
+        kepler_{level}_package_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_package_joules_total{{
+          job="{vm_job_name}",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+  - name: core - dynamic
+    actual: |
+      rate(
+        kepler_{level}_core_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_core_joules_total{{
+          job="{vm_job_name}",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+  - name: dram - dynamic
+    actual: |
+      rate(
+        kepler_{level}_dram_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_dram_joules_total{{
+          job="{vm_job_name}",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+  - name: platform - idle
+    actual: |
+      rate(
+        kepler_{level}_platform_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="idle",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_platform_joules_total{{
+          job="{vm_job_name}",
+          mode="idle",
+        }}[{rate_interval}]
+      )
+
+  - name: package - idle
+    actual: |
+      rate(
+        kepler_{level}_package_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="idle",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_package_joules_total{{
+          job="{vm_job_name}",
+          mode="idle",
+        }}[{rate_interval}]
+      )
+
+  - name: core - idle
+    actual: |
+      rate(
+        kepler_{level}_core_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="idle",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_core_joules_total{{
+          job="{vm_job_name}",
+          mode="idle",
+        }}[{rate_interval}]
+      )
+
+  - name: dram - idle
+    actual: |
+      rate(
+        kepler_{level}_dram_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+          mode="idle",
+        }}[{rate_interval}]
+      )
+    expected: |
+      rate(
+        kepler_node_dram_joules_total{{
+          job="{vm_job_name}",
+          mode="idle",
+        }}[{rate_interval}]
+      )

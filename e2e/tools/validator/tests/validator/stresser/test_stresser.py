@@ -5,13 +5,7 @@ from validator import config
 
 @pytest.fixture
 def remote_params():
-    return config.Remote(
-        host="192.168.122.51",
-        port=22,
-        user="whisper",
-        password=None,
-        pkey=None
-    )
+    return config.Remote(host="192.168.122.51", port=22, user="whisper", password=None, pkey=None)
 
 
 @pytest.mark.skip(reason="Test requires certain preconditions.")
