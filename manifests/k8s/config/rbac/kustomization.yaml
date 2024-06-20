@@ -3,5 +3,5 @@ resources:
   - k8s_clusterrole.yaml
   - k8s_clusterrole_binding.yaml
 # uncomment these two lines if prometheus deployed
-# - prometheus_role.yaml
-# - prometheus_role_binding.yaml
+#  - prometheus_role.yaml
+#  - prometheus_role_binding.yaml
