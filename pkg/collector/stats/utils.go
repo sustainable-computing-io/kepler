@@ -224,8 +224,15 @@ func getS390xArchitecture() (string, error) {
 func getCPUMicroArchitecture(family, model, stepping string) (string, error) {
 	yamlBytes, err := os.ReadFile(CPUModelDataPath)
 	if err != nil {
-		klog.Errorf("failed to read cpus.yaml: %v", err)
-		return "", err
+		currentFilePath, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		localCPUModelDataPath := strings.SplitAfter(currentFilePath, "kepler")[0]
+		yamlBytes, err = os.ReadFile(localCPUModelDataPath + "/data/cpus.yaml")
+		if err != nil {
+			return "", err
+		}
 	}
 	cpus := &CPUS{
 		cpusInfo: []CPUModelData{},
