@@ -5,4 +5,4 @@ resources:
 
 patchesStrategicMerge: []
 # add this line for openshift patch
-# - ./patch/patch-openshift.yaml
+#  - ./patch/patch-openshift.yaml

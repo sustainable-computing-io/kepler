@@ -7,7 +7,7 @@ bases:
   - ../rbac
   - ../exporter
 # add this line to enable model-server
-# - ../model-server
+#  - ../model-server
 
 # TO-DO: patch namespace=openshift-monitoring for OPENSHIFT_DEPLOY
 patchesJson6902:
@@ -23,8 +23,8 @@ patchesJson6902:
 
 patchesStrategicMerge: []
 # add this line to set model-server endpoint to kepler
-# - ./patch/patch-model-server-kepler-config.yaml
+#  - ./patch/patch-model-server-kepler-config.yaml
 # add this line to change log level for debugging
-# - ./patch/patch-debug.yaml
+#  - ./patch/patch-debug.yaml
 # add this line to get high metric granularity (3s interval)
-# - ./patch/patch-high-granularity.yaml
+#  - ./patch/patch-high-granularity.yaml

@@ -2,30 +2,30 @@ resources:
   # uncomment this line for openshift
   # - openshift_scc.yaml
   - exporter.yaml
-# uncomment this line if prometheus deployed
-# - prometheus_common_service_monitor.yaml
-# - prometheus_common_rules.yaml
-# - prometheus_high_granularity_rules.yaml
+#  uncomment this line if prometheus deployed
+#  - prometheus_common_service_monitor.yaml
+#  - prometheus_common_rules.yaml
+#  - prometheus_high_granularity_rules.yaml
 
 patchesStrategicMerge: []
 # add this line to allow ci
-# - ./patch/patch-ci.yaml
+#  - ./patch/patch-ci.yaml
 # add this for kind provider ci
-# - ./patch/patch-kind.yaml
+#  - ./patch/patch-kind.yaml
 # add this line for bm case
-# - ./patch/patch-bm.yaml
+#  - ./patch/patch-bm.yaml
 # add this line to enable estimator sidecar
-# - ./patch/patch-estimator-sidecar.yaml
+#  - ./patch/patch-estimator-sidecar.yaml
 # add this line for openshift patch
-# - ./patch/patch-openshift.yaml
+#  - ./patch/patch-openshift.yaml
 # add this line for rootless patch
-# - ./patch/patch-rootless.yaml
+#  - ./patch/patch-rootless.yaml
 # add this line for qat patch
-# - ./patch/patch-qat.yaml
+#  - ./patch/patch-qat.yaml
 # add this line for dcgmi patch
-# - ./patch/patch-dcgmi.yaml
+#  - ./patch/patch-dcgmi.yaml
 # add this line for habana patch
-# - ./patch/patch-habana.yaml
+#  - ./patch/patch-habana.yaml
 
 secretGenerator:
   - name: redfish
