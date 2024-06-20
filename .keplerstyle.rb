@@ -1,4 +1,4 @@
-# Style configuration for Hendrix documentation files.
+# Style configuration for Kepler documentation files.
 #
 # For details on how to configure, see [markdownlint docs][1].
 #

@@ -16,9 +16,9 @@ To get started with this template:
 
 1. **Make a copy of this template.** Copy this template into the enhancements
    directory and name the file appropriately.
-2. **Fill out all applicable sections.**
-3. **Create a PR.** Assign it to those with expertise to sponsor the process.
-4. **Merge after reaching consensus.** Merge when there is consensus that the
+1. **Fill out all applicable sections.**
+1. **Create a PR.** Assign it to those with expertise to sponsor the process.
+1. **Merge after reaching consensus.** Merge when there is consensus that the
    design is complete and all reviewer questions have been answered so that work
    can begin. Come back and update the document if important details (API field
    names, workflow, etc.) change during code review.

@@ -54,7 +54,7 @@ more flexible to face those challenges.
 - Keep today's feature as
 
 1. Start up a k8s cluster with local development usage.
-2. Start up a k8s cluster during pipeline as github action usage on github
+1. Start up a k8s cluster during pipeline as github action usage on github
    agent.
 
 - Support version update for tooling as KIND.

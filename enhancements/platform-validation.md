@@ -33,19 +33,19 @@ check criteria to below concerns:
 1. Whether the specific CPU/GPU/FPGA/Accelerator model is well supported in
    Kepler?
 
-2. Whether the data/metrics of specific power source are correctly exported?
+1. Whether the data/metrics of specific power source are correctly exported?
 
-3. Whether the power measurement accuracy is acceptable?
+1. Whether the power measurement accuracy is acceptable?
 
-4. More...
+1. More...
 
 ### Goals
 
 1. Define workflow to validate specific hardware platform support in Kepler.
 
-2. Design test cases for such validation. (Platform agnostic and specific cases)
+1. Design test cases for such validation. (Platform agnostic and specific cases)
 
-3. Define test report format and release process. (General test items result and
+1. Define test report format and release process. (General test items result and
    hardware specific items)
 
 ### Non-Goals
@@ -53,7 +53,7 @@ check criteria to below concerns:
 1. Platforms which are not supported by Kepler yet should be out of this
    enhancement's scope.
 
-2. Platforms which do not support power measurement could be low priority for
+1. Platforms which do not support power measurement could be low priority for
    this enhancement, since they depends on model train and the power consumption
    check criteria is TBD.
 
@@ -66,10 +66,10 @@ The specific tasks could be broken down as follows:
 
 1. Platform validation guide document.
 
-2. Platform validation test cases design and implementation.(Both platform
+1. Platform validation test cases design and implementation.(Both platform
    agnostic and specific cases)
 
-3. Platform validation test report format definition, report generation and
+1. Platform validation test report format definition, report generation and
    release process definition.
 
 ### Workflow Description
@@ -107,7 +107,7 @@ Note:
    - Deploy from Kepler Source Code. Follow guide
      [here](https://sustainable-computing.io/installation/kepler/).
 
-2. Above steps cover the whole test lifecycle.
+1. Above steps cover the whole test lifecycle.
 
    - Test setup: Step 1 & 2.
 
@@ -277,7 +277,7 @@ scenarios:
 1. Typical workloads power consumption measurement (carbon footprint) accuracy
    check on specific platform.
 
-2. Carbon footprint accuracy check in scaling scenarios (VPA/HPA) on specific
+1. Carbon footprint accuracy check in scaling scenarios (VPA/HPA) on specific
    platform.
 
 ## Implementation History
@@ -301,10 +301,10 @@ N/A
 1. Github runner machines which cover the Kepler supported platforms. On-prem
    machines, CSP's BMs/VMs, etc.
 
-2. Test cases should follow current ginkgo framework and merged into e2e/
+1. Test cases should follow current ginkgo framework and merged into e2e/
    directory code files.
 
-3. Test report release process needs further investigation, may be rely on
+1. Test report release process needs further investigation, may be rely on
    Ginkgo's Reporting mechanism. Whether needs to integrate test report into
    [SBOM](https://github.com/sustainable-computing-io/kepler/pull/702) is an
    open.
@@ -329,10 +329,10 @@ N/A
       platforms scenarios, we still design and execute test cases based on Kind.
       If needed, we can try other solutions, such as microshift later.
 
-   2. Add more BM platforms validation cases, such as s390x and arm64 platforms,
+   1. Add more BM platforms validation cases, such as s390x and arm64 platforms,
       adjust platform validation framework if needed.
 
-2. Test scenarios coverage.
+1. Test scenarios coverage.
 
    AI:
 
@@ -356,16 +356,16 @@ N/A
 
       - For VM scenario, needs more investigations and TBD.
 
-3. Some test cases' feasibility.
+1. Some test cases' feasibility.
 
    AI:
 
    1. Test plan and cases are open in community.
 
-   2. Test code and execution workflow should be reviewed before merge. Separate
+   1. Test code and execution workflow should be reviewed before merge. Separate
       PRs needed case by case in the future.
 
-4. The content/format/release process of the test report.
+1. The content/format/release process of the test report.
 
    AI:
 
@@ -374,9 +374,9 @@ N/A
       process. Some references are
       [here](https://onsi.github.io/ginkgo/#reporting-and-profiling-suites)
 
-   2. Other cases are open and TBD.
+   1. Other cases are open and TBD.
 
-5. Test cases execution workflow.
+1. Test cases execution workflow.
 
    AI:
 
@@ -384,22 +384,22 @@ N/A
       happen on specific self-hosted runners, manual or release based one-shot
       executions are appropriate.
 
-   2. PR triggered cases should be merged into current integration test scope;
+   1. PR triggered cases should be merged into current integration test scope;
       others may live under e2e directory also but handled by different GHA
       workflow ymls.
 
-   3. Separate PRs needed for change here.
+   1. Separate PRs needed for change here.
 
-6. More test cases?
+1. More test cases?
 
    AI:
 
    1. Marcelo introduced `stress-ng` for stress test. Need investigation whether
       it is applicable in this PR scope.
 
-   2. Some further cases are introduced in 0.6.0 release, see `Test Plan`
+   1. Some further cases are introduced in 0.6.0 release, see `Test Plan`
       section above.
 
-   3. More brainstorming ideas are needed and welcomed in community, as long as
+   1. More brainstorming ideas are needed and welcomed in community, as long as
       they are `Platform Validation` related. Ideas could be added here, test
       cases should be separate PRs.

@@ -37,17 +37,17 @@ how to make CI, dashboard, bi-weekly meeting together.
 
 1. Create a pre release page as enhancement of this
    [PR](https://github.com/sustainable-computing-io/kepler/pull/760).
-2. To further considering reducing CVE by automatic build, enhance CI to support
+1. To further considering reducing CVE by automatic build, enhance CI to support
    build latest code on default branch and latest release branch bi weekly?
    Hence provide something as security patch bi weekly.
-3. To avoid breaking changes in customer CI breaks other Repos. Make a schedule
+1. To avoid breaking changes in customer CI breaks other Repos. Make a schedule
    for customer CI and other repos release.
 
 ### Non-Goals
 
 1. Self host github action integration. Considering with privilege issue on self
    hosted BM... mark out of scope.
-2. Test scope as metric of OS, CPU arch, k8s platform is collecting in our
+1. Test scope as metric of OS, CPU arch, k8s platform is collecting in our
    google doc as meeting minutes, and some OS/CPU arch may need to test manually
    or by other CI tooling support, hence mark it out of scope today.
 

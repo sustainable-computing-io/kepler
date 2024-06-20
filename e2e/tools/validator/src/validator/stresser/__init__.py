@@ -61,7 +61,7 @@ class Remote:
         sftp_client.put(script_path, target_script)
         sftp_client.close()
         self.ssh_client.exec_command(f"chmod +x {target_script}")
-        logger.info(f"copying script {script_path} to remote - {target_script} - successfull")
+        logger.info(f"copying script {script_path} to remote - {target_script} - successful")
 
     def run_script(self, script_path: str) -> ScriptResult:
         self.connect()

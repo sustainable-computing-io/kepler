@@ -6,7 +6,7 @@ show any data. For that reeason to allow users to visualise Kepler data with the
 demo dashboard we are now providing two versions.
 
 1. The original dashboard that will visualise all Kepler data
-2. A version of the dashboard that uses topk to reduce the data being visualised
+1. A version of the dashboard that uses topk to reduce the data being visualised
    and also changing the default Grafana namespace to the kepler namespace
 
 ## Enabling Dashboard for Kepler on OpenShift

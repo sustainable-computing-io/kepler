@@ -10,7 +10,7 @@ unit and integration tests, web design, etc.
 1. Before opening a new issue or PR, search for any existing issues
    [here](https://github.com/sustainable-computing-io/kepler/issues) to avoid
    duplication.
-2. For any code contribution, please read the documents below carefully:
+1. For any code contribution, please read the documents below carefully:
    - [License](./LICENSE)
    - [DCO](./DCO)
 
@@ -18,9 +18,9 @@ If you are good with our [License](./LICENSE) and [DCO](./DCO), follow these
 steps to start with your 1st code contribution:
 
 1. Fork & clone Kepler
-2. We use [ginkgo](https://onsi.github.io/ginkgo/#getting-started) as a test
+1. We use [ginkgo](https://onsi.github.io/ginkgo/#getting-started) as a test
    framework. Please add units tests that cover your code changes.
-3. For any new feature design, or feature level changes, please create an issue
+1. For any new feature design, or feature level changes, please create an issue
    1st, then submit a PR following document and steps
    [here](./enhancements/README.md) before code implementation.
 
@@ -30,10 +30,10 @@ Once you are ready to start working on an issue, follow the steps to set up your
 Here is a checklist for when you are ready to open a Pull Request:
 
 1. Add [unit tests](#unit-tests) that cover your changes
-2. Ensure that all unit tests are successful
-3. Run the [integration tests](#integration-tests) locally
-4. [Sign](#signed-commits) your commits
-5. [Format](#commit-messages) your commit messages
+1. Ensure that all unit tests are successful
+1. Run the [integration tests](#integration-tests) locally
+1. [Sign](#signed-commits) your commits
+1. [Format](#commit-messages) your commit messages
 
 Once a PR is open, Kepler [reviewers](./Contributors.md) will review the PR.
 Thank you for contributing to Kepler!

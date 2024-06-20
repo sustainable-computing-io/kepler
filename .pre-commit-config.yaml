@@ -1,25 +1,6 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
-  - repo: https://github.com/executablebooks/mdformat
-    # Do this before other tools "fixing" the line endings
-    rev: 0.7.17
-    hooks:
-      - id: mdformat
-        name: Format Markdown
-        entry: mdformat # Executable to run, with fixed options
-        language: python
-        types: [markdown]
-        args: [--wrap, "80", --number]
-        additional_dependencies:
-          - mdformat-frontmatter
-          - mdformat-toc
-          - mdformat-shfmt
-          - mdformat-tables
-          - mdformat-config
-          - mdformat-black
-          - mdformat-web
-          - mdformat-gfm
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -35,10 +16,6 @@ repos:
     hooks:
       - id: clang-format
         types_or: [c]
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.59.1
-    hooks:
-      - id: golangci-lint
   - repo: https://github.com/markdownlint/markdownlint.git
     rev: v0.13.0
     hooks:
@@ -55,4 +32,8 @@ repos:
         args: [--toml, kepler-codespell.precommit-toml]
         additional_dependencies:
           - tomli
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.1
+    hooks:
+      - id: golangci-lint
 exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*|^local-dev-cluster/.*

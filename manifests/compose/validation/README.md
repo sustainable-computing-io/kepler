@@ -5,7 +5,7 @@ development box is a Baremetal.
 
 1. Create a Virtual Machine
 
-2. Ensure the CPU is pinned to the VM. E.g. if you are using libvirt, you can
+1. Ensure the CPU is pinned to the VM. E.g. if you are using libvirt, you can
    use `vcpupin` as follows
 
    ```text
