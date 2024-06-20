@@ -6,6 +6,7 @@ import os
 import yaml
 from typing import NamedTuple
 
+
 class Remote(NamedTuple):
     host: str
     port: int
@@ -16,25 +17,34 @@ class Remote(NamedTuple):
     def __repr__(self):
         return f"<Remote {self.user}@{self.host}>"
 
+
 class VM(NamedTuple):
     pid: int
     name: str
 
+
 class Metal(NamedTuple):
-    metal_job_name: str
-    vm_job_name: str
     vm: VM
+
+
+class PrometheusJob(NamedTuple):
+    metal: str
+    vm: str
+
 
 class Prometheus(NamedTuple):
     url: str
-    interval: str
+    rate_interval: str
     step: str
+    job: PrometheusJob
+
 
 class Validator(NamedTuple):
+    log_level: str
     remote: Remote
     metal: Metal
     prometheus: Prometheus
-    query_path: str
+    validations_file: str
 
     def __repr__(self):
         return f"<Config {self.remote}@{self.prometheus}>"
@@ -50,49 +60,57 @@ def load(config_file: str) -> Validator:
     Returns:
         Config: A named tuple containing the configuration values.
     """
-    with open(config_file, 'r') as file:
+    with open(config_file, "r") as file:
         config = yaml.safe_load(file)
 
-    remote_config = config['remote']
+    remote_config = config["remote"]
     # NOTE: set default path to pkey if password is not set
 
-    pkey = remote_config.get('pkey', '')
-    if pkey != '':
-        pkey=os.path.expanduser(pkey)
+    pkey = remote_config.get("pkey", "")
+    if pkey:
+        pkey = os.path.expanduser(pkey)
 
     # NOTE: set default path to pkey if password is not set
-    if remote_config.get('password') is None:
-        pkey=os.path.expanduser(pkey or '~/.ssh/id_rsa')
+    if not remote_config.get("password"):
+        pkey = os.path.expanduser(pkey or "~/.ssh/id_rsa")
 
     remote = Remote(
-        host=remote_config['host'],
-        port=remote_config.get('port', 22),
-        user=remote_config.get('username', 'fedora'),
-        password=remote_config.get('password', ''),
-        pkey=pkey
+        host=remote_config["host"],
+        port=remote_config.get("port", 22),
+        user=remote_config.get("username", "fedora"),
+        password=remote_config.get("password", ""),
+        pkey=pkey,
     )
 
-    metal_config = config['metal']
-    metal_job_name = metal_config.get('metal_job_name', 'metal')
-    vm_job_name = metal_config.get('vm_job_name', 'vm')
-    vm_config = metal_config['vm']
-    pid = vm_config.get('pid', 0)
-    vm_name = vm_config.get('name', '')
+    metal_config = config["metal"]
+    vm_config = metal_config["vm"]
+    pid = vm_config.get("pid", 0)
+    vm_name = vm_config.get("name", "")
     vm = VM(pid=pid, name=vm_name)
-    metal = Metal(vm=vm, metal_job_name=metal_job_name, vm_job_name=vm_job_name)
+    metal = Metal(vm=vm)
 
-    prometheus_config = config['prometheus']
-    prometheus = Prometheus(
-        url=prometheus_config['url'],
-        interval=prometheus_config.get('interval', '12s'),
-        step=prometheus_config.get('step', '3s')
+    prom_config = config["prometheus"]
+    prom_job = prom_config.get("job", {})
+    job = PrometheusJob(
+        metal=prom_job.get("metal", "metal"),
+        vm=prom_job.get("vm", "vm"),
     )
 
-    query_path = config.get('query_path', 'query.json' )
+    prometheus = Prometheus(
+        url=prom_config["url"],
+        # must be 4 x scrape-interval
+        rate_interval=prom_config.get("rate_interval", "20s"),
+        step=prom_config.get("step", "3s"),
+        job=job,
+    )
+
+    validations_file = config.get("validations_file", "validations.yaml")
+    log_level = config.get("log_level", "warn")
 
     return Validator(
         remote=remote,
         metal=metal,
         prometheus=prometheus,
-        query_path=query_path
+        validations_file=validations_file,
+        log_level=log_level,
     )

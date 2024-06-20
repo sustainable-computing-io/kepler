@@ -84,3 +84,8 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+	"focus",  # used in development to mark focused tests
+]
