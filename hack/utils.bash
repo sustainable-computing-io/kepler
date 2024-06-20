@@ -64,7 +64,7 @@ info_run() {
 
 run() {
 	echo -e " ❯ $*\n" >&2
-	"$@"
+	"$@" || die "Failed to run: $*"
 }
 
 die() {
