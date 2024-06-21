@@ -54,7 +54,7 @@ type acceleratorInterface interface {
 	SetGPUCollectionSupported(bool)
 }
 
-// Init() only returns the erro regarding if the gpu collector was suceffully initialized or not
+// Init() only returns the error regarding if the gpu collector was suceffully initialized or not
 // The gpu.go file has an init function that starts and configures the gpu collector
 // However this file is only included in the build if kepler is run with gpus support.
 // This is necessary because nvidia libraries are not available on all systems
@@ -91,7 +91,7 @@ func GetAbsEnergyFromGPU() []uint32 {
 }
 
 // GetProcessResourceUtilizationPerDevice tries to collect the GPU metrics.
-// There is a known issue that some clusters the nvidia GPU can stop to respod and we need to start it again.
+// There is a known issue that some clusters the nvidia GPU can stop to respond and we need to start it again.
 // See https://github.com/sustainable-computing-io/kepler/issues/610.
 func GetProcessResourceUtilizationPerDevice(device gpu_source.Device, since time.Duration) (map[uint32]gpu_source.ProcessUtilizationSample, error) {
 	if acceleratorImpl != nil && config.EnabledGPU {

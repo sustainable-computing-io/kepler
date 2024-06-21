@@ -40,7 +40,7 @@ type collector struct {
 	// NodeStats holds all node energy and resource usage metrics
 	NodeStats *stats.NodeStats
 
-	// Lock to syncronize the collector update with prometheus exporter
+	// Lock to synchronize the collector update with prometheus exporter
 	Mx *sync.Mutex
 }
 
@@ -85,7 +85,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.Mx.Lock()
 	utils.CollectEnergyMetrics(ch, c.NodeStats, c.collectors)
 	// we export different node resource utilization metrics than process, container and vms
-	// TODO: verify if the resoruce utilization metrics are needed
+	// TODO: verify if the resource utilization metrics are needed
 	utils.CollectResUtil(ch, c.NodeStats, config.QATUtilization, c.collectors[config.QATUtilization])
 	c.Mx.Unlock()
 

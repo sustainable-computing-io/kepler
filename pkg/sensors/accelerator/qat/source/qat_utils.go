@@ -82,7 +82,7 @@ func parseStatusInfo(statusData string) (map[string]interface{}, error) {
 	return availableDev, nil
 }
 
-// controlTelemetry obtain control paths based on QAT information, then turn on/off telemtry
+// controlTelemetry obtain control paths based on QAT information, then turn on/off telemetry
 func controlTelemetry(devices map[string]interface{}, mode int) error {
 	var err error
 	for qatDev, qatInfo := range devices {

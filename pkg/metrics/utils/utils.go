@@ -105,7 +105,7 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 
 func convertUnit(metricName string, val uint64) float64 {
 	if metricName == config.CPUTime {
-		// convert microseconds to miliseconds
+		// convert microseconds to milliseconds
 		return float64(val) / 1000.0
 	}
 	return float64(val)

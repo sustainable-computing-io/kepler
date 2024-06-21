@@ -16,8 +16,24 @@ repos:
     hooks:
       - id: clang-format
         types_or: [c]
+  - repo: https://github.com/markdownlint/markdownlint.git
+    rev: v0.13.0
+    hooks:
+      - id: markdownlint_docker
+    name: Markdownlint Docker
+    description: Run markdown lint on your Markdown files using the project docker image
+    language: docker_image
+    files: \.(md|mdown|markdown)$
+    entry: markdownlint/markdownlint -c .mdlrc
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args: [--toml, kepler-codespell.precommit-toml]
+        additional_dependencies:
+          - tomli
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.59.1
     hooks:
       - id: golangci-lint
-exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*
+exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*|^local-dev-cluster/.*

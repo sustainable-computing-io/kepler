@@ -178,7 +178,7 @@ static inline void register_new_process_if_not_exist()
 		bpf_map_update_elem(
 			&processes, &curr_tgid, &new_process, BPF_NOEXIST);
 
-		// add new thread id (curr_pid) to the precess id (tgid) list
+		// add new thread id (curr_pid) to the process id (tgid) list
 		bpf_map_update_elem(
 			&pid_tgid_map, &curr_pid, &curr_tgid, BPF_NOEXIST);
 	}

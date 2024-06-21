@@ -39,7 +39,7 @@ type collector struct {
 	// VMStats holds all vms energy and resource usage metrics
 	VMStats map[string]*stats.VMStats
 
-	// Lock to syncronize the collector update with prometheus exporter
+	// Lock to synchronize the collector update with prometheus exporter
 	Mx *sync.Mutex
 
 	bpfSupportedMetrics bpf.SupportedMetrics

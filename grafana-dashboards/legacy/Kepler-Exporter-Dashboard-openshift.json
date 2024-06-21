@@ -285,9 +285,7 @@
         "displayMode": "gradient",
         "orientation": "vertical",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -429,10 +427,7 @@
   "refresh": "5s",
   "schemaVersion": 27,
   "style": "dark",
-  "tags": [
-    "kepler",
-    "energy consumption"
-  ],
+  "tags": ["kepler", "energy consumption"],
   "templating": {
     "list": [
       {
