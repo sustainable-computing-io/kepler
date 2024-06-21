@@ -52,7 +52,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
         with:
-          fetch-depth: 0 # Set fetch-depth to 0 to retrieve the entire history for all branches and tags, essential for accurate version computation.
+           # NOTE:  setting fetch-depth to 0 to retrieve the entire history 
+           # instead of a shallow-clone so that all tags are fetched as well. 
+           # This is necessary for computing the VERSION using `git describe`
+          fetch-depth: 0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
