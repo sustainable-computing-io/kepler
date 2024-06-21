@@ -33,18 +33,37 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
+	"github.com/sustainable-computing-io/kepler/pkg/metrics"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
-	kversion "github.com/sustainable-computing-io/kepler/pkg/version"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"k8s.io/klog/v2"
 )
 
+var (
+	// Version is the version of the exporter. Set by the linker flags in the Makefile.
+	Version string
+
+	// Revision is the Git commit that was compiled. Set by the linker flags in the Makefile.
+	Revision string
+
+	// Branch is the Git branch that was compiled. Set by the linker flags in the Makefile.
+	Branch string
+
+	// OS is the operating system the exporter was built for. Set by the linker flags in the Makefile.
+	OS string
+
+	// Arch is the architecture the exporter was built for. Set by the linker flags in the Makefile.
+	Arch string
+)
+
 const (
+
 	// to change these msg, you also need to update the e2e test
 	finishingMsg    = "Exiting..."
 	startedMsg      = "Started Kepler in %s"
@@ -78,7 +97,23 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
-	klog.Infof("Kepler running on version: %s", kversion.Version)
+	klog.Infof("Kepler running on version: %s", Version)
+
+	registry := metrics.GetRegistry()
+	registry.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "kepler_exporter_build_info",
+			Help: "A metric with a constant '1' value labeled by version, revision, branch, os and arch from which kepler_exporter was built.",
+			ConstLabels: prometheus.Labels{
+				"branch":   Branch,
+				"revision": Revision,
+				"version":  Version,
+				"os":       OS,
+				"arch":     Arch,
+			},
+		},
+		func() float64 { return 1 },
+	))
 
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)

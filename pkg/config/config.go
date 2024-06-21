@@ -74,7 +74,6 @@ var (
 	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)
 	ExposeVMStats                = getBoolConfig("EXPOSE_VM_METRICS", true)
 	ExposeHardwareCounterMetrics = getBoolConfig("EXPOSE_HW_COUNTER_METRICS", true)
-	ExposeCgroupMetrics          = getBoolConfig("EXPOSE_CGROUP_METRICS", true)
 	ExposeIRQCounterMetrics      = getBoolConfig("EXPOSE_IRQ_COUNTER_METRICS", true)
 	ExposeIdlePowerMetrics       = getBoolConfig("EXPOSE_ESTIMATED_IDLE_POWER_METRICS", false)
 	MockACPIPowerPath            = getConfig("MOCK_ACPI_POWER_PATH", "")
@@ -152,7 +151,6 @@ func logBoolConfigs() {
 		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessStats)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
-		klog.V(5).Infof("EXPOSE_CGROUP_METRICS: %t", ExposeCgroupMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", ExposeIdlePowerMetrics)
 		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", BPFSampleRate)
@@ -445,10 +443,6 @@ func GetModelConfigMap() map[string]string {
 		}
 	}
 	return configMap
-}
-
-func IsCgroupMetricsEnabled() bool {
-	return ExposeCgroupMetrics
 }
 
 func SetGpuUsageMetric(metric string) {

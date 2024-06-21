@@ -7,9 +7,9 @@ spec:
   template:
     spec:
       containers:
-      - name: kepler-exporter
+        - name: kepler-exporter
       volumes:
-      - name: proc
-        hostPath:
-          path: /proc-host
-          type: Directory
+        - name: proc
+          hostPath:
+            path: /proc-host
+            type: Directory

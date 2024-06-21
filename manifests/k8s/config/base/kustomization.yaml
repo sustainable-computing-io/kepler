@@ -4,27 +4,27 @@ commonLabels:
   sustainable-computing.io/app: kepler
 
 bases:
-- ../rbac
-- ../exporter
+  - ../rbac
+  - ../exporter
 # add this line to enable model-server
-# - ../model-server
+#  - ../model-server
 
 # TO-DO: patch namespace=openshift-monitoring for OPENSHIFT_DEPLOY
 patchesJson6902:
-- target:
-    group: monitoring.coreos.com
-    version: v1
-    kind: ServiceMonitor
-    name: kepler-exporter
-  patch: |-
-    - op: replace
-      path: /metadata/namespace
-      value: monitoring
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
+      name: kepler-exporter
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: monitoring
 
 patchesStrategicMerge: []
 # add this line to set model-server endpoint to kepler
-# - ./patch/patch-model-server-kepler-config.yaml
+#  - ./patch/patch-model-server-kepler-config.yaml
 # add this line to change log level for debugging
-# - ./patch/patch-debug.yaml
+#  - ./patch/patch-debug.yaml
 # add this line to get high metric granularity (3s interval)
-# - ./patch/patch-high-granularity.yaml
+#  - ./patch/patch-high-granularity.yaml

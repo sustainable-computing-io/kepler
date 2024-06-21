@@ -1,7 +1,7 @@
 services:
   grafana:
     environment:
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/validation/dashboard.json"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/validation/dashboard.json
     volumes:
       - type: bind
         source: ../validation/metal/grafana/dashboards/scaphandre

@@ -1,34 +1,36 @@
 name: Release
-on:
+on: # yamllint disable-line rule:truthy
   workflow_dispatch:
     # Inputs the workflow accepts.
     inputs:
       tag:
-        description: "Tag name, e.g. v0.4"
+        description: Tag name, e.g. v0.4
         default: v0.4
         required: true
       release:
-        description: "Release name, e.g. release-0.4"
+        description: Release name, e.g. release-0.4
         default: release-0.4
         required: true
+      sha:
+        description: sha of the commit to create the release branch from
+        default: ""
+        required: true
       rpm_version:
-        description: "rpm version, e.g. 0.4"
-        default: 0.4
+        description: rpm version, e.g. 0.4
+        default: "0.4"
         required: true
       rpm_release:
-        description: "rpm release, e.g. 1"
-        default: 1
+        description: rpm release, e.g. 1
+        default: "1"
         required: true
       committer:
-        description: "rpm committer, e.g. gh-actions"
-        default: "gh-actions"
+        description: rpm committer, e.g. gh-actions
+        default: gh-actions
         required: false
       arch:
-        description: "rpm arch, e.g. x86_64"
-        default: "x86_64"
+        description: rpm arch, e.g. x86_64
+        default: x86_64
         required: false
-
-
 
 jobs:
   build:
@@ -67,7 +69,7 @@ jobs:
       - name: Build RPM packages
         id: rpm_build
         env:
-          _VERSION_ : ${{ github.event.inputs.rpm_version }}
+          _VERSION_: ${{ github.event.inputs.rpm_version }}
           _RELEASE_: ${{ github.event.inputs.rpm_release }}
           _COMMITTER_: ${{ github.event.inputs.committer }}
           _ARCH_: ${{ github.event.inputs.arch }}
@@ -91,14 +93,13 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-    - name: Create release branch
-      uses: peterjgrainger/action-create-branch@v3.0.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        branch: ${{ github.event.inputs.release }}
-        sha: '${{ github.event.pull_request.head.sha }}'
-
+      - name: Create release branch
+        uses: peterjgrainger/action-create-branch@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          branch: ${{ github.event.inputs.release }}
+          sha: ${{ github.event.inputs.sha }}
 
   push-image:
     name: Push image to the registry
@@ -107,8 +108,8 @@ jobs:
     with:
       imageTag: ${{ github.event.inputs.release }}
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
 
   releasepage:
     name: download Kepler image SBOM

@@ -4,4 +4,4 @@ metadata:
   name: kepler-cfm
   namespace: system
 data:
-  PROMETHEUS_SCRAPE_INTERVAL: "3s"
+  PROMETHEUS_SCRAPE_INTERVAL: 3s

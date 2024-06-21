@@ -69,12 +69,6 @@ var (
 		config.IdleEnergyInGPU,
 		config.IdleEnergyInPlatform,
 	}
-	CGroupMetricNames = []string{
-		config.CgroupfsCPU,
-		config.CgroupfsMemory,
-		config.CgroupfsSystemCPU,
-		config.CgroupfsUserCPU,
-	}
 	GPUMetricNames = []string{
 		config.GPUComputeUtilization,
 		config.GPUMemUtilization,

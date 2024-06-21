@@ -1,4 +1,4 @@
 scrape_configs:
-  - job_name: 'latest'
+  - job_name: latest
     static_configs:
-      - targets: ['kepler-latest:8888']
+      - targets: [kepler-latest:8888]

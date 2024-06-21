@@ -23,11 +23,10 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	cgroup_api "github.com/sustainable-computing-io/kepler/pkg/cgroup"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/energy"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/accelerator"
 	resourceBpf "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
-	cgroup_collector "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -77,14 +76,6 @@ func NewCollector(bpfExporter bpf.Exporter) *Collector {
 }
 
 func (c *Collector) Initialize() error {
-	if config.IsCgroupMetricsEnabled() {
-		_, err := cgroup_api.Init()
-		if err != nil && !config.EnableProcessStats {
-			klog.V(5).Infoln(err)
-			return err
-		}
-	}
-
 	// For local estimator, there is endpoint provided, thus we should let
 	// model component decide whether/how to init
 	model.CreatePowerEstimatorModels(
@@ -159,8 +150,6 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 	wg.Wait()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
-	// update the deprecated cgroup metrics. Note that we only call this function after all process metrics were aggregated per container
-	c.updateContainerResourceUtilizationMetrics()
 }
 
 // update the node metrics that are not related to aggregated resource utilization of processes
@@ -178,16 +167,6 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
-	}
-}
-
-// this is only for cgroup metrics, as these metrics are deprecated we might remove thi in the future
-func (c *Collector) updateContainerResourceUtilizationMetrics() {
-	if config.IsExposeContainerStatsEnabled() {
-		if config.IsCgroupMetricsEnabled() {
-			// collect cgroup metrics from cgroup api
-			cgroup_collector.UpdateContainerCgroupMetrics(c.ContainerStats)
-		}
 	}
 }
 
@@ -255,7 +234,7 @@ func (c *Collector) handleIdlingProcess(pStat *stats.ProcessStats) {
 func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 	numOfInactive := len(c.ContainerStats) - len(foundContainer)
 	if numOfInactive > maxInactiveContainers {
-		aliveContainers, err := cgroup_api.GetAliveContainers()
+		aliveContainers, err := cgroup.GetAliveContainers()
 		if err != nil {
 			klog.V(5).Infoln(err)
 			return

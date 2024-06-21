@@ -1,31 +1,31 @@
 varReference:
-- kind: SecurityContextConstraints
-  group: security.openshift.io
-  version: v1
-  name: kepler-scc
-  path: users
-- kind: ConfigMap
-  group: ""
-  version: v1
-  name: kepler-cfm
-  path: data/KEPLER_NAMESPACE
-- kind: ConfigMap
-  group: ""
-  version: v1
-  name: kepler-cfm
-  path: data/PROMETHEUS_SCRAPE_INTERVAL
-- kind: DaemonSet
-  group: apps
-  version: v1
-  name: kepler-exporter
-  path: spec/template/spec/containers[0]/args[0]
-- kind: ServiceMonitor
-  group: monitoring.coreos.com
-  version: v1
-  name: kepler-exporter
-  path: spec/namespaceSelector/matchNames
-- kind: ServiceMonitor
-  group: monitoring.coreos.com
-  version: v1
-  name: kepler-exporter
-  path: spec/endpoints/interval
+  - kind: SecurityContextConstraints
+    group: security.openshift.io
+    version: v1
+    name: kepler-scc
+    path: users
+  - kind: ConfigMap
+    group: ""
+    version: v1
+    name: kepler-cfm
+    path: data/KEPLER_NAMESPACE
+  - kind: ConfigMap
+    group: ""
+    version: v1
+    name: kepler-cfm
+    path: data/PROMETHEUS_SCRAPE_INTERVAL
+  - kind: DaemonSet
+    group: apps
+    version: v1
+    name: kepler-exporter
+    path: spec/template/spec/containers[0]/args[0]
+  - kind: ServiceMonitor
+    group: monitoring.coreos.com
+    version: v1
+    name: kepler-exporter
+    path: spec/namespaceSelector/matchNames
+  - kind: ServiceMonitor
+    group: monitoring.coreos.com
+    version: v1
+    name: kepler-exporter
+    path: spec/endpoints/interval

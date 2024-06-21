@@ -26,7 +26,7 @@ declare -r MANIFESTS_OUT_DIR="${MANIFESTS_OUT_DIR:-_output/generated-manifest}"
 declare -r EXPORTER="${EXPORTER:-kepler-exporter}"
 declare -r KEPLER_NS="${KEPLER_NS:-kepler}"
 declare -r MONITORING_NS="${MONITORING_NS:-monitoring}"
-declare -r KUBECONFIG_PATH=${KUBECONFIG_ROOT_DIR:-$HOME/.kube/config}
+declare -r KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
 source "$PROJECT_ROOT/hack/utils.bash"
 
@@ -87,14 +87,6 @@ intergration_test() {
 
 #TODO Optimze platform-validation tests
 platform_validation() {
-	mkdir -p /tmp/.kube
-
-	if [[ "$CLUSTER_PROVIDER" == "microshift" ]]; then
-		run $CTR_CMD exec -i microshift cat /var/lib/microshift/resources/kubeadmin/kubeconfig >/tmp/.kube/config
-	else
-		run kind get kubeconfig --name=kind >/tmp/.kube/config
-	fi
-
 	watch_service 9102 "$KEPLER_NS" "$EXPORTER" &
 	watch_service 9090 "$MONITORING_NS" prometheus-k8s &
 
@@ -120,7 +112,6 @@ platform_validation() {
 
 main() {
 	mkdir -p "$ARTIFACT_DIR"
-	export KUBECONFIG="$KUBECONFIG_PATH"
 
 	local ret=0
 	case "${1-}" in

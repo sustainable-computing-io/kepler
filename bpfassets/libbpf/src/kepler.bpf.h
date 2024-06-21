@@ -36,6 +36,7 @@ typedef struct pid_time_t {
 #define TASK_RUNNING 0
 
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_core_read.h>
 
 enum bpf_map_type {
 	BPF_MAP_TYPE_UNSPEC = 0,
