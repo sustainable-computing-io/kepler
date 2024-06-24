@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cluster_provider: [kind, microshift]
+        cluster_provider: [kind]
     steps:
       - name: checkout source
         uses: actions/checkout@v4.1.1

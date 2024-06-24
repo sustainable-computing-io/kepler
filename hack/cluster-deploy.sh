@@ -72,11 +72,6 @@ run_kepler() {
 
 	[[ ! -d "$MANIFESTS_OUT_DIR" ]] && die "Directory ${MANIFESTS_OUT_DIR} DOES NOT exists. Run make generate first."
 
-	[[ "$CLUSTER_PROVIDER" == "microshift" ]] && {
-		sed "s/localhost:5001/registry:5000/g" "${MANIFESTS_OUT_DIR}"/deployment.yaml >"${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp &&
-			mv "${MANIFESTS_OUT_DIR}"/deployment.yaml.tmp "${MANIFESTS_OUT_DIR}"/deployment.yaml
-	}
-
 	kubectl apply -f "${MANIFESTS_OUT_DIR}" || true
 }
 clean_kepler() {
