@@ -29,7 +29,7 @@ CROSS_BUILD_BINDIR := $(OUTPUT_DIR)/bin
 GIT_VERSION        := $(shell git describe --dirty --tags --always --match='v*')
 GIT_SHA            := $(shell git rev-parse HEAD)
 GIT_BRANCH         := $(shell git rev-parse --abbrev-ref HEAD)
-VERSION            ?= $(GIT_VERSION)
+VERSION            := $(GIT_VERSION)
 ROOTLESS           ?= false
 IMAGE_REPO         ?= quay.io/sustainable_computing_io
 BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0
