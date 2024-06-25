@@ -1,9 +1,9 @@
 name: Unit test
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_call:
     secrets:
-      GH_BOT_SECRET:
+      CODECOV_TOKEN:
 
 permissions:
   pull-requests: write
@@ -33,7 +33,7 @@ jobs:
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
           git config --global --add safe.directory /kepler
       - name: install libbpf
-        uses: sustainable-computing-io/kepler-action@v0.0.6
+        uses: sustainable-computing-io/kepler-action@v0.0.7
         with:
           ebpfprovider: libbpf
       - name: Run
@@ -49,28 +49,11 @@ jobs:
           cd ../../../
           make VERBOSE=1 test
           go tool cover -func=coverage.out -o=coverage.out
-      - name: Go Coverage Badge # Pass the `coverage.out` output to this action
-        uses: tj-actions/coverage-badge-go@v2
-        with:
-          filename: coverage.out
 
-      - name: Verify Changed files
-        uses: tj-actions/verify-changed-files@v20
-        id: verify-changed-files
+      - name: Upload coverage reports to Codecov
+        if: github.event_name != 'pull_request'
+        uses: codecov/codecov-action@v4.5.0
         with:
-          files: README.md
-
-      - name: Commit changes
-        if: github.event_name != 'pull_request' && steps.verify-changed-files.outputs.files_changed == 'true'
-        run: |
-          git config --local user.email "bot@sustainable-computing.io"
-          git config --local user.name "sustainable-computing-bot"
-          git add README.md
-          git commit -m "bot: Updated coverage badge." -s
-
-      - name: Push changes
-        if: github.event_name != 'pull_request' && steps.verify-changed-files.outputs.files_changed == 'true'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GH_BOT_SECRET }}
-          branch: ${{ github.head_ref }}
+          fail_ci_if_error: false # because codecov updates occasionally fail
+          files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}

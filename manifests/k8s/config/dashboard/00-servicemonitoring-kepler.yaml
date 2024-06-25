@@ -7,9 +7,9 @@ metadata:
   namespace: kepler
 spec:
   endpoints:
-  - interval: 15s
-    port: http
-    scheme: http
+    - interval: 15s
+      port: http
+      scheme: http
   selector:
     matchLabels:
       app.kubernetes.io/component: exporter

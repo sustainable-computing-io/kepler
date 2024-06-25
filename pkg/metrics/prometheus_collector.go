@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/version"
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -85,7 +84,6 @@ func GetRegistry() *prometheus.Registry {
 
 func (e *PrometheusExporter) RegisterMetrics() *prometheus.Registry {
 	registry := GetRegistry()
-	registry.MustRegister(version.NewCollector("kepler_exporter"))
 
 	if config.IsExposeProcessStatsEnabled() {
 		registry.MustRegister(e.ProcessStatsCollector)

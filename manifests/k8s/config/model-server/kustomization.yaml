@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- github.com/sustainable-computing-io/kepler-model-server/manifests/server
+  - github.com/sustainable-computing-io/kepler-model-server/manifests/server
 
 patchesStrategicMerge: []
 # add this line for openshift patch
-# - ./patch/patch-openshift.yaml
+#  - ./patch/patch-openshift.yaml

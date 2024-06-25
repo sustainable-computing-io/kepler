@@ -36,15 +36,6 @@ var (
 		config.CPUCycle,
 		config.CPUInstruction,
 		config.CacheMiss,
-		config.CgroupfsMemory,
-		config.CgroupfsKernelMemory,
-		config.CgroupfsTCPMemory,
-		config.CgroupfsCPU,
-		config.CgroupfsSystemCPU,
-		config.CgroupfsUserCPU,
-		config.CgroupfsReadIO,
-		config.CgroupfsWriteIO,
-		config.BlockDevicesIO,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
 	featureNames               = append(processFeatureNames, systemMetaDataFeatureNames...) // to predict node power, we will need the resource usage and metadata metrics

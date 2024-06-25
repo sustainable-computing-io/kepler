@@ -37,17 +37,6 @@ func SetMockedCollectorMetrics() {
 		klog.Fatalln(err)
 	}
 	// initialize the Available metrics since they are used to create a new processMetrics instance
-	AvailableCGroupMetrics = []string{
-		config.CgroupfsMemory,
-		config.CgroupfsKernelMemory,
-		config.CgroupfsTCPMemory,
-		config.CgroupfsCPU,
-		config.CgroupfsSystemCPU,
-		config.CgroupfsUserCPU,
-		config.CgroupfsReadIO,
-		config.CgroupfsWriteIO,
-		config.BlockDevicesIO,
-	}
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
 		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,

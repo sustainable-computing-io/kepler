@@ -43,15 +43,6 @@ var (
 		config.CPUCycle,
 		config.CPUInstruction,
 		config.CacheMiss,
-		config.CgroupfsMemory,
-		config.CgroupfsKernelMemory,
-		config.CgroupfsTCPMemory,
-		config.CgroupfsCPU,
-		config.CgroupfsSystemCPU,
-		config.CgroupfsUserCPU,
-		config.CgroupfsReadIO,
-		config.CgroupfsWriteIO,
-		config.BlockDevicesIO,
 	}
 	systemMetaDataFeatureNames = []string{"cpu_architecture"}
 	processFeatureValues       = [][]float64{

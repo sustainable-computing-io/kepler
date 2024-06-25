@@ -8,6 +8,6 @@ spec:
     spec:
       serviceAccountName: kepler-sa
       containers:
-      - name: server-api
-        securityContext:
-          privileged: true
+        - name: server-api
+          securityContext:
+            privileged: true

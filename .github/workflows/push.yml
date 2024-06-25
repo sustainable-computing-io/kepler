@@ -1,25 +1,25 @@
 name: Push
-on:
+on: # yamllint disable-line rule:truthy
   branch_protection_rule:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'doc/**'
-      - 'enhancements/**'
-      - '*.md'
+      - doc/**
+      - enhancements/**
+      - "*.md"
 
 jobs:
   # for each PR merge, trigger image build
   image:
     uses: ./.github/workflows/image.yml
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
   # for each PR merge, unit test for test coverage
   unit_test:
     uses: ./.github/workflows/unit_test.yml
     secrets:
-      GH_BOT_SECRET: ${{ secrets.GH_BOT_SECRET }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # for each PR merge, openSSF scan
   scorecard:
     uses: ./.github/workflows/scorecard.yml

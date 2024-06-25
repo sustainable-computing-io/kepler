@@ -5,7 +5,7 @@ services:
     cap_add:
       - ALL
     ports:
-      - "9738:9738"
+      - 9738:9738
     depends_on:
       - prometheus
     volumes:

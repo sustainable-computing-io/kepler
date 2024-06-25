@@ -1,11 +1,11 @@
 name: Equinix Metal Action
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 jobs:
   Create-runner:
-    name: "Create Runner"
+    name: Create Runner
     runs-on: ubuntu-latest
 
     steps:
@@ -15,12 +15,12 @@ jobs:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
           metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
-          metro: "da"
-          plan: "c3.small.x86"
-          os: "rhel_9"
+          metro: da
+          plan: c3.small.x86
+          os: rhel_9
 
   Install:
-    name: "Install"
+    name: Install
     needs: Create-runner
     runs-on: self-hosted
     continue-on-error: true
@@ -136,7 +136,7 @@ jobs:
           curl "http://localhost:44322/metrics?names=openmetrics.kepler.kepler_node_package_joules_total"
 
   Cleanup:
-    name: "Cleanup"
+    name: Cleanup
     runs-on: ubuntu-latest
     needs: [Install]
 

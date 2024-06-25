@@ -1,6 +1,6 @@
 name: baseimage_dispatch
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 jobs:
@@ -9,5 +9,5 @@ jobs:
     with:
       pushImage: true
     secrets:
-        username: ${{ secrets.BOT_NAME }}
-        password: ${{ secrets.BOT_TOKEN }}
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}

@@ -6,24 +6,23 @@ permissions:
   issues: write
   discussions: write
 
-on:
+on: # yamllint disable-line rule:truthy
   issues:
-    types: [ opened ]
+    types: [opened]
   issue_comment:
-    types: [ created ]
+    types: [created]
   pull_request:
   pull_request_target:
-    types: [ opened, synchronize, edited ]
+    types: [opened, synchronize, edited]
   pull_request_review_comment:
-    types: [ created ]
+    types: [created]
   discussion:
-    types: [ created ]
+    types: [created]
   discussion_comment:
-    types: [ created ]
+    types: [created]
 
 concurrency:
-  group:
-    ${{ github.repository }}-${{ github.event.number || github.head_ref ||
+  group: ${{ github.repository }}-${{ github.event.number || github.head_ref ||
     github.sha }}-${{ github.workflow }}-${{ github.event_name }}
   cancel-in-progress: true
 
@@ -70,11 +69,11 @@ jobs:
           done <<< "$COMMENT_BODY"
           echo "mention_outside_quotes=$mention_outside_quotes" >> $GITHUB_ENV
 
-#      - name: Dump GitHub context for debug
-#        env:
-#          GITHUB_CONTEXT: ${{ toJson(github) }}
-#        run: |
-#          echo "$GITHUB_CONTEXT"
+      #      - name: Dump GitHub context for debug
+      #        env:
+      #          GITHUB_CONTEXT: ${{ toJson(github) }}
+      #        run: |
+      #          echo "$GITHUB_CONTEXT"
       - name: Dump event payload for debug
         run: cat $GITHUB_EVENT_PATH
       - name: Run SeineSailor

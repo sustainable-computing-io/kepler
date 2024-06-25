@@ -54,11 +54,6 @@ type CPUS struct {
 }
 
 func InitAvailableParamAndMetrics() {
-	AvailableCGroupMetrics = []string{
-		config.CgroupfsMemory, config.CgroupfsKernelMemory, config.CgroupfsTCPMemory,
-		config.CgroupfsCPU, config.CgroupfsSystemCPU, config.CgroupfsUserCPU,
-		config.CgroupfsReadIO, config.CgroupfsWriteIO, config.BlockDevicesIO,
-	}
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
 		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
@@ -92,11 +87,6 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 		klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
 	}
 
-	// cgroup metric are deprecated and will be removed later
-	if config.ExposeCgroupMetrics {
-		metrics = append(metrics, AvailableCGroupMetrics...)
-		klog.V(3).Infof("Available cgroup metrics from cgroup: %v", AvailableCGroupMetrics)
-	}
 	return metrics
 }
 

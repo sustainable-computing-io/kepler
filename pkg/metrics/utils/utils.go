@@ -54,12 +54,6 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 	for collectorName := range bpfSupportedMetrics.HardwareCounters {
 		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 	}
-	// collect the deprecated cGroup metrics, this metrics will be removed in the future
-	if config.IsCgroupMetricsEnabled() {
-		for _, collectorName := range consts.CGroupMetricNames {
-			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-		}
-	}
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		for _, collectorName := range consts.GPUMetricNames {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
