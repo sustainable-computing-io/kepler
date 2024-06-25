@@ -92,7 +92,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -104,7 +104,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -117,7 +117,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -130,7 +130,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
@@ -560,7 +560,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max( \n    abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -572,7 +572,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -585,7 +585,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n, 100000)",
+          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -598,7 +598,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "clamp_max(\n    abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])\n    , 100000)",
+          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
