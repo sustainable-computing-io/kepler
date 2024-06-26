@@ -79,7 +79,7 @@ uncomment_path() {
 uncomment() {
 	regex="${1:?}"
 	file="${2:?}"
-	sed <"$file" "/^# .*${regex}.*/s/^# / /" >"${file}.tmp"
+	sed <"$file" "/^ *# .*${regex}.*/s/^ *#*/ /" >"${file}.tmp"
 	mv "${file}.tmp" "${file}"
 }
 
