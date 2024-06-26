@@ -55,7 +55,6 @@ services:
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
           -v "8" \
-          -enable-cgroup-id=false \
           -enable-gpu=false
     networks:
       - kepler-network
