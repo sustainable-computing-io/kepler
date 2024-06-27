@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: APACHE-2.0
 
 import os
-import yaml
 from typing import NamedTuple
+
+import yaml
 
 
 class Remote(NamedTuple):
@@ -60,7 +61,7 @@ def load(config_file: str) -> Validator:
     Returns:
         Config: A named tuple containing the configuration values.
     """
-    with open(config_file, "r") as file:
+    with open(config_file) as file:
         config = yaml.safe_load(file)
 
     remote_config = config["remote"]

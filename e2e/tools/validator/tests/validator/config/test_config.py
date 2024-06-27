@@ -1,5 +1,7 @@
 import os
+
 import pytest
+
 from validator.config import load
 
 
@@ -12,7 +14,7 @@ def config_file(tmp_path):
             file.write(content)
         return file_path
 
-    yield write
+    return write
 
 
 @pytest.fixture
