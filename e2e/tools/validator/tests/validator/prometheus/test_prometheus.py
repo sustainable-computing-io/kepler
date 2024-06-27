@@ -211,7 +211,7 @@ class MockPromClient:
     def __init__(self, responses):
         self.responses = responses
 
-    def range_query(self, query: str, *args, **kwargs) -> list[Series]:
+    def range_query(self, query: str, _start: datetime.datetime, _end: datetime.datetime) -> list[Series]:
         return [Series(query, r["values"]) for r in self.responses]
 
 

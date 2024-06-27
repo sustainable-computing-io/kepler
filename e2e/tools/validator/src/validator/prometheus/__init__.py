@@ -146,6 +146,7 @@ def strip_query(query: str) -> str:
 
 
 class Queryable(Protocol):
+    # ruff: noqa: ARG002 (we don't care about the arguments here)
     def range_query(self, query: str, start: datetime, end: datetime) -> list[Series]:
         return []
 
