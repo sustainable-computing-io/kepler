@@ -2,7 +2,7 @@ import re
 import logging
 from typing import Tuple, List, NamedTuple, Protocol
 from datetime import datetime
-
+import numpy.typing as npt
 from prometheus_api_client import PrometheusConnect
 import numpy as np
 
@@ -41,6 +41,12 @@ class Series:
         self.query = query
         self.samples = [Sample(int(s[0]), float(s[1])) for s in samples]
 
+    @classmethod
+    def from_samples(cls, query: str, samples: List[Sample]) -> "Series":
+        s = Series(query, [])
+        s.samples = samples[:]
+        return s
+
     @property
     def timestamps(self) -> List[float]:
         return [s.timestamp for s in self.samples]
@@ -77,12 +83,12 @@ class Result(NamedTuple):
         print("\t\t\t\t━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
-def mse(actual: List[float], expected: List[float]) -> float:
+def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
     actual, expected = np.array(actual), np.array(expected)
     return np.square(np.subtract(actual, expected)).mean()
 
 
-def mape(actual: List[float], expected: List[float]) -> float:
+def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
     actual, expected = np.array(actual), np.array(expected)
     return 100 * np.mean(np.abs(np.divide(np.subtract(actual, expected), actual)))
 
@@ -115,7 +121,7 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> Tuple[Series, Series]:
         else:
             idx_b += 1
 
-    return Series(a.query, filtered_a), Series(b.query, filterd_b)
+    return Series.from_samples(a.query, filtered_a), Series.from_samples(b.query, filterd_b)
 
 
 class SeriesError(Exception):

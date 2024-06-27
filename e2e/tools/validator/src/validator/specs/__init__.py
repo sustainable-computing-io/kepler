@@ -14,7 +14,7 @@ class SubprocessError(Exception):
 
 
 def parse_lscpu_output(output: str):
-    cpu_spec = {}
+    cpu_spec: dict[str, dict[str, str]] = {}
     cpu_spec["cpu"] = {}
     cpu_spec["cpu"]["model"] = ""
     cpu_spec["cpu"]["cores"] = ""
