@@ -211,6 +211,21 @@ func getS390xArchitecture() (string, error) {
 	return fmt.Sprintf("zSystems model %s", strings.TrimSpace(uarch[1])), err
 }
 
+// readCPUModelData() reads the CPU model data from CPUModelDataPath and if
+// the file does not exist, reads the data from ./data/cpus.yaml.
+func readCPUModelData() ([]byte, error) {
+	data, err := os.ReadFile(CPUModelDataPath)
+	if err == nil {
+		return data, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	klog.Infof("%s not found, reading local cpus.yaml", CPUModelDataPath)
+	return os.ReadFile("./data/cpus.yaml")
+}
+
 // There are three options for Kepler to detect CPU microarchitecture:
 // 1. Use tools such as 'cpuid', 'archspec', etc, to directly fetch CPU microarchitecture.
 //
@@ -221,8 +236,9 @@ func getS390xArchitecture() (string, error) {
 //
 // Option #1 is the first choice in Kepler, if the tools are N/A on platforms,
 // getCPUMicroarchitecture() provides option #2 and #3 as the alternative solution.
+
 func getCPUMicroArchitecture(family, model, stepping string) (string, error) {
-	yamlBytes, err := os.ReadFile(CPUModelDataPath)
+	yamlBytes, err := readCPUModelData()
 	if err != nil {
 		klog.Errorf("failed to read cpus.yaml: %v", err)
 		return "", err
