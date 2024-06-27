@@ -1,10 +1,10 @@
 import logging
+from datetime import datetime
+from typing import NamedTuple
 
 import paramiko
-from validator import config
-from typing import NamedTuple
-from datetime import datetime
 
+from validator import config
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class Remote:
         print("‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n\n")
 
         if exit_status != 0:
-            logger.warn("script execution failed")
+            logger.warning("script execution failed")
         else:
             logger.info("script execution successful")
 

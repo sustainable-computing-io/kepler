@@ -1,9 +1,10 @@
 import logging
-from typing import Dict, NamedTuple, List
-from validator import config
 import re
+from typing import Dict, List, NamedTuple
+
 import yaml
 
+from validator import config
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class Validation(NamedTuple):
 
 
 def read_validations(file_path: str, vars: Dict[str, str]) -> list[Validation]:
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         yml = yaml.safe_load(file)
         return [
             Validation(

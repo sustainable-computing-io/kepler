@@ -1,18 +1,20 @@
 import datetime
-import pytest
+
 import numpy as np
+import pytest
 
 from validator.config import (
     Prometheus as PromConfig,
+)
+from validator.config import (
     PrometheusJob as Job,
 )
-
 from validator.prometheus import (
     Comparator,
     Series,
     filter_by_equal_timestamps,
-    mse,
     mape,
+    mse,
 )
 
 

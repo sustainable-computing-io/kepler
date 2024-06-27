@@ -1,13 +1,13 @@
-import re
 import logging
-from typing import Tuple, List, NamedTuple, Protocol
+import re
 from datetime import datetime
+from typing import List, NamedTuple, Protocol, Tuple
+
+import numpy as np
 import numpy.typing as npt
 from prometheus_api_client import PrometheusConnect
-import numpy as np
 
 from validator.config import Prometheus as PromConfig
-
 
 logger = logging.getLogger(__name__)
 

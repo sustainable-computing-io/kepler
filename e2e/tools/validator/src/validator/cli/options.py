@@ -1,4 +1,5 @@
 import datetime
+
 import click
 from prometheus_api_client.utils import parse_datetime
 
