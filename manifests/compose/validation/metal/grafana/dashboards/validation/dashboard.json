@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 4,
   "links": [],
   "panels": [
     {
@@ -92,7 +92,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -104,7 +104,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -117,7 +117,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -130,7 +130,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
@@ -138,7 +138,7 @@
           "refId": "D"
         }
       ],
-      "title": "MAPE - Metal vs VM Dynamic (${process}) ",
+      "title": "MAPE - Metal vs VM ${mode} (${process}) ",
       "type": "stat"
     },
     {
@@ -199,7 +199,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_core_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "expr": "(\n    rate(kepler_process_core_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_core_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -211,7 +211,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_dram_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "expr": "(\n    rate(kepler_process_dram_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_dram_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -224,7 +224,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_package_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2 ",
+          "expr": "(\n    rate(kepler_process_package_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_package_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2 ",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -237,7 +237,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_platform_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "expr": "(\n    rate(kepler_process_platform_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_platform_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
@@ -245,7 +245,7 @@
           "refId": "D"
         }
       ],
-      "title": "MSE - Metal vs VM Dynamic (${process}) ",
+      "title": "MSE - Metal vs VM ${mode} (${process}) ",
       "type": "stat"
     },
     {
@@ -560,7 +560,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_core_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_core_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_core_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -572,7 +572,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_dram_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_dram_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_dram_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -585,7 +585,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_package_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_package_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n    ) \n    / on() \n    rate(kepler_process_package_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -598,7 +598,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='dynamic', job='metal'}[$__rate_interval])",
+          "expr": "abs(\n        rate(kepler_process_platform_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval]) \n        - on() \n        rate(kepler_node_platform_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n        ) \n    / on() \n    rate(kepler_process_platform_joules_total{pid='${process}', mode='${mode}', job='metal'}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
@@ -606,7 +606,7 @@
           "refId": "D"
         }
       ],
-      "title": "APE Metal vs VM Dynamic (${process}) ",
+      "title": "APE Metal vs VM ${mode} (${process}) ",
       "type": "timeseries"
     },
     {
@@ -755,7 +755,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_core_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_core_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "expr": "(\n    rate(kepler_process_core_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_core_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2",
           "instant": false,
           "legendFormat": "Core",
           "range": true,
@@ -767,7 +767,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_dram_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_dram_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2\n",
+          "expr": "(\n    rate(kepler_process_dram_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_dram_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2\n",
           "hide": false,
           "instant": false,
           "legendFormat": "Dram",
@@ -780,7 +780,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_package_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_package_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2 \n",
+          "expr": "(\n    rate(kepler_process_package_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_package_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2 \n",
           "hide": false,
           "instant": false,
           "legendFormat": "Package",
@@ -793,7 +793,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "(\n    rate(kepler_process_platform_joules_total{pid=\"${process}\", mode='dynamic', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_platform_joules_total{job='vm', mode='dynamic'}[$__rate_interval])\n)^2",
+          "expr": "(\n    rate(kepler_process_platform_joules_total{pid=\"${process}\", mode='${mode}', job='metal'}[$__rate_interval]) \n    - on() \n    rate(kepler_node_platform_joules_total{job='vm', mode='${mode}'}[$__rate_interval])\n)^2",
           "hide": false,
           "instant": false,
           "legendFormat": "Platform",
@@ -801,7 +801,7 @@
           "refId": "D"
         }
       ],
-      "title": "SE Metal vs VM Dynamic (${process}) ",
+      "title": "SE Metal vs VM ${mode} (${process}) ",
       "type": "timeseries"
     },
     {
@@ -2074,9 +2074,9 @@
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "qemu-system-x86 | 11616",
-          "value": "11616"
+          "selected": true,
+          "text": "qemu-system-x86 | 1617551",
+          "value": "1617551"
         },
         "datasource": {
           "type": "prometheus",
@@ -2098,6 +2098,34 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "idle",
+          "value": "idle"
+        },
+        "description": "Mode for Energy Metrics. Can be either dynamic or idle.",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "mode",
+        "options": [
+          {
+            "selected": false,
+            "text": "dynamic",
+            "value": "dynamic"
+          },
+          {
+            "selected": true,
+            "text": "idle",
+            "value": "idle"
+          }
+        ],
+        "query": "dynamic, idle",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
       }
     ]
   },
@@ -2109,6 +2137,6 @@
   "timezone": "browser",
   "title": "Model Validation",
   "uid": "ddkgzjy4qzuo0c",
-  "version": 8,
+  "version": 4,
   "weekStart": ""
 }
