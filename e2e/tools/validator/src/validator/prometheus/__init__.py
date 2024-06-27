@@ -37,22 +37,22 @@ class Series:
 
     query: str
 
-    def __init__(self, query: str, samples: List[Tuple[int, str]]):
+    def __init__(self, query: str, samples: list[tuple[int, str]]):
         self.query = query
         self.samples = [Sample(int(s[0]), float(s[1])) for s in samples]
 
     @classmethod
-    def from_samples(cls, query: str, samples: List[Sample]) -> "Series":
+    def from_samples(cls, query: str, samples: list[Sample]) -> "Series":
         s = Series(query, [])
         s.samples = samples[:]
         return s
 
     @property
-    def timestamps(self) -> List[float]:
+    def timestamps(self) -> list[float]:
         return [s.timestamp for s in self.samples]
 
     @property
-    def values(self) -> List[float]:
+    def values(self) -> list[float]:
         return [s.value for s in self.samples]
 
     def __str__(self) -> str:
@@ -98,7 +98,7 @@ def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
     return 100 * np.mean(np.abs(np.divide(np.subtract(actual, expected), actual)))
 
 
-def filter_by_equal_timestamps(a: Series, b: Series) -> Tuple[Series, Series]:
+def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
     """
     filter_by_equal_timestamps will filter out samples from a and b
     that have the same timestamp.

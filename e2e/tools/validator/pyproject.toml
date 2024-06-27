@@ -93,3 +93,7 @@ exclude_lines = [
 markers = [
 	"focus",  # used in development to mark focused tests
 ]
+
+[tool.ruff]
+line-length = 120
+
