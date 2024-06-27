@@ -85,6 +85,11 @@ class Result(NamedTuple):
 
 def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
     actual, expected = np.array(actual), np.array(expected)
+    if len(actual) != len(expected):
+        raise ValueError("actual and expected must have the same length")
+    elif len(actual) == 0 or len(expected) == 0:
+        raise ValueError("actual and expected must have non-zero length")
+
     return np.square(np.subtract(actual, expected)).mean()
 
 

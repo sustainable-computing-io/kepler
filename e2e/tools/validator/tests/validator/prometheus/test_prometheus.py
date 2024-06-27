@@ -1,8 +1,7 @@
 import datetime
-
 import pytest
+import numpy as np
 
-from validator.cli import validator
 from validator.config import (
     Prometheus as PromConfig,
     PrometheusJob as Job,
@@ -10,9 +9,10 @@ from validator.config import (
 
 from validator.prometheus import (
     Comparator,
-    Sample,
     Series,
     filter_by_equal_timestamps,
+    mse,
+    mape,
 )
 
 
@@ -134,6 +134,75 @@ def test_filter_by_equal_timestamps():
 
         assert len(got_b.samples) == len(exp_b)
         assert got_b.values == exp_b
+
+
+def test_mse():
+    # fmt: off
+    inputs = [{
+        "a": [ 1.0, 2.0, 3.0, 4.0, ],
+        "b": [ 1.0, 2.0, 3.0, 4.0, ],
+        "mse": 0.0,
+        "mape": 0.0,
+    }, {
+        "a": [ -1.0, -2.0, -3.0, -4.0, ],
+        "b": [ -1.0, -2.0, -3.0, -4.0, ],
+        "mse": 0.0,
+        "mape": 0.0,
+    }, {
+        "a": [ 1.0, -2.0, 3.0, 4.0, ],
+        "b": [ 1.0, -2.0, 3.0, 4.0, ],
+        "mse": 0.0,
+        "mape": 0.0,
+    }, {
+        "a": [ 1, 2, 3, 4, ],
+        "b": [ 1.0, 2.0, 3.0, 4.0, ],
+        "mse": 0.0,
+        "mape": 0.0,
+    }, {
+        "a": [ 1, 2, 3, ],
+        "b": [ 4, 5, 6, ],
+        "mse": 9.0, # (1 - 4)^2 + (2 - 5)^2 + (3 - 6)^2 / 3
+        "mape": 183.3333,
+    }, {
+        "a": [ 1.5, 2.5, 3.5 ],
+        "b": [ 1.0, 2.0, 3.0 ],
+        "mse": 0.25, # 3 x (0.5^2) / 3
+        "mape": 22.5396,
+    }, {
+        "a": [ 1, -2, 3 ],
+        "b": [ -1, 2, -3 ],
+        "mse": 18.6666, # 2.0^2 + 4.0^2 + 6.0^2 / 3
+        "mape": 200.0,
+    }]
+    # fmt: on
+
+    for s in inputs:
+        a = s["a"]
+        b = s["b"]
+
+        expected_mse = s["mse"]
+        assert expected_mse == pytest.approx(mse(a, b), rel=1e-3)
+
+        expected_mape = s["mape"]
+        assert expected_mape == pytest.approx(mape(a, b), rel=1e-3)
+
+
+def test_mse_with_large_arrays():
+    actual = np.random.rand(1000)
+    expected = np.random.rand(1000)
+    assert mse(actual, expected) >= 0.0  # MSE should always be non-negative
+
+
+def test_mse_expections():
+    with pytest.raises(ValueError):
+        mse([], [])
+
+
+def test_mse_with_different_lengths():
+    actual = [1, 2, 3]
+    expected = [1, 2]
+    with pytest.raises(ValueError):
+        mse(actual, expected)
 
 
 class MockPromClient:
