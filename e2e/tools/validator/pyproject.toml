@@ -28,9 +28,6 @@ dependencies = [
   "prometheus-api-client",
 	"pyyaml",
 	"numpy",
-	# "pydantic",
-	# "requests",
-	# "rich",
 ]
 
 [project.scripts]
@@ -40,10 +37,14 @@ validator = "validator.cli:validator"
 path = "src/validator/__about__.py"
 
 [tool.hatch.envs.default]
+python = "3.11" # latest supported python on RHEL-9
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
+  "ipython",
+  "ipdb",
 ]
+
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
@@ -60,11 +61,14 @@ cov = [
 python = ["3.11"]
 
 [tool.hatch.envs.types]
-dependencies = [
+extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/validator tests}"
+
+[tool.mypy]
+plugins = "numpy.typing.mypy_plugin"
 
 [tool.coverage.run]
 source_pkgs = ["validator", "tests"]

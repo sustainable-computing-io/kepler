@@ -1,24 +1,23 @@
-log_level: warn # default
+log_level: warn # Logging level, defaults is warn
 
 remote:
-  host: 192.168.124.28
-  # ### defaults ###
-  port: 22
-  username: fedora
-  password: supersecret
-  pkey: ~/.ssh/id_rsa
+  host: 192.168.1.1 # IP address or hostname of the VM
+  port: 22 # SSH port, default is 22
+  username: user # SSH username
+  password: yourpassword # SSH password
+  pkey: ~/.ssh/id_rsa # Path to SSH private key
 
 metal:
   vm:
-    pid: 2093543
+    pid: 123456 # Process ID for the KVM process running on metal
 
 prometheus:
-	job: 
-		vm: vm  # default
-		metal: metal  # default
+  job:
+    vm: vm  # Job name for virtual machine metrics, default is vm
+    metal: metal  # Job name for metal metrics, default is metal
 
-  url: http://localhost:9090
-  rate_interval: 20s  # default
-  steps: 3s  # 4 x scrape-interval
+  url: http://localhost:9090 # Prometheus server URL
+  rate_interval: 20s  # Rate interval for Promql, default is 20s, typically 4 x $scrape_interval
+  steps: 3s  # Step duration for Prometheus range queries
 
-validations_file: ./validations.yaml  # default
+validations_file: ./validations.yaml  # Path to the validations file, default is ./validations.yaml
