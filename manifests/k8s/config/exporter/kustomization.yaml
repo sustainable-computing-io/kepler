@@ -1,8 +1,8 @@
 resources:
-  # uncomment this line for openshift
-  # - openshift_scc.yaml
   - exporter.yaml
-#  uncomment this line if prometheus deployed
+# uncomment this line for openshift
+#  - openshift_scc.yaml
+# uncomment this line if prometheus deployed
 #  - prometheus_common_service_monitor.yaml
 #  - prometheus_common_rules.yaml
 #  - prometheus_high_granularity_rules.yaml
