@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/metricfactory"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/utils"
 )
@@ -78,6 +79,9 @@ func (c *collector) initMetrics() {
 		c.descriptions[name] = desc
 		c.collectors[name] = metricfactory.NewPromCounter(desc)
 	}
+	desc := metricfactory.MetricsPromDesc(context, "joules", "_total", "", consts.ProcessEnergyLabels)
+	c.descriptions["total"] = desc
+	c.collectors["total"] = metricfactory.NewPromCounter(desc)
 }
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
@@ -91,6 +95,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	for _, process := range c.ProcessStats {
 		utils.CollectEnergyMetrics(ch, process, c.collectors)
 		utils.CollectResUtilizationMetrics(ch, process, c.collectors, c.bpfSupportedMetrics)
+		utils.CollectTotalEnergyMetrics(ch, process, c.collectors)
 	}
 	c.Mx.Unlock()
 }
