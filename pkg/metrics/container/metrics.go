@@ -97,26 +97,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		utils.CollectEnergyMetrics(ch, container, c.collectors)
 		utils.CollectResUtilizationMetrics(ch, container, c.collectors, c.bpfSupportedMetrics)
 		// update container total joules
-		c.collectTotalEnergyMetrics(ch, container)
+		utils.CollectTotalEnergyMetrics(ch, container, c.collectors)
 	}
 	c.Mx.Unlock()
-}
-
-// We currently export a metric kepler_container_total_joules but this metric is the same as kepler_container_platform_joules. We might remote it in the future.
-func (c *collector) collectTotalEnergyMetrics(ch chan<- prometheus.Metric, container *stats.ContainerStats) {
-	energy := container.EnergyUsage[config.DynEnergyInPkg].SumAllAggrValues()
-	energy += container.EnergyUsage[config.DynEnergyInDRAM].SumAllAggrValues()
-	energy += container.EnergyUsage[config.DynEnergyInOther].SumAllAggrValues()
-	energy += container.EnergyUsage[config.DynEnergyInGPU].SumAllAggrValues()
-	energyInJoules := float64(energy) / utils.JouleMillijouleConversionFactor
-	labelValues := []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "dynamic"}
-	ch <- c.collectors["total"].MustMetric(energyInJoules, labelValues...)
-
-	energy = container.EnergyUsage[config.IdleEnergyInPkg].SumAllAggrValues()
-	energy += container.EnergyUsage[config.IdleEnergyInDRAM].SumAllAggrValues()
-	energy += container.EnergyUsage[config.IdleEnergyInOther].SumAllAggrValues()
-	energy += container.EnergyUsage[config.IdleEnergyInGPU].SumAllAggrValues()
-	energyInJoules = float64(energy) / utils.JouleMillijouleConversionFactor
-	labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, "idle"}
-	ch <- c.collectors["total"].MustMetric(energyInJoules, labelValues...)
 }
