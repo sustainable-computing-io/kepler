@@ -198,22 +198,6 @@ struct task_struct {
 	int pid;
 } __attribute__((preserve_access_index));
 
-struct task_struct___o {
-	unsigned int state;
-};
-
-struct task_struct___x {
-	unsigned int __state;
-};
-
-static unsigned int get_task_state(void *task)
-{
-	struct task_struct___x *t = task;
-	if (bpf_core_field_exists(t->__state))
-		return t->__state;
-	return ((struct task_struct___o *)task)->state;
-}
-
 SEC("tp_btf/sched_switch")
 int kepler_sched_switch_trace(u64 *ctx)
 {
