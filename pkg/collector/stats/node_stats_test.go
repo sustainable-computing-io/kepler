@@ -35,16 +35,16 @@ var _ = Describe("Test Node Metric", func() {
 		processMetrics = CreateMockedProcessStats(2)
 		nodeMetrics = CreateMockedNodeStats()
 		for _, pMetric := range processMetrics {
-			val := pMetric.ResourceUsage[config.CPUCycle].Stat[MockedSocketID].GetDelta()
+			val := pMetric.ResourceUsage[config.CPUCycle][MockedSocketID].GetDelta()
 			nodeMetrics.ResourceUsage[config.CPUCycle].AddDeltaStat(MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CPUInstruction].Stat[MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CPUInstruction][MockedSocketID].GetDelta()
 			nodeMetrics.ResourceUsage[config.CPUInstruction].AddDeltaStat(MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CacheMiss].Stat[MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CacheMiss][MockedSocketID].GetDelta()
 			nodeMetrics.ResourceUsage[config.CacheMiss].AddDeltaStat(MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CPUTime].Stat[MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CPUTime][MockedSocketID].GetDelta()
 			nodeMetrics.ResourceUsage[config.CPUTime].AddDeltaStat(MockedSocketID, val)
 		}
 	})
@@ -52,7 +52,7 @@ var _ = Describe("Test Node Metric", func() {
 	It("Test nodeMetrics ResourceUsage", func() {
 		v, ok := nodeMetrics.ResourceUsage[config.CPUCycle]
 		Expect(ok).To(Equal(true))
-		Expect(v.Stat[MockedSocketID].GetDelta()).To(Equal(uint64(60000)))
+		Expect(v[MockedSocketID].GetDelta()).To(Equal(uint64(60000)))
 	})
 
 	It("test SetNodeGPUEnergy", func() {

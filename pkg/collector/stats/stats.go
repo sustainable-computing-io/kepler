@@ -37,15 +37,15 @@ var (
 )
 
 type Stats struct {
-	ResourceUsage map[string]*types.UInt64StatCollection
-	EnergyUsage   map[string]*types.UInt64StatCollection
+	ResourceUsage map[string]types.UInt64StatCollection
+	EnergyUsage   map[string]types.UInt64StatCollection
 }
 
 // NewStats creates a new Stats instance
 func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 	m := &Stats{
-		ResourceUsage: make(map[string]*types.UInt64StatCollection),
-		EnergyUsage:   make(map[string]*types.UInt64StatCollection),
+		ResourceUsage: make(map[string]types.UInt64StatCollection),
+		EnergyUsage:   make(map[string]types.UInt64StatCollection),
 	}
 
 	// initialize the energy metrics in the map
@@ -118,18 +118,18 @@ func (m *Stats) String() string {
 
 // UpdateDynEnergy calculates the dynamic energy
 func (m *Stats) UpdateDynEnergy() {
-	for pkgID := range m.EnergyUsage[config.AbsEnergyInPkg].Stat {
+	for pkgID := range m.EnergyUsage[config.AbsEnergyInPkg] {
 		m.CalcDynEnergy(config.AbsEnergyInPkg, config.IdleEnergyInPkg, config.DynEnergyInPkg, pkgID)
 		m.CalcDynEnergy(config.AbsEnergyInCore, config.IdleEnergyInCore, config.DynEnergyInCore, pkgID)
 		m.CalcDynEnergy(config.AbsEnergyInUnCore, config.IdleEnergyInUnCore, config.DynEnergyInUnCore, pkgID)
 		m.CalcDynEnergy(config.AbsEnergyInDRAM, config.IdleEnergyInDRAM, config.DynEnergyInDRAM, pkgID)
 	}
-	for sensorID := range m.EnergyUsage[config.AbsEnergyInPlatform].Stat {
+	for sensorID := range m.EnergyUsage[config.AbsEnergyInPlatform] {
 		m.CalcDynEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.DynEnergyInPlatform, sensorID)
 	}
 	// gpu metric
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		for gpuID := range m.EnergyUsage[config.AbsEnergyInGPU].Stat {
+		for gpuID := range m.EnergyUsage[config.AbsEnergyInGPU] {
 			m.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
 		}
 	}
@@ -137,19 +137,19 @@ func (m *Stats) UpdateDynEnergy() {
 
 // CalcDynEnergy calculate the difference between the absolute and idle energy/power
 func (m *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
-	if _, exist := m.EnergyUsage[absM].Stat[id]; !exist {
+	if _, exist := m.EnergyUsage[absM][id]; !exist {
 		return
 	}
-	totalPower := m.EnergyUsage[absM].Stat[id].Delta
-	klog.V(6).Infof("Absolute Energy stat: %v (%s)", m.EnergyUsage[absM].Stat, id)
+	totalPower := m.EnergyUsage[absM][id].GetDelta()
+	klog.V(6).Infof("Absolute Energy stat: %v (%s)", m.EnergyUsage[absM], id)
 	idlePower := uint64(0)
-	if idleStat, found := m.EnergyUsage[idleM].Stat[id]; found {
-		idlePower = idleStat.Delta
-		klog.V(6).Infof("Idle Energy stat: %v (%s)", m.EnergyUsage[idleM].Stat, id)
+	if idleStat, found := m.EnergyUsage[idleM][id]; found {
+		idlePower = idleStat.GetDelta()
+		klog.V(6).Infof("Idle Energy stat: %v (%s)", m.EnergyUsage[idleM], id)
 	}
 	dynPower := calcDynEnergy(totalPower, idlePower)
 	m.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
-	klog.V(6).Infof("Dynamic Energy stat: %v (%s)", m.EnergyUsage[dynM].Stat, id)
+	klog.V(6).Infof("Dynamic Energy stat: %v (%s)", m.EnergyUsage[dynM], id)
 }
 
 func calcDynEnergy(totalE, idleE uint64) uint64 {
