@@ -72,7 +72,7 @@ func newK8sClient() *kubernetes.Clientset {
 		klog.Infoln("Using out cluster k8s config: ", config.KubeConfig)
 	}
 	if err != nil {
-		klog.Infof("failed to get config: %v", err)
+		klog.InfoS("failed to get config", "err", err)
 		return nil
 	}
 	// creates the clientset
@@ -150,12 +150,12 @@ func (w *ObjListWatcher) handleUpdate(oldObj, newObj interface{}) {
 	case podResourceType:
 		oldPod, ok := oldObj.(*k8sv1.Pod)
 		if !ok {
-			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			klog.InfoS("Could not convert obj", "resourceKind", w.ResourceKind)
 			return
 		}
 		newPod, ok := newObj.(*k8sv1.Pod)
 		if !ok {
-			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			klog.InfoS("Could not convert obj", "resourceKind", w.ResourceKind)
 			return
 		}
 		if newPod.ResourceVersion == oldPod.ResourceVersion {
@@ -165,7 +165,7 @@ func (w *ObjListWatcher) handleUpdate(oldObj, newObj interface{}) {
 		}
 		w.handleAdd(newObj)
 	default:
-		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
+		klog.InfoS("Watcher does not support object type", "resourceKind", w.ResourceKind)
 		return
 	}
 }
@@ -175,24 +175,29 @@ func (w *ObjListWatcher) handleAdd(obj interface{}) {
 	case podResourceType:
 		pod, ok := obj.(*k8sv1.Pod)
 		if !ok {
-			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			klog.InfoS("Could not convert obj", "resourceKind", w.ResourceKind)
 			return
 		}
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type != k8sv1.ContainersReady {
 				continue
 			}
-			klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
-				pod.Name, pod.Namespace, len(pod.Status.ContainerStatuses), len(pod.Status.InitContainerStatuses), len(pod.Status.EphemeralContainerStatuses))
+			klog.V(5).InfoS("Pod readiness details",
+				"podName", pod.Name,
+				"namespace", pod.Namespace,
+				"containerStatusCount", len(pod.Status.ContainerStatuses),
+				"initContainerStatusCount", len(pod.Status.InitContainerStatuses),
+				"ephemeralContainerStatusCount", len(pod.Status.EphemeralContainerStatuses))
+			
 			w.Mx.Lock()
 			err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
 			err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
 			err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
 			w.Mx.Unlock()
-			klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
+			klog.V(5).InfoS("parsing pod status", "podName", pod.Name, "podNamespace", pod.Namespace, "containerStatuses", err1, "initContainerStatuses", err2, "eEphemeralContainerStatuses", err3)
 		}
 	default:
-		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
+		klog.InfoS("Watcher does not support object type", "resourceKind", w.ResourceKind)
 		return
 	}
 }
@@ -210,7 +215,7 @@ func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerSt
 		if _, exist = (*w.ContainerStats)[containerID]; !exist {
 			(*w.ContainerStats)[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.bpfSupportedMetrics)
 		}
-		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
+		klog.V(5).InfoS("receiving container", "containerName", containers[j].Name, "podName", pod.Name, "podNamespace", pod.Namespace, "containerID", containerID)
 		(*w.ContainerStats)[containerID].ContainerName = containers[j].Name
 		(*w.ContainerStats)[containerID].PodName = pod.Name
 		(*w.ContainerStats)[containerID].Namespace = pod.Namespace
@@ -231,7 +236,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 		w.deleteInfo(pod.Status.EphemeralContainerStatuses)
 		w.Mx.Unlock()
 	default:
-		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
+		klog.InfoS("Watcher does not support object type", "resourceKind", w.ResourceKind)
 		return
 	}
 }

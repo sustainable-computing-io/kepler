@@ -92,7 +92,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 			ProcessFeatureNames: modelConfig.ProcessFeatureNames,
 			NodeFeatureNames:    modelConfig.NodeFeatureNames,
 		}
-		klog.V(3).Infof("Using Power Model Ratio")
+		klog.V(2).InfoS("Using Power Model Ratio")
 		return model, nil
 
 	case types.Regressor:
@@ -118,7 +118,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 		if err != nil {
 			return nil, err
 		}
-		klog.V(3).Infof("Using Power Model %s", modelConfig.ModelOutputType.String())
+		klog.V(2).InfoS("Using Power Model", "modelOutputType", modelConfig.ModelOutputType.String())
 		return model, nil
 
 	case types.EstimatorSidecar:
@@ -142,12 +142,12 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 		if err != nil {
 			return nil, err
 		}
-		klog.V(3).Infof("Using Power Model %s", modelConfig.ModelOutputType.String())
+		klog.V(2).InfoS("Using Power Model", "modelOutputType", modelConfig.ModelOutputType.String())
 		return model, nil
 	}
 
 	err := fmt.Errorf("power Model %s is not supported", modelConfig.ModelType.String())
-	klog.V(3).Infof("%v", err)
+	klog.V(2).InfoS("Error:", "err", err)
 	return nil, err
 }
 
@@ -160,7 +160,7 @@ func CreatePowerModelConfig(powerSourceTarget string) *types.ModelConfig {
 	modelOutputType := getPowerModelOutputType(powerSourceTarget)
 	energySource := getPowerModelEnergySource(powerSourceTarget)
 	if modelOutputType == types.Unsupported || energySource == "" {
-		klog.V(3).Infof("unsupported power source target %s", powerSourceTarget)
+		klog.V(2).InfoS("unsupported power source target %s", "powerSourceTarget", powerSourceTarget)
 		return nil
 	}
 
@@ -175,7 +175,7 @@ func CreatePowerModelConfig(powerSourceTarget string) *types.ModelConfig {
 		NodeFeatureNames: []string{},
 	}
 
-	klog.V(3).Infof("Model Config %s: %+v", powerSourceTarget, modelConfig)
+	klog.V(2).InfoS("Model Config %s: %+v", "powerSourceTarget", powerSourceTarget, "modelConfig", modelConfig)
 	return &modelConfig
 }
 

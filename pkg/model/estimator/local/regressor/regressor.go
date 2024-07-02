@@ -88,12 +88,12 @@ func (r *Regressor) Start() error {
 	// try getting weight from model server if it is enabled
 	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
 		weight, err = r.getWeightFromServer()
-		klog.V(3).Infof("Regression Model (%s): getWeightFromServer: %v (error: %v)", outputStr, weight, err)
+		klog.V(3).InfoS("Regression Model weight retrieval", "modelOutputType", outputStr, "weight", weight, "err", err)
 	}
 	if weight == nil {
 		// next try loading from URL by config
 		weight, err = r.loadWeightFromURLorLocal()
-		klog.V(3).Infof("Regression Model (%s): loadWeightFromURLorLocal(%v): %v (error: %v)", outputStr, r.ModelWeightsURL, weight, err)
+		klog.V(3).InfoS("Regression Model weight loading", "modelOutputType", outputStr, "modelWeightsURL", r.ModelWeightsURL, "weight", weight, "error", err)
 	}
 	if weight != nil {
 		r.enabled = true
@@ -112,7 +112,7 @@ func (r *Regressor) Start() error {
 		if err == nil {
 			err = fmt.Errorf("the regression model (%s): has no config", outputStr)
 		}
-		klog.V(3).Infof("Regression Model (%s): %v", outputStr, err)
+		klog.V(3).InfoS("Regression Model", "modelOutputType", outputStr, "err", err)
 	}
 	return err
 }

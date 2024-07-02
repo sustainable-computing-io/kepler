@@ -65,10 +65,10 @@ func (c csvNodeCred) IsSupported(info map[string]string) bool {
 		// read file from filePath
 		userName, password, host, err := readCSVFile(filePath, nodeName)
 		if err != nil {
-			klog.V(5).Infof("failed to read csv file: %v", err)
+			klog.V(5).InfoS("failed to read csv file", "err", err)
 			return false
 		}
-		klog.V(5).Infof("read csv file successfully")
+		klog.V(5).InfoS("read csv file successfully")
 		credMap = make(map[string]string)
 		credMap["redfish_username"] = userName
 		credMap["redfish_password"] = password

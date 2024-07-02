@@ -65,18 +65,18 @@ func (q *QATTelemetry) Init() (err error) {
 
 	// turn on telemetry
 	if err = controlTelemetry(devices, on); err != nil {
-		klog.V(2).Infof("failed to start telemetry: %v\n", err)
+		klog.V(2).InfoS("Failed to start telemetry.", "err", err)
 		return err
 	}
 
 	// open the telemetry data file
 	devices, err = openDataFile(devices)
 	if err != nil {
-		klog.V(2).Infof("failed to open telemetry data file: %v\n", err)
+		klog.V(2).InfoS("Failed to open telemetry data file.", "err", err)
 		return err
 	}
 
-	klog.Infof("found %d QAT devices\n", len(devices))
+	klog.InfoS("Found QAT devices.", "deviceCount", len(devices))
 	q.collectionSupported = true
 	return nil
 }
@@ -88,7 +88,7 @@ func (q *QATTelemetry) GetQATUtilization(devices map[string]interface{}) (map[st
 		file := info.(qatDevInfo).datafile
 		deviceUtil, err := getUtilization(file)
 		if err != nil {
-			klog.V(2).Infof("failed to get qat utilization on device %s: %v\n", qatDev, err)
+			klog.V(2).InfoS("Failed to get qat utilization on device.", "device", qatDev, "err", err)
 			continue
 		}
 		qatMetrics[qatDev] = deviceUtil

@@ -70,7 +70,7 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 	}
 	defer func() {
 		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-			klog.V(0).Infof("Failed to discard response body: %v", err)
+			klog.V(0).InfoS("Failed to discard response body.", "err", err)
 		}
 		resp.Body.Close()
 	}()
@@ -92,10 +92,10 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 		if strings.HasPrefix(decErr.Error(), "json: unknown field ") {
 			// ignore unknown field error
 			fieldName := strings.TrimPrefix(decErr.Error(), "json: unknown field ")
-			klog.V(6).Infof("Request body contains unknown field %s", fieldName)
+			klog.V(5).InfoS("Request body contains unknown field.", "fieldName", fieldName)
 		} else {
 			returnErr = decErr
-			klog.V(5).Infof("Failed to decode response: %v", decErr)
+			klog.V(5).InfoS("Failed to decode response.", "err", decErr)
 		}
 	}
 
@@ -106,7 +106,7 @@ func getRedfishSystem(access RedfishAccessInfo) (*RedfishSystemModel, error) {
 	var system RedfishSystemModel
 	err := getRedfishModel(access, "/redfish/v1/Systems", &system)
 	if err != nil {
-		klog.V(1).Infof("Failed to get system: %v", err)
+		klog.V(1).InfoS("Failed to get system.", "err", err)
 		return nil, err
 	}
 
@@ -117,7 +117,7 @@ func getRedfishPower(access RedfishAccessInfo, system string) (*RedfishPowerMode
 	var power RedfishPowerModel
 	err := getRedfishModel(access, "/redfish/v1/Chassis/"+system+"/Power#/PowerControl", &power)
 	if err != nil {
-		klog.V(1).Infof("Failed to get power: %v", err)
+		klog.V(1).InfoS("Failed to get power.", "err", err)
 		return nil, err
 	}
 

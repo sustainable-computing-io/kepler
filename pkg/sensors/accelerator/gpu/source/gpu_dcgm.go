@@ -64,34 +64,34 @@ type GPUDcgm struct {
 func (d *GPUDcgm) Init() error {
 	if !d.libInited {
 		if err := d.InitLib(); err != nil {
-			klog.Infof("failed to init lib: %v", err)
+			klog.InfoS("Failed to init lib.", "err", err)
 			return err
 		}
 	}
 	if err := d.createDeviceGroup(); err != nil {
-		klog.Infof("failed to create device group: %v", err)
+		klog.InfoS("failed to create device group.", "err", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.addDevicesToGroup(); err != nil {
-		klog.Infof("failed to add devices to group: %v", err)
+		klog.InfoS("Failed to add devices to group.", "err", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.createFieldGroup(); err != nil {
-		klog.Infof("failed to create field group: %v", err)
+		klog.InfoS("Failed to create field group.", "err", err)
 		d.Shutdown()
 		return err
 	}
 
 	if err := d.setupWatcher(); err != nil {
-		klog.Infof("failed to set up watcher: %v", err)
+		klog.InfoS("failed to set up watcher.", "err", err)
 		d.Shutdown()
 		return err
 	}
-	klog.Infof("DCGM initialized successfully")
+	klog.InfoS("DCGM initialized successfully")
 	d.collectionSupported = true
 	return nil
 }
@@ -111,7 +111,7 @@ func (d *GPUDcgm) InitLib() error {
 			}
 			return fmt.Errorf("not able to connect to DCGM: %s", err)
 		}
-		klog.V(1).Infof("Started DCGM in the Embedded mode", err)
+		klog.V(1).InfoS("Started DCGM in the Embedded mode", "err", err)
 	}
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
@@ -160,7 +160,7 @@ func (d *GPUDcgm) LoadMIGDevices() {
 	// find all GPUs and the MIG slices if they exist
 	hierarchy, err := dcgm.GetGpuInstanceHierarchy()
 	if err != nil {
-		klog.V(debugLevel).Infof("failed to get GPU Instance hierarchy: %v", err)
+		klog.V(debugLevel).InfoS("Failed to get GPU Instance hierarchy.", "err", err)
 		d.Shutdown()
 		return
 	}
@@ -185,7 +185,7 @@ func (d *GPUDcgm) LoadMIGDevices() {
 		nvmlDevId := int(entity.Info.NvmlInstanceId) - 1 // nvidia-smi MIG DEV ID
 		migDeviceHandler, ret := parentDevice.NVMLDeviceHandler.(nvml.Device).GetMigDeviceHandleByIndex(nvmlDevId)
 		if ret != nvml.SUCCESS {
-			klog.V(debugLevel).Infof("failed to get MIG device handler of GPU %d by index %d: %v", parentGPUID, nvmlDevId, nvml.ErrorString(ret))
+			klog.V(debugLevel).InfoS("Failed to get MIG device handler", "parentGPUID", parentGPUID, "nvmlDevId", nvmlDevId, "error", nvml.ErrorString(ret))
 			break
 		}
 
@@ -260,7 +260,7 @@ func (d *GPUDcgm) GetAbsEnergyFromGPU() []uint32 {
 	for _, device := range d.devices {
 		power, ret := device.NVMLDeviceHandler.(nvml.Device).GetPowerUsage()
 		if ret != nvml.SUCCESS {
-			klog.V(2).Infof("failed to get power usage on device %v: %v\n", device, nvml.ErrorString(ret))
+			klog.V(2).InfoS("failed to get power usage on device.", "device", device, "err", nvml.ErrorString(ret))
 			continue
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
@@ -291,14 +291,14 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since ti
 	// the GPU metrics will be used as the process resource utilization.
 	processInfo, ret := device.NVMLDeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 	if ret != nvml.SUCCESS {
-		klog.V(debugLevel).Infof("failed to get running processes: %v", nvml.ErrorString(ret))
+		klog.V(debugLevel).InfoS("Failed to get running processes.", "err", nvml.ErrorString(ret))
 	}
 
 	for _, p := range processInfo {
 		if device.IsMig {
 			vals, err := dcgm.EntityGetLatestValues(dcgm.FE_GPU_I, uint(device.GPUID), deviceFields)
 			if err != nil {
-				klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
+				klog.V(debugLevel).InfoS("Failed to get latest values for fields.", "err", err)
 				return processAcceleratorMetrics, err
 			}
 			for _, val := range vals {
@@ -313,13 +313,13 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since ti
 						TimeStamp:   uint64(time.Now().UnixNano()),
 						ComputeUtil: uint32(gpuUtilization),
 					}
-					klog.V(debugLevel).Infof("ParentGPU: %d, MIG: %d, PID: %d, GPU Utilization (%d): %f\n", device.ParentGpuID, device.GPUID, p.Pid, ratioFields, gpuUtilization)
+					klog.V(debugLevel).InfoS("GPU Utilization details", "parentGPUID", device.ParentGpuID, "MIGID", device.GPUID, "PID", p.Pid, "ratioFields", ratioFields, "gpuUtilization", gpuUtilization)
 				}
 			}
 		} else {
 			vals, err := dcgm.GetLatestValuesForFields(uint(device.GPUID), deviceFields)
 			if err != nil {
-				klog.V(debugLevel).Infof("failed to get latest values for fields: %v", err)
+				klog.V(debugLevel).InfoS("Failed to get latest values for fields", "err", err)
 				return processAcceleratorMetrics, err
 			}
 			gpuUtilization := float64(0)
@@ -337,7 +337,8 @@ func (d *GPUDcgm) GetProcessResourceUtilizationPerDevice(device Device, since ti
 				// FIXME: As in the original NVML code, we should use here the pinfo.SmUtil from GetProcessUtilization()
 				ComputeUtil: uint32(gpuUtilization),
 			}
-			klog.V(debugLevel).Infof("GPU: %d, PID: %d, GPU Utilization (%d): %f\n", device.GPUID, p.Pid, ratioFields, gpuUtilization)
+			klog.V(debugLevel).InfoS("GPU Utilization details", "GPUID", device.GPUID, "PID", p.Pid, "ratioFields", ratioFields, "gpuUtilization", gpuUtilization)
+
 		}
 	}
 
@@ -362,7 +363,7 @@ func (d *GPUDcgm) createDeviceGroup() error {
 	}
 	d.deviceGroupName = deviceGroupName
 	d.deviceGroupHandle = deviceGroup
-	klog.Infof("Created device group %q", deviceGroupName)
+	klog.InfoS("Created device group.", "deviceGroupName", deviceGroupName)
 	return nil
 }
 
@@ -370,12 +371,12 @@ func (d *GPUDcgm) addDevicesToGroup() error {
 	for gpuID := range d.devices {
 		err := dcgm.AddEntityToGroup(d.deviceGroupHandle, dcgm.FE_GPU, uint(gpuID))
 		if err != nil {
-			klog.Infof("failed to add device %d to group %q: %v", gpuID, d.deviceGroupName, err)
+			klog.InfoS("Failed to add device to group", "gpuID", gpuID, "deviceGroupName", d.deviceGroupName, "err", err)
 		}
 		for migID, migDevice := range d.migDevices[gpuID] {
 			err := dcgm.AddEntityToGroup(d.deviceGroupHandle, dcgm.FE_GPU_I, uint(migID))
 			if err != nil {
-				klog.Infof("failed to add MIG device %d to group %q: %v", migDevice.ParentGpuID, migDevice.GPUID, d.deviceGroupName, err)
+				klog.InfoS("Failed to add MIG device to group", "parentGPUID", migDevice.ParentGpuID, "MIGID", migDevice.GPUID, "deviceGroupName", d.deviceGroupName, "err", err)
 			}
 		}
 	}

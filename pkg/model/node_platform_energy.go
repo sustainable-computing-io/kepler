@@ -49,9 +49,16 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatur
 		var err error
 		NodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {
-			klog.V(1).Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+			klog.V(1).InfoS("Using the Power Model to estimate Node Component Power", 
+				"modelType", modelConfig.ModelType.String(), 
+				"modelOutputType", modelConfig.ModelOutputType.String()
+			)
 		} else {
-			klog.Infof("Failed to create %s Power Model to estimate Node Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+			klog.InfoS("Failed to create Power Model to estimate Node Component Power", 
+				"modelType", modelConfig.ModelType.String(), 
+				"modelOutputType", modelConfig.ModelOutputType.String(), 
+				"err", err
+			)
 		}
 	}
 }
@@ -80,7 +87,7 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 	}
 	powers, err := NodePlatformPowerModel.GetPlatformPower(isIdlePower)
 	if err != nil {
-		klog.Infof("Failed to get node platform power %v\n", err)
+		klog.InfoS("Failed to get node platform power", "err", err)
 		return
 	}
 	// TODO: Estimate the power per socket. Right now we send the aggregated values for all sockets

@@ -35,15 +35,15 @@ Then, we use gpu.go file to initialize the acceleratorImpl from power.go when gp
 func init() {
 	var errLib error
 	for i := 0; i < len(acceleratorOrder); i++ {
-		klog.Infof("Trying to initialize GPU collector using %s", acceleratorOrder[i].GetName())
+		klog.InfoS("Trying to initialize GPU collector using", "acceleratorOrder", acceleratorOrder[i].GetName())
 		acceleratorImpl = acceleratorOrder[i]
 		errLib = acceleratorImpl.InitLib()
 		if errLib == nil {
-			klog.Infof("Using %s to obtain gpu power", acceleratorImpl.GetName())
+			klog.InfoS("Using acceleratorImlp to obtain gpu power", "acceleratorImpl", acceleratorImpl.GetName())
 			return
 		} else {
-			klog.Infof("Error initializing %s: %v", acceleratorImpl.GetName(), errLib)
+			klog.InfoS("Error initializing", "acceleratorImpl", acceleratorImpl.GetName(), "err", errLib)
 		}
 	}
-	klog.Infof("no gpu collector available: %v", errLib)
+	klog.InfoS("no gpu collector available", "err", errLib)
 }

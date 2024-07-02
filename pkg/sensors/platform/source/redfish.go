@@ -166,14 +166,14 @@ type RedFishClient struct {
 func NewRedfishClient() *RedFishClient {
 	credPath := config.GetRedfishCredFilePath()
 	if credPath == "" {
-		klog.Infof("failed to get redfish credential file path")
+		klog.InfoS("Failed to get redfish credential file path")
 		return nil
 	}
 	if err := nodecred.InitNodeCredImpl(map[string]string{"redfish_cred_file_path": credPath}); err != nil {
-		klog.Infof("%s", fmt.Sprintf("failed to initialize node credential: %v", err))
+		klog.InfoS("Failed to initialize node credential", "err", err)
 		return nil
 	} else {
-		klog.V(5).Infof("Initialized node credential")
+		klog.V(5).InfoS("Initialized node credential")
 		nodeName := os.Getenv("NODE_NAME")
 		if nodeName == "" {
 			nodeName = "localhost"
@@ -184,7 +184,7 @@ func NewRedfishClient() *RedFishClient {
 			password := redfishCred["redfish_password"]
 			host := redfishCred["redfish_host"]
 			if userName != "" && password != "" && host != "" {
-				klog.V(5).Infof("Initialized redfish credential")
+				klog.V(5).InfoS("Initialized redfish credential")
 				probeInterval := config.GetRedfishProbeIntervalInSeconds()
 				interval := time.Duration(probeInterval) * time.Second
 				redfish := &RedFishClient{
@@ -196,7 +196,7 @@ func NewRedfishClient() *RedFishClient {
 				return redfish
 			}
 		} else {
-			klog.V(1).Infof("%s", fmt.Sprintf("failed to get node credential: %v", err))
+			klog.V(1).InfoS("Failed to get node credential", "error", err)
 			return nil
 		}
 	}
@@ -216,7 +216,7 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 	system, err := getRedfishSystem(rf.accessInfo)
 
 	if err != nil {
-		klog.Infof("failed to get redfish system info: %v\n", err)
+		klog.InfoS("Failed to get redfish system info.", "err", err)
 		return false
 	}
 
@@ -240,12 +240,12 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 				res.timestamp = time.Now()
 				rf.systems = append(rf.systems, &res)
 			}
-			klog.V(5).Infof("power info: %+v\n", power)
+			klog.V(5).InfoS("Power info", "powerInfo", power)
 			if power.PowerControl[0].PowerMetrics.IntervalInMin > intervalInMin {
 				intervalInMin = power.PowerControl[0].PowerMetrics.IntervalInMin
 			}
 		} else {
-			klog.V(5).Infof("failed to get power info: %v\n", err)
+			klog.V(5).InfoS("Failed to get power info", "err", err)
 		}
 	}
 
@@ -261,11 +261,11 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 				if err == nil && len(power.PowerControl) > 0 {
 					// mutex
 					rf.mutex.Lock()
-					klog.V(5).Infof("power info: %+v\n", power)
+					klog.V(5).InfoS("Power info", "powerInfo", power)
 					system.consumedWatts = power.PowerControl[0].PowerConsumedWatts
 					rf.mutex.Unlock()
 				} else {
-					klog.V(5).Infof("failed to get power info: %v\n", err)
+					klog.V(5).InfoS("Failed to get power info.", "err", err)
 				}
 			}
 		}
@@ -283,7 +283,7 @@ func (rf *RedFishClient) GetAbsEnergyFromPlatform() (map[string]float64, error) 
 			// calculate the elapsed time since the last power query in seconds
 			elapsed := now.Sub(system.timestamp).Seconds()
 			system.timestamp = time.Now()
-			klog.V(5).Infof("power info: %+v\n", system)
+			klog.V(5).InfoS("Power info.", "powerInfo", system)
 			power[system.system] = float64(system.consumedWatts*1000) * elapsed // convert to mW
 			rf.mutex.Unlock()
 		}

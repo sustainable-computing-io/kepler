@@ -78,15 +78,21 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	for counterKey := range bpfSupportedMetrics.HardwareCounters {
 		metrics = append(metrics, counterKey)
 	}
-	klog.V(3).Infof("Available ebpf counters: %v", metrics)
+	// Using verbosity level 2 (Useful steady state information) is selected for these logs because it ensures that this configuration information is routinely visible, aiding in the monitoring of what metrics are actively being collected and considered. 
+	klog.V(2).InfoS("Available eBPF counters", "counters", metrics)
 
 	// gpu metric
 	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
 		gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 		metrics = append(metrics, gpuMetrics...)
-		klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
+		klog.V(2).InfoS("Available GPU metrics", "gpuMetrics", gpuMetrics)
 	}
 
+	// cgroup metric are deprecated and will be removed later
+	if config.ExposeCgroupMetrics {
+		metrics = append(metrics, AvailableCGroupMetrics...)
+		klog.V(2).InfoS("Available cgroup metrics", "cgroupMetrics", AvailableCGroupMetrics)
+	}
 	return metrics
 }
 
@@ -104,7 +110,7 @@ func GetNodeName() string {
 func getCPUArch() string {
 	arch, err := getCPUArchitecture()
 	if err == nil {
-		klog.V(3).Infof("Current CPU architecture: %s", arch)
+		klog.V(3).InfoS("Current CPU architecture:", "arch", arch)
 		return arch
 	}
 	klog.Errorf("getCPUArch failure: %s", err)
@@ -279,7 +285,10 @@ func getCPUMicroArchitecture(family, model, stepping string) (string, error) {
 			}
 		}
 	}
-	klog.V(3).Infof("CPU match not found for family %s, model %s, stepping %s. Use pmu_name as uarch.", family, model, stepping)
+	klog.V(2).InfoS("CPU match not found for family, model, stepping. Use pmu_name as uarch.", 
+		"cpuFamily", family, 
+		"cpuModel", model, 
+		"stepping", stepping)
 	// fallback to option #3
 	return getCPUPmuName()
 }
@@ -298,7 +307,7 @@ func getCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
 	cpuArchOverride := config.CPUArchOverride
 	if cpuArchOverride != "" {
-		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
+		klog.V(2).InfoS("cpu arch override", "cpuArchOverride", cpuArchOverride)
 		return cpuArchOverride, nil
 	}
 
@@ -336,6 +345,6 @@ func getCPUPackageMap() (cpuPackageMap map[int32]string) {
 		}
 		cpuPackageMap[cpu] = strings.TrimSpace(string(value))
 	}
-	klog.V(3).Infof("CPU-Package Map: %v\n", cpuPackageMap)
+	klog.V(2).InfoS("CPU-Package Map", "cpuPackageMap", cpuPackageMap)
 	return
 }

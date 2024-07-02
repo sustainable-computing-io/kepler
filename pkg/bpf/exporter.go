@@ -119,7 +119,7 @@ func getLibbpfObjectFilePath(byteOrder binary.ByteOrder) (string, error) {
 		if len(matches) < 1 {
 			return "", fmt.Errorf("failed to find bpf object file: no matches found")
 		}
-		klog.Infof("found bpf object file: %s", matches[0])
+		klog.InfoS("found bpf object file", "objectFile", matches[0])
 		return matches[0], nil
 	}
 	return bpfassetsPath, nil
@@ -137,7 +137,7 @@ func (e *exporter) attach() error {
 	}
 
 	// resize array entries
-	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", e.cpuCores)
+	klog.InfoS("CPU cores detected. Resizing eBPF Perf Event Arrays", "cpuCores", e.cpuCores)
 	toResize := []string{
 		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader",
 		"cpu_cycles", "cpu_instructions", "cache_miss",
@@ -165,7 +165,7 @@ func (e *exporter) attach() error {
 	}
 
 	if _, err = prog.AttachGeneric(); err != nil {
-		klog.Infof("failed to attach tracepoint/sched/sched_switch: %v", err)
+		klog.InfoS("failed to attach tracepoint/sched/sched_switch", "err", err)
 	} else {
 		e.enabledSoftwareCounters[config.CPUTime] = struct{}{}
 	}
@@ -220,7 +220,7 @@ func (e *exporter) attach() error {
 	}
 
 	if !config.ExposeHardwareCounterMetrics {
-		klog.Infof("Hardware counter metrics are disabled")
+		klog.InfoS("Hardware counter metrics are disabled")
 		return nil
 	}
 
@@ -261,7 +261,31 @@ func (e *exporter) attach() error {
 		e.enabledHardwareCounters[arrayName] = struct{}{}
 	}
 
+<<<<<<< HEAD
 	klog.Infof("Successfully load eBPF module from libbpf object")
+=======
+	// attach task clock perf event. this is a software counter, not a hardware counter
+	bpfPerfArrayName := config.TaskClock + bpfPerfArraySuffix
+	bpfMap, err := e.module.GetMap(bpfPerfArrayName)
+	if err != nil {
+		return fmt.Errorf("could not get ebpf map for perf event %s: %w", bpfPerfArrayName, err)
+	}
+	fds, perfErr := unixOpenPerfEvent(unix.PERF_TYPE_SOFTWARE, unix.PERF_COUNT_SW_TASK_CLOCK, e.cpuCores)
+	if perfErr != nil {
+		return fmt.Errorf("could not attach perf event %s: %w", bpfPerfArrayName, perfErr)
+	}
+	for i, fd := range fds {
+		err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
+		if err != nil {
+			klog.Warningf("failed to update bpf map: %v", err)
+			return cleanup()
+		}
+	}
+	e.perfEventFds = append(e.perfEventFds, fds...)
+	e.enabledSoftwareCounters[config.TaskClock] = struct{}{}
+
+	klog.InfoS("Successfully load eBPF module from libbpf object")
+>>>>>>> 14c8f707 (Fixed Consistant Log Levelling)
 	return nil
 }
 
@@ -299,6 +323,52 @@ func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err er
 	return
 }
 
+<<<<<<< HEAD
+=======
+func (e *exporter) CollectCPUFreq() (cpuFreqData map[int32]uint64, err error) {
+	cpuFreqData = make(map[int32]uint64)
+	var cpuFreq *bpf.BPFMap
+	cpuFreq, err = e.module.GetMap(TableCPUFreqName)
+	if err != nil {
+		return
+	}
+	// cpuFreqkeySize := int(unsafe.Sizeof(uint32Key))
+	iterator := cpuFreq.Iterator()
+	var freq uint32
+	// keySize := int(unsafe.Sizeof(freq))
+	retry := 0
+	next := iterator.Next()
+	for next {
+		keyBytes := iterator.Key()
+		cpu := int32(e.byteOrder.Uint32(keyBytes))
+		data, getErr := cpuFreq.GetValue(unsafe.Pointer(&cpu))
+		if getErr != nil {
+			retry += 1
+			if retry > config.MaxLookupRetry {
+				klog.V(5).InfoS("failed to get data with max retry", "err", getErr, "maxRetry", config.MaxLookupRetry)
+				next = iterator.Next()
+				retry = 0
+			}
+			continue
+		}
+		getErr = binary.Read(bytes.NewReader(data), e.byteOrder, &freq)
+		if getErr != nil {
+			klog.V(5).InfoS("failed to decode received data", "err" getErr)
+			next = iterator.Next()
+			retry = 0
+			continue
+		}
+		if retry > 0 {
+			klog.V(5).InfoS("successfully get data with retry", "retry", retry)
+		}
+		cpuFreqData[cpu] = uint64(freq)
+		next = iterator.Next()
+		retry = 0
+	}
+	return
+}
+
+>>>>>>> 14c8f707 (Fixed Consistant Log Levelling)
 ///////////////////////////////////////////////////////////////////////////
 // utility functions
 
@@ -367,7 +437,7 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 	if err != nil {
 		// os.IsNotExist means we reached the end of the table
 		if !os.IsNotExist(err) {
-			klog.V(5).Infof("GetValueAndDeleteBatch failed: %v. A partial value might have been collected.", err)
+			klog.V(5).InfoS("GetValueAndDeleteBatch failed. A partial value might have been collected.", "err", err)
 		}
 	}
 
@@ -383,7 +453,7 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 			processesData = append(processesData, ct)
 		}
 	}
-	klog.V(5).Infof("successfully get data with batch get and delete with %d pids in %v", len(processesData), time.Since(start))
+	klog.V(5).InfoS("successfully get data with batch get and delete", "pidCount", len(processesData), "duration", time.Since(start))
 	return processesData, err
 }
 
@@ -400,7 +470,7 @@ func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 		if getErr != nil {
 			retry += 1
 			if retry > config.MaxLookupRetry {
-				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, config.MaxLookupRetry)
+				klog.V(5).InfoS("failed to get data with max retry", "err", getErr, "maxRetry", config.MaxLookupRetry)
 				next = iterator.Next()
 				retry = 0
 			}
@@ -408,13 +478,13 @@ func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 		}
 		getErr = binary.Read(bytes.NewReader(data), e.byteOrder, &ct)
 		if getErr != nil {
-			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
+			klog.V(5).InfoS("failed to decode received data", "err" getErr)
 			next = iterator.Next()
 			retry = 0
 			continue
 		}
 		if retry > 0 {
-			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
+			klog.V(5).InfoS("successfully get data with retry", "retry", retry)
 		}
 		processesData = append(processesData, ct)
 		keys = append(keys, key)

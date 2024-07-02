@@ -92,12 +92,27 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func finalizing() {
+	stack := "exit stack: \n" + string(debug.Stack())
+	klog.InfoS(stack)
+	exitCode := 10
+	klog.Infoln(finishingMsg)
+	klog.FlushAndExit(klog.ExitFlushTimeout, exitCode)
+}
+
 func main() {
 	start := time.Now()
 	klog.InitFlags(nil)
+
+	// for log debugging issues
+	flag.Set("logtostderr", "false")
+	flag.Set("alsologtostderr", "true")
+	flag.Set("log_dir", "/root/kepler/kepler_prime/kepler_debug/logs1.txt")
+	flag.Set("v", "2")
+
 	flag.Parse()
 
-	klog.Infof("Kepler running on version: %s", Version)
+	klog.InfoS("Kepler running on version", "version", kversion.Version)
 
 	registry := metrics.GetRegistry()
 	registry.MustRegister(prometheus.NewGaugeFunc(
@@ -144,7 +159,7 @@ func main() {
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
-		klog.Infof("Initializing the GPU collector")
+		klog.InfoS("Initializing the GPU collector")
 		// the GPU operators typically takes longer time to initialize than kepler resulting in error to start the gpu driver
 		// therefore, we wait up to 1 min to allow the gpu operator initialize
 		for i := 0; i <= maxGPUInitRetry; i++ {
@@ -158,16 +173,16 @@ func main() {
 		if err == nil {
 			defer gpu.Shutdown()
 		} else {
-			klog.Infof("Failed to initialize the GPU collector: %v. Have the GPU operator initialize?", err)
+			klog.InfoS("Failed to initialize the GPU collector. Have the GPU operator initialize?", "err", err)
 		}
 	}
 
 	if config.IsExposeQATMetricsEnabled() {
-		klog.Infof("Initializing the QAT collector")
+		klog.InfoS("Initializing the QAT collector")
 		if qatErr := qat.Init(); qatErr == nil {
 			defer qat.Shutdown()
 		} else {
-			klog.Infof("Failed to initialize the QAT collector: %v", qatErr)
+			klog.InfoS("Failed to initialize the QAT collector", "err", qatErr)
 		}
 	}
 
@@ -178,7 +193,7 @@ func main() {
 	// starting a new gorotine to collect data and report metrics
 	// BPF is attached here
 	if startErr := m.Start(); startErr != nil {
-		klog.Infof("%s", fmt.Sprintf("failed to start : %v", startErr))
+		klog.InfoS("failed to start", "err", startErr)
 	}
 	metricPathConfig := config.GetMetricPath(*metricsPath)
 	bindAddressConfig := config.GetBindAddress(*address)
@@ -198,7 +213,7 @@ func main() {
 		Handler: &handler,
 	}
 
-	klog.Infof("starting to listen on %s", bindAddressConfig)
+	klog.InfoS("starting to listen on", "address" bindAddressConfig)
 	errChan := make(chan error)
 
 	signalChan := make(chan os.Signal, 1)
@@ -212,7 +227,7 @@ func main() {
 			errChan <- err
 		}
 	}()
-	klog.Infof(startedMsg, time.Since(start))
+	klog.InfoS(startedMsg, "duration", time.Since(start))
 	klog.Flush() // force flush to parse the start msg in the e2e test
 
 	// Wait for an exit signal
