@@ -17,13 +17,6 @@ struct {
 } pid_time_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, u32);
-	__type(value, u32);
-	__uint(max_entries, MAP_SIZE);
-} pid_tgid_map SEC(".maps");
-
-struct {
 	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
 	__type(key, int);
 	__type(value, u32);
@@ -157,11 +150,10 @@ static inline u64 get_on_cpu_cache_miss(u32 *cpu_id)
 static inline void register_new_process_if_not_exist()
 {
 	u64 cgroup_id, pid_tgid;
-	u32 curr_pid, curr_tgid;
+	u32 curr_tgid;
 	struct process_metrics_t *curr_tgid_metrics;
 
 	pid_tgid = bpf_get_current_pid_tgid();
-	curr_pid = (u32)pid_tgid;
 	curr_tgid = pid_tgid >> 32;
 
 	// create new process metrics
@@ -177,10 +169,6 @@ static inline void register_new_process_if_not_exist()
 		bpf_get_current_comm(&new_process.comm, sizeof(new_process.comm));
 		bpf_map_update_elem(
 			&processes, &curr_tgid, &new_process, BPF_NOEXIST);
-
-		// add new thread id (curr_pid) to the precess id (tgid) list
-		bpf_map_update_elem(
-			&pid_tgid_map, &curr_pid, &curr_tgid, BPF_NOEXIST);
 	}
 }
 
@@ -196,6 +184,7 @@ static inline void collect_metrics_and_reset_counters(
 
 struct task_struct {
 	int pid;
+	unsigned int tgid;
 } __attribute__((preserve_access_index));
 
 struct task_struct___o {
@@ -218,7 +207,7 @@ SEC("tp_btf/sched_switch")
 int kepler_sched_switch_trace(u64 *ctx)
 {
 	u32 prev_pid, next_pid, cpu_id;
-	u64 *prev_tgid;
+	u64 prev_tgid;
 	unsigned int prev_state;
 	u64 curr_ts = bpf_ktime_get_ns();
 	struct task_struct *prev_task, *next_task;
@@ -231,6 +220,7 @@ int kepler_sched_switch_trace(u64 *ctx)
 
 	prev_pid = (u32)prev_task->pid;
 	next_pid = (u32)next_task->pid;
+	prev_tgid = prev_task->tgid;
 	cpu_id = bpf_get_smp_processor_id();
 
 	// Collect metrics
@@ -250,26 +240,19 @@ int kepler_sched_switch_trace(u64 *ctx)
 	}
 
 	if (get_task_state(prev_task) == TASK_RUNNING) {
-		// Skip if the previous thread was not registered yet
-		prev_tgid = bpf_map_lookup_elem(&pid_tgid_map, &prev_pid);
-		if (prev_tgid) {
-			// The process_run_time is 0 if we do not have the previous timestamp of
-			// the task or due to a clock issue. In either case, we skip collecting
-			// all metrics to avoid discrepancies between the hardware counter and CPU
-			// time.
-			if (buf.process_run_time > 0) {
-				prev_tgid_metrics = bpf_map_lookup_elem(
-					&processes, prev_tgid);
-				if (prev_tgid_metrics) {
-					prev_tgid_metrics->process_run_time +=
-						buf.process_run_time;
-					prev_tgid_metrics->cpu_cycles +=
-						buf.cpu_cycles;
-					prev_tgid_metrics->cpu_instr +=
-						buf.cpu_instr;
-					prev_tgid_metrics->cache_miss +=
-						buf.cache_miss;
-				}
+		// The process_run_time is 0 if we do not have the previous timestamp of
+		// the task or due to a clock issue. In either case, we skip collecting
+		// all metrics to avoid discrepancies between the hardware counter and CPU
+		// time.
+		if (buf.process_run_time > 0) {
+			prev_tgid_metrics =
+				bpf_map_lookup_elem(&processes, &prev_tgid);
+			if (prev_tgid_metrics) {
+				prev_tgid_metrics->process_run_time +=
+					buf.process_run_time;
+				prev_tgid_metrics->cpu_cycles += buf.cpu_cycles;
+				prev_tgid_metrics->cpu_instr += buf.cpu_instr;
+				prev_tgid_metrics->cache_miss += buf.cache_miss;
 			}
 		}
 	}
