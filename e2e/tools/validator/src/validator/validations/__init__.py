@@ -1,15 +1,16 @@
 import logging
-from typing import Dict, NamedTuple, List
-from validator import config
 import re
+from typing import Dict, List, NamedTuple
+
 import yaml
 
+from validator import config
 
 logger = logging.getLogger(__name__)
 
 
 class QueryTemplate:
-    def __init__(self, query: str, vars: Dict[str, str]) -> None:
+    def __init__(self, query: str, vars: dict[str, str]) -> None:
         self._original = query
         self._vars = vars
         self._promql = query.format(**vars)
@@ -50,8 +51,8 @@ class Validation(NamedTuple):
     actual: QueryTemplate
 
 
-def read_validations(file_path: str, vars: Dict[str, str]) -> list[Validation]:
-    with open(file_path, "r") as file:
+def read_validations(file_path: str, vars: dict[str, str]) -> list[Validation]:
+    with open(file_path) as file:
         yml = yaml.safe_load(file)
         return [
             Validation(
@@ -67,7 +68,7 @@ class Loader:
     def __init__(self, cfg: config.Validator):
         self.cfg = cfg
 
-    def load(self) -> List[Validation]:
+    def load(self) -> list[Validation]:
         vars = {}
 
         vm = self.cfg.metal.vm

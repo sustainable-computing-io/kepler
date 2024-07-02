@@ -4,8 +4,9 @@
 
 # a python program to get host and VM cpu spec, dram size, number of cpu cores, and return a json output
 import subprocess
-import validator.config as config
 import typing
+
+from validator import config
 from validator.stresser import Remote
 
 
@@ -41,7 +42,7 @@ def parse_lscpu_output(output: str):
 def get_host_cpu_spec():
     # get host cpu spec
     host_cpu_spec = {}
-    lscpu = subprocess.run(["lscpu"], stdout=subprocess.PIPE)
+    lscpu = subprocess.run(["lscpu"], stdout=subprocess.PIPE, check=False)
     if lscpu.stdout:
         host_cpu_spec = parse_lscpu_output(lscpu.stdout.decode())
     return host_cpu_spec
@@ -58,7 +59,7 @@ def get_vm_cpu_spec(vm: Remote):
 def get_host_dram_size():
     # get host dram size
     dram_size = ""
-    meminfo = open("/proc/meminfo", "r")
+    meminfo = open("/proc/meminfo")
     for line in meminfo:
         if "MemTotal" in line:
             dram_size = line.split(":")[1].strip()

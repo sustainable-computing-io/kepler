@@ -110,7 +110,6 @@ build_image: image_builder_check ## Build image without DCGM.
 		-f $(DOCKERFILE) \
 		--build-arg INSTALL_DCGM=false \
 		--build-arg INSTALL_HABANA=false \
-		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG) $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
@@ -122,7 +121,6 @@ build_image_dcgm:  image_builder_check ## Build image with DCGM.
 		-f $(DOCKERFILE) \
 		--build-arg INSTALL_DCGM=true \
 		--build-arg INSTALL_HABANA=false \
-		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-dcgm $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-dcgm
@@ -133,7 +131,6 @@ build_image_habana: image_builder_check ## Build image with Habana.
 		-f $(DOCKERFILE) \
 		--build-arg INSTALL_HABANA=true \
 		--build-arg INSTALL_DCGM=false \
-		--build-arg VERSION=$(VERSION) \
 		--platform="linux/$(GOARCH)" \
 		.
 	$(CTR_CMD) tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_BUILD_TAG)-habana $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)-habana

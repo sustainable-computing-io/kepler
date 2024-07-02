@@ -2,25 +2,22 @@
 #
 # SPDX-License-Identifier: APACHE-2.0
 
-import subprocess
-import os
-import logging
-import typing
-import json
 import datetime
+import json
+import logging
+import os
+import subprocess
+import typing
 
 import click
 
-from validator.__about__ import __version__
 from validator import config
+from validator.__about__ import __version__
 from validator.cli import options
-
+from validator.prometheus import Comparator, PrometheusClient, Series
 from validator.specs import Reporter as SpecReporter
-from validator.stresser import Remote
-
-from validator.stresser import ScriptResult
+from validator.stresser import Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate
-from validator.prometheus import Comparator, Series, PrometheusClient
 
 logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
@@ -55,7 +52,7 @@ class Report(typing.NamedTuple):
 
 def new_report(dir: str) -> Report:
     # run git describe command and get the output as the report name
-    git_describe = subprocess.run(["git", "describe", "--tag"], stdout=subprocess.PIPE)
+    git_describe = subprocess.run(["git", "describe", "--tag"], stdout=subprocess.PIPE, check=False)
     tag = git_describe.stdout.decode().strip()
 
     results_dir = os.path.join(dir, f"validator-{tag}")

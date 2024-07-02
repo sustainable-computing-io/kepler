@@ -1,6 +1,6 @@
 import pytest
-from validator import stresser
-from validator import config
+
+from validator import config, stresser
 
 
 @pytest.fixture
