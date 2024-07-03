@@ -1,7 +1,9 @@
 name: Validator tests
 
 on: # yamllint disable-line rule:truthy
-  workflow_call:
+  pull_request:
+    paths:
+      - e2e/tools/validator/**
 
 jobs:
   test:
