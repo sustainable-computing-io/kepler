@@ -1,6 +1,3 @@
-//go:build linux && libbpf
-// +build linux,libbpf
-
 /*
 Copyright 2021.
 

@@ -108,8 +108,6 @@ install_jq() {
 		return 0
 	}
 	local os="$GOOS"
-	[[ $os == "darwin" ]] && os="macos"
-
 	curl_install jq "$JQ_INSTALL_URL/jq-$os-$GOARCH"
 }
 
