@@ -26,6 +26,9 @@ jobs:
   # for each PR run integration test
   integration_test:
     uses: ./.github/workflows/integration_test.yml
+  # for each PR run validator test
+  validator:
+    uses: ./.github/workflows/validator.yml
 
   changes_image:
     runs-on: ubuntu-latest
