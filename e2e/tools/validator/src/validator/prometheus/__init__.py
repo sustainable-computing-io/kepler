@@ -125,10 +125,10 @@ def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
         return ValueOrError(value=0, error=str(e))
 
 
-def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
+def filter_by_nearest_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
     """
-    filter_by_equal_timestamps will filter out samples from a and b
-    that have the same timestamp.
+    filter_by_nearest_timestamps will filter out samples from a and b
+    that have the closest matching timestamps.
     E.g. given
         a: (t1, a1), (t2, a2), (t3, a3)
         b: (t1, b1), (t3, b3)
@@ -137,23 +137,22 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
         b: (t1, b1), (t3, b3)
     """
 
+    def find_nearest_idx(array, value):
+        idx = (np.abs(array - value)).argmin()
+        return idx
+
+    a_timestamps = np.array([sample.timestamp for sample in a.samples])
+    b_timestamps = np.array([sample.timestamp for sample in b.samples])
+
     filtered_a = []
-    filterd_b = []
+    filtered_b = []
 
-    idx_a, idx_b = 0, 0
+    for a_sample in a.samples:
+        idx = find_nearest_idx(b_timestamps, a_sample.timestamp)
+        filtered_a.append(a_sample)
+        filtered_b.append(b.samples[idx])
 
-    while idx_a < len(a.samples) and idx_b < len(b.samples):
-        if a.samples[idx_a].timestamp == b.samples[idx_b].timestamp:
-            filtered_a.append(a.samples[idx_a])
-            filterd_b.append(b.samples[idx_b])
-            idx_a += 1
-            idx_b += 1
-        elif a.samples[idx_a].timestamp < b.samples[idx_b].timestamp:
-            idx_a += 1
-        else:
-            idx_b += 1
-
-    return Series.from_samples(a.query, filtered_a), Series.from_samples(b.query, filterd_b)
+    return Series.from_samples(a.query, filtered_a), Series.from_samples(b.query, filtered_b)
 
 
 class SeriesError(Exception):
@@ -226,7 +225,7 @@ class Comparator:
         expected_series = self.single_series(expected_query, start, end)
         actual_series = self.single_series(actual_query, start, end)
 
-        expected, actual = filter_by_equal_timestamps(expected_series, actual_series)
+        expected, actual = filter_by_nearest_timestamps(expected_series, actual_series)
 
         return Result(
             mse=mse(actual.values, expected.values),
