@@ -17,7 +17,7 @@ from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series
 from validator.specs import Reporter as SpecReporter
 from validator.stresser import Remote, ScriptResult
-from validator.validations import Loader, QueryTemplate
+from validator.validations import Loader, QueryTemplate, Validation
 
 logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
@@ -48,6 +48,9 @@ class Report(typing.NamedTuple):
 
     def h4(self, text: str) -> None:
         self.write(f"#### {text}\n\n")
+
+    def code(self, text: str) -> None:
+        self.write(f"```\n{text}\n```\n")
 
 
 def new_report(dir: str) -> Report:
@@ -125,7 +128,7 @@ def validator(ctx: click.Context, config_file: str, log_level: str):
     "--report-dir",
     "-o",
     default="/tmp",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=True, writable=True),
     show_default=True,
 )
 @pass_config
@@ -207,14 +210,30 @@ def generate_validation_report(report: Report, cfg: config.Validator, test: Scri
     prom = PrometheusClient(cfg.prometheus)
     comparator = Comparator(prom)
     validations = Loader(cfg).load()
-
     for v in validations:
-        click.secho(f"\t * {v.name}", fg="bright_blue")
+        report_validation_results(report, v, comparator, start_time, end_time)
+    report.close()
 
-        report.h3(f"Validate - {v.name}")
-        report.write(f"  * expected:  `{v.expected.one_line}`\n")
-        report.write(f"  * actual:  `{v.actual.one_line}`\n")
+    click.secho("Report Generated ", fg="bright_green")
+    click.secho(f"  time range: {start_time} - {end_time}: ({end_time - start_time}) ", fg="bright_green")
+    click.secho(f"  report: {report.path} ", fg="bright_green")
+    click.secho(f"  dir   : {report.results_dir} ", fg="bright_green")
 
+
+def report_validation_results(
+    report: Report,
+    v: Validation,
+    comparator: Comparator,
+    start_time: datetime.datetime,
+    end_time: datetime.datetime,
+):
+    click.secho(f"\t * {v.name}", fg="bright_blue")
+
+    report.h3(f"Validate - {v.name}")
+    report.write(f"  * expected:  `{v.expected.one_line}`\n")
+    report.write(f"  * actual:  `{v.actual.one_line}`\n")
+
+    try:
         res = comparator.compare(
             start_time,
             end_time,
@@ -231,10 +250,10 @@ def generate_validation_report(report: Report, cfg: config.Validator, test: Scri
 
         dump_query_result(report.results_dir, v.expected, res.expected_series)
         dump_query_result(report.results_dir, v.actual, res.actual_series)
+    except Exception as e:
+        click.secho(f"\t    {v.name} failed: {e} ", fg="red")
+        click.secho(f"\t    Error: {e} ", fg="yellow")
 
-    report.close()
-
-    click.secho("Report Generated ", fg="bright_green")
-    click.secho(f"  time range: {start_time} - {end_time}: ({end_time - start_time}) ", fg="bright_green")
-    click.secho(f"  report: {report.path} ", fg="bright_green")
-    click.secho(f"  dir   : {report.results_dir} ", fg="bright_green")
+        report.h4("Unexpected Error")
+        report.code(str(e))
+        report.flush()
