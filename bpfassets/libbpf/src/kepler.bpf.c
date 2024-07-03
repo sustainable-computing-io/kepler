@@ -187,22 +187,6 @@ struct task_struct {
 	unsigned int tgid;
 } __attribute__((preserve_access_index));
 
-struct task_struct___o {
-	unsigned int state;
-};
-
-struct task_struct___x {
-	unsigned int __state;
-};
-
-static unsigned int get_task_state(void *task)
-{
-	struct task_struct___x *t = task;
-	if (bpf_core_field_exists(t->__state))
-		return t->__state;
-	return ((struct task_struct___o *)task)->state;
-}
-
 SEC("tp_btf/sched_switch")
 int kepler_sched_switch_trace(u64 *ctx)
 {
@@ -239,21 +223,17 @@ int kepler_sched_switch_trace(u64 *ctx)
 		counter_sched_switch = SAMPLE_RATE;
 	}
 
-	if (get_task_state(prev_task) == TASK_RUNNING) {
-		// The process_run_time is 0 if we do not have the previous timestamp of
-		// the task or due to a clock issue. In either case, we skip collecting
-		// all metrics to avoid discrepancies between the hardware counter and CPU
-		// time.
-		if (buf.process_run_time > 0) {
-			prev_tgid_metrics =
-				bpf_map_lookup_elem(&processes, &prev_tgid);
-			if (prev_tgid_metrics) {
-				prev_tgid_metrics->process_run_time +=
-					buf.process_run_time;
-				prev_tgid_metrics->cpu_cycles += buf.cpu_cycles;
-				prev_tgid_metrics->cpu_instr += buf.cpu_instr;
-				prev_tgid_metrics->cache_miss += buf.cache_miss;
-			}
+	// The process_run_time is 0 if we do not have the previous timestamp of
+	// the task or due to a clock issue. In either case, we skip collecting
+	// all metrics to avoid discrepancies between the hardware counter and CPU
+	// time.
+	if (buf.process_run_time > 0) {
+		prev_tgid_metrics = bpf_map_lookup_elem(&processes, &prev_tgid);
+		if (prev_tgid_metrics) {
+			prev_tgid_metrics->process_run_time += buf.process_run_time;
+			prev_tgid_metrics->cpu_cycles += buf.cpu_cycles;
+			prev_tgid_metrics->cpu_instr += buf.cpu_instr;
+			prev_tgid_metrics->cache_miss += buf.cache_miss;
 		}
 	}
 
