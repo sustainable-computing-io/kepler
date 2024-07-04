@@ -16,7 +16,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/prometheus v0.53.0
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/sys v0.21.0
+	golang.org/x/sys v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.6
 	k8s.io/apimachinery v0.29.6
