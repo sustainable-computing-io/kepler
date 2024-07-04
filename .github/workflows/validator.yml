@@ -1,0 +1,39 @@
+name: Validator tests
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    paths:
+      - e2e/tools/validator/**
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # checkout source code
+      - name: checkout source
+        uses: actions/checkout@v4.1.1
+
+      # setup Python environment
+      - name: set up Python
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: "3.11"
+
+      # install hatch
+      - name: install hatch
+        run: |
+          python -m pip install --upgrade pip
+          pip install hatch
+
+      # run the formatter using hatch
+      - name: run formatter with hatch
+        run: |
+          cd ./e2e/tools/validator
+          make fmt
+          git diff --exit-code
+
+      # run the tests using hatch
+      - name: run tests with hatch
+        run: |
+          cd ./e2e/tools/validator
+          make test

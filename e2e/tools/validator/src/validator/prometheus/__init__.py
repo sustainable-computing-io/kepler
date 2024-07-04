@@ -59,11 +59,27 @@ class Series:
         return f"{self.query}\n: {[ str(s) for s in self.samples]}"
 
 
+class ValueOrError(NamedTuple):
+    """
+    ValueOrError is a tuple of (value, error) and represents
+    either a value or an error
+    """
+
+    value: float
+    error: str | None = None
+
+    def __str__(self) -> str:
+        if self.error is None:
+            return str(self.value)
+
+        return f"Error: {self.error}"
+
+
 class Result(NamedTuple):
     expected_series: Series
     actual_series: Series
-    mse: float
-    mape: float
+    mse: ValueOrError
+    mape: ValueOrError
 
     def print(self):
         print("Expected:")
@@ -83,19 +99,30 @@ class Result(NamedTuple):
         print("\t\t\t\t━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
-def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
+def validate_arrays(actual: npt.ArrayLike, expected: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
     actual, expected = np.array(actual), np.array(expected)
     if len(actual) != len(expected):
-        raise ValueError("actual and expected must have the same length")
+        raise ValueError(f"actual and expected must be of equal length: {len(actual)} != {len(expected)}")
     elif len(actual) == 0 or len(expected) == 0:
-        raise ValueError("actual and expected must have non-zero length")
+        raise ValueError(f"actual ({len(actual)}) and expected ({len(expected)}) must not be empty")
 
-    return np.square(np.subtract(actual, expected)).mean()
+    return (actual, expected)
 
 
-def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> float:
-    actual, expected = np.array(actual), np.array(expected)
-    return 100 * np.mean(np.abs(np.divide(np.subtract(actual, expected), actual)))
+def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
+    try:
+        actual, expected = validate_arrays(actual, expected)
+        return ValueOrError(value=np.square(np.subtract(actual, expected)).mean())
+    except Exception as e:
+        return ValueOrError(value=0, error=str(e))
+
+
+def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
+    try:
+        actual, expected = validate_arrays(actual, expected)
+        return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), actual)).mean())
+    except Exception as e:
+        return ValueOrError(value=0, error=str(e))
 
 
 def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
@@ -159,7 +186,7 @@ def to_metric(labels: dict[str, str]) -> str:
 
 class PrometheusClient:
     def __init__(self, cfg: PromConfig):
-        self.prom = PrometheusConnect(cfg.url, headers=None, disable_ssl=True)
+        self.prom = PrometheusConnect(cfg.url, disable_ssl=True)
         self.step = cfg.step
 
     def range_query(self, query: str, start: datetime, end: datetime) -> list[Series]:

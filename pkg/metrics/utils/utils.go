@@ -33,32 +33,87 @@ import (
 var JouleMillijouleConversionFactor = utils.JouleMillijouleConversionFactor
 
 func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric) {
-	// collect the dynamic energy metrics
-	for i, collectorName := range consts.EnergyMetricNames {
-		if collectorName == config.GPU && !config.EnabledGPU {
-			continue
-		}
-		collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
-		// idle power is not enabled by default on VMs, since it is the host idle power and was not split among all running VMs
-		if config.IsIdlePowerEnabled() {
-			collectEnergy(ch, instance, consts.IdleEnergyMetricNames[i], "idle", collectors[collectorName])
+	if config.IsExposeComponentPowerEnabled() {
+		// collect the dynamic energy metrics
+		for i, collectorName := range consts.EnergyMetricNames {
+			if collectorName == config.GPU && !config.EnabledGPU {
+				continue
+			}
+			collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
+			// idle power is not enabled by default on VMs, since it is the host idle power and was not split among all running VMs
+			if config.IsIdlePowerEnabled() {
+				collectEnergy(ch, instance, consts.IdleEnergyMetricNames[i], "idle", collectors[collectorName])
+			}
 		}
 	}
 }
 
 func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric, bpfSupportedMetrics bpf.SupportedMetrics) {
-	// collect the BPF Software Counters
-	for collectorName := range bpfSupportedMetrics.SoftwareCounters {
-		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-	}
-	for collectorName := range bpfSupportedMetrics.HardwareCounters {
-		CollectResUtil(ch, instance, collectorName, collectors[collectorName])
-	}
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		for _, collectorName := range consts.GPUMetricNames {
+	if config.IsExposeBPFMetricsEnabled() {
+		// collect the BPF Software Counters
+		for collectorName := range bpfSupportedMetrics.SoftwareCounters {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
+		for collectorName := range bpfSupportedMetrics.HardwareCounters {
+			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+		}
+		if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+			for _, collectorName := range consts.GPUMetricNames {
+				CollectResUtil(ch, instance, collectorName, collectors[collectorName])
+			}
+		}
 	}
+}
+
+func CollectTotalEnergyMetrics(ch chan<- prometheus.Metric, input interface{}, collectors map[string]metricfactory.PromMetric) {
+	switch v := input.(type) {
+	case *stats.ContainerStats:
+		handleContainerStats(ch, input.(*stats.ContainerStats), collectors)
+	case *stats.ProcessStats:
+		handleProcessStats(ch, input.(*stats.ProcessStats), collectors)
+	default:
+		klog.Errorf("Type %T is not supported.\n", v)
+	}
+}
+
+func handleContainerStats(ch chan<- prometheus.Metric, collection *stats.ContainerStats, collectors map[string]metricfactory.PromMetric) {
+	energy := collection.EnergyUsage[config.DynEnergyInPkg].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInDRAM].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInOther].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInGPU].SumAllAggrValues()
+	energyInJoules := float64(energy) / utils.JouleMillijouleConversionFactor
+
+	labelValues := []string{collection.ContainerID, collection.PodName, collection.ContainerName, collection.Namespace, "dynamic"}
+
+	ch <- collectors["total"].MustMetric(energyInJoules, labelValues...)
+
+	energy = collection.EnergyUsage[config.IdleEnergyInPkg].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInDRAM].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInOther].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInGPU].SumAllAggrValues()
+	energyInJoules = float64(energy) / utils.JouleMillijouleConversionFactor
+	labelValues = []string{collection.ContainerID, collection.PodName, collection.ContainerName, collection.Namespace, "idle"}
+	ch <- collectors["total"].MustMetric(energyInJoules, labelValues...)
+}
+
+func handleProcessStats(ch chan<- prometheus.Metric, collection *stats.ProcessStats, collectors map[string]metricfactory.PromMetric) {
+	energy := collection.EnergyUsage[config.DynEnergyInPkg].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInDRAM].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInOther].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.DynEnergyInGPU].SumAllAggrValues()
+	energyInJoules := float64(energy) / utils.JouleMillijouleConversionFactor
+
+	labelValues := []string{strconv.FormatUint(collection.PID, 10), collection.ContainerID, collection.VMID, collection.Command, "dynamic"}
+
+	ch <- collectors["total"].MustMetric(energyInJoules, labelValues...)
+
+	energy = collection.EnergyUsage[config.IdleEnergyInPkg].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInDRAM].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInOther].SumAllAggrValues()
+	energy += collection.EnergyUsage[config.IdleEnergyInGPU].SumAllAggrValues()
+	energyInJoules = float64(energy) / utils.JouleMillijouleConversionFactor
+	labelValues = []string{strconv.FormatUint(collection.PID, 10), collection.ContainerID, collection.VMID, collection.Command, "idle"}
+	ch <- collectors["total"].MustMetric(energyInJoules, labelValues...)
 }
 
 func collect(ch chan<- prometheus.Metric, collector metricfactory.PromMetric, value float64, labelValues []string) {
@@ -103,14 +158,6 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 	}
 }
 
-func convertUnit(metricName string, val uint64) float64 {
-	if metricName == config.CPUTime {
-		// convert microseconds to miliseconds
-		return float64(val) / 1000.0
-	}
-	return float64(val)
-}
-
 func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricName string, collector metricfactory.PromMetric) {
 	var value float64
 	var labelValues []string
@@ -127,7 +174,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 		}
 		if isGPUMetric {
 			for deviceID, utilization := range container.ResourceUsage[metricName].Stat {
-				value = convertUnit(metricName, utilization.Aggr)
+				value = float64(utilization.Aggr)
 				labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace, deviceID}
 				collect(ch, collector, value, labelValues)
 			}
@@ -136,20 +183,20 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 				klog.Errorf("ContainerStats %s does not have metric %s\n", container.ContainerID, metricName)
 				return
 			}
-			value = convertUnit(metricName, container.ResourceUsage[metricName].SumAllAggrValues())
+			value = float64(container.ResourceUsage[metricName].SumAllAggrValues())
 			labelValues = []string{container.ContainerID, container.PodName, container.ContainerName, container.Namespace}
 			collect(ch, collector, value, labelValues)
 		}
 
 	case *stats.ProcessStats:
 		process := instance.(*stats.ProcessStats)
-		value = convertUnit(metricName, process.ResourceUsage[metricName].SumAllAggrValues())
+		value = float64(process.ResourceUsage[metricName].SumAllAggrValues())
 		labelValues = []string{strconv.FormatUint(process.PID, 10), process.ContainerID, process.VMID, process.Command}
 		collect(ch, collector, value, labelValues)
 
 	case *stats.VMStats:
 		vm := instance.(*stats.VMStats)
-		value = convertUnit(metricName, vm.ResourceUsage[metricName].SumAllAggrValues())
+		value = float64(vm.ResourceUsage[metricName].SumAllAggrValues())
 		labelValues = []string{vm.VMID}
 		collect(ch, collector, value, labelValues)
 
@@ -158,7 +205,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 		node := instance.(*stats.NodeStats)
 		if _, exist := node.ResourceUsage[metricName]; exist {
 			for deviceID, utilization := range node.ResourceUsage[metricName].Stat {
-				value = convertUnit(metricName, utilization.Aggr)
+				value = float64(utilization.Aggr)
 				labelValues = []string{deviceID, stats.NodeName}
 				collect(ch, collector, value, labelValues)
 			}

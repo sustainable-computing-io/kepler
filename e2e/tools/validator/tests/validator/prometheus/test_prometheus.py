@@ -183,28 +183,32 @@ def test_mse():
         b = s["b"]
 
         expected_mse = s["mse"]
-        assert expected_mse == pytest.approx(mse(a, b), rel=1e-3)
+        assert expected_mse == pytest.approx(mse(a, b).value, rel=1e-3)
 
         expected_mape = s["mape"]
-        assert expected_mape == pytest.approx(mape(a, b), rel=1e-3)
+        assert expected_mape == pytest.approx(mape(a, b).value, rel=1e-3)
 
 
 def test_mse_with_large_arrays():
     actual = np.random.rand(1000)
     expected = np.random.rand(1000)
-    assert mse(actual, expected) >= 0.0  # MSE should always be non-negative
+    assert mse(actual, expected).value >= 0.0  # MSE should always be non-negative
 
 
 def test_mse_expections():
-    with pytest.raises(ValueError):
-        mse([], [])
+    v = mse([], [])
+    assert v.value == 0.0
+    assert v.error is not None
+    assert str(v) == "Error: actual (0) and expected (0) must not be empty"
 
 
 def test_mse_with_different_lengths():
     actual = [1, 2, 3]
     expected = [1, 2]
-    with pytest.raises(ValueError):
-        mse(actual, expected)
+    v = mse(actual, expected)
+    assert v.value == 0.0
+    assert v.error is not None
+    assert str(v) == "Error: actual and expected must be of equal length: 3 != 2"
 
 
 class MockPromClient:
