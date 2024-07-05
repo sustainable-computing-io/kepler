@@ -42,9 +42,7 @@ type exporter struct {
 	pageWriteLink   link.Link
 	pageReadLink    link.Link
 
-	cpuCyclesPerfEvents       []int
-	cpuInstructionsPerfEvents []int
-	cacheMissPerfEvents       []int
+	perfEvents *hardwarePerfEvents
 
 	enabledHardwareCounters sets.Set[string]
 	enabledSoftwareCounters sets.Set[string]
@@ -52,11 +50,8 @@ type exporter struct {
 
 func NewExporter() (Exporter, error) {
 	e := &exporter{
-		cpuCyclesPerfEvents:       []int{},
-		cpuInstructionsPerfEvents: []int{},
-		cacheMissPerfEvents:       []int{},
-		enabledHardwareCounters:   sets.New[string](),
-		enabledSoftwareCounters:   sets.New[string](),
+		enabledHardwareCounters: sets.New[string](),
+		enabledSoftwareCounters: sets.New[string](),
 	}
 	err := e.attach()
 	if err != nil {
@@ -158,58 +153,18 @@ func (e *exporter) attach() error {
 		return nil
 	}
 
-	cleanup := func() error {
-		unixClosePerfEvents(e.cpuCyclesPerfEvents)
-		e.cpuCyclesPerfEvents = nil
-		unixClosePerfEvents(e.cpuInstructionsPerfEvents)
-		e.cpuInstructionsPerfEvents = nil
-		unixClosePerfEvents(e.cacheMissPerfEvents)
-		e.cacheMissPerfEvents = nil
-		e.enabledHardwareCounters.Clear()
-		klog.Infof("Hardware counter metrics are disabled")
+	e.perfEvents, err = createHardwarePerfEvents(
+		e.bpfObjects.CpuInstructionsEventReader,
+		e.bpfObjects.CpuCyclesEventReader,
+		e.bpfObjects.CacheMissEventReader,
+		numCPU,
+	)
+	if err != nil {
 		return nil
 	}
-
-	// Create perf events and update each eBPF map
-	e.cpuCyclesPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for CPU cycles: ", err)
-		return cleanup()
-	}
 	e.enabledHardwareCounters[config.CPUCycle] = struct{}{}
-
-	e.cpuInstructionsPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for CPU instructions: ", err)
-		return cleanup()
-	}
 	e.enabledHardwareCounters[config.CPUInstruction] = struct{}{}
-
-	e.cacheMissPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HW_CACHE, unix.PERF_COUNT_HW_CACHE_MISSES, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for cache misses: ", err)
-		return cleanup()
-	}
 	e.enabledHardwareCounters[config.CacheMiss] = struct{}{}
-
-	for i, fd := range e.cpuCyclesPerfEvents {
-		if err := e.bpfObjects.CpuCyclesEventReader.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
-			klog.Warningf("Failed to update cpu_cycles_event_reader map: %v", err)
-			return cleanup()
-		}
-	}
-	for i, fd := range e.cpuInstructionsPerfEvents {
-		if err := e.bpfObjects.CpuInstructionsEventReader.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
-			klog.Warningf("Failed to update cpu_instructions_event_reader map: %v", err)
-			return cleanup()
-		}
-	}
-	for i, fd := range e.cacheMissPerfEvents {
-		if err := e.bpfObjects.CacheMissEventReader.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
-			klog.Warningf("Failed to update cache_miss_event_reader map: %v", err)
-			return cleanup()
-		}
-	}
 
 	return nil
 }
@@ -237,12 +192,8 @@ func (e *exporter) Detach() {
 	}
 
 	// Perf events
-	unixClosePerfEvents(e.cpuCyclesPerfEvents)
-	e.cpuCyclesPerfEvents = nil
-	unixClosePerfEvents(e.cpuInstructionsPerfEvents)
-	e.cpuInstructionsPerfEvents = nil
-	unixClosePerfEvents(e.cacheMissPerfEvents)
-	e.cacheMissPerfEvents = nil
+	e.perfEvents.close()
+	e.perfEvents = nil
 
 	// Objects
 	e.bpfObjects.Close()
@@ -311,4 +262,73 @@ func getCPUCores() int {
 		cores = int(cpu.TotalThreads)
 	}
 	return cores
+}
+
+type hardwarePerfEvents struct {
+	cpuCyclesPerfEvents       []int
+	cpuInstructionsPerfEvents []int
+	cacheMissPerfEvents       []int
+}
+
+func (h *hardwarePerfEvents) close() {
+	unixClosePerfEvents(h.cpuCyclesPerfEvents)
+	unixClosePerfEvents(h.cpuInstructionsPerfEvents)
+	unixClosePerfEvents(h.cacheMissPerfEvents)
+}
+
+// CreateHardwarePerfEvents creates perf events for CPU cycles, CPU instructions, and cache misses
+// and updates the corresponding eBPF maps.
+func createHardwarePerfEvents(cpuInstructionsMap, cpuCyclesMap, cacheMissMap *ebpf.Map, numCPU int) (*hardwarePerfEvents, error) {
+	var err error
+	events := &hardwarePerfEvents{
+		cpuCyclesPerfEvents:       []int{},
+		cpuInstructionsPerfEvents: []int{},
+		cacheMissPerfEvents:       []int{},
+	}
+	defer func() {
+		if err != nil {
+			unixClosePerfEvents(events.cpuCyclesPerfEvents)
+			unixClosePerfEvents(events.cpuInstructionsPerfEvents)
+			unixClosePerfEvents(events.cacheMissPerfEvents)
+		}
+	}()
+
+	// Create perf events and update each eBPF map
+	events.cpuCyclesPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, numCPU)
+	if err != nil {
+		klog.Warning("Failed to open perf event for CPU cycles: ", err)
+		return nil, err
+	}
+
+	events.cpuInstructionsPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, numCPU)
+	if err != nil {
+		klog.Warning("Failed to open perf event for CPU instructions: ", err)
+		return nil, err
+	}
+
+	events.cacheMissPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HW_CACHE, unix.PERF_COUNT_HW_CACHE_MISSES, numCPU)
+	if err != nil {
+		klog.Warning("Failed to open perf event for cache misses: ", err)
+		return nil, err
+	}
+
+	for i, fd := range events.cpuCyclesPerfEvents {
+		if err = cpuCyclesMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cpu_cycles_event_reader map: %v", err)
+			return nil, err
+		}
+	}
+	for i, fd := range events.cpuInstructionsPerfEvents {
+		if err = cpuInstructionsMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cpu_instructions_event_reader map: %v", err)
+			return nil, err
+		}
+	}
+	for i, fd := range events.cacheMissPerfEvents {
+		if err = cacheMissMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cache_miss_event_reader map: %v", err)
+			return nil, err
+		}
+	}
+	return events, nil
 }

@@ -41,10 +41,10 @@ export CTR_CMD     ?= $(or $(shell command -v podman), $(shell command -v docker
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
 
-GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo'
-GPU_TAGS := ' gpu '
-ifeq ($(shell command -v ldconfig && ldconfig -p | grep -q libhlml.so && echo exists),exists)
-	GPU_TAGS := $(GPU_TAGS)'habana '
+GENERAL_TAGS := include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo
+GPU_TAGS := gpu
+ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
+	GPU_TAGS := $(GPU_TAGS) habana
 endif
 
 # set GOENV
@@ -64,12 +64,12 @@ LDFLAGS := $(LDFLAGS) \
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
-GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)$(GPU_TAGS)
-GO_TEST_TAGS := $(GENERAL_TAGS)$(GOOS)
+GO_BUILD_TAGS := '$(GENERAL_TAGS) $(GOOS) $(GPU_TAGS)'
+GO_TEST_TAGS := '$(GENERAL_TAGS) $(GOOS)'
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
-export PATH := $(PATH):$(SRC_ROOT)/test-bin
+export PATH := $(PATH):$(ENVTEST_ASSETS_DIR)
 
 ifndef GOPATH
 	GOPATH := $(HOME)/go
@@ -77,6 +77,13 @@ endif
 
 ifndef GOBIN
 	GOBIN := $(GOPATH)/bin
+endif
+
+VERBOSE ?= 0
+ifeq ($(VERBOSE),1)
+  go_test_args=-v
+else
+  go_test_args=
 endif
 
 # NOTE: project related tools get installed to tmp dir which is ignored by
@@ -163,6 +170,7 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 .PHONY: generate
 generate: ## Generate BPF code locally.
 	+@$(GOENV) go generate ./pkg/bpf
+	+@$(GOENV) go generate ./pkg/bpftest
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -239,7 +247,7 @@ ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.15.0  && \
+		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.19.0  && \
 		cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 
 .PHONY: container_test
@@ -259,11 +267,9 @@ container_test:
 			cd - && git config --global --add safe.directory /kepler && \
 			make VERBOSE=1 unit-test bench'
 
-VERBOSE ?= 0
-TMPDIR := $(shell mktemp -d)
 TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
+SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpftest)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.
@@ -271,9 +277,8 @@ test: unit-test bpf-test bench ## Run all tests.
 .PHONY: unit-test
 unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
 	@echo TAGS=$(GO_TEST_TAGS)
-	$(if $(VERBOSE),@echo GOENV=$(GOENV))
 	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		$(if $(VERBOSE),-v) \
+		$(go_test_args) \
 		-cover -covermode=atomic -coverprofile=coverage.out \
 		--race --count=1 \
 		$(TEST_PKGS)
@@ -282,18 +287,19 @@ unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
 bench: ## Run benchmarks.
 	@echo TAGS=$(GO_TEST_TAGS)
 	$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		$(if $(VERBOSE),-v) \
+		$(go_test_args) \
 		-test.run=dontrunanytests \
 		-bench=. --count=1 $(TEST_PKGS)
 
 .PHONY: bpf-test
-bpf-test: generate ## Run BPF tests.
-	for pkg in $(SUDO_TEST_PKGS); do \
-		$(GOENV) go test -c $$pkg -tags $(GO_TEST_TAGS) -cover \
-		-covermode=atomic -coverprofile=coverage.bpf.out \
-		-o $(TMPDIR)/$$(basename $$pkg).test && \
-		$(SUDO) $(TMPDIR)/$$(basename $$pkg).test; \
-	done
+bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
+	$(GOENV) $(ENVTEST_ASSETS_DIR)/ginkgo build \
+		-tags $(GO_TEST_TAGS) \
+		-cover \
+		--covermode=atomic \
+		./pkg/bpftest
+	$(SUDO) $(ENVTEST_ASSETS_DIR)/ginkgo \
+		./pkg/bpftest/bpftest.test
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
