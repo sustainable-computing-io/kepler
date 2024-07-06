@@ -4,24 +4,6 @@ on: # yamllint disable-line rule:truthy
   workflow_call:
 
 jobs:
-  unit_test_mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4.1.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Prepare environment
-        run: |
-          brew install cpuid
-          cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
-          git config --global --add safe.directory /kepler
-      - name: Run
-        run: make test-mac-verbose
-
   local_env:
     runs-on: ubuntu-latest
     strategy:

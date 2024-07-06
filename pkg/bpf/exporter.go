@@ -1,6 +1,3 @@
-//go:build linux && libbpf
-// +build linux,libbpf
-
 /*
 Copyright 2021.
 
@@ -49,7 +46,6 @@ const (
 
 type exporter struct {
 	module                *bpf.Module
-	counters              map[string]perfCounter
 	ebpfBatchGet          bool
 	ebpfBatchGetAndDelete bool
 	cpuCores              int
@@ -173,11 +169,11 @@ func (e *exporter) attach() error {
 	if config.ExposeIRQCounterMetrics {
 		err := func() error {
 			// attach softirq_entry tracepoint to kepler_irq_trace function
-			irq_prog, err := e.module.GetProgram("kepler_irq_trace")
+			irqProg, err := e.module.GetProgram("kepler_irq_trace")
 			if err != nil {
 				return fmt.Errorf("could not get kepler_irq_trace: %w", err)
 			}
-			if _, err := irq_prog.AttachGeneric(); err != nil {
+			if _, err := irqProg.AttachGeneric(); err != nil {
 				return fmt.Errorf("could not attach irq/softirq_entry: %w", err)
 			}
 			e.enabledSoftwareCounters[config.IRQNetTXLabel] = struct{}{}
@@ -191,7 +187,7 @@ func (e *exporter) attach() error {
 	}
 
 	// attach function
-	page_write, err := e.module.GetProgram("kepler_write_page_trace")
+	pageWrite, err := e.module.GetProgram("kepler_write_page_trace")
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_write_page_trace: %w", err)
 	} else {
@@ -200,7 +196,7 @@ func (e *exporter) attach() error {
 		if _, err := os.Stat("/sys/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
 			name = "writeback_dirty_folio"
 		}
-		if _, err = page_write.AttachTracepoint(category, name); err != nil {
+		if _, err = pageWrite.AttachTracepoint(category, name); err != nil {
 			klog.Warningf("failed to attach tp/%s/%s: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", category, name, err)
 		} else {
 			e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
@@ -208,11 +204,11 @@ func (e *exporter) attach() error {
 	}
 
 	// attach function
-	page_read, err := e.module.GetProgram("kepler_read_page_trace")
+	pageRead, err := e.module.GetProgram("kepler_read_page_trace")
 	if err != nil {
 		return fmt.Errorf("failed to get kepler_read_page_trace: %v", err)
 	} else {
-		if _, err = page_read.AttachGeneric(); err != nil {
+		if _, err = pageRead.AttachGeneric(); err != nil {
 			klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
 		} else {
 			e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
@@ -231,11 +227,10 @@ func (e *exporter) attach() error {
 		config.CacheMiss:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES},
 	}
 
-	cleanup := func() error {
+	cleanup := func() {
 		unixClosePerfEvents(e.perfEventFds)
 		e.perfEventFds = []int{}
 		e.enabledHardwareCounters.Clear()
-		return nil
 	}
 
 	for arrayName, counter := range hardwareCounters {
@@ -288,13 +283,13 @@ func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err er
 	if e.ebpfBatchGetAndDelete {
 		processesData, err = e.libbpfCollectProcessBatchSingleHash(processes)
 	} else {
-		processesData, err = e.libbpfCollectProcessSingleHash(processes)
+		processesData = e.libbpfCollectProcessSingleHash(processes)
 	}
 	if err == nil {
 		return
 	} else {
 		e.ebpfBatchGetAndDelete = false
-		processesData, err = e.libbpfCollectProcessSingleHash(processes)
+		processesData = e.libbpfCollectProcessSingleHash(processes)
 	}
 	return
 }
@@ -311,19 +306,20 @@ func unixOpenPerfEvent(typ, conf, cpuCores int) ([]int, error) {
 	fds := []int{}
 	for i := 0; i < cpuCores; i++ {
 		cloexecFlags := unix.PERF_FLAG_FD_CLOEXEC
-		fd, err := unix.PerfEventOpen(sysAttr, -1, int(i), -1, cloexecFlags)
+		fd, err := unix.PerfEventOpen(sysAttr, -1, i, -1, cloexecFlags)
 		if fd < 0 {
 			return nil, fmt.Errorf("failed to open bpf perf event on cpu %d: %w", i, err)
 		}
-		fds = append(fds, int(fd))
+		fds = append(fds, fd)
 	}
 	return fds, nil
 }
 
 func unixClosePerfEvents(fds []int) {
 	for _, fd := range fds {
-		unix.SetNonblock(fd, true)
-		unix.Close(fd)
+		// explicitly ignoring errors here since we can't handle them
+		_ = unix.SetNonblock(fd, true)
+		_ = unix.Close(fd)
 	}
 }
 
@@ -343,18 +339,19 @@ func resizeArrayEntries(module *bpf.Module, name string, size int) error {
 		return err
 	}
 
-	if err = m.Resize(uint32(size)); err != nil {
+	err = m.SetMaxEntries(uint32(size))
+	if err != nil {
 		return err
 	}
 
-	if current := m.GetMaxEntries(); current != uint32(size) {
+	if current := m.MaxEntries(); current != uint32(size) {
 		return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
 	}
 
 	return nil
 }
 
-// for an unkown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
+// for an unknown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
 // but it is not a big problem since we request all possible keys that the map can store in a single request
 func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
 	start := time.Now()
@@ -363,7 +360,7 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 	keys := make([]uint32, entries)
 	nextKey := uint32(0)
 
-	values, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), uint32(entries))
+	values, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), entries)
 	if err != nil {
 		// os.IsNotExist means we reached the end of the table
 		if !os.IsNotExist(err) {
@@ -387,7 +384,8 @@ func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([
 	return processesData, err
 }
 
-func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (processesData []ProcessBPFMetrics, err error) {
+func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) []ProcessBPFMetrics {
+	processesData := []ProcessBPFMetrics{}
 	iterator := processes.Iterator()
 	var ct ProcessBPFMetrics
 	keys := []uint32{}
@@ -423,7 +421,9 @@ func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) (proces
 	}
 	for _, key := range keys {
 		// TODO delete keys in batch
-		processes.DeleteKey(unsafe.Pointer(&key))
+		if err := processes.DeleteKey(unsafe.Pointer(&key)); err != nil {
+			klog.V(5).Infof("failed to delete key %d: %v", key, err)
+		}
 	}
-	return
+	return processesData
 }

@@ -1,6 +1,3 @@
-//go:build bcc || libbpf
-// +build bcc libbpf
-
 /*
 Copyright 2023.
 
@@ -46,13 +43,13 @@ import (
 )
 
 var (
-	kMetric    map[string][]float64
-	podlistMap map[string][]string //key:namespace, value:pod list
-	pods       *corev1.PodList
-	cpu_arch   string
-	client     api.Client
-	v1api      promv1.API
-	queryRange promv1.Range
+	kMetric         map[string][]float64
+	podlistMap      map[string][]string //key:namespace, value:pod list
+	pods            *corev1.PodList
+	reportedCPUArch string
+	client          api.Client
+	v1api           promv1.API
+	v1range         promv1.Range
 )
 
 func updateMetricMap(key string, value float64) {
@@ -63,39 +60,30 @@ func updateMetricMap(key string, value float64) {
 	kMetric[key] = append(kMetric[key], value)
 }
 
-func queryNodePower(m string, r promv1.Range, api promv1.API) float64 {
+func queryNodePower(m string, r promv1.Range, promAPI promv1.API) float64 {
 	if !strings.Contains(m, "node") {
 		fmt.Printf("Invalid metric for node power: %s\n", m)
 		return float64(0)
 	}
 	q := "sum(irate(" + m + "[1m]))"
-	return query_range(m, q, r, api)
+	return queryRange(q, r, promAPI)
 }
 
-func queryNamespacePower(m, ns string, r promv1.Range, api promv1.API) float64 {
+func queryNamespacePower(m, ns string, r promv1.Range, promAPI promv1.API) float64 {
 	if !strings.Contains(m, "container") {
 		fmt.Printf("Invalid metric for namespace power: %s\n", m)
 		return float64(0)
 	}
 	q := "sum(irate(" + m + "{container_namespace=~\"" + ns + "\"}[1m]))"
-	return query_range(m, q, r, api)
+	return queryRange(q, r, promAPI)
 }
 
-func queryPodPower(m, p, ns string, r promv1.Range, api promv1.API) float64 {
-	if !strings.Contains(m, "container") {
-		fmt.Printf("Invalid metric for pod power: %s\n", m)
-		return float64(0)
-	}
-	q := `sum by(pod_name,container_namespace)(irate(` + m + `{container_namespace=~"` + ns + `", pod_name=~"` + p + `"}[1m]))`
-	return query_range(m, q, r, api)
-}
-
-func query_range(metric, queryString string, r promv1.Range, api promv1.API) float64 {
+func queryRange(queryString string, r promv1.Range, promAPI promv1.API) float64 {
 	fmt.Printf("\nQuery: \n%s\n", queryString)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result, warnings, err := api.QueryRange(ctx, queryString, r, promv1.WithTimeout(5*time.Second))
+	result, warnings, err := promAPI.QueryRange(ctx, queryString, r, promv1.WithTimeout(5*time.Second))
 	if err != nil {
 		fmt.Printf("Error querying Prometheus: %v\n", err)
 		return float64(0)
@@ -171,7 +159,8 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		// ref https://github.com/prometheus/prometheus/blob/main/model/textparse/promparse_test.go
 		var res labels.Labels
-		p := textparse.NewPromParser(body)
+		symbolTable := labels.NewSymbolTable()
+		p := textparse.NewPromParser(body, symbolTable)
 		fmt.Println("=============================================")
 		fmt.Println("Parsing Metrics...")
 		for {
@@ -187,7 +176,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 					updateMetricMap(res.Get("__name__")+" @ "+res.Get("pod_name"), v)
 				} else {
 					if res.Has("cpu_architecture") {
-						cpu_arch = res.Get("cpu_architecture")
+						reportedCPUArch = res.Get("cpu_architecture")
 					}
 					updateMetricMap(res.Get("__name__"), v)
 				}
@@ -209,7 +198,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 
 		v1api = promv1.NewAPI(client)
 
-		queryRange = promv1.Range{
+		v1range = promv1.Range{
 			Start: time.Now().Add(-5 * time.Minute),
 			End:   time.Now(),
 			Step:  15 * time.Second,
@@ -218,7 +207,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 
 	_ = Describe("Case 1: CPU architecture check.", func() {
 		It("Kepler can export correct cpu_architecture", func() {
-			Expect(cpu_arch).To(Equal(cpuArch))
+			Expect(reportedCPUArch).To(Equal(cpuArch))
 		})
 	})
 
@@ -226,17 +215,17 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 		func(metrics string, enable *bool) {
 			v, ok := kMetric[metrics]
 			Expect(ok).To(BeTrue())
-			nonzero_found := false
+			nonZeroFound := false
 			for _, val := range v {
 				if val > 0 {
-					nonzero_found = true
+					nonZeroFound = true
 					break
 				}
 			}
 			if *enable {
-				Expect(nonzero_found).To(BeTrue())
+				Expect(nonZeroFound).To(BeTrue())
 			} else {
-				Expect(nonzero_found).To(BeFalse())
+				Expect(nonZeroFound).To(BeFalse())
 			}
 		},
 		EntryDescription("Checking %s"),
@@ -248,7 +237,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 
 	_ = DescribeTable("Case 2-2: Check pod level metrics for platform specific power source component",
 		func(metrics string, enable *bool) {
-			nonzero_found := false
+			nonZeroFound := false
 		outer:
 			for _, podlist := range podlistMap {
 				for _, pod := range podlist {
@@ -258,16 +247,16 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 					}
 					for _, val := range v {
 						if val > 0 {
-							nonzero_found = true
+							nonZeroFound = true
 							break outer
 						}
 					}
 				}
 			}
 			if *enable {
-				Expect(nonzero_found).To(BeTrue())
+				Expect(nonZeroFound).To(BeTrue())
 			} else {
-				Expect(nonzero_found).To(BeFalse())
+				Expect(nonZeroFound).To(BeFalse())
 			}
 		},
 		EntryDescription("Checking %s"),
@@ -296,7 +285,7 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 			default:
 				Skip("Skip as " + metrics + " is not supported in this test case")
 			}
-			promData := queryNodePower(metrics, queryRange, v1api)
+			promData := queryNodePower(metrics, v1range, v1api)
 			fmt.Printf("For metric: %s\n", metrics)
 			fmt.Printf("Validator measured node power is: %f\n", validatorData)
 			fmt.Printf("Prometheus queried node power is: %f\n", promData)
@@ -314,12 +303,12 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 				Skip("Skip as " + metrics + " should not be supported in this platform")
 			}
 			component := strings.Split(metrics[17:], "_")[0]
-			kind_namespaces := []string{
+			kindNamespaces := []string{
 				"kube-system",
 				"monitoring",
 				"local-path-storage",
 			}
-			kepler_namespace := "kepler"
+			keplerNamespace := "kepler"
 			// d1: validator measured power for Kind
 			// d2: validator measured power for Kepler
 			var d1, d2 float64
@@ -343,11 +332,11 @@ var _ = Describe("Kepler exporter side metrics check", Ordered, func() {
 			default:
 				Skip("Skip as " + metrics + " is not supported in this test case")
 			}
-			for _, n := range kind_namespaces {
-				nsPower := queryNamespacePower(metrics, n, queryRange, v1api)
+			for _, n := range kindNamespaces {
+				nsPower := queryNamespacePower(metrics, n, v1range, v1api)
 				p1 += nsPower
 			}
-			p2 = queryNamespacePower(metrics, kepler_namespace, queryRange, v1api)
+			p2 = queryNamespacePower(metrics, keplerNamespace, v1range, v1api)
 
 			fmt.Printf("For metric: %s\n", metrics)
 			fmt.Printf("Validator measured kind power(postDeploy - preDeploy) is: %f\n", d1)

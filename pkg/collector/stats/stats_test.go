@@ -1,8 +1,6 @@
 package stats
 
 import (
-	"runtime"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
@@ -14,13 +12,7 @@ var _ = Describe("Stats", func() {
 		config.ExposeHardwareCounterMetrics = false
 		supportedMetrics := bpf.DefaultSupportedMetrics()
 		InitAvailableParamAndMetrics()
-		if runtime.GOOS == "linux" {
-			exp := []string{}
-			Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
-		}
-		if runtime.GOOS == "darwin" {
-			exp := []string{}
-			Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
-		}
+		exp := []string{}
+		Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
 	})
 })
