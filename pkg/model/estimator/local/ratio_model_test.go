@@ -38,19 +38,19 @@ var _ = Describe("Test Ratio Unit", func() {
 		Expect(nodeStats.EnergyUsage[config.DynEnergyInPlatform].SumAllDeltaValues()).Should(BeEquivalentTo(35000))
 
 		for _, pMetric := range processStats {
-			val := pMetric.ResourceUsage[config.CPUCycle].Stat[stats.MockedSocketID].GetDelta()
+			val := pMetric.ResourceUsage[config.CPUCycle][stats.MockedSocketID].GetDelta()
 			nodeStats.ResourceUsage[config.CPUCycle].AddDeltaStat(stats.MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CPUInstruction].Stat[stats.MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CPUInstruction][stats.MockedSocketID].GetDelta()
 			nodeStats.ResourceUsage[config.CPUInstruction].AddDeltaStat(stats.MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CacheMiss].Stat[stats.MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CacheMiss][stats.MockedSocketID].GetDelta()
 			nodeStats.ResourceUsage[config.CacheMiss].AddDeltaStat(stats.MockedSocketID, val)
 
-			val = pMetric.ResourceUsage[config.CPUTime].Stat[stats.MockedSocketID].GetDelta()
+			val = pMetric.ResourceUsage[config.CPUTime][stats.MockedSocketID].GetDelta()
 			nodeStats.ResourceUsage[config.CPUTime].AddDeltaStat(stats.MockedSocketID, val)
 		}
-		Expect(nodeStats.ResourceUsage[config.CoreUsageMetric].Stat[utils.GenericSocketID].GetDelta()).Should(BeEquivalentTo(90000))
+		Expect(nodeStats.ResourceUsage[config.CoreUsageMetric][utils.GenericSocketID].GetDelta()).Should(BeEquivalentTo(90000))
 
 		// The default estimator model is the ratio
 		model := RatioPowerModel{

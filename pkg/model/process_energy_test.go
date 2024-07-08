@@ -48,16 +48,16 @@ var _ = Describe("ProcessPower", func() {
 			processStats = stats.CreateMockedProcessStats(2)
 			nodeStats = stats.CreateMockedNodeStats()
 			for _, pMetric := range processStats {
-				val := pMetric.ResourceUsage[config.CPUCycle].Stat[stats.MockedSocketID].GetDelta()
+				val := pMetric.ResourceUsage[config.CPUCycle][stats.MockedSocketID].GetDelta()
 				nodeStats.ResourceUsage[config.CPUCycle].AddDeltaStat(stats.MockedSocketID, val)
 
-				val = pMetric.ResourceUsage[config.CPUInstruction].Stat[stats.MockedSocketID].GetDelta()
+				val = pMetric.ResourceUsage[config.CPUInstruction][stats.MockedSocketID].GetDelta()
 				nodeStats.ResourceUsage[config.CPUInstruction].AddDeltaStat(stats.MockedSocketID, val)
 
-				val = pMetric.ResourceUsage[config.CacheMiss].Stat[stats.MockedSocketID].GetDelta()
+				val = pMetric.ResourceUsage[config.CacheMiss][stats.MockedSocketID].GetDelta()
 				nodeStats.ResourceUsage[config.CacheMiss].AddDeltaStat(stats.MockedSocketID, val)
 
-				val = pMetric.ResourceUsage[config.CPUTime].Stat[stats.MockedSocketID].GetDelta()
+				val = pMetric.ResourceUsage[config.CPUTime][stats.MockedSocketID].GetDelta()
 				nodeStats.ResourceUsage[config.CPUTime].AddDeltaStat(stats.MockedSocketID, val)
 			}
 		})
@@ -96,7 +96,7 @@ var _ = Describe("ProcessPower", func() {
 			// So the node total CPU Instructions is 60000
 			// The process power will be (30000/60000)*11667 = 5834
 			// Then, the process energy will be 5834*3 = 17502 mJ
-			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPkg].Stat[utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
+			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPkg][utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
 		})
 
 		It("Get process power with Ratio power model and node platform power ", func() {
@@ -126,7 +126,7 @@ var _ = Describe("ProcessPower", func() {
 			// So the node total CPU Instructions is 60000
 			// The process power will be (30000/60000)*11667 = 5834
 			// Then, the process energy will be 5834*3 = 17502 mJ
-			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPlatform].Stat[utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
+			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPlatform][utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
 		})
 
 		// TODO: Get process power with no dependency and no node power.
