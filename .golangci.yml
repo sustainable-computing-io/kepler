@@ -19,7 +19,8 @@ linters-settings:
     local-prefixes: github.com/golangci/golangci-lint
 
   govet:
-    shadow: true
+    enable:
+      - shadow
     settings:
       printf:
         funcs:
@@ -86,9 +87,7 @@ run:
 
 issues:
   exclude-rules:
-    - linters:
-        - typecheck
-      text: could not import C
-    - linters:
-        - dupl
+    - linters: [dupl]
       text: .*pkg/collector/stats/types/types_test.go.* # false positive, https://github.com/mibk/dupl/issues/20
+    - text: 'shadow: declaration of "(err|ctx)" shadows declaration at' # yamllint disable-line rule:quoted-strings
+      linters: [govet]
