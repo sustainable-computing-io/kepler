@@ -29,16 +29,6 @@ Once a PR is open, Kepler [reviewers](./Contributors.md) will review the PR. Tha
 ## Local Development Environment
 To set up a development environment, please follow the steps [here](./doc/dev/README.md).
 
-### MacOS
-Please notice that in Kepler we use different build tags to adapt to different hardwares.
-Please see the keywords below for more details:
-```
-//go:build darwin
-// +build darwin
-or
-if runtime.GOOS == "linux" {
-```
-
 ## Testing
 
 ### CI Tests
@@ -53,11 +43,6 @@ Please don't break other build tags, otherwise CI may fail.
 To run the unit tests:
 ```
 make test
-```
-
-For MacOS, use the following command instead:
-```
-make test-mac-verbose
 ```
 
 ### Integration Tests

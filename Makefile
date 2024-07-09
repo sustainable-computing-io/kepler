@@ -41,7 +41,7 @@ CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman)
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
 
-GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo libbpf '
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo '
 GPU_TAGS := ' gpu '
 ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
 	GPU_TAGS := $(GPU_TAGS)'habana '
@@ -299,14 +299,6 @@ bpf-test: _build_ebpf_local ## Run BPF tests.
 		-o $(TMPDIR)/$$(basename $$pkg).test && \
 		$(SUDO) $(TMPDIR)/$$(basename $$pkg).test; \
 	done
-
-.PHONY: test-mac-verbose
-test-mac-verbose: ginkgo-set
-	@echo TAGS=$(GO_TEST_TAGS)
-	@go test \
-		-covermode=atomic -coverprofile=coverage.out \
-		--race --count=1 \
-		$(TEST_PKGS)
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true

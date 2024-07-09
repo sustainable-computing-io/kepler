@@ -7,7 +7,7 @@ updates:
     directory: /
     schedule:
       day: monday
-      interval: daily
+      interval: weekly
     groups:
       go-dependencies:
         patterns:
