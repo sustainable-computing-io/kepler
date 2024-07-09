@@ -69,7 +69,7 @@ jobs:
         if: ${{ inputs.pushImage }}
         uses: docker/login-action@v3
         with:
-          registry: quay.io/rh-ee-asavage/kepler-test
+          registry: quay.io/rh-ee-asavage
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
 
@@ -80,14 +80,14 @@ jobs:
           platforms: ${{matrix.PLATFORMS}}
           push: ${{ inputs.pushImage }}
           build-args: ${{matrix.BUILD_ARGS}}
-          tags: quay.io/rh-ee-asavage/kepler-test/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          tags: quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           labels: ${{matrix.LABEL}}
           file: ${{matrix.IMAGE_FILE}}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0.16.0
         with:
-          image: quay.io/rh-ee-asavage/kepler-test/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          image: quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
           output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
 
