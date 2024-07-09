@@ -53,9 +53,7 @@ COPY --from=builder /workspace/_output/bin/kepler /usr/bin/kepler
 COPY --from=builder /libbpf-source/linux-5.14.0-424.el9/tools/bpf/bpftool/bpftool /usr/bin/bpftool
 
 RUN mkdir -p /var/lib/kepler/data
-RUN mkdir -p /var/lib/kepler/bpfassets
 COPY --from=builder /workspace/data/cpus.yaml /var/lib/kepler/data/cpus.yaml
-COPY --from=builder /workspace/bpfassets/libbpf/bpf.o /var/lib/kepler/bpfassets
 
 # copy model weight
 COPY --from=builder /workspace/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json

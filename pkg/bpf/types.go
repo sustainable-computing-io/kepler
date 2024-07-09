@@ -17,7 +17,6 @@ limitations under the License.
 package bpf
 
 import (
-	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -31,26 +30,15 @@ const (
 	IRQBlock = 4
 )
 
+type ProcessMetrics = keplerProcessMetricsT
+
 type Exporter interface {
 	SupportedMetrics() SupportedMetrics
 	Detach()
-	CollectProcesses() ([]ProcessBPFMetrics, error)
+	CollectProcesses() ([]ProcessMetrics, error)
 }
 
 type SupportedMetrics struct {
 	HardwareCounters sets.Set[string]
 	SoftwareCounters sets.Set[string]
-}
-
-// must be in sync with bpf program
-type ProcessBPFMetrics struct {
-	CGroupID       uint64
-	PID            uint64 /* TGID of the threads, i.e. user space pid */
-	ProcessRunTime uint64 /* in ms */
-	CPUCycles      uint64
-	CPUInstr       uint64
-	CacheMisses    uint64
-	PageCacheHit   uint64
-	VecNR          [config.MaxIRQ]uint16 // irq counter, 10 is the max number of irq vectors
-	Command        [16]byte
 }
