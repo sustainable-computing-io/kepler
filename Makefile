@@ -35,7 +35,7 @@ IMAGE_REPO         ?= quay.io/sustainable_computing_io
 BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
-CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
+export CTR_CMD     ?= $(or $(shell command -v podman), $(shell command -v docker))
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
@@ -43,7 +43,7 @@ CTR_CMD_PUSH_OPTIONS ?=
 
 GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo '
 GPU_TAGS := ' gpu '
-ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
+ifeq ($(shell command -v ldconfig && ldconfig -p | grep -q libhlml.so && echo exists),exists)
 	GPU_TAGS := $(GPU_TAGS)'habana '
 endif
 
@@ -244,8 +244,8 @@ ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.15.0  && \
-	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.15.0  && \
+		cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 
 .PHONY: container_test
 container_test:
@@ -341,11 +341,13 @@ build-manifest: kustomize
 .PHONY: build-manifest
 
 ##@ Development Env
-CLUSTER_PROVIDER ?= kind
-LOCAL_DEV_CLUSTER_VERSION ?= main
-
-KIND_WORKER_NODES ?=2
-BUILD_CONTAINERIZED ?= build_image
+export CLUSTER_PROVIDER ?= kind
+export LOCAL_DEV_CLUSTER_VERSION ?= main
+export OPTS ?= PROMETHEUS_DEPLOY
+export PROMETHEUS_ENABLE ?= true
+export GRAFANA_ENABLE ?= true
+export KIND_WORKER_NODES ?=2
+export BUILD_CONTAINERIZED ?= build_image
 
 COMPOSE_DIR="$(PROJECT_DIR)/manifests/compose"
 DEV_TARGET ?= dev
@@ -353,7 +355,7 @@ DEV_TARGET ?= dev
 .PHONY: compose
 compose: ## Setup kepler (latest) using docker compose
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
+		-f $(COMPOSE_DIR)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -365,13 +367,13 @@ compose: ## Setup kepler (latest) using docker compose
 .PHONY: compose-clean
 compose-clean: ## Cleanup kepler (latest) deployed using docker compose
 	docker compose \
-			-f $(COMPOSE_DIR)/compose.yaml \
+		-f $(COMPOSE_DIR)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 
 .PHONY: dev
 dev: ## Setup development env using compose with 2 kepler (latest & current) deployed
 	docker compose \
-			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
+		-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -395,31 +397,18 @@ cluster-clean: build-manifest ## Undeploy Kepler in the cluster.
 .PHONY: cluster-clean
 
 cluster-deploy: ## Deploy Kepler in the cluster.
-	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
 cluster-up:  ## Create the Kind cluster, with Prometheus, Grafana and Kepler
-	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
-	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
-	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
-	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
-	PROMETHEUS_ENABLE=true \
-	GRAFANA_ENABLE=true \
 	./hack/cluster.sh up
 .PHONY: cluster-up
 
 cluster-down: ## Delete the Kind cluster.
-	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
-	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
-	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh down
 .PHONY: cluster-down
 
 cluster-restart: ## Restart the Kind cluster.
-	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
-	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
-	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh restart
 .PHONY: cluster-restart
 
