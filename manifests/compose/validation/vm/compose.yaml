@@ -1,5 +1,9 @@
 name: vm
 
+include:
+  - path:
+      - ../../autoheal/compose.yaml
+
 services:
   kepler:
     image: quay.io/sustainable_computing_io/kepler:latest
@@ -30,6 +34,17 @@ services:
 
         # NOTE: for estimator - kepler communication
       - kepler-tmp:/tmp
+    
+    healthcheck:
+      test: curl -f http://localhost:9100/metrics || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
+    labels:
+      autoheal: true
+
     cap_add:
       - ALL
 
@@ -67,7 +82,7 @@ services:
     networks:
       - kepler-network
       - model-server-network
-
+    
   model-server:
     entrypoint:
       - python3.8

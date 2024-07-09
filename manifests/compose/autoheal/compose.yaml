@@ -1,0 +1,12 @@
+name: autoheal
+
+services:
+  autoheal:
+    deploy:
+      replicas: 1
+    image: willfarrell/autoheal:latest
+    network_mode: none
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
