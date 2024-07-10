@@ -12,6 +12,7 @@ class DateTime(click.ParamType):
             date, time = value.split(" ")
         except ValueError:
             time = value
+            # ruff: noqa: DTZ011 (Suppressed as time-zone aware object creation is not necessary for this use case)
             date = datetime.date.today()
 
         dt = parse_datetime(f"{date} {time}")
