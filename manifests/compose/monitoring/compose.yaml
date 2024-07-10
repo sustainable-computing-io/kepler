@@ -20,10 +20,9 @@ services:
       timeout: ${HEALTHCHECK_TIMEOUT:-30s}
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
-    
-    labels:
-      autoheal: true 
 
+    labels:
+      autoheal: true
   grafana:
     build:
       context: ./grafana

@@ -59,7 +59,7 @@ services:
       timeout: ${HEALTHCHECK_TIMEOUT:-30s}
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
-    
+
     labels:
       autoheal: true
 
@@ -68,7 +68,7 @@ services:
 
 
   scaphandre:
-    #image: hubblo/scaphandre
+    # image: hubblo/scaphandre
     build:
       context: ../../../../
       dockerfile: build/Dockerfile.scaphandre
@@ -87,12 +87,12 @@ services:
       - scaph-network
 
     healthcheck:
-      test: "curl -f http://localhost:8080/metrics || exit 1"
+      test: curl -f http://localhost:8080/metrics || exit 1
       interval: ${HEALTHCHECK_INTERVAL:-50s}
       timeout: ${HEALTHCHECK_TIMEOUT:-30s}
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
-   
+
     labels:
       autoheal: true
 

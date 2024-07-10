@@ -34,7 +34,7 @@ services:
 
         # NOTE: for estimator - kepler communication
       - kepler-tmp:/tmp
-    
+
     healthcheck:
       test: curl -f http://localhost:9100/metrics || exit 1
       interval: ${HEALTHCHECK_INTERVAL:-50s}
@@ -82,7 +82,7 @@ services:
     networks:
       - kepler-network
       - model-server-network
-    
+
   model-server:
     entrypoint:
       - python3.8
