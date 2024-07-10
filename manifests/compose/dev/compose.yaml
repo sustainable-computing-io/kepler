@@ -60,3 +60,23 @@ services:
       - kepler-network
     cap_add:
       - ALL
+
+  scaphandre:
+    image: hubblo/scaphandre
+    privileged: true
+    ports:
+      - 8880:8080
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys/class/powercap
+        target: /sys/class/powercap
+    command: [prometheus]
+    networks:
+      - scaph-network
+
+networks:
+  scaph-network:
+  kepler-network:
