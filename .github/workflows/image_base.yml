@@ -39,3 +39,4 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/s390x
           push: ${{ inputs.pushImage }}
           tags: quay.io/rh-ee-asavage/kepler_builder:latest
+          
