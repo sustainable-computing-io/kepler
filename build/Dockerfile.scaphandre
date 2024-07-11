@@ -1,8 +1,6 @@
-# Use the base image
+# Use the scaph base image
 FROM hubblo/scaphandre:latest
 
-# Install curl
-RUN apt-get update && apt-get install -y curl
+# Install only curl
+RUN apt-get install -y curl
 
-# Optionally clean up apt cache
-RUN rm -rf /var/lib/apt/lists/*
