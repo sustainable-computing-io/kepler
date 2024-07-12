@@ -49,7 +49,7 @@ endif
 ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
 	GPU_TAGS := ' dcgm '
 endif
-ifeq ($(shell command -v ldconfig && ldconfig -p | grep -q libhlml.so && echo exists),exists)
+ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
 	GPU_TAGS := ' habana '
 endif
 

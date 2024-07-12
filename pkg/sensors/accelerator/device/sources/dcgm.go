@@ -71,7 +71,7 @@ func init() {
 	device.AddDeviceInterface(dcgmType, dcgmHwType, dcgmDeviceStartup)
 }
 
-func dcgmDeviceStartup() device.DeviceInterface {
+func dcgmDeviceStartup() device.Device {
 	a := dcgmAccImpl
 
 	if err := a.InitLib(); err != nil {
@@ -260,10 +260,6 @@ func (d *GPUDcgm) loadMIGProfiles() {
 }
 
 func (d *GPUDcgm) Name() string {
-	return dcgmType.String()
-}
-
-func (d *GPUDcgm) DevTypeName() string {
 	return dcgmType.String()
 }
 

@@ -44,7 +44,7 @@ var (
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
 func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
-	if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+	if gpus, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 		for _, a := range gpus {
 			d := a.Device()
 			migDevices := d.DeviceInstances()
@@ -66,7 +66,7 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 	lastUtilizationTimestamp = time.Now()
 }
 
-func addGPUUtilizationToProcessStats(ai dev.DeviceInterface, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
+func addGPUUtilizationToProcessStats(ai dev.Device, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
 	var err error
 	var processesUtilization map[uint32]any
 

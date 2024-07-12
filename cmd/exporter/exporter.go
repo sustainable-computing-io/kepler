@@ -140,11 +140,12 @@ func main() {
 	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU {
-		if r := accelerator.Registry(); r != nil {
-			if err := accelerator.CreateAndRegister(accelerator.GPU, r, true); err != nil {
-				klog.Errorf("failed to init GPU accelerators: %v", err)
-			}
+		var a accelerator.Accelerator
+		r := accelerator.GetRegistry()
+		if a, err = accelerator.New(accelerator.GPU, true); err != nil {
+			klog.Errorf("failed to init GPU accelerators: %v", err)
 		}
+		r.MustRegister(a)
 	}
 
 	m := manager.New(bpfExporter)

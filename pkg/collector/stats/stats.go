@@ -70,7 +70,7 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 	}
 
 	if config.EnabledGPU {
-		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+		if _, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			m.ResourceUsage[config.GPUComputeUtilization] = types.NewUInt64StatCollection()
 			m.ResourceUsage[config.GPUMemUtilization] = types.NewUInt64StatCollection()
 			m.ResourceUsage[config.IdleEnergyInGPU] = types.NewUInt64StatCollection()
@@ -128,7 +128,7 @@ func (m *Stats) UpdateDynEnergy() {
 	}
 	// gpu metric
 	if config.EnabledGPU {
-		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+		if _, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			for gpuID := range m.EnergyUsage[config.AbsEnergyInGPU] {
 				m.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
 			}

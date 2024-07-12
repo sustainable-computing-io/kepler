@@ -47,12 +47,12 @@ func init() {
 		klog.Infof("Error initializing %s: %v", habanaAccImpl.Name(), err)
 		return
 	}
-	klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
 	habanaType = device.HABANA
+	klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
 	device.AddDeviceInterface(habanaType, habanaHwType, habanaDeviceStartup)
 }
 
-func habanaDeviceStartup() device.DeviceInterface {
+func habanaDeviceStartup() device.Device {
 	a := habanaAccImpl
 
 	if err := a.Init(); err != nil {
@@ -64,10 +64,6 @@ func habanaDeviceStartup() device.DeviceInterface {
 }
 
 func (g *GPUHabana) Name() string {
-	return habanaType.String()
-}
-
-func (g *GPUHabana) DevTypeName() string {
 	return habanaType.String()
 }
 

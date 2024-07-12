@@ -56,7 +56,7 @@ func init() {
 	device.AddDeviceInterface(nvmlType, nvmlHwType, nvmlDeviceStartup)
 }
 
-func nvmlDeviceStartup() device.DeviceInterface {
+func nvmlDeviceStartup() device.Device {
 	a := nvmlAccImpl
 	if err := a.InitLib(); err != nil {
 		klog.Errorf("Error initializing %s: %v", nvmlType.String(), err)
@@ -71,10 +71,6 @@ func nvmlDeviceStartup() device.DeviceInterface {
 }
 
 func (n *GPUNvml) Name() string {
-	return nvmlType.String()
-}
-
-func (n *GPUNvml) DevTypeName() string {
 	return nvmlType.String()
 }
 

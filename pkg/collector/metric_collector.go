@@ -162,7 +162,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU {
-		if _, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+		if _, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 		}
 	}

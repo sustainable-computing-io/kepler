@@ -36,7 +36,7 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
-			if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+			if gpus, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 				for _, a := range gpus {
 					source = a.Device().Name()
 				}
@@ -89,7 +89,7 @@ func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics)
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
 	if config.EnabledGPU {
-		if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
+		if gpus, err := acc.GetRegistry().ActiveAcceleratorsByType(acc.GPU); err == nil {
 			for _, g := range gpus {
 				for _, name := range consts.GPUMetricNames {
 					descriptions[name] = resMetricsPromDesc(context, name, g.Device().Name())

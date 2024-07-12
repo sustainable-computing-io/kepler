@@ -1,3 +1,6 @@
+//go:build !habana || !nvml || !dcgm
+// +build !habana !nvml !dcgm
+
 /*
 Copyright 2024.
 
@@ -36,7 +39,7 @@ func init() {
 	device.AddDeviceInterface(dummyDevice, dummyDevice.String(), DummyDeviceStartup)
 }
 
-func DummyDeviceStartup() device.DeviceInterface {
+func DummyDeviceStartup() device.Device {
 	d := Dummy{
 		dummyDevice:         dummyDevice,
 		name:                dummyDevice.String(),
@@ -52,9 +55,6 @@ func (d *Dummy) Name() string {
 
 func (d *Dummy) DevType() device.DeviceType {
 	return d.dummyDevice
-}
-func (d *Dummy) DevTypeName() string {
-	return d.name
 }
 
 func (d *Dummy) HwType() string {
