@@ -9,32 +9,34 @@ import (
 )
 
 const (
-	DUMMY = iota
+	DUMMY DeviceType = iota
 	HABANA
 	DCGM
 	NVML
 )
 
 var (
-	globalRegistry *DeviceRegistry
+	globalRegistry *Registry
 	once           sync.Once
 )
 
-type DeviceType int
+type (
+	DeviceType        int
+	deviceStartupFunc func() Device // Function prototype to startup a new device instance.
+	Registry          struct {
+		Registry map[string]map[DeviceType]deviceStartupFunc // Static map of supported Devices Startup functions
+	}
+)
 
-// Function prototype to create a new deviceCollector.
-type deviceStartupFunc func() DeviceInterface
-type DeviceRegistry struct {
-	gpuDevices   map[DeviceType]deviceStartupFunc // Static map of supported gpuDevices.
-	dummyDevices map[DeviceType]deviceStartupFunc // Static map of supported dummyDevices.
+func (d DeviceType) String() string {
+	return [...]string{"DUMMY", "HABANA", "DCGM", "NVML"}[d]
 }
-type DeviceInterface interface {
+
+type Device interface {
 	// Name returns the name of the device
 	Name() string
 	// DevType returns the type of the device (nvml, dcgm, habana ...)
 	DevType() DeviceType
-	// DevTypeName returns the type of the device (nvml, dcgm, habana ...) as a string
-	DevTypeName() string
 	// GetHwType returns the type of hw the device is (gpu, processor)
 	HwType() string
 	// InitLib the external library loading, if any.
@@ -61,16 +63,11 @@ type DeviceInterface interface {
 	SetDeviceCollectionSupported(bool)
 }
 
-func (d DeviceType) String() string {
-	return [...]string{"DUMMY", "HABANA", "DCGM", "NVML"}[d]
-}
-
-// Registry gets the default device DeviceRegistry instance
-func Registry() *DeviceRegistry {
+// Registry gets the default device Registry instance
+func GetRegistry() *Registry {
 	once.Do(func() {
-		globalRegistry = &DeviceRegistry{
-			gpuDevices:   map[DeviceType]deviceStartupFunc{},
-			dummyDevices: map[DeviceType]deviceStartupFunc{},
+		globalRegistry = &Registry{
+			Registry: map[string]map[DeviceType]deviceStartupFunc{},
 		}
 	})
 	return globalRegistry
@@ -79,75 +76,78 @@ func Registry() *DeviceRegistry {
 // SetRegistry replaces the global registry instance
 // NOTE: All plugins will need to be manually registered
 // after this function is called.
-func SetRegistry(registry *DeviceRegistry) {
+func SetRegistry(registry *Registry) {
 	globalRegistry = registry
+}
+
+func (r *Registry) MustRegister(a string, d DeviceType, deviceStartup deviceStartupFunc) {
+	_, ok := r.Registry[a][d]
+	if ok {
+		klog.Infof("Device with type %s already exists", d)
+		return
+	}
+	klog.V(5).Infof("Adding the device to the registry [%s][%s]", a, d.String())
+	r.Registry[a] = map[DeviceType]deviceStartupFunc{
+		d: deviceStartup,
+	}
+}
+
+func (r *Registry) Unregister(d DeviceType) {
+	for a := range r.Registry {
+		_, exists := r.Registry[a][d]
+		if exists {
+			delete(r.Registry[a], d)
+			return
+		}
+	}
+	klog.Errorf("Device with type %s doesn't exist", d)
 }
 
 // AddDeviceInterface adds a supported device interface, prints a fatal error in case of double registration.
 func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceStartupFunc) {
 	switch accType {
-	case "GPU":
-		// Handle GPU devices registration
-		if existingDevice := Registry().gpuDevices[dtype]; existingDevice != nil {
-			klog.Fatalf("Multiple gpuDevices attempting to register with name %q", dtype.String())
+	case "GPU", "DUMMY":
+		// Handle GPU|Dummy device startup function registration
+		if existingDevice := GetRegistry().Registry[accType][dtype]; existingDevice != nil {
+			klog.Errorf("Multiple Devices attempting to register with name %q", dtype.String())
+			return
 		}
 
 		if dtype == DCGM {
 			// Remove "nvml" if "dcgm" is being registered
-			delete(Registry().gpuDevices, NVML)
+			GetRegistry().Unregister(NVML)
 		} else if dtype == NVML {
 			// Do not register "nvml" if "dcgm" is already registered
-			if _, ok := Registry().gpuDevices[DCGM]; ok {
+			if _, ok := GetRegistry().Registry["GPU"][DCGM]; ok {
 				return
 			}
 		}
-		Registry().gpuDevices[dtype] = deviceStartup
-
-	case "DUMMY":
-		// Handle dummy devices registration
-		if existingDevice := Registry().dummyDevices[dtype]; existingDevice != nil {
-			klog.Fatalf("Multiple dummyDevices attempting to register with name %q", dtype)
-		}
-		Registry().dummyDevices[dtype] = deviceStartup
-
+		klog.V(5).Infof("Try to Register %s", dtype)
+		GetRegistry().MustRegister(accType, dtype, deviceStartup)
 	default:
-		klog.Fatalf("Unsupported device type %q", dtype)
+		klog.Errorf("Unsupported device type %q", dtype)
 	}
 
 	klog.V(5).Infof("Registered %s", dtype)
 }
 
-// GetAllDevices returns a slice with all the registered devices.
-func GetAllDevices() []DeviceType {
-	devices := append(append([]DeviceType{}, maps.Keys(Registry().gpuDevices)...), maps.Keys(Registry().dummyDevices)...)
+// GetAllDeviceTypes returns a slice with all the registered devices.
+func GetAllDeviceTypes() []string {
+	devices := append([]string{}, maps.Keys(GetRegistry().Registry)...)
 	return devices
 }
 
-// GetGpuDevices returns a slice of the registered gpus.
-func GetGpuDevices() []DeviceType {
-	return maps.Keys(Registry().gpuDevices)
-}
-
-// GetDummyDevices returns only the dummy devices.
-func GetDummyDevices() []DeviceType {
-	return maps.Keys(Registry().dummyDevices)
-}
-
-// Startup initializes and returns a new DeviceInterface according to the given DeviceType [NVML|DCGM|DUMMY|HABANA].
-func Startup(d DeviceType) DeviceInterface {
+// Startup initializes and returns a new Device according to the given DeviceType [NVML|DCGM|DUMMY|HABANA].
+func Startup(a string) Device {
 	// Retrieve the global registry
-	registry := Registry()
+	registry := GetRegistry()
 
-	// Attempt to start the device from the gpuDevices map
-	if deviceStartup, ok := registry.gpuDevices[d]; ok {
-		klog.V(5).Infof("Starting up %s", d.String())
-		return deviceStartup()
-	}
-
-	// Attempt to start the device from the dummyDevices map
-	if deviceStartup, ok := registry.dummyDevices[d]; ok {
-		klog.V(5).Infof("Starting up %s", d.String())
-		return deviceStartup()
+	for d := range registry.Registry[a] {
+		// Attempt to start the device from the registry
+		if deviceStartup, ok := registry.Registry[a][d]; ok {
+			klog.V(5).Infof("Starting up %s", d.String())
+			return deviceStartup()
+		}
 	}
 
 	// The device type is unsupported

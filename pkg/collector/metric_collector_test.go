@@ -16,13 +16,11 @@ import (
 )
 
 func newMockCollector(mockAttacher bpf.Exporter) *Collector {
-	if gpus, err := acc.Registry().ActiveAcceleratorsByType(acc.GPU); err == nil {
-		for _, a := range gpus {
-			d := a.Device()
-			err := d.Init() // create structure instances that will be accessed to create a containerMetric
-			Expect(err).NotTo(HaveOccurred())
-			d.SetDeviceCollectionSupported(false)
-		}
+	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+		d := gpu.Device()
+		err := d.Init() // create structure instances that will be accessed to create a containerMetric
+		Expect(err).NotTo(HaveOccurred())
+		d.SetDeviceCollectionSupported(false)
 	}
 	// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 	components.SetIsSystemCollectionSupported(false)

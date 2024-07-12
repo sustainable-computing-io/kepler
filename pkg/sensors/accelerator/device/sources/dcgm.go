@@ -69,9 +69,10 @@ func init() {
 	klog.Info("Initializing dcgm Successful")
 	dcgmType = device.DCGM
 	device.AddDeviceInterface(dcgmType, dcgmHwType, dcgmDeviceStartup)
+	klog.Infof("Using %s to obtain processor power", dcgmAccImpl.Name())
 }
 
-func dcgmDeviceStartup() device.DeviceInterface {
+func dcgmDeviceStartup() device.Device {
 	a := dcgmAccImpl
 
 	if err := a.InitLib(); err != nil {
@@ -260,10 +261,6 @@ func (d *GPUDcgm) loadMIGProfiles() {
 }
 
 func (d *GPUDcgm) Name() string {
-	return dcgmType.String()
-}
-
-func (d *GPUDcgm) DevTypeName() string {
 	return dcgmType.String()
 }
 

@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	habanaHwType = "GPU"
+	habanaAccType = "GPU"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 
 type GPUHabana struct {
 	collectionSupported bool
-	devices             map[int]device.GPUDevice
+	devices             map[int]interface{}
 }
 
 func init() {
@@ -47,12 +47,13 @@ func init() {
 		klog.Infof("Error initializing %s: %v", habanaAccImpl.Name(), err)
 		return
 	}
-	klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
 	habanaType = device.HABANA
-	device.AddDeviceInterface(habanaType, habanaHwType, habanaDeviceStartup)
+	klog.V(5).Infof("Register %s with device startup register", habanaType)
+	device.AddDeviceInterface(habanaType, habanaAccType, habanaDeviceStartup)
+	klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
 }
 
-func habanaDeviceStartup() device.DeviceInterface {
+func habanaDeviceStartup() device.Device {
 	a := habanaAccImpl
 
 	if err := a.Init(); err != nil {
@@ -67,31 +68,27 @@ func (g *GPUHabana) Name() string {
 	return habanaType.String()
 }
 
-func (g *GPUHabana) DevTypeName() string {
-	return habanaType.String()
-}
-
 func (g *GPUHabana) DevType() device.DeviceType {
 	return habanaType
 }
 
 func (g *GPUHabana) HwType() string {
-	return habanaHwType
+	return habanaAccType
 }
 
 func (g *GPUHabana) InitLib() error {
 	return nil
 }
 
-// todo: refactor logic at invoking side, if gpu is not set?
 func (g *GPUHabana) Init() error {
 	ret := hlml.Initialize()
 	if ret != nil {
 		klog.Error("ERROR initializing hlml")
 		g.collectionSupported = false
 	} else {
-		klog.Info("Initialized hlml and enabling collection support")
 		g.collectionSupported = true
+		g.devices = g.DevicesByID()
+		klog.Info("Initialized hlml and enabling collection support")
 	}
 	return ret
 }
@@ -105,18 +102,17 @@ func (g *GPUHabana) Shutdown() bool {
 
 func (g *GPUHabana) AbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
-
 	for _, dev := range g.devices {
-		power, ret := dev.DeviceHandler.(hlml.Device).PowerUsage()
+		power, ret := dev.(device.GPUDevice).DeviceHandler.(hlml.Device).PowerUsage()
 		if ret != nil {
-			klog.V(2).Infof("failed to get power usage on device %v: %v\n", dev, ret)
+			klog.Errorf("failed to get power usage on device %v: %v\n", dev, ret)
 			continue
 		}
 		energy := uint32(uint64(power) * config.SamplePeriodSec)
 		gpuEnergy = append(gpuEnergy, energy)
 
-		dname, _ := dev.DeviceHandler.(hlml.Device).Name()
-		klog.V(2).Infof("AbsEnergyFromDevice power usage on device %v: %v\n", dname, gpuEnergy)
+		dname, _ := dev.(device.GPUDevice).DeviceHandler.(hlml.Device).Name()
+		klog.V(5).Infof("AbsEnergyFromDevice power usage on device %v: %v\n", dname, gpuEnergy)
 	}
 
 	return gpuEnergy
