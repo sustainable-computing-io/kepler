@@ -1,9 +1,5 @@
 name: vm
 
-include:
-  - path:
-      - ../../autoheal/compose.yaml
-
 services:
   kepler:
     image: quay.io/sustainable_computing_io/kepler:latest
@@ -41,9 +37,6 @@ services:
       timeout: ${HEALTHCHECK_TIMEOUT:-30s}
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
-
-    labels:
-      autoheal: true
 
     cap_add:
       - ALL

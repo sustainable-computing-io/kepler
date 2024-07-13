@@ -4,7 +4,6 @@ include:
   - path:
       - ../../monitoring/compose.yaml
       - ./override.yaml
-      - ../../autoheal/compose.yaml
 
 services:
   kepler-metal:
@@ -60,9 +59,6 @@ services:
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
 
-    labels:
-      autoheal: true
-
     cap_add:
       - ALL
 
@@ -93,8 +89,6 @@ services:
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
 
-    labels:
-      autoheal: true
 
 networks:
   scaph-network:
