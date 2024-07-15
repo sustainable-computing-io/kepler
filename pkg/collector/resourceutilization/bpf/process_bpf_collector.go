@@ -39,7 +39,7 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
 		switch counterKey {
 		case config.CPUTime:
-			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime/1000 /* convert microseconds to miliseconds */)
+			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime/1000 /* convert microseconds to milliseconds */)
 		case config.PageCacheHit:
 			processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 		case config.IRQNetTXLabel:

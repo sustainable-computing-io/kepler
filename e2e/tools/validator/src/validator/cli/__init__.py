@@ -62,7 +62,7 @@ def new_report(report_dir: str) -> Report:
     os.makedirs(results_dir, exist_ok=True)
 
     path = os.path.join(report_dir, f"report-{tag}.md")
-    # ruff: noqa: SIM115 (Supressed check for missing context manager as we are explictly closing it once report is generated)
+    # ruff: noqa: SIM115 (Suppressed check for missing context manager as we are explicitly closing it once report is generated)
     file = open(path, "w")
 
     r = Report(path, results_dir, file)
@@ -126,7 +126,7 @@ def validator(ctx: click.Context, config_file: str, log_level: str):
     type=click.Path(exists=True),
     show_default=True,
 )
-# ruff: noqa: S108 (Suppresed as we are intentionally using `/tmp` as reporting directory)
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
 @click.option(
     "--report-dir",
     "-o",
@@ -158,7 +158,7 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
 @validator.command()
 @click.option("--start", "-s", type=options.DateTime(), required=True)
 @click.option("--end", "-e", type=options.DateTime(), required=True)
-# ruff: noqa: S108 (Suppresed as we are intentionally using `/tmp` as reporting directory)
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
 @click.option(
     "--report-dir",
     "-o",
@@ -254,7 +254,7 @@ def report_validation_results(
 
         dump_query_result(report.results_dir, v.expected, res.expected_series)
         dump_query_result(report.results_dir, v.actual, res.actual_series)
-    # ruff: noqa: BLE001 (Supressed as we want to catch all exceptions here)
+    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         click.secho(f"\t    {v.name} failed: {e} ", fg="red")
         click.secho(f"\t    Error: {e} ", fg="yellow")
