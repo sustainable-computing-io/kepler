@@ -17,55 +17,39 @@ limitations under the License.
 package bpf
 
 import (
-	"bytes"
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 	"unsafe"
 
-	bpf "github.com/aquasecurity/libbpfgo"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/jaypipes/ghw"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 )
 
-const (
-	objectFilename     = "kepler.%s.o"
-	bpfAssestsLocation = "/var/lib/kepler/bpfassets"
-	cpuOnline          = "/sys/devices/system/cpu/online"
-	bpfPerfArraySuffix = "_event_reader"
-	TableProcessName   = "processes"
-	CPUNumSize         = 128
-)
-
 type exporter struct {
-	module                *bpf.Module
-	ebpfBatchGet          bool
-	ebpfBatchGetAndDelete bool
-	cpuCores              int
-	// due to performance reason we keep an empty struct to verify if a new read is also empty
-	emptyct                 ProcessBPFMetrics
-	byteOrder               binary.ByteOrder
-	perfEventFds            []int
+	bpfObjects keplerObjects
+
+	schedSwitchLink link.Link
+	irqLink         link.Link
+	pageWriteLink   link.Link
+	pageReadLink    link.Link
+
+	perfEvents *hardwarePerfEvents
+
 	enabledHardwareCounters sets.Set[string]
 	enabledSoftwareCounters sets.Set[string]
 }
 
 func NewExporter() (Exporter, error) {
 	e := &exporter{
-		module:                  nil,
-		ebpfBatchGet:            true,
-		ebpfBatchGetAndDelete:   true,
-		cpuCores:                getCPUCores(),
-		emptyct:                 ProcessBPFMetrics{},
-		byteOrder:               utils.DetermineHostByteOrder(),
-		perfEventFds:            []int{},
 		enabledHardwareCounters: sets.New[string](),
 		enabledSoftwareCounters: sets.New[string](),
 	}
@@ -76,11 +60,6 @@ func NewExporter() (Exporter, error) {
 	return e, err
 }
 
-type perfCounter struct {
-	EvType   int
-	EvConfig int
-}
-
 func (e *exporter) SupportedMetrics() SupportedMetrics {
 	return SupportedMetrics{
 		HardwareCounters: e.enabledHardwareCounters.Clone(),
@@ -88,210 +67,163 @@ func (e *exporter) SupportedMetrics() SupportedMetrics {
 	}
 }
 
-func getLibbpfObjectFilePath(byteOrder binary.ByteOrder) (string, error) {
-	var endianness string
-	if byteOrder == binary.LittleEndian {
-		endianness = "bpfel"
-	} else if byteOrder == binary.BigEndian {
-		endianness = "bpfeb"
-	}
-	filename := fmt.Sprintf(objectFilename, endianness)
-	bpfassetsPath := fmt.Sprintf("%s/%s", bpfAssestsLocation, filename)
-	_, err := os.Stat(bpfassetsPath)
-	if err != nil {
-		// attempt to find the bpf assets in the same directory as the binary
-		// this is useful for running locally
-		var matches []string
-		err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-			if info.Name() == filename {
-				matches = append(matches, path)
-				return filepath.SkipAll
-			}
-			return nil
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to find bpf object file: %w", err)
-		}
-		if len(matches) < 1 {
-			return "", fmt.Errorf("failed to find bpf object file: no matches found")
-		}
-		klog.Infof("found bpf object file: %s", matches[0])
-		return matches[0], nil
-	}
-	return bpfassetsPath, nil
-}
-
 func (e *exporter) attach() error {
-	libbpfObjectFilePath, err := getLibbpfObjectFilePath(e.byteOrder)
-	if err != nil {
-		return fmt.Errorf("failed to load module: %w", err)
+	// Remove resource limits for kernels <5.11.
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return fmt.Errorf("error removing memlock: %v", err)
 	}
 
-	e.module, err = bpf.NewModuleFromFile(libbpfObjectFilePath)
+	// Load eBPF Specs
+	specs, err := loadKepler()
 	if err != nil {
-		return fmt.Errorf("failed to load eBPF module from libbpf object: %w", err)
+		return fmt.Errorf("error loading eBPF specs: %v", err)
 	}
 
-	// resize array entries
-	klog.Infof("%d CPU cores detected. Resizing eBPF Perf Event Arrays", e.cpuCores)
-	toResize := []string{
-		"cpu_cycles_event_reader", "cpu_instructions_event_reader", "cache_miss_event_reader",
-		"cpu_cycles", "cpu_instructions", "cache_miss",
-	}
-	for _, arrayName := range toResize {
-		if err = resizeArrayEntries(e.module, arrayName, e.cpuCores); err != nil {
-			return fmt.Errorf("failed to resize array %s: %w", arrayName, err)
+	// Adjust map sizes to the number of available CPUs
+	numCPU := getCPUCores()
+	klog.Infof("Number of CPUs: %d", numCPU)
+	for _, m := range specs.Maps {
+		// Only resize maps that have a MaxEntries of NUM_CPUS constant
+		if m.MaxEntries == 128 {
+			m.MaxEntries = uint32(numCPU)
 		}
 	}
-	// set the sample rate, this must be done before loading the object
-	sampleRate := config.BPFSampleRate
 
-	if err := e.module.InitGlobalVariable("SAMPLE_RATE", int32(sampleRate)); err != nil {
-		return fmt.Errorf("failed to set sample rate: %w", err)
-	}
-
-	if err := e.module.BPFLoadObject(); err != nil {
-		return fmt.Errorf("failed to load eBPF object: %w", err)
-	}
-
-	// attach to kprobe__finish_task_switch kprobe function
-	prog, err := e.module.GetProgram("kepler_sched_switch_trace")
+	// Set program global variables
+	err = specs.RewriteConstants(map[string]interface{}{
+		"SAMPLE_RATE": int32(config.BPFSampleRate),
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get kepler_sched_switch_trace: %w", err)
+		return fmt.Errorf("error rewriting program constants: %v", err)
 	}
 
-	if _, err = prog.AttachGeneric(); err != nil {
-		klog.Infof("failed to attach tracepoint/sched/sched_switch: %v", err)
-	} else {
-		e.enabledSoftwareCounters[config.CPUTime] = struct{}{}
+	// Load the eBPF program(s)
+	if err := specs.LoadAndAssign(&e.bpfObjects, nil); err != nil {
+		return fmt.Errorf("error loading eBPF objects: %v", err)
 	}
+
+	// Attach the eBPF program(s)
+	e.schedSwitchLink, err = link.AttachTracing(link.TracingOptions{
+		Program:    e.bpfObjects.KeplerSchedSwitchTrace,
+		AttachType: ebpf.AttachTraceRawTp,
+	})
+	if err != nil {
+		return fmt.Errorf("error attaching sched_switch tracepoint: %v", err)
+	}
+	e.enabledSoftwareCounters[config.CPUTime] = struct{}{}
 
 	if config.ExposeIRQCounterMetrics {
-		err := func() error {
-			// attach softirq_entry tracepoint to kepler_irq_trace function
-			irqProg, err := e.module.GetProgram("kepler_irq_trace")
-			if err != nil {
-				return fmt.Errorf("could not get kepler_irq_trace: %w", err)
-			}
-			if _, err := irqProg.AttachGeneric(); err != nil {
-				return fmt.Errorf("could not attach irq/softirq_entry: %w", err)
-			}
-			e.enabledSoftwareCounters[config.IRQNetTXLabel] = struct{}{}
-			e.enabledSoftwareCounters[config.IRQNetRXLabel] = struct{}{}
-			e.enabledSoftwareCounters[config.IRQBlockLabel] = struct{}{}
-			return nil
-		}()
+		e.irqLink, err = link.AttachTracing(link.TracingOptions{
+			Program:    e.bpfObjects.KeplerIrqTrace,
+			AttachType: ebpf.AttachTraceRawTp,
+		})
 		if err != nil {
-			klog.Warningf("IRQ tracing disabled: %v", err)
+			return fmt.Errorf("could not attach irq/softirq_entry: %w", err)
 		}
+		e.enabledSoftwareCounters[config.IRQNetTXLabel] = struct{}{}
+		e.enabledSoftwareCounters[config.IRQNetRXLabel] = struct{}{}
+		e.enabledSoftwareCounters[config.IRQBlockLabel] = struct{}{}
 	}
 
-	// attach function
-	pageWrite, err := e.module.GetProgram("kepler_write_page_trace")
+	group := "writeback"
+	name := "writeback_dirty_page"
+	if _, err := os.Stat("/sys/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
+		name = "writeback_dirty_folio"
+	}
+	e.pageWriteLink, err = link.Tracepoint(group, name, e.bpfObjects.KeplerWritePageTrace, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get kepler_write_page_trace: %w", err)
+		klog.Warningf("failed to attach tp/%s/%s: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", group, name, err)
 	} else {
-		category := "writeback"
-		name := "writeback_dirty_page"
-		if _, err := os.Stat("/sys/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
-			name = "writeback_dirty_folio"
-		}
-		if _, err = pageWrite.AttachTracepoint(category, name); err != nil {
-			klog.Warningf("failed to attach tp/%s/%s: %v. Kepler will not collect page cache write events. This will affect the DRAM power model estimation on VMs.", category, name, err)
-		} else {
-			e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
-		}
+		e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
 	}
 
-	// attach function
-	pageRead, err := e.module.GetProgram("kepler_read_page_trace")
+	e.pageReadLink, err = link.AttachTracing(link.TracingOptions{
+		Program:    e.bpfObjects.KeplerReadPageTrace,
+		AttachType: ebpf.AttachTraceFEntry,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get kepler_read_page_trace: %v", err)
-	} else {
-		if _, err = pageRead.AttachGeneric(); err != nil {
-			klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
-		} else {
-			e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
-		}
+		klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
+	} else if !e.enabledSoftwareCounters.Has(config.PageCacheHit) {
+		e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
 	}
 
+	// Return early if hardware counters are not enabled
 	if !config.ExposeHardwareCounterMetrics {
 		klog.Infof("Hardware counter metrics are disabled")
 		return nil
 	}
 
-	// attach performance counter fd to BPF_PERF_EVENT_ARRAY
-	hardwareCounters := map[string]perfCounter{
-		config.CPUCycle:       {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES},
-		config.CPUInstruction: {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS},
-		config.CacheMiss:      {unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CACHE_MISSES},
+	e.perfEvents, err = createHardwarePerfEvents(
+		e.bpfObjects.CpuInstructionsEventReader,
+		e.bpfObjects.CpuCyclesEventReader,
+		e.bpfObjects.CacheMissEventReader,
+		numCPU,
+	)
+	if err != nil {
+		return nil
 	}
+	e.enabledHardwareCounters[config.CPUCycle] = struct{}{}
+	e.enabledHardwareCounters[config.CPUInstruction] = struct{}{}
+	e.enabledHardwareCounters[config.CacheMiss] = struct{}{}
 
-	cleanup := func() {
-		unixClosePerfEvents(e.perfEventFds)
-		e.perfEventFds = []int{}
-		e.enabledHardwareCounters.Clear()
-	}
-
-	for arrayName, counter := range hardwareCounters {
-		bpfPerfArrayName := arrayName + bpfPerfArraySuffix
-		bpfMap, perfErr := e.module.GetMap(bpfPerfArrayName)
-		if perfErr != nil {
-			klog.Warningf("could not get ebpf map for perf event %s: %v\n", bpfPerfArrayName, perfErr)
-			cleanup()
-		}
-		fds, perfErr := unixOpenPerfEvent(counter.EvType, counter.EvConfig, e.cpuCores)
-		if perfErr != nil {
-			klog.Warningf("could not attach perf event %s: %v. Are you using a VM?\n", bpfPerfArrayName, perfErr)
-			cleanup()
-		}
-		for i, fd := range fds {
-			err = bpfMap.Update(unsafe.Pointer(&i), unsafe.Pointer(&fd))
-			if err != nil {
-				klog.Warningf("failed to update bpf map: %v", err)
-				cleanup()
-			}
-		}
-		e.perfEventFds = append(e.perfEventFds, fds...)
-		e.enabledHardwareCounters[arrayName] = struct{}{}
-	}
-
-	klog.Infof("Successfully load eBPF module from libbpf object")
 	return nil
 }
 
 func (e *exporter) Detach() {
-	unixClosePerfEvents(e.perfEventFds)
-	e.perfEventFds = []int{}
-	if e.module != nil {
-		e.module.Close()
-		e.module = nil
+	// Links
+	if e.schedSwitchLink != nil {
+		e.schedSwitchLink.Close()
+		e.schedSwitchLink = nil
 	}
+
+	if e.irqLink != nil {
+		e.irqLink.Close()
+		e.irqLink = nil
+	}
+
+	if e.pageWriteLink != nil {
+		e.pageWriteLink.Close()
+		e.pageWriteLink = nil
+	}
+
+	if e.pageReadLink != nil {
+		e.pageReadLink.Close()
+		e.pageReadLink = nil
+	}
+
+	// Perf events
+	e.perfEvents.close()
+	e.perfEvents = nil
+
+	// Objects
+	e.bpfObjects.Close()
 }
 
-func (e *exporter) CollectProcesses() (processesData []ProcessBPFMetrics, err error) {
-	processesData = []ProcessBPFMetrics{}
-	if e.module == nil {
-		// nil error should be threw at attachment point, return empty data
-		return
+func (e *exporter) CollectProcesses() ([]ProcessMetrics, error) {
+	start := time.Now()
+	// Get the max number of entries in the map
+	maxEntries := e.bpfObjects.Processes.MaxEntries()
+	total := 0
+	deleteKeys := make([]uint32, maxEntries)
+	deleteValues := make([]ProcessMetrics, maxEntries)
+	var cursor ebpf.MapBatchCursor
+	for {
+		count, err := e.bpfObjects.Processes.BatchLookupAndDelete(
+			&cursor,
+			deleteKeys,
+			deleteValues,
+			&ebpf.BatchOptions{},
+		)
+		total += count
+		if errors.Is(err, ebpf.ErrKeyNotExist) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to batch lookup and delete: %v", err)
+		}
 	}
-	var processes *bpf.BPFMap
-	processes, err = e.module.GetMap(TableProcessName)
-	if err != nil {
-		return
-	}
-	if e.ebpfBatchGetAndDelete {
-		processesData, err = e.libbpfCollectProcessBatchSingleHash(processes)
-	} else {
-		processesData = e.libbpfCollectProcessSingleHash(processes)
-	}
-	if err == nil {
-		return
-	} else {
-		e.ebpfBatchGetAndDelete = false
-		processesData = e.libbpfCollectProcessSingleHash(processes)
-	}
-	return
+	klog.V(5).Infof("collected %d process samples in %v", total, time.Since(start))
+	return deleteValues[:total], nil
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -317,9 +249,8 @@ func unixOpenPerfEvent(typ, conf, cpuCores int) ([]int, error) {
 
 func unixClosePerfEvents(fds []int) {
 	for _, fd := range fds {
-		// explicitly ignoring errors here since we can't handle them
 		_ = unix.SetNonblock(fd, true)
-		_ = unix.Close(fd)
+		unix.Close(fd)
 	}
 }
 
@@ -333,97 +264,71 @@ func getCPUCores() int {
 	return cores
 }
 
-func resizeArrayEntries(module *bpf.Module, name string, size int) error {
-	m, err := module.GetMap(name)
-	if err != nil {
-		return err
-	}
-
-	err = m.SetMaxEntries(uint32(size))
-	if err != nil {
-		return err
-	}
-
-	if current := m.MaxEntries(); current != uint32(size) {
-		return fmt.Errorf("failed to resize map %s, expected %d, returned %d", name, size, current)
-	}
-
-	return nil
+type hardwarePerfEvents struct {
+	cpuCyclesPerfEvents       []int
+	cpuInstructionsPerfEvents []int
+	cacheMissPerfEvents       []int
 }
 
-// for an unknown reason, the GetValueAndDeleteBatch never return the error (os.IsNotExist) that indicates the end of the table
-// but it is not a big problem since we request all possible keys that the map can store in a single request
-func (e *exporter) libbpfCollectProcessBatchSingleHash(processes *bpf.BPFMap) ([]ProcessBPFMetrics, error) {
-	start := time.Now()
+func (h *hardwarePerfEvents) close() {
+	unixClosePerfEvents(h.cpuCyclesPerfEvents)
+	unixClosePerfEvents(h.cpuInstructionsPerfEvents)
+	unixClosePerfEvents(h.cacheMissPerfEvents)
+}
+
+// CreateHardwarePerfEvents creates perf events for CPU cycles, CPU instructions, and cache misses
+// and updates the corresponding eBPF maps.
+func createHardwarePerfEvents(cpuInstructionsMap, cpuCyclesMap, cacheMissMap *ebpf.Map, numCPU int) (*hardwarePerfEvents, error) {
 	var err error
-	entries := processes.MaxEntries()
-	keys := make([]uint32, entries)
-	nextKey := uint32(0)
+	events := &hardwarePerfEvents{
+		cpuCyclesPerfEvents:       []int{},
+		cpuInstructionsPerfEvents: []int{},
+		cacheMissPerfEvents:       []int{},
+	}
+	defer func() {
+		if err != nil {
+			unixClosePerfEvents(events.cpuCyclesPerfEvents)
+			unixClosePerfEvents(events.cpuInstructionsPerfEvents)
+			unixClosePerfEvents(events.cacheMissPerfEvents)
+		}
+	}()
 
-	values, err := processes.GetValueAndDeleteBatch(unsafe.Pointer(&keys[0]), nil, unsafe.Pointer(&nextKey), entries)
+	// Create perf events and update each eBPF map
+	events.cpuCyclesPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, numCPU)
 	if err != nil {
-		// os.IsNotExist means we reached the end of the table
-		if !os.IsNotExist(err) {
-			klog.V(5).Infof("GetValueAndDeleteBatch failed: %v. A partial value might have been collected.", err)
-		}
+		klog.Warning("Failed to open perf event for CPU cycles: ", err)
+		return nil, err
 	}
 
-	processesData := []ProcessBPFMetrics{}
-	for _, value := range values {
-		var ct ProcessBPFMetrics
-		if err := binary.Read(bytes.NewReader(value), e.byteOrder, &ct); err != nil {
-			klog.Warningf("failed to decode received data: %v\n", err)
-			continue
-		}
+	events.cpuInstructionsPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, numCPU)
+	if err != nil {
+		klog.Warning("Failed to open perf event for CPU instructions: ", err)
+		return nil, err
+	}
 
-		if ct != e.emptyct {
-			processesData = append(processesData, ct)
-		}
+	events.cacheMissPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HW_CACHE, unix.PERF_COUNT_HW_CACHE_MISSES, numCPU)
+	if err != nil {
+		klog.Warning("Failed to open perf event for cache misses: ", err)
+		return nil, err
 	}
-	klog.V(5).Infof("successfully get data with batch get and delete with %d pids in %v", len(processesData), time.Since(start))
-	return processesData, err
-}
 
-func (e *exporter) libbpfCollectProcessSingleHash(processes *bpf.BPFMap) []ProcessBPFMetrics {
-	processesData := []ProcessBPFMetrics{}
-	iterator := processes.Iterator()
-	var ct ProcessBPFMetrics
-	keys := []uint32{}
-	retry := 0
-	next := iterator.Next()
-	for next {
-		keyBytes := iterator.Key()
-		key := e.byteOrder.Uint32(keyBytes)
-		data, getErr := processes.GetValue(unsafe.Pointer(&key))
-		if getErr != nil {
-			retry += 1
-			if retry > config.MaxLookupRetry {
-				klog.V(5).Infof("failed to get data: %v with max retry: %d \n", getErr, config.MaxLookupRetry)
-				next = iterator.Next()
-				retry = 0
-			}
-			continue
-		}
-		getErr = binary.Read(bytes.NewReader(data), e.byteOrder, &ct)
-		if getErr != nil {
-			klog.V(5).Infof("failed to decode received data: %v\n", getErr)
-			next = iterator.Next()
-			retry = 0
-			continue
-		}
-		if retry > 0 {
-			klog.V(5).Infof("successfully get data with retry=%d \n", retry)
-		}
-		processesData = append(processesData, ct)
-		keys = append(keys, key)
-		next = iterator.Next()
-		retry = 0
-	}
-	for _, key := range keys {
-		// TODO delete keys in batch
-		if err := processes.DeleteKey(unsafe.Pointer(&key)); err != nil {
-			klog.V(5).Infof("failed to delete key %d: %v", key, err)
+	for i, fd := range events.cpuCyclesPerfEvents {
+		if err = cpuCyclesMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cpu_cycles_event_reader map: %v", err)
+			return nil, err
 		}
 	}
-	return processesData
+	for i, fd := range events.cpuInstructionsPerfEvents {
+		if err = cpuInstructionsMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cpu_instructions_event_reader map: %v", err)
+			return nil, err
+		}
+	}
+	for i, fd := range events.cacheMissPerfEvents {
+		if err = cacheMissMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
+			klog.Warningf("Failed to update cache_miss_event_reader map: %v", err)
+			return nil, err
+		}
+	}
+	return events, nil
 }

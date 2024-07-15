@@ -24,7 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 
@@ -66,10 +66,12 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 // UpdateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
-		gpuEnergy := gpu.GetAbsEnergyFromGPU()
-		for gpu, energy := range gpuEnergy {
-			nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
+	if config.EnabledGPU {
+		if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+			gpuEnergy := gpu.Device().AbsEnergyFromDevice()
+			for gpu, energy := range gpuEnergy {
+				nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
+			}
 		}
 	}
 }

@@ -45,18 +45,18 @@ func (m *mockExporter) SupportedMetrics() SupportedMetrics {
 
 func (m *mockExporter) Detach() {}
 
-func (m *mockExporter) CollectProcesses() ([]ProcessBPFMetrics, error) {
-	return []ProcessBPFMetrics{
+func (m *mockExporter) CollectProcesses() ([]ProcessMetrics, error) {
+	return []ProcessMetrics{
 		{
-			CGroupID:       0,
-			PID:            0,
+			CgroupId:       0,
+			Pid:            0,
 			ProcessRunTime: 0,
-			CPUCycles:      0,
-			CPUInstr:       0,
-			CacheMisses:    0,
+			CpuCycles:      0,
+			CpuInstr:       0,
+			CacheMiss:      0,
 			PageCacheHit:   0,
-			VecNR:          [10]uint16{},
-			Command:        [16]byte{},
+			VecNr:          [10]uint16{},
+			Comm:           [16]int8{},
 		},
 	}, nil
 }

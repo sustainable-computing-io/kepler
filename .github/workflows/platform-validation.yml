@@ -12,6 +12,8 @@ env:
 jobs:
   build-artifacts:
     runs-on: [self-hosted, linux, x64]
+    env:
+      CTR_CMD: docker
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.1
@@ -39,11 +41,10 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: platform-validation
-          CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
 
       - name: Save Kepler image as artifact
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: kepler
           path: ${{env.OUTPUT_DIR}}${{env.KEPLER_FILE_NAME}}
@@ -67,11 +68,10 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
 
       - name: Save kepler-validator test image as artifact
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: validator
           path: ${{env.OUTPUT_DIR}}${{env.VALIDATOR_FILE_NAME}}
@@ -83,6 +83,8 @@ jobs:
     strategy:
       matrix:
         cluster_provider: [kind]
+    env:
+      CTR_CMD: docker
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.1
@@ -103,7 +105,6 @@ jobs:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           IMAGE_REPO: localhost:5001
           IMAGE_TAG: platform-validation
-          CTR_CMD: docker
 
       - name: Import Kepler test image
         run: make load-image
@@ -111,7 +112,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: platform-validation
-          CTR_CMD: docker
           INPUT_PATH: ${{env.KEPLER_FILE_NAME}}
 
       - name: Import kepler-validator test image
@@ -120,7 +120,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
           INPUT_PATH: ${{env.VALIDATOR_FILE_NAME}}
 
       - name: Get Node component power before deploy kind cluster
@@ -130,7 +129,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
 
       - name: Use Kepler action to deploy cluster
         uses: sustainable-computing-io/kepler-action@v0.0.7
@@ -148,7 +146,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: platform-validation
-          CTR_CMD: docker
 
       - name: Push kepler-validator test image to local registry
         run: |
@@ -158,7 +155,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
 
       - name: Get Node component power before deploy kepler
         run: |
@@ -167,7 +163,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
 
       - name: Deploy Kepler on cluster
         run: make cluster-deploy
@@ -177,7 +172,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}
@@ -190,7 +185,6 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler-validator
           IMAGE_TAG: x86-rapl
-          CTR_CMD: docker
           kepler_address: localhost:9103
           prometheus_address: localhost:9091
 
