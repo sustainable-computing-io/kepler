@@ -1,7 +1,9 @@
 # Kepler Docker Compose Configuration
 
-This folder contains multiple Docker Compose configurations for setting up Kepler in various environments. The directory structure is organized to facilitate different
-configurations and components including Prometheus and Grafana
+This folder contains multiple Docker Compose configurations for setting up
+Kepler in various environments. The directory structure is organized to
+facilitate different configurations and components including Prometheus
+and Grafana
 
 ## Structure
 
@@ -83,16 +85,25 @@ Ensure you have the following installed:
 
 - Choose the environment:
 
-  Depending upon your needs, navigate to the appropriate directory for the environment you wish to set up:
+  Depending upon your needs, navigate to the appropriate directory for the
+  environment you wish to set up:
 
-  - `dev` → Builds and deploy Kepler dev and latest along with Grafana dashboard and Prometheus
-  - `mock-acpi` → Builds and deploys Kepler with mock ACPI power data along with Grafana dashboard and Prometheus. Includes scripts and configurations to simulate ACPI power consumption
-  - `validation/metal` → Builds and deploy Kepler on Baremetal including Scaphandre, Grafana and Prometheus. **This environment is intended solely for model validation**
-  - `validation/vm` → Deploys Kepler on Virtual Machines. **This environment is intended solely for model validation**
+  - `dev` → Builds and deploy Kepler dev and latest along with Grafana dashboard
+     and Prometheus
+  - `mock-acpi` → Builds and deploys Kepler with mock ACPI power data along
+     with Grafana dashboard and Prometheus. Includes scripts and
+     configurations to simulate ACPI power consumption
+  - `validation/metal` → Builds and deploy Kepler on Baremetal including
+     Scaphandre, Grafana and Prometheus.
+     **This environment is intended **solely for model validation**
+  - `validation/vm` → Deploys Kepler on Virtual Machines.
+     **This environment is intended solely for model validation**
 
 - Modify Configurations (If needed):
 
-  - Each environment may have specific configuration files that you can customize. For instance `kepler.config` files available under the `kepler/etc/kepler/` directory.
+  - Each environment may have specific configuration files that you can
+    customize. For instance `kepler.config` files available under the
+    `kepler/etc/kepler/` directory.
   - Update `override.yaml` if you need to override any default configurations.
 
 - Run Docker Compose:

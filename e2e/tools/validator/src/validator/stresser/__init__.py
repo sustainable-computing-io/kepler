@@ -61,7 +61,7 @@ class Remote:
         sftp_client.put(script_path, target_script)
         sftp_client.close()
         self.ssh_client.exec_command(f"chmod +x {target_script}")
-        logger.info("copying script %s to remote - %s - successfull", script_path, target_script)
+        logger.info("copying script %s to remote - %s - successful", script_path, target_script)
 
     def run_script(self, script_path: str) -> ScriptResult:
         self.connect()
@@ -75,7 +75,7 @@ class Remote:
         start_time = datetime.now()
         _, stdout, stderr = self.ssh_client.exec_command(target_script)
 
-        # ruff: noqa: T201 (Supressed as printing is intentional and necessary in this context)
+        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         print("stdout output:")
         for line in stdout:
             print(" ┊ ", line.strip())
@@ -84,7 +84,7 @@ class Remote:
         end_time = datetime.now()
         self.ssh_client.close()
 
-        # ruff: noqa: T201 (Supressed as printing is intentional and necessary in this context)
+        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         # report any stderr if there is after stdout
         print("\nstderr output:")
         for line in stderr:

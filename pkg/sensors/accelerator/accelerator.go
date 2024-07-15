@@ -50,7 +50,7 @@ type Accelerator interface {
 	Device() device.Device
 	// IsRunning returns whether or not that device is running
 	IsRunning() bool
-	// AccType returns the acclerator type.
+	// AccType returns the accelerator type.
 	AccType() AcceleratorType
 	// stop stops an accelerator and unregisters it
 	stop()

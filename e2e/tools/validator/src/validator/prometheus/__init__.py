@@ -83,7 +83,7 @@ class Result(NamedTuple):
     mape: ValueOrError
 
     def print(self):
-        # ruff: noqa: T201 (Supressed as printing is intentional and necessary in this context)
+        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         print("Expected:")
         print("────────────────────────────────────────")
         print(f" {self.expected_series.query}")
@@ -117,7 +117,7 @@ def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     try:
         actual, expected = validate_arrays(actual, expected)
         return ValueOrError(value=np.square(np.subtract(actual, expected)).mean())
-    # ruff: noqa: BLE001 (Supressed as we want to catch all exceptions here)
+    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
 
@@ -126,7 +126,7 @@ def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     try:
         actual, expected = validate_arrays(actual, expected)
         return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), actual)).mean())
-    # ruff: noqa: BLE001 (Supressed as we want to catch all exceptions here)
+    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
 
