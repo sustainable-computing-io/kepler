@@ -18,7 +18,9 @@ services:
     build:
       context: ./grafana
     environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
 
     user: "1000" # NOTE: change this to your `id -u`
     depends_on:
