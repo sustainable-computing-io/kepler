@@ -9,8 +9,6 @@ jobs:
     strategy:
       matrix:
         kube_provider: [kind]
-    env:
-      CTR_CMD: docker
     steps:
       - uses: actions/checkout@v4.1.1
       - name: local cluster set up

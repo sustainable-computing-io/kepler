@@ -73,7 +73,7 @@ func getVMID(pid uint64, fileName string) (string, error) {
 func addVMIDToCache(pid uint64, id string) {
 	if len(cacheExist) >= maxCacheSize {
 		counter := cacheRemoveElements
-		// Remove elements from the cache
+		// Remove elemets from the cache
 		for k := range cacheExist {
 			delete(cacheExist, k)
 			if counter == 0 {
@@ -88,7 +88,7 @@ func addVMIDToCache(pid uint64, id string) {
 func addToNotExistCache(pid uint64) {
 	if len(cacheNotExist) >= maxCacheSize {
 		counter := cacheRemoveElements
-		// Remove elements from the cache
+		// Remove elemets from the cache
 		for k := range cacheNotExist {
 			delete(cacheNotExist, k)
 			if counter == 0 {

@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import datetime
-from typing import NamedTuple, Protocol
+from typing import List, NamedTuple, Protocol, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -23,7 +23,6 @@ class Sample(NamedTuple):
 
     @property
     def datetime(self) -> datetime:
-        # ruff: noqa: DTZ006 (Suppressed time-zone aware object creation as it is not required)
         return datetime.fromtimestamp(self.timestamp)
 
     def __str__(self) -> str:
@@ -83,7 +82,6 @@ class Result(NamedTuple):
     mape: ValueOrError
 
     def print(self):
-        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         print("Expected:")
         print("────────────────────────────────────────")
         print(f" {self.expected_series.query}")
@@ -104,11 +102,9 @@ class Result(NamedTuple):
 def validate_arrays(actual: npt.ArrayLike, expected: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
     actual, expected = np.array(actual), np.array(expected)
     if len(actual) != len(expected):
-        msg = f"actual and expected must be of equal length: {len(actual)} != {len(expected)}"
-        raise ValueError(msg)
-    if len(actual) == 0 or len(expected) == 0:
-        msg = f"actual ({len(actual)}) and expected ({len(expected)}) must not be empty"
-        raise ValueError(msg)
+        raise ValueError(f"actual and expected must be of equal length: {len(actual)} != {len(expected)}")
+    elif len(actual) == 0 or len(expected) == 0:
+        raise ValueError(f"actual ({len(actual)}) and expected ({len(expected)}) must not be empty")
 
     return (actual, expected)
 
@@ -117,7 +113,6 @@ def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     try:
         actual, expected = validate_arrays(actual, expected)
         return ValueOrError(value=np.square(np.subtract(actual, expected)).mean())
-    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
 
@@ -126,7 +121,6 @@ def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     try:
         actual, expected = validate_arrays(actual, expected)
         return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), actual)).mean())
-    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
 
@@ -173,11 +167,13 @@ class SeriesError(Exception):
 
 
 def strip_query(query: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"\n", " ", query))
+    one_line = re.sub(r"\n", " ", query)
+    one_line = re.sub(r"\s+", " ", one_line)
+    return one_line
 
 
 class Queryable(Protocol):
-    # ruff: noqa: ARG002 (Suppressed as the arguments are intentionally unused in this context)
+    # ruff: noqa: ARG002 (we don't care about the arguments here)
     def range_query(self, query: str, start: datetime, end: datetime) -> list[Series]:
         return []
 
@@ -197,7 +193,7 @@ class PrometheusClient:
         """
         range_query_single_series returns a single series from the query
         """
-        logger.info("running query %s with step %s", strip_query(query), self.step)
+        logger.info(f"running query {strip_query(query)} with step {self.step}")
         series = self.prom.custom_query_range(query=query, start_time=start, end_time=end, step=self.step)
 
         return [Series(query, s["values"]) for s in series]

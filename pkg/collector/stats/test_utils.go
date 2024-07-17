@@ -21,7 +21,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"k8s.io/klog/v2"
 )
 
@@ -32,11 +32,10 @@ const (
 // SetMockedCollectorMetrics adds all metric to a process, otherwise it will not create the right usageMetric with all elements. The usageMetric is used in the Prediction Power Models
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func SetMockedCollectorMetrics() {
-	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
-		err := gpu.Device().Init() // create structure instances that will be accessed to create a processMetric
+	if gpu.IsGPUCollectionSupported() {
+		err := gpu.Init() // create structure instances that will be accessed to create a processMetric
 		klog.Fatalln(err)
 	}
-
 	// initialize the Available metrics since they are used to create a new processMetrics instance
 	AvailableAbsEnergyMetrics = []string{
 		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,

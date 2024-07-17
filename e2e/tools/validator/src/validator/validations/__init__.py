@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import NamedTuple
+from typing import Dict, List, NamedTuple
 
 import yaml
 
@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class QueryTemplate:
-    def __init__(self, query: str, promql_vars: dict[str, str]) -> None:
+    def __init__(self, query: str, vars: dict[str, str]) -> None:
         self._original = query
-        self._promql_vars = promql_vars
-        self._promql = query.format(**promql_vars)
+        self._vars = vars
+        self._promql = query.format(**vars)
 
     @property
     def original(self) -> str:
@@ -25,7 +25,9 @@ class QueryTemplate:
 
     @property
     def one_line(self) -> str:
-        return re.sub(r"\n", "", re.sub(r"\s+", " ", self._promql))
+        q = re.sub(r"\s+", " ", self._promql)
+        q = re.sub(r"\n", "", q)
+        return q
 
     @property
     def metric_name(self) -> str:
@@ -49,14 +51,14 @@ class Validation(NamedTuple):
     actual: QueryTemplate
 
 
-def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Validation]:
+def read_validations(file_path: str, vars: dict[str, str]) -> list[Validation]:
     with open(file_path) as file:
         yml = yaml.safe_load(file)
         return [
             Validation(
                 name=v["name"],
-                expected=QueryTemplate(v["expected"], promql_vars),
-                actual=QueryTemplate(v["actual"], promql_vars),
+                expected=QueryTemplate(v["expected"], vars),
+                actual=QueryTemplate(v["actual"], vars),
             )
             for v in yml["validations"]
         ]
@@ -67,21 +69,21 @@ class Loader:
         self.cfg = cfg
 
     def load(self) -> list[Validation]:
-        promql_vars = {}
+        vars = {}
 
         vm = self.cfg.metal.vm
         if vm.pid != 0:
-            promql_vars["level"] = "process"
-            promql_vars["vm_selector"] = f'pid="{vm.pid}"'
+            vars["level"] = "process"
+            vars["vm_selector"] = f'pid="{vm.pid}"'
         else:
-            promql_vars["level"] = "vm"
-            promql_vars["vm_selector"] = f'vm_id=~".*{vm.name}"'
+            vars["level"] = "vm"
+            vars["vm_selector"] = f'vm_id=~".*{vm.name}"'
 
         prom = self.cfg.prometheus
-        promql_vars["rate_interval"] = prom.rate_interval
-        promql_vars["metal_job_name"] = prom.job.metal
-        promql_vars["vm_job_name"] = prom.job.vm
+        vars["rate_interval"] = prom.rate_interval
+        vars["metal_job_name"] = prom.job.metal
+        vars["vm_job_name"] = prom.job.vm
 
-        logger.debug("promql_vars: %s", promql_vars)
+        logger.debug("vars: %s", vars)
 
-        return read_validations(self.cfg.validations_file, promql_vars)
+        return read_validations(self.cfg.validations_file, vars)

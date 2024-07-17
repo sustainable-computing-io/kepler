@@ -2,7 +2,3 @@ scrape_configs:
   - job_name: dev
     static_configs:
       - targets: [kepler-dev:8888]
-
-  - job_name: scaphandre
-    static_configs:
-      - targets: [scaphandre:8080]

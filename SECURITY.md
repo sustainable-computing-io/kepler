@@ -11,7 +11,7 @@ after the fix is merged.
 ## Reporting a Vulnerability
 
 To report a vulnerability, please use the [Private Vulnerability Reporting Feature]
-on GitHub. We will endeavour to respond within 48hrs of reporting. If a
+on GitHub. We will endevour to respond within 48hrs of reporting. If a
 vulnerability is reported but considered low priority it may be converted into
 an issue and handled on the public issue tracker. Should a vulnerability be
 considered severe we will endeavour to patch it within 48hrs of acceptance.

@@ -39,9 +39,13 @@ const (
 	IRQNetRXLabel = "bpf_net_rx_irq"
 	IRQBlockLabel = "bpf_block_irq"
 
-	// GPU
+	// NVIDIA GPU
 	GPUComputeUtilization = "gpu_compute_util"
 	GPUMemUtilization     = "gpu_mem_util"
+
+	// Intel QuickAssist Technology (QAT)
+	// TODO: test if different request has different energy consumption.
+	QATUtilization = "qta_sample_cnt"
 
 	// Energy Metrics
 	// Absolute energy and power

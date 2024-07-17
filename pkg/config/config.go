@@ -69,6 +69,7 @@ var (
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	EnabledQAT                   = getBoolConfig("ENABLE_QAT", false)
 	EnableProcessStats           = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)
 	ExposeVMStats                = getBoolConfig("EXPOSE_VM_METRICS", true)
@@ -149,6 +150,7 @@ func logBoolConfigs() {
 	if klog.V(5).Enabled() {
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", EnabledGPU)
+		klog.V(5).Infof("ENABLE_QAT: %t", EnabledQAT)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", EnableProcessStats)
 		klog.V(5).Infof("EXPOSE_HW_COUNTER_METRICS: %t", ExposeHardwareCounterMetrics)
 		klog.V(5).Infof("EXPOSE_IRQ_COUNTER_METRICS: %t", ExposeIRQCounterMetrics)
@@ -301,7 +303,7 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 // to unknown co-running VMs. Wrong division results in significant accuracy errors, duplicatiing the host idle power across all VMs.
 // Container pre-trained models focus on dynamic power. Estimating idle power in limited information scenarios (like VMs) is complex.
 // Idle power prediction is limited to bare-metal or single VM setups.
-// Know the number of running VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
+// Know the number of runnign VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
 func SetEnabledIdlePower(enabled bool) {
 	// set to true is any config source set it to true or if system power metrics are available
 	ExposeIdlePowerMetrics = enabled || ExposeIdlePowerMetrics
@@ -331,14 +333,9 @@ func IsExposeVMStatsEnabled() bool {
 	return ExposeVMStats
 }
 
-// IsExposeBPFMetricsEnabled returns false if BPF Metrics metrics are disabled to minimize overhead.
-func IsExposeBPFMetricsEnabled() bool {
-	return ExposeBPFMetrics
-}
-
-// IsExposeComponentPowerEnabled returns false if component power metrics are disabled to minimize overhead.
-func IsExposeComponentPowerEnabled() bool {
-	return ExposeComponentPower
+// IsExposeQATMetricsEnabled returns false if QATMetrics metrics are disabled to minimize overhead.
+func IsExposeQATMetricsEnabled() bool {
+	return EnabledQAT
 }
 
 // IsExposeBPFMetricsEnabled returns false if BPF Metrics metrics are disabled to minimize overhead.
@@ -355,6 +352,12 @@ func IsExposeComponentPowerEnabled() bool {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+}
+
+// SetEnabledQAT enables the exposure of qat metrics
+func SetEnabledQAT(enabled bool) {
+	// set to true if any config source set it to true
+	EnabledQAT = enabled || EnabledQAT
 }
 
 // SetKubeConfig set kubeconfig file

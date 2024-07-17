@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type ProcessBPFMetrics = bpf.ProcessMetrics
+type ProcessBPFMetrics = bpf.ProcessBPFMetrics
 
 // update software counter metrics
 func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
@@ -39,15 +39,15 @@ func updateSWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
 		switch counterKey {
 		case config.CPUTime:
-			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime/1000 /* convert microseconds to milliseconds */)
+			processStats[key].ResourceUsage[config.CPUTime].AddDeltaStat(utils.GenericSocketID, ct.ProcessRunTime/1000 /* convert microseconds to miliseconds */)
 		case config.PageCacheHit:
 			processStats[key].ResourceUsage[config.PageCacheHit].AddDeltaStat(utils.GenericSocketID, ct.PageCacheHit/(1000*1000))
 		case config.IRQNetTXLabel:
-			processStats[key].ResourceUsage[config.IRQNetTXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNr[bpf.IRQNetTX]))
+			processStats[key].ResourceUsage[config.IRQNetTXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQNetTX]))
 		case config.IRQNetRXLabel:
-			processStats[key].ResourceUsage[config.IRQNetRXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNr[bpf.IRQNetRX]))
+			processStats[key].ResourceUsage[config.IRQNetRXLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQNetRX]))
 		case config.IRQBlockLabel:
-			processStats[key].ResourceUsage[config.IRQBlockLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNr[bpf.IRQBlock]))
+			processStats[key].ResourceUsage[config.IRQBlockLabel].AddDeltaStat(utils.GenericSocketID, uint64(ct.VecNR[bpf.IRQBlock]))
 		default:
 			klog.Errorf("counter %s is not supported\n", counterKey)
 		}
@@ -61,16 +61,16 @@ func updateHWCounters(key uint64, ct *ProcessBPFMetrics, processStats map[uint64
 		var event string
 		switch counterKey {
 		case config.CPUCycle:
-			val = ct.CpuCycles
+			val = ct.CPUCycles
 			event = config.CPUCycle
 		case config.CPURefCycle:
-			val = ct.CpuCycles
+			val = ct.CPUCycles
 			event = config.CPURefCycle
 		case config.CPUInstruction:
-			val = ct.CpuInstr
+			val = ct.CPUInstr
 			event = config.CPUInstruction
 		case config.CacheMiss:
-			val = ct.CacheMiss
+			val = ct.CacheMisses
 			event = config.CacheMiss
 		default:
 			klog.Errorf("counter %s is not supported\n", counterKey)
@@ -87,34 +87,34 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		return
 	}
 	for _, ct := range processesData {
-		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Comm)))
+		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Command)))
 
-		if ct.Pid != 0 {
-			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
-				comm, ct.Pid, ct.CgroupId, ct.CpuCycles, ct.CpuInstr, ct.CacheMiss, ct.PageCacheHit)
+		if ct.PID != 0 {
+			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d cpu time %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
+				comm, ct.PID, ct.CGroupID, ct.ProcessRunTime, ct.CPUCycles, ct.CPUInstr, ct.CacheMisses, ct.PageCacheHit)
 		}
 		// skip process without resource utilization
-		if ct.CacheMiss == 0 && ct.PageCacheHit == 0 {
+		if ct.ProcessRunTime == 0 && ct.CacheMisses == 0 && ct.PageCacheHit == 0 {
 			continue
 		}
 
 		// if the pid is within a container, it will have a container ID
-		containerID, err := cgroup.GetContainerID(ct.CgroupId, ct.Pid, config.EnabledEBPFCgroupID)
+		containerID, err := cgroup.GetContainerID(ct.CGroupID, ct.PID, config.EnabledEBPFCgroupID)
 		if err != nil {
-			klog.V(6).Infof("failed to resolve container for PID %v (command=%s): %v, set containerID=%s", ct.Pid, comm, err, utils.SystemProcessName)
+			klog.V(6).Infof("failed to resolve container for PID %v (command=%s): %v, set containerID=%s", ct.PID, comm, err, utils.SystemProcessName)
 		}
 
 		// if the pid is within a VM, it will have an VM ID
 		vmID := utils.EmptyString
 		if config.IsExposeVMStatsEnabled() {
-			vmID, err = libvirt.GetVMID(ct.Pid)
+			vmID, err = libvirt.GetVMID(ct.PID)
 			if err != nil {
-				klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", ct.Pid, comm, err)
+				klog.V(6).Infof("failed to resolve VM ID for PID %v (command=%s): %v", ct.PID, comm, err)
 			}
 		}
 
-		mapKey := ct.Pid
-		if ct.CgroupId == 1 && config.EnabledEBPFCgroupID {
+		mapKey := ct.PID
+		if ct.CGroupID == 1 && config.EnabledEBPFCgroupID {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
 			mapKey = 1
@@ -124,7 +124,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.Pid, ct.CgroupId, containerID, vmID, comm, bpfSupportedMetrics)
+			pStat = stats.NewProcessStats(ct.PID, ct.CGroupID, containerID, vmID, comm, bpfSupportedMetrics)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm

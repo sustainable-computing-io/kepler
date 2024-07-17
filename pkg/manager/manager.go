@@ -31,7 +31,7 @@ var (
 )
 
 type CollectorManager struct {
-	// StatsCollector is responsible to collect resource and energy consumption metrics and calculate them when needed
+	// StatsCollector is resposible to collect resource and energy consumption metrics and calculate them when needed
 	StatsCollector *collector.Collector
 
 	// PrometheusCollector implements the external Collector interface provided by the Prometheus client

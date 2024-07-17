@@ -85,7 +85,7 @@ intergration_test() {
 	return $ret
 }
 
-#TODO Optimize platform-validation tests
+#TODO Optimze platform-validation tests
 platform_validation() {
 	watch_service 9102 "$KEPLER_NS" "$EXPORTER" &
 	watch_service 9090 "$MONITORING_NS" prometheus-k8s &

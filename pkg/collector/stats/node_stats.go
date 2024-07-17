@@ -21,7 +21,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
@@ -57,10 +57,8 @@ func (ne *NodeStats) ResetDeltaValues() {
 
 func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) {
 	// gpu metric
-	if config.EnabledGPU {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
-			ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
-		}
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
 	}
 
 	if isComponentsSystemCollectionSupported {
@@ -86,12 +84,12 @@ func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
 		// add any value if there is no idle power yet
 		if _, exist := ne.EnergyUsage[idleM][socketID]; !exist {
 			ne.EnergyUsage[idleM].SetDeltaStat(socketID, newIdleDelta)
-			// store the current CPU utilization to find a new idle power later
+			// store the curret CPU utilization to find a new idle power later
 			ne.IdleResUtilization[resouceUtil] = newTotalResUtilization
 		} else {
 			currIdleDelta := ne.EnergyUsage[idleM][socketID].GetDelta()
 			// verify if there is a new minimal energy consumption for the given resource
-			// TODO: fix verifying the aggregated resource utilization from all sockets, the update the energy per socket can lead to inconsistency
+			// TODO: fix verifying the aggregated resource utilization from all sockets, the update the energy per socket can lead to inconsitency
 			if (newTotalResUtilization <= currIdleTotalResUtilization) || (currIdleDelta == 0) {
 				if (currIdleDelta == 0) || (currIdleDelta >= newIdleDelta) {
 					ne.EnergyUsage[idleM].SetDeltaStat(socketID, newIdleDelta)
@@ -109,7 +107,7 @@ func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
 	}
 }
 
-// SetNodeOtherComponentsEnergy adds the latest energy consumption collected from the other node's components than CPU and DRAM
+// SetNodeOtherComponentsEnergy adds the lastest energy consumption collected from the other node's components than CPU and DRAM
 // Other components energy is a special case where the energy is calculated and not measured
 func (ne *NodeStats) SetNodeOtherComponentsEnergy() {
 	// calculate dynamic energy in other components

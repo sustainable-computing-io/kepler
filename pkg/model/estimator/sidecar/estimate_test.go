@@ -188,7 +188,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		// TODO: Fix estimator power model
 		// "The estimator node pkg power estimation is estimating 100 Kilo Joules, " +
 		// 	"which is way to high for the given resource utilization is set to only 2 in all features." +
-		// 	"We are skipping this test until the power model is fixed.",
+		// 	"We are skiping this test until the power model is fixed.",
 		// Expect(powers[0].Pkg).Should(Equal(uint64(100000000)))
 	})
 	It("Get Process Component Power By Sidecar Estimator", func() {
@@ -212,7 +212,7 @@ var _ = Describe("Test Estimate Unit", func() {
 		Expect(len(powers)).Should(Equal(len(processFeatureValues)))
 		// "The estimator node pkg power estimation is estimating 100 Kilo Joules or 0 Joules, " +
 		// 	"which is way to high or too low for the given resource utilization is set to only 1 in all features." +
-		// 	"We are skipping this test until the power model is fixed.",
+		// 	"We are skiping this test until the power model is fixed.",
 		// Expect(powers[0].Pkg).Should(Equal(SampleDynEnergyValue))
 	})
 })

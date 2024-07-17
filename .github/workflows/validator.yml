@@ -29,7 +29,7 @@ jobs:
       - name: run formatter with hatch
         run: |
           cd ./e2e/tools/validator
-          make fmt lint
+          make fmt
           git diff --exit-code
 
       # run the tests using hatch

@@ -32,7 +32,7 @@ import (
 
 const (
 	idlePower = true  // idlePower is used to define if the function will update idle power
-	absPower  = false // absPower is used to define if the function will NOT update idle power, but instead an absolute power
+	absPower  = false // absPower is used to define if the function will NOT update idle power, but instead an absulute power
 	gauge     = true  // gauge is used to define if the function will update a gauge value
 	counter   = false // gauge is used to define if the function will NOT update a gauge value, but instead a counter value
 )

@@ -1,3 +1,0 @@
-[tool.codespell]
-ignore-words-list = "ErrorString,perfErr,mape,ShouldNot"
-skip = './.*,vendor/*'

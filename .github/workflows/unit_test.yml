@@ -22,7 +22,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: sudo apt-get install clang llvm
       - name: Get ginkgo
         run: make ginkgo-set
         env:
@@ -33,8 +32,21 @@ jobs:
           sudo apt-get install -y cpuid clang
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
           git config --global --add safe.directory /kepler
+      - name: install libbpf
+        uses: sustainable-computing-io/kepler-action@v0.0.7
+        with:
+          ebpfprovider: libbpf
       - name: Run
         run: |
+          sudo apt remove libbpf-dev
+          mkdir temp-libbpf
+          cd temp-libbpf
+          git clone https://github.com/libbpf/libbpf
+          cd libbpf/src
+          sudo make install_headers
+          sudo make install_uapi_headers
+          sudo prefix=/usr  BUILD_STATIC_ONLY=y make install
+          cd ../../../
           make VERBOSE=1 test
           go tool cover -func=coverage.out -o=coverage.out
 

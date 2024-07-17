@@ -34,7 +34,7 @@ var (
 	NodePlatformPowerModel PowerModelInterface
 )
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
+// CreateNodeComponentPoweEstimatorModel only create a new power model estimater if node platform power metrics are not available
 func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
@@ -74,7 +74,7 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 		// reset power model features sample list for new estimation
 		NodePlatformPowerModel.ResetSampleIdx()
 		// converts to node metrics map to array to add the samples to the power model
-		// the featureList is defined in the container power model file and the features varies accordingly to the selected power model
+		// the featureList is defined in the container power model file and the features varies accordinly to the selected power model
 		featureValues := nodeMetrics.ToEstimatorValues(NodePlatformPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
 		NodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
 	}

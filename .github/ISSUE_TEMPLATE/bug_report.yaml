@@ -36,9 +36,9 @@ body:
     attributes:
       label: Kepler image tag
       value: |
-        <details>
+          <details>
 
-        </details>
+          </details>
     validations:
       required: true
 

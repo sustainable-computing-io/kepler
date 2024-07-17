@@ -35,31 +35,30 @@ IMAGE_REPO         ?= quay.io/sustainable_computing_io
 BUILDER_IMAGE      ?= quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0
 IMAGE_NAME         ?= kepler
 IMAGE_TAG          ?= latest
-export CTR_CMD     ?= $(or $(shell command -v podman), $(shell command -v docker))
+CTR_CMD            ?= $(or $(shell podman info > /dev/null 2>&1 && which podman), $(shell docker info > /dev/null 2>&1 && which docker))
 
 # use CTR_CMD_PUSH_OPTIONS to add options to <container-runtime> push command.
 # E.g. --tls-verify=false for local develop when using podman
 CTR_CMD_PUSH_OPTIONS ?=
 
-GENERAL_TAGS := include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo
-GPU_TAGS :=
-ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
-	GPU_TAGS := nvml
-endif
-ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
-	GPU_TAGS := dcgm
-endif
+GENERAL_TAGS := 'include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo '
+GPU_TAGS := ' gpu '
 ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
-	GPU_TAGS := habana
+	GPU_TAGS := $(GPU_TAGS)'habana '
 endif
 
 # set GOENV
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
+LIBBPF_HEADERS := /usr/include/bpf
 GOENV = GO111MODULE="" \
 				GOOS=$(GOOS) \
-				GOARCH=$(GOARCH)
+				GOARCH=$(GOARCH) \
+				CGO_ENABLED=1 \
+				CC=clang \
+				CGO_CFLAGS="-I $(LIBBPF_HEADERS) -I/usr/include/" \
+				CGO_LDFLAGS="-lelf -lz -lbpf"
 
 LDFLAGS := $(LDFLAGS) \
 		-X main.Version=$(VERSION) \
@@ -68,14 +67,15 @@ LDFLAGS := $(LDFLAGS) \
 		-X main.OS=$(GOOS) \
 		-X main.Arch=$(GOARCH)
 
+
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
-GO_BUILD_TAGS := '$(GENERAL_TAGS) $(GOOS) $(GPU_TAGS)'
-GO_TEST_TAGS := '$(GENERAL_TAGS) $(GOOS)'
+GO_BUILD_TAGS := $(GENERAL_TAGS)$(GOOS)$(GPU_TAGS)
+GO_TEST_TAGS := $(GENERAL_TAGS)$(GOOS)
 
 # for testsuite
 ENVTEST_ASSETS_DIR=$(SRC_ROOT)/test-bin
-export PATH := $(PATH):$(ENVTEST_ASSETS_DIR)
+export PATH := $(PATH):$(SRC_ROOT)/test-bin
 
 ifndef GOPATH
 	GOPATH := $(HOME)/go
@@ -83,13 +83,6 @@ endif
 
 ifndef GOBIN
 	GOBIN := $(GOPATH)/bin
-endif
-
-VERBOSE ?= 0
-ifeq ($(VERBOSE),1)
-  go_test_args=-v
-else
-  go_test_args=
 endif
 
 # NOTE: project related tools get installed to tmp dir which is ignored by
@@ -173,12 +166,10 @@ clean-cross-build:
 build: clean_build_local _build_local copy_build_local ##  Build binary and copy to $(OUTPUT_DIR)/bin
 .PHONY: build
 
-.PHONY: generate
-generate: ## Generate BPF code locally.
-	+@$(GOENV) go generate ./pkg/bpf
-	+@$(GOENV) go generate ./pkg/bpftest
+_build_ebpf_local:
+	@make -C bpfassets/libbpf
 
-_build_local: generate ##  Build Kepler binary locally.
+_build_local: _build_ebpf_local ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
 	@mkdir -p "$(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
 	+@$(GOENV) go build \
@@ -253,8 +244,8 @@ ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.19.0  && \
-		cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
+	 (go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.15.0  && \
+	  cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 
 .PHONY: container_test
 container_test:
@@ -273,18 +264,21 @@ container_test:
 			cd - && git config --global --add safe.directory /kepler && \
 			make VERBOSE=1 unit-test bench'
 
-TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep -v pkg/bpf | grep -v e2e)
+VERBOSE ?= 0
+TMPDIR := $(shell mktemp -d)
+TEST_PKGS := $(shell go list ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpftest)
+SUDO_TEST_PKGS := $(shell go list ./... | grep pkg/bpf)
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.
 
 .PHONY: unit-test
-unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
+unit-test: ginkgo-set tidy-vendor ## Run unit tests.
 	@echo TAGS=$(GO_TEST_TAGS)
+	$(if $(VERBOSE),@echo GOENV=$(GOENV))
 	@$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		$(go_test_args) \
+		$(if $(VERBOSE),-v) \
 		-cover -covermode=atomic -coverprofile=coverage.out \
 		--race --count=1 \
 		$(TEST_PKGS)
@@ -293,19 +287,18 @@ unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
 bench: ## Run benchmarks.
 	@echo TAGS=$(GO_TEST_TAGS)
 	$(GOENV) go test -tags $(GO_TEST_TAGS) \
-		$(go_test_args) \
+		$(if $(VERBOSE),-v) \
 		-test.run=dontrunanytests \
 		-bench=. --count=1 $(TEST_PKGS)
 
 .PHONY: bpf-test
-bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
-	$(GOENV) $(ENVTEST_ASSETS_DIR)/ginkgo build \
-		-tags $(GO_TEST_TAGS) \
-		-cover \
-		--covermode=atomic \
-		./pkg/bpftest
-	$(SUDO) $(ENVTEST_ASSETS_DIR)/ginkgo \
-		./pkg/bpftest/bpftest.test
+bpf-test: _build_ebpf_local ## Run BPF tests.
+	for pkg in $(SUDO_TEST_PKGS); do \
+		$(GOENV) go test -c $$pkg -tags $(GO_TEST_TAGS) -cover \
+		-covermode=atomic -coverprofile=coverage.bpf.out \
+		-o $(TMPDIR)/$$(basename $$pkg).test && \
+		$(SUDO) $(TMPDIR)/$$(basename $$pkg).test; \
+	done
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
@@ -318,7 +311,7 @@ format:
 
 c-format:
 	@echo "Checking c format"
-	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:/bpf/include/' | xargs clang-format --dry-run --Werror
+	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:bpfassets/libbpf/include/' | xargs clang-format --dry-run --Werror
 
 golint:
 	@mkdir -p $(base_dir)/.cache/golangci-lint
@@ -348,13 +341,11 @@ build-manifest: kustomize
 .PHONY: build-manifest
 
 ##@ Development Env
-export CLUSTER_PROVIDER ?= kind
-export LOCAL_DEV_CLUSTER_VERSION ?= main
-export OPTS ?= PROMETHEUS_DEPLOY
-export PROMETHEUS_ENABLE ?= true
-export GRAFANA_ENABLE ?= true
-export KIND_WORKER_NODES ?=2
-export BUILD_CONTAINERIZED ?= build_image
+CLUSTER_PROVIDER ?= kind
+LOCAL_DEV_CLUSTER_VERSION ?= main
+
+KIND_WORKER_NODES ?=2
+BUILD_CONTAINERIZED ?= build_image
 
 COMPOSE_DIR="$(PROJECT_DIR)/manifests/compose"
 DEV_TARGET ?= dev
@@ -362,7 +353,7 @@ DEV_TARGET ?= dev
 .PHONY: compose
 compose: ## Setup kepler (latest) using docker compose
 	docker compose \
-		-f $(COMPOSE_DIR)/compose.yaml \
+			-f $(COMPOSE_DIR)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -374,13 +365,13 @@ compose: ## Setup kepler (latest) using docker compose
 .PHONY: compose-clean
 compose-clean: ## Cleanup kepler (latest) deployed using docker compose
 	docker compose \
-		-f $(COMPOSE_DIR)/compose.yaml \
+			-f $(COMPOSE_DIR)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 
 .PHONY: dev
 dev: ## Setup development env using compose with 2 kepler (latest & current) deployed
 	docker compose \
-		-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
+			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		up --build -d
 	@echo -e "\nDeployment Overview (compose file: hack/compose.yaml) \n"
 	@echo "Services"
@@ -404,18 +395,31 @@ cluster-clean: build-manifest ## Undeploy Kepler in the cluster.
 .PHONY: cluster-clean
 
 cluster-deploy: ## Deploy Kepler in the cluster.
+	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
 	./hack/cluster-deploy.sh
 .PHONY: cluster-deploy
 
 cluster-up:  ## Create the Kind cluster, with Prometheus, Grafana and Kepler
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	BUILD_CONTAINERIZED=$(BUILD_CONTAINERIZED) \
+	PROMETHEUS_ENABLE=true \
+	GRAFANA_ENABLE=true \
 	./hack/cluster.sh up
 .PHONY: cluster-up
 
 cluster-down: ## Delete the Kind cluster.
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh down
 .PHONY: cluster-down
 
 cluster-restart: ## Restart the Kind cluster.
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	LOCAL_DEV_CLUSTER_VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh restart
 .PHONY: cluster-restart
 

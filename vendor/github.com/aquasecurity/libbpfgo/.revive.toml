@@ -1,0 +1,154 @@
+severity = "warning"
+confidence = 0.8
+errorCode = 1
+warningCode = 1
+
+# Enable all available rules
+enableAllRules = true
+
+[rule.add-constant]
+    Disabled = true
+[rule.argument-limit]
+    Disabled = false
+    Arguments = [6]
+[rule.atomic]
+    Disabled = false
+[rule.bare-return]
+    Disabled = false
+[rule.banned-characters]
+    Disabled = true
+[rule.blank-imports]
+    Disabled = false
+[rule.bool-literal-in-expr]
+    Disabled = false
+[rule.call-to-gc]
+    Disabled = false
+[rule.confusing-naming]
+    Disabled = true
+[rule.comment-spacings]
+    Disabled = false
+[rule.confusing-results]
+    Disabled = true
+[rule.cognitive-complexity]
+    Disabled = true
+[rule.constant-logical-expr]
+    Disabled = false
+[rule.context-as-argument]
+    Disabled = false
+[rule.context-keys-type]
+    Disabled = false
+[rule.cyclomatic]
+    Disabled = true
+[rule.datarace]
+    Disabled = false
+[rule.deep-exit]
+    Disabled = true
+[rule.defer]
+    Disabled = false
+[rule.dot-imports]
+    Disabled = false
+[rule.duplicated-imports]
+    Disabled = false
+[rule.early-return]
+    Disabled = false
+[rule.empty-block]
+    Disabled = false
+[rule.empty-lines]
+    Disabled = false
+[rule.error-naming]
+    Disabled = false
+[rule.error-return]
+    Disabled = false
+[rule.error-strings]
+    Disabled = false
+[rule.errorf]
+    Disabled = false
+[rule.exported]
+    Disabled = true # TODO: add comments to exported functions
+[rule.file-header]
+    Disabled = true
+[rule.flag-parameter]
+    Disabled = true
+[rule.function-result-limit]
+    Disabled = false
+    Arguments = [3]
+[rule.function-length]
+    Disabled = true
+[rule.get-return]
+    Disabled = false
+[rule.identical-branches]
+    Disabled = false
+[rule.if-return]
+    Disabled = false
+[rule.increment-decrement]
+    Disabled = false
+[rule.indent-error-flow]
+    Disabled = false
+[rule.imports-blacklist]
+    Disabled = true
+[rule.import-shadowing]
+    Disabled = false
+[rule.line-length-limit]
+    Disabled = true # TODO: set max length to 100 max
+[rule.max-public-structs]
+    Disabled = true
+[rule.modifies-parameter]
+    Disabled = false
+[rule.modifies-value-receiver]
+    Disabled = true
+[rule.nested-structs]
+    Disabled = true
+[rule.optimize-operands-order]
+    Disabled = false
+[rule.package-comments]
+    Disabled = true # TODO: add comments to all packages
+[rule.range]
+    Disabled = false
+[rule.range-val-in-closure]
+    Disabled = false
+[rule.range-val-address]
+    Disabled = false
+[rule.receiver-naming]
+    Disabled = false
+[rule.redefines-builtin-id]
+    Disabled = true
+[rule.string-of-int]
+    Disabled = true
+[rule.struct-tag]
+    Disabled = true # TODO: interesting to check
+[rule.string-format]
+    Disabled = true # TODO: interesting to check
+[rule.superfluous-else]
+    Disabled = false
+[rule.time-equal]
+    Disabled = false
+[rule.time-naming]
+    Disabled = false
+[rule.var-naming]
+    Disabled = true # TODO: rename variables correctly
+[rule.var-declaration]
+    Disabled = false
+[rule.unchecked-type-assertion]
+    Disabled = true
+[rule.unconditional-recursion]
+    Disabled = false
+[rule.unexported-naming]
+    Disabled = false
+[rule.unexported-return]
+    Disabled = true # TODO: consider enabling this
+[rule.unhandled-error]
+    Disabled = true # TODO: already being done by errcheck (change ?)
+[rule.unnecessary-stmt]
+    Disabled = true
+[rule.unreachable-code]
+    Disabled = false
+[rule.unused-parameter]
+    Disabled = true
+[rule.unused-receiver]
+    Disabled = true
+[rule.use-any]
+    Disabled = true # TODO: should we rename interface{} to any ?
+[rule.useless-break]
+    Disabled = false
+[rule.waitgroup-by-value]
+    Disabled = false

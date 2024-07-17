@@ -83,7 +83,7 @@ func (kmc *TestKeplerMetric) UpdateMetricMap(key string, value float64) {
 	kmc.Metric[key] = append(kmc.Metric[key], value)
 }
 
-// RetrievePodNames retrieves names of all pods in all namespaces.
+// RetrievePodNames retrives names of all pods in all namespaces.
 func (kmc *TestKeplerMetric) RetrievePodNames(ctx context.Context) error {
 	namespaces, err := kmc.Client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -104,7 +104,7 @@ func (kmc *TestKeplerMetric) RetrievePodNames(ctx context.Context) error {
 	return nil
 }
 
-// getEnvOrDefault returns the value of an environment variable or a default value if not set.
+// getEnvOrDefault returns the value of an environment vaiable or a default value if not set.
 func getEnvOrDefault(envName, defaultValue string) string {
 	if value, exists := os.LookupEnv(envName); exists {
 		return value

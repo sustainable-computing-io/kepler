@@ -41,8 +41,8 @@ local-dev-cluster
 /tmp
 .env
 
+# object files
+*.o
+
 # test coverage
 coverage.out
-
-# old libbpf-based binaries
-bpfassets/

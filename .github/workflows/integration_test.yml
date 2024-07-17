@@ -11,8 +11,6 @@ env:
 jobs:
   build-kepler:
     runs-on: ubuntu-latest
-    env:
-      CTR_CMD: docker
     steps:
       # checkout source code
       - name: checkout source
@@ -31,10 +29,11 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: devel
+          CTR_CMD: docker
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.0
         with:
           name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
@@ -49,8 +48,6 @@ jobs:
       fail-fast: false
       matrix:
         cluster_provider: [kind]
-    env:
-      CTR_CMD: docker
     steps:
       - name: checkout source
         uses: actions/checkout@v4.1.1
@@ -69,6 +66,7 @@ jobs:
           CLUSTER_PROVIDER: ${{matrix.cluster_provider}}
           IMAGE_REPO: localhost:5001
           IMAGE_TAG: devel
+          CTR_CMD: docker
 
       - name: import Kepler image
         run: make load-image
@@ -76,6 +74,7 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: devel
+          CTR_CMD: docker
           INPUT_PATH: ${{env.FILE_NAME}}
       # set up k8s cluster with ebpf
       - name: use Kepler action to deploy cluster
@@ -93,6 +92,7 @@ jobs:
           IMAGE_REPO: localhost:5001
           IMAGE_NAME: kepler
           IMAGE_TAG: devel
+          CTR_CMD: docker
 
       - name: deploy Kepler on cluster
         run: make cluster-deploy
@@ -103,7 +103,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.0
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}

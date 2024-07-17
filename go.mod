@@ -1,25 +1,21 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.21.0
-
-toolchain go1.21.9
+go 1.21
 
 require (
-	github.com/HabanaAI/gohlml v1.16.0
+	github.com/HabanaAI/gohlml v1.15.0
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/cilium/ebpf v0.15.0
+	github.com/aquasecurity/libbpfgo v0.6.0-libbpf-1.3
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jszwec/csvutil v1.10.0
 	github.com/klauspost/cpuid/v2 v2.2.8
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.1
-	github.com/prometheus/prometheus v0.53.1
+	github.com/prometheus/prometheus v0.53.0
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/sys v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.6
@@ -63,6 +59,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.54.0 // indirect

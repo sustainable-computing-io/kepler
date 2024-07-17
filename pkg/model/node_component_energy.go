@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	// the absolute power model includes both the absolute and idle power consumption
+	// the absulute power model includes both the absolute and idle power consumption
 	NodeComponentPowerModel PowerModelInterface
 )
 
@@ -45,7 +45,7 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeature
 	return modelConfig
 }
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node components power metrics are not available
+// CreateNodeComponentPoweEstimatorModel only create a new power model estimater if node components power metrics are not available
 func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	var err error
 	if !components.IsSystemCollectionSupported() {

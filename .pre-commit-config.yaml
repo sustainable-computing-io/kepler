@@ -16,19 +16,8 @@ repos:
     hooks:
       - id: clang-format
         types_or: [c]
-  - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.9.2
-    hooks:
-      - id: markdownlint-cli2-rules-docker
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
-    hooks:
-      - id: codespell
-        args: [--toml, kepler-codespell.precommit-toml]
-        additional_dependencies:
-          - tomli
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.59.1
     hooks:
       - id: golangci-lint
-exclude: ^vendor/.*|^_output/.*|^bpf/include/.*|^local-dev-cluster/.*
+exclude: ^vendor/.*|^_output/.*|^bpfassets/libbpf/include/.*

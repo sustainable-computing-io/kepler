@@ -24,7 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics/consts"
 	modeltypes "github.com/sustainable-computing-io/kepler/pkg/model/types"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
@@ -36,9 +36,7 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
 		if strings.Contains(name, config.GPU) {
-			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
-				source = gpu.Device().Name()
-			}
+			source = gpu.GetSourceName()
 		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
 			source = platform.GetSourceName()
 		} else if components.IsSystemCollectionSupported() {
@@ -84,13 +82,20 @@ func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics)
 	return descriptions
 }
 
+func QATMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
+	descriptions = make(map[string]*prometheus.Desc)
+	if config.IsExposeQATMetricsEnabled() {
+		name := config.QATUtilization
+		descriptions[name] = resMetricsPromDesc(context, name, "intel_qat")
+	}
+	return descriptions
+}
+
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.EnabledGPU {
-		if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
-			for _, name := range consts.GPUMetricNames {
-				descriptions[name] = resMetricsPromDesc(context, name, gpu.Device().Name())
-			}
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		for _, name := range consts.GPUMetricNames {
+			descriptions[name] = resMetricsPromDesc(context, name, "nvidia-nvml")
 		}
 	}
 	return descriptions

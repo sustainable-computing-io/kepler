@@ -29,7 +29,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
 
 	cpuidv2 "github.com/klauspost/cpuid/v2"
 	"gopkg.in/yaml.v3"
@@ -81,12 +81,10 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric
-	if config.EnabledGPU {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
-			gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
-			metrics = append(metrics, gpuMetrics...)
-			klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
-		}
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
+		metrics = append(metrics, gpuMetrics...)
+		klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
 	}
 
 	return metrics

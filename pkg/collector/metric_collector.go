@@ -30,7 +30,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
-	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/gpu"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/qat"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	"k8s.io/klog/v2"
@@ -153,18 +154,19 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 
 // update the node metrics that are not related to aggregated resource utilization of processes
 func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	wg.Done()
+	defer wg.Done()
+	if config.IsExposeQATMetricsEnabled() && qat.IsQATCollectionSupported() {
+		accelerator.UpdateNodeQATMetrics(stats.NewNodeStats(c.bpfSupportedMetrics))
+	}
 }
 
 func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
 	defer wg.Done()
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
-	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
+	// we first updates the bpf which is resposible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
-	if config.EnabledGPU {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
-			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
-		}
+	if config.EnabledGPU && gpu.IsGPUCollectionSupported() {
+		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 	}
 }
 
@@ -174,7 +176,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 	foundVM := make(map[string]bool)
 	for _, process := range c.ProcessStats {
 		if process.IdleCounter > 0 {
-			// if the process metrics were not updated for multiple iterations, very if the process still exist, otherwise delete it from the map
+			// if the process metrics were not updated for multiple interations, very if the process still exist, otherwise delete it from the map
 			c.handleIdlingProcess(process)
 		}
 		for metricName, resource := range process.ResourceUsage {

@@ -46,7 +46,7 @@ var (
 )
 
 type ObjListWatcher struct {
-	// Lock to synchronize the collector update with the watcher
+	// Lock to syncronize the collector update with the watcher
 	Mx *sync.Mutex
 
 	k8sCli              *kubernetes.Clientset

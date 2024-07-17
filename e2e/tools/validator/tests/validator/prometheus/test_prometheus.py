@@ -233,7 +233,6 @@ def test_comparator_single_series(prom_response):
     c = Comparator(MockPromClient(prom_response))
 
     promql = """kepler_process_cpu_bpf_time_total{job="vm", mode="dynamic"}"""
-    # ruff: noqa: DTZ001 (Suppressed as time-zone aware object creation is not necessary for this use case)
     series = c.single_series(
         promql,
         datetime.datetime(2022, 1, 1),

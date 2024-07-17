@@ -40,7 +40,7 @@ type collector struct {
 	// ContainerStats holds all containers energy and resource usage metrics
 	ContainerStats map[string]*stats.ContainerStats
 
-	// Lock to synchronize the collector update with prometheus exporter
+	// Lock to syncronize the collector update with prometheus exporter
 	Mx *sync.Mutex
 
 	bpfSupportedMetrics bpf.SupportedMetrics

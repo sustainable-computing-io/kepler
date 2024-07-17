@@ -53,16 +53,15 @@ class Report(typing.NamedTuple):
         self.write(f"```\n{text}\n```\n")
 
 
-def new_report(report_dir: str) -> Report:
+def new_report(dir: str) -> Report:
     # run git describe command and get the output as the report name
-    git_describe = subprocess.run(["/usr/bin/git", "describe", "--tag"], stdout=subprocess.PIPE, check=False)
+    git_describe = subprocess.run(["git", "describe", "--tag"], stdout=subprocess.PIPE, check=False)
     tag = git_describe.stdout.decode().strip()
 
-    results_dir = os.path.join(report_dir, f"validator-{tag}")
+    results_dir = os.path.join(dir, f"validator-{tag}")
     os.makedirs(results_dir, exist_ok=True)
 
-    path = os.path.join(report_dir, f"report-{tag}.md")
-    # ruff: noqa: SIM115 (Suppressed check for missing context manager as we are explicitly closing it once report is generated)
+    path = os.path.join(dir, f"report-{tag}.md")
     file = open(path, "w")
 
     r = Report(path, results_dir, file)
@@ -110,7 +109,6 @@ def validator(ctx: click.Context, config_file: str, log_level: str):
     try:
         level = getattr(logging, log_level.upper())
     except AttributeError:
-        # ruff: noqa: T201 (Suppressed as an early print statement before logging level is set)
         print(f"Invalid log level: {cfg.log_level}; setting to debug")
         level = logging.DEBUG
 
@@ -126,7 +124,6 @@ def validator(ctx: click.Context, config_file: str, log_level: str):
     type=click.Path(exists=True),
     show_default=True,
 )
-# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
 @click.option(
     "--report-dir",
     "-o",
@@ -158,7 +155,6 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
 @validator.command()
 @click.option("--start", "-s", type=options.DateTime(), required=True)
 @click.option("--end", "-e", type=options.DateTime(), required=True)
-# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
 @click.option(
     "--report-dir",
     "-o",
@@ -254,7 +250,6 @@ def report_validation_results(
 
         dump_query_result(report.results_dir, v.expected, res.expected_series)
         dump_query_result(report.results_dir, v.actual, res.actual_series)
-    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         click.secho(f"\t    {v.name} failed: {e} ", fg="red")
         click.secho(f"\t    Error: {e} ", fg="yellow")

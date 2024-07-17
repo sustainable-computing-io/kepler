@@ -13,6 +13,3 @@ services:
       - type: bind
         source: ./dev/prometheus/scrape-configs/dev.yaml
         target: /etc/prometheus/scrape-configs/dev.yaml
-
-    networks:
-      - scaph-network

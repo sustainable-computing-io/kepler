@@ -73,7 +73,7 @@ func init() {
 
 func OpenAllMSR() error {
 	if numCores == 0 {
-		return fmt.Errorf("failed to initialize cpu info")
+		return fmt.Errorf("failed to initialze cpu info")
 	}
 	fds = make([]int, numCores)
 	for c := 0; c < numCores; c++ {
