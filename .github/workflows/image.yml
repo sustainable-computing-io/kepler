@@ -76,16 +76,9 @@ jobs:
         if: ${{ inputs.pushImage }}
         uses: docker/login-action@v3
         with:
-          registry: quay.io/rh-ee-asavage
+          registry: quay.io/sustainable_computing_io
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
-
-      #- name: Extract metadata (tags, labels) for image
-      #  id: meta
-      #  uses: docker/metadata-action@v5.5.1
-      #  with:
-      #    images: quay.io/rh-ee-asavage/${{ matrix.IMAGE_NAME }}/${{ matrix.IMAGE_FILE }}
-      #    tags: type=sha, format=long
 
       - name: Build and push image
         id: build-push-image
@@ -95,19 +88,19 @@ jobs:
           platforms: ${{matrix.PLATFORMS}}
           push: ${{ inputs.pushImage }}
           build-args: ${{matrix.BUILD_ARGS}}
-          tags: quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          tags: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           labels: ${{matrix.LABEL}}
           file: ${{matrix.IMAGE_FILE}}
 
       - name: Sign images with GitHub OIDC Token
         if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')}}
         run: |
-          cosign sign -y quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
+          cosign sign -y quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0.16.1
         with:
-          image: quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
+          image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
           output-file: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
 
