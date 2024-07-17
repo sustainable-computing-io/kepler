@@ -42,7 +42,7 @@ type PrometheusExporter struct {
 	VMStatsCollector        prometheus.Collector
 	NodeStatsCollector      prometheus.Collector
 
-	// Lock to syncronize the collector update with prometheus exporter
+	// Lock to synchronize the collector update with prometheus exporter
 	Mx sync.Mutex
 
 	bpfSupportedMetrics bpf.SupportedMetrics

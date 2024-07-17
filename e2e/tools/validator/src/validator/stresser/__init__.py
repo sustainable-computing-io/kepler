@@ -35,7 +35,7 @@ class Remote:
         return f"<Remote {self.user}@{self.host}>"
 
     def connect(self):
-        logger.info(f"connecting -> {self.user}@{self.host}")
+        logger.info("connecting -> %s@%s", self.user, self.host)
 
         if self.pkey:
             logger.debug("using pkey to connect")
@@ -57,22 +57,25 @@ class Remote:
 
     def copy(self, script_path, target_script):
         sftp_client = self.ssh_client.open_sftp()
-        logger.info(f"copying script {script_path} to remote - {target_script}")
+        logger.info("copying script %s to remote - %s", script_path, target_script)
         sftp_client.put(script_path, target_script)
         sftp_client.close()
         self.ssh_client.exec_command(f"chmod +x {target_script}")
-        logger.info(f"copying script {script_path} to remote - {target_script} - successfull")
+        logger.info("copying script %s to remote - %s - successful", script_path, target_script)
 
     def run_script(self, script_path: str) -> ScriptResult:
         self.connect()
         logger.info("Running script %s ...", script_path)
 
+        # ruff: noqa: S108 (Suppressed hard-coded path because we want to intentionally copy stress.sh inside `/tmp` dir)
         target_script = "/tmp/stress.sh"
         self.copy(script_path, target_script)
 
+        # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
         start_time = datetime.now()
         _, stdout, stderr = self.ssh_client.exec_command(target_script)
 
+        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         print("stdout output:")
         for line in stdout:
             print(" ┊ ", line.strip())
@@ -81,6 +84,7 @@ class Remote:
         end_time = datetime.now()
         self.ssh_client.close()
 
+        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
         # report any stderr if there is after stdout
         print("\nstderr output:")
         for line in stderr:

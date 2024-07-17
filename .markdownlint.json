@@ -1,0 +1,45 @@
+{
+  "code-block-style": {
+    "style": "fenced"
+  },
+  "code-fence-style": {
+    "style": "backtick"
+  },
+  "heading-style": {
+    "style": "atx"
+  },
+  "hr-style": {
+    "style": "---"
+  },
+  "line-length": {
+    "strict": false,
+    "code_blocks": false
+  },
+  "proper-names": {
+    "code_blocks": false,
+    "names": [
+      "Markdown",
+      "markdown-it",
+      "markdownlint",
+      "markdownlint-cli2"
+    ]
+  },
+  "strong-style": {
+    "style": "asterisk"
+  },
+  "table-pipe-style": {
+    "style": "leading_and_trailing"
+  },
+  "ul-style": {
+    "style": "dash"
+  },
+  "no-duplicate-header" : {
+    "allow_different_nesting": true
+  },
+  "MD033" : false,
+  "MD041": false,
+  "MD045": false,
+  "MD025": {
+    "front_matter_title": ""
+  }
+}

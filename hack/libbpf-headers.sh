@@ -16,4 +16,4 @@ headers=(
 
 # Fetch libbpf release and extract the desired headers
 curl -sL "https://github.com/libbpf/libbpf/archive/refs/tags/v${LIBBPF_VERSION}.tar.gz" | \
-    tar -C ./bpfassets/libbpf/include/bpf -xz --xform='s#.*/##' "${headers[@]}"
+    tar -C ./bpf/include/bpf -xz --xform='s#.*/##' "${headers[@]}"
