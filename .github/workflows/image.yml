@@ -80,12 +80,12 @@ jobs:
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
 
-      - name: Extract metadata (tags, labels) for image
-        id: meta
-        uses: docker/metadata-action@v5.5.1
-        with:
-          images: quay.io/rh-ee-asavage/${{ matrix.IMAGE_NAME }}/${{ matrix.IMAGE_FILE }}
-          tags: type=sha, format=long
+      #- name: Extract metadata (tags, labels) for image
+      #  id: meta
+      #  uses: docker/metadata-action@v5.5.1
+      #  with:
+      #    images: quay.io/rh-ee-asavage/${{ matrix.IMAGE_NAME }}/${{ matrix.IMAGE_FILE }}
+      #    tags: type=sha, format=long
 
       - name: Build and push image
         id: build-push-image
@@ -105,7 +105,7 @@ jobs:
           cosign sign -y quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.16.0
+        uses: anchore/sbom-action@v0.16.1
         with:
           image: quay.io/rh-ee-asavage/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
@@ -113,7 +113,7 @@ jobs:
 
       - name: save Kepler image SBOM as artifact
         if: ${{ inputs.pushImage }}
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
