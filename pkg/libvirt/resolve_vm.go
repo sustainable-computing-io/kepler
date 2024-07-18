@@ -32,9 +32,9 @@ const (
 )
 
 var (
-	cacheExist               = map[uint64]string{}
-	cacheNotExist            = map[uint64]bool{}
-	regexFindContainerIDPath = regexp.MustCompile(`machine-qemu.*\.scope`)
+	cacheExist        = map[uint64]string{}
+	cacheNotExist     = map[uint64]bool{}
+	regexFindVMIDPath = regexp.MustCompile(`machine-qemu.*\.scope`)
 )
 
 func GetVMID(pid uint64) (string, error) {
@@ -57,7 +57,7 @@ func getVMID(pid uint64, fileName string) (string, error) {
 		return "", err
 	}
 
-	content := regexFindContainerIDPath.FindAllString(string(fileContents), -1)
+	content := regexFindVMIDPath.FindAllString(string(fileContents), -1)
 	if len(content) == 0 {
 		addToNotExistCache(pid)
 		return utils.EmptyString, fmt.Errorf("pid %d does not have vm ID", pid)
