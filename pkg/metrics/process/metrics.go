@@ -40,7 +40,7 @@ type collector struct {
 	// ProcessStats holds all processes energy and resource usage metrics
 	ProcessStats map[uint64]*stats.ProcessStats
 
-	// Lock to syncronize the collector update with prometheus exporter
+	// Lock to synchronize the collector update with prometheus exporter
 	Mx *sync.Mutex
 
 	bpfSupportedMetrics bpf.SupportedMetrics

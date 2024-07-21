@@ -189,13 +189,13 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 	errGPU := fmt.Errorf("gpu power model is not enabled")
 	errPlat := fmt.Errorf("plat power model is not enabled")
 
-	// estimate the associated power comsumption of all RAPL node components for each process
+	// estimate the associated power consumption of all RAPL node components for each process
 	if ProcessComponentPowerModel.IsEnabled() {
 		processComponentsPower, errComp = ProcessComponentPowerModel.GetComponentsPower(isIdlePower)
 		if errComp != nil {
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
-		// estimate the associated power comsumption of GPU for each process
+		// estimate the associated power consumption of GPU for each process
 		if config.EnabledGPU {
 			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
 				processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
@@ -205,7 +205,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 		}
 	}
-	// estimate the associated power comsumption of platform for each process
+	// estimate the associated power consumption of platform for each process
 	if ProcessPlatformPowerModel.IsEnabled() {
 		processPlatformPower, errPlat = ProcessPlatformPowerModel.GetPlatformPower(isIdlePower)
 		if errPlat != nil {

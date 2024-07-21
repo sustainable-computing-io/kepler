@@ -328,17 +328,17 @@ func (r *Regressor) AddNodeFeatureValues(x []float64) {
 }
 
 // AddDesiredOutValue adds the the y, which is the response variable (or the dependent variable) of regression.
-// Regressor is trained off-line then we do not add Y for trainning. We might implement it in the future.
+// Regressor is trained off-line then we do not add Y for training. We might implement it in the future.
 func (r *Regressor) AddDesiredOutValue(y float64) {
 }
 
-// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for trainning or prediction.
+// ResetSampleIdx set the sample vector index to 0 to overwrite the old samples with new ones for training or prediction.
 func (r *Regressor) ResetSampleIdx() {
 	r.xidx = 0
 }
 
 // Train triggers the regressiong fit after adding data points to create a new power model.
-// Regressor is trained off-line then we cannot trigger the trainning. We might implement it in the future.
+// Regressor is trained off-line then we cannot trigger the training. We might implement it in the future.
 func (r *Regressor) Train() error {
 	return nil
 }

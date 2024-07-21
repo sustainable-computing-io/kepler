@@ -301,7 +301,7 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 // to unknown co-running VMs. Wrong division results in significant accuracy errors, duplicatiing the host idle power across all VMs.
 // Container pre-trained models focus on dynamic power. Estimating idle power in limited information scenarios (like VMs) is complex.
 // Idle power prediction is limited to bare-metal or single VM setups.
-// Know the number of runnign VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
+// Know the number of running VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
 func SetEnabledIdlePower(enabled bool) {
 	// set to true is any config source set it to true or if system power metrics are available
 	ExposeIdlePowerMetrics = enabled || ExposeIdlePowerMetrics
