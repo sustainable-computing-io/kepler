@@ -25,20 +25,21 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type mockconfig struct {
-}
+type mockSysInfo struct{}
 
-var mockc mockconfig
-var tempfile string
-var tempUnixName string
+var (
+	mockc        mockSysInfo
+	tempfile     string
+	tempUnixName string
+)
 
-func (c mockconfig) getUnixName() (unix.Utsname, error) {
+func (mockSysInfo) getUnixName() (unix.Utsname, error) {
 	var utsname unix.Utsname
 	copy(utsname.Release[:], tempUnixName)
 	return utsname, nil
 }
 
-func (c mockconfig) getCgroupV2File() string {
+func (mockSysInfo) getCgroupV2File() string {
 	return tempfile
 }
 
@@ -108,7 +109,7 @@ var _ = Describe("Test Configuration", func() {
 		// env now, so make it 3.0 as minimum test:
 		switch runtime.GOOS {
 		case "linux":
-			Expect(true).To(Equal(getKernelVersion(c) > 3.0))
+			Expect(getKernelVersion(realSysInfo{}) > 3.0).To(Equal(true))
 		default:
 			// no test
 		}
