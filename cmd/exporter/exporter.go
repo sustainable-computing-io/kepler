@@ -115,7 +115,7 @@ func main() {
 	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
 	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
 	config.SetEnabledGPU(*enableGPU)
-	config.EnabledMSR = *enabledMSR
+	config.SetEnabledMSR(*enabledMSR)
 	config.SetEnabledIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
 
 	config.SetKubeConfig(*kubeconfig)
@@ -129,7 +129,21 @@ func main() {
 	config.LogConfigs()
 
 	components.InitPowerImpl()
+	defer components.StopPower()
 	platform.InitPowerImpl()
+	defer platform.StopPower()
+
+	stats.InitAvailableParamAndMetrics()
+
+	if config.EnabledGPU {
+		r := accelerator.GetRegistry()
+		if a, err := accelerator.New(accelerator.GPU, true); err == nil {
+			r.MustRegister(a) // Register the accelerator with the registry
+		} else {
+			klog.Errorf("failed to init GPU accelerators: %v", err)
+		}
+		defer accelerator.Shutdown()
+	}
 
 	bpfExporter, err := bpf.NewExporter()
 	if err != nil {
@@ -137,24 +151,9 @@ func main() {
 	}
 	defer bpfExporter.Detach()
 
-	stats.InitAvailableParamAndMetrics()
-
-	if config.EnabledGPU {
-		var a accelerator.Accelerator
-		r := accelerator.GetRegistry()
-		if a, err = accelerator.New(accelerator.GPU, true); err == nil {
-			r.MustRegister(a) // Register the accelerator with the registry
-		} else {
-			klog.Errorf("failed to init GPU accelerators: %v", err)
-		}
-	}
-
 	m := manager.New(bpfExporter)
-	reg := m.PrometheusCollector.RegisterMetrics()
-	defer components.StopPower()
 
-	// starting a new gorotine to collect data and report metrics
-	// BPF is attached here
+	// starting a CollectorManager instance to collect data and report metrics
 	if startErr := m.Start(); startErr != nil {
 		klog.Infof("%s", fmt.Sprintf("failed to start : %v", startErr))
 	}
@@ -162,6 +161,7 @@ func main() {
 	bindAddressConfig := config.GetBindAddress(*address)
 
 	handler := http.ServeMux{}
+	reg := m.PrometheusCollector.RegisterMetrics()
 	handler.Handle(metricPathConfig, promhttp.HandlerFor(
 		reg,
 		promhttp.HandlerOpts{
@@ -201,7 +201,6 @@ func main() {
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
-		accelerator.Shutdown()
 		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {

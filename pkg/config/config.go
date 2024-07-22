@@ -62,13 +62,12 @@ const (
 var (
 	modelServerService = fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", KeplerNamespace)
 
-	EnabledMSR = false
-
 	KernelVersion = float32(0)
 
 	KeplerNamespace              = getConfig("KEPLER_NAMESPACE", defaultNamespace)
 	EnabledEBPFCgroupID          = getBoolConfig("ENABLE_EBPF_CGROUPID", true)
 	EnabledGPU                   = getBoolConfig("ENABLE_GPU", false)
+	EnabledMSR                   = getBoolConfig("ENABLE_MSR", false)
 	EnableProcessStats           = getBoolConfig("ENABLE_PROCESS_METRICS", false)
 	ExposeContainerStats         = getBoolConfig("EXPOSE_CONTAINER_METRICS", true)
 	ExposeVMStats                = getBoolConfig("EXPOSE_VM_METRICS", true)
@@ -345,6 +344,12 @@ func IsExposeComponentPowerEnabled() bool {
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
 	EnabledGPU = enabled || EnabledGPU
+}
+
+// SetEnabledMSR enables the exposure of MSR metrics
+func SetEnabledMSR(enabled bool) {
+	// set to true if any config source set it to true
+	EnabledMSR = enabled || EnabledMSR
 }
 
 // SetKubeConfig set kubeconfig file
