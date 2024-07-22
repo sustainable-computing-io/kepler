@@ -1,39 +1,44 @@
 # validator
 
+<!--toc:start-->
+- [validator](#validator)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [License](#license)
+<!--toc:end-->
+
 [![PyPI - Version](https://img.shields.io/pypi/v/validator.svg)](https://pypi.org/project/validator)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/validator.svg)](https://pypi.org/project/validator)
 
----
-
-## Table of Contents
-
-- [Installation](#installation)
-- [License](#license)
-
 ## Requirements
 
-- Python 3.11 and above.
-- stress-ng on both the remote and local machines.
+- Python 3.11 and above
+- stress-ng on both the remote and local machines
+- [Hatch](https://hatch.pypa.io/latest/install/) for development
 
 ## Installation
 
-Inside of the `validator` directory:
+Navigate to the `validator` directory and run:
 
-```console
+```sh
+hatch shell
 pip install .
 ```
 
 ## Usage
 
-Configure Prometheus jobs. The one to scrape the metal metrics is assumed to be
-named `metal` and the one to scrape the VM metrics is assumed to be named `vm`.
+- Configure and Generate `validator.yaml` file
 
-Generate the validator.yaml file based on
-[validator.yaml.sample](validator.yaml.sample) and run the following command:
+  - Create the `validator.yaml` file based on the [validator.yaml.sample](validator.yaml.sample) template provided.
+  - Adjust the configuration according to your environment and requirements.
 
-```console
+- Run the validator
 
-python -m validator stress -s ./scripts/stressor.sh
+After configuring the `validator.yaml` file, start the validator with:
+
+```sh
+validator stress
 ```
 
 ## License

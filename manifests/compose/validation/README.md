@@ -1,11 +1,18 @@
 # Setup
 
+<!--toc:start-->
+- [Setup](#setup)
+  - [Baremetal](#baremetal)
+    - [Usage](#usage)
+  - [Virtual Machine](#virtual-machine)
+<!--toc:end-->
+
 In order to validate models, here is the recommended setup assuming the
 development box is a Baremetal.
 
-1. Create a Virtual Machine
+- Create a Virtual Machine
 
-1. Ensure the CPU is pinned to the VM. E.g. if you are using libvirt, you can
+- Ensure the CPU is pinned to the VM. E.g. if you are using libvirt, you can
    use `vcpupin` as follows
 
    ```text
@@ -25,6 +32,28 @@ target deploys the following
 
 ### Usage
 
+To allow access to the VM from the Prometheus container running on the host, `virt-net` must be created using the following command:
+
+- Check the Virtual Bridge Interface:
+
+   ```sh
+   ip addr show virbr0
+   ```
+
+   Look for `inet` in the output and use that for the subnet in the next command
+
+- Create the Docker Network:
+
+Use the `inet` address from the previous step to create the Docker Network with `macvlan` driver. Replace `<subnet>` with appropriate value.
+
+```sh
+docker network create --driver=macvlan --subnet=<subnet>/24 -o parent=virbr0 virt-net
+```
+
+- Start the Services:
+
+Navigate to appropriate directory, set the `VM_IP` environment variable, and bring up the services:
+
 ```sh
 cd manifests/compose/validation/metal
 export VM_IP=192.168....
@@ -33,12 +62,12 @@ docker compose up
 
 ## Virtual Machine
 
-1. `vm` compose target should be run on a Virtual Machine. This target deploys
+- `vm` compose target should be run on a Virtual Machine. This target deploys
    `kepler` with `estimator` and `model-server` version: 0.7.7 Usage:
 
 ```sh
 git clone https://github.com/sustainable-computing-io/kepler
-cd manifests/compose/validation/metal
+cd manifests/compose/validation/vm
 docker compose up
 ```
 
