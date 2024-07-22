@@ -365,7 +365,7 @@ gopkg.in/yaml.v3
 # howett.net/plist v1.0.0
 ## explicit; go 1.12
 howett.net/plist
-# k8s.io/api v0.29.6
+# k8s.io/api v0.29.7
 ## explicit; go 1.21
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1alpha1
@@ -419,7 +419,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apimachinery v0.29.6
+# k8s.io/apimachinery v0.29.7
 ## explicit; go 1.21
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -470,7 +470,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v0.29.6
+# k8s.io/client-go v0.29.7
 ## explicit; go 1.21
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1alpha1
