@@ -131,7 +131,7 @@ jobs:
           IMAGE_TAG: x86-rapl
 
       - name: Use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.7
+        uses: sustainable-computing-io/kepler-action@v0.0.8
         with:
           cluster_provider: ${{matrix.cluster_provider}}
           ebpfprovider: libbpf
