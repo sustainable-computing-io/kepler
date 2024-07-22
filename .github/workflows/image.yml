@@ -18,6 +18,10 @@ on: # yamllint disable-line rule:truthy
 jobs:
   image_build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +69,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up cosign
+        uses: sigstore/cosign-installer@main
+
       - name: Login to Quay
         if: ${{ inputs.pushImage }}
         uses: docker/login-action@v3
@@ -74,6 +81,7 @@ jobs:
           password: ${{ secrets.password }}
 
       - name: Build and push image
+        id: build-push-image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -83,6 +91,11 @@ jobs:
           tags: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           labels: ${{matrix.LABEL}}
           file: ${{matrix.IMAGE_FILE}}
+
+      - name: Sign images with GitHub OIDC Token
+        if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')}}
+        run: |
+          cosign sign -y quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0.16.1
