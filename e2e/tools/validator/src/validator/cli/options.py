@@ -1,7 +1,7 @@
 import datetime
 
 import click
-from prometheus_api_client.utils import parse_datetime
+from prometheus_api_client.utils import parse_datetime, parse_timedelta
 
 
 class DateTime(click.ParamType):
@@ -24,3 +24,17 @@ class DateTime(click.ParamType):
             )
 
         return dt
+
+
+class Duration(click.ParamType):
+    name = "duration"
+
+    def convert(self, value, param, ctx):
+        td = parse_timedelta("now", value)
+        if not td:
+            self.self.fail(
+                "Expected duration format got " f"{value:r}",
+                param,
+                ctx,
+            )
+        return td

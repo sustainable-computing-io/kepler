@@ -15,6 +15,7 @@ from validator import config
 from validator.__about__ import __version__
 from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series
+from validator.specs import HostReporter
 from validator.specs import Reporter as SpecReporter
 from validator.stresser import Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate, Validation
@@ -262,3 +263,33 @@ def report_validation_results(
         report.h4("Unexpected Error")
         report.code(str(e))
         report.flush()
+
+
+@validator.command()
+@click.option("--duration", "-d", type=options.Duration(), required=True)
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
+@click.option(
+    "--report-dir",
+    "-o",
+    default="/tmp",
+    type=click.Path(exists=True, dir_okay=True, writable=True),
+    show_default=True,
+)
+@pass_config
+def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str):
+    click.secho("  * Generating validate acpi report file and dir", fg="green")
+    report = new_report(report_dir)
+    click.secho(f"\treport: {report.path}", fg="bright_green")
+    click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
+
+    report_kepler_build_info(report, cfg.prometheus)
+
+    click.secho("  * Generating spec report ...", fg="green")
+    sr = HostReporter(cfg.metal)
+    sr.write(report.file)
+
+    # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
+    end_time = datetime.datetime.now()
+    start_time = end_time - duration
+    s = ScriptResult(start_time, end_time)
+    generate_validation_report(report, cfg, s)
