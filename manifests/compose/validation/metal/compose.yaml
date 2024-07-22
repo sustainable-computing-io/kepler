@@ -66,8 +66,8 @@ services:
   scaphandre:
     # image: hubblo/scaphandre
     build:
-      context: ../../../../
-      dockerfile: build/Dockerfile.scaphandre
+      context: ../
+      dockerfile: dockerfiles/Dockerfile.scaphandre
     privileged: true
     ports:
       - 8880:8080
