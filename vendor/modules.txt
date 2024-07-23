@@ -23,12 +23,13 @@ github.com/bits-and-blooms/bitset
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cilium/ebpf v0.15.0
-## explicit; go 1.21.0
+# github.com/cilium/ebpf v0.16.0
+## explicit; go 1.21
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/btf
 github.com/cilium/ebpf/internal
+github.com/cilium/ebpf/internal/epoll
 github.com/cilium/ebpf/internal/kallsyms
 github.com/cilium/ebpf/internal/kconfig
 github.com/cilium/ebpf/internal/sys
@@ -36,6 +37,7 @@ github.com/cilium/ebpf/internal/sysenc
 github.com/cilium/ebpf/internal/tracefs
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
+github.com/cilium/ebpf/ringbuf
 github.com/cilium/ebpf/rlimit
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
@@ -260,11 +262,11 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.9.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
-# golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
+# golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
-# golang.org/x/net v0.26.0
+# golang.org/x/net v0.27.0
 ## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/html
@@ -285,7 +287,7 @@ golang.org/x/oauth2/internal
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.21.0
+# golang.org/x/term v0.22.0
 ## explicit; go 1.18
 golang.org/x/term
 # golang.org/x/text v0.16.0
@@ -313,7 +315,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.5.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.22.0
+# golang.org/x/tools v0.23.0
 ## explicit; go 1.19
 golang.org/x/tools/cover
 golang.org/x/tools/go/ast/inspector
