@@ -9,7 +9,7 @@ require (
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
 	github.com/beevik/etree v1.4.0
-	github.com/cilium/ebpf v0.15.0
+	github.com/cilium/ebpf v0.16.0
 	github.com/digitalocean/go-libvirt v0.0.0-20240709142323-d8406205c752
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
