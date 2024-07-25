@@ -79,6 +79,8 @@ def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series
             json.dumps(
                 {
                     "query": query.one_line,
+                    "metric": series.labels,
+                    "timestamps": series.timestamps,
                     "values": series.values,
                 }
             )
@@ -143,7 +145,7 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     click.secho(f"\treport: {report.path}", fg="bright_green")
     click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
 
-    report_kepler_build_info(report, cfg.prometheus)
+    report_kepler_info(report, cfg.prometheus)
 
     click.secho("  * Generating spec report ...", fg="green")
     sr = SpecReporter(cfg.metal, cfg.remote)
@@ -172,7 +174,7 @@ def gen_report(cfg: config.Validator, start: datetime.datetime, end: datetime.da
     Run only validation based on previously stress test
     """
     report = new_report(report_dir)
-    report_kepler_build_info(report, cfg.prometheus)
+    report_kepler_info(report, cfg.prometheus)
     generate_spec_report(report, cfg)
     result = ScriptResult(start, end)
     generate_validation_report(report, cfg, result)
@@ -184,7 +186,7 @@ def generate_spec_report(report: Report, cfg: config.Validator):
     sr.write(report.file)
 
 
-def report_kepler_build_info(report: Report, prom_config: config.Prometheus):
+def report_kepler_info(report: Report, prom_config: config.Prometheus):
     prom = PrometheusClient(prom_config)
     build_info = prom.kepler_build_info()
 
@@ -193,6 +195,13 @@ def report_kepler_build_info(report: Report, prom_config: config.Prometheus):
     for bi in build_info:
         click.secho(f"    - {bi}", fg="cyan")
         report.write(f"  * `{bi}`\n")
+
+    node_info = prom.kepler_node_info()
+    click.secho("\n  * Node Info", fg="green")
+    report.h2("Node Info")
+    for ni in node_info:
+        click.secho(f"    - {ni}", fg="cyan")
+        report.write(f"  * `{ni}`\n")
 
     click.echo()
     report.flush()
@@ -282,7 +291,7 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     click.secho(f"\treport: {report.path}", fg="bright_green")
     click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
 
-    report_kepler_build_info(report, cfg.prometheus)
+    report_kepler_info(report, cfg.prometheus)
 
     click.secho("  * Generating spec report ...", fg="green")
     sr = HostReporter(cfg.metal)
