@@ -10,3 +10,5 @@ validations:
       )
     expected: |
       mock_acpi_power1_average/10^6
+    max_mse: 0.0001
+    # max_mape: 0
