@@ -24,8 +24,12 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
 )
 
+const (
+	dummyAccType = "GPU"
+)
+
 var (
-	dummyDevice device.DeviceType
+	dummyType device.DeviceType
 )
 
 type Dummy struct {
@@ -35,14 +39,14 @@ type Dummy struct {
 }
 
 func init() {
-	dummyDevice = device.DUMMY
-	device.AddDeviceInterface(dummyDevice, dummyDevice.String(), DummyDeviceStartup)
+	dummyType = device.DUMMY
+	device.AddDeviceInterface(dummyType, dummyAccType, DummyDeviceStartup)
 }
 
 func DummyDeviceStartup() device.Device {
 	d := Dummy{
-		dummyDevice:         dummyDevice,
-		name:                dummyDevice.String(),
+		dummyDevice:         dummyType,
+		name:                dummyType.String(),
 		collectionSupported: true,
 	}
 
