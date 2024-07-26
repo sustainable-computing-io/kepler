@@ -104,11 +104,11 @@ base_dir := $(patsubst %/,%,$(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 kepler: build_containerized ## Build Kepler.
 .PHONY: kepler
 
-clean: clean-cross-build ## Undeploy Kepler.
+clean: clean-cross-build ## Clean Kepler build
 .PHONY: clean
 
 ##@ Container build.
-image_builder_check: 
+image_builder_check:
 	@if [ -z '$(CTR_CMD)' ] ; then echo '!! ERROR: containerized builds require podman||docker CLI, none found $$PATH' >&2 && exit 1; fi
 
 build_image: image_builder_check ## Build image without DCGM.
@@ -221,10 +221,10 @@ containerized_build_container_rpm: ## Build the Containerized Kepler RPM inside 
 		$(BUILDER_IMAGE) \
 		make build_container_rpm
 
-clean_build_local: ## Undeploy Kepler for multiple archs.
+clean_build_local: ## Clean local build directory
 	rm -rf $(CROSS_BUILD_BINDIR)
 
-copy_build_local: ## Copy bin to $(OUTPUT_DIR)/bin.
+copy_build_local: ## Copy Kepler binary to $(OUTPUT_DIR)/bin.
 	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler $(CROSS_BUILD_BINDIR)
 
 cross-build-linux-amd64: ## Build local Kepler binary for amd64
@@ -309,7 +309,7 @@ bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
 	$(SUDO) $(ENVTEST_ASSETS_DIR)/ginkgo \
 		./pkg/bpftest/bpftest.test
 
-escapes_detect: tidy-vendor ## Tidy Go dependencies.
+escapes_detect: tidy-vendor 
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
 check-govuln: govulncheck tidy-vendor ## Check Go vulnerabilities.
@@ -398,7 +398,7 @@ dev-clean: ## Undeploy Kepler (current and latest) from development env.
 		down --remove-orphans --volumes --rmi all
 .PHONY: dev-clean
 
-dev-restart: dev-clean dev ## Clean development environment.
+dev-restart: dev-clean dev ## Restart development environment.
 .PHONY: dev-restart
 
 cluster-clean: build-manifest ## Undeploy Kepler in the cluster.
