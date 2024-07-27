@@ -36,7 +36,7 @@ int kepler_read_page_trace(void *ctx)
 {
 	u32 curr_tgid;
 
-	curr_tgid = bpf_get_current_pid_tgid();
+	curr_tgid = bpf_get_current_pid_tgid() >> 32;
 	do_page_cache_hit_increment(curr_tgid);
 	return 0;
 }
@@ -47,7 +47,7 @@ int kepler_write_page_trace(void *ctx)
 {
 	u32 curr_tgid;
 
-	curr_tgid = bpf_get_current_pid_tgid();
+	curr_tgid = bpf_get_current_pid_tgid() >> 32;
 	do_page_cache_hit_increment(curr_tgid);
 	return 0;
 }
