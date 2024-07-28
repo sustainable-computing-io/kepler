@@ -224,14 +224,18 @@ def generate_validation_report(report: Report, cfg: config.Validator, test: Scri
     prom = PrometheusClient(cfg.prometheus)
     comparator = Comparator(prom)
     validations = Loader(cfg).load()
+    all_validation_ok = True
     for v in validations:
-        report_validation_results(report, v, comparator, start_time, end_time)
+        if report_validation_results(report, v, comparator, start_time, end_time) is not True:
+            all_validation_ok = False
     report.close()
 
     click.secho("Report Generated ", fg="bright_green")
     click.secho(f"  time range: {start_time} - {end_time}: ({end_time - start_time}) ", fg="bright_green")
     click.secho(f"  report: {report.path} ", fg="bright_green")
     click.secho(f"  dir   : {report.results_dir} ", fg="bright_green")
+
+    return all_validation_ok
 
 
 def report_validation_results(
@@ -262,6 +266,17 @@ def report_validation_results(
         report.write(f"  * MAPE: {res.mape}\n")
         report.flush()
 
+        mse_ok = True
+        mape_ok = True
+
+        if v.max_mse is not None and res.mse.error is None and res.mse.value > v.max_mse:
+            click.secho(f"MSE exceeded threshold. mse: {res.mse.value}, max_mse: {v.max_mse}", fg="red")
+            mse_ok = False
+
+        if v.max_mape is not None and res.mape.error is None and res.mape.value > v.max_mape:
+            click.secho(f"MAPE exceeded threshold. mape: {res.mape.value}, max_mape: {v.max_mape}", fg="red")
+            mape_ok = False
+
         dump_query_result(report.results_dir, v.expected, res.expected_series)
         dump_query_result(report.results_dir, v.actual, res.actual_series)
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
@@ -272,6 +287,8 @@ def report_validation_results(
         report.h4("Unexpected Error")
         report.code(str(e))
         report.flush()
+
+    return mse_ok and mape_ok
 
 
 @validator.command()
@@ -301,4 +318,4 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     end_time = datetime.datetime.now()
     start_time = end_time - duration
     s = ScriptResult(start_time, end_time)
-    generate_validation_report(report, cfg, s)
+    return generate_validation_report(report, cfg, s)
