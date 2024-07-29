@@ -251,6 +251,9 @@ def report_validation_results(
     report.write(f"  * expected:  `{v.expected.one_line}`\n")
     report.write(f"  * actual:  `{v.actual.one_line}`\n")
 
+    mse_ok = True
+    mape_ok = True
+
     try:
         res = comparator.compare(
             start_time,
@@ -265,9 +268,6 @@ def report_validation_results(
         report.write(f"  * MSE: {res.mse}\n")
         report.write(f"  * MAPE: {res.mape}\n")
         report.flush()
-
-        mse_ok = True
-        mape_ok = True
 
         if v.max_mse is not None and res.mse.error is None and res.mse.value > v.max_mse:
             click.secho(f"MSE exceeded threshold. mse: {res.mse.value}, max_mse: {v.max_mse}", fg="red")
