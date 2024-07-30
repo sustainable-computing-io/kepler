@@ -8,7 +8,7 @@ require (
 	github.com/HabanaAI/gohlml v1.16.0
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/cilium/ebpf v0.15.0
+	github.com/cilium/ebpf v0.16.0
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jszwec/csvutil v1.10.0
@@ -19,7 +19,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/prometheus v0.53.1
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	golang.org/x/sys v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.7
@@ -69,12 +69,12 @@ require (
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.22.0 // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
