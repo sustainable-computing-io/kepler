@@ -180,7 +180,6 @@ func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, no
 
 // addEstimatedEnergy estimates the idle power consumption
 func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*stats.ProcessStats, isIdlePower bool) {
-	var err error
 	var processGPUPower []uint64
 	var processPlatformPower []uint64
 	var processComponentsPower []source.NodeComponentsEnergy
@@ -224,9 +223,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
 			}
-			if err != nil {
-				klog.V(5).Infoln(err)
-			}
 
 			// add CORE power consumption
 			energy = processComponentsPower[i].Core * config.SamplePeriodSec
@@ -234,9 +230,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
-			}
-			if err != nil {
-				klog.V(5).Infoln(err)
 			}
 
 			// add DRAM power consumption
@@ -246,9 +239,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
 			}
-			if err != nil {
-				klog.V(5).Infoln(err)
-			}
 
 			// add Uncore power consumption
 			energy = processComponentsPower[i].Uncore * config.SamplePeriodSec
@@ -256,9 +246,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
-			}
-			if err != nil {
-				klog.V(5).Infoln(err)
 			}
 
 			// add GPU power consumption
@@ -269,9 +256,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 				} else {
 					processesMetrics[processID].EnergyUsage[config.DynEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
 				}
-				if err != nil {
-					klog.V(5).Infoln(err)
-				}
 			}
 		}
 
@@ -281,9 +265,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
-			}
-			if err != nil {
-				klog.V(5).Infoln(err)
 			}
 		}
 
@@ -301,9 +282,6 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
 				processesMetrics[processID].EnergyUsage[config.DynEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
-			}
-			if err != nil {
-				klog.V(5).Infoln(err)
 			}
 		}
 	}
