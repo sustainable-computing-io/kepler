@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -73,10 +72,6 @@ func GetProcessFeatureNames() []string {
 	}
 
 	return metrics
-}
-
-func AvailableBPFMetricsHas(s string) bool {
-	return slices.Contains(AvailableBPFMetrics, s)
 }
 
 func GetNodeName() string {
