@@ -19,21 +19,14 @@ package stats
 import (
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 )
 
-func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
+func GetProcessFeatureNames() []string {
 	var metrics []string
-	// bpf software counter metrics
-	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
-		metrics = append(metrics, counterKey)
-	}
-	// bpf hardware counter metrics
-	for counterKey := range bpfSupportedMetrics.HardwareCounters {
-		metrics = append(metrics, counterKey)
-	}
+	// bpf counter metrics
+	metrics = append(metrics, AvailableBPFMetrics()...)
 	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric

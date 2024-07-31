@@ -16,8 +16,6 @@ limitations under the License.
 
 package stats
 
-import "github.com/sustainable-computing-io/kepler/pkg/bpf"
-
 type VMStats struct {
 	Stats
 	PID  uint64
@@ -25,11 +23,11 @@ type VMStats struct {
 }
 
 // NewVMStats creates a new VMStats instance
-func NewVMStats(pid uint64, vmID string, bpfSupportedMetrics bpf.SupportedMetrics) *VMStats {
+func NewVMStats(pid uint64, vmID string) *VMStats {
 	vm := &VMStats{
 		PID:   pid,
 		VMID:  vmID,
-		Stats: *NewStats(bpfSupportedMetrics),
+		Stats: *NewStats(),
 	}
 	return vm
 }

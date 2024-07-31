@@ -669,6 +669,14 @@ func APIServerEnabled() bool {
 	return instance.Kepler.EnableAPIServer
 }
 
+func BPFHwCounters() []string {
+	return []string{CPUCycle, CPUInstruction, CacheMiss, CPURefCycle}
+}
+
+func BPFSwCounters() []string {
+	return []string{CPUTime, IRQNetTXLabel, IRQNetRXLabel, IRQBlockLabel, PageCacheHit}
+}
+
 func DCGMHostEngineEndpoint() string {
 	ensureConfigInitialized()
 	return instance.DCGMHostEngineEndpoint
