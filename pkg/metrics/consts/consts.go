@@ -39,9 +39,7 @@ var (
 	VMResUtilLabels        = []string{"vm_id"}
 	NodeResUtilLabels      = []string{"device", "instance"}
 	GPUResUtilLabels       = []string{"gpu_id"}
-)
 
-var (
 	EnergyMetricNames = []string{
 		config.PKG,
 		config.CORE,
