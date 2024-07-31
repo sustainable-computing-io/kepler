@@ -136,7 +136,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.Pid, ct.CGroupID, containerID, vmID, processComm, bpfSupportedMetrics)
+			pStat = stats.NewProcessStats(ct.Pid, ct.CGroupID, containerID, vmID, processComm)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = processComm

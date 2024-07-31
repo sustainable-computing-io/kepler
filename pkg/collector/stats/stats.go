@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
@@ -28,12 +27,28 @@ import (
 )
 
 var (
+	// Default metric sets. In addition, each metric set is used by the model
+	// package to estimate different power usage metrics.
 	// AvailableAbsEnergyMetrics holds a list of absolute energy metrics
-	AvailableAbsEnergyMetrics []string
+	AvailableAbsEnergyMetrics = []string{
+		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
+		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
+	}
 	// AvailableDynEnergyMetrics holds a list of dynamic energy metrics
-	AvailableDynEnergyMetrics []string
+	AvailableDynEnergyMetrics = []string{
+		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
+		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
+	}
 	// AvailableIdleEnergyMetrics holds a list of idle energy metrics
-	AvailableIdleEnergyMetrics []string
+	AvailableIdleEnergyMetrics = []string{
+		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
+		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
+	}
+	// AvailableBPFMetrics holds a list of reasonable default bpf metrics
+	AvailableBPFMetrics = []string{
+		config.CPUCycle, config.CPURefCycle, config.CPUInstruction, config.CacheMiss, config.CPUTime,
+		config.PageCacheHit, config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel,
+	}
 )
 
 type Stats struct {
@@ -42,7 +57,7 @@ type Stats struct {
 }
 
 // NewStats creates a new Stats instance
-func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
+func NewStats() *Stats {
 	m := &Stats{
 		ResourceUsage: make(map[string]types.UInt64StatCollection),
 		EnergyUsage:   make(map[string]types.UInt64StatCollection),
@@ -59,12 +74,7 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 
 	// initialize the resource utilization metrics in the map
 	resMetrics := []string{}
-	for metricName := range bpfSupportedMetrics.HardwareCounters {
-		resMetrics = append(resMetrics, metricName)
-	}
-	for metricName := range bpfSupportedMetrics.SoftwareCounters {
-		resMetrics = append(resMetrics, metricName)
-	}
+	resMetrics = append(resMetrics, AvailableBPFMetrics...)
 	for _, metricName := range resMetrics {
 		m.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}

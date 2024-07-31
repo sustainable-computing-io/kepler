@@ -88,7 +88,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		nodeStats.UpdateDynEnergy()
 
-		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics),
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(),
 			stats.NodeMetadataFeatureNames,
 			stats.NodeMetadataFeatureValues,
 			bpfSupportedMetrics)

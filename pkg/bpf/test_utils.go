@@ -2,7 +2,9 @@ package bpf
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -46,6 +48,11 @@ func (m *mockExporter) SupportedMetrics() SupportedMetrics {
 		HardwareCounters: m.hardwareCounters,
 		SoftwareCounters: m.softwareCounters,
 	}
+}
+
+func (m *mockExporter) RegisterBPFStats() {
+	counters := append(append([]string{}, maps.Keys(m.hardwareCounters)...), maps.Keys(m.hardwareCounters)...)
+	stats.RegisterBPFStats(counters)
 }
 
 func (m *mockExporter) Detach() {}
