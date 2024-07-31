@@ -1,0 +1,23 @@
+log_level: warn # Logging level, defaults is warn
+
+# The below section is unused in mock-acpi validation, and is present only for config object to parse correctly
+remote:
+  host: 192.168.1.1 # IP address or hostname of the VM
+  port: 22 # SSH port, default is 22
+  username: user # SSH username
+  password: yourpassword # SSH password
+  pkey: ~/.ssh/id_rsa # Path to SSH private key
+
+metal:
+  vm:
+    pid: 123456 # Process ID for the KVM process running on metal
+
+prometheus:
+  job:
+    metal: dev
+
+  url: http://localhost:9090 # Prometheus server URL
+  rate_interval: 20s  # Rate interval for Promql, default is 20s, typically 4 x $scrape_interval
+  steps: 3s  # Step duration for Prometheus range queries
+
+validations_file: ./acpi_validations.yaml # Path to the validations file, default is ./validations.yaml

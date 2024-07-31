@@ -51,11 +51,23 @@ services:
           -enable-gpu=false
     networks:
       - kepler-network
+
+    healthcheck:
+      test: curl -f http://localhost:8888/metrics || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
     cap_add:
       - ALL
 
+
   scaphandre:
-    image: hubblo/scaphandre
+    # image: hubblo/scaphandre
+    build:
+      context: ../
+      dockerfile: dockerfiles/Dockerfile.scaphandre
     privileged: true
     ports:
       - 8880:8080
@@ -69,6 +81,14 @@ services:
     command: [prometheus]
     networks:
       - scaph-network
+
+    healthcheck:
+      test: curl -f http://localhost:8080/metrics || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
 
 networks:
   scaph-network:

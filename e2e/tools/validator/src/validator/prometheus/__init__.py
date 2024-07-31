@@ -38,14 +38,16 @@ class Series:
 
     query: str
 
-    def __init__(self, query: str, samples: list[tuple[int, str]]):
+    def __init__(self, query: str, samples: list[tuple[int, str]], labels: dict[str, str]):
         self.query = query
         self.samples = [Sample(int(s[0]), float(s[1])) for s in samples]
+        self.labels = labels
 
     @classmethod
-    def from_samples(cls, query: str, samples: list[Sample]) -> "Series":
-        s = Series(query, [])
+    def from_samples(cls, query: str, samples: list[Sample], labels: dict[str, str]) -> "Series":
+        s = Series(query, [], {})
         s.samples = samples[:]
+        s.labels = labels
         return s
 
     @property
@@ -57,7 +59,7 @@ class Series:
         return [s.value for s in self.samples]
 
     def __str__(self) -> str:
-        return f"{self.query}\n: {[ str(s) for s in self.samples]}"
+        return f"{self.query}\n: {[ str(s) for s in self.samples]}, {self.labels}"
 
 
 class ValueOrError(NamedTuple):
@@ -159,7 +161,10 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
         else:
             idx_b += 1
 
-    return Series.from_samples(a.query, filtered_a), Series.from_samples(b.query, filterd_b)
+    return (
+        Series.from_samples(a.query, filtered_a, a.labels),
+        Series.from_samples(b.query, filterd_b, b.labels),
+    )
 
 
 class SeriesError(Exception):
@@ -198,14 +203,19 @@ class PrometheusClient:
         range_query_single_series returns a single series from the query
         """
         logger.info("running query %s with step %s", strip_query(query), self.step)
-        series = self.prom.custom_query_range(query=query, start_time=start, end_time=end, step=self.step)
 
-        return [Series(query, s["values"]) for s in series]
+        series = self.prom.custom_query_range(query=query, start_time=start, end_time=end, step=self.step)
+        return [Series(query, s["values"], s["metric"]) for s in series]
 
     def kepler_build_info(self) -> list[str]:
         resp = self.prom.custom_query(query="kepler_exporter_build_info")
         build_info = [r["metric"] for r in resp]
         return [to_metric(b) for b in build_info]
+
+    def kepler_node_info(self) -> list[str]:
+        resp = self.prom.custom_query(query="kepler_node_info")
+        labels = [r["metric"] for r in resp]
+        return [to_metric(b) for b in labels]
 
 
 class Comparator:

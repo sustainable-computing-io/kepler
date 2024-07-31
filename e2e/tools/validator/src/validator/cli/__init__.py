@@ -15,6 +15,7 @@ from validator import config
 from validator.__about__ import __version__
 from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series
+from validator.specs import HostReporter
 from validator.specs import Reporter as SpecReporter
 from validator.stresser import Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate, Validation
@@ -78,6 +79,8 @@ def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series
             json.dumps(
                 {
                     "query": query.one_line,
+                    "metric": series.labels,
+                    "timestamps": series.timestamps,
                     "values": series.values,
                 }
             )
@@ -142,7 +145,7 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     click.secho(f"\treport: {report.path}", fg="bright_green")
     click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
 
-    report_kepler_build_info(report, cfg.prometheus)
+    report_kepler_info(report, cfg.prometheus)
 
     click.secho("  * Generating spec report ...", fg="green")
     sr = SpecReporter(cfg.metal, cfg.remote)
@@ -171,7 +174,7 @@ def gen_report(cfg: config.Validator, start: datetime.datetime, end: datetime.da
     Run only validation based on previously stress test
     """
     report = new_report(report_dir)
-    report_kepler_build_info(report, cfg.prometheus)
+    report_kepler_info(report, cfg.prometheus)
     generate_spec_report(report, cfg)
     result = ScriptResult(start, end)
     generate_validation_report(report, cfg, result)
@@ -183,7 +186,7 @@ def generate_spec_report(report: Report, cfg: config.Validator):
     sr.write(report.file)
 
 
-def report_kepler_build_info(report: Report, prom_config: config.Prometheus):
+def report_kepler_info(report: Report, prom_config: config.Prometheus):
     prom = PrometheusClient(prom_config)
     build_info = prom.kepler_build_info()
 
@@ -192,6 +195,13 @@ def report_kepler_build_info(report: Report, prom_config: config.Prometheus):
     for bi in build_info:
         click.secho(f"    - {bi}", fg="cyan")
         report.write(f"  * `{bi}`\n")
+
+    node_info = prom.kepler_node_info()
+    click.secho("\n  * Node Info", fg="green")
+    report.h2("Node Info")
+    for ni in node_info:
+        click.secho(f"    - {ni}", fg="cyan")
+        report.write(f"  * `{ni}`\n")
 
     click.echo()
     report.flush()
@@ -214,14 +224,18 @@ def generate_validation_report(report: Report, cfg: config.Validator, test: Scri
     prom = PrometheusClient(cfg.prometheus)
     comparator = Comparator(prom)
     validations = Loader(cfg).load()
+    all_validation_ok = True
     for v in validations:
-        report_validation_results(report, v, comparator, start_time, end_time)
+        if report_validation_results(report, v, comparator, start_time, end_time) is not True:
+            all_validation_ok = False
     report.close()
 
     click.secho("Report Generated ", fg="bright_green")
     click.secho(f"  time range: {start_time} - {end_time}: ({end_time - start_time}) ", fg="bright_green")
     click.secho(f"  report: {report.path} ", fg="bright_green")
     click.secho(f"  dir   : {report.results_dir} ", fg="bright_green")
+
+    return all_validation_ok
 
 
 def report_validation_results(
@@ -236,6 +250,9 @@ def report_validation_results(
     report.h3(f"Validate - {v.name}")
     report.write(f"  * expected:  `{v.expected.one_line}`\n")
     report.write(f"  * actual:  `{v.actual.one_line}`\n")
+
+    mse_ok = True
+    mape_ok = True
 
     try:
         res = comparator.compare(
@@ -252,6 +269,14 @@ def report_validation_results(
         report.write(f"  * MAPE: {res.mape}\n")
         report.flush()
 
+        if v.max_mse is not None and res.mse.error is None and res.mse.value > v.max_mse:
+            click.secho(f"MSE exceeded threshold. mse: {res.mse.value}, max_mse: {v.max_mse}", fg="red")
+            mse_ok = False
+
+        if v.max_mape is not None and res.mape.error is None and res.mape.value > v.max_mape:
+            click.secho(f"MAPE exceeded threshold. mape: {res.mape.value}, max_mape: {v.max_mape}", fg="red")
+            mape_ok = False
+
         dump_query_result(report.results_dir, v.expected, res.expected_series)
         dump_query_result(report.results_dir, v.actual, res.actual_series)
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
@@ -262,3 +287,35 @@ def report_validation_results(
         report.h4("Unexpected Error")
         report.code(str(e))
         report.flush()
+
+    return mse_ok and mape_ok
+
+
+@validator.command()
+@click.option("--duration", "-d", type=options.Duration(), required=True)
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
+@click.option(
+    "--report-dir",
+    "-o",
+    default="/tmp",
+    type=click.Path(exists=True, dir_okay=True, writable=True),
+    show_default=True,
+)
+@pass_config
+def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str):
+    click.secho("  * Generating validate acpi report file and dir", fg="green")
+    report = new_report(report_dir)
+    click.secho(f"\treport: {report.path}", fg="bright_green")
+    click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
+
+    report_kepler_info(report, cfg.prometheus)
+
+    click.secho("  * Generating spec report ...", fg="green")
+    sr = HostReporter(cfg.metal)
+    sr.write(report.file)
+
+    # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
+    end_time = datetime.datetime.now()
+    start_time = end_time - duration
+    s = ScriptResult(start_time, end_time)
+    return generate_validation_report(report, cfg, s)

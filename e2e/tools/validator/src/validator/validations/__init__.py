@@ -47,6 +47,8 @@ class Validation(NamedTuple):
     name: str
     expected: QueryTemplate
     actual: QueryTemplate
+    max_mse: float | None = None
+    max_mape: float | None = None
 
 
 def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Validation]:
@@ -57,6 +59,8 @@ def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Valida
                 name=v["name"],
                 expected=QueryTemplate(v["expected"], promql_vars),
                 actual=QueryTemplate(v["actual"], promql_vars),
+                max_mse=v.get("max_mse", None),
+                max_mape=v.get("max_mape", None),
             )
             for v in yml["validations"]
         ]

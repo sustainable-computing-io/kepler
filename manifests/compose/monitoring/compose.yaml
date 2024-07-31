@@ -14,6 +14,13 @@ services:
     networks:
       - monitoring
 
+    healthcheck:
+      test: wget -q --spider http://localhost:9090/ -O /dev/null || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
   grafana:
     build:
       context: ./grafana
@@ -29,6 +36,14 @@ services:
       - 3000:3000
     networks:
       - monitoring
+
+    healthcheck:
+      test: curl -f http://localhost:3000/ || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
 volumes:
   # volume for holding prometheus (ts)db
   prom-data:

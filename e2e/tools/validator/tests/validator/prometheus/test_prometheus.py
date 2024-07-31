@@ -49,7 +49,8 @@ def prom_response():
 def test_series(prom_response):
     promql = """kepler_process_cpu_bpf_time_total{job="vm", mode="dynamic"}"""
     resp_values = prom_response[0]["values"]
-    s = Series(promql, resp_values)
+    resp_metric = prom_response[0]["metric"]
+    s = Series(promql, resp_values, resp_metric)
 
     assert s.query == promql
     assert len(s.samples) == len(resp_values)
@@ -112,8 +113,8 @@ def test_filter_by_equal_timestamps():
     # fmt: on
 
     for s in inputs:
-        a = Series("a", s["a"])
-        b = Series("b", s["b"])
+        a = Series("a", s["a"], {})
+        b = Series("b", s["b"], {})
         exp_a = s["expected_a"]
         exp_b = s["expected_b"]
 
@@ -183,10 +184,14 @@ def test_mse():
         b = s["b"]
 
         expected_mse = s["mse"]
-        assert expected_mse == pytest.approx(mse(a, b).value, rel=1e-3)
+        actual_mse = mse(a, b)
+        assert actual_mse.error is None
+        assert expected_mse == pytest.approx(actual_mse.value, rel=1e-3)
 
+        actual_mape = mape(a, b)
+        assert actual_mape.error is None
         expected_mape = s["mape"]
-        assert expected_mape == pytest.approx(mape(a, b).value, rel=1e-3)
+        assert expected_mape == pytest.approx(actual_mape.value, rel=1e-3)
 
 
 def test_mse_with_large_arrays():
@@ -216,7 +221,7 @@ class MockPromClient:
         self.responses = responses
 
     def range_query(self, query: str, _start: datetime.datetime, _end: datetime.datetime) -> list[Series]:
-        return [Series(query, r["values"]) for r in self.responses]
+        return [Series(query, r["values"], r["metric"]) for r in self.responses]
 
 
 @pytest.fixture

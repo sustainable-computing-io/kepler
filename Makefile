@@ -104,7 +104,7 @@ base_dir := $(patsubst %/,%,$(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 kepler: build_containerized ## Build Kepler.
 .PHONY: kepler
 
-clean: clean-cross-build
+clean: clean-cross-build ## Clean Kepler build
 .PHONY: clean
 
 ##@ Container build.
@@ -164,7 +164,7 @@ push-image:  ## Push image.
 .PHONY: push-image
 
 ##@ General build
-clean-cross-build:
+clean-cross-build: ## clean Kepler build for multiple archs
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
 	$(RM) -rf $(OUTPUT_DIR)/staging
 	if [ -d '$(OUTPUT_DIR)' ]; then rmdir --ignore-fail-on-non-empty '$(OUTPUT_DIR)'; fi
@@ -176,7 +176,6 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 .PHONY: generate
 generate: ## Generate BPF code locally.
 	+@$(GOENV) go generate ./pkg/bpf
-	+@$(GOENV) go generate ./pkg/bpftest
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -221,21 +220,21 @@ containerized_build_container_rpm: ## Build the Containerized Kepler RPM inside 
 		$(BUILDER_IMAGE) \
 		make build_container_rpm
 
-clean_build_local:
+clean_build_local: ## Clean local build directory
 	rm -rf $(CROSS_BUILD_BINDIR)
 
-copy_build_local:
+copy_build_local: ## Copy Kepler binary to $(OUTPUT_DIR)/bin.
 	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler $(CROSS_BUILD_BINDIR)
 
-cross-build-linux-amd64:
+cross-build-linux-amd64: ## Build local Kepler binary for amd64
 	+$(MAKE) _build_local GOOS=linux GOARCH=amd64
 .PHONY: cross-build-linux-amd64
 
-cross-build-linux-arm64:
+cross-build-linux-arm64: ## Build local Kepler binary for arm64
 	+$(MAKE) _build_local GOOS=linux GOARCH=arm64
 .PHONY: cross-build-linux-arm64
 
-cross-build-linux-s390x:
+cross-build-linux-s390x: ## Build local Kepler binary for s390x
 	+$(MAKE) _build_local GOOS=linux GOARCH=s390x
 .PHONY: cross-build-linux-s390x
 
@@ -275,7 +274,9 @@ container_test:
 
 TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpftest)
+SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpf)
+
+##@ testing
 
 .PHONY: test
 test: unit-test bpf-test bench ## Run all tests.
@@ -303,24 +304,24 @@ bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
 		-tags $(GO_TEST_TAGS) \
 		-cover \
 		--covermode=atomic \
-		./pkg/bpftest
+		./pkg/bpf
 	$(SUDO) $(ENVTEST_ASSETS_DIR)/ginkgo \
-		./pkg/bpftest/bpftest.test
+		./pkg/bpf/bpf.test
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
-check-govuln: govulncheck tidy-vendor
+check-govuln: govulncheck tidy-vendor ## Check Go vulnerabilities.
 	@$(GOVULNCHECK) ./... || true
 
-format:
+format: ## Check Go format.
 	./automation/presubmit-tests/gofmt.sh
 
-c-format:
+c-format: ## Check C format.
 	@echo "Checking c format"
 	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:/bpf/include/' | xargs clang-format --dry-run --Werror
 
-golint:
+golint: ## Go lint
 	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
 	$(CTR_CMD) run --tty --rm \
@@ -336,14 +337,14 @@ TOOLS = govulncheck \
 		kustomize \
 		yq \
 
-tools:
+tools: ## Install required Kepler tools
 	./hack/tools.sh
 .PHONY: tools
 
 $(TOOLS):
 	./hack/tools.sh $@
 
-build-manifest: kustomize
+build-manifest: kustomize ## Build Kepler by manifest
 	./hack/build-manifest.sh "${OPTS}"
 .PHONY: build-manifest
 
@@ -360,7 +361,7 @@ COMPOSE_DIR="$(PROJECT_DIR)/manifests/compose"
 DEV_TARGET ?= dev
 
 .PHONY: compose
-compose: ## Setup kepler (latest) using docker compose
+compose: ## Setup kepler (latest) using docker compose.
 	docker compose \
 		-f $(COMPOSE_DIR)/compose.yaml \
 		up --build -d
@@ -372,13 +373,13 @@ compose: ## Setup kepler (latest) using docker compose
 	@echo "  * latest / upstream  : http://localhost:9288/metrics"
 
 .PHONY: compose-clean
-compose-clean: ## Cleanup kepler (latest) deployed using docker compose
+compose-clean: ## Cleanup kepler (latest) deployed using docker compose.
 	docker compose \
 		-f $(COMPOSE_DIR)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 
 .PHONY: dev
-dev: ## Setup development env using compose with 2 kepler (latest & current) deployed
+dev: ## Setup development env using compose with 2 kepler (latest & current) deployed.
 	docker compose \
 		-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		up --build -d
@@ -390,13 +391,13 @@ dev: ## Setup development env using compose with 2 kepler (latest & current) dep
 	@echo "  * development version : http://localhost:9188/metrics"
 	@echo "  * latest / upstream   : http://localhost:9288/metrics"
 
-dev-clean: ## Setup kepler (current and latest) along with
+dev-clean: ## Undeploy Kepler (current and latest) from development env.
 	docker compose \
 			-f $(COMPOSE_DIR)/$(DEV_TARGET)/compose.yaml \
 		down --remove-orphans --volumes --rmi all
 .PHONY: dev-clean
 
-dev-restart: dev-clean dev
+dev-restart: dev-clean dev ## Restart development environment.
 .PHONY: dev-restart
 
 cluster-clean: build-manifest ## Undeploy Kepler in the cluster.
@@ -443,11 +444,11 @@ build-validation-container: ## Build validation Container.
 		-f $(VALIDATION_DOCKERFILE) .
 .PHONY: build-validation-container
 
-get-power:
+get-power: ## Get power from Validator.
 	$(CTR_CMD) run -i --rm -v $(SRC_ROOT)/e2e/platform-validation:/output $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) /usr/bin/validator
 .PHONY: get-power
 
-get-env:
+get-env: ## Get env from Validator.
 	$(CTR_CMD) run -i --rm -v $(SRC_ROOT)/e2e/platform-validation:/output $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) /usr/bin/validator -gen-env=true
 .PHONY: get-env
 
@@ -455,5 +456,5 @@ platform-validation: ginkgo-set get-env ## Run Kepler platform validation.
 	./hack/verify.sh platform
 .PHONY: platform-validation
 
-check: tidy-vendor check-govuln format golint test
+check: tidy-vendor check-govuln format golint test ## Run checks and tests.
 .PHONY: check

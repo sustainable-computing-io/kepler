@@ -77,6 +77,29 @@ def get_vm_dram_size(vm: Remote):
     return vm_dram_size
 
 
+class HostReporter:
+    def __init__(self, host: config.Metal) -> None:
+        self.host = host
+
+    def write(self, report: typing.TextIO) -> None:
+        host_cpu_spec = get_host_cpu_spec()
+        host_dram_size = get_host_dram_size()
+
+        # create section header for specs
+        report.write("## Specs\n")
+        report.write("### Host CPU Specs\n")
+        report.write("| Model | Cores | Threads | Sockets | Flags |\n")
+        report.write("|-----------|-----------|-------------|-------------|-----------|\n")
+        report.write(
+            f"| {host_cpu_spec['cpu']['model']} | {host_cpu_spec['cpu']['cores']} | {host_cpu_spec['cpu']['threads']} | {host_cpu_spec['cpu']['sockets']} | ```{host_cpu_spec['cpu']['flags']}``` |\n"
+        )
+        report.write("### Host DRAM Size\n")
+        report.write("| Size |\n")
+        report.write("|------|\n")
+        report.write(f"| {host_dram_size} |\n")
+        report.flush()
+
+
 class Reporter:
     def __init__(self, host: config.Metal, vm: config.Remote) -> None:
         self.host = host
