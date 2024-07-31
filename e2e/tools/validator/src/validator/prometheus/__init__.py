@@ -127,7 +127,7 @@ def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
 def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     try:
         actual, expected = validate_arrays(actual, expected)
-        return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), actual)).mean())
+        return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), expected)).mean())
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
