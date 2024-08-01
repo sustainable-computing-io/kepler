@@ -100,9 +100,6 @@ var (
 	// nvidia dcgm hostengine endpoint
 	DCGMHostEngineEndpoint = getConfig("NVIDIA_HOSTENGINE_ENDPOINT", "localhost:5555")
 
-	// dir of kernel sources for bcc
-	kernelSourceDirs = []string{}
-
 	// redfish cred file path
 	redfishCredFilePath           string
 	redfishProbeIntervalInSeconds = getConfig("REDFISH_PROBE_INTERVAL_IN_SECONDS", "60")
@@ -194,34 +191,6 @@ func getConfig(key, defaultValue string) string {
 	return defaultValue
 }
 
-// SetKernelSourceDir sets the directory for all kernel source. This is used for bcc. Only the top level directory is needed.
-func SetKernelSourceDir(dir string) error {
-	fileInfo, err := os.Stat(dir)
-	if err != nil {
-		return err
-	}
-
-	if !fileInfo.IsDir() {
-		return fmt.Errorf("expected  kernel root path %s to be a directory", dir)
-	}
-	// list all the directories under dir and store in kernelSourceDir
-	klog.Infoln("kernel source dir is set to", dir)
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		klog.Warning("failed to read kernel source dir", err)
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			kernelSourceDirs = append(kernelSourceDirs, filepath.Join(dir, file.Name()))
-		}
-	}
-	return nil
-}
-
-func GetKernelSourceDirs() []string {
-	return kernelSourceDirs
-}
-
 func SetRedfishCredFilePath(credFilePath string) {
 	redfishCredFilePath = credFilePath
 }
@@ -243,6 +212,7 @@ func GetRedfishProbeIntervalInSeconds() int {
 	}
 	return probeInterval
 }
+
 func SetRedfishSkipSSLVerify(skipSSLVerify bool) {
 	redfishSkipSSLVerify = skipSSLVerify
 }
@@ -372,7 +342,6 @@ func (c config) getCgroupV2File() string {
 
 func getKernelVersion(c Client) float32 {
 	utsname, err := c.getUnixName()
-
 	if err != nil {
 		klog.V(4).Infoln("Failed to parse unix name")
 		return -1
