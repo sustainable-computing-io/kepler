@@ -37,6 +37,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 )
 
 const (
@@ -109,7 +110,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 		return w
 	}
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fields.Set{"spec.nodeName": stats.GetNodeName()}.AsSelector().String() // to filter events per node
+		options.FieldSelector = fields.Set{"spec.nodeName": node.Name()}.AsSelector().String() // to filter events per node
 	}
 	objListWatcher := cache.NewFilteredListWatchFromClient(
 		w.k8sCli.CoreV1().RESTClient(),

@@ -24,21 +24,6 @@ import (
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 )
 
-func InitAvailableParamAndMetrics() {
-	AvailableAbsEnergyMetrics = []string{
-		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
-		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
-	}
-	AvailableDynEnergyMetrics = []string{
-		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
-		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
-	}
-	AvailableIdleEnergyMetrics = []string{
-		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
-		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
-	}
-}
-
 func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	var metrics []string
 	// bpf software counter metrics
