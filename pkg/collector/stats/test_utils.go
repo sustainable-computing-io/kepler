@@ -50,9 +50,6 @@ func SetMockedCollectorMetrics() {
 		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
 		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
 	}
-
-	NodeMetadataFeatureNames = []string{"cpu_architecture"}
-	NodeMetadataFeatureValues = []string{"Sandy Bridge"}
 }
 
 // CreateMockedProcessStats adds two containers with all metrics initialized
