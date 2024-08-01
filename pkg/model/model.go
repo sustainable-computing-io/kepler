@@ -71,12 +71,12 @@ type PowerModelInterface interface {
 }
 
 // CreatePowerEstimatorModels checks validity of power model and set estimate functions
-func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, bpfSupportedMetrics bpf.SupportedMetrics) {
+func CreatePowerEstimatorModels(processFeatureNames []string, bpfSupportedMetrics bpf.SupportedMetrics) {
 	config.InitModelConfigMap()
-	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
+	CreateProcessPowerEstimatorModel(processFeatureNames, bpfSupportedMetrics)
 	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
-	CreateNodePlatformPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	CreateNodeComponentPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateNodePlatformPoweEstimatorModel(processFeatureNames)
+	CreateNodeComponentPowerEstimatorModel(processFeatureNames)
 }
 
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.

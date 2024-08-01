@@ -85,7 +85,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 	// update node info
 	ch <- c.collectors["info"].MustMetric(1,
-		stats.NodeCPUArchitecture(),
+		c.NodeStats.CPUArchitecture(),
 		components.GetSourceName(),
 		platform.GetSourceName(),
 	)

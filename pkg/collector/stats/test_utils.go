@@ -37,20 +37,6 @@ func SetMockedCollectorMetrics() {
 		err := gpu.Device().Init() // create structure instances that will be accessed to create a processMetric
 		klog.Fatalln(err)
 	}
-
-	// initialize the Available metrics since they are used to create a new processMetrics instance
-	AvailableAbsEnergyMetrics = []string{
-		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
-		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
-	}
-	AvailableDynEnergyMetrics = []string{
-		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
-		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
-	}
-	AvailableIdleEnergyMetrics = []string{
-		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
-		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
-	}
 }
 
 // CreateMockedProcessStats adds two containers with all metrics initialized
