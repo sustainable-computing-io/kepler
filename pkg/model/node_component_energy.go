@@ -22,6 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"k8s.io/klog/v2"
@@ -33,7 +34,9 @@ var (
 )
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
-func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) *types.ModelConfig {
+func createNodeComponentPowerModelConfig(nodeFeatureNames []string) *types.ModelConfig {
+	systemMetaDataFeatureNames := node.MetadataFeatureNames()
+	systemMetaDataFeatureValues := node.MetadataFeatureValues()
 	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey)
 	if modelConfig.InitModelURL == "" {
 		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource)
@@ -45,11 +48,11 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeature
 	return modelConfig
 }
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node components power metrics are not available
-func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+// CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node components power metrics are not available
+func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames []string) {
 	var err error
 	if !components.IsSystemCollectionSupported() {
-		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames)
 		// init func for NodeComponentPower
 		NodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {

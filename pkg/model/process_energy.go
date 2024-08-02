@@ -23,6 +23,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -35,7 +36,9 @@ var (
 )
 
 // createProcessPowerModelConfig: the process component power model must be set by default.
-func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, energySource string, bpfSupportedMetrics bpf.SupportedMetrics) (modelConfig *types.ModelConfig) {
+func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames []string, energySource string, bpfSupportedMetrics bpf.SupportedMetrics) (modelConfig *types.ModelConfig) {
+	systemMetaDataFeatureNames := node.MetadataFeatureNames()
+	systemMetaDataFeatureValues := node.MetadataFeatureValues()
 	modelConfig = CreatePowerModelConfig(powerSourceTarget)
 	if modelConfig == nil {
 		return nil
@@ -105,9 +108,9 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 	return modelConfig
 }
 
-func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, bpfSupportedMetrics bpf.SupportedMetrics) {
+func CreateProcessPowerEstimatorModel(processFeatureNames []string, bpfSupportedMetrics bpf.SupportedMetrics) {
 	var err error
-	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource, bpfSupportedMetrics)
+	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, types.PlatformEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
 	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -117,7 +120,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
 
-	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource, bpfSupportedMetrics)
+	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, types.ComponentEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
 	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {

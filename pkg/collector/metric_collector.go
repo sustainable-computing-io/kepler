@@ -79,8 +79,6 @@ func (c *Collector) Initialize() error {
 	// model component decide whether/how to init
 	model.CreatePowerEstimatorModels(
 		stats.GetProcessFeatureNames(c.bpfSupportedMetrics),
-		c.NodeStats.MetadataFeatureNames(),
-		c.NodeStats.MetadataFeatureValues(),
 		c.bpfSupportedMetrics,
 	)
 

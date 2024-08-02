@@ -69,6 +69,15 @@ func CPUArchitecture() string {
 	return cpuArch()
 }
 
+func MetadataFeatureNames() []string {
+	return []string{"cpu_architecture"}
+}
+
+func MetadataFeatureValues() []string {
+	cpuArchitecture := cpuArch()
+	return []string{cpuArchitecture}
+}
+
 func NewNodeInfo() Node {
 	cpuArchitecture := cpuArch()
 	return &nodeInfo{
