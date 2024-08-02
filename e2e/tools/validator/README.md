@@ -30,7 +30,8 @@ pip install .
 
 - Configure and Generate `validator.yaml` file
 
-  - Create the `validator.yaml` file based on the [validator.yaml.sample](validator.yaml.sample) template provided.
+  - Create the `validator.yaml` file based on the
+  [validator.yaml.sample](validator.yaml.sample) template provided.
   - Adjust the configuration according to your environment and requirements.
 
 - Run the validator
