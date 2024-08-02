@@ -32,7 +32,8 @@ target deploys the following
 
 ### Usage
 
-To allow access to the VM from the Prometheus container running on the host, `virt-net` must be created using the following command:
+To allow access to the VM from the Prometheus container running on the host,
+`virt-net` must be created using the following command:
 
 - Check the Virtual Bridge Interface:
 
@@ -44,7 +45,8 @@ To allow access to the VM from the Prometheus container running on the host, `vi
 
 - Create the Docker Network:
 
-Use the `inet` address from the previous step to create the Docker Network with `macvlan` driver. Replace `<subnet>` with appropriate value.
+Use the `inet` address from the previous step to create the Docker Network with
+`macvlan` driver. Replace `<subnet>` with appropriate value.
 
 ```sh
 docker network create --driver=macvlan --subnet=<subnet>/24 -o parent=virbr0 virt-net
@@ -52,7 +54,8 @@ docker network create --driver=macvlan --subnet=<subnet>/24 -o parent=virbr0 vir
 
 - Start the Services:
 
-Navigate to appropriate directory, set the `VM_IP` environment variable, and bring up the services:
+Navigate to appropriate directory, set the `VM_IP` environment variable, and bring
+up the services:
 
 ```sh
 cd manifests/compose/validation/metal
