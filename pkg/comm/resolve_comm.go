@@ -7,10 +7,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"golang.org/x/sys/unix"
 )
 
-const unknownComm = "unknown"
+const unknownComm = `unknown`
 
 type CommResolver struct {
 	cacheExist     map[int]string
@@ -35,6 +36,10 @@ func NewTestCommResolver(procFsResolver func(pid int) (string, error)) *CommReso
 }
 
 func (r *CommResolver) ResolveComm(pid int) (string, error) {
+	if pid == 0 {
+		return utils.SystemProcessName, nil
+	}
+
 	if comm, ok := r.cacheExist[pid]; ok {
 		return comm, nil
 	}
