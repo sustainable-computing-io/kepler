@@ -1,6 +1,7 @@
 package bpf
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -68,3 +69,5 @@ func (m *mockExporter) CollectProcesses() (ProcessMetricsCollection, error) {
 		FreedPIDs: []int{0},
 	}, nil
 }
+
+func (m *mockExporter) RegisterMetrics(registry *prometheus.Registry) {}
