@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/jaypipes/ghw"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -51,6 +52,10 @@ type exporter struct {
 	enabledHardwareCounters sets.Set[string]
 	enabledSoftwareCounters sets.Set[string]
 
+	eventsRead      prometheus.Counter
+	eventsProcessed prometheus.Counter
+	channelDepth    prometheus.GaugeFunc
+
 	// Locks processMetrics and freedPIDs.
 	// Acquired in CollectProcesses - to prevent new events from being processed
 	// while summarizing the metrics and resetting the counters.
@@ -61,6 +66,9 @@ type exporter struct {
 	mu             *sync.Mutex
 	processMetrics map[uint32]*bpfMetrics
 	freedPIDs      []int
+
+	ringbufReader *ringbuf.Reader
+	eventsChan    chan *keplerEvent
 }
 
 func NewExporter() (Exporter, error) {
@@ -70,12 +78,39 @@ func NewExporter() (Exporter, error) {
 		enabledSoftwareCounters: sets.New[string](),
 		mu:                      &sync.Mutex{},
 		processMetrics:          make(map[uint32]*bpfMetrics),
+		eventsChan:              make(chan *keplerEvent, 1024),
 	}
+	e.eventsRead = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "kepler_bpf_exporter_events_read_total",
+		Help: "Total number of events read from the ring buffer.",
+	})
+	e.eventsProcessed = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "kepler_bpf_exporter_events_processed_total",
+		Help: "Total number of events processed.",
+	})
+	e.channelDepth = prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "kepler_bpf_exporter_events_channel_depth",
+			Help: "Current depth of the events channel",
+		},
+		func() float64 {
+			if e.eventsChan == nil {
+				return 0
+			}
+			return float64(len(e.eventsChan))
+		},
+	)
 	err := e.attach()
 	if err != nil {
 		e.Detach()
 	}
 	return e, err
+}
+
+func (e *exporter) RegisterMetrics(registry *prometheus.Registry) {
+	registry.MustRegister(e.eventsRead)
+	registry.MustRegister(e.eventsProcessed)
+	registry.MustRegister(e.channelDepth)
 }
 
 func (e *exporter) SupportedMetrics() SupportedMetrics {
@@ -220,29 +255,38 @@ func (e *exporter) Detach() {
 }
 
 func (e *exporter) Start(stopChan <-chan struct{}) error {
-	rd, err := ringbuf.NewReader(e.bpfObjects.Rb)
+	var err error
+	e.ringbufReader, err = ringbuf.NewReader(e.bpfObjects.Rb)
 	if err != nil {
 		return fmt.Errorf("failed to create ring buffer reader: %w", err)
 	}
-	defer rd.Close()
+	defer e.ringbufReader.Close()
 
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go e.ringBufReader(wg, stopChan)
+	go e.eventProcessor(wg, stopChan)
+	wg.Wait()
+
+	return nil
+}
+
+func (e *exporter) ringBufReader(wg *sync.WaitGroup, stopChan <-chan struct{}) {
+	defer wg.Done()
 	for {
 		var record *ringbuf.Record
 
 		select {
 		case <-stopChan:
-			if err := rd.Close(); err != nil {
-				return fmt.Errorf("closing ring buffer reader: %w", err)
-			}
-			return nil
+			return
 		default:
 			var event keplerEvent
 			record = new(ringbuf.Record)
 
-			err := rd.ReadInto(record)
+			err := e.ringbufReader.ReadInto(record)
 			if err != nil {
 				if errors.Is(err, ringbuf.ErrClosed) {
-					return nil
+					return
 				}
 				if errors.Is(err, ringbuf.ErrFlushed) {
 					record.RawSample = record.RawSample[:0]
@@ -255,9 +299,63 @@ func (e *exporter) Start(stopChan <-chan struct{}) error {
 				klog.Errorf("parsing ringbuf event: %s", err)
 				continue
 			}
+			// process events on another channel to avoid blocking the ring buffer reader
+			e.eventsChan <- &event
+			e.eventsRead.Inc()
+		}
+	}
+}
 
-			// Process the event
-			e.handleEvent(event)
+func (e *exporter) eventProcessor(wg *sync.WaitGroup, stopChan <-chan struct{}) {
+	defer wg.Done()
+	for {
+		select {
+		case <-stopChan:
+			return
+		case event := <-e.eventsChan:
+			e.mu.Lock()
+
+			var p *bpfMetrics
+
+			if _, ok := e.processMetrics[event.Pid]; !ok {
+				e.processMetrics[event.Pid] = newBpfMetrics()
+			}
+			p = e.processMetrics[event.Pid]
+
+			switch event.EventType {
+			case uint64(keplerEventTypeSCHED_SWITCH):
+				// Handle the new task going on CPU
+				p.CPUCyles.Start(event.CpuId, event.Tid, event.CpuCycles)
+				p.CPUInstructions.Start(event.CpuId, event.Tid, event.CpuInstr)
+				p.CacheMiss.Start(event.CpuId, event.Tid, event.CacheMiss)
+				p.CPUTime.Start(event.CpuId, event.Tid, event.Ts)
+
+				// Handle the task going OFF CPU
+				if _, ok := e.processMetrics[event.OffcpuPid]; !ok {
+					e.processMetrics[event.OffcpuPid] = newBpfMetrics()
+				}
+				offcpu := e.processMetrics[event.OffcpuPid]
+				offcpu.CPUCyles.Stop(event.CpuId, event.OffcpuTid, event.CpuCycles)
+				offcpu.CPUInstructions.Stop(event.CpuId, event.OffcpuTid, event.CpuInstr)
+				offcpu.CacheMiss.Stop(event.CpuId, event.OffcpuTid, event.CacheMiss)
+				offcpu.CPUTime.Stop(event.CpuId, event.OffcpuTid, event.Ts)
+				offcpu.CGroupID = event.OffcpuCgroupId
+			case uint64(keplerEventTypePAGE_CACHE_HIT):
+				p.PageCacheHit += 1
+			case uint64(keplerEventTypeIRQ):
+				switch event.IrqNumber {
+				case uint32(keplerIrqTypeNET_TX):
+					p.TxIRQ += 1
+				case uint32(keplerIrqTypeNET_RX):
+					p.RxIRQ += 1
+				case uint32(keplerIrqTypeBLOCK):
+					p.BlockIRQ += 1
+				}
+			case uint64(keplerEventTypeFREE):
+				e.freedPIDs = append(e.freedPIDs, int(event.Pid))
+			}
+			e.mu.Unlock()
+			e.eventsProcessed.Inc()
 		}
 	}
 }
@@ -341,52 +439,6 @@ func (p *PerCPUCounter) Stop(cpu, taskID uint32, value uint64) {
 func (p *PerCPUCounter) Reset() {
 	// Leave values in place since we may have in-flight
 	p.Total = 0
-}
-
-func (e *exporter) handleEvent(event keplerEvent) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	var p *bpfMetrics
-
-	if _, ok := e.processMetrics[event.Pid]; !ok {
-		e.processMetrics[event.Pid] = newBpfMetrics()
-	}
-	p = e.processMetrics[event.Pid]
-
-	switch event.EventType {
-	case uint64(keplerEventTypeSCHED_SWITCH):
-		// Handle the new task going on CPU
-		p.CPUCyles.Start(event.CpuId, event.Tid, event.CpuCycles)
-		p.CPUInstructions.Start(event.CpuId, event.Tid, event.CpuInstr)
-		p.CacheMiss.Start(event.CpuId, event.Tid, event.CacheMiss)
-		p.CPUTime.Start(event.CpuId, event.Tid, event.Ts)
-
-		// Handle the task going OFF CPU
-		if _, ok := e.processMetrics[event.OffcpuPid]; !ok {
-			e.processMetrics[event.OffcpuPid] = newBpfMetrics()
-		}
-		offcpu := e.processMetrics[event.OffcpuPid]
-		offcpu.CPUCyles.Stop(event.CpuId, event.OffcpuTid, event.CpuCycles)
-		offcpu.CPUInstructions.Stop(event.CpuId, event.OffcpuTid, event.CpuInstr)
-		offcpu.CacheMiss.Stop(event.CpuId, event.OffcpuTid, event.CacheMiss)
-		offcpu.CPUTime.Stop(event.CpuId, event.OffcpuTid, event.Ts)
-		offcpu.CGroupID = event.OffcpuCgroupId
-	case uint64(keplerEventTypePAGE_CACHE_HIT):
-		p.PageCacheHit += 1
-	case uint64(keplerEventTypeIRQ):
-		switch event.IrqNumber {
-		case uint32(keplerIrqTypeNET_TX):
-			p.TxIRQ += 1
-		case uint32(keplerIrqTypeNET_RX):
-			p.RxIRQ += 1
-		case uint32(keplerIrqTypeBLOCK):
-			p.BlockIRQ += 1
-		}
-		return
-	case uint64(keplerEventTypeFREE):
-		e.freedPIDs = append(e.freedPIDs, int(event.Pid))
-	}
 }
 
 func (e *exporter) CollectProcesses() (ProcessMetricsCollection, error) {
