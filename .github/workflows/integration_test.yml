@@ -34,7 +34,7 @@ jobs:
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.5
         with:
           name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
@@ -79,7 +79,7 @@ jobs:
           INPUT_PATH: ${{env.FILE_NAME}}
       # set up k8s cluster with ebpf
       - name: use Kepler action to deploy cluster
-        uses: sustainable-computing-io/kepler-action@v0.0.7
+        uses: sustainable-computing-io/kepler-action@v0.0.8
         with:
           ebpfprovider: libbpf
           cluster_provider: ${{matrix.cluster_provider}}
@@ -103,7 +103,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.5
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}
