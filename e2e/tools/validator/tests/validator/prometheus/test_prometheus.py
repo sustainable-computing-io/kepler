@@ -71,45 +71,37 @@ def test_filter_by_equal_timestamps():
     def s_b(x): return (x, str(v_b(x)))
 
 
-    inputs = [
-        {
-            "a": [ s_a(1), s_a(2), s_a(3), s_a(4), ],
-            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
-            "expected_a": [ v_a(1), v_a(2), v_a(3), v_a(4), ],
-            "expected_b": [ v_b(1), v_b(2), v_b(3), v_b(4), ],
-        },
-
-        {
-            "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
-            "b": [         s_b(2), s_b(3), s_b(4) ],
-            "expected_a": [ v_a(2), v_a(3), v_a(4) ],
-            "expected_b": [ v_b(2), v_b(3), v_b(4) ],
-        },
-        {
-            "a": [ s_a(1), s_a(2), s_a(3)         ],
-            "b": [ s_b(1), s_b(2), s_b(3), s_b(4) ],
-            "expected_a": [ v_a(1), v_a(2), v_a(3)],
-            "expected_b": [ v_b(1), v_b(2), v_b(3)],
-        },
-        {
-            "a": [ s_a(1),         s_a(3), s_a(4), ],
-            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
-            "expected_a": [ v_a(1), v_a(3), v_a(4), ],
-            "expected_b": [ v_b(1), v_b(3), v_b(4), ],
-        },
-        {
-            "a": [ s_a(1),                 s_a(4), ],
-            "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
-            "expected_a": [ v_a(1), v_a(4), ],
-            "expected_b": [ v_b(1), v_b(4), ],
-        },
-        {
-            "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
-            "b": [ s_b(100), s_b(200), s_b(300), s_b(400), ],
-            "expected_a": [],
-            "expected_b": [],
-        },
-    ]
+    inputs = [{
+        "a": [ s_a(1), s_a(2), s_a(3), s_a(4), ],
+        "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
+        "expected_a": [ v_a(1), v_a(2), v_a(3), v_a(4), ],
+        "expected_b": [ v_b(1), v_b(2), v_b(3), v_b(4), ],
+    }, {
+        "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
+        "b": [         s_b(2), s_b(3), s_b(4) ],
+        "expected_a": [ v_a(2), v_a(3), v_a(4) ],
+        "expected_b": [ v_b(2), v_b(3), v_b(4) ],
+    }, {
+        "a": [ s_a(1), s_a(2), s_a(3)         ],
+        "b": [ s_b(1), s_b(2), s_b(3), s_b(4) ],
+        "expected_a": [ v_a(1), v_a(2), v_a(3)],
+        "expected_b": [ v_b(1), v_b(2), v_b(3)],
+    }, {
+        "a": [ s_a(1),  s_a(3),     s_a(5), ],
+        "b": [      s_b(2),   s_b(4),   s_b(6), ],
+        "expected_a": [ v_a(1), v_a(3), v_a(5), ],
+        "expected_b": [ v_b(2), v_b(4), v_b(6),  ],
+    }, {
+        "a": [ s_a(1),                 s_a(4), ],
+        "b": [ s_b(1), s_b(2), s_b(3), s_b(4), ],
+        "expected_a": [ v_a(1), v_a(4), ],
+        "expected_b": [ v_b(1), v_b(4), ],
+    }, {
+        "a": [ s_a(1), s_a(2), s_a(3), s_a(4) ],
+        "b": [ s_b(1100), s_b(1200), s_b(1300), s_b(1400), ],
+        "expected_a": [],
+        "expected_b": [],
+    }, ]
     # fmt: on
 
     for s in inputs:
