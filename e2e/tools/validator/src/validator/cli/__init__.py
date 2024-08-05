@@ -263,10 +263,18 @@ def report_validation_results(
         )
         click.secho(f"\t    MSE : {res.mse}", fg="bright_blue")
         click.secho(f"\t    MAPE: {res.mape}\n", fg="bright_blue")
+        click.secho(f"\t    T-test stat: {res.statistical_tests.t_statistic}", fg="bright_blue")
+        click.secho(f"\t    T-test stat p-value: {res.statistical_tests.t_pvalue}", fg="bright_blue")
+        click.secho(f"\t    F-test stat: {res.statistical_tests.f_statistic}", fg="bright_blue")
+        click.secho(f"\t    F-test stat p-value: {res.statistical_tests.f_pvalue}", fg="bright_blue")
 
         report.h4("Errors")
         report.write(f"  * MSE: {res.mse}\n")
         report.write(f"  * MAPE: {res.mape}\n")
+        report.write(f"  * T-test stat: {res.statistical_tests.t_statistic}\n")
+        report.write(f"  * T-test stat p-value: {res.statistical_tests.t_pvalue}\n")
+        report.write(f"  * F-test stat: {res.statistical_tests.f_statistic}\n")
+        report.write(f"  * F-test stat p-value: {res.statistical_tests.f_pvalue}\n")
         report.flush()
 
         if v.max_mse is not None and res.mse.error is None and res.mse.value > v.max_mse:

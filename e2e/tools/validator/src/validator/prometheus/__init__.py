@@ -6,6 +6,7 @@ from typing import NamedTuple, Protocol
 import numpy as np
 import numpy.typing as npt
 from prometheus_api_client import PrometheusConnect
+from scipy import stats
 
 from validator.config import Prometheus as PromConfig
 
@@ -78,11 +79,19 @@ class ValueOrError(NamedTuple):
         return f"Error: {self.error}"
 
 
+class StatisticalTestResult(NamedTuple):
+    t_statistic: float
+    t_pvalue: float
+    f_statistic: float
+    f_pvalue: float
+
+
 class Result(NamedTuple):
     expected_series: Series
     actual_series: Series
     mse: ValueOrError
     mape: ValueOrError
+    statistical_tests: StatisticalTestResult
 
     def print(self):
         # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
@@ -100,6 +109,12 @@ class Result(NamedTuple):
 
         print(f"MSE : {self.mse}")
         print(f"MAPE: {self.mape}")
+
+        print("\nStatistical Tests:")
+        print(f"T-test statistic: {self.statistical_tests.t_statistic}")
+        print(f"T-test p-value: {self.statistical_tests.t_pvalue}")
+        print(f"F-test statistic: {self.statistical_tests.f_statistic}")
+        print(f"F-test p-value: {self.statistical_tests.f_pvalue}")
         print("\t\t\t\t━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
@@ -131,6 +146,22 @@ def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
+
+
+def perform_statistical_tests(actual: Series, expected: Series) -> StatisticalTestResult:
+    actual_values = np.array(actual.values)
+    expected_values = np.array(expected.values)
+
+    # Perform t-test for comparing means
+    t_statistic, t_pvalue = stats.ttest_ind(actual_values, expected_values)
+
+    # Perform F-test for comparing variances
+    f_statistic = np.var(actual_values, ddof=1) / np.var(expected_values, ddof=1)
+    dfn = len(actual_values) - 1  # degrees of freedom numerator
+    dfd = len(expected_values) - 1  # degrees of freedom denominator
+    f_pvalue = 2 * min(stats.f.cdf(f_statistic, dfn, dfd), stats.f.sf(f_statistic, dfn, dfd))
+
+    return StatisticalTestResult(t_statistic, t_pvalue, f_statistic, f_pvalue)
 
 
 def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
@@ -242,9 +273,12 @@ class Comparator:
 
         expected, actual = filter_by_equal_timestamps(expected_series, actual_series)
 
+        statistical_tests = perform_statistical_tests(actual, expected)
+
         return Result(
             mse=mse(actual.values, expected.values),
             mape=mape(actual.values, expected.values),
             expected_series=expected_series,
             actual_series=actual_series,
+            statistical_tests=statistical_tests,
         )
