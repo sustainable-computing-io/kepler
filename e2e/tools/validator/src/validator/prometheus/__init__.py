@@ -73,7 +73,7 @@ class ValueOrError(NamedTuple):
 
     def __str__(self) -> str:
         if self.error is None:
-            return str(self.value)
+            return f"{self.value:.2f}"
 
         return f"Error: {self.error}"
 
@@ -138,11 +138,14 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
     filter_by_equal_timestamps will filter out samples from a and b
     that have the same timestamp.
     E.g. given
-        a: (t1, a1), (t2, a2), (t3, a3)
-        b: (t1, b1), (t3, b3)
+        a: (t1, a1), (t2,   a2),               (t3, a3)
+        b: (t1, b1), (t2+d, b2), (t2 + X, b3),          (t4, b4)
+    where
+        d is less than (t2 - t1)
+        X is > (t2 - t1)
     it returns
-        a: (t1, a1), (t3, a3)
-        b: (t1, b1), (t3, b3)
+        a: (t1, a1), (t2,   a2)
+        b: (t1, b1), (t2+d, b2)
     """
 
     filtered_a = []
@@ -150,8 +153,12 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
 
     idx_a, idx_b = 0, 0
 
+    a_interval = a.samples[1].timestamp - a.samples[0].timestamp
+    b_interval = b.samples[1].timestamp - b.samples[0].timestamp
+    scrape_interval = min(a_interval, b_interval)
+
     while idx_a < len(a.samples) and idx_b < len(b.samples):
-        if a.samples[idx_a].timestamp == b.samples[idx_b].timestamp:
+        if abs(b.samples[idx_b].timestamp - a.samples[idx_a].timestamp) < scrape_interval:
             filtered_a.append(a.samples[idx_a])
             filterd_b.append(b.samples[idx_b])
             idx_a += 1
@@ -234,13 +241,22 @@ class Comparator:
         self,
         start: datetime,
         end: datetime,
-        expected_query: str,
         actual_query: str,
+        expected_query: str,
     ) -> Result:
         expected_series = self.single_series(expected_query, start, end)
         actual_series = self.single_series(actual_query, start, end)
 
         expected, actual = filter_by_equal_timestamps(expected_series, actual_series)
+
+        expected_dropped = len(expected_series.samples) - len(expected.samples)
+        actual_dropped = len(actual_series.samples) - len(actual.samples)
+        if expected_dropped > 0 or actual_dropped > 0:
+            logger.warning(
+                "dropped %d samples from expected and %d samples from actual",
+                expected_dropped,
+                actual_dropped,
+            )
 
         return Result(
             mse=mse(actual.values, expected.values),
