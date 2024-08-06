@@ -20,29 +20,22 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const (
+	// Per /sys/kernel/debug/tracing/events/irq/softirq_entry/format
+	// { 0, "HI" }, { 1, "TIMER" }, { 2, "NET_TX" }, { 3, "NET_RX" }, { 4, "BLOCK" }, { 5, "IRQ_POLL" }, { 6, "TASKLET" }, { 7, "SCHED" }, { 8, "HRTIMER" }, { 9, "RCU" }
+
+	// IRQ vector to IRQ number
+	IRQNetTX = 2
+	IRQNetRX = 3
+	IRQBlock = 4
+)
+
+type ProcessMetrics = keplerProcessMetricsT
+
 type Exporter interface {
 	SupportedMetrics() SupportedMetrics
 	Detach()
-	CollectProcesses() (ProcessMetricsCollection, error)
-	Start(<-chan struct{}) error
-}
-
-type ProcessMetrics struct {
-	CGroupID        uint64
-	Pid             uint64
-	ProcessRunTime  uint64
-	CPUCyles        uint64
-	CPUInstructions uint64
-	CacheMiss       uint64
-	PageCacheHit    uint64
-	NetTxIRQ        uint64
-	NetRxIRQ        uint64
-	NetBlockIRQ     uint64
-}
-
-type ProcessMetricsCollection struct {
-	Metrics   []ProcessMetrics
-	FreedPIDs []int
+	CollectProcesses() ([]ProcessMetrics, error)
 }
 
 type SupportedMetrics struct {

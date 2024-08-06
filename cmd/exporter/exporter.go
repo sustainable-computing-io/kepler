@@ -150,11 +150,6 @@ func main() {
 		klog.Fatalf("failed to create eBPF exporter: %v", err)
 	}
 	defer bpfExporter.Detach()
-	stopCh := make(chan struct{})
-	bpfErrCh := make(chan error)
-	go func() {
-		bpfErrCh <- bpfExporter.Start(stopCh)
-	}()
 
 	m := manager.New(bpfExporter)
 
@@ -204,8 +199,6 @@ func main() {
 	select {
 	case err := <-errChan:
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
-	case err := <-bpfErrCh:
-		klog.Fatalf("%s", fmt.Sprintf("failed to start eBPF exporter: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
 		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
