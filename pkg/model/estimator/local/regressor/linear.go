@@ -31,7 +31,7 @@ func NewLinearPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) == 0 {
 		return &LinearPredictor{ModelWeights: weight}, nil
 	}
-	return nil, ErrModelWeightsInvalid
+	return nil, errModelWeightsInvalid
 }
 
 func (p *LinearPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
