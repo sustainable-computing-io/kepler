@@ -17,7 +17,6 @@ limitations under the License.
 package bpf
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -26,7 +25,6 @@ type Exporter interface {
 	Detach()
 	CollectProcesses() (ProcessMetricsCollection, error)
 	Start(<-chan struct{}) error
-	RegisterMetrics(registry *prometheus.Registry)
 }
 
 type ProcessMetrics struct {
