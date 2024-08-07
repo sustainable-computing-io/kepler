@@ -1,0 +1,290 @@
+@startuml
+skinparam noteBorderColor Black
+skinparam noteBorderThickness 1
+skinparam noteBackgroundColor Yellow
+skinparam legendBackgroundColor WhiteSmoke
+
+skinparam sequence {
+	BoxBorderColor Black
+	BoxFontSize 20
+
+	ArrowColor Black
+	ArrowThickness 1
+
+	ActorBorderColor Black
+	ActorBorderThickness 3
+	ActorBackgroundColor Business
+	ActorFontSize 15
+
+	ParticipantBorderColor Black
+	ParticipantBorderThickness 1
+	ParticipantBackgroundColor Business
+	ParticipantFontSize 15
+
+	LifeLineBorderColor Black
+	LifeLineBorderThickness 1
+	LifeLineBackgroundColor LightGray
+}
+
+legend top right
+|= |= Legend |
+|<back:Business>   </back>| Participants from this project |
+|<back:LightBlue>   </back>| Participants external to the project |
+|<back:Yellow>   </back>| Notes |
+endlegend
+
+actor "User"
+participant Exporter
+participant "Mertics.PrometheusCollector"
+participant "Prometheus.Client_golang.registry" #LightBlue
+participant config
+participant pkg.sensors.components.power
+participant pkg.sensors.platform.power
+participant pkg.sensors.platform.source.redfish
+participant pkg.sensors.platform.source.acpi
+participant pkg.bpf
+participant pkg.collector.stats
+participant pkg.sensors.accelerator
+participant pkg.manager
+participant pkg.collector
+participant pkg.model
+participant pkg.collector.resourceutilization.bpf
+participant pkg.collector.energy
+participant pkg.metrics
+participant pkg.kubernetes
+participant "net.http" #LightBlue
+
+== Initialization ==
+autonumber
+
+User -> Exporter: Start Kepler
+
+Exporter -> Mertics.PrometheusCollector : GetRegistry()
+Mertics.PrometheusCollector --> Exporter:  *prometheus.Registry
+Exporter -> Prometheus.Client_golang.registry: MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "kepler_exporter_build_info", ...))
+Prometheus.Client_golang.registry --> Exporter: return
+
+Exporter -> config : SetEnabledEBPFCgroupID()
+config --> Exporter: return
+Exporter -> config : SetEnabledHardwareCounterMetrics()
+config --> Exporter: return
+Exporter -> config : SetEnabledGPU()
+config --> Exporter: return
+Exporter -> config : SetEnabledIdlePower()
+config --> Exporter: return
+Exporter -> config : SetKubeConfig()
+config --> Exporter: return
+Exporter -> config : SetEnableAPIServer()
+config --> Exporter: return
+Exporter -> pkg.sensors.components.power : InitPowerImpl()
+pkg.sensors.components.power -> pkg.sensors.components.power: powerImpl powerInterface = &source.PowerSysfs{}
+
+create PowerSysfs
+pkg.sensors.components.power -> PowerSysfs: sysfsImpl := &source.PowerSysfs{}
+pkg.sensors.components.power -> PowerSysfs: sysfsImpl.IsSystemCollectionSupported()
+PowerSysfs --> pkg.sensors.components.power: bool
+alt "sysfsImpl.IsSystemCollectionSupported = true"
+pkg.sensors.components.power -> pkg.sensors.components.power: powerImpl = sysfsImpl
+pkg.sensors.components.power --> Exporter: return
+end
+
+create PowerMSR
+pkg.sensors.components.power -> PowerMSR: msrImpl := &source.PowerMSR{}
+pkg.sensors.components.power -> PowerMSR: msrImpl.IsSystemCollectionSupported()
+PowerMSR --> pkg.sensors.components.power: bool
+alt "msrImpl.IsSystemCollectionSupported = true && config.EnabledMSR"
+pkg.sensors.components.power -> pkg.sensors.components.power: powerImpl = msrImpl
+pkg.sensors.components.power --> Exporter: return
+end
+
+create ApmXgeneSysfs
+pkg.sensors.components.power -> ApmXgeneSysfs: apmXgeneSysfsImpl := &source.ApmXgeneSysfs{}
+pkg.sensors.components.power -> ApmXgeneSysfs: apmXgeneSysfsImpl.IsSystemCollectionSupported()
+ApmXgeneSysfs --> pkg.sensors.components.power: bool
+alt "ApmXgeneSysfs.IsSystemCollectionSupported = true"
+pkg.sensors.components.power -> pkg.sensors.components.power: powerImpl = ApmXgeneSysfs
+pkg.sensors.components.power --> Exporter: return
+end
+
+create PowerEstimate
+pkg.sensors.components.power -> PowerEstimate: estimateImpl := &source.PowerEstimate{}
+PowerEstimate --> pkg.sensors.components.power:  &source.PowerEstimate{}
+pkg.sensors.components.power -> pkg.sensors.components.power: powerImpl = estimateImpl
+pkg.sensors.components.power --> Exporter: return
+
+Exporter -> pkg.sensors.platform.power : InitPowerImpl()
+pkg.sensors.platform.power-> pkg.sensors.platform.power: powerImpl powerInterface = &dummy{}
+
+alt "runtime.GOARCH == "s390x""
+  create PowerHMC
+  pkg.sensors.platform.power ->PowerHMC: powerImpl = &source.PowerHMC{}
+
+else "redfish := source.NewRedfishClient(); redfish != nil && redfish.IsSystemCollectionSupported() "
+  pkg.sensors.platform.power -> pkg.sensors.platform.source.redfish: source.NewRedfishClient()
+  pkg.sensors.platform.source.redfish --> pkg.sensors.platform.power: *RedFishClient
+  pkg.sensors.platform.power -> pkg.sensors.platform.power: powerImpl = redfish
+
+else "acpi := source.NewACPIPowerMeter(config.GetMockACPIPowerPath()); acpi != nil && acpi.CollectEnergy"
+  pkg.sensors.platform.power -> pkg.sensors.platform.source.acpi: source.NewACPIPowerMeter(config.GetMockACPIPowerPath())
+  pkg.sensors.platform.source.acpi -> pkg.sensors.platform.source.acpi: acpi := &ACPI{powerPath: hwmonPowerPath}
+  pkg.sensors.platform.source.acpi -> pkg.sensors.platform.source.acpi: acpi.IsHWMONCollectionSupported()
+
+  alt "acpi.IsHWMONCollectionSupported() == true"
+    pkg.sensors.platform.source.acpi -> pkg.sensors.platform.source.acpi: acpi.CollectEnergy = true
+
+  else "acpi.IsHWMONCollectionSupported() == false"
+    pkg.sensors.platform.source.acpi -> pkg.sensors.platform.source.acpi: findACPIPowerPath()
+    alt "acpi.powerPath != "" "
+      pkg.sensors.platform.source.acpi -> pkg.sensors.platform.source.acpi: acpi.CollectEnergy = true
+    end
+    pkg.sensors.platform.source.acpi --> pkg.sensors.platform.power:*ACPI
+  end
+
+  pkg.sensors.platform.power -> pkg.sensors.platform.power: powerImpl = acpi
+end
+
+pkg.sensors.platform.power --> Exporter: return
+
+Exporter -> pkg.bpf: bpf.NewExporter()
+pkg.bpf --> Exporter : (Exporter, error)
+
+Exporter -> pkg.collector.stats: stats.InitAvailableParamAndMetrics()
+note right
+	AvailableAbsEnergyMetrics = []string{
+		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
+		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
+	}
+	AvailableDynEnergyMetrics = []string{
+		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
+		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
+	}
+	AvailableIdleEnergyMetrics = []string{
+		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
+		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
+	}
+end note
+
+Exporter -> Exporter: config.EnabledGPU ?
+
+alt "config.EnabledGPU"
+Exporter -> pkg.sensors.accelerator : GetRegistry()
+pkg.sensors.accelerator --> Exporter: return *Registry
+
+Exporter -> pkg.sensors.accelerator: New(accelerator.GPU, true)
+pkg.sensors.accelerator --> Exporter: return (Accelerator, error)
+
+Exporter -> pkg.sensors.accelerator : MustRegister(Accelerator)
+pkg.sensors.accelerator --> Exporter: return
+end
+
+Exporter -> pkg.manager: m := manager.New(bpfExporter)
+pkg.manager -> pkg.bpf: supportedMetrics := bpfExporter.SupportedMetrics()
+pkg.bpf --> pkg.manager: SupportedMetrics
+pkg.manager -> pkg.collector: manager.StatsCollector = collector.NewCollector(bpfExporter)
+pkg.collector --> pkg.manager: *Collector
+pkg.manager -> pkg.metrics: manager.PrometheusCollector = exporter.NewPrometheusExporter(supportedMetrics)
+pkg.metrics --> pkg.manager: *PrometheusExporter
+pkg.manager -> pkg.metrics: manager.PrometheusCollector.NewProcessCollector(manager.StatsCollector.ProcessStats)
+pkg.manager -> pkg.metrics:return
+pkg.manager -> pkg.metrics: manager.PrometheusCollector.NewContainerCollector(manager.StatsCollector.ContainerStats)
+pkg.manager -> pkg.metrics:return
+pkg.manager -> pkg.metrics: manager.PrometheusCollector.NewVMCollector(manager.StatsCollector.VMStats)
+pkg.manager -> pkg.metrics:return
+pkg.manager -> pkg.metrics: manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
+pkg.manager -> pkg.metrics:return
+
+pkg.manager -> pkg.kubernetes: kubernetes.NewObjListWatcher(supportedMetrics)
+pkg.kubernetes --> pkg.manager: *ObjListWatcher
+pkg.manager -> pkg.kubernetes: manager.Watcher.Run()
+pkg.kubernetes --> pkg.manager: return
+
+pkg.manager --> Exporter: return *CollectorManager
+
+note right
+type CollectorManager struct {
+	// StatsCollector is responsible to collect resource and energy consumption metrics and calculate them when needed
+	StatsCollector *collector.Collector
+
+	// PrometheusCollector implements the external Collector interface provided by the Prometheus client
+	PrometheusCollector *exporter.PrometheusExporter
+
+	// Watcher register in the kubernetes apiserver to watch for pod events to add or remove it from the ContainerStats map
+	Watcher *kubernetes.ObjListWatcher
+}
+end note
+
+Exporter -> pkg.manager: reg := m.PrometheusCollector.RegisterMetrics()
+pkg.manager --> Exporter: return *prometheus.Registry
+
+Exporter -> pkg.manager: startErr := m.Start()
+pkg.manager -> pkg.collector: m.StatsCollector.Initialize()
+pkg.collector -> pkg.model: model.CreatePowerEstimatorModels()
+pkg.model --> pkg.collector: return
+pkg.collector --> pkg.manager: return
+
+loop
+pkg.manager -> pkg.collector: m.StatsCollector.Update()
+pkg.collector -> pkg.collector: updateResourceUtilizationMetrics()
+pkg.collector -> pkg.collector: updateProcessResourceUtilizationMetrics()
+pkg.collector -> pkg.collector.resourceutilization.bpf: UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
+pkg.collector.resourceutilization.bpf -> pkg.bpf: bpfExporter.CollectProcesses()
+note right
+Get process samples from maps
+end note
+pkg.bpf --> pkg.collector.resourceutilization.bpf: return
+pkg.collector.resourceutilization.bpf --> pkg.collector: return
+pkg.collector --> pkg.collector: return
+pkg.collector -> pkg.collector: AggregateProcessResourceUtilizationMetrics()
+pkg.collector --> pkg.collector: return
+
+pkg.collector -> pkg.collector: UpdateEnergyUtilizationMetrics()
+pkg.collector -> pkg.collector: UpdateNodeEnergyUtilizationMetrics()
+  pkg.collector -> pkg.collector.energy: UpdateNodeEnergyMetrics(NodeStats)
+    pkg.collector.energy -> pkg.collector.energy: UpdateNodeComponentsEnergy()
+    pkg.collector.energy -> pkg.collector.energy: UpdateNodeGPUEnergy()
+    pkg.collector.energy -> pkg.collector.energy: UpdatePlatformEnergy()
+    pkg.collector.energy -> pkg.collector.energy: UpdateNodeIdleEnergy()
+    pkg.collector.energy -> pkg.stats: nodeStats.UpdateDynEnergy()
+    pkg.stats --> pkg.stats: return
+    pkg.collector.energy -> pkg.stats: nodeStats.SetNodeOtherComponentsEnergy()
+    pkg.stats --> pkg.stats: return
+  pkg.collector.energy --> pkg.collector: return
+pkg.collector --> pkg.collector: UpdateNodeEnergyUtilizationMetrics() return
+
+pkg.collector -> pkg.collector: UpdateProcessEnergyUtilizationMetrics()
+  pkg.collector -> pkg.collector.energy: UpdateProcessEnergy()
+    pkg.collector.energy -> pkg.model: UpdateProcessEnergy()
+    note right
+    UpdateProcessEnergy resets the power model samples, add new samples to the power models, then estimates the idle and dynamic energy
+    end note
+    pkg.model --> pkg.collector.energy: return
+  pkg.collector.energy -->pkg.collector: return
+pkg.collector --> pkg.collector: UpdateProcessEnergyUtilizationMetrics() return
+  note right
+    UpdateProcessEnergyUtilizationMetrics Aggregates processes' utilization metrics to containers and virtual machines
+  end note
+pkg.collector -> pkg.collector: AggregateProcessEnergyUtilizationMetrics()
+
+pkg.collector --> pkg.collector: AggregateProcessEnergyUtilizationMetrics() return
+pkg.collector --> pkg.collector: UpdateEnergyUtilizationMetrics() return
+end
+pkg.manager --> Exporter: error
+
+note right
+If there's an error just log it and keep going
+end note
+
+Exporter -> config : metricPathConfig := config.GetMetricPath(*metricsPath)
+config --> Exporter: return string
+Exporter -> config : bindAddressConfig := config.GetBindAddress(*address)
+config --> Exporter: return string
+
+Exporter -> Exporter: ...
+note left
+The rest of the initialization starts up the http server to respond to http requests
+and sets up the handlers for SIGINT and SIGTERM
+end note
+
+==  ==
+
+@enduml
