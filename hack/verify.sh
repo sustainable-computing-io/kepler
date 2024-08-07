@@ -62,6 +62,10 @@ check_deployment_status() {
 log_kepler() {
 	run kubectl logs -n "$KEPLER_NS" daemonset/"$EXPORTER" | tee "$ARTIFACT_DIR/kepler.log"
 }
+
+exec_kepler() {
+	run kubectl exec -ti -n kepler daemonset/kepler-exporter curl "localhost:9102/metrics" |grep ^kepler_
+}
 watch_service() {
 	local port="$1"
 	local ns="$2"
@@ -72,6 +76,8 @@ watch_service() {
 
 intergration_test() {
 	log_kepler &
+	# dump metrics before running tests
+	exec_kepler &
 
 	local ret=0
 	go test ./e2e/integration-test/... -v --race --bench=. -cover --count=1 --vet=all \
@@ -81,7 +87,8 @@ intergration_test() {
 	{ jobs -p | xargs -I {} -- pkill -TERM -P {}; } || true
 	wait
 	sleep 1
-
+	# read metrics again
+	exec_kepler &
 	return $ret
 }
 
