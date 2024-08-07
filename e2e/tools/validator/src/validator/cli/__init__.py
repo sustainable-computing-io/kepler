@@ -8,15 +8,15 @@ import logging
 import os
 import subprocess
 import typing
+from dataclasses import dataclass
 
 import click
 
 from validator import config
 from validator.__about__ import __version__
 from validator.cli import options
-from validator.prometheus import Comparator, PrometheusClient, Series
-from validator.specs import HostReporter
-from validator.specs import Reporter as SpecReporter
+from validator.prometheus import Comparator, PrometheusClient, Series, ValueOrError
+from validator.specs import MachineSpec, get_host_spec, get_vm_spec
 from validator.stresser import Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate, Validation
 
@@ -24,9 +24,67 @@ logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
 
 
-class Report(typing.NamedTuple):
-    path: str
-    results_dir: str
+@dataclass
+class ValidationResult:
+    name: str
+    actual: str
+    expected: str
+    mse: ValueOrError
+    mape: ValueOrError
+    mse_passed: bool = True
+    mape_passed: bool = True
+    unexpected_error: str = ""
+
+    def __init__(self, name: str, actual: str, expected: str) -> None:
+        self.name = name
+        self.actual = actual
+        self.expected = expected
+
+    @property
+    def verdict(self) -> str:
+        if self.unexpected_error or self.mse.error or self.mape.error:
+            return "ERROR"
+
+        if self.mse_passed and self.mape_passed:
+            return "PASS"
+
+        return "FAIL"
+
+
+@dataclass
+class ValidationResults:
+    started_at: datetime.datetime
+    ended_at: datetime.datetime
+    results: list[ValidationResult]
+
+    @property
+    def passed(self) -> bool:
+        return all(r.verdict == "PASS" for r in self.results)
+
+
+@dataclass
+class TestResult:
+    tag: str
+    start_time: datetime.datetime
+    end_time: datetime.datetime
+    build_info: list[str]
+    node_info: list[str]
+
+    host_spec: MachineSpec
+
+    validations: ValidationResults
+
+    vm_spec: MachineSpec | None = None
+
+    def __init__(self, tag: str) -> None:
+        self.tag = tag
+
+    @property
+    def duration(self) -> datetime.timedelta:
+        return self.end_time - self.start_time
+
+
+class MarkdownReport(typing.NamedTuple):
     file: typing.TextIO
 
     def write(self, text: str) -> None:
@@ -53,23 +111,94 @@ class Report(typing.NamedTuple):
     def code(self, text: str) -> None:
         self.write(f"```\n{text}\n```\n")
 
+    def li(self, text: str) -> None:
+        self.write(f"   - {text}\n")
 
-def new_report(report_dir: str) -> Report:
+    def table(self, headers: list[str], rows: list[list[str]]) -> None:
+        self.write("| " + " | ".join(headers) + " |\n")
+        self.write("| " + " | ".join(["---" for _ in headers]) + " |\n")
+        for row in rows:
+            self.write("| " + " | ".join(row) + " |\n")
+
+    def add_machine_spec(self, title: str, ms: MachineSpec):
+        self.h3(title)
+        self.table(
+            ["Model", "Sockets", "Cores", "Threads", "Flags"],
+            [
+                [
+                    ms.cpu_spec.model,
+                    ms.cpu_spec.sockets,
+                    ms.cpu_spec.cores,
+                    ms.cpu_spec.threads,
+                    f"`{ms.cpu_spec.flags}`",
+                ]
+            ],
+        )
+
+
+def write_md_report(results_dir: str, r: TestResult):
+    path = os.path.join(results_dir, f"report-{r.tag}.md")
+    # ruff: noqa: SIM115 : suppressed use context handler
+    md = MarkdownReport(open(path, "w"))
+
+    md.h1(r.tag)
+    md.h2("Build Info")
+    for x in r.build_info:
+        md.li(f"`{x}`")
+
+    md.h2("Machine Specs")
+    md.add_machine_spec("Host", r.host_spec)
+    if r.vm_spec is not None:
+        md.add_machine_spec("VM", r.vm_spec)
+
+    md.h2("Validation Results")
+    md.li(f"Started At: `{r.start_time}`")
+    md.li(f"Ended   At: `{r.end_time}`")
+    md.li(f"Duration  : `{r.duration}`")
+
+    md.h2("Validations")
+    md.h3("Summary")
+    md.table(
+        ["Name", "MSE", "MAPE", "Pass / Fail"],
+        [
+            [v.name, f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
+            for v in r.validations.results
+            if not v.unexpected_error
+        ],
+    )
+
+    md.h3("Details")
+    for v in r.validations.results:
+        md.h4(v.name)
+        md.write("\n**Queries**:\n")
+        md.li(f"Actual  : `{v.actual}`")
+        md.li(f"Expected: `{v.expected}`")
+
+        if v.unexpected_error:
+            md.write("\n**Errors**:\n")
+            md.code(v.unexpected_error)
+            continue
+
+        md.write("\n**Results**:\n")
+        md.li(f"MSE  : `{v.mse}`")
+        md.li(f"MAPE : `{v.mape} %`")
+
+    md.flush()
+    md.close()
+
+    click.secho("Report Generated ", fg="bright_green")
+    click.secho(f" * report: {path} ", fg="bright_green")
+    click.secho(f" * time-range:   {r.start_time} - {r.end_time}", fg="bright_green")
+
+
+def create_report_dir(report_dir: str) -> tuple[str, str]:
     # run git describe command and get the output as the report name
     git_describe = subprocess.run(["/usr/bin/git", "describe", "--tag"], stdout=subprocess.PIPE, check=False)
     tag = git_describe.stdout.decode().strip()
 
     results_dir = os.path.join(report_dir, f"validator-{tag}")
     os.makedirs(results_dir, exist_ok=True)
-
-    path = os.path.join(report_dir, f"report-{tag}.md")
-    # ruff: noqa: SIM115 (Suppressed check for missing context manager as we are explicitly closing it once report is generated)
-    file = open(path, "w")
-
-    r = Report(path, results_dir, file)
-    r.h1(tag)
-
-    return r
+    return results_dir, tag
 
 
 def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series):
@@ -140,22 +269,27 @@ def validator(ctx: click.Context, config_file: str, log_level: str):
 @pass_config
 def stress(cfg: config.Validator, script_path: str, report_dir: str):
     # run git describe command and get the output as the report name
-    click.secho("  * Generating report file and dir", fg="green")
-    report = new_report(report_dir)
-    click.secho(f"\treport: {report.path}", fg="bright_green")
-    click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
+    click.secho("  * Generating report dir and tag", fg="green")
+    results_dir, tag = create_report_dir(report_dir)
+    click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
 
-    report_kepler_info(report, cfg.prometheus)
+    res = TestResult(tag)
+
+    res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
 
     click.secho("  * Generating spec report ...", fg="green")
-    sr = SpecReporter(cfg.metal, cfg.remote)
-    sr.write(report.file)
+    res.host_spec = get_host_spec()
+    res.vm_spec = get_vm_spec(cfg.remote)
 
     click.secho("  * Running stress test ...", fg="green")
     remote = Remote(cfg.remote)
     stress_test = remote.run_script(script_path)
+    res.start_time = stress_test.start_time
+    res.end_time = stress_test.end_time
 
-    generate_validation_report(report, cfg, stress_test)
+    res.validations = run_validations(cfg, stress_test, results_dir)
+
+    write_md_report(results_dir, res)
 
 
 @validator.command()
@@ -173,41 +307,44 @@ def gen_report(cfg: config.Validator, start: datetime.datetime, end: datetime.da
     """
     Run only validation based on previously stress test
     """
-    report = new_report(report_dir)
-    report_kepler_info(report, cfg.prometheus)
-    generate_spec_report(report, cfg)
-    result = ScriptResult(start, end)
-    generate_validation_report(report, cfg, result)
+    click.secho("  * Generating report dir and tag", fg="green")
+    results_dir, tag = create_report_dir(report_dir)
+    click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
 
+    res = TestResult(tag)
+    res.start_time = start
+    res.end_time = end
 
-def generate_spec_report(report: Report, cfg: config.Validator):
+    res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
+
     click.secho("  * Generating spec report ...", fg="green")
-    sr = SpecReporter(cfg.metal, cfg.remote)
-    sr.write(report.file)
+    res.host_spec = get_host_spec()
+    res.vm_spec = get_vm_spec(cfg.remote)
+
+    script_result = ScriptResult(start, end)
+    res.validations = run_validations(cfg, script_result, results_dir)
+
+    write_md_report(results_dir, res)
 
 
-def report_kepler_info(report: Report, prom_config: config.Prometheus):
+def get_build_and_node_info(prom_config: config.Prometheus) -> tuple[list[str], list[str]]:
     prom = PrometheusClient(prom_config)
     build_info = prom.kepler_build_info()
 
     click.secho("\n  * Build Info", fg="green")
-    report.h2("Build Info")
     for bi in build_info:
         click.secho(f"    - {bi}", fg="cyan")
-        report.write(f"  * `{bi}`\n")
 
     node_info = prom.kepler_node_info()
     click.secho("\n  * Node Info", fg="green")
-    report.h2("Node Info")
     for ni in node_info:
         click.secho(f"    - {ni}", fg="cyan")
-        report.write(f"  * `{ni}`\n")
 
     click.echo()
-    report.flush()
+    return build_info, node_info
 
 
-def generate_validation_report(report: Report, cfg: config.Validator, test: ScriptResult):
+def run_validations(cfg: config.Validator, test: ScriptResult, results_dir: str) -> ValidationResults:
     start_time, end_time = test.start_time, test.end_time
 
     click.secho("  * Generating validation report", fg="green")
@@ -215,80 +352,62 @@ def generate_validation_report(report: Report, cfg: config.Validator, test: Scri
     click.secho(f"   - ended   at: {end_time}", fg="green")
     click.secho(f"   - duration  : {end_time - start_time}", fg="green")
 
-    report.h2("Validation Results")
-    report.write(f"   * Started At: `{start_time}`\n")
-    report.write(f"   * Ended   At: `{end_time}`\n")
-    report.write(f"   * Duration  : `{end_time - start_time}`\n\n")
-
     click.secho("\nRun validations", fg="green")
     prom = PrometheusClient(cfg.prometheus)
     comparator = Comparator(prom)
+
     validations = Loader(cfg).load()
-    all_validation_ok = True
-    for v in validations:
-        if report_validation_results(report, v, comparator, start_time, end_time) is not True:
-            all_validation_ok = False
-    report.close()
+    results = [run_validation(v, comparator, start_time, end_time, results_dir) for v in validations]
 
-    click.secho("Report Generated ", fg="bright_green")
-    click.secho(f"  time range: {start_time} - {end_time}: ({end_time - start_time}) ", fg="bright_green")
-    click.secho(f"  report: {report.path} ", fg="bright_green")
-    click.secho(f"  dir   : {report.results_dir} ", fg="bright_green")
-
-    return all_validation_ok
+    return ValidationResults(started_at=start_time, ended_at=end_time, results=results)
 
 
-def report_validation_results(
-    report: Report,
+def run_validation(
     v: Validation,
     comparator: Comparator,
     start_time: datetime.datetime,
     end_time: datetime.datetime,
-):
-    click.secho(f"\t * {v.name}", fg="bright_blue")
+    results_dir: str,
+) -> ValidationResult:
+    result = ValidationResult(
+        v.name,
+        v.actual.one_line,
+        v.expected.one_line,
+    )
 
-    report.h3(f"Validate - {v.name}")
-    report.write(f"  * expected:  `{v.expected.one_line}`\n")
-    report.write(f"  * actual:  `{v.actual.one_line}`\n")
-
-    mse_ok = True
-    mape_ok = True
+    click.secho(f"{v.name}", fg="cyan")
+    click.secho(f"  - actual  :  {v.actual.one_line}")
+    click.secho(f"  - expected:  {v.expected.one_line}")
 
     try:
-        res = comparator.compare(
+        cmp = comparator.compare(
             start_time,
             end_time,
-            v.expected.promql,
             v.actual.promql,
+            v.expected.promql,
         )
-        click.secho(f"\t    MSE : {res.mse}", fg="bright_blue")
-        click.secho(f"\t    MAPE: {res.mape}\n", fg="bright_blue")
+        click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
+        click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+        result.mse, result.mape = cmp.mse, cmp.mape
 
-        report.h4("Errors")
-        report.write(f"  * MSE: {res.mse}\n")
-        report.write(f"  * MAPE: {res.mape}\n")
-        report.flush()
+        result.mse_passed = v.max_mse is None or (cmp.mse.error is None and cmp.mse.value <= v.max_mse)
+        result.mape_passed = v.max_mape is None or (cmp.mape.error is None and cmp.mape.value <= v.max_mape)
 
-        if v.max_mse is not None and res.mse.error is None and res.mse.value > v.max_mse:
-            click.secho(f"MSE exceeded threshold. mse: {res.mse.value}, max_mse: {v.max_mse}", fg="red")
-            mse_ok = False
+        if not result.mse_passed:
+            click.secho(f"MSE exceeded threshold. mse: {cmp.mse}, max_mse: {v.max_mse}", fg="red")
 
-        if v.max_mape is not None and res.mape.error is None and res.mape.value > v.max_mape:
-            click.secho(f"MAPE exceeded threshold. mape: {res.mape.value}, max_mape: {v.max_mape}", fg="red")
-            mape_ok = False
+        if not result.mape_passed:
+            click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
 
-        dump_query_result(report.results_dir, v.expected, res.expected_series)
-        dump_query_result(report.results_dir, v.actual, res.actual_series)
+        dump_query_result(results_dir, v.expected, cmp.expected_series)
+        dump_query_result(results_dir, v.actual, cmp.actual_series)
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         click.secho(f"\t    {v.name} failed: {e} ", fg="red")
         click.secho(f"\t    Error: {e} ", fg="yellow")
+        result.unexpected_error = str(e)
 
-        report.h4("Unexpected Error")
-        report.code(str(e))
-        report.flush()
-
-    return mse_ok and mape_ok
+    return result
 
 
 @validator.command()
@@ -302,20 +421,23 @@ def report_validation_results(
     show_default=True,
 )
 @pass_config
-def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str):
-    click.secho("  * Generating validate acpi report file and dir", fg="green")
-    report = new_report(report_dir)
-    click.secho(f"\treport: {report.path}", fg="bright_green")
-    click.secho(f"\tresults dir: {report.results_dir}", fg="bright_green")
+def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str) -> int:
+    results_dir, tag = create_report_dir(report_dir)
+    res = TestResult(tag)
 
-    report_kepler_info(report, cfg.prometheus)
+    res.end_time = datetime.datetime.now(tz=datetime.UTC)
+    res.start_time = res.end_time - duration
+
+    click.secho("  * Generating build and node info ...", fg="green")
+    res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
 
     click.secho("  * Generating spec report ...", fg="green")
-    sr = HostReporter(cfg.metal)
-    sr.write(report.file)
+    res.host_spec = get_host_spec()
 
-    # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
-    end_time = datetime.datetime.now()
-    start_time = end_time - duration
-    s = ScriptResult(start_time, end_time)
-    return generate_validation_report(report, cfg, s)
+    script_result = ScriptResult(res.start_time, res.end_time)
+    res.validations = run_validations(cfg, script_result, results_dir)
+
+    click.secho("  * Generating validate acpi report file and dir", fg="green")
+    write_md_report(results_dir, res)
+
+    return int(res.validations.passed)
