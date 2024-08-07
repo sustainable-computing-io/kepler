@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 
@@ -53,31 +52,14 @@ type CPUS struct {
 	cpusInfo []CPUModelData
 }
 
-func InitAvailableParamAndMetrics() {
-	AvailableAbsEnergyMetrics = []string{
-		config.AbsEnergyInCore, config.AbsEnergyInDRAM, config.AbsEnergyInUnCore, config.AbsEnergyInPkg,
-		config.AbsEnergyInGPU, config.AbsEnergyInOther, config.AbsEnergyInPlatform,
-	}
-	AvailableDynEnergyMetrics = []string{
-		config.DynEnergyInCore, config.DynEnergyInDRAM, config.DynEnergyInUnCore, config.DynEnergyInPkg,
-		config.DynEnergyInGPU, config.DynEnergyInOther, config.DynEnergyInPlatform,
-	}
-	AvailableIdleEnergyMetrics = []string{
-		config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
-		config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
-	}
+func RegisterBPFStats(counters []string) {
+	AvailableBPFMetrics = counters
 }
 
-func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
+func GetProcessFeatureNames() []string {
 	var metrics []string
-	// bpf software counter metrics
-	for counterKey := range bpfSupportedMetrics.SoftwareCounters {
-		metrics = append(metrics, counterKey)
-	}
-	// bpf hardware counter metrics
-	for counterKey := range bpfSupportedMetrics.HardwareCounters {
-		metrics = append(metrics, counterKey)
-	}
+	// bpf counter metrics
+	metrics = append(metrics, AvailableBPFMetrics...)
 	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric

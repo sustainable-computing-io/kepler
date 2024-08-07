@@ -32,7 +32,9 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/jaypipes/ghw"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
@@ -104,6 +106,7 @@ func NewExporter() (Exporter, error) {
 	if err != nil {
 		e.Detach()
 	}
+	e.registerBPFStats()
 	return e, err
 }
 
@@ -118,6 +121,11 @@ func (e *exporter) SupportedMetrics() SupportedMetrics {
 		HardwareCounters: e.enabledHardwareCounters.Clone(),
 		SoftwareCounters: e.enabledSoftwareCounters.Clone(),
 	}
+}
+
+func (e *exporter) registerBPFStats() {
+	counters := append(append([]string{}, maps.Keys(e.enabledHardwareCounters)...), maps.Keys(e.enabledSoftwareCounters)...)
+	stats.RegisterBPFStats(counters)
 }
 
 func (e *exporter) attach() error {

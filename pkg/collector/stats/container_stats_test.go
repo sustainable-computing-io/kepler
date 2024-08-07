@@ -19,7 +19,6 @@ package stats
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
@@ -27,7 +26,7 @@ var _ = Describe("Test Container Metric", func() {
 
 	It("Test ResetDeltaValues", func() {
 		SetMockedCollectorMetrics()
-		c := NewContainerStats("containerA", "podA", "test", "containerIDA", bpf.DefaultSupportedMetrics())
+		c := NewContainerStats("containerA", "podA", "test", "containerIDA")
 		c.ResourceUsage[config.CPUCycle].SetDeltaStat(MockedSocketID, 30000)
 		c.ResourceUsage[config.CPUInstruction].SetDeltaStat(MockedSocketID, 30000)
 		c.ResourceUsage[config.CacheMiss].SetDeltaStat(MockedSocketID, 30000)
