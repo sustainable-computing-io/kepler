@@ -17,21 +17,17 @@ limitations under the License.
 package bpf
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
 	"runtime"
-	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/jaypipes/ghw"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,78 +35,29 @@ import (
 )
 
 type exporter struct {
-	bpfObjects      keplerObjects
-	cpus            int
+	bpfObjects keplerObjects
+
 	schedSwitchLink link.Link
 	irqLink         link.Link
 	pageWriteLink   link.Link
 	pageReadLink    link.Link
-	processFreeLink link.Link
 
 	perfEvents *hardwarePerfEvents
 
 	enabledHardwareCounters sets.Set[string]
 	enabledSoftwareCounters sets.Set[string]
-
-	eventsRead      prometheus.Counter
-	eventsProcessed prometheus.Counter
-	channelDepth    prometheus.GaugeFunc
-
-	// Locks processMetrics and freedPIDs.
-	// Acquired in CollectProcesses - to prevent new events from being processed
-	// while summarizing the metrics and resetting the counters.
-	// Acquired in handleEvents - to prevent CollectProcesses from summarizing
-	// the metrics while we're handling an event from the ring buffer.
-	// Note: Release this lock as soon as possible as it will block the
-	// processing of new events from the ring buffer.
-	mu             *sync.Mutex
-	processMetrics map[uint32]*bpfMetrics
-	freedPIDs      []int
-
-	ringbufReader *ringbuf.Reader
-	eventsChan    chan *keplerEvent
 }
 
 func NewExporter() (Exporter, error) {
 	e := &exporter{
-		cpus:                    ebpf.MustPossibleCPU(),
 		enabledHardwareCounters: sets.New[string](),
 		enabledSoftwareCounters: sets.New[string](),
-		mu:                      &sync.Mutex{},
-		processMetrics:          make(map[uint32]*bpfMetrics),
-		eventsChan:              make(chan *keplerEvent, 1024),
 	}
-	e.eventsRead = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "kepler_bpf_exporter_events_read_total",
-		Help: "Total number of events read from the ring buffer.",
-	})
-	e.eventsProcessed = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "kepler_bpf_exporter_events_processed_total",
-		Help: "Total number of events processed.",
-	})
-	e.channelDepth = prometheus.NewGaugeFunc(
-		prometheus.GaugeOpts{
-			Name: "kepler_bpf_exporter_events_channel_depth",
-			Help: "Current depth of the events channel",
-		},
-		func() float64 {
-			if e.eventsChan == nil {
-				return 0
-			}
-			return float64(len(e.eventsChan))
-		},
-	)
 	err := e.attach()
 	if err != nil {
 		e.Detach()
 	}
 	return e, err
-}
-
-func (e *exporter) RegisterMetrics(registry *prometheus.Registry) {
-	registry.MustRegister(e.eventsRead)
-	registry.MustRegister(e.eventsProcessed)
-	registry.MustRegister(e.channelDepth)
 }
 
 func (e *exporter) SupportedMetrics() SupportedMetrics {
@@ -142,20 +89,20 @@ func (e *exporter) attach() error {
 		}
 	}
 
+	// Set program global variables
+	err = specs.RewriteConstants(map[string]interface{}{
+		"SAMPLE_RATE": int32(config.BPFSampleRate),
+	})
+	if err != nil {
+		return fmt.Errorf("error rewriting program constants: %v", err)
+	}
+
 	// Load the eBPF program(s)
 	if err := specs.LoadAndAssign(&e.bpfObjects, nil); err != nil {
 		return fmt.Errorf("error loading eBPF objects: %v", err)
 	}
 
 	// Attach the eBPF program(s)
-	e.processFreeLink, err = link.AttachTracing(link.TracingOptions{
-		Program:    e.bpfObjects.KeplerSchedProcessFree,
-		AttachType: ebpf.AttachTraceRawTp,
-	})
-	if err != nil {
-		return fmt.Errorf("error attaching sched_process_free tracepoint: %v", err)
-	}
-
 	e.schedSwitchLink, err = link.AttachTracing(link.TracingOptions{
 		Program:    e.bpfObjects.KeplerSchedSwitchTrace,
 		AttachType: ebpf.AttachTraceRawTp,
@@ -245,229 +192,38 @@ func (e *exporter) Detach() {
 	}
 
 	// Perf events
-	if e.perfEvents != nil {
-		e.perfEvents.close()
-		e.perfEvents = nil
-	}
+	e.perfEvents.close()
+	e.perfEvents = nil
 
 	// Objects
 	e.bpfObjects.Close()
 }
 
-func (e *exporter) Start(stopChan <-chan struct{}) error {
-	var err error
-	e.ringbufReader, err = ringbuf.NewReader(e.bpfObjects.Rb)
-	if err != nil {
-		return fmt.Errorf("failed to create ring buffer reader: %w", err)
-	}
-	defer e.ringbufReader.Close()
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go e.ringBufReader(wg, stopChan)
-	go e.eventProcessor(wg, stopChan)
-	wg.Wait()
-
-	return nil
-}
-
-func (e *exporter) ringBufReader(wg *sync.WaitGroup, stopChan <-chan struct{}) {
-	defer wg.Done()
+func (e *exporter) CollectProcesses() ([]ProcessMetrics, error) {
+	start := time.Now()
+	// Get the max number of entries in the map
+	maxEntries := e.bpfObjects.Processes.MaxEntries()
+	total := 0
+	deleteKeys := make([]uint32, maxEntries)
+	deleteValues := make([]ProcessMetrics, maxEntries)
+	var cursor ebpf.MapBatchCursor
 	for {
-		var record *ringbuf.Record
-
-		select {
-		case <-stopChan:
-			return
-		default:
-			var event keplerEvent
-			record = new(ringbuf.Record)
-
-			err := e.ringbufReader.ReadInto(record)
-			if err != nil {
-				if errors.Is(err, ringbuf.ErrClosed) {
-					return
-				}
-				if errors.Is(err, ringbuf.ErrFlushed) {
-					record.RawSample = record.RawSample[:0]
-				}
-				klog.Errorf("reading from reader: %s", err)
-				continue
-			}
-
-			if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.NativeEndian, &event); err != nil {
-				klog.Errorf("parsing ringbuf event: %s", err)
-				continue
-			}
-			// process events on another channel to avoid blocking the ring buffer reader
-			e.eventsChan <- &event
-			e.eventsRead.Inc()
+		count, err := e.bpfObjects.Processes.BatchLookupAndDelete(
+			&cursor,
+			deleteKeys,
+			deleteValues,
+			&ebpf.BatchOptions{},
+		)
+		total += count
+		if errors.Is(err, ebpf.ErrKeyNotExist) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to batch lookup and delete: %v", err)
 		}
 	}
-}
-
-func (e *exporter) eventProcessor(wg *sync.WaitGroup, stopChan <-chan struct{}) {
-	defer wg.Done()
-	for {
-		select {
-		case <-stopChan:
-			return
-		case event := <-e.eventsChan:
-			e.mu.Lock()
-
-			var p *bpfMetrics
-
-			if _, ok := e.processMetrics[event.Pid]; !ok {
-				e.processMetrics[event.Pid] = newBpfMetrics()
-			}
-			p = e.processMetrics[event.Pid]
-
-			switch event.EventType {
-			case uint64(keplerEventTypeSCHED_SWITCH):
-				// Handle the new task going on CPU
-				p.CPUCyles.Start(event.CpuId, event.Tid, event.CpuCycles)
-				p.CPUInstructions.Start(event.CpuId, event.Tid, event.CpuInstr)
-				p.CacheMiss.Start(event.CpuId, event.Tid, event.CacheMiss)
-				p.CPUTime.Start(event.CpuId, event.Tid, event.Ts)
-
-				// Handle the task going OFF CPU
-				if _, ok := e.processMetrics[event.OffcpuPid]; !ok {
-					e.processMetrics[event.OffcpuPid] = newBpfMetrics()
-				}
-				offcpu := e.processMetrics[event.OffcpuPid]
-				offcpu.CPUCyles.Stop(event.CpuId, event.OffcpuTid, event.CpuCycles)
-				offcpu.CPUInstructions.Stop(event.CpuId, event.OffcpuTid, event.CpuInstr)
-				offcpu.CacheMiss.Stop(event.CpuId, event.OffcpuTid, event.CacheMiss)
-				offcpu.CPUTime.Stop(event.CpuId, event.OffcpuTid, event.Ts)
-				offcpu.CGroupID = event.OffcpuCgroupId
-			case uint64(keplerEventTypePAGE_CACHE_HIT):
-				p.PageCacheHit += 1
-			case uint64(keplerEventTypeIRQ):
-				switch event.IrqNumber {
-				case uint32(keplerIrqTypeNET_TX):
-					p.TxIRQ += 1
-				case uint32(keplerIrqTypeNET_RX):
-					p.RxIRQ += 1
-				case uint32(keplerIrqTypeBLOCK):
-					p.BlockIRQ += 1
-				}
-			case uint64(keplerEventTypeFREE):
-				e.freedPIDs = append(e.freedPIDs, int(event.Pid))
-			}
-			e.mu.Unlock()
-			e.eventsProcessed.Inc()
-		}
-	}
-}
-
-type bpfMetrics struct {
-	CGroupID        uint64
-	CPUCyles        PerCPUCounter
-	CPUInstructions PerCPUCounter
-	CacheMiss       PerCPUCounter
-	CPUTime         PerCPUCounter
-	TxIRQ           uint64
-	RxIRQ           uint64
-	BlockIRQ        uint64
-	PageCacheHit    uint64
-}
-
-func (p *bpfMetrics) Reset() {
-	p.CPUCyles.Reset()
-	p.CPUInstructions.Reset()
-	p.CacheMiss.Reset()
-	p.CPUTime.Reset()
-	p.TxIRQ = 0
-	p.RxIRQ = 0
-	p.BlockIRQ = 0
-	p.PageCacheHit = 0
-}
-
-func newBpfMetrics() *bpfMetrics {
-	return &bpfMetrics{
-		CPUCyles:        NewPerCPUCounter(),
-		CPUInstructions: NewPerCPUCounter(),
-		CacheMiss:       NewPerCPUCounter(),
-		CPUTime:         NewPerCPUCounter(),
-	}
-}
-
-type PerCPUCounter struct {
-	Values map[uint64]uint64
-	Total  uint64
-}
-
-func NewPerCPUCounter() PerCPUCounter {
-	return PerCPUCounter{
-		Values: make(map[uint64]uint64),
-	}
-}
-
-func (p *PerCPUCounter) Start(cpu, taskID uint32, value uint64) {
-	key := uint64(cpu)<<32 | uint64(taskID)
-
-	// TODO: The eBPF code would blindly overwrite the value if it already exists.
-	// We will preserve the old behavior for now, but we should consider
-	// returning an error if the value already exists.
-	p.Values[key] = value
-}
-
-func (p *PerCPUCounter) Stop(cpu, taskID uint32, value uint64) {
-	if value == 0 {
-		return
-	}
-
-	key := uint64(cpu)<<32 | uint64(taskID)
-
-	if _, ok := p.Values[key]; !ok {
-		return
-	}
-
-	delta := uint64(0)
-
-	// Probably a clock issue where the recorded on-CPU event had a
-	// timestamp later than the recorded off-CPU event, or vice versa.
-	if value > p.Values[key] {
-		delta = value - p.Values[key]
-	}
-
-	p.Total += delta
-
-	delete(p.Values, key)
-}
-
-func (p *PerCPUCounter) Reset() {
-	// Leave values in place since we may have in-flight
-	p.Total = 0
-}
-
-func (e *exporter) CollectProcesses() (ProcessMetricsCollection, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	result := ProcessMetricsCollection{
-		Metrics:   make([]ProcessMetrics, len(e.processMetrics)),
-		FreedPIDs: e.freedPIDs,
-	}
-	for pid, m := range e.processMetrics {
-		result.Metrics = append(result.Metrics, ProcessMetrics{
-			CGroupID:        m.CGroupID,
-			Pid:             uint64(pid),
-			ProcessRunTime:  m.CPUTime.Total / 1000, // convert nanoseconds to milliseconds
-			CPUCyles:        m.CPUCyles.Total,
-			CPUInstructions: m.CPUInstructions.Total,
-			CacheMiss:       m.CacheMiss.Total,
-			PageCacheHit:    m.PageCacheHit,
-			NetTxIRQ:        m.TxIRQ,
-			NetRxIRQ:        m.RxIRQ,
-			NetBlockIRQ:     m.BlockIRQ,
-		})
-		m.Reset()
-	}
-	// Clear the cache of any PIDs freed this sample period
-	e.freedPIDs = []int{}
-
-	return result, nil
+	klog.V(5).Infof("collected %d process samples in %v", total, time.Since(start))
+	return deleteValues[:total], nil
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -525,12 +281,12 @@ func (h *hardwarePerfEvents) close() {
 func createHardwarePerfEvents(cpuInstructionsMap, cpuCyclesMap, cacheMissMap *ebpf.Map, numCPU int) (*hardwarePerfEvents, error) {
 	var err error
 	events := &hardwarePerfEvents{
-		cpuCyclesPerfEvents:       make([]int, 0, numCPU),
-		cpuInstructionsPerfEvents: make([]int, 0, numCPU),
-		cacheMissPerfEvents:       make([]int, 0, numCPU),
+		cpuCyclesPerfEvents:       []int{},
+		cpuInstructionsPerfEvents: []int{},
+		cacheMissPerfEvents:       []int{},
 	}
 	defer func() {
-		if err != nil && events != nil {
+		if err != nil {
 			unixClosePerfEvents(events.cpuCyclesPerfEvents)
 			unixClosePerfEvents(events.cpuInstructionsPerfEvents)
 			unixClosePerfEvents(events.cacheMissPerfEvents)

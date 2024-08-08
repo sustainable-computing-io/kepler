@@ -12,37 +12,18 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type keplerEvent struct {
-	EventType      uint64
-	Ts             uint64
-	Pid            uint32
-	Tid            uint32
-	OffcpuPid      uint32
-	OffcpuTid      uint32
-	OffcpuCgroupId uint64
+type keplerProcessMetricsT struct {
+	CgroupId       uint64
+	Pid            uint64
+	ProcessRunTime uint64
 	CpuCycles      uint64
 	CpuInstr       uint64
 	CacheMiss      uint64
-	CpuId          uint32
-	IrqNumber      uint32
+	PageCacheHit   uint64
+	VecNr          [10]uint16
+	Comm           [16]int8
+	_              [4]byte
 }
-
-type keplerEventType uint32
-
-const (
-	keplerEventTypeSCHED_SWITCH   keplerEventType = 1
-	keplerEventTypeIRQ            keplerEventType = 2
-	keplerEventTypePAGE_CACHE_HIT keplerEventType = 3
-	keplerEventTypeFREE           keplerEventType = 4
-)
-
-type keplerIrqType uint32
-
-const (
-	keplerIrqTypeNET_TX keplerIrqType = 2
-	keplerIrqTypeNET_RX keplerIrqType = 3
-	keplerIrqTypeBLOCK  keplerIrqType = 4
-)
 
 // loadKepler returns the embedded CollectionSpec for kepler.
 func loadKepler() (*ebpf.CollectionSpec, error) {
@@ -85,24 +66,24 @@ type keplerSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type keplerProgramSpecs struct {
-	KeplerIrqTrace             *ebpf.ProgramSpec `ebpf:"kepler_irq_trace"`
-	KeplerReadPageTrace        *ebpf.ProgramSpec `ebpf:"kepler_read_page_trace"`
-	KeplerSchedProcessFree     *ebpf.ProgramSpec `ebpf:"kepler_sched_process_free"`
-	KeplerSchedSwitchTrace     *ebpf.ProgramSpec `ebpf:"kepler_sched_switch_trace"`
-	KeplerWritePageTrace       *ebpf.ProgramSpec `ebpf:"kepler_write_page_trace"`
-	TestKeplerSchedProcessFree *ebpf.ProgramSpec `ebpf:"test_kepler_sched_process_free"`
-	TestKeplerSchedSwitchTrace *ebpf.ProgramSpec `ebpf:"test_kepler_sched_switch_trace"`
-	TestKeplerWritePageTrace   *ebpf.ProgramSpec `ebpf:"test_kepler_write_page_trace"`
+	KeplerIrqTrace         *ebpf.ProgramSpec `ebpf:"kepler_irq_trace"`
+	KeplerReadPageTrace    *ebpf.ProgramSpec `ebpf:"kepler_read_page_trace"`
+	KeplerSchedSwitchTrace *ebpf.ProgramSpec `ebpf:"kepler_sched_switch_trace"`
+	KeplerWritePageTrace   *ebpf.ProgramSpec `ebpf:"kepler_write_page_trace"`
 }
 
 // keplerMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type keplerMapSpecs struct {
+	CacheMiss                  *ebpf.MapSpec `ebpf:"cache_miss"`
 	CacheMissEventReader       *ebpf.MapSpec `ebpf:"cache_miss_event_reader"`
+	CpuCycles                  *ebpf.MapSpec `ebpf:"cpu_cycles"`
 	CpuCyclesEventReader       *ebpf.MapSpec `ebpf:"cpu_cycles_event_reader"`
+	CpuInstructions            *ebpf.MapSpec `ebpf:"cpu_instructions"`
 	CpuInstructionsEventReader *ebpf.MapSpec `ebpf:"cpu_instructions_event_reader"`
-	Rb                         *ebpf.MapSpec `ebpf:"rb"`
+	PidTimeMap                 *ebpf.MapSpec `ebpf:"pid_time_map"`
+	Processes                  *ebpf.MapSpec `ebpf:"processes"`
 }
 
 // keplerObjects contains all objects after they have been loaded into the kernel.
@@ -124,18 +105,26 @@ func (o *keplerObjects) Close() error {
 //
 // It can be passed to loadKeplerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type keplerMaps struct {
+	CacheMiss                  *ebpf.Map `ebpf:"cache_miss"`
 	CacheMissEventReader       *ebpf.Map `ebpf:"cache_miss_event_reader"`
+	CpuCycles                  *ebpf.Map `ebpf:"cpu_cycles"`
 	CpuCyclesEventReader       *ebpf.Map `ebpf:"cpu_cycles_event_reader"`
+	CpuInstructions            *ebpf.Map `ebpf:"cpu_instructions"`
 	CpuInstructionsEventReader *ebpf.Map `ebpf:"cpu_instructions_event_reader"`
-	Rb                         *ebpf.Map `ebpf:"rb"`
+	PidTimeMap                 *ebpf.Map `ebpf:"pid_time_map"`
+	Processes                  *ebpf.Map `ebpf:"processes"`
 }
 
 func (m *keplerMaps) Close() error {
 	return _KeplerClose(
+		m.CacheMiss,
 		m.CacheMissEventReader,
+		m.CpuCycles,
 		m.CpuCyclesEventReader,
+		m.CpuInstructions,
 		m.CpuInstructionsEventReader,
-		m.Rb,
+		m.PidTimeMap,
+		m.Processes,
 	)
 }
 
@@ -143,26 +132,18 @@ func (m *keplerMaps) Close() error {
 //
 // It can be passed to loadKeplerObjects or ebpf.CollectionSpec.LoadAndAssign.
 type keplerPrograms struct {
-	KeplerIrqTrace             *ebpf.Program `ebpf:"kepler_irq_trace"`
-	KeplerReadPageTrace        *ebpf.Program `ebpf:"kepler_read_page_trace"`
-	KeplerSchedProcessFree     *ebpf.Program `ebpf:"kepler_sched_process_free"`
-	KeplerSchedSwitchTrace     *ebpf.Program `ebpf:"kepler_sched_switch_trace"`
-	KeplerWritePageTrace       *ebpf.Program `ebpf:"kepler_write_page_trace"`
-	TestKeplerSchedProcessFree *ebpf.Program `ebpf:"test_kepler_sched_process_free"`
-	TestKeplerSchedSwitchTrace *ebpf.Program `ebpf:"test_kepler_sched_switch_trace"`
-	TestKeplerWritePageTrace   *ebpf.Program `ebpf:"test_kepler_write_page_trace"`
+	KeplerIrqTrace         *ebpf.Program `ebpf:"kepler_irq_trace"`
+	KeplerReadPageTrace    *ebpf.Program `ebpf:"kepler_read_page_trace"`
+	KeplerSchedSwitchTrace *ebpf.Program `ebpf:"kepler_sched_switch_trace"`
+	KeplerWritePageTrace   *ebpf.Program `ebpf:"kepler_write_page_trace"`
 }
 
 func (p *keplerPrograms) Close() error {
 	return _KeplerClose(
 		p.KeplerIrqTrace,
 		p.KeplerReadPageTrace,
-		p.KeplerSchedProcessFree,
 		p.KeplerSchedSwitchTrace,
 		p.KeplerWritePageTrace,
-		p.TestKeplerSchedProcessFree,
-		p.TestKeplerSchedSwitchTrace,
-		p.TestKeplerWritePageTrace,
 	)
 }
 

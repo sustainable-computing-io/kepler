@@ -1,7 +1,6 @@
 package bpf
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -37,10 +36,6 @@ func NewMockExporter(bpfSupportedMetrics SupportedMetrics) Exporter {
 	}
 }
 
-func (m *mockExporter) Start(<-chan struct{}) error {
-	return nil
-}
-
 func (m *mockExporter) SupportedMetrics() SupportedMetrics {
 	return SupportedMetrics{
 		HardwareCounters: m.hardwareCounters,
@@ -50,24 +45,18 @@ func (m *mockExporter) SupportedMetrics() SupportedMetrics {
 
 func (m *mockExporter) Detach() {}
 
-func (m *mockExporter) CollectProcesses() (ProcessMetricsCollection, error) {
-	return ProcessMetricsCollection{
-		Metrics: []ProcessMetrics{
-			{
-				CGroupID:        0,
-				Pid:             0,
-				ProcessRunTime:  0,
-				CPUCyles:        0,
-				CPUInstructions: 0,
-				CacheMiss:       0,
-				PageCacheHit:    0,
-				NetTxIRQ:        0,
-				NetRxIRQ:        0,
-				NetBlockIRQ:     0,
-			},
+func (m *mockExporter) CollectProcesses() ([]ProcessMetrics, error) {
+	return []ProcessMetrics{
+		{
+			CgroupId:       0,
+			Pid:            0,
+			ProcessRunTime: 0,
+			CpuCycles:      0,
+			CpuInstr:       0,
+			CacheMiss:      0,
+			PageCacheHit:   0,
+			VecNr:          [10]uint16{},
+			Comm:           [16]int8{},
 		},
-		FreedPIDs: []int{0},
 	}, nil
 }
-
-func (m *mockExporter) RegisterMetrics(registry *prometheus.Registry) {}

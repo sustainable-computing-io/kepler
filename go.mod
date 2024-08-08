@@ -8,7 +8,7 @@ require (
 	github.com/HabanaAI/gohlml v1.16.0
 	github.com/NVIDIA/go-dcgm v0.0.0-20240118201113-3385e277e49f
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/cilium/ebpf v0.16.0
+	github.com/cilium/ebpf v0.15.0
 	github.com/jaypipes/ghw v0.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/jszwec/csvutil v1.10.0
@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/prometheus v0.53.1
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/sys v0.23.0
+	golang.org/x/sys v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.7
 	k8s.io/apimachinery v0.29.7
