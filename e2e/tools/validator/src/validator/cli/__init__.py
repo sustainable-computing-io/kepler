@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 import typing
 from dataclasses import dataclass
 
@@ -144,6 +145,10 @@ def write_md_report(results_dir: str, r: TestResult):
     md.h1(r.tag)
     md.h2("Build Info")
     for x in r.build_info:
+        md.li(f"`{x}`")
+
+    md.h2("Node Info")
+    for x in r.node_info:
         md.li(f"`{x}`")
 
     md.h2("Machine Specs")
@@ -286,6 +291,10 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     stress_test = remote.run_script(script_path)
     res.start_time = stress_test.start_time
     res.end_time = stress_test.end_time
+
+    # sleep a bit for prometheus to finish scrapping
+    click.secho("  * Sleeping for 10 seconds ...", fg="green")
+    time.sleep(10)
 
     res.validations = run_validations(cfg, stress_test, results_dir)
 
