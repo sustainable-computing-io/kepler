@@ -172,6 +172,14 @@ func (kml *uprobeMultiLink) Update(prog *ebpf.Program) error {
 	return fmt.Errorf("update uprobe_multi: %w", ErrNotSupported)
 }
 
+func (kml *uprobeMultiLink) Pin(string) error {
+	return fmt.Errorf("pin uprobe_multi: %w", ErrNotSupported)
+}
+
+func (kml *uprobeMultiLink) Unpin() error {
+	return fmt.Errorf("unpin uprobe_multi: %w", ErrNotSupported)
+}
+
 var haveBPFLinkUprobeMulti = internal.NewFeatureTest("bpf_link_uprobe_multi", "6.6", func() error {
 	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
 		Name: "probe_upm_link",

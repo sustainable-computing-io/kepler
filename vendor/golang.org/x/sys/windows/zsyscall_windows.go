@@ -478,16 +478,12 @@ var (
 	procGetDesktopWindow                                     = moduser32.NewProc("GetDesktopWindow")
 	procGetForegroundWindow                                  = moduser32.NewProc("GetForegroundWindow")
 	procGetGUIThreadInfo                                     = moduser32.NewProc("GetGUIThreadInfo")
-	procGetKeyboardLayout                                    = moduser32.NewProc("GetKeyboardLayout")
 	procGetShellWindow                                       = moduser32.NewProc("GetShellWindow")
 	procGetWindowThreadProcessId                             = moduser32.NewProc("GetWindowThreadProcessId")
 	procIsWindow                                             = moduser32.NewProc("IsWindow")
 	procIsWindowUnicode                                      = moduser32.NewProc("IsWindowUnicode")
 	procIsWindowVisible                                      = moduser32.NewProc("IsWindowVisible")
-	procLoadKeyboardLayoutW                                  = moduser32.NewProc("LoadKeyboardLayoutW")
 	procMessageBoxW                                          = moduser32.NewProc("MessageBoxW")
-	procToUnicodeEx                                          = moduser32.NewProc("ToUnicodeEx")
-	procUnloadKeyboardLayout                                 = moduser32.NewProc("UnloadKeyboardLayout")
 	procCreateEnvironmentBlock                               = moduserenv.NewProc("CreateEnvironmentBlock")
 	procDestroyEnvironmentBlock                              = moduserenv.NewProc("DestroyEnvironmentBlock")
 	procGetUserProfileDirectoryW                             = moduserenv.NewProc("GetUserProfileDirectoryW")
@@ -788,14 +784,6 @@ func EqualSid(sid1 *SID, sid2 *SID) (isEqual bool) {
 func FreeSid(sid *SID) (err error) {
 	r1, _, e1 := syscall.Syscall(procFreeSid.Addr(), 1, uintptr(unsafe.Pointer(sid)), 0, 0)
 	if r1 != 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
-func GetAce(acl *ACL, aceIndex uint32, pAce **ACCESS_ALLOWED_ACE) (err error) {
-	r1, _, e1 := syscall.Syscall(procGetAce.Addr(), 3, uintptr(unsafe.Pointer(acl)), uintptr(aceIndex), uintptr(unsafe.Pointer(pAce)))
-	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return
@@ -1233,6 +1221,14 @@ func setEntriesInAcl(countExplicitEntries uint32, explicitEntries *EXPLICIT_ACCE
 	r0, _, _ := syscall.Syscall6(procSetEntriesInAclW.Addr(), 4, uintptr(countExplicitEntries), uintptr(unsafe.Pointer(explicitEntries)), uintptr(unsafe.Pointer(oldACL)), uintptr(unsafe.Pointer(newACL)), 0, 0)
 	if r0 != 0 {
 		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func GetAce(acl *ACL, aceIndex uint32, pAce **ACCESS_ALLOWED_ACE) (ret error) {
+	r0, _, _ := syscall.Syscall(procGetAce.Addr(), 3, uintptr(unsafe.Pointer(acl)), uintptr(aceIndex), uintptr(unsafe.Pointer(pAce)))
+	if r0 == 0 {
+		ret = GetLastError()
 	}
 	return
 }
@@ -4086,12 +4082,6 @@ func GetGUIThreadInfo(thread uint32, info *GUIThreadInfo) (err error) {
 	return
 }
 
-func GetKeyboardLayout(tid uint32) (hkl Handle) {
-	r0, _, _ := syscall.Syscall(procGetKeyboardLayout.Addr(), 1, uintptr(tid), 0, 0)
-	hkl = Handle(r0)
-	return
-}
-
 func GetShellWindow() (shellWindow HWND) {
 	r0, _, _ := syscall.Syscall(procGetShellWindow.Addr(), 0, 0, 0, 0)
 	shellWindow = HWND(r0)
@@ -4125,33 +4115,10 @@ func IsWindowVisible(hwnd HWND) (isVisible bool) {
 	return
 }
 
-func LoadKeyboardLayout(name *uint16, flags uint32) (hkl Handle, err error) {
-	r0, _, e1 := syscall.Syscall(procLoadKeyboardLayoutW.Addr(), 2, uintptr(unsafe.Pointer(name)), uintptr(flags), 0)
-	hkl = Handle(r0)
-	if hkl == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
 func MessageBox(hwnd HWND, text *uint16, caption *uint16, boxtype uint32) (ret int32, err error) {
 	r0, _, e1 := syscall.Syscall6(procMessageBoxW.Addr(), 4, uintptr(hwnd), uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(caption)), uintptr(boxtype), 0, 0)
 	ret = int32(r0)
 	if ret == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
-func ToUnicodeEx(vkey uint32, scancode uint32, keystate *byte, pwszBuff *uint16, cchBuff int32, flags uint32, hkl Handle) (ret int32) {
-	r0, _, _ := syscall.Syscall9(procToUnicodeEx.Addr(), 7, uintptr(vkey), uintptr(scancode), uintptr(unsafe.Pointer(keystate)), uintptr(unsafe.Pointer(pwszBuff)), uintptr(cchBuff), uintptr(flags), uintptr(hkl), 0, 0)
-	ret = int32(r0)
-	return
-}
-
-func UnloadKeyboardLayout(hkl Handle) (err error) {
-	r1, _, e1 := syscall.Syscall(procUnloadKeyboardLayout.Addr(), 1, uintptr(hkl), 0, 0)
-	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return
