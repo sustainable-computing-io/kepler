@@ -64,8 +64,9 @@ log_kepler() {
 }
 
 exec_kepler() {
-	run kubectl exec -ti -n kepler daemonset/kepler-exporter curl "localhost:9102/metrics" |grep ^kepler_
+	run kubectl exec -n "$KEPLER_NS" daemonset/"$EXPORTER" -- curl "localhost:9102/metrics" |grep ^kepler_
 }
+
 watch_service() {
 	local port="$1"
 	local ns="$2"
@@ -78,7 +79,6 @@ intergration_test() {
 	log_kepler &
 	# dump metrics before running tests
 	exec_kepler &
-
 	local ret=0
 	go test ./e2e/integration-test/... -v --race --bench=. -cover --count=1 --vet=all \
 		2>&1 | tee "$ARTIFACT_DIR/e2e.log" || ret=1

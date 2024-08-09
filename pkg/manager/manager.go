@@ -24,6 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 	exporter "github.com/sustainable-computing-io/kepler/pkg/metrics"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -42,6 +43,7 @@ type CollectorManager struct {
 }
 
 func New(bpfExporter bpf.Exporter) *CollectorManager {
+	var err error
 	manager := &CollectorManager{}
 	supportedMetrics := bpfExporter.SupportedMetrics()
 	manager.StatsCollector = collector.NewCollector(bpfExporter)
@@ -52,10 +54,14 @@ func New(bpfExporter bpf.Exporter) *CollectorManager {
 	manager.PrometheusCollector.NewVMCollector(manager.StatsCollector.VMStats)
 	manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
 	// configure the watcher
-	manager.Watcher = kubernetes.NewObjListWatcher(supportedMetrics)
+	if manager.Watcher, err = kubernetes.NewObjListWatcher(supportedMetrics); err != nil {
+		klog.Errorf("could not create the watcher, %v", err)
+	}
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
 	manager.Watcher.ContainerStats = manager.StatsCollector.ContainerStats
-	manager.Watcher.Run()
+	if err = manager.Watcher.Run(); err != nil {
+		klog.Errorf("could not run the watcher %v", err)
+	}
 	return manager
 }
 
@@ -78,4 +84,8 @@ func (m *CollectorManager) Start() error {
 	}()
 
 	return nil
+}
+
+func (m *CollectorManager) Stop() {
+	m.Watcher.ShutDownWithDrain()
 }
