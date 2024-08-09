@@ -39,13 +39,14 @@ const (
 
 // ModelRequest defines a request to Kepler Model Server to get model weights
 type ModelRequest struct {
-	MetricNames  []string `json:"metrics"`
-	OutputType   string   `json:"output_type"`
-	EnergySource string   `json:"source"`
-	NodeType     int      `json:"node_type"`
-	Weight       bool     `json:"weight"`
-	TrainerName  string   `json:"trainer_name"`
-	SelectFilter string   `json:"filter"`
+	MetricNames  []string           `json:"metrics"`
+	OutputType   string             `json:"output_type"`
+	EnergySource string             `json:"source"`
+	NodeType     int                `json:"node_type"`
+	Weight       bool               `json:"weight"`
+	TrainerName  string             `json:"trainer_name"`
+	SelectFilter string             `json:"filter"`
+	Spec         config.MachineSpec `json:"spec"`
 }
 
 // Predictor defines required implementation for power prediction
@@ -77,6 +78,7 @@ type Regressor struct {
 	enabled         bool
 	modelWeight     *ComponentModelWeights
 	modelPredictors map[string]Predictor
+	*config.MachineSpec
 }
 
 // Start returns nil if model weight is obtainable
@@ -127,6 +129,7 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 		SelectFilter: r.SelectFilter,
 		NodeType:     defaultNodeType,
 		Weight:       true,
+		Spec:         *r.MachineSpec,
 	}
 	modelRequestJSON, err := json.Marshal(modelRequest)
 	if err != nil {
