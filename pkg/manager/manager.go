@@ -24,6 +24,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
 	exporter "github.com/sustainable-computing-io/kepler/pkg/metrics"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -53,6 +54,10 @@ func New(bpfExporter bpf.Exporter) *CollectorManager {
 	manager.PrometheusCollector.NewNodeCollector(&manager.StatsCollector.NodeStats)
 	// configure the watcher
 	manager.Watcher = kubernetes.NewObjListWatcher(supportedMetrics)
+	if manager.Watcher == nil {
+		klog.Error("could not create the watcher")
+		return nil
+	}
 	manager.Watcher.Mx = &manager.PrometheusCollector.Mx
 	manager.Watcher.ContainerStats = manager.StatsCollector.ContainerStats
 	manager.Watcher.Run()
