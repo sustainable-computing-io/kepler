@@ -79,6 +79,7 @@ var (
 	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
 	exposeEstimatedIdlePower     = flag.Bool("expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
+	bpfDebugMetricsEnabled       = flag.Bool("bpf-debug-metrics", false, "whether to enable debug metrics for eBPF")
 )
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -150,6 +151,15 @@ func main() {
 		klog.Fatalf("failed to create eBPF exporter: %v", err)
 	}
 	defer bpfExporter.Detach()
+	if *bpfDebugMetricsEnabled {
+		bpfExporter.RegisterMetrics(registry)
+	}
+
+	stopCh := make(chan struct{})
+	bpfErrCh := make(chan error)
+	go func() {
+		bpfErrCh <- bpfExporter.Start(stopCh)
+	}()
 
 	m := manager.New(bpfExporter)
 
@@ -199,6 +209,8 @@ func main() {
 	select {
 	case err := <-errChan:
 		klog.Fatalf("%s", fmt.Sprintf("failed to listen and serve: %v", err))
+	case err := <-bpfErrCh:
+		klog.Fatalf("%s", fmt.Sprintf("failed to start eBPF exporter: %v", err))
 	case <-signalChan:
 		klog.Infof("Received shutdown signal")
 		ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))

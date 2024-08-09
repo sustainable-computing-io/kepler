@@ -176,7 +176,6 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 .PHONY: generate
 generate: ## Generate BPF code locally.
 	+@$(GOENV) go generate ./pkg/bpf
-	+@$(GOENV) go generate ./pkg/bpftest
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -275,7 +274,7 @@ container_test:
 
 TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep -v pkg/bpf | grep -v e2e)
 SUDO?=sudo
-SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpftest)
+SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpf)
 
 ##@ testing
 
@@ -305,9 +304,9 @@ bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
 		-tags $(GO_TEST_TAGS) \
 		-cover \
 		--covermode=atomic \
-		./pkg/bpftest
+		./pkg/bpf
 	$(SUDO) $(ENVTEST_ASSETS_DIR)/ginkgo \
-		./pkg/bpftest/bpftest.test
+		./pkg/bpf/bpf.test
 
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
