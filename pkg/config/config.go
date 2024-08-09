@@ -18,6 +18,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -107,6 +108,7 @@ var (
 	redfishSkipSSLVerify          = getBoolConfig("REDFISH_SKIP_SSL_VERIFY", true)
 
 	////////////////////////////////////
+	MachineSpecKey      = "MACHINE_SPEC"
 	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
 	ModelServerEndpoint = SetModelServerReqEndpoint()
 	// for model config
@@ -243,6 +245,22 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 
 func GetMockACPIPowerPath() string {
 	return MockACPIPowerPath
+}
+
+// GetMachineSpec initializes map of MachineSpecValues from MACHINE_SPEC
+func GetMachineSpec() *MachineSpec {
+	var spec MachineSpec
+	if specStr := getConfig(MachineSpecKey, ""); specStr != "" {
+		if err := json.Unmarshal([]byte(specStr), &spec); err == nil {
+			klog.Infof("Read machine spec from config: %v", spec)
+			return &spec
+		} else {
+			klog.Infof("failed to unmarshal machine spec %s: %v", specStr, err)
+		}
+	}
+	genSpec := generateSpec()
+	klog.Infof("Generate machine spec: %v", spec)
+	return genSpec
 }
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
