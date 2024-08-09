@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	NodePlatformPowerModel PowerModelInterface
+	nodePlatformPowerModel PowerModelInterface
 )
 
 // CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
@@ -47,7 +47,7 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatur
 		modelConfig.IsNodePowerModel = true
 		// init func for NodeTotalPower
 		var err error
-		NodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
+		nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {
 			klog.V(1).Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		} else {
@@ -58,27 +58,27 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatur
 
 // IsNodePlatformPowerModelEnabled returns if the estimator has been enabled or not
 func IsNodePlatformPowerModelEnabled() bool {
-	if NodePlatformPowerModel == nil {
+	if nodePlatformPowerModel == nil {
 		return false
 	}
-	return NodePlatformPowerModel.IsEnabled()
+	return nodePlatformPowerModel.IsEnabled()
 }
 
 // GetNodePlatformPower returns a single estimated value of node total power
 func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platformEnergy map[string]uint64) {
-	if NodePlatformPowerModel == nil {
+	if nodePlatformPowerModel == nil {
 		klog.Errorln("Node Platform Power Model was not created")
 	}
 	platformEnergy = map[string]uint64{}
 	if !isIdlePower {
 		// reset power model features sample list for new estimation
-		NodePlatformPowerModel.ResetSampleIdx()
+		nodePlatformPowerModel.ResetSampleIdx()
 		// converts to node metrics map to array to add the samples to the power model
 		// the featureList is defined in the container power model file and the features varies accordingly to the selected power model
-		featureValues := nodeMetrics.ToEstimatorValues(NodePlatformPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
-		NodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
+		featureValues := nodeMetrics.ToEstimatorValues(nodePlatformPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
+		nodePlatformPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
 	}
-	powers, err := NodePlatformPowerModel.GetPlatformPower(isIdlePower)
+	powers, err := nodePlatformPowerModel.GetPlatformPower(isIdlePower)
 	if err != nil {
 		klog.Infof("Failed to get node platform power %v\n", err)
 		return

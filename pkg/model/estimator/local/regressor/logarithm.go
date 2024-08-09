@@ -26,7 +26,7 @@ type LogarithmicPredictor struct {
 
 func NewLogarithmicPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) != 3 {
-		return nil, ErrModelWeightsInvalid
+		return nil, errModelWeightsInvalid
 	}
 	return &LogarithmicPredictor{ModelWeights: weight}, nil
 }

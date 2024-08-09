@@ -19,15 +19,6 @@ package types
 type ModelType int
 type ModelOutputType int
 
-var (
-	ModelOutputTypeConverter = []string{
-		"AbsPower", "DynPower",
-	}
-	ModelTypeConverter = []string{
-		"Ratio", "Regressor", "EstimatorSidecar",
-	}
-)
-
 const (
 	// Power Model types
 	Ratio            ModelType = iota + 1 // estimation happens within kepler without using Model Server
@@ -42,12 +33,10 @@ const (
 	DynPower
 	Unsupported
 )
-
-var (
+const (
 	// Define energy source
 	PlatformEnergySource    = "acpi"
 	ComponentEnergySource   = "intel_rapl"
-	GPUEnergySource         = "nvidia"
 	TrainedPowerModelSource = "trained_power_model"
 
 	// KeplerModelServerSync: define regressor trainer name.
@@ -57,16 +46,28 @@ var (
 	ExponentialTrainer      = "ExponentialRegressionTrainer"
 )
 
+func getModelOutputTypeConverter() []string {
+	return []string{
+		"AbsPower", "DynPower",
+	}
+}
+
+func getModelTypeConverter() []string {
+	return []string{
+		"Ratio", "Regressor", "EstimatorSidecar",
+	}
+}
+
 func (s ModelOutputType) String() string {
-	if int(s) <= len(ModelOutputTypeConverter) {
-		return ModelOutputTypeConverter[s-1]
+	if int(s) <= len(getModelOutputTypeConverter()) {
+		return getModelOutputTypeConverter()[s-1]
 	}
 	return "unknown"
 }
 
 func (s ModelType) String() string {
-	if int(s) <= len(ModelTypeConverter) {
-		return ModelTypeConverter[s-1]
+	if int(s) <= len(getModelTypeConverter()) {
+		return getModelTypeConverter()[s-1]
 	}
 	return "unknown"
 }

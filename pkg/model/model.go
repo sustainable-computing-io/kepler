@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2021-2024
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,14 +31,11 @@ import (
 )
 
 const (
-	idlePower = true  // idlePower is used to define if the function will update idle power
-	absPower  = false // absPower is used to define if the function will NOT update idle power, but instead an absolute power
-	gauge     = true  // gauge is used to define if the function will update a gauge value
-	counter   = false // gauge is used to define if the function will NOT update a gauge value, but instead a counter value
-)
-
-var (
-	EstimatorSidecarSocket = "/tmp/estimator.sock"
+	idlePower              = true  // idlePower is used to define if the function will update idle power
+	absPower               = false // absPower is used to define if the function will NOT update idle power, but instead an absolute power
+	gauge                  = true  // gauge is used to define if the function will update a gauge value
+	counter                = false // counter is used to define if the function will update a counter value
+	estimatorSidecarSocket = "/tmp/estimator.sock"
 )
 
 // PowerModelInterface defines the power model skeleton
@@ -129,7 +126,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 			featuresNames = modelConfig.ProcessFeatureNames
 		}
 		model := &sidecar.EstimatorSidecar{
-			Socket:                      EstimatorSidecarSocket,
+			Socket:                      estimatorSidecarSocket,
 			OutputType:                  modelConfig.ModelOutputType,
 			TrainerName:                 modelConfig.TrainerName,
 			SelectFilter:                modelConfig.SelectFilter,
