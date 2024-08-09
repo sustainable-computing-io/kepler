@@ -22,6 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
 )
@@ -34,8 +35,10 @@ var (
 	NodePlatformPowerModel PowerModelInterface
 )
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
-func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+// CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node platform power metrics are not available
+func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames []string) {
+	systemMetaDataFeatureNames := node.MetadataFeatureNames()
+	systemMetaDataFeatureValues := node.MetadataFeatureValues()
 	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
 		if modelConfig.InitModelURL == "" {

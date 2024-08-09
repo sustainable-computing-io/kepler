@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2021-2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,19 +21,9 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
-)
-
-var (
-	NodeName            = GetNodeName()
-	NodeCPUArchitecture = getCPUArch()
-	NodeCPUPackageMap   = getCPUPackageMap()
-
-	// NodeMetricNames holds the name of the system metadata information.
-	NodeMetadataFeatureNames []string = []string{"cpu_architecture"}
-	// SystemMetadata holds the metadata regarding the system information
-	NodeMetadataFeatureValues []string = []string{NodeCPUArchitecture}
 )
 
 type NodeStats struct {
@@ -41,12 +31,16 @@ type NodeStats struct {
 
 	// IdleResUtilization is used to determine idle pmap[string]eriods
 	IdleResUtilization map[string]uint64
+
+	// nodeInfo allows access to node information
+	nodeInfo node.Node
 }
 
 func NewNodeStats(bpfSupportedMetrics bpf.SupportedMetrics) *NodeStats {
 	return &NodeStats{
 		Stats:              *NewStats(bpfSupportedMetrics),
 		IdleResUtilization: map[string]uint64{},
+		nodeInfo:           node.NewNodeInfo(),
 	}
 }
 
@@ -141,4 +135,20 @@ func (ne *NodeStats) String() string {
 	return fmt.Sprintf("node energy (mJ): \n"+
 		"%v\n", ne.Stats.String(),
 	)
+}
+
+func (ne *NodeStats) MetadataFeatureNames() []string {
+	return ne.nodeInfo.MetadataFeatureNames()
+}
+
+func (ne *NodeStats) MetadataFeatureValues() []string {
+	return ne.nodeInfo.MetadataFeatureValues()
+}
+
+func (ne *NodeStats) CPUArchitecture() string {
+	return ne.nodeInfo.CPUArchitecture()
+}
+
+func (ne *NodeStats) NodeName() string {
+	return ne.nodeInfo.Name()
 }

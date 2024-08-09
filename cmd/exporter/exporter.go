@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics"
@@ -133,8 +132,6 @@ func main() {
 	platform.InitPowerImpl()
 	defer platform.StopPower()
 
-	stats.InitAvailableParamAndMetrics()
-
 	if config.EnabledGPU {
 		r := accelerator.GetRegistry()
 		if a, err := accelerator.New(accelerator.GPU, true); err == nil {
@@ -152,6 +149,9 @@ func main() {
 	defer bpfExporter.Detach()
 
 	m := manager.New(bpfExporter)
+	if m == nil {
+		klog.Fatal("could not create a collector manager")
+	}
 
 	// starting a CollectorManager instance to collect data and report metrics
 	if startErr := m.Start(); startErr != nil {

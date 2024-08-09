@@ -33,9 +33,6 @@ var _ = Describe("ProcessPower", func() {
 	var (
 		processStats map[uint64]*stats.ProcessStats
 		nodeStats    stats.NodeStats
-
-		systemMetaDataFeatureNames  = []string{"cpu_architecture"}
-		systemMetaDataFeatureValues = []string{"Sandy Bridge"}
 	)
 
 	Context("with manually defined node power", func() {
@@ -69,7 +66,7 @@ var _ = Describe("ProcessPower", func() {
 
 			// getEstimatorMetrics
 			bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
-			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
+			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power
@@ -105,7 +102,7 @@ var _ = Describe("ProcessPower", func() {
 
 			// getEstimatorMetrics
 			bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
-			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
+			CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power

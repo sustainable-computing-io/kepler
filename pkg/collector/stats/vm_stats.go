@@ -18,17 +18,6 @@ package stats
 
 import "github.com/sustainable-computing-io/kepler/pkg/bpf"
 
-var (
-	// VMMetricNames holds the list of names of the vm metric
-	VMMetricNames []string
-	// VMFloatFeatureNames holds the feature name of the vm float stats. This is specific for the machine-learning based models.
-	VMFloatFeatureNames []string = []string{}
-	// VMUintFeaturesNames holds the feature name of the vm utint stats. This is specific for the machine-learning based models.
-	VMUintFeaturesNames []string
-	// VMFeaturesNames holds all the feature name of the vm stats. This is specific for the machine-learning based models.
-	VMFeaturesNames []string
-)
-
 type VMStats struct {
 	Stats
 	PID  uint64
