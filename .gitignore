@@ -1,6 +1,10 @@
+# Some common types of files i.e. backup files
 *~
 \#*\#
 .\#*
+
+# Object files
+*.o
 
 # Vim-related files
 [._]*.s[a-w][a-z]

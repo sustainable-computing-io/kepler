@@ -175,8 +175,9 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 
 .PHONY: generate
 generate: ## Generate BPF code locally.
-	+@$(GOENV) go generate ./pkg/bpf
-	+@$(GOENV) go generate ./pkg/bpftest
+	BPF2GO_FLAGS="-O2 -g -Wall -Werror $(CFLAGS)" $(GOENV) go generate ./...
+#	+@$(GOENV) go generate ./pkg/bpf
+#	+@$(GOENV) go generate ./pkg/bpftest
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
@@ -322,7 +323,7 @@ c-format: ## Check C format.
 	@echo "Checking c format"
 	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:/bpf/include/' | xargs clang-format --dry-run --Werror
 
-golint: ## Go lint
+golint: generate ## Go lint
 	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
 	$(CTR_CMD) run --tty --rm \

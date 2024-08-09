@@ -35,7 +35,7 @@ jobs:
           git config --global --add safe.directory /kepler
       - name: Run
         run: |
-          make VERBOSE=1 test
+          make VERBOSE=1 generate test
           go tool cover -func=coverage.out -o=coverage.out
 
       - name: Upload coverage reports to Codecov
