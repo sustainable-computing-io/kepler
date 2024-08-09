@@ -17,6 +17,7 @@ limitations under the License.
 package kubernetes
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -24,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -107,7 +109,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 		return w
 	}
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", stats.NodeName) // to filter events per node
+		options.FieldSelector = fields.Set{"spec.nodeName": stats.GetNodeName()}.AsSelector().String() // to filter events per node
 	}
 	objListWatcher := cache.NewFilteredListWatchFromClient(
 		w.k8sCli.CoreV1().RESTClient(),
@@ -138,7 +140,8 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 		},
 	})
 	if err != nil {
-		klog.Fatalf("%v", err)
+		klog.Errorf("%v", err)
+		return nil
 	}
 	IsWatcherEnabled = true
 	return w
@@ -184,7 +187,9 @@ func (w *ObjListWatcher) handleEvent(key string) error {
 	if !exists {
 		w.handleDeleted(obj)
 	} else {
-		w.handleAdd(obj)
+		if err := w.handleAdd(obj); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -225,13 +230,13 @@ func (w *ObjListWatcher) Stop() {
 	close(w.stopChannel)
 }
 
-func (w *ObjListWatcher) handleAdd(obj interface{}) {
+func (w *ObjListWatcher) handleAdd(obj interface{}) error {
 	switch w.ResourceKind {
 	case podResourceType:
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {
-			klog.Infof("Could not convert obj: %v", w.ResourceKind)
-			return
+			err := fmt.Errorf("could not convert obj: %v", w.ResourceKind)
+			return err
 		}
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type != corev1.ContainersReady {
@@ -239,25 +244,32 @@ func (w *ObjListWatcher) handleAdd(obj interface{}) {
 			}
 			klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
 				pod.Name, pod.Namespace, len(pod.Status.ContainerStatuses), len(pod.Status.InitContainerStatuses), len(pod.Status.EphemeralContainerStatuses))
-			w.Mx.Lock()
-			err1 := w.fillInfo(pod, pod.Status.ContainerStatuses)
-			err2 := w.fillInfo(pod, pod.Status.InitContainerStatuses)
-			err3 := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses)
-			w.Mx.Unlock()
-			klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, err1, err2, err3)
+			if err := w.fillInfo(pod, pod.Status.ContainerStatuses, w.Mx); err != nil {
+				return err
+			}
+			if err := w.fillInfo(pod, pod.Status.InitContainerStatuses, w.Mx); err != nil {
+				return err
+			}
+			if err := w.fillInfo(pod, pod.Status.EphemeralContainerStatuses, w.Mx); err != nil {
+				return err
+			}
+			klog.V(5).Infof("parsing pod %s %s status: %v %v %v", pod.Name, pod.Namespace, pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses, pod.Status.EphemeralContainerStatuses)
+			return nil
 		}
 	default:
-		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
-		return
+		err := fmt.Errorf("watcher does not support object type %s", w.ResourceKind)
+		return err
 	}
+	return errors.New("pod not ready")
 }
 
-func (w *ObjListWatcher) fillInfo(pod *corev1.Pod, containers []corev1.ContainerStatus) error {
-	var err error
+func (w *ObjListWatcher) fillInfo(pod *corev1.Pod, containers []corev1.ContainerStatus, mx *sync.Mutex) error {
 	var exist bool
+	var err error
+	mx.Lock()
+	defer mx.Unlock()
 	for j := 0; j < len(containers); j++ {
 		containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
-		// verify if container ID was already initialized
 		if containerID == "" {
 			err = fmt.Errorf("container %s did not start yet", containers[j].Name)
 			continue
@@ -278,7 +290,8 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 	case podResourceType:
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {
-			klog.Fatalf("Could not convert obj: %v", w.ResourceKind)
+			klog.Errorf("Could not convert obj: %v", w.ResourceKind)
+			return
 		}
 		w.Mx.Lock()
 		w.deleteInfo(pod.Status.ContainerStatuses)

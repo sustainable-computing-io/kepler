@@ -152,6 +152,9 @@ func main() {
 	defer bpfExporter.Detach()
 
 	m := manager.New(bpfExporter)
+	if m == nil {
+		klog.Fatal("could not create a collector manager")
+	}
 
 	// starting a CollectorManager instance to collect data and report metrics
 	if startErr := m.Start(); startErr != nil {
