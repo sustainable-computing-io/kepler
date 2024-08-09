@@ -19,7 +19,8 @@ def config_file(tmp_path):
 
 @pytest.fixture
 def minimal_config_file(config_file):
-    return config_file("""
+    return config_file(
+        """
 remote:
   host: example.com
 
@@ -29,7 +30,8 @@ metal:
 
 prometheus:
   url: http://localhost:9090
-    """)
+    """
+    )
 
 
 def test_minimal_config_file(minimal_config_file):
@@ -58,7 +60,8 @@ def test_minimal_config_file(minimal_config_file):
 
 @pytest.fixture
 def config_file_use_password(config_file):
-    return config_file("""
+    return config_file(
+        """
 remote:
   host: example.com
   password: supersecret
@@ -69,7 +72,8 @@ metal:
 
 prometheus:
   url: http://localhost:9090
-""")
+"""
+    )
 
 
 def test_config_file_with_password(config_file_use_password):
@@ -84,7 +88,8 @@ def test_config_file_with_password(config_file_use_password):
 
 @pytest.fixture
 def config_file_job_override(config_file):
-    return config_file("""
+    return config_file(
+        """
 remote:
   host: example.com
   password: supersecret
@@ -99,7 +104,8 @@ prometheus:
   job:
     metal: metal-override
     vm: vm-override
-""")
+"""
+    )
 
 
 def test_config_file_job_override(config_file_job_override):
@@ -111,7 +117,8 @@ def test_config_file_job_override(config_file_job_override):
 
 @pytest.fixture
 def config_file_password_empty_pkey(config_file):
-    return config_file("""
+    return config_file(
+        """
 remote:
   host: example.com
   password: supersecret
@@ -123,7 +130,8 @@ metal:
 
 prometheus:
   url: http://localhost:9090
-""")
+"""
+    )
 
 
 def test_config_file_password_empty_pkey(config_file_password_empty_pkey):

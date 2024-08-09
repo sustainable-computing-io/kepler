@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart with JSON Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="script.js"></script>
+    <style>
+        body {
+            display: flex;
+        }
+        #chart-container {
+            width: 70%;
+            padding: 20px;
+        }
+        #info-container {
+            width: 30%;
+            padding: 20px;
+        }
+        ul {
+            list-style-type: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="chart-container">
+        <canvas id="myChart"></canvas>
+    </div>
+    <div id="info-container">
+        <div id="build-info">
+            <h3>Build Info</h3>
+            <ul></ul>
+        </div>
+        <div id="machine-spec">
+            <h3>Machine Spec</h3>
+            <ul></ul>
+        </div>
+    </div>
+</body>
+</html>
