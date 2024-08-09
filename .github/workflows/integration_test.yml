@@ -83,7 +83,7 @@ jobs:
         with:
           ebpfprovider: libbpf
           cluster_provider: ${{matrix.cluster_provider}}
-          local_dev_cluster_version: v0.0.5
+          local_dev_cluster_version: v0.0.7
 
       - name: push Kepler image to local registry
         run: |
