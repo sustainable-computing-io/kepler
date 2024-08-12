@@ -26,7 +26,7 @@ type LogisticPredictor struct {
 
 func NewLogisticPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) != 4 {
-		return nil, ErrModelWeightsInvalid
+		return nil, errModelWeightsInvalid
 	}
 	return &LogisticPredictor{ModelWeights: weight}, nil
 }

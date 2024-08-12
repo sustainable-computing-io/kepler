@@ -26,7 +26,7 @@ type ExponentialPredictor struct {
 
 func NewExponentialPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) != 3 {
-		return nil, ErrModelWeightsInvalid
+		return nil, errModelWeightsInvalid
 	}
 	return &ExponentialPredictor{ModelWeights: weight}, nil
 }
