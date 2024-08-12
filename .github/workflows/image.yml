@@ -54,7 +54,7 @@ jobs:
             LABEL: ${{ inputs.imageTag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
         with:
           # NOTE:  setting fetch-depth to 0 to retrieve the entire history
           # instead of a shallow-clone so that all tags are fetched as well.
@@ -98,7 +98,7 @@ jobs:
           cosign sign -y quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.16.1
+        uses: anchore/sbom-action@v0.17.0
         with:
           image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
@@ -106,7 +106,7 @@ jobs:
 
       - name: save Kepler image SBOM as artifact
         if: ${{ inputs.pushImage }}
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.6
         with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
