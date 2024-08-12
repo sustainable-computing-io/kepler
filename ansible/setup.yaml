@@ -1,0 +1,63 @@
+---
+- name: Setup infrastructure with necessary packages, Docker and Hatch
+  hosts: localhost
+  become: true
+  vars:
+    ansible_user: root
+  tasks:
+    - name: Ensure necessary packages are installed
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - jq
+        state: present
+        update_cache: true
+
+    - name: Install hatch via pip
+      pip:
+        name: hatch
+        state: latest
+
+    - name: Add Docker official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Set up Docker stable repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update the apt package index
+      apt:
+        update_cache: true
+
+    - name: Install Docker Engine and related packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - docker-buildx-plugin
+        state: latest
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+
+    - name: Add user to Docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+
+    - name: Display Docker version
+      debug:
+        msg: "{{ docker_version.stdout }}"
