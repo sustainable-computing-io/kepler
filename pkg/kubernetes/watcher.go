@@ -22,14 +22,12 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
@@ -40,13 +38,6 @@ import (
 const (
 	informerTimeout = time.Minute
 	podResourceType = "pods"
-	// Number of retries to process an event
-	maxRetries = 5
-	// Number of workers to process events
-	// NOTE: Given that the ContainerStats map is protected under a shared mutex,
-	// the number of workers should be kept at 1. Otherwise, we might starve
-	// the collector.
-	workers = 1
 )
 
 var (
@@ -56,17 +47,14 @@ var (
 
 type ObjListWatcher struct {
 	// Lock to synchronize the collector update with the watcher
-	// NOTE: This lock is shared with the Collector
 	Mx *sync.Mutex
 
 	k8sCli              *kubernetes.Clientset
 	ResourceKind        string
-	informer            cache.SharedIndexInformer
-	workqueue           workqueue.RateLimitingInterface
+	informer            cache.SharedInformer
 	stopChannel         chan struct{}
 	bpfSupportedMetrics bpf.SupportedMetrics
 
-	// NOTE: This map is shared with the Collector
 	// ContainerStats holds all container energy and resource usage metrics
 	ContainerStats map[string]*stats.ContainerStats
 }
@@ -101,7 +89,6 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 		k8sCli:              newK8sClient(),
 		ResourceKind:        podResourceType,
 		bpfSupportedMetrics: bpfSupportedMetrics,
-		workqueue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
 	if w.k8sCli == nil || !config.EnableAPIServer {
 		return w
@@ -115,26 +102,18 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 		metav1.NamespaceAll,
 		optionsModifier,
 	)
-	w.informer = cache.NewSharedIndexInformer(objListWatcher, &corev1.Pod{}, 0, cache.Indexers{})
+
+	w.informer = cache.NewSharedInformer(objListWatcher, &k8sv1.Pod{}, 0)
 	w.stopChannel = make(chan struct{})
 	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			key, err := cache.MetaNamespaceKeyFunc(obj)
-			if err == nil {
-				w.workqueue.Add(key)
-			}
+			w.handleAdd(obj)
 		},
-		UpdateFunc: func(old interface{}, new interface{}) {
-			key, err := cache.MetaNamespaceKeyFunc(new)
-			if err == nil {
-				w.workqueue.Add(key)
-			}
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			w.handleUpdate(oldObj, newObj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				w.workqueue.Add(key)
-			}
+			w.handleDeleted(obj)
 		},
 	})
 	if err != nil {
@@ -144,60 +123,12 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) *ObjListWatcher
 	return w
 }
 
-func (w *ObjListWatcher) processNextItem() bool {
-	key, quit := w.workqueue.Get()
-	if quit {
-		return false
-	}
-	defer w.workqueue.Done(key)
-
-	err := w.handleEvent(key.(string))
-	w.handleErr(err, key)
-	return true
-}
-
-func (w *ObjListWatcher) handleErr(err error, key interface{}) {
-	// No error!
-	if err == nil {
-		w.workqueue.Forget(key)
-		return
-	}
-
-	// Retry
-	if w.workqueue.NumRequeues(key) < maxRetries {
-		klog.Errorf("Error syncing pod %v: %v", key, err)
-		w.workqueue.AddRateLimited(key)
-		return
-	}
-
-	// Give up
-	w.workqueue.Forget(key)
-	klog.Infof("Dropping pod %q out of the queue: %v", key, err)
-}
-
-func (w *ObjListWatcher) handleEvent(key string) error {
-	obj, exists, err := w.informer.GetIndexer().GetByKey(key)
-	if err != nil {
-		klog.Errorf("Fetching object with key %s from store failed with %v", key, err)
-		return err
-	}
-	if !exists {
-		w.handleDeleted(obj)
-	} else {
-		w.handleAdd(obj)
-	}
-	return nil
-}
-
 func (w *ObjListWatcher) Run() {
 	if !IsWatcherEnabled {
 		klog.Infoln("k8s APIserver watcher was not enabled")
 		return
 	}
-	defer w.workqueue.ShutDown()
-
 	go w.informer.Run(w.stopChannel)
-
 	timeoutCh := make(chan struct{})
 	timeoutTimer := time.AfterFunc(informerTimeout, func() {
 		close(timeoutCh)
@@ -206,18 +137,7 @@ func (w *ObjListWatcher) Run() {
 	if !cache.WaitForCacheSync(timeoutCh, w.informer.HasSynced) {
 		klog.Fatalf("watcher timed out waiting for caches to sync")
 	}
-
-	// launch workers to handle events
-	for i := 0; i < workers; i++ {
-		go wait.Until(w.runWorker, time.Second, w.stopChannel)
-	}
-
 	klog.Infoln("k8s APIserver watcher was started")
-}
-
-func (w *ObjListWatcher) runWorker() {
-	for w.processNextItem() {
-	}
 }
 
 func (w *ObjListWatcher) Stop() {
@@ -225,16 +145,41 @@ func (w *ObjListWatcher) Stop() {
 	close(w.stopChannel)
 }
 
+func (w *ObjListWatcher) handleUpdate(oldObj, newObj interface{}) {
+	switch w.ResourceKind {
+	case podResourceType:
+		oldPod, ok := oldObj.(*k8sv1.Pod)
+		if !ok {
+			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			return
+		}
+		newPod, ok := newObj.(*k8sv1.Pod)
+		if !ok {
+			klog.Infof("Could not convert obj: %v", w.ResourceKind)
+			return
+		}
+		if newPod.ResourceVersion == oldPod.ResourceVersion {
+			// Periodic resync will send update events for all known pods.
+			// Two different versions of the same pod will always have different RVs.
+			return
+		}
+		w.handleAdd(newObj)
+	default:
+		klog.Infof("Watcher does not support object type %s", w.ResourceKind)
+		return
+	}
+}
+
 func (w *ObjListWatcher) handleAdd(obj interface{}) {
 	switch w.ResourceKind {
 	case podResourceType:
-		pod, ok := obj.(*corev1.Pod)
+		pod, ok := obj.(*k8sv1.Pod)
 		if !ok {
 			klog.Infof("Could not convert obj: %v", w.ResourceKind)
 			return
 		}
 		for _, condition := range pod.Status.Conditions {
-			if condition.Type != corev1.ContainersReady {
+			if condition.Type != k8sv1.ContainersReady {
 				continue
 			}
 			klog.V(5).Infof("Pod %s %s is ready with %d container statuses, %d init container status, %d ephemeral statues",
@@ -252,7 +197,7 @@ func (w *ObjListWatcher) handleAdd(obj interface{}) {
 	}
 }
 
-func (w *ObjListWatcher) fillInfo(pod *corev1.Pod, containers []corev1.ContainerStatus) error {
+func (w *ObjListWatcher) fillInfo(pod *k8sv1.Pod, containers []k8sv1.ContainerStatus) error {
 	var err error
 	var exist bool
 	for j := 0; j < len(containers); j++ {
@@ -276,7 +221,7 @@ func (w *ObjListWatcher) fillInfo(pod *corev1.Pod, containers []corev1.Container
 func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 	switch w.ResourceKind {
 	case podResourceType:
-		pod, ok := obj.(*corev1.Pod)
+		pod, ok := obj.(*k8sv1.Pod)
 		if !ok {
 			klog.Fatalf("Could not convert obj: %v", w.ResourceKind)
 		}
@@ -292,7 +237,7 @@ func (w *ObjListWatcher) handleDeleted(obj interface{}) {
 }
 
 // TODO: instead of delete, it might be better to mark it to delete since k8s takes time to really delete an object
-func (w *ObjListWatcher) deleteInfo(containers []corev1.ContainerStatus) {
+func (w *ObjListWatcher) deleteInfo(containers []k8sv1.ContainerStatus) {
 	for j := 0; j < len(containers); j++ {
 		containerID := ParseContainerIDFromPodStatus(containers[j].ContainerID)
 		delete(w.ContainerStats, containerID)
