@@ -351,7 +351,7 @@ static inline int do_kepler_sched_switch_trace(
 	bpf_map_update_elem(&pid_time_map, &next_pid, &curr_ts, BPF_ANY);
 
 	// create new process metrics
-	register_new_process_if_not_exist(next_tgid);
+	register_new_process_if_not_exist(prev_tgid);
 
 	return 0;
 }
