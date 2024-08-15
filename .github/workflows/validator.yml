@@ -11,11 +11,11 @@ jobs:
     steps:
       # checkout source code
       - name: checkout source
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
       # setup Python environment
       - name: set up Python
-        uses: actions/setup-python@v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
