@@ -175,8 +175,7 @@ build: clean_build_local _build_local copy_build_local ##  Build binary and copy
 
 .PHONY: generate
 generate: ## Generate BPF code locally.
-	+@$(GOENV) go generate ./pkg/bpf
-	+@$(GOENV) go generate ./pkg/bpftest
+	+@$(GOENV) BPF2GO_FLAGS="-O2 -g -Wall -Werror $(CFLAGS)" go generate ./...
 
 _build_local: generate ##  Build Kepler binary locally.
 	@echo TAGS=$(GO_BUILD_TAGS)
