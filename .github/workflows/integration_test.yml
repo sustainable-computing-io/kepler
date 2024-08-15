@@ -16,7 +16,7 @@ jobs:
     steps:
       # checkout source code
       - name: checkout source
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
       # set up golang
       - name: install Go
         uses: actions/setup-go@v5
@@ -34,7 +34,7 @@ jobs:
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.6
         with:
           name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
@@ -53,7 +53,7 @@ jobs:
       CTR_CMD: docker
     steps:
       - name: checkout source
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
       - name: download Kepler image artifact
         uses: actions/download-artifact@v4
@@ -103,7 +103,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.3.6
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}
