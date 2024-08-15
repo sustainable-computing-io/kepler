@@ -42,7 +42,7 @@ jobs:
         run: echo "name=date::$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
       - name: Create tag
         uses: actions/github-script@v7
