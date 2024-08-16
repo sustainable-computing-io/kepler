@@ -92,4 +92,11 @@ type NormalizedNumericalFeature struct {
 	Weight float64 `json:"weight,omitempty"`
 }
 
-type ComponentModelWeights map[string]ModelWeights
+type ComponentModelWeights struct {
+	ModelName string        `json:"model_name,omitempty"`
+	Platform  *ModelWeights `json:"platform,omitempty"`
+	Core      *ModelWeights `json:"core,omitempty"`
+	Uncore    *ModelWeights `json:"uncore,omitempty"`
+	Package   *ModelWeights `json:"package,omitempty"`
+	DRAM      *ModelWeights `json:"dram,omitempty"`
+}

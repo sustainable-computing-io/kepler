@@ -70,19 +70,19 @@ var (
 
 func GenPlatformModelWeights(curveFitWeights []float64) ComponentModelWeights {
 	return ComponentModelWeights{
-		config.PLATFORM: genWeights(SampleCoreNumericalVars, curveFitWeights),
+		Platform: genWeights(SampleCoreNumericalVars, curveFitWeights),
 	}
 }
 
 func GenComponentModelWeights(curveFitWeights []float64) ComponentModelWeights {
 	return ComponentModelWeights{
-		config.CORE: genWeights(SampleCoreNumericalVars, curveFitWeights),
-		config.DRAM: genWeights(SampleDramNumbericalVars, curveFitWeights),
+		Core: genWeights(SampleCoreNumericalVars, curveFitWeights),
+		DRAM: genWeights(SampleDramNumbericalVars, curveFitWeights),
 	}
 }
 
-func genWeights(numericalVars map[string]NormalizedNumericalFeature, curveFitWeights []float64) ModelWeights {
-	return ModelWeights{
+func genWeights(numericalVars map[string]NormalizedNumericalFeature, curveFitWeights []float64) *ModelWeights {
+	return &ModelWeights{
 		AllWeights{
 			BiasWeight:           1.0,
 			CategoricalVariables: map[string]map[string]CategoricalFeature{"cpu_architecture": SampleCategoricalFeatures},
