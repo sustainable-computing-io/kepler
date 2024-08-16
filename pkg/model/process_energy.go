@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	ProcessPlatformPowerModel  PowerModelInterface
-	ProcessComponentPowerModel PowerModelInterface
+	processPlatformPowerModel  PowerModelInterface
+	processComponentPowerModel PowerModelInterface
 )
 
 // createProcessPowerModelConfig: the process component power model must be set by default.
@@ -109,7 +109,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 	var err error
 	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
-	ProcessPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
+	processPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
 		klog.V(1).Infof("Using the %s Power Model to estimate Process Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
@@ -119,7 +119,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 
 	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
-	ProcessComponentPowerModel, err = createPowerModelEstimator(modelConfig)
+	processComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
 		klog.V(1).Infof("Using the %s Power Model to estimate Process Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
@@ -130,15 +130,15 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 
 // UpdateProcessEnergy resets the power model samples, add new samples to the power models, then estimates the idle and dynamic energy
 func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeMetrics *stats.NodeStats) {
-	if ProcessPlatformPowerModel == nil {
+	if processPlatformPowerModel == nil {
 		klog.Errorln("Process Platform Power Model was not created")
 	}
-	if ProcessComponentPowerModel == nil {
+	if processComponentPowerModel == nil {
 		klog.Errorln("Process Component Power Model was not created")
 	}
 	// reset power sample slide window
-	ProcessPlatformPowerModel.ResetSampleIdx()
-	ProcessComponentPowerModel.ResetSampleIdx()
+	processPlatformPowerModel.ResetSampleIdx()
+	processComponentPowerModel.ResetSampleIdx()
 
 	// add features values for prediction
 	processIDList := addSamplesToPowerModels(processesMetrics, nodeMetrics)
@@ -152,28 +152,28 @@ func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, no
 	// Add process metrics
 	for processID, c := range processesMetrics {
 		// add samples to estimate the platform power
-		if ProcessPlatformPowerModel.IsEnabled() {
-			featureValues := c.ToEstimatorValues(ProcessPlatformPowerModel.GetProcessFeatureNamesList(), true) // add process features with normalized values
-			ProcessPlatformPowerModel.AddProcessFeatureValues(featureValues)
+		if processPlatformPowerModel.IsEnabled() {
+			featureValues := c.ToEstimatorValues(processPlatformPowerModel.GetProcessFeatureNamesList(), true) // add process features with normalized values
+			processPlatformPowerModel.AddProcessFeatureValues(featureValues)
 		}
 
 		// add samples to estimate the components (CPU and DRAM) power
-		if ProcessComponentPowerModel.IsEnabled() {
+		if processComponentPowerModel.IsEnabled() {
 			// Add process metrics
-			featureValues := c.ToEstimatorValues(ProcessComponentPowerModel.GetProcessFeatureNamesList(), true) // add node features with normalized values
-			ProcessComponentPowerModel.AddProcessFeatureValues(featureValues)
+			featureValues := c.ToEstimatorValues(processComponentPowerModel.GetProcessFeatureNamesList(), true) // add node features with normalized values
+			processComponentPowerModel.AddProcessFeatureValues(featureValues)
 		}
 
 		processIDList = append(processIDList, processID)
 	}
 	// Add node metrics.
-	if ProcessPlatformPowerModel.IsEnabled() {
-		featureValues := nodeMetrics.ToEstimatorValues(ProcessPlatformPowerModel.GetNodeFeatureNamesList(), true) // add node features with normalized values
-		ProcessPlatformPowerModel.AddNodeFeatureValues(featureValues)
+	if processPlatformPowerModel.IsEnabled() {
+		featureValues := nodeMetrics.ToEstimatorValues(processPlatformPowerModel.GetNodeFeatureNamesList(), true) // add node features with normalized values
+		processPlatformPowerModel.AddNodeFeatureValues(featureValues)
 	}
-	if ProcessComponentPowerModel.IsEnabled() {
-		featureValues := nodeMetrics.ToEstimatorValues(ProcessComponentPowerModel.GetNodeFeatureNamesList(), true) // add node features with normalized values
-		ProcessComponentPowerModel.AddNodeFeatureValues(featureValues)
+	if processComponentPowerModel.IsEnabled() {
+		featureValues := nodeMetrics.ToEstimatorValues(processComponentPowerModel.GetNodeFeatureNamesList(), true) // add node features with normalized values
+		processComponentPowerModel.AddNodeFeatureValues(featureValues)
 	}
 	return processIDList
 }
@@ -189,15 +189,15 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 	errPlat := fmt.Errorf("plat power model is not enabled")
 
 	// estimate the associated power consumption of all RAPL node components for each process
-	if ProcessComponentPowerModel.IsEnabled() {
-		processComponentsPower, errComp = ProcessComponentPowerModel.GetComponentsPower(isIdlePower)
+	if processComponentPowerModel.IsEnabled() {
+		processComponentsPower, errComp = processComponentPowerModel.GetComponentsPower(isIdlePower)
 		if errComp != nil {
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
 		// estimate the associated power consumption of GPU for each process
 		if config.EnabledGPU {
 			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
-				processGPUPower, errGPU = ProcessComponentPowerModel.GetGPUPower(isIdlePower)
+				processGPUPower, errGPU = processComponentPowerModel.GetGPUPower(isIdlePower)
 				if errGPU != nil {
 					klog.V(5).Infoln("Could not estimate the Process GPU Power")
 				}
@@ -205,8 +205,8 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		}
 	}
 	// estimate the associated power consumption of platform for each process
-	if ProcessPlatformPowerModel.IsEnabled() {
-		processPlatformPower, errPlat = ProcessPlatformPowerModel.GetPlatformPower(isIdlePower)
+	if processPlatformPowerModel.IsEnabled() {
+		processPlatformPower, errPlat = processPlatformPowerModel.GetPlatformPower(isIdlePower)
 		if errPlat != nil {
 			klog.V(5).Infoln("Could not estimate the Process Platform Power")
 		}

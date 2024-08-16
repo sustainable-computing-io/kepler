@@ -133,6 +133,12 @@ var (
 	// KubeConfig is used to start k8s client with the pod running outside the cluster
 	KubeConfig      = ""
 	EnableAPIServer = false
+
+	////////////////////////////////////
+
+	// Libvirt Metadata config
+	LibvirtMetadataURI   = getConfig("LIBVIRT_METADATA_URI", "")
+	LibvirtMetadataToken = getConfig("LIBVIRT_METADATA_TOKEN", "name")
 )
 
 // return local path to power model weight
@@ -422,4 +428,12 @@ func GetModelConfigMap() map[string]string {
 
 func SetGpuUsageMetric(metric string) {
 	GpuUsageMetric = metric
+}
+
+func GetLibvirtMetadataURI() string {
+	return LibvirtMetadataURI
+}
+
+func GetLibvirtMetadataToken() string {
+	return LibvirtMetadataToken
 }

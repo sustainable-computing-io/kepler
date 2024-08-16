@@ -12,7 +12,7 @@ jobs:
     env:
       CTR_CMD: docker
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4
       - name: local cluster set up
         run: make cluster-up
       - name: local container test

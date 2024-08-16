@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
 
       - name: Check commit message
         uses: webiny/action-conventional-commits@v1.3.0

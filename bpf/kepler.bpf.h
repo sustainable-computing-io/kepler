@@ -317,21 +317,27 @@ static inline int do_kepler_sched_switch_trace(
 
 	cpu_id = bpf_get_smp_processor_id();
 
-	// Collect metrics
-	// Regardless of skipping the collection, we need to update the hardware
-	// counter events to keep the metrics map current.
-	collect_metrics_and_reset_counters(&buf, prev_pid, curr_ts, cpu_id);
-
 	// Skip some samples to minimize overhead
-	// Note that we can only skip samples after updating the metric maps to
-	// collect the right values
 	if (SAMPLE_RATE > 0) {
 		if (counter_sched_switch > 0) {
+			// update hardware counters to be used when sample is taken
+			if (counter_sched_switch == 1) {
+				collect_metrics_and_reset_counters(
+					&buf, prev_pid, curr_ts, cpu_id);
+				// Add task on-cpu running start time
+				bpf_map_update_elem(
+					&pid_time_map, &next_pid, &curr_ts,
+					BPF_ANY);
+				// create new process metrics
+				register_new_process_if_not_exist(next_tgid);
+			}
 			counter_sched_switch--;
 			return 0;
 		}
 		counter_sched_switch = SAMPLE_RATE;
 	}
+
+	collect_metrics_and_reset_counters(&buf, prev_pid, curr_ts, cpu_id);
 
 	// The process_run_time is 0 if we do not have the previous timestamp of
 	// the task or due to a clock issue. In either case, we skip collecting
@@ -351,7 +357,7 @@ static inline int do_kepler_sched_switch_trace(
 	bpf_map_update_elem(&pid_time_map, &next_pid, &curr_ts, BPF_ANY);
 
 	// create new process metrics
-	register_new_process_if_not_exist(next_tgid);
+	register_new_process_if_not_exist(prev_tgid);
 
 	return 0;
 }

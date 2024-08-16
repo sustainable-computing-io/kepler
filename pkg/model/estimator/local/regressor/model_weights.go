@@ -16,12 +16,10 @@ limitations under the License.
 
 package regressor
 
-import (
-	"fmt"
-)
+import "errors"
 
 var (
-	ErrModelWeightsInvalid = fmt.Errorf("ModelWeights is invalid")
+	errModelWeightsInvalid = errors.New("ModelWeights is invalid")
 )
 
 /*

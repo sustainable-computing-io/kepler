@@ -29,7 +29,7 @@ import (
 
 var (
 	// the absolute power model includes both the absolute and idle power consumption
-	NodeComponentPowerModel PowerModelInterface
+	nodeComponentPowerModel PowerModelInterface
 )
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
@@ -51,7 +51,7 @@ func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 	if !components.IsSystemCollectionSupported() {
 		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 		// init func for NodeComponentPower
-		NodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
+		nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 		if err == nil {
 			klog.V(1).Infof("Using the %s Power Model to estimate Node Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
 		} else {
@@ -62,26 +62,26 @@ func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 
 // IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
 func IsNodeComponentPowerModelEnabled() bool {
-	if NodeComponentPowerModel == nil {
+	if nodeComponentPowerModel == nil {
 		return false
 	}
-	return NodeComponentPowerModel.IsEnabled()
+	return nodeComponentPowerModel.IsEnabled()
 }
 
 // GetNodeComponentPowers returns estimated RAPL power for the node
 func GetNodeComponentPowers(nodeMetrics *stats.NodeStats, isIdlePower bool) (nodeComponentsEnergy map[int]source.NodeComponentsEnergy) {
-	if NodeComponentPowerModel == nil {
+	if nodeComponentPowerModel == nil {
 		klog.Errorln("Node Component Power Model was not created")
 	}
 	nodeComponentsEnergy = map[int]source.NodeComponentsEnergy{}
 	// assuming that the absolute power is always called before estimating idle power, we only add feature values for absolute power as it also initialize the idle feature values
 	if !isIdlePower {
 		// reset power model features sample list for new estimation
-		NodeComponentPowerModel.ResetSampleIdx()
-		featureValues := nodeMetrics.ToEstimatorValues(NodeComponentPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
-		NodeComponentPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
+		nodeComponentPowerModel.ResetSampleIdx()
+		featureValues := nodeMetrics.ToEstimatorValues(nodeComponentPowerModel.GetNodeFeatureNamesList(), true) // add container features with normalized values
+		nodeComponentPowerModel.AddNodeFeatureValues(featureValues)                                             // add samples to estimation
 	}
-	powers, err := NodeComponentPowerModel.GetComponentsPower(isIdlePower)
+	powers, err := nodeComponentPowerModel.GetComponentsPower(isIdlePower)
 	if err != nil {
 		klog.Infof("Failed to get node components power %v\n", err)
 		return
