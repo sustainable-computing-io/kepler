@@ -99,13 +99,41 @@ func (r *Regressor) Start() error {
 		r.enabled = true
 		r.modelWeight = weight
 		r.modelPredictors = map[string]Predictor{}
-		for component, allWeights := range *weight {
-			var predictor Predictor
-			predictor, err = r.createPredictor(allWeights)
-			if err != nil {
+		if weight.Platform != nil {
+			if predictor, err := r.createPredictor(*weight.Platform); err != nil {
 				return err
+			} else {
+				r.modelPredictors[config.PLATFORM] = predictor
 			}
-			r.modelPredictors[component] = predictor
+		} else {
+			if weight.Package != nil {
+				if predictor, err := r.createPredictor(*weight.Package); err != nil {
+					return err
+				} else {
+					r.modelPredictors[config.PKG] = predictor
+				}
+			}
+			if weight.Core != nil {
+				if predictor, err := r.createPredictor(*weight.Core); err != nil {
+					return err
+				} else {
+					r.modelPredictors[config.CORE] = predictor
+				}
+			}
+			if weight.Uncore != nil {
+				if predictor, err := r.createPredictor(*weight.Uncore); err != nil {
+					return err
+				} else {
+					r.modelPredictors[config.UNCORE] = predictor
+				}
+			}
+			if weight.DRAM != nil {
+				if predictor, err := r.createPredictor(*weight.DRAM); err != nil {
+					return err
+				} else {
+					r.modelPredictors[config.DRAM] = predictor
+				}
+			}
 		}
 		return nil
 	} else {
@@ -156,6 +184,9 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	err = json.Unmarshal(body, &powerResonse)
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
+	}
+	if powerResonse.ModelName != "" {
+		klog.V(3).Infof("Using weights trained by %s", powerResonse.ModelName)
 	}
 	return &powerResonse, nil
 }
