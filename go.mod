@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/prometheus v0.54.0
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/sys v0.23.0
+	golang.org/x/sys v0.24.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.8
 	k8s.io/apimachinery v0.29.8
