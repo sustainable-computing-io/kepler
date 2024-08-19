@@ -16,7 +16,10 @@ limitations under the License.
 
 package regressor
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	errModelWeightsInvalid = errors.New("ModelWeights is invalid")
@@ -99,4 +102,11 @@ type ComponentModelWeights struct {
 	Uncore    *ModelWeights `json:"uncore,omitempty"`
 	Package   *ModelWeights `json:"package,omitempty"`
 	DRAM      *ModelWeights `json:"dram,omitempty"`
+}
+
+func (w ComponentModelWeights) String() string {
+	if w.Platform != nil {
+		return fmt.Sprintf("%s (platform: %v)", w.ModelName, w.Platform)
+	}
+	return fmt.Sprintf("%s (package: %v (core: %v, uncore: %v), dram: %v)", w.ModelName, w.Package, w.Core, w.Uncore, w.DRAM)
 }
