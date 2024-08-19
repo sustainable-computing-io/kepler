@@ -1,0 +1,91 @@
+# This workflow will run mock-acpi compose on self-hosted equinix runners and run validator tool
+name: Mock ACPI
+
+on: # yamllint disable-line rule:truthy
+  issue_comment:
+    types: [created]
+
+jobs:
+  create-runner:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Create Runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: metal-runner-action
+        uses: equinix-labs/metal-runner-action@v0.2.0
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
+          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
+          metro: da
+          plan: c3.small.x86
+          os: ubuntu_20_04
+
+  setup-runner:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Setup Runner
+    needs: create-runner
+    runs-on: self-hosted
+    continue-on-error: true # This is done to release equinix runners irrespective of failure
+    outputs:
+      runner-name: ${{ runner.name }}
+      playbook-status: ${{ steps.run-playbook.outcome }}
+
+    steps:
+      - name: Configure SSH
+        run: |
+          echo "Configuring SSH for runner"
+          sudo ssh-keygen -t rsa -b 4096 -f /root/.ssh/ansible_rsa -N ''
+          sudo cat ~/.ssh/ansible_rsa.pub >> ~/.ssh/authorized_keys
+          sudo echo "StrictHostKeyChecking no" >> ~/.ssh/config
+
+      - name: Install Dependencies
+        run: |
+          echo "Installing Ansible and Docker module"
+          sudo apt install software-properties-common -y
+          sudo add-apt-repository --yes --update ppa:ansible/ansible
+          sudo apt install -y ansible python3-pip
+          sudo ansible-galaxy collection install community.docker
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run playbook
+        id: run-playbook
+        run: |
+          echo "Setting up the infra"
+          cd ${GITHUB_WORKSPACE}/ansible
+          ansible-playbook -vv -i inventory.yaml setup.yaml
+          echo "Launching Mock ACPI compose and running validator"
+          ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
+
+      - name: Set failure status if playbook failed
+        if: steps.run-playbook.outcome == 'failure'
+        run: echo "failure_status=true" >> $GITHUB_ENV
+
+  cleanup:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [setup-runner]
+    steps:
+      - name: delete runner
+        uses: rootfs/metal-delete-action@main
+        with:
+          authToken: ${{ secrets.EQUINIX_API_TOKEN }}
+          projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
+          runnerName: ${{ needs.setup-runner.outputs.runner-name }}
+
+  # Marking the workflow as failed if the playbook fails
+  mark-workflow-failed:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Mark workflow as failed
+    runs-on: ubuntu-latest
+    needs: [setup-runner]
+    steps:
+      - name: Mark workflow as failed if playbook failed
+        if: needs.setup-runner.outputs.playbook-status == 'failure'
+        run: |
+          echo "Playbook failed, marking workflow as failed"
+          exit 1
