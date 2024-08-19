@@ -16,7 +16,7 @@ import (
 )
 
 func newMockCollector(mockAttacher bpf.Exporter) *Collector {
-	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+	if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 		d := gpu.Device()
 		err := d.Init() // create structure instances that will be accessed to create a containerMetric
 		Expect(err).NotTo(HaveOccurred())

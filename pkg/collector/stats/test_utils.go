@@ -32,7 +32,7 @@ const (
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func SetMockedCollectorMetrics() {
 	config.GetConfig()
-	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+	if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 		err := gpu.Device().Init() // create structure instances that will be accessed to create a processMetric
 		klog.Fatalln(err)
 	}

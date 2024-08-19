@@ -51,7 +51,7 @@ func (ne *NodeStats) ResetDeltaValues() {
 func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) {
 	// gpu metric
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
 		}
 	}
