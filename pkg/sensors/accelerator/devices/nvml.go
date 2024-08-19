@@ -31,11 +31,11 @@ const (
 )
 
 var (
-	nvmlAccImpl = GPUNvml{}
+	nvmlAccImpl = gpuNvml{}
 	nvmlType    DeviceType
 )
 
-type GPUNvml struct {
+type gpuNvml struct {
 	libInited                   bool
 	collectionSupported         bool
 	devices                     map[int]GPUDevice // List of GPU identifiers for the device
@@ -49,8 +49,11 @@ func nvmlCheck(r *Registry) {
 	}
 	klog.Info("Initializing nvml Successful")
 	nvmlType = NVML
-	addDeviceInterface(r, nvmlType, nvmlHwType, nvmlDeviceStartup)
-	klog.Infof("Using %s to obtain processor power", nvmlAccImpl.Name())
+	if err := addDeviceInterface(r, nvmlType, nvmlHwType, nvmlDeviceStartup); err == nil {
+		klog.Infof("Using %s to obtain processor power", nvmlAccImpl.Name())
+	} else {
+		klog.V(5).Infof("Error registering nvml: %v", err)
+	}
 }
 
 func nvmlDeviceStartup() Device {
@@ -67,30 +70,30 @@ func nvmlDeviceStartup() Device {
 	return &a
 }
 
-func (n *GPUNvml) Name() string {
+func (n *gpuNvml) Name() string {
 	return nvmlType.String()
 }
 
-func (n *GPUNvml) DevType() DeviceType {
+func (n *gpuNvml) DevType() DeviceType {
 	return nvmlType
 }
 
-func (n *GPUNvml) HwType() string {
+func (n *gpuNvml) HwType() string {
 	return nvmlHwType
 }
 
-func (n *GPUNvml) IsDeviceCollectionSupported() bool {
+func (n *gpuNvml) IsDeviceCollectionSupported() bool {
 	return n.collectionSupported
 }
 
-func (n *GPUNvml) SetDeviceCollectionSupported(supported bool) {
+func (n *gpuNvml) SetDeviceCollectionSupported(supported bool) {
 	n.collectionSupported = supported
 }
 
 // Init initizalize and start the GPU metric collector
 // the nvml only works if the container has support to GPU, e.g., it is using nvidia-docker2
 // otherwise it will fail to load the libnvidia-ml.so.1
-func (n *GPUNvml) InitLib() (err error) {
+func (n *gpuNvml) InitLib() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("could not init nvml: %v", r)
@@ -105,7 +108,7 @@ func (n *GPUNvml) InitLib() (err error) {
 	return nil
 }
 
-func (n *GPUNvml) Init() (err error) {
+func (n *gpuNvml) Init() (err error) {
 	if !n.libInited {
 		if err := n.InitLib(); err != nil {
 			return err
@@ -144,13 +147,13 @@ func (n *GPUNvml) Init() (err error) {
 }
 
 // Shutdown stops the GPU metric collector
-func (n *GPUNvml) Shutdown() bool {
+func (n *gpuNvml) Shutdown() bool {
 	n.libInited = false
 	return nvml.Shutdown() == nvml.SUCCESS
 }
 
 // GetGpus returns a map with gpu device
-func (n *GPUNvml) DevicesByID() map[int]interface{} {
+func (n *gpuNvml) DevicesByID() map[int]interface{} {
 	devices := make(map[int]interface{})
 	for id, dev := range n.devices {
 		devices[id] = dev
@@ -158,18 +161,18 @@ func (n *GPUNvml) DevicesByID() map[int]interface{} {
 	return devices
 }
 
-func (n *GPUNvml) DevicesByName() map[string]any {
+func (n *gpuNvml) DevicesByName() map[string]any {
 	devices := make(map[string]interface{})
 	return devices
 }
 
-func (n *GPUNvml) DeviceInstances() map[int]map[int]interface{} {
+func (n *gpuNvml) DeviceInstances() map[int]map[int]interface{} {
 	var devices map[int]map[int]interface{}
 	return devices
 }
 
 // GetAbsEnergyFromGPU returns a map with mJ in each gpu device
-func (n *GPUNvml) AbsEnergyFromDevice() []uint32 {
+func (n *gpuNvml) AbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, dev := range n.devices {
 		power, ret := dev.DeviceHandler.(nvml.Device).GetPowerUsage()
@@ -185,7 +188,7 @@ func (n *GPUNvml) AbsEnergyFromDevice() []uint32 {
 	return gpuEnergy
 }
 
-func (n *GPUNvml) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
+func (n *gpuNvml) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 	ds := make(map[any]interface{}) // Process Accelerator Metrics
 	return ds, nil
 }
@@ -193,7 +196,7 @@ func (n *GPUNvml) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 // GetProcessResourceUtilization returns a map of GPUProcessUtilizationSample where the key is the process pid
 // GPUProcessUtilizationSample.SmUtil represents the process Streaming Multiprocessors - SM (3D/Compute) utilization in percentage.
 // GPUProcessUtilizationSample.MemUtil represents the process Frame Buffer Memory utilization Value.
-func (n *GPUNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error) {
+func (n *gpuNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]any, error) {
 	processAcceleratorMetrics := map[uint32]GPUProcessUtilizationSample{}
 	pam := make(map[uint32]interface{})
 	lastUtilizationTimestamp := uint64(time.Now().Add(-1*since).UnixNano() / 1000)
@@ -229,7 +232,7 @@ func (n *GPUNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 		}
 
 		if !n.processUtilizationSupported { // If processUtilizationSupported is false, try deviceGetMPSComputeRunningProcesses_v3 to use memory usage to ratio power usage
-			config.GPUUsageMetric = config.GPUMemUtilization
+			config.SetGPUUsageMetric(config.GPUMemUtilization)
 			processInfo, ret := d.DeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 			if ret != nvml.SUCCESS {
 				if ret == nvml.ERROR_NOT_FOUND {

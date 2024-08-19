@@ -16,6 +16,7 @@ limitations under the License.
 package devices
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -140,13 +141,13 @@ func (r *Registry) GetAllDeviceTypes() []string {
 	return devices
 }
 
-func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) {
+func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) error {
 	switch accType {
 	case config.GPU:
 		// Check if device is already registered
 		if existingDevice := registry.Registry[accType][dtype]; existingDevice != nil {
 			klog.Errorf("Multiple Devices attempting to register with name %q", dtype.String())
-			return
+			return errors.New("multiple Devices attempting to register with name")
 		}
 
 		if dtype == DCGM {
@@ -155,7 +156,7 @@ func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, de
 		} else if dtype == NVML {
 			// Do not register "nvml" if "dcgm" is already registered
 			if _, ok := registry.Registry[config.GPU][DCGM]; ok {
-				return
+				return errors.New("DCGM already registered. Skipping NVML")
 			}
 		}
 
@@ -167,9 +168,11 @@ func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, de
 	}
 
 	klog.V(5).Infof("Registered %s", dtype)
+
+	return nil
 }
 
-// Startup initializes and returns a new Device according to the given DeviceType [NVML|DCGM|DUMMY|HABANA].
+// Startup initializes and returns a new Device according to the given DeviceType [NVML|DCGM|HABANA].
 func Startup(a string) Device {
 	// Retrieve the global registry
 	registry := GetRegistry()

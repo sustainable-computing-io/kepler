@@ -17,6 +17,8 @@ package devices
 
 import (
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -31,7 +33,9 @@ type MockDevice struct {
 
 func RegisterMockDevice() {
 	r := GetRegistry()
-	addDeviceInterface(r, mockDevice, mockDevice.String(), MockDeviceDeviceStartup)
+	if err := addDeviceInterface(r, mockDevice, mockDevice.String(), MockDeviceDeviceStartup); err != nil {
+		klog.Errorf("couldn't register mock device %v", err)
+	}
 }
 
 func MockDeviceDeviceStartup() Device {

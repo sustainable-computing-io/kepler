@@ -35,11 +35,11 @@ const (
 )
 
 var (
-	habanaAccImpl = GPUHabana{}
+	habanaAccImpl = gpuHabana{}
 	habanaType    DeviceType
 )
 
-type GPUHabana struct {
+type gpuHabana struct {
 	collectionSupported bool
 	devices             map[int]interface{}
 }
@@ -51,8 +51,11 @@ func habanaCheck(r *Registry) {
 	}
 	habanaType = HABANA
 	klog.V(5).Infof("Register %s with device startup register", habanaType)
-	addDeviceInterface(r, habanaType, habanaAccType, habanaDeviceStartup)
-	klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
+	if err := addDeviceInterface(r, habanaType, habanaAccType, habanaDeviceStartup); err == nil {
+		klog.Infof("Using %s to obtain processor power", habanaAccImpl.Name())
+	} else {
+		klog.V(5).Infof("Error registering habana: %v", err)
+	}
 }
 
 func habanaDeviceStartup() Device {
@@ -66,26 +69,26 @@ func habanaDeviceStartup() Device {
 	return &a
 }
 
-func (g *GPUHabana) Name() string {
+func (g *gpuHabana) Name() string {
 	return habanaType.String()
 }
 
-func (g *GPUHabana) DevType() DeviceType {
+func (g *gpuHabana) DevType() DeviceType {
 	return habanaType
 }
 
-func (g *GPUHabana) HwType() string {
+func (g *gpuHabana) HwType() string {
 	return habanaAccType
 }
 
-func (g *GPUHabana) InitLib() error {
+func (g *gpuHabana) InitLib() error {
 	if _, err := os.Stat(libhlmlpath); errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
 }
 
-func (g *GPUHabana) Init() error {
+func (g *gpuHabana) Init() error {
 	ret := hlml.Initialize()
 	if ret != nil {
 		klog.Error("ERROR initializing hlml")
@@ -98,14 +101,14 @@ func (g *GPUHabana) Init() error {
 	return ret
 }
 
-func (g *GPUHabana) Shutdown() bool {
+func (g *gpuHabana) Shutdown() bool {
 	if ret := hlml.Shutdown(); ret != nil {
 		return false
 	}
 	return true
 }
 
-func (g *GPUHabana) AbsEnergyFromDevice() []uint32 {
+func (g *gpuHabana) AbsEnergyFromDevice() []uint32 {
 	gpuEnergy := []uint32{}
 	for _, dev := range g.devices {
 		power, ret := dev.(GPUDevice).DeviceHandler.(hlml.Device).PowerUsage()
@@ -123,7 +126,7 @@ func (g *GPUHabana) AbsEnergyFromDevice() []uint32 {
 	return gpuEnergy
 }
 
-func (g *GPUHabana) DevicesByID() map[int]interface{} {
+func (g *gpuHabana) DevicesByID() map[int]interface{} {
 	// Get the count of available devices
 	count, ret := hlml.DeviceCount()
 	if ret != nil {
@@ -146,30 +149,30 @@ func (g *GPUHabana) DevicesByID() map[int]interface{} {
 	return devices
 }
 
-func (g *GPUHabana) DevicesByName() map[string]any {
+func (g *gpuHabana) DevicesByName() map[string]any {
 	devices := make(map[string]interface{})
 	return devices
 }
 
-func (g *GPUHabana) DeviceInstances() map[int]map[int]interface{} {
+func (g *gpuHabana) DeviceInstances() map[int]map[int]interface{} {
 	var devices map[int]map[int]interface{}
 	return devices
 }
 
-func (g *GPUHabana) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
+func (g *gpuHabana) DeviceUtilizationStats(dev any) (map[any]interface{}, error) {
 	ds := make(map[any]interface{}) // Process Accelerator Metrics
 	return ds, nil
 }
 
-func (g *GPUHabana) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]interface{}, error) {
+func (g *gpuHabana) ProcessResourceUtilizationPerDevice(dev any, since time.Duration) (map[uint32]interface{}, error) {
 	pam := make(map[uint32]interface{}) // Process Accelerator Metrics
 	return pam, nil
 }
 
-func (g *GPUHabana) IsDeviceCollectionSupported() bool {
+func (g *gpuHabana) IsDeviceCollectionSupported() bool {
 	return g.collectionSupported
 }
 
-func (g *GPUHabana) SetDeviceCollectionSupported(supported bool) {
+func (g *gpuHabana) SetDeviceCollectionSupported(supported bool) {
 	g.collectionSupported = supported
 }
