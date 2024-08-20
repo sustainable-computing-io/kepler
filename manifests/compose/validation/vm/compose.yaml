@@ -22,11 +22,8 @@ services:
 
       # NOTE: use the models from the local repo
       - type: bind
-        source: ../../../../data/model_weight/
+        source: ../../../../data
         target: /var/lib/kepler/data
-      - type: bind
-        source: ../../../../data/cpus.yaml
-        target: /var/lib/kepler/data/cpus.yaml
 
         # NOTE: for estimator - kepler communication
       - kepler-tmp:/tmp
