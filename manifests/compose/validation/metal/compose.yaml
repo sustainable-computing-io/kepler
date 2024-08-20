@@ -34,11 +34,8 @@ services:
 
       # NOTE: use the weights from the local repo
       - type: bind
-        source: ../../../../data/model_weight/
+        source: ../../../../data
         target: /var/lib/kepler/data
-      - type: bind
-        source: ../../../../data/cpus.yaml
-        target: /var/lib/kepler/data/cpus.yaml
 
     entrypoint: [/usr/bin/bash, -c]
 
