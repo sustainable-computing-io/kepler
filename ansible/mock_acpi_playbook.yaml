@@ -47,13 +47,22 @@
         ('success' not in prometheus_metrics.stdout) or
         ('"result": []' in prometheus_metrics.stdout)
 
-    - name: Run mock-acpi validator
-      shell: |
-        cd {{ validator_dir }}
-        hatch run validator -f ./validator.mock-acpi.yaml validate-acpi -d 1m
-      when: prometheus_metrics is success
-      register: mock_acpi_validator
-      failed_when: |
-        ('error' in mock_acpi_validator.stdout.lower()) or
-        ('mse exceeded' in mock_acpi_validator.stdout.lower()) or
-        ('mape exceeded' in mock_acpi_validator.stderr.lower())
+    - block:
+        - name: Run mock-acpi validator
+          shell: |
+            cd {{ validator_dir }}
+            hatch run validator -f ./validator.mock-acpi.yaml validate-acpi -d 1m
+          when: prometheus_metrics is success
+          register: mock_acpi_validator
+      always:
+        - name: Output the results of validator
+          debug:
+            var: mock_acpi_validator
+
+        - name: Check for errors in validator
+          fail:
+            msgg: "Mock-ACPI validator failed with the following errors: {{ mock_acpi_validator.stdout }} {{ mock_acpi_validator.stderr }}"
+          when: >
+            ('error' in mock_acpi_validator.stdout.lower()) or
+            ('mse exceeded' in mock_acpi_validator.stdout.lower()) or
+            ('mape exceeded' in mock_acpi_validator.stderr.lower())
