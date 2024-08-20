@@ -60,13 +60,13 @@ GOARCH := $(shell go env GOARCH)
 GOENV = GO111MODULE="" \
 				GOOS=$(GOOS) \
 				GOARCH=$(GOARCH)
-
+PKG_BUILD="github.com/sustainable-computing-io/kepler/pkg/build"
 LDFLAGS := $(LDFLAGS) \
-		-X main.Version=$(VERSION) \
-		-X main.Revision=$(GIT_SHA) \
-		-X main.Branch=$(GIT_BRANCH) \
-		-X main.OS=$(GOOS) \
-		-X main.Arch=$(GOARCH)
+		-X $(PKG_BUILD).Version=$(VERSION) \
+		-X $(PKG_BUILD).Revision=$(GIT_SHA) \
+		-X $(PKG_BUILD).Branch=$(GIT_BRANCH) \
+		-X $(PKG_BUILD).OS=$(GOOS) \
+		-X $(PKG_BUILD).Arch=$(GOARCH)
 
 DOCKERFILE := $(SRC_ROOT)/build/Dockerfile
 IMAGE_BUILD_TAG := $(GIT_VERSION)-linux-$(GOARCH)
