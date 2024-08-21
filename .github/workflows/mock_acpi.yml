@@ -19,6 +19,12 @@ jobs:
       - name: Get PR branch
         id: pr_branch
         uses: xt0rted/pull-request-comment-branch@v2
+
+      - name: Set ref and sha as outputs
+        run: |
+          echo "head_ref=${{ steps.pr_branch.outputs.head_ref }}" >> $GITHUB_ENV
+          echo "head_sha=${{ steps.pr_branch.outputs.head_sha }}" >> $GITHUB_ENV
+
   # Since `issue_comment` event workflow will not appear on the
   # pull request page, we need to set the status of the job
   # in order to attach it to the pull request itself
@@ -26,7 +32,7 @@ jobs:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Set job status as pending
     runs-on: ubuntu-latest
-    needs: [fetch-branch-name]
+    needs: fetch-branch-name
     steps:
       - name: Set job status as pending
         uses: myrotvorets/set-commit-status-action@master
@@ -91,15 +97,11 @@ jobs:
           echo "Launching Mock ACPI compose and running validator"
           ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
 
-      - name: Set failure status if playbook failed
-        if: steps.run-playbook.outcome == 'failure'
-        run: echo "failure_status=true" >> $GITHUB_ENV
-
   cleanup:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Cleanup
     runs-on: ubuntu-latest
-    needs: create-runner
+    needs: setup-runner
     steps:
       - name: delete runner
         uses: rootfs/metal-delete-action@main
@@ -125,12 +127,11 @@ jobs:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Set final status
     runs-on: ubuntu-latest
-    needs: fetch-branch-name
     steps:
       - name: Set job status as ${{ job.status }}
         uses: myrotvorets/set-commit-status-action@master
         if: always()
         with:
-          sha: ${{ needs.fetch-branch-name.outputs.head_sha }}
+          sha: ${{ env.head_sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
