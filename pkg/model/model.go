@@ -99,11 +99,15 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 		} else {
 			featuresNames = modelConfig.ProcessFeatureNames
 		}
+		trainerName := modelConfig.TrainerName
+		if trainerName == "" {
+			trainerName = config.DefaultTrainerName
+		}
 		model := &regressor.Regressor{
 			ModelServerEndpoint:         config.ModelServerEndpoint,
 			OutputType:                  modelConfig.ModelOutputType,
 			EnergySource:                modelConfig.EnergySource,
-			TrainerName:                 modelConfig.TrainerName,
+			TrainerName:                 trainerName,
 			SelectFilter:                modelConfig.SelectFilter,
 			ModelWeightsURL:             modelConfig.InitModelURL,
 			ModelWeightsFilepath:        modelConfig.InitModelFilepath,
@@ -206,9 +210,6 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 // getPowerModelTrainerName return the trainer name for a given power source, such as platform or components power sources
 func getPowerModelTrainerName(powerSourceTarget string) (trainerName string) {
 	trainerName = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.FixedTrainerNameKey)]
-	if trainerName == "" {
-		trainerName = config.DefaultTrainerName
-	}
 	return
 }
 
