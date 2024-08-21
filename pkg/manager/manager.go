@@ -27,10 +27,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	samplePeriod = time.Duration(config.SamplePeriodSec * 1000 * uint64(time.Millisecond))
-)
-
 type CollectorManager struct {
 	// StatsCollector is responsible to collect resource and energy consumption metrics and calculate them when needed
 	StatsCollector *collector.Collector
@@ -69,6 +65,8 @@ func (m *CollectorManager) Start() error {
 	if err := m.StatsCollector.Initialize(); err != nil {
 		return err
 	}
+
+	samplePeriod := time.Duration((config.SamplePeriodSec()) * uint64(time.Second))
 
 	go func() {
 		ticker := time.NewTicker(samplePeriod)

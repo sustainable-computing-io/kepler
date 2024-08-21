@@ -234,7 +234,7 @@ func (n *GPUNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 		}
 
 		if !n.processUtilizationSupported { // If processUtilizationSupported is false, try deviceGetMPSComputeRunningProcesses_v3 to use memory usage to ratio power usage
-			config.GpuUsageMetric = config.GPUMemUtilization
+			config.GPUUsageMetric = config.GPUMemUtilization
 			processInfo, ret := d.DeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 			if ret != nvml.SUCCESS {
 				if ret == nvml.ERROR_NOT_FOUND {

@@ -91,7 +91,7 @@ func (e *exporter) attach() error {
 
 	// Set program global variables
 	err = specs.RewriteConstants(map[string]interface{}{
-		"SAMPLE_RATE": int32(config.BPFSampleRate),
+		"SAMPLE_RATE": int32(config.GetBPFSampleRate()),
 	})
 	if err != nil {
 		return fmt.Errorf("error rewriting program constants: %v", err)
@@ -112,7 +112,7 @@ func (e *exporter) attach() error {
 	}
 	e.enabledSoftwareCounters[config.CPUTime] = struct{}{}
 
-	if config.ExposeIRQCounterMetrics {
+	if config.ExposeIRQCounterMetrics() {
 		e.irqLink, err = link.AttachTracing(link.TracingOptions{
 			Program:    e.bpfObjects.KeplerIrqTrace,
 			AttachType: ebpf.AttachTraceRawTp,
@@ -148,7 +148,7 @@ func (e *exporter) attach() error {
 	}
 
 	// Return early if hardware counters are not enabled
-	if !config.ExposeHardwareCounterMetrics {
+	if !config.ExposeHardwareCounterMetrics() {
 		klog.Infof("Hardware counter metrics are disabled")
 		return nil
 	}

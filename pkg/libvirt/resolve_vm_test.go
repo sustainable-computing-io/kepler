@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 const (
@@ -37,6 +38,7 @@ var _ = Describe("Test LibVirt", func() {
 
 	BeforeEach(func() {
 		mockProcDir = createTempDir()
+		config.GetConfig()
 	})
 
 	AfterEach(func() {

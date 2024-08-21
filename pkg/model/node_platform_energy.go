@@ -38,7 +38,7 @@ func CreateNodePlatformPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 		klog.Infof("Skipping creation of Node Platform Power Model since the system collection is supported")
 	}
 
-	modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
+	modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
 	if modelConfig.InitModelURL == "" {
 		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
 	}
@@ -98,7 +98,7 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }
 
@@ -106,6 +106,6 @@ func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 func UpdateNodePlatformIdleEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }

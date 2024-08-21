@@ -9,7 +9,8 @@ import (
 
 var _ = Describe("Stats", func() {
 	It("Test InitAvailableParamAndMetrics", func() {
-		config.ExposeHardwareCounterMetrics = false
+		config.GetConfig()
+		config.SetEnabledHardwareCounterMetrics(false)
 		supportedMetrics := bpf.DefaultSupportedMetrics()
 		InitAvailableParamAndMetrics()
 		exp := []string{}

@@ -104,7 +104,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 			trainerName = config.DefaultTrainerName
 		}
 		model := &regressor.Regressor{
-			ModelServerEndpoint:         config.ModelServerEndpoint,
+			ModelServerEndpoint:         config.ModelServerEndpoint(),
 			OutputType:                  modelConfig.ModelOutputType,
 			EnergySource:                modelConfig.EnergySource,
 			TrainerName:                 trainerName,
@@ -190,18 +190,18 @@ func getModelConfigKey(modelItem, attribute string) string {
 // getPowerModelType return the model type for a given power source, such as platform or components power sources
 // The default power model type is Ratio
 func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
-	useEstimatorSidecarStr := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.EstimatorEnabledKey)]
+	useEstimatorSidecarStr := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.EstimatorEnabledKey))
 	if strings.EqualFold(useEstimatorSidecarStr, "true") {
 		modelType = types.EstimatorSidecar
 		return
 	}
-	useLocalRegressor := config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey)]
+	useLocalRegressor := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey))
 	if strings.EqualFold(useLocalRegressor, "true") {
 		modelType = types.Regressor
 		return
 	}
 	// set the default node power model as Regressor
-	if powerSourceTarget == config.NodePlatformPowerKey || powerSourceTarget == config.NodeComponentsPowerKey {
+	if powerSourceTarget == config.NodePlatformPowerKey() || powerSourceTarget == config.NodeComponentsPowerKey() {
 		modelType = types.Regressor
 		return
 	}
@@ -212,20 +212,20 @@ func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
 
 // getPowerModelTrainerName return the trainer name for a given power source, such as platform or components power sources
 func getPowerModelTrainerName(powerSourceTarget string) (trainerName string) {
-	trainerName = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.FixedTrainerNameKey)]
+	trainerName = config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.FixedTrainerNameKey))
 	return
 }
 
 // getPowerModelFilter return the model filter for a given power source, such as platform or components power sources
 // The model filter is used to select a model, for example selecting a model with the acceptable error: 'mae:0.5'
 func getPowerModelFilter(powerSourceTarget string) (selectFilter string) {
-	selectFilter = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.ModelFiltersKey)]
+	selectFilter = config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.ModelFiltersKey))
 	return
 }
 
 // getPowerModelDownloadURL return the url to download the pre-trained power model for a given power source, such as platform or components power sources
 func getPowerModelDownloadURL(powerSourceTarget string) (url string) {
-	url = config.ModelConfigValues[getModelConfigKey(powerSourceTarget, config.InitModelURLKey)]
+	url = config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.InitModelURLKey))
 	return
 }
 
@@ -235,17 +235,17 @@ func getPowerModelDownloadURL(powerSourceTarget string) (url string) {
 // PlatformEnergySource values. Therefore, we must not replace it here
 func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 	switch powerSourceTarget {
-	case config.ContainerPlatformPowerKey:
+	case config.ContainerPlatformPowerKey():
 		return types.PlatformEnergySource
-	case config.ContainerComponentsPowerKey:
+	case config.ContainerComponentsPowerKey():
 		return types.ComponentEnergySource
-	case config.ProcessPlatformPowerKey:
+	case config.ProcessPlatformPowerKey():
 		return types.PlatformEnergySource
-	case config.ProcessComponentsPowerKey:
+	case config.ProcessComponentsPowerKey():
 		return types.ComponentEnergySource
-	case config.NodePlatformPowerKey:
+	case config.NodePlatformPowerKey():
 		return types.PlatformEnergySource
-	case config.NodeComponentsPowerKey:
+	case config.NodeComponentsPowerKey():
 		return types.ComponentEnergySource
 	}
 	return ""
@@ -256,13 +256,13 @@ func getPowerModelEnergySource(powerSourceTarget string) (energySource string) {
 // AbsPower for Node, DynPower for process and process
 func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 	switch powerSourceTarget {
-	case config.ProcessComponentsPowerKey:
+	case config.ProcessComponentsPowerKey():
 		return types.DynPower
-	case config.ProcessPlatformPowerKey:
+	case config.ProcessPlatformPowerKey():
 		return types.DynPower
-	case config.NodePlatformPowerKey:
+	case config.NodePlatformPowerKey():
 		return types.AbsPower
-	case config.NodeComponentsPowerKey:
+	case config.NodeComponentsPowerKey():
 		return types.AbsPower
 	}
 	return types.Unsupported
@@ -271,9 +271,9 @@ func getPowerModelOutputType(powerSourceTarget string) types.ModelOutputType {
 // isNodeLevel return the true if current power key is node platform or node components
 func isNodeLevel(powerSourceTarget string) bool {
 	switch powerSourceTarget {
-	case config.NodePlatformPowerKey:
+	case config.NodePlatformPowerKey():
 		return true
-	case config.NodeComponentsPowerKey:
+	case config.NodeComponentsPowerKey():
 		return true
 	}
 	return false

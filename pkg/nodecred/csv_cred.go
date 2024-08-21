@@ -61,7 +61,7 @@ func (c csvNodeCred) IsSupported(info map[string]string) bool {
 	if filePath == "" {
 		return false
 	} else {
-		nodeName := metric_util.GetNodeName()
+		nodeName := metric_util.NodeName()
 		// read file from filePath
 		userName, password, host, err := readCSVFile(filePath, nodeName)
 		if err != nil {

@@ -122,8 +122,9 @@ func genHandlerFunc(curvefit []float64, trainerName string) (handlerFunc func(w 
 }
 
 func genRegressor(outputType types.ModelOutputType, energySource, modelServerEndpoint, modelWeightsURL, modelWeightFilepath, trainerName string) Regressor {
-	config.ModelServerEnable = true
-	config.ModelServerEndpoint = modelServerEndpoint
+	config.GetConfig()
+	config.SetModelServerEnable(true)
+	config.SetModelServerEndpoint(modelServerEndpoint)
 	return Regressor{
 		ModelServerEndpoint:         modelServerEndpoint,
 		OutputType:                  outputType,

@@ -98,9 +98,9 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 func main() {
 	start := time.Now()
 	klog.InitFlags(nil)
-	appConfig := newAppConfig()
-	flag.Parse()
-
+	appConfig := newAppConfig() // Initialize appConfig and define flags
+	flag.Parse()                // Parse command-line flags
+	config.GetConfig()          // Initialize the configuration
 	klog.Infof("Kepler running on version: %s", build.Version)
 
 	registry := metrics.GetRegistry()
@@ -149,7 +149,7 @@ func main() {
 
 	stats.InitAvailableParamAndMetrics()
 
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		r := accelerator.GetRegistry()
 		if a, err := accelerator.New(accelerator.GPU, true); err == nil {
 			r.MustRegister(a) // Register the accelerator with the registry

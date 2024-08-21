@@ -87,7 +87,7 @@ func (r *Regressor) Start() error {
 	r.enabled = false
 	r.coreRatio = 1
 	// try getting weight from model server if it is enabled
-	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
+	if config.IsModelServerEnabled() && config.ModelServerEndpoint() != "" {
 		weight, err = r.getWeightFromServer()
 		klog.V(3).Infof("Regression Model (%s): getWeightFromServer: %v (error: %v)", outputStr, weight, err)
 	}
