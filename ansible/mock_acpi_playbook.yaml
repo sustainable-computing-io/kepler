@@ -51,6 +51,7 @@
       shell: |
         cd {{ validator_dir }}
         hatch run validator -f ./validator.mock-acpi.yaml validate-acpi -d 1m
+        echo "Validator exit code: $?"
       when: prometheus_metrics is success
       register: mock_acpi_validator
       failed_when: |
