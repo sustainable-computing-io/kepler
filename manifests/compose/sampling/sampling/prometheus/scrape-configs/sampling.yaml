@@ -1,0 +1,4 @@
+scrape_configs:
+  - job_name: sampling
+    static_configs:
+      - targets: [kepler-sampling:8888]
