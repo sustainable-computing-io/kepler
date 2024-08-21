@@ -1,0 +1,119 @@
+name: sampling
+include:
+  - path:
+      - ../monitoring/compose.yaml
+      - ./override.yaml
+
+services:
+  ### 📦 kepler created from the current repo with sampling enabled
+  kepler-sampling:
+    build:
+      context: ../../../
+      dockerfile: build/Dockerfile
+      args:
+        INSTALL_DCGM: false
+        INSTALL_HABANA: false
+
+    ports:
+      # NOTE: use 9888 to keep the host 8888 port free for any local testing
+      # e.g. sudo ./bin/kepler
+      - 9188:8888
+    privileged: true
+    pid: host
+    depends_on:
+      - prometheus
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./sampling/kepler/etc/kepler
+        target: /etc/kepler
+
+      # NOTE: use the weights from the local repo
+      - type: bind
+        source: ../../../data
+        target: /var/lib/kepler/data
+
+    entrypoint: [/usr/bin/bash, -c]
+
+    command:
+      - |
+        echo Starting kepler with sampling;
+        # NOTE: uncomment to wait for estimator container
+        # echo waiting for estimator socket to be ready;
+        # until [[ -e /tmp/estimator.sock ]]; do
+        #   echo " ... waiting for socket";
+        #   sleep 1;
+        # done;
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -v "8" \
+          -enable-gpu=false
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+
+  ### 📦 kepler created from the current repo without sampling enabled
+  kepler-probing:
+    build:
+      context: ../../../
+      dockerfile: build/Dockerfile
+      args:
+        INSTALL_DCGM: false
+        INSTALL_HABANA: false
+
+    ports:
+      # NOTE: use 9888 to keep the host 8888 port free for any local testing
+      # e.g. sudo ./bin/kepler
+      - 9288:8888
+    privileged: true
+    pid: host
+    depends_on:
+      - prometheus
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys
+        target: /sys
+      - type: bind
+        source: ./probing/kepler/etc/kepler
+        target: /etc/kepler
+
+      # NOTE: use the weights from the local repo
+      - type: bind
+        source: ../../../data
+        target: /var/lib/kepler/data
+
+    entrypoint: [/usr/bin/bash, -c]
+
+    command:
+      - |
+        echo Starting kepler with probing;
+        # NOTE: uncomment to wait for estimator container
+        # echo waiting for estimator socket to be ready;
+        # until [[ -e /tmp/estimator.sock ]]; do
+        #   echo " ... waiting for socket";
+        #   sleep 1;
+        # done;
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -v "8" \
+          -enable-gpu=false
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+
+networks:
+  kepler-network:

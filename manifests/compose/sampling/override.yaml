@@ -1,0 +1,21 @@
+services:
+  grafana:
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/sampling/dashboard.json
+
+    volumes:
+      - type: bind
+        source: ../sampling/grafana/dashboards/sampling/
+        target: /var/lib/grafana/dashboards/sampling
+
+  prometheus:
+    volumes:
+      - type: bind
+        source: ../sampling/sampling/prometheus/scrape-configs/sampling.yaml
+        target: /etc/prometheus/scrape-configs/sampling.yaml
+      - type: bind
+        source: ../sampling/probing/prometheus/scrape-configs/probing.yaml
+        target: /etc/prometheus/scrape-configs/probing.yaml
+
+    networks:
+      - kepler-network
