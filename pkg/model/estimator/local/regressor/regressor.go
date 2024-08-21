@@ -32,20 +32,16 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	// TODO: determine node type dynamically
-	defaultNodeType int = 1
-)
-
 // ModelRequest defines a request to Kepler Model Server to get model weights
 type ModelRequest struct {
-	MetricNames  []string `json:"metrics"`
-	OutputType   string   `json:"output_type"`
-	EnergySource string   `json:"source"`
-	NodeType     int      `json:"node_type"`
-	Weight       bool     `json:"weight"`
-	TrainerName  string   `json:"trainer_name"`
-	SelectFilter string   `json:"filter"`
+	MetricNames  []string           `json:"metrics"`
+	OutputType   string             `json:"output_type"`
+	EnergySource string             `json:"source"`
+	NodeType     int                `json:"node_type"`
+	Weight       bool               `json:"weight"`
+	TrainerName  string             `json:"trainer_name"`
+	SelectFilter string             `json:"filter"`
+	MachineSpec  config.MachineSpec `json:"machine_spec"`
 }
 
 // Predictor defines required implementation for power prediction
@@ -77,6 +73,7 @@ type Regressor struct {
 	enabled         bool
 	modelWeight     *ComponentModelWeights
 	modelPredictors map[string]Predictor
+	*config.MachineSpec
 }
 
 // Start returns nil if model weight is obtainable
@@ -153,8 +150,8 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 		EnergySource: r.EnergySource,
 		TrainerName:  r.TrainerName,
 		SelectFilter: r.SelectFilter,
-		NodeType:     defaultNodeType,
 		Weight:       true,
+		MachineSpec:  *r.MachineSpec,
 	}
 	modelRequestJSON, err := json.Marshal(modelRequest)
 	if err != nil {

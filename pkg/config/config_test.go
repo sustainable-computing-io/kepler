@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"runtime"
 
@@ -54,6 +55,16 @@ func createTempFile(contents string) (filename string, reterr error) {
 	}()
 	_, _ = f.WriteString(contents)
 	return f.Name(), nil
+}
+
+func (spec *MachineSpec) saveToFile(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	encoder := json.NewEncoder(file)
+	return encoder.Encode(spec)
 }
 
 var _ = Describe("Test Configuration", func() {
@@ -112,5 +123,18 @@ var _ = Describe("Test Configuration", func() {
 		default:
 			// no test
 		}
+	})
+	It("Test machine spec generation and read", func() {
+		tmpPath := "./test_spec"
+		// generate spec
+		spec := generateSpec()
+		Expect(spec).NotTo(BeNil())
+		err := spec.saveToFile(tmpPath)
+		Expect(err).To(BeNil())
+		readSpec, err := readMachineSpec(tmpPath)
+		Expect(err).To(BeNil())
+		Expect(*spec).To(BeEquivalentTo(*readSpec))
+		err = os.Remove(tmpPath)
+		Expect(err).To(BeNil())
 	})
 })

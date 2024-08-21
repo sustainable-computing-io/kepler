@@ -127,6 +127,7 @@ func genRegressor(outputType types.ModelOutputType, energySource, modelServerEnd
 		ModelWeightsURL:             modelWeightsURL,
 		ModelWeightsFilepath:        modelWeightFilepath,
 		TrainerName:                 trainerName,
+		MachineSpec:                 config.GetMachineSpec(),
 	}
 }
 

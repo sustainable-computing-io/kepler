@@ -6,6 +6,8 @@ resources:
 #  - prometheus_common_service_monitor.yaml
 #  - prometheus_common_rules.yaml
 #  - prometheus_high_granularity_rules.yaml
+# uncomment this line for default machine spec configmap
+#  - machine_spec_configmap.yaml
 
 patchesStrategicMerge: []
 # add this line to allow ci
@@ -26,6 +28,8 @@ patchesStrategicMerge: []
 #  - ./patch/patch-dcgmi.yaml
 # add this line for habana patch
 #  - ./patch/patch-habana.yaml
+# add this line for machine spec patch
+# - ./patch/patch-machine-spec.yaml
 
 secretGenerator:
   - name: redfish

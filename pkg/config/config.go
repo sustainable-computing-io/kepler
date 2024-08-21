@@ -107,8 +107,10 @@ var (
 	redfishSkipSSLVerify          = getBoolConfig("REDFISH_SKIP_SSL_VERIFY", true)
 
 	////////////////////////////////////
-	ModelServerEnable   = getBoolConfig("MODEL_SERVER_ENABLE", false)
-	ModelServerEndpoint = SetModelServerReqEndpoint()
+	DefaultMachineSpecFilePath = "/etc/kepler/models/machine/spec.json"
+	machineSpecFilePath        string
+	ModelServerEnable          = getBoolConfig("MODEL_SERVER_ENABLE", false)
+	ModelServerEndpoint        = SetModelServerReqEndpoint()
 	// for model config
 	ModelConfigValues map[string]string
 	// model_parameter_prefix
@@ -243,6 +245,22 @@ func SetModelServerReqEndpoint() (modelServerReqEndpoint string) {
 
 func GetMockACPIPowerPath() string {
 	return MockACPIPowerPath
+}
+
+func SetMachineSpecFilePath(specFilePath string) {
+	machineSpecFilePath = specFilePath
+}
+
+// GetMachineSpec initializes a map of MachineSpecValues from MACHINE_SPEC
+func GetMachineSpec() *MachineSpec {
+	if machineSpecFilePath != "" {
+		if spec, err := readMachineSpec(machineSpecFilePath); err == nil {
+			return spec
+		} else {
+			klog.Warningf("failed to read spec from %s: %v, use default machine spec", machineSpecFilePath, err)
+		}
+	}
+	return getDefaultMachineSpec()
 }
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
