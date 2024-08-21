@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 import typing
@@ -17,12 +18,14 @@ from validator import config
 from validator.__about__ import __version__
 from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series, ValueOrError
+from validator.report import CustomEncoder, JsonTemplate
 from validator.specs import MachineSpec, get_host_spec, get_vm_spec
 from validator.stresser import Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate, Validation
 
 logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
+data_dict = {}
 
 
 @dataclass
@@ -277,6 +280,8 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     click.secho("  * Generating report dir and tag", fg="green")
     results_dir, tag = create_report_dir(report_dir)
     click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
+    filepath = results_dir + "/" + tag + ".json"
+    data_dict.update({"file_path": filepath})
 
     res = TestResult(tag)
 
@@ -297,7 +302,7 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     time.sleep(10)
 
     res.validations = run_validations(cfg, stress_test, results_dir)
-
+    create_json(res)
     write_md_report(results_dir, res)
 
 
@@ -450,3 +455,75 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     write_md_report(results_dir, res)
 
     return int(res.validations.passed)
+
+
+def create_json(res):
+    def update_list_json(new_value: list, new_key: str):
+        data_dict[new_key] = new_value
+
+    def custom_encode(input_string):
+        pattern = re.compile(r'(\w+)=("[^"]*"|[^,]+)')
+        matches = pattern.findall(input_string)
+        parsed_dict = {key: value.strip('"') for key, value in matches}
+        return json.dumps(parsed_dict)
+
+    result = []
+
+    for i in res.validations.results:
+        value = {}
+        if i.mse_passed:
+            value["mse"] = float(i.mse.value)
+        else:
+            value["mse"] = float(i.mse.error)
+        if i.mape_passed:
+            value["mape"] = float(i.mape.value)
+        else:
+            value["mape"] = float(i.mape.error)
+        value["status"] = "mape passed: " + str(i.mape_passed) + ", mse passed: " + str(i.mse_passed)
+        m_name = i.name.replace(" - ", "_")
+
+        result.append({m_name: value})
+
+    build_info = []
+    for i in res.build_info:
+        tmp = i.replace("kepler_exporter_build_info", "")
+        build_info.append(custom_encode(tmp))
+
+    node_info = []
+    for i in res.node_info:
+        tmp = i.replace("kepler_exporter_node_info", "")
+        node_info.append(custom_encode(tmp))
+
+    update_list_json(build_info, "build_info")
+    update_list_json(node_info, "node_info")
+
+    machine_spec = []
+    machine_spec.append(
+        {
+            "type": "host",
+            "model": res.host_spec[0][0],
+            "cores": res.host_spec[0][1],
+            "threads": res.host_spec[0][2],
+            "sockets": res.host_spec[0][3],
+            "flags": res.host_spec[0][4],
+            "dram": res.host_spec[1],
+        }
+    )
+    machine_spec.append(
+        {
+            "type": "vm",
+            "model": res.vm_spec[0][0],
+            "cores": res.vm_spec[0][1],
+            "threads": res.vm_spec[0][2],
+            "sockets": res.vm_spec[0][3],
+            "flags": res.vm_spec[0][4],
+            "dram": res.vm_spec[1],
+        }
+    )
+    update_list_json(machine_spec, "machine_spec")
+
+    update_list_json(result, "result")
+    json_template = JsonTemplate(**data_dict)
+    file_name = data_dict["file_path"]
+    with open(file_name, "w") as file:
+        json.dump(json_template, file, cls=CustomEncoder, indent=2)
