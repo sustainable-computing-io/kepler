@@ -2,8 +2,6 @@ services:
   prometheus:
     networks:
       - kepler-network
-    depends_on:
-      - kepler-latest
     volumes:
       - type: bind
         source: ../default/prometheus/scrape-configs/latest.yaml
