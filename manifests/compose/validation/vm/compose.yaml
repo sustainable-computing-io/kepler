@@ -56,11 +56,11 @@ services:
 
   estimator:
     entrypoint:
-      - python3.8
+      - python3.10
     command:
       - -u
-      - src/estimate/estimator.py
-    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
+      - src/kepler_model/estimate/estimator.py
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.11-2
 
     volumes:
       - type: bind
@@ -75,13 +75,13 @@ services:
 
   model-server:
     entrypoint:
-      - python3.8
+      - python3.10
     ports:
       - 8100
     command:
       - -u
-      - src/server/model_server.py
-    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
+      - src/kepler_model/server/model_server.py
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.11-2
     volumes:
       - type: bind
         source: ./kepler/etc/kepler
