@@ -9,6 +9,7 @@ services:
     pid: host
     networks:
       - kepler-network
+      - model-server-network # to support kepler -> model-server use-case
     volumes:
       - type: bind
         source: /proc
@@ -43,25 +44,33 @@ services:
       - -c
 
     command:
-      - echo "Waiting for estimator socket";
+      - |
+        echo "Waiting for model-server"
+        until [[ "$(curl -s -o /dev/null -w "%{http_code}" http://model-server:8100/best-models)" -eq 200 ]]; do
+          echo " ... waiting for model-server"
+          sleep 1
+        done
+
+        echo "Waiting for estimator socket"
         until [[ -e /tmp/estimator.sock ]]; do
-        echo " ... waiting for socket";
-        sleep 1;
-        done;
-        echo "starting kepler";
-        set -x;
-        /usr/bin/kepler
-        -address="0.0.0.0:9100"
-        -v="8"
+          echo " ... waiting for estimator socket"
+          sleep 1
+        done
+
+        echo "starting kepler ..."
+        echo " * power-meter disabled: $$DISABLE_POWER_METER"
+        set -x
+        /usr/bin/kepler \
+          -address="0.0.0.0:9100" \
+          -disable-power-meter=$$DISABLE_POWER_METER \
+          -v="8"
+
+    environment:
+      - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
 
   estimator:
-    entrypoint:
-      - python3.8
-    command:
-      - -u
-      - src/estimate/estimator.py
-    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
-
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.11-2
+    command: [estimator, -l, debug]
     volumes:
       - type: bind
         source: ./kepler/etc/kepler
@@ -74,14 +83,10 @@ services:
       - model-server-network
 
   model-server:
-    entrypoint:
-      - python3.8
+    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.11-2
+    command: [model-server, -l, debug]
     ports:
-      - 8100
-    command:
-      - -u
-      - src/server/model_server.py
-    image: quay.io/sustainable_computing_io/kepler_model_server:v0.7.7
+      - 8100:8100
     volumes:
       - type: bind
         source: ./kepler/etc/kepler
