@@ -18,13 +18,13 @@ package cgroup
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -40,30 +40,58 @@ type ContainerInfo struct {
 
 const (
 	unknownPath string = "unknown"
-
-	procPath   string = "/proc/%d/cgroup"
-	cgroupPath string = "/sys/fs/cgroup"
+	procPath    string = "/proc/%d/cgroup"
+	cgroupPath  string = "/sys/fs/cgroup"
 )
 
 var (
-	byteOrder binary.ByteOrder         = utils.DetermineHostByteOrder()
-	podLister kubelet.KubeletPodLister = kubelet.KubeletPodLister{}
-
-	// map to cache data to speedup lookups
-	containerIDCache           = map[uint64]string{}
-	containerIDToContainerInfo = map[string]*ContainerInfo{}
-	cGroupIDToPath             = map[uint64]string{}
-
-	validContainerIDRegex         = regexp.MustCompile("^[a-zA-Z0-9]+$")
-	regexReplaceContainerIDPrefix = regexp.MustCompile(`.*//`)
+	instance *cache
+	once     sync.Once
 )
+
+type cache struct {
+	// map to cache data to speedup lookups
+	containerIDCache           map[uint64]string
+	containerIDToContainerInfo map[string]*ContainerInfo
+	cGroupIDToPath             map[uint64]string
+}
 
 func Init() (*[]corev1.Pod, error) {
 	pods := []corev1.Pod{}
 	return &pods, nil
 }
 
+// GetConfig returns the singleton Config instance, creating it if necessary.
+func InitCache() {
+	once.Do(func() {
+		instance = newCache()
+	})
+}
+
+// SetConfig replaces the global instance
+func SetConfig(c *cache) {
+	instance = c
+}
+
+// newConfig creates and returns a new Config instance.
+func newCache() *cache {
+	return &cache{
+		containerIDCache:           map[uint64]string{},
+		containerIDToContainerInfo: map[string]*ContainerInfo{},
+		cGroupIDToPath:             map[uint64]string{},
+	}
+}
+
+func ensureCacheInitialized() {
+	if instance == nil {
+		once.Do(func() {
+			instance = newCache()
+		})
+	}
+}
+
 func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	ensureCacheInitialized()
 	info, err := GetContainerInfo(cGroupID, pid, withCGroupID)
 	return info.ContainerID, err
 }
@@ -72,6 +100,7 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 	var err error
 	var containerID string
 
+	ensureCacheInitialized()
 	name := utils.SystemProcessName
 	namespace := utils.SystemProcessNamespace
 	if cGroupID == 1 && withCGroupID {
@@ -90,16 +119,18 @@ func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, 
 		return info, err
 	}
 
-	if i, ok := containerIDToContainerInfo[containerID]; ok {
+	if i, ok := instance.containerIDToContainerInfo[containerID]; ok {
 		return i, nil
 	} else {
 		info.ContainerID = containerID
-		containerIDToContainerInfo[containerID] = info
+		instance.containerIDToContainerInfo[containerID] = info
 	}
-	return containerIDToContainerInfo[containerID], nil
+	return instance.containerIDToContainerInfo[containerID], nil
 }
 
 func ParseContainerIDFromPodStatus(containerID string) string {
+	ensureCacheInitialized()
+	regexReplaceContainerIDPrefix := regexp.MustCompile(`.*//`)
 	return regexReplaceContainerIDPrefix.ReplaceAllString(containerID, "")
 }
 
@@ -119,12 +150,14 @@ func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, er
 
 // AddContainerIDToCache add the container id to cache using the pid as the key
 func AddContainerIDToCache(pid uint64, containerID string) {
-	containerIDCache[pid] = containerID
+	ensureCacheInitialized()
+	instance.containerIDCache[pid] = containerID
 }
 
 // GetContainerIDFromPID find the container ID using the process PID
 func GetContainerIDFromPID(pid uint64) (string, error) {
-	if p, ok := containerIDCache[pid]; ok {
+	ensureCacheInitialized()
+	if p, ok := instance.containerIDCache[pid]; ok {
 		return p, nil
 	}
 
@@ -136,7 +169,7 @@ func GetContainerIDFromPID(pid uint64) (string, error) {
 
 	containerID, err := extractPodContainerIDfromPath(path)
 	AddContainerIDToCache(pid, containerID)
-	return containerIDCache[pid], err
+	return instance.containerIDCache[pid], err
 }
 
 func getPathFromPID(searchPath string, pid uint64) (string, error) {
@@ -163,7 +196,7 @@ func getPathFromPID(searchPath string, pid uint64) (string, error) {
 }
 
 func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
-	if id, ok := containerIDCache[cGroupID]; ok {
+	if id, ok := instance.containerIDCache[cGroupID]; ok {
 		return id, nil
 	}
 
@@ -175,13 +208,13 @@ func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 
 	containerID, err := extractPodContainerIDfromPath(path)
 	AddContainerIDToCache(cGroupID, containerID)
-	return containerIDCache[cGroupID], err
+	return instance.containerIDCache[cGroupID], err
 }
 
 // getPathFromcGroupID uses cgroupfs to get cgroup path from id
 // it needs cgroup v2 (per https://github.com/iovisor/bpftrace/issues/950) and kernel 4.18+ (https://github.com/torvalds/linux/commit/bf6fa2c893c5237b48569a13fa3c673041430b6c)
 func getPathFromcGroupID(cgroupID uint64) (string, error) {
-	if p, ok := cGroupIDToPath[cgroupID]; ok {
+	if p, ok := instance.cGroupIDToPath[cgroupID]; ok {
 		return p, nil
 	}
 
@@ -193,26 +226,27 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 		if !dentry.IsDir() {
 			return nil
 		}
-		getCgroupID, err := utils.GetCgroupIDFromPath(byteOrder, path)
+		getCgroupID, err := utils.GetCgroupIDFromPath(utils.DetermineHostByteOrder(), path)
 		if err != nil {
 			return fmt.Errorf("error resolving handle: %v", err)
 		}
-		cGroupIDToPath[getCgroupID] = path
+		instance.cGroupIDToPath[getCgroupID] = path
 		return nil
 	})
 
 	if err != nil {
 		return unknownPath, fmt.Errorf("failed to find cgroup id: %v", err)
 	}
-	if p, ok := cGroupIDToPath[cgroupID]; ok {
+	if p, ok := instance.cGroupIDToPath[cgroupID]; ok {
 		return p, nil
 	}
 
-	cGroupIDToPath[cgroupID] = unknownPath
-	return cGroupIDToPath[cgroupID], nil
+	instance.cGroupIDToPath[cgroupID] = unknownPath
+	return instance.cGroupIDToPath[cgroupID], nil
 }
 
 func validContainerID(id string) string {
+	validContainerIDRegex := regexp.MustCompile("^[a-zA-Z0-9]+$")
 	match := validContainerIDRegex.MatchString(id)
 	if match {
 		return id
@@ -249,7 +283,7 @@ func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
+			instance.containerIDToContainerInfo[containerID] = &ContainerInfo{
 				ContainerID:   containerID,
 				ContainerName: statuses[j].Name,
 				PodName:       (*pods)[i].Name,
@@ -260,7 +294,7 @@ func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
+			instance.containerIDToContainerInfo[containerID] = &ContainerInfo{
 				ContainerID:   containerID,
 				ContainerName: statuses[j].Name,
 				PodName:       (*pods)[i].Name,
@@ -271,7 +305,7 @@ func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 		for j := 0; j < len(statuses); j++ {
 			containerID := ParseContainerIDFromPodStatus(statuses[j].ContainerID)
 			aliveContainers[containerID] = true
-			containerIDToContainerInfo[containerID] = &ContainerInfo{
+			instance.containerIDToContainerInfo[containerID] = &ContainerInfo{
 				ContainerID:   containerID,
 				ContainerName: statuses[j].Name,
 				PodName:       (*pods)[i].Name,
@@ -284,6 +318,8 @@ func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 
 // GetAliveContainers returns alive pod map
 func GetAliveContainers() (map[string]bool, error) {
+	ensureCacheInitialized()
+	podLister := kubelet.KubeletPodLister{}
 	pods, err := podLister.ListPods()
 	if err != nil {
 		return nil, err
