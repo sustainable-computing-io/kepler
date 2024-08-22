@@ -62,7 +62,7 @@ type GPUDcgm struct {
 }
 
 func init() {
-	if _, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket); err != nil {
+	if _, err := dcgm.Init(dcgm.Standalone, config.GetDCGMHostEngineEndpoint(), isSocket); err != nil {
 		klog.Errorf("Error initializing dcgm: %v", err)
 		return
 	}
@@ -131,7 +131,7 @@ func (d *GPUDcgm) InitLib() (err error) {
 			err = fmt.Errorf("could not init dcgm: %v", r)
 		}
 	}()
-	cleanup, err := dcgm.Init(dcgm.Standalone, config.DCGMHostEngineEndpoint, isSocket)
+	cleanup, err := dcgm.Init(dcgm.Standalone, config.GetDCGMHostEngineEndpoint(), isSocket)
 	if err != nil {
 		klog.Infof("There is no DCGM daemon running in the host: %s", err)
 		// embedded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995

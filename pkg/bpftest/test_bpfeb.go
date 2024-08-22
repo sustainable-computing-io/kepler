@@ -83,6 +83,8 @@ type testMapSpecs struct {
 	CpuInstructionsEventReader *ebpf.MapSpec `ebpf:"cpu_instructions_event_reader"`
 	PidTimeMap                 *ebpf.MapSpec `ebpf:"pid_time_map"`
 	Processes                  *ebpf.MapSpec `ebpf:"processes"`
+	StartTimeMap               *ebpf.MapSpec `ebpf:"start_time_map"`
+	TrackingFlagMap            *ebpf.MapSpec `ebpf:"tracking_flag_map"`
 }
 
 // testObjects contains all objects after they have been loaded into the kernel.
@@ -112,6 +114,8 @@ type testMaps struct {
 	CpuInstructionsEventReader *ebpf.Map `ebpf:"cpu_instructions_event_reader"`
 	PidTimeMap                 *ebpf.Map `ebpf:"pid_time_map"`
 	Processes                  *ebpf.Map `ebpf:"processes"`
+	StartTimeMap               *ebpf.Map `ebpf:"start_time_map"`
+	TrackingFlagMap            *ebpf.Map `ebpf:"tracking_flag_map"`
 }
 
 func (m *testMaps) Close() error {
@@ -124,6 +128,8 @@ func (m *testMaps) Close() error {
 		m.CpuInstructionsEventReader,
 		m.PidTimeMap,
 		m.Processes,
+		m.StartTimeMap,
+		m.TrackingFlagMap,
 	)
 }
 

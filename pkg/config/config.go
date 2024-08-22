@@ -59,11 +59,12 @@ type KeplerConfig struct {
 	MockACPIPowerPath            string
 	MaxLookupRetry               int
 	KubeConfig                   string
-	BPFSampleRate                int
 	EstimatorModel               string
 	EstimatorSelectFilter        string
 	CPUArchOverride              string
 	MachineSpecFilePath          string
+	BPFActiveSampleWindowMS      int
+	BPFIdleSampleWindowMS        int
 }
 type MetricsConfig struct {
 	CoreUsageMetric    string
@@ -154,10 +155,11 @@ func getKeplerConfig() KeplerConfig {
 		MockACPIPowerPath:            getConfig("MOCK_ACPI_POWER_PATH", ""),
 		MaxLookupRetry:               getIntConfig("MAX_LOOKUP_RETRY", defaultMaxLookupRetry),
 		KubeConfig:                   getConfig("KUBE_CONFIG", defaultKubeConfig),
-		BPFSampleRate:                getIntConfig("EXPERIMENTAL_BPF_SAMPLE_RATE", defaultBPFSampleRate),
 		EstimatorModel:               getConfig("ESTIMATOR_MODEL", defaultMetricValue),
 		EstimatorSelectFilter:        getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue), // no filter
 		CPUArchOverride:              getConfig("CPU_ARCH_OVERRIDE", defaultCPUArchOverride),
+		BPFActiveSampleWindowMS:      getIntConfig("EXPERIMENTAL_BPF_ACTIVE_SAMPLE_WINDOW_MS", 1000),
+		BPFIdleSampleWindowMS:        getIntConfig("EXPERIMENTAL_BPF_IDLE_SAMPLE_WINDOW_MS", 0),
 	}
 }
 
@@ -261,7 +263,8 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_BPF_METRICS: %t", instance.Kepler.ExposeBPFMetrics)
 		klog.V(5).Infof("EXPOSE_COMPONENT_POWER: %t", instance.Kepler.ExposeComponentPower)
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", instance.Kepler.ExposeIdlePowerMetrics)
-		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", instance.Kepler.BPFSampleRate)
+		klog.V(5).Infof("EXPERIMENTAL_BPF_ACTIVE_SAMPLE_WINDOW_MS: %d", instance.Kepler.BPFActiveSampleWindowMS)
+		klog.V(5).Infof("EXPERIMENTAL_BPF_IDLE_SAMPLE_WINDOW_MS: %d", instance.Kepler.BPFIdleSampleWindowMS)
 	}
 }
 
@@ -393,6 +396,21 @@ func GetBindAddress(cmdSet string) string {
 
 func SetGPUUsageMetric(metric string) {
 	instance.Metrics.GPUUsageMetric = metric
+}
+
+func GetBPFActiveSampleWindowMS() int {
+	ensureConfigInitialized()
+	return instance.Kepler.BPFActiveSampleWindowMS
+}
+
+func GetBPFIdleSampleWindowMS() int {
+	ensureConfigInitialized()
+	return instance.Kepler.BPFIdleSampleWindowMS
+}
+
+func GetDCGMHostEngineEndpoint() string {
+	ensureConfigInitialized()
+	return instance.DCGMHostEngineEndpoint
 }
 
 func (c *Config) getUnixName() (unix.Utsname, error) {
@@ -550,11 +568,6 @@ func GetLibvirtMetadataToken() string {
 func ExposeIRQCounterMetrics() bool {
 	ensureConfigInitialized()
 	return instance.Kepler.ExposeIRQCounterMetrics
-}
-
-func GetBPFSampleRate() int {
-	ensureConfigInitialized()
-	return instance.Kepler.BPFSampleRate
 }
 
 func GetRedfishCredFilePath() string {

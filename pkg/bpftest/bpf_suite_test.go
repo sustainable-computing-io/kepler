@@ -330,7 +330,8 @@ var _ = Describe("BPF Exporter", func() {
 
 		err = specs.RewriteConstants(map[string]interface{}{
 			"TEST":        int32(1),
-			"SAMPLE_RATE": int32(1000),
+			"ACTIVE_TIME": int32(1000),
+			"IDLE_TIME":   int32(0),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
