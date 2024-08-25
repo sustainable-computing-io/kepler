@@ -130,8 +130,8 @@ func (c *Collector) UpdateEnergyUtilizationMetrics() {
 	c.AggregateProcessEnergyUtilizationMetrics()
 }
 
-// UpdateEnergyUtilizationMetrics collects real-time node's resource power utilization
-// if there is no real-time power meter, use the container's resource usage metrics to estimate the node's resource power
+// UpdateNodeEnergyUtilizationMetrics collects real-time node resource power utilization
+// if there is no real-time power meter, use the container resource usage metrics to estimate the node's resource power
 func (c *Collector) UpdateNodeEnergyUtilizationMetrics() {
 	energy.UpdateNodeEnergyMetrics(&c.NodeStats)
 }

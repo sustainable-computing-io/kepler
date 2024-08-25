@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
+	"github.com/sustainable-computing-io/kepler/pkg/build"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
@@ -44,23 +45,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	// Version is the version of the exporter. Set by the linker flags in the Makefile.
-	Version string
-
-	// Revision is the Git commit that was compiled. Set by the linker flags in the Makefile.
-	Revision string
-
-	// Branch is the Git branch that was compiled. Set by the linker flags in the Makefile.
-	Branch string
-
-	// OS is the operating system the exporter was built for. Set by the linker flags in the Makefile.
-	OS string
-
-	// Arch is the architecture the exporter was built for. Set by the linker flags in the Makefile.
-	Arch string
-)
-
 const (
 
 	// to change these msg, you also need to update the e2e test
@@ -68,18 +52,38 @@ const (
 	startedMsg   = "Started Kepler in %s"
 )
 
-var (
-	address                      = flag.String("address", "0.0.0.0:8888", "bind address")
-	metricsPath                  = flag.String("metrics-path", "/metrics", "metrics path")
-	enableGPU                    = flag.Bool("enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	enabledEBPFCgroupID          = flag.Bool("enable-cgroup-id", true, "whether enable eBPF to collect cgroup id (must have kernel version >= 4.18 and cGroup v2)")
-	exposeHardwareCounterMetrics = flag.Bool("expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
-	enabledMSR                   = flag.Bool("enable-msr", false, "whether MSR is allowed to obtain energy data")
-	kubeconfig                   = flag.String("kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
-	apiserverEnabled             = flag.Bool("apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
-	redfishCredFilePath          = flag.String("redfish-cred-file-path", "", "path to the redfish credential file")
-	exposeEstimatedIdlePower     = flag.Bool("expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
-)
+// AppConfig holds the configuration info for the application.
+type AppConfig struct {
+	Address                      string
+	MetricsPath                  string
+	EnableGPU                    bool
+	EnableEBPFCgroupID           bool
+	ExposeHardwareCounterMetrics bool
+	EnableMSR                    bool
+	Kubeconfig                   string
+	ApiserverEnabled             bool
+	RedfishCredFilePath          string
+	ExposeEstimatedIdlePower     bool
+	DisablePowerMeter            bool
+}
+
+func newAppConfig() *AppConfig {
+	// Initialize flags
+	_config := &AppConfig{}
+	flag.StringVar(&_config.Address, "address", "0.0.0.0:8888", "bind address")
+	flag.StringVar(&_config.MetricsPath, "metrics-path", "/metrics", "metrics path")
+	flag.BoolVar(&_config.EnableGPU, "enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	flag.BoolVar(&_config.EnableEBPFCgroupID, "enable-cgroup-id", true, "whether enable eBPF to collect cgroup id")
+	flag.BoolVar(&_config.ExposeHardwareCounterMetrics, "expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
+	flag.BoolVar(&_config.EnableMSR, "enable-msr", false, "whether MSR is allowed to obtain energy data")
+	flag.StringVar(&_config.Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
+	flag.BoolVar(&_config.ApiserverEnabled, "apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
+	flag.StringVar(&_config.RedfishCredFilePath, "redfish-cred-file-path", "", "path to the redfish credential file")
+	flag.BoolVar(&_config.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
+	flag.BoolVar(&_config.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
+
+	return _config
+}
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
@@ -92,9 +96,10 @@ func healthProbe(w http.ResponseWriter, req *http.Request) {
 func main() {
 	start := time.Now()
 	klog.InitFlags(nil)
+	appConfig := newAppConfig()
 	flag.Parse()
 
-	klog.Infof("Kepler running on version: %s", Version)
+	klog.Infof("Kepler running on version: %s", build.Version)
 
 	registry := metrics.GetRegistry()
 	registry.MustRegister(prometheus.NewGaugeFunc(
@@ -102,28 +107,31 @@ func main() {
 			Name: "kepler_exporter_build_info",
 			Help: "A metric with a constant '1' value labeled by version, revision, branch, os and arch from which kepler_exporter was built.",
 			ConstLabels: prometheus.Labels{
-				"branch":   Branch,
-				"revision": Revision,
-				"version":  Version,
-				"os":       OS,
-				"arch":     Arch,
+				"branch":   build.Branch,
+				"revision": build.Revision,
+				"version":  build.Version,
+				"os":       build.OS,
+				"arch":     build.Arch,
 			},
 		},
 		func() float64 { return 1 },
 	))
 
-	config.SetEnabledEBPFCgroupID(*enabledEBPFCgroupID)
-	config.SetEnabledHardwareCounterMetrics(*exposeHardwareCounterMetrics)
-	config.SetEnabledGPU(*enableGPU)
-	config.SetEnabledMSR(*enabledMSR)
-	config.SetEnabledIdlePower(*exposeEstimatedIdlePower || components.IsSystemCollectionSupported())
+	platform.SetIsSystemCollectionSupported(!appConfig.DisablePowerMeter)
+	components.SetIsSystemCollectionSupported(!appConfig.DisablePowerMeter)
 
-	config.SetKubeConfig(*kubeconfig)
-	config.SetEnableAPIServer(*apiserverEnabled)
+	config.SetEnabledEBPFCgroupID(appConfig.EnableEBPFCgroupID)
+	config.SetEnabledHardwareCounterMetrics(appConfig.ExposeHardwareCounterMetrics)
+	config.SetEnabledGPU(appConfig.EnableGPU)
+	config.SetEnabledMSR(appConfig.EnableMSR)
+	config.SetEnabledIdlePower(appConfig.ExposeEstimatedIdlePower || components.IsSystemCollectionSupported())
+
+	config.SetKubeConfig(appConfig.Kubeconfig)
+	config.SetEnableAPIServer(appConfig.ApiserverEnabled)
 
 	// set redfish credential file path
-	if *redfishCredFilePath != "" {
-		config.SetRedfishCredFilePath(*redfishCredFilePath)
+	if appConfig.RedfishCredFilePath != "" {
+		config.SetRedfishCredFilePath(appConfig.RedfishCredFilePath)
 	}
 
 	config.LogConfigs()
@@ -161,8 +169,8 @@ func main() {
 	if startErr := m.Start(); startErr != nil {
 		klog.Infof("%s", fmt.Sprintf("failed to start : %v", startErr))
 	}
-	metricPathConfig := config.GetMetricPath(*metricsPath)
-	bindAddressConfig := config.GetBindAddress(*address)
+	metricPathConfig := config.GetMetricPath(appConfig.MetricsPath)
+	bindAddressConfig := config.GetBindAddress(appConfig.Address)
 
 	handler := http.ServeMux{}
 	reg := m.PrometheusCollector.RegisterMetrics()

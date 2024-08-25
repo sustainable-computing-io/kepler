@@ -34,11 +34,8 @@ services:
 
       # NOTE: use the weights from the local repo
       - type: bind
-        source: ../../../data/model_weight/
+        source: ../../../data
         target: /var/lib/kepler/data
-      - type: bind
-        source: ../../../data/cpus.yaml
-        target: /var/lib/kepler/data/cpus.yaml
 
     entrypoint: [/usr/bin/bash, -c]
 
@@ -76,6 +73,34 @@ services:
     command: [prometheus]
     networks:
       - scaph-network
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    pid: host
+    ports:
+      - 9100:9100
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+      - type: bind
+        source: /sys
+        target: /host/sys
+      - type: bind
+        source: /
+        target: /rootfs
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.rapl  # Enable RAPL collector
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    privileged: true
+    user: root
+    cap_add:
+      - ALL
+    networks:
+      - kepler-network
 
 networks:
   scaph-network:

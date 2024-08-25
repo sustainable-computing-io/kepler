@@ -11,6 +11,9 @@ on: # yamllint disable-line rule:truthy
 jobs:
   image_build_for_specific_commit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,6 +23,8 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      - name: Set up cosign
+        uses: sigstore/cosign-installer@main
       - name: Login to Quay
         uses: docker/login-action@v3
         with:
@@ -28,6 +33,7 @@ jobs:
           password: ${{ secrets.BOT_TOKEN }}
 
       - name: Build and push
+        id: build-push-image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -36,3 +42,7 @@ jobs:
           tags: quay.io/sustainable_computing_io/kepler
           labels: ${{ github.event.inputs.commitSHA }}
           file: build/Dockerfile.libbpf.kepler
+
+      - name: Sign images with GitHub OIDC token
+        run: |
+          cosign sign -y quay.io/sustainable_computing_io/kepler@${{ steps.build-push-image.outputs.digest }}

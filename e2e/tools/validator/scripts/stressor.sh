@@ -33,10 +33,13 @@ main() {
 		0:5
 	)
 
-	for x in "${load_curve[@]}"; do
-		local load="${x%%:*}"
-		local time="${x##*:}s"
-		run stress-ng --cpu "$cpus" --cpu-load "$load" --timeout "$time"
+	for i in $(seq 1 5); do
+		echo "Running: $i/5"
+		for x in "${load_curve[@]}"; do
+			local load="${x%%:*}"
+			local time="${x##*:}s"
+			run stress-ng --cpu "$cpus" --cpu-load "$load" --timeout "$time"
+		done
 	done
 }
 

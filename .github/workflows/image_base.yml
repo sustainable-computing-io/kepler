@@ -15,6 +15,9 @@ on: # yamllint disable-line rule:truthy
 jobs:
   baseimagebuild:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +27,8 @@ jobs:
           image: tonistiigi/binfmt:qemu-v8.1.5
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      - name: Set up cosign
+        uses: sigstore/cosign-installer@main
       - name: Login to Quay
         if: ${{ inputs.pushImage }}
         uses: docker/login-action@v3
@@ -32,6 +37,7 @@ jobs:
           username: ${{ secrets.username }}
           password: ${{ secrets.password }}
       - name: Build and push a base image for building Kepler with libbpf
+        id: build-push-image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -39,3 +45,6 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/s390x
           push: ${{ inputs.pushImage }}
           tags: quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0
+      - name: Sign images with GitHub OIDC token
+        run: |
+          cosign sign -y quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0@${{ steps.build-push-image.outputs.digest }}

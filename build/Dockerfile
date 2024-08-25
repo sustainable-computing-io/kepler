@@ -56,8 +56,5 @@ RUN mkdir -p /var/lib/kepler/data
 COPY --from=builder /workspace/data/cpus.yaml /var/lib/kepler/data/cpus.yaml
 
 # copy model weight
-COPY --from=builder /workspace/data/model_weight/acpi_AbsPowerModel.json /var/lib/kepler/data/acpi_AbsPowerModel.json
-COPY --from=builder /workspace/data/model_weight/acpi_DynPowerModel.json /var/lib/kepler/data/acpi_DynPowerModel.json
-COPY --from=builder /workspace/data/model_weight/intel_rapl_AbsPowerModel.json /var/lib/kepler/data/intel_rapl_AbsPowerModel.json
-COPY --from=builder /workspace/data/model_weight/intel_rapl_DynPowerModel.json /var/lib/kepler/data/intel_rapl_DynPowerModel.json
+COPY --from=builder /workspace/data/model_weight /var/lib/kepler/data/model_weight
 ENTRYPOINT ["/usr/bin/kepler"]

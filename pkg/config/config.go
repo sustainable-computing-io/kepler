@@ -142,9 +142,9 @@ var (
 )
 
 // return local path to power model weight
-// e.g., /var/lib/kepler/data/acpi_AbsPowerModel.json
+// e.g., /var/lib/kepler/data/model_weight/acpi_AbsPowerModel.json
 func GetDefaultPowerModelURL(modelOutputType, energySource string) string {
-	return fmt.Sprintf("/var/lib/kepler/data/%s_%sModel.json", energySource, modelOutputType)
+	return fmt.Sprintf(`/var/lib/kepler/data/model_weight/%s_%sModel.json`, energySource, modelOutputType)
 }
 
 func logBoolConfigs() {

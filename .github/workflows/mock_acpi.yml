@@ -1,0 +1,94 @@
+# This workflow will run mock-acpi compose on self-hosted equinix runners and run validator tool
+name: Mock ACPI
+
+on: # yamllint disable-line rule:truthy
+  issue_comment:
+    types: [created]
+
+jobs:
+  test-mock-acpi:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Test Mock ACPI
+    runs-on: ubuntu-latest
+    steps:
+      # Since `issue_comment` event runs on the default branch,
+      # we need to get the branch of the pull request
+      - name: Get PR branch
+        id: pr_branch
+        uses: xt0rted/pull-request-comment-branch@v2
+      # Since `issue_comment` event workflow will not appear on the
+      # pull request page, we need to set the status of the job
+      # in order to attach it to the pull request itself
+      - name: Set job status as pending
+        if: ${{ success() }}
+        uses: myrotvorets/set-commit-status-action@master
+        with:
+          sha: ${{ steps.pr_branch.outputs.head_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: pending
+
+      - name: metal-runner-action
+        uses: equinix-labs/metal-runner-action@v0.2.0
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
+          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
+          metro: da
+          plan: c3.small.x86
+          os: ubuntu_20_04
+
+      - name: Configure SSH
+        if: ${{ success() }}
+        run: |
+          echo "Configuring SSH for runner"
+          sudo ssh-keygen -t rsa -b 4096 -f /root/.ssh/ansible_rsa -N ''
+          sudo cat ~/.ssh/ansible_rsa.pub >> ~/.ssh/authorized_keys
+          sudo echo "StrictHostKeyChecking no" >> ~/.ssh/config
+
+      - name: Install Dependencies
+        if: ${{ success() }}
+        run: |
+          echo "Installing Ansible and Docker module"
+          sudo apt install software-properties-common -y
+          sudo add-apt-repository --yes --update ppa:ansible/ansible
+          sudo apt install -y ansible python3-pip
+          sudo ansible-galaxy collection install community.docker
+
+      - name: Checkout code
+        if: ${{ success() }}
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.pr_branch.outputs.head_ref }}
+
+      - name: Run playbook
+        id: run-playbook
+        if: ${{ success() }}
+        continue-on-error: true # This is done to release equinix runners irrespective of failure
+        run: |
+          echo "Setting up the infra"
+          cd ${GITHUB_WORKSPACE}/ansible
+          ansible-playbook -vv -i inventory.yaml setup.yaml
+          echo "Launching Mock ACPI compose and running validator"
+          ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
+
+      - name: delete runner
+        uses: rootfs/metal-delete-action@main
+        with:
+          authToken: ${{ secrets.EQUINIX_API_TOKEN }}
+          projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
+          runnerName: ${{ runner.name }}
+
+      # Marking the workflow as failed if the playbook fails
+      - name: Mark workflow as failed if playbook failed
+        if: ${{ steps.run-playbook.outcome == 'failure' }}
+        run: |
+          echo "Playbook failed, marking workflow as failed"
+          exit 1
+
+      - name: Set job status as ${{ job.status }}
+        uses: myrotvorets/set-commit-status-action@master
+        if: always()
+        with:
+          sha: ${{ steps.pr_branch.outputs.head_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}

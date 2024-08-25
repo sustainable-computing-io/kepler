@@ -1,0 +1,59 @@
+---
+- name: Deploy and run the Kepler Mock ACPI Compose
+  hosts: localhost
+  become: true
+  vars:
+    kepler_repo: https://github.com/sustainable-computing-io/kepler.git
+    kepler_dir: /opt/kepler
+    validator_dir: /opt/kepler/e2e/tools/validator
+    compose_dir: /opt/kepler/manifests/compose
+    pr_number: ""
+  tasks:
+    - name: Clone kepler repo
+      git:
+        repo: "{{ kepler_repo }}"
+        dest: "{{ kepler_dir }}"
+        version: main
+
+    - name: Fetch and checkout the specific pull request
+      shell: |
+        cd {{ kepler_dir }}
+        git fetch origin pull/{{ pr_number }}/head:pr-{{ pr_number }}
+        git checkout pr-{{ pr_number }}
+
+    - name: Get latest commit details
+      shell: |
+        cd {{ kepler_dir }}
+        git log -n 1
+
+    - name: Start Docker compose services
+      community.docker.docker_compose_v2:
+        project_src: "{{ compose_dir }}/mock-acpi"
+        build: always
+        files: compose.yaml
+        state: present
+
+    - name: Wait for Prometheus metrics to become available
+      pause:
+        seconds: 180
+
+    - name: Check Prometheus metrics
+      shell: |
+        curl http://localhost:9090/api/v1/query -G -d query='kepler_exporter_build_info' | jq
+        curl http://localhost:9090/api/v1/query -G -d query='kepler_node_info' | jq
+      register: prometheus_metrics
+      failed_when: |
+        ('status' not in prometheus_metrics.stdout) or
+        ('success' not in prometheus_metrics.stdout) or
+        ('"result": []' in prometheus_metrics.stdout)
+
+    - name: Run mock-acpi validator
+      shell: |
+        cd {{ validator_dir }}
+        hatch run validator -f ./validator.mock-acpi.yaml validate-acpi -d 1m
+      when: prometheus_metrics is success
+      register: mock_acpi_validator
+      failed_when: |
+        ('error' in mock_acpi_validator.stdout.lower()) or
+        ('mse exceeded' in mock_acpi_validator.stdout.lower()) or
+        ('mape exceeded' in mock_acpi_validator.stderr.lower())
