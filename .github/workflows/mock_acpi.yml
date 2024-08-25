@@ -27,6 +27,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: pending
 
+      - name: Checkout code
+        if: ${{ success() }}
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.pr_branch.outputs.head_ref }}
+
       - name: metal-runner-action
         uses: equinix-labs/metal-runner-action@v0.2.0
         with:
@@ -53,12 +59,6 @@ jobs:
           sudo add-apt-repository --yes --update ppa:ansible/ansible
           sudo apt install -y ansible python3-pip
           sudo ansible-galaxy collection install community.docker
-
-      - name: Checkout code
-        if: ${{ success() }}
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ steps.pr_branch.outputs.head_ref }}
 
       - name: Run playbook
         id: run-playbook
