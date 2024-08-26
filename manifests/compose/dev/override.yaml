@@ -16,3 +16,4 @@ services:
 
     networks:
       - scaph-network
+      - node-exporter-network
