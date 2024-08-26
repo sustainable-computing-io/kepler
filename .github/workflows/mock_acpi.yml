@@ -31,7 +31,7 @@ jobs:
         if: ${{ success() }}
         uses: actions/checkout@v3
         with:
-          ref: ${{ steps.pr_branch.outputs.head_ref }}
+          ref: ${{ steps.pr_branch.outputs.head_sha }}
 
       - name: metal-runner-action
         uses: equinix-labs/metal-runner-action@v0.3.0
