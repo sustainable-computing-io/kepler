@@ -76,6 +76,7 @@ type Regressor struct {
 
 	enabled         bool
 	modelWeight     *ComponentModelWeights
+	coreRatio       float64
 	modelPredictors map[string]Predictor
 }
 
@@ -85,6 +86,7 @@ func (r *Regressor) Start() error {
 	var weight *ComponentModelWeights
 	outputStr := r.OutputType.String()
 	r.enabled = false
+	r.coreRatio = 1
 	// try getting weight from model server if it is enabled
 	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
 		weight, err = r.getWeightFromServer()
@@ -180,15 +182,16 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	}
 	body, _ := io.ReadAll(response.Body)
 
-	var powerResonse ComponentModelWeights
-	err = json.Unmarshal(body, &powerResonse)
+	var weightResponse ComponentModelWeights
+	err = json.Unmarshal(body, &weightResponse)
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
-	if powerResonse.ModelName != "" {
-		klog.V(3).Infof("Using weights trained by %s", powerResonse.ModelName)
+	if weightResponse.ModelName != "" {
+		klog.V(3).Infof("Using weights trained by %s", weightResponse.ModelName)
 	}
-	return &powerResonse, nil
+	// TODO: set r.coreRatio from discover spec/model machine spec based on PR #1684
+	return &weightResponse, nil
 }
 
 // loadWeightFromURLorLocal get weight from either local or URL
@@ -273,10 +276,11 @@ func (r *Regressor) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
 		}
 		if predictor, found := (r.modelPredictors)[config.PLATFORM]; found {
+			coreRatio := utils.GetCoreRatio(isIdlePower, r.coreRatio)
 			powers := predictor.predict(
 				r.FloatFeatureNames, floatFeatureValues,
 				r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
-			return utils.GetPlatformPower(powers), nil
+			return utils.GetPlatformPower(powers, coreRatio), nil
 		}
 		return []uint64{}, fmt.Errorf("model Weight for model type %s is not valid: %v", r.OutputType.String(), r.modelWeight)
 	}
@@ -302,14 +306,14 @@ func (r *Regressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponent
 			r.FloatFeatureNames, floatFeatureValues,
 			r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
 	}
-
+	coreRatio := utils.GetCoreRatio(isIdlePower, r.coreRatio)
 	nodeComponentsPower := []source.NodeComponentsEnergy{}
 	num := r.xidx // number of processes
 	for index := 0; index < num; index++ {
-		pkgPower := utils.GetComponentPower(compPowers, config.PKG, index)
-		corePower := utils.GetComponentPower(compPowers, config.CORE, index)
-		uncorePower := utils.GetComponentPower(compPowers, config.UNCORE, index)
-		dramPower := utils.GetComponentPower(compPowers, config.DRAM, index)
+		pkgPower := utils.GetComponentPower(compPowers, config.PKG, index, coreRatio)
+		corePower := utils.GetComponentPower(compPowers, config.CORE, index, coreRatio)
+		uncorePower := utils.GetComponentPower(compPowers, config.UNCORE, index, coreRatio)
+		dramPower := utils.GetComponentPower(compPowers, config.DRAM, index, coreRatio)
 		nodeComponentsPower = append(nodeComponentsPower, utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower))
 	}
 
