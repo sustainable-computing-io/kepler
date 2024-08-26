@@ -17,6 +17,7 @@ limitations under the License.
 package regressor
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -26,7 +27,7 @@ type LogarithmicPredictor struct {
 
 func NewLogarithmicPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) != 3 {
-		return nil, errModelWeightsInvalid
+		return nil, fmt.Errorf("logarithmic predictor: %w", errModelWeightsInvalid)
 	}
 	return &LogarithmicPredictor{ModelWeights: weight}, nil
 }

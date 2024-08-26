@@ -17,6 +17,7 @@ limitations under the License.
 package regressor
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -26,7 +27,7 @@ type ExponentialPredictor struct {
 
 func NewExponentialPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	if len(weight.AllWeights.CurveFitWeights) != 3 {
-		return nil, errModelWeightsInvalid
+		return nil, fmt.Errorf("exponential predictor: %w", errModelWeightsInvalid)
 	}
 	return &ExponentialPredictor{ModelWeights: weight}, nil
 }
