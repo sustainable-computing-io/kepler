@@ -38,7 +38,7 @@ main() {
 		for x in "${load_curve[@]}"; do
 			local load="${x%%:*}"
 			local time="${x##*:}s"
-			run stress-ng --cpu "$cpus" --cpu-load "$load" --timeout "$time"
+			run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
 		done
 	done
 }
