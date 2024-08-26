@@ -95,13 +95,25 @@ type NormalizedNumericalFeature struct {
 	Weight float64 `json:"weight,omitempty"`
 }
 
+// TODO: remove when PR #1684 merge
+type MachineSpec struct {
+	Vendor         string `json:"vendor"`
+	Processor      string `json:"processor"`
+	Cores          int    `json:"cores"`
+	Chips          int    `json:"chips"`
+	Memory         int    `json:"memory"`
+	Frequency      int    `json:"frequency"`
+	ThreadsPerCore int    `json:"threads_per_core"`
+}
+
 type ComponentModelWeights struct {
-	ModelName string        `json:"model_name,omitempty"`
-	Platform  *ModelWeights `json:"platform,omitempty"`
-	Core      *ModelWeights `json:"core,omitempty"`
-	Uncore    *ModelWeights `json:"uncore,omitempty"`
-	Package   *ModelWeights `json:"package,omitempty"`
-	DRAM      *ModelWeights `json:"dram,omitempty"`
+	ModelName        string        `json:"model_name,omitempty"`
+	ModelMachineSpec *MachineSpec  `json:"machine_spec,omitempty"`
+	Platform         *ModelWeights `json:"platform,omitempty"`
+	Core             *ModelWeights `json:"core,omitempty"`
+	Uncore           *ModelWeights `json:"uncore,omitempty"`
+	Package          *ModelWeights `json:"package,omitempty"`
+	DRAM             *ModelWeights `json:"dram,omitempty"`
 }
 
 func (w ComponentModelWeights) String() string {
