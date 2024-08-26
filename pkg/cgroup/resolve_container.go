@@ -18,6 +18,7 @@ package cgroup
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io/fs"
 	"os"
@@ -54,6 +55,8 @@ type cache struct {
 	containerIDCache           map[uint64]string
 	containerIDToContainerInfo map[string]*ContainerInfo
 	cGroupIDToPath             map[uint64]string
+	byteOrder                  binary.ByteOrder
+	mu                         sync.RWMutex
 }
 
 func Init() (*[]corev1.Pod, error) {
@@ -61,16 +64,15 @@ func Init() (*[]corev1.Pod, error) {
 	return &pods, nil
 }
 
-// GetConfig returns the singleton Config instance, creating it if necessary.
+// InitCache creates the singleton Config instance if necessary.
 func InitCache() {
 	once.Do(func() {
 		instance = newCache()
 	})
 }
 
-// SetConfig replaces the global instance
-func SetConfig(c *cache) {
-	instance = c
+func GetCache() *cache {
+	return instance
 }
 
 // newConfig creates and returns a new Config instance.
@@ -79,87 +81,43 @@ func newCache() *cache {
 		containerIDCache:           map[uint64]string{},
 		containerIDToContainerInfo: map[string]*ContainerInfo{},
 		cGroupIDToPath:             map[uint64]string{},
+		byteOrder:                  utils.DetermineHostByteOrder(),
 	}
 }
 
-func ensureCacheInitialized() {
-	if instance == nil {
-		once.Do(func() {
-			instance = newCache()
-		})
-	}
+func (c *cache) checkContainerID(id string) bool {
+	instance.mu.RLock()
+	defer instance.mu.RUnlock()
+
+	_, ok := instance.containerIDToContainerInfo[id]
+	return ok
 }
 
-func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	ensureCacheInitialized()
-	info, err := GetContainerInfo(cGroupID, pid, withCGroupID)
-	return info.ContainerID, err
+func (c *cache) setContainerIDToContainerInfo(id string, info *ContainerInfo) {
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
+	instance.containerIDToContainerInfo[id] = info
 }
 
-func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
-	var err error
-	var containerID string
-
-	ensureCacheInitialized()
-	name := utils.SystemProcessName
-	namespace := utils.SystemProcessNamespace
-	if cGroupID == 1 && withCGroupID {
-		// some kernel processes have cgroup id equal 1 or 0
-		name = utils.KernelProcessName
-		namespace = utils.KernelProcessNamespace
-	}
-	info := &ContainerInfo{
-		ContainerID:   name,
-		ContainerName: name,
-		PodName:       name,
-		Namespace:     namespace,
-	}
-
-	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
-		return info, err
-	}
-
-	if i, ok := instance.containerIDToContainerInfo[containerID]; ok {
-		return i, nil
-	} else {
-		info.ContainerID = containerID
-		instance.containerIDToContainerInfo[containerID] = info
-	}
-	return instance.containerIDToContainerInfo[containerID], nil
+func (c *cache) getContainerInfo(id string) *ContainerInfo {
+	instance.mu.RLock()
+	defer instance.mu.RUnlock()
+	return instance.containerIDToContainerInfo[id]
 }
 
-func ParseContainerIDFromPodStatus(containerID string) string {
-	ensureCacheInitialized()
-	regexReplaceContainerIDPrefix := regexp.MustCompile(`.*//`)
-	return regexReplaceContainerIDPrefix.ReplaceAllString(containerID, "")
+func (c *cache) setContainerIDCache(pid uint64, id string) {
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
+	instance.containerIDCache[pid] = id
 }
 
-func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, error) {
-	if cGroupID == 1 && withCGroupID {
-		return utils.KernelProcessName, nil
-	}
-	var err error
-	var containerID string
-	if withCGroupID {
-		containerID, err = getContainerIDFromcGroupID(cGroupID)
-	} else {
-		containerID, err = GetContainerIDFromPID(pid)
-	}
-	return containerID, err
-}
-
-// AddContainerIDToCache add the container id to cache using the pid as the key
-func AddContainerIDToCache(pid uint64, containerID string) {
-	ensureCacheInitialized()
-	instance.containerIDCache[pid] = containerID
-}
-
-// GetContainerIDFromPID find the container ID using the process PID
-func GetContainerIDFromPID(pid uint64) (string, error) {
-	ensureCacheInitialized()
+func (c *cache) getGetContainerIDFromPID(pid uint64) (string, error) {
+	instance.mu.RLock()
 	if p, ok := instance.containerIDCache[pid]; ok {
+		instance.mu.RUnlock()
 		return p, nil
 	}
+	instance.mu.RUnlock()
 
 	var err error
 	var path string
@@ -169,51 +127,35 @@ func GetContainerIDFromPID(pid uint64) (string, error) {
 
 	containerID, err := extractPodContainerIDfromPath(path)
 	AddContainerIDToCache(pid, containerID)
+
 	return instance.containerIDCache[pid], err
 }
 
-func getPathFromPID(searchPath string, pid uint64) (string, error) {
-	path := fmt.Sprintf(searchPath, pid)
-	file, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to open cgroup description file for pid %d: %v", pid, err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, "pod") || strings.Contains(line, "containerd") || strings.Contains(line, "crio") {
-			// check if the string has ".scope" in it and truncate everything else after ".scope"
-			if strings.Contains(line, ".scope") {
-				line = strings.Split(line, ".scope")[0] + ".scope"
-			}
-			return line, nil
-		}
-	}
-	// this process doesn't belong to a pod, return unknown path to avoid future lookups
-	return unknownPath, nil
-}
-
-func getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
+func (c *cache) getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
+	instance.mu.RLock()
 	if id, ok := instance.containerIDCache[cGroupID]; ok {
+		instance.mu.RUnlock()
 		return id, nil
 	}
+	instance.mu.RUnlock()
 
 	var err error
 	var path string
-	if path, err = getPathFromcGroupID(cGroupID); err != nil {
+	if path, err = instance.getPathFromcGroupID(cGroupID); err != nil {
 		return utils.SystemProcessName, err
 	}
 
 	containerID, err := extractPodContainerIDfromPath(path)
 	AddContainerIDToCache(cGroupID, containerID)
+
 	return instance.containerIDCache[cGroupID], err
 }
 
 // getPathFromcGroupID uses cgroupfs to get cgroup path from id
 // it needs cgroup v2 (per https://github.com/iovisor/bpftrace/issues/950) and kernel 4.18+ (https://github.com/torvalds/linux/commit/bf6fa2c893c5237b48569a13fa3c673041430b6c)
-func getPathFromcGroupID(cgroupID uint64) (string, error) {
+func (c *cache) getPathFromcGroupID(cgroupID uint64) (string, error) {
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
 	if p, ok := instance.cGroupIDToPath[cgroupID]; ok {
 		return p, nil
 	}
@@ -226,7 +168,8 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 		if !dentry.IsDir() {
 			return nil
 		}
-		getCgroupID, err := utils.GetCgroupIDFromPath(utils.DetermineHostByteOrder(), path)
+
+		getCgroupID, err := utils.GetCgroupIDFromPath(instance.byteOrder, path)
 		if err != nil {
 			return fmt.Errorf("error resolving handle: %v", err)
 		}
@@ -245,38 +188,10 @@ func getPathFromcGroupID(cgroupID uint64) (string, error) {
 	return instance.cGroupIDToPath[cgroupID], nil
 }
 
-func validContainerID(id string) string {
-	validContainerIDRegex := regexp.MustCompile("^[a-zA-Z0-9]+$")
-	match := validContainerIDRegex.MatchString(id)
-	if match {
-		return id
-	}
-	return utils.SystemProcessName
-}
-
-// Get containerID from path. cgroup v1 and cgroup v2 will use different regex
-func extractPodContainerIDfromPath(path string) (string, error) {
-	return extractPodContainerIDfromPathWithCgroup(path)
-}
-
-func extractPodContainerIDfromPathWithCgroup(path string) (string, error) {
-	if path == unknownPath {
-		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
-	}
-
-	path = strings.TrimSuffix(path, "/container")
-	path = strings.TrimSuffix(path, ".scope")
-
-	// get the last 64 characters of the path
-	if len(path) < 64 {
-		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
-	}
-	containerID := path[len(path)-64:]
-	return validContainerID(containerID), nil
-}
-
-func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
+func (c *cache) getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 	aliveContainers := make(map[string]bool)
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
 
 	for i := 0; i < len(*pods); i++ {
 		statuses := (*pods)[i].Status.InitContainerStatuses
@@ -316,14 +231,132 @@ func getAliveContainers(pods *[]corev1.Pod) map[string]bool {
 	return aliveContainers
 }
 
+func GetContainerID(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	info, err := GetContainerInfo(cGroupID, pid, withCGroupID)
+	return info.ContainerID, err
+}
+
+func GetContainerInfo(cGroupID, pid uint64, withCGroupID bool) (*ContainerInfo, error) {
+	var err error
+	var containerID string
+
+	name := utils.SystemProcessName
+	namespace := utils.SystemProcessNamespace
+	if cGroupID == 1 && withCGroupID {
+		// some kernel processes have cgroup id equal 1 or 0
+		name = utils.KernelProcessName
+		namespace = utils.KernelProcessNamespace
+	}
+	info := &ContainerInfo{
+		ContainerID:   name,
+		ContainerName: name,
+		PodName:       name,
+		Namespace:     namespace,
+	}
+
+	if containerID, err = getContainerIDFromPath(cGroupID, pid, withCGroupID); err != nil {
+		return info, err
+	}
+
+	if instance.checkContainerID(containerID) {
+		return instance.getContainerInfo(containerID), nil
+	} else {
+		info.ContainerID = containerID
+		instance.setContainerIDToContainerInfo(containerID, info)
+	}
+
+	return instance.getContainerInfo(containerID), nil
+}
+
+func ParseContainerIDFromPodStatus(containerID string) string {
+	regexReplaceContainerIDPrefix := regexp.MustCompile(`.*//`)
+	return regexReplaceContainerIDPrefix.ReplaceAllString(containerID, "")
+}
+
+func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, error) {
+	if cGroupID == 1 && withCGroupID {
+		return utils.KernelProcessName, nil
+	}
+	var err error
+	var containerID string
+	if withCGroupID {
+		containerID, err = instance.getContainerIDFromcGroupID(cGroupID)
+	} else {
+		containerID, err = instance.getGetContainerIDFromPID(pid)
+	}
+	return containerID, err
+}
+
+// AddContainerIDToCache add the container id to cache using the pid as the key
+func AddContainerIDToCache(pid uint64, containerID string) {
+	instance.setContainerIDCache(pid, containerID)
+}
+
+// GetContainerIDFromPID find the container ID using the process PID
+func GetContainerIDFromPID(pid uint64) (string, error) {
+	return instance.getGetContainerIDFromPID(pid)
+}
+
+func getPathFromPID(searchPath string, pid uint64) (string, error) {
+	path := fmt.Sprintf(searchPath, pid)
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open cgroup description file for pid %d: %v", pid, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "pod") || strings.Contains(line, "containerd") || strings.Contains(line, "crio") {
+			// check if the string has ".scope" in it and truncate everything else after ".scope"
+			if strings.Contains(line, ".scope") {
+				line = strings.Split(line, ".scope")[0] + ".scope"
+			}
+			return line, nil
+		}
+	}
+	// this process doesn't belong to a pod, return unknown path to avoid future lookups
+	return unknownPath, nil
+}
+
+func validContainerID(id string) string {
+	validContainerIDRegex := regexp.MustCompile("^[a-zA-Z0-9]+$")
+	match := validContainerIDRegex.MatchString(id)
+	if match {
+		return id
+	}
+	return utils.SystemProcessName
+}
+
+// Get containerID from path. cgroup v1 and cgroup v2 will use different regex
+func extractPodContainerIDfromPath(path string) (string, error) {
+	return extractPodContainerIDfromPathWithCgroup(path)
+}
+
+func extractPodContainerIDfromPathWithCgroup(path string) (string, error) {
+	if path == unknownPath {
+		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
+	}
+
+	path = strings.TrimSuffix(path, "/container")
+	path = strings.TrimSuffix(path, ".scope")
+
+	// get the last 64 characters of the path
+	if len(path) < 64 {
+		return utils.SystemProcessName, fmt.Errorf("failed to find pod's container id")
+	}
+	containerID := path[len(path)-64:]
+	return validContainerID(containerID), nil
+}
+
 // GetAliveContainers returns alive pod map
 func GetAliveContainers() (map[string]bool, error) {
-	ensureCacheInitialized()
 	podLister := kubelet.KubeletPodLister{}
 	pods, err := podLister.ListPods()
 	if err != nil {
 		return nil, err
 	}
 
-	return getAliveContainers(pods), nil
+	return instance.getAliveContainers(pods), nil
 }

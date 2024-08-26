@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
+	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubernetes"
@@ -45,6 +46,7 @@ type CollectorManager struct {
 func New(bpfExporter bpf.Exporter) *CollectorManager {
 	var err error
 	manager := &CollectorManager{}
+	cgroup.InitCache() // Ensure this is setup before the collectors.
 	supportedMetrics := bpfExporter.SupportedMetrics()
 	manager.StatsCollector = collector.NewCollector(bpfExporter)
 	manager.PrometheusCollector = exporter.NewPrometheusExporter(supportedMetrics)
