@@ -97,7 +97,7 @@ jobs:
           cosign sign -y quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.17.1
+        uses: anchore/sbom-action@v0.17.2
         with:
           image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
