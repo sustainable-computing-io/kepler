@@ -64,6 +64,7 @@ type AppConfig struct {
 	ApiserverEnabled             bool
 	RedfishCredFilePath          string
 	ExposeEstimatedIdlePower     bool
+	MachineSpecFilePath          string
 	DisablePowerMeter            bool
 }
 
@@ -80,6 +81,7 @@ func newAppConfig() *AppConfig {
 	flag.BoolVar(&_config.ApiserverEnabled, "apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	flag.StringVar(&_config.RedfishCredFilePath, "redfish-cred-file-path", "", "path to the redfish credential file")
 	flag.BoolVar(&_config.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
+	flag.StringVar(&_config.MachineSpecFilePath, "machine-spec", "", "path to the machine spec file in json format")
 	flag.BoolVar(&_config.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
 
 	return _config
@@ -132,6 +134,10 @@ func main() {
 	// set redfish credential file path
 	if appConfig.RedfishCredFilePath != "" {
 		config.SetRedfishCredFilePath(appConfig.RedfishCredFilePath)
+	}
+
+	if appConfig.MachineSpecFilePath != "" {
+		config.SetMachineSpecFilePath(appConfig.MachineSpecFilePath)
 	}
 
 	config.LogConfigs()

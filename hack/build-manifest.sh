@@ -50,6 +50,7 @@ declare PROMETHEUS_DEPLOY=false
 declare HIGH_GRANULARITY=false
 declare DCGM_DEPLOY=false
 declare HABANA_DEPLOY=false
+declare MACHINE_SPEC_DEPLOY=false
 
 ensure_all_tools() {
 	header "Ensuring all tools are installed"
@@ -202,6 +203,16 @@ deploy_habana() {
 	}
 	uncomment_patch habana "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
 	ok "Habana deployment configured"
+}
+deploy_machine_spec() {
+	header "Machine Spec Deployment"
+	$MACHINE_SPEC_DEPLOY || {
+		skip "skipping machine spec deployment"
+		return 0
+	}
+	uncomment machine_spec_configmap "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	uncomment_patch machine-spec "${MANIFESTS_OUT_DIR}"/exporter/kustomization.yaml
+	ok "Machine spec deployment configured"
 }
 build_manifest() {
 	info "Building manifests ..."
