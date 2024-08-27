@@ -17,6 +17,8 @@ limitations under the License.
 package utils
 
 import (
+	"math"
+
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 )
 
@@ -63,7 +65,7 @@ func FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower uint64)
 func GetCoreRatio(isIdlePower bool, inCoreRatio float64) float64 {
 	var coreRatio float64 = 1
 	if isIdlePower && inCoreRatio > 0 {
-		coreRatio = inCoreRatio
+		coreRatio = math.Min(inCoreRatio, 1)
 	}
 	return coreRatio
 }
