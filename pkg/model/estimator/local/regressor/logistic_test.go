@@ -25,7 +25,7 @@ import (
 
 var (
 	logisticCurveFits          = []float64{1, 1, 1, 1}
-	dummyLogisticWeightHandler = genHandlerFunc(logisticCurveFits)
+	dummyLogisticWeightHandler = genHandlerFunc(logisticCurveFits, types.LogisticTrainer)
 )
 
 var _ = Describe("Test Logistic Predictor Unit", func() {

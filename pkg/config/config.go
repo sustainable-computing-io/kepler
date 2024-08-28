@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
 )
@@ -129,7 +130,7 @@ var (
 	FixedTrainerNameKey      = "TRAINER"
 	FixedNodeTypeKey         = "NODE_TYPE"
 	ModelFiltersKey          = "FILTERS"
-	DefaultTrainerName       = "SGDRegressorTrainer"
+	DefaultTrainerName       = types.LinearRegressionTrainer
 	////////////////////////////////////
 
 	// KubeConfig is used to start k8s client with the pod running outside the cluster

@@ -25,7 +25,7 @@ import (
 
 var (
 	logarithmicCurveFits          = []float64{1, 1, 1}
-	dummyLogarithmicWeightHandler = genHandlerFunc(logarithmicCurveFits)
+	dummyLogarithmicWeightHandler = genHandlerFunc(logarithmicCurveFits, types.LogarithmicTrainer)
 )
 
 var _ = Describe("Test Logarithmic Predictor Unit", func() {
