@@ -438,7 +438,9 @@ func GetModelConfigMap() map[string]string {
 	for _, line := range lines {
 		values := strings.Split(line, "=")
 		if len(values) == 2 {
-			configMap[values[0]] = values[1]
+			k := strings.TrimSpace(values[0])
+			v := strings.TrimSpace(values[1])
+			configMap[k] = v
 		}
 	}
 	return configMap
