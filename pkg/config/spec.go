@@ -90,7 +90,7 @@ func roundToNearestHundred(value float64) int {
 	return int(math.Round(value/100) * 100)
 }
 
-func generateSpec() *MachineSpec {
+func GenerateSpec() *MachineSpec {
 	spec := &MachineSpec{}
 
 	cpus, err := cpu.Info()
@@ -134,7 +134,7 @@ func getDefaultMachineSpec() *MachineSpec {
 			klog.Errorf("failed to read default spec from %s: %v", DefaultMachineSpecFilePath, err)
 		}
 	}
-	return generateSpec()
+	return GenerateSpec()
 }
 
 func readMachineSpec(path string) (*MachineSpec, error) {

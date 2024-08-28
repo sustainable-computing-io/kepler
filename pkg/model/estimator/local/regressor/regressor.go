@@ -70,11 +70,12 @@ type Regressor struct {
 	// xidx represents the instance slide window position, where an instance can be process/process/pod/node
 	xidx int
 
-	enabled         bool
-	modelWeight     *ComponentModelWeights
-	coreRatio       float64
-	modelPredictors map[string]Predictor
-	*config.MachineSpec
+	enabled               bool
+	modelWeight           *ComponentModelWeights
+	coreRatio             float64
+	modelPredictors       map[string]Predictor
+	RequestMachineSpec    *config.MachineSpec
+	DiscoveredMachineSpec *config.MachineSpec
 }
 
 // Start returns nil if model weight is obtainable
@@ -153,7 +154,7 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 		TrainerName:  r.TrainerName,
 		SelectFilter: r.SelectFilter,
 		Weight:       true,
-		MachineSpec:  *r.MachineSpec,
+		MachineSpec:  *r.RequestMachineSpec,
 	}
 	modelRequestJSON, err := json.Marshal(modelRequest)
 	if err != nil {
@@ -187,7 +188,7 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	if weightResponse.ModelName != "" {
 		klog.V(3).Infof("Using weights trained by %s", weightResponse.ModelName)
 	}
-	// TODO: set r.coreRatio from discover spec/model machine spec based on PR #1684
+	r.updateCoreRatio(weightResponse.ModelMachineSpec)
 	return &weightResponse, nil
 }
 
@@ -209,6 +210,7 @@ func (r *Regressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
+	r.updateCoreRatio(content.ModelMachineSpec)
 	return &content, nil
 }
 
@@ -315,6 +317,17 @@ func (r *Regressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponent
 	}
 
 	return nodeComponentsPower, nil
+}
+
+// updateCoreRatio sets coreRatio attribute as a ratio of the discovered number of cores over the cores of machine used for training a model
+func (r *Regressor) updateCoreRatio(mSpec *config.MachineSpec) {
+	if mSpec == nil || r.DiscoveredMachineSpec == nil {
+		return
+	}
+	if r.DiscoveredMachineSpec.Cores > 0 && mSpec.Cores >= r.DiscoveredMachineSpec.Cores {
+		r.coreRatio = float64(r.DiscoveredMachineSpec.Cores) / float64(mSpec.Cores)
+		klog.Infof("Update core ratio to %.2f for computing %s idle power", r.coreRatio, r.EnergySource)
+	}
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process
