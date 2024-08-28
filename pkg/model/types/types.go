@@ -16,8 +16,10 @@ limitations under the License.
 
 package types
 
-type ModelType int
-type ModelOutputType int
+type (
+	ModelType       int
+	ModelOutputType int
+)
 
 const (
 	// Power Model types
@@ -25,6 +27,7 @@ const (
 	Regressor                             // estimation happens within kepler, but pre-trained model parameters are downloaded externally
 	EstimatorSidecar                      // estimation happens in the sidecar with a loaded pre-trained power model
 )
+
 const (
 	// Power Model Output types
 	// Absolute Power Model (AbsPower): is the power model trained by measured power (including the idle power)
@@ -33,6 +36,7 @@ const (
 	DynPower
 	Unsupported
 )
+
 const (
 	// Define energy source
 	PlatformEnergySource    = "acpi"
@@ -98,4 +102,12 @@ type ModelConfig struct {
 	NodeFeatureNames            []string
 	SystemMetaDataFeatureNames  []string
 	SystemMetaDataFeatureValues []string
+}
+
+func (c *ModelConfig) SourceURL() string {
+	if c.InitModelURL != "" {
+		return c.InitModelURL
+	}
+
+	return c.InitModelFilepath
 }
