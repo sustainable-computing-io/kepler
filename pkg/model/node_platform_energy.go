@@ -30,12 +30,10 @@ const (
 	estimatorACPISensorID string = "estimator"
 )
 
-var (
-	nodePlatformPowerModel PowerModelInterface
-)
+var nodePlatformPowerModel PowerModelInterface
 
 // CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
-func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+func CreateNodePlatformPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
 		if modelConfig.InitModelURL == "" {

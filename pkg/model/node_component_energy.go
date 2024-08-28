@@ -45,8 +45,8 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeature
 	return modelConfig
 }
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node components power metrics are not available
-func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+// CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node components power metrics are not available
+func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
 	var err error
 	if !components.IsSystemCollectionSupported() {
 		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
