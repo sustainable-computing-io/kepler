@@ -65,11 +65,19 @@ var (
 	SampleDramNumbericalVars = map[string]NormalizedNumericalFeature{
 		"cache_miss": {Weight: 1.0, Scale: 2},
 	}
-	DummyWeightHandler = http.HandlerFunc(genHandlerFunc([]float64{}))
+	DummyWeightHandler                      = http.HandlerFunc(genHandlerFunc([]float64{}))
+	DummyModelName                          = "dummy"
+	ModelCores                              = config.GenerateSpec().Cores
+	ExpectedAbsPowerFromDummyWeightHandler  = 2500
+	ExpectedIdlePowerFromDummyWeightHandler = 2000
 )
 
 func GenPlatformModelWeights(curveFitWeights []float64) ComponentModelWeights {
 	return ComponentModelWeights{
+		ModelName: DummyModelName,
+		ModelMachineSpec: &config.MachineSpec{
+			Cores: ModelCores,
+		},
 		Platform: genWeights(SampleCoreNumericalVars, curveFitWeights),
 	}
 }
@@ -127,7 +135,8 @@ func genRegressor(outputType types.ModelOutputType, energySource, modelServerEnd
 		ModelWeightsURL:             modelWeightsURL,
 		ModelWeightsFilepath:        modelWeightFilepath,
 		TrainerName:                 trainerName,
-		MachineSpec:                 config.GetMachineSpec(),
+		RequestMachineSpec:          config.GetMachineSpec(),
+		DiscoveredMachineSpec:       config.GenerateSpec(),
 	}
 }
 
@@ -273,5 +282,39 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 			_, err = r.GetComponentsPower(false)
 			Expect(err).NotTo(HaveOccurred())
 		})
+	})
+
+	Context("with core ratio", Ordered, func() {
+		DescribeTable("Test core ratio computation", func(discoveredCore, modelCores int, expectedCoreRatio float64) {
+			ModelCores = modelCores
+			testServer := httptest.NewServer(DummyWeightHandler)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource)
+			r := genRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, "")
+			r.DiscoveredMachineSpec = &config.MachineSpec{
+				Cores: discoveredCore,
+			}
+			err := r.Start()
+			Expect(err).To(BeNil())
+			r.ResetSampleIdx()
+			for _, processFeatureValues := range processFeatureValues {
+				r.AddProcessFeatureValues(processFeatureValues) // add samples to the power model
+			}
+			powers, err := r.GetPlatformPower(false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(powers)).Should(Equal(len(processFeatureValues)))
+			// TODO: verify if the power makes sense
+			Expect(powers[0]).Should(BeEquivalentTo(ExpectedAbsPowerFromDummyWeightHandler))
+			idlePowers, err := r.GetPlatformPower(true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(idlePowers)).Should(Equal(len(processFeatureValues)))
+			expectedIdlePower := uint64(float64(ExpectedIdlePowerFromDummyWeightHandler) * expectedCoreRatio)
+			Expect(idlePowers[0]).Should(BeEquivalentTo(expectedIdlePower))
+		},
+			Entry("equal core", 16, 16, 1.0),
+			Entry("VM core ratio 0.25)", 4, 16, 0.25),
+			Entry("VM core ratio 4)", 16, 4, 1.0),
+			Entry("invalid discovered core", 0, 16, 1.0),
+			Entry("invalid model core", 16, 0, 1.0),
+		)
 	})
 })

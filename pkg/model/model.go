@@ -114,14 +114,15 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 			FloatFeatureNames:           featuresNames,
 			SystemMetaDataFeatureNames:  modelConfig.SystemMetaDataFeatureNames,
 			SystemMetaDataFeatureValues: modelConfig.SystemMetaDataFeatureValues,
-			MachineSpec:                 config.GetMachineSpec(),
+			RequestMachineSpec:          config.GetMachineSpec(),
+			DiscoveredMachineSpec:       config.GenerateSpec(),
 		}
 		err := model.Start()
 		if err != nil {
 			return nil, err
 		}
 		klog.V(3).Infof("Using Power Model %s", modelConfig.ModelOutputType.String())
-		klog.Infof("Machine Spec: %v", model.MachineSpec)
+		klog.Infof("Requesting for Machine Spec: %v", model.RequestMachineSpec)
 		return model, nil
 
 	case types.EstimatorSidecar:

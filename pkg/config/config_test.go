@@ -127,7 +127,7 @@ var _ = Describe("Test Configuration", func() {
 	It("Test machine spec generation and read", func() {
 		tmpPath := "./test_spec"
 		// generate spec
-		spec := generateSpec()
+		spec := GenerateSpec()
 		Expect(spec).NotTo(BeNil())
 		err := spec.saveToFile(tmpPath)
 		Expect(err).To(BeNil())
