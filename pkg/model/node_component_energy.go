@@ -27,10 +27,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	// the absolute power model includes both the absolute and idle power consumption
-	nodeComponentPowerModel PowerModelInterface
-)
+// the absolute power model includes both the absolute and idle power consumption
+var nodeComponentPowerModel PowerModelInterface
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
 func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) *types.ModelConfig {
@@ -47,17 +45,21 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeature
 
 // CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node components power metrics are not available
 func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
-	var err error
-	if !components.IsSystemCollectionSupported() {
-		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-		// init func for NodeComponentPower
-		nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
-		if err == nil {
-			klog.V(1).Infof("Using the %s Power Model to estimate Node Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		} else {
-			klog.Infof("Failed to create %s Power Model to estimate Node Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
-		}
+	if components.IsSystemCollectionSupported() {
+		klog.Infof("Skipping creation of Node Component Power Model since the system collection is supported")
+		return
 	}
+
+	modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	// init func for NodeComponentPower
+	var err error
+	nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
+	if err != nil {
+		klog.Errorf("Failed to create %s/%s Model to estimate Node Component Power: %v", modelConfig.ModelType, modelConfig.ModelOutputType, err)
+		return
+	}
+
+	klog.V(1).Infof("Using the %s/%s Model to estimate Node Component Power", modelConfig.ModelType, modelConfig.ModelOutputType)
 }
 
 // IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
