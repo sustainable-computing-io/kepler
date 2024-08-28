@@ -75,8 +75,8 @@ func CreatePowerEstimatorModels(processFeatureNames, systemMetaDataFeatureNames,
 	config.InitModelConfigMap()
 	CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, bpfSupportedMetrics)
 	// Node power estimator uses the process features to estimate node power, expect for the Ratio power model that contains additional metrics.
-	CreateNodePlatformPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	CreateNodeComponentPoweEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateNodePlatformPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	CreateNodeComponentPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 }
 
 // createPowerModelEstimator called by CreatePowerEstimatorModels to initiate estimate function for each power model.
