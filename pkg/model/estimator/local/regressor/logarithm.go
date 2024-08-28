@@ -29,7 +29,12 @@ func NewLogarithmicPredictor(weight ModelWeights) (predictor Predictor, err erro
 	if len(weight.AllWeights.CurveFitWeights) != 3 {
 		return nil, fmt.Errorf("logarithmic predictor: %w", errModelWeightsInvalid)
 	}
+
 	return &LogarithmicPredictor{ModelWeights: weight}, nil
+}
+
+func (LogarithmicPredictor) name() string {
+	return "logarithmic"
 }
 
 func (p *LogarithmicPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {

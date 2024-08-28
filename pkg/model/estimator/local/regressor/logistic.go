@@ -33,6 +33,10 @@ func NewLogisticPredictor(weight ModelWeights) (predictor Predictor, err error) 
 	return &LogisticPredictor{ModelWeights: weight}, nil
 }
 
+func (LogisticPredictor) name() string {
+	return "logistic"
+}
+
 func (p *LogisticPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
 	categoricalX, numericalX, _ := p.ModelWeights.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	var basePower float64

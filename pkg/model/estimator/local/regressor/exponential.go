@@ -32,6 +32,10 @@ func NewExponentialPredictor(weight ModelWeights) (predictor Predictor, err erro
 	return &ExponentialPredictor{ModelWeights: weight}, nil
 }
 
+func (p *ExponentialPredictor) name() string {
+	return "exponential"
+}
+
 func (p *ExponentialPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
 	categoricalX, numericalX, _ := p.ModelWeights.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	var basePower float64

@@ -22,7 +22,9 @@ The model weights can be obtained by Kepler Model Server or configured initial m
 
 package regressor
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type LinearPredictor struct {
 	ModelWeights
@@ -35,6 +37,10 @@ func NewLinearPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	}
 
 	return &LinearPredictor{ModelWeights: weight}, nil
+}
+
+func (p *LinearPredictor) name() string {
+	return "linear"
 }
 
 func (p *LinearPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
