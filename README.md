@@ -98,3 +98,7 @@ dual licensed as above, without any additional terms or conditions.
 [gnu general public license, version 2]: LICENSE-GPL-2
 [gpl-badge]: https://img.shields.io/badge/License-GPL%20v2-blue.svg
 [gpl-url]: https://opensource.org/licenses/GPL-2.0
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://star-history.com/#sustainable-computing-io/kepler&Date)
