@@ -46,6 +46,15 @@ const (
 	ExponentialTrainer      = "ExponentialRegressionTrainer"
 )
 
+var (
+	WeightSupportedTrainers = []string{
+		LinearRegressionTrainer,
+		LogarithmicTrainer,
+		LogisticTrainer,
+		ExponentialTrainer,
+	}
+)
+
 func getModelOutputTypeConverter() []string {
 	return []string{
 		"AbsPower", "DynPower",

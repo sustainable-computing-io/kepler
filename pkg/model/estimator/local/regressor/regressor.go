@@ -187,7 +187,8 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
 	if weightResponse.ModelName != "" {
-		klog.V(3).Infof("Using weights trained by %s", weightResponse.ModelName)
+		r.TrainerName = weightResponse.Trainer()
+		klog.V(3).Infof("Using weights from model %s trained by %s for %s", weightResponse.ModelName, r.TrainerName, r.EnergySource)
 	}
 	r.updateCoreRatio(weightResponse.ModelMachineSpec)
 	return &weightResponse, nil
@@ -196,6 +197,7 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 // loadWeightFromURLorLocal get weight from either local or URL
 // if string start with '/', we take it as local file
 func (r *Regressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
+	var modelName string // to be set by ModelWeightsURL
 	var body []byte
 	var err error
 
@@ -205,12 +207,21 @@ func (r *Regressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		modelName = utils.GetModelNameFromURL(r.ModelWeightsURL)
 	}
 	var content ComponentModelWeights
 	err = json.Unmarshal(body, &content)
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
+	if content.ModelName == "" {
+		// Expect for the case loadWeightFromURL
+		// ModelWeightsFilepath should contain model_name field
+		content.ModelName = modelName
+	}
+	r.TrainerName = content.Trainer()
+	klog.V(3).Infof("Using weights from model %s trained by %s for %s", content.ModelName, r.TrainerName, r.EnergySource)
 	r.updateCoreRatio(content.ModelMachineSpec)
 	return &content, nil
 }
@@ -251,13 +262,13 @@ func (r *Regressor) loadWeightFromURL() ([]byte, error) {
 // Create Predictor based on trainer name
 func (r *Regressor) createPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	switch r.TrainerName {
-	case "SGDRegressorTrainer":
+	case types.LinearRegressionTrainer:
 		predictor, err = NewLinearPredictor(weight)
-	case "LogarithmicRegressionTrainer":
+	case types.LogarithmicTrainer:
 		predictor, err = NewLogarithmicPredictor(weight)
-	case "LogisticRegressionTrainer":
+	case types.LogisticTrainer:
 		predictor, err = NewLogisticPredictor(weight)
-	case "ExponentialRegressionTrainer":
+	case types.ExponentialTrainer:
 		predictor, err = NewExponentialPredictor(weight)
 	default:
 		predictor, err = NewLinearPredictor(weight)

@@ -1,1 +1,1 @@
-{"platform": {"All_Weights": {"Bias_Weight": 220.9079278650894, "Categorical_Variables": {}, "Numerical_Variables": {"bpf_cpu_time_ms": {"scale": 5911.969193263386, "mean": 0, "variance": 0, "weight": 29.028228361462897}}}}}
+{"model_name": "SGDRegressorTrainer_0", "platform": {"All_Weights": {"Bias_Weight": 220.9079278650894, "Categorical_Variables": {}, "Numerical_Variables": {"bpf_cpu_time_ms": {"scale": 5911.969193263386, "mean": 0, "variance": 0, "weight": 29.028228361462897}}}}}

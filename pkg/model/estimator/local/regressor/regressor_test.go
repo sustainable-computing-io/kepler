@@ -65,16 +65,15 @@ var (
 	SampleDramNumbericalVars = map[string]NormalizedNumericalFeature{
 		"cache_miss": {Weight: 1.0, Scale: 2},
 	}
-	DummyWeightHandler                      = http.HandlerFunc(genHandlerFunc([]float64{}))
-	DummyModelName                          = "dummy"
+	DummyWeightHandler                      = http.HandlerFunc(genHandlerFunc([]float64{}, types.LinearRegressionTrainer))
 	ModelCores                              = config.GenerateSpec().Cores
 	ExpectedAbsPowerFromDummyWeightHandler  = 2500
 	ExpectedIdlePowerFromDummyWeightHandler = 2000
 )
 
-func GenPlatformModelWeights(curveFitWeights []float64) ComponentModelWeights {
+func GenPlatformModelWeights(curveFitWeights []float64, trainerName string) ComponentModelWeights {
 	return ComponentModelWeights{
-		ModelName: DummyModelName,
+		ModelName: trainerName + "_0",
 		ModelMachineSpec: &config.MachineSpec{
 			Cores: ModelCores,
 		},
@@ -100,7 +99,7 @@ func genWeights(numericalVars map[string]NormalizedNumericalFeature, curveFitWei
 	}
 }
 
-func genHandlerFunc(curvefit []float64) (handlerFunc func(w http.ResponseWriter, r *http.Request)) {
+func genHandlerFunc(curvefit []float64, trainerName string) (handlerFunc func(w http.ResponseWriter, r *http.Request)) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqBody, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -114,7 +113,7 @@ func genHandlerFunc(curvefit []float64) (handlerFunc func(w http.ResponseWriter,
 		if req.EnergySource == types.ComponentEnergySource {
 			err = json.NewEncoder(w).Encode(GenComponentModelWeights(curvefit))
 		} else {
-			err = json.NewEncoder(w).Encode(GenPlatformModelWeights(curvefit))
+			err = json.NewEncoder(w).Encode(GenPlatformModelWeights(curvefit, trainerName))
 		}
 		if err != nil {
 			panic(err)
@@ -177,7 +176,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 		})
 
 		It("Get Node Components Power By Default Regression Estimator with ModelServerEndpoint", func() {
-			compPowers := GetNodeComponentsPowerFromDummyServer(genHandlerFunc([]float64{}), "")
+			compPowers := GetNodeComponentsPowerFromDummyServer(genHandlerFunc([]float64{}, types.LinearRegressionTrainer), "")
 			// TODO: verify if the power makes sense
 			Expect(compPowers[0].Core).Should(BeEquivalentTo(3000))
 		})
@@ -317,4 +316,20 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 			Entry("invalid model core", 16, 0, 1.0),
 		)
 	})
+
+	DescribeTable("Test ComponentModelWeights.Trainer", func(modelName, expectedTrainer string) {
+		w := ComponentModelWeights{
+			ModelName: modelName,
+		}
+		Expect(w.Trainer()).To(Equal(expectedTrainer))
+	},
+		Entry("empty model name", "", ""),
+		Entry("invalid model name", "some", ""),
+		Entry("invalid model name with _", "some_invalid", ""),
+		Entry("valid SGDRegressorTrainer", "SGDRegressorTrainer_0", "SGDRegressorTrainer"),
+		Entry("valid LogarithmicRegressionTrainer", "LogarithmicRegressionTrainer_0", "LogarithmicRegressionTrainer"),
+		Entry("valid LogisticRegressionTrainer", "LogisticRegressionTrainer_0", "LogisticRegressionTrainer"),
+		Entry("valid ExponentialRegressionTrainer", "ExponentialRegressionTrainer_0", "ExponentialRegressionTrainer"),
+		Entry("invalid GradientBoostingRegressorTrainer", "GradientBoostingRegressorTrainer_0", ""),
+	)
 })

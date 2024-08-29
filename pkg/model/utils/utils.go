@@ -18,6 +18,7 @@ package utils
 
 import (
 	"math"
+	"strings"
 
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 )
@@ -68,4 +69,13 @@ func GetCoreRatio(isIdlePower bool, inCoreRatio float64) float64 {
 		coreRatio = math.Min(inCoreRatio, 1)
 	}
 	return coreRatio
+}
+
+func GetModelNameFromURL(url string) string {
+	urlSplits := strings.Split(url, "/")
+	if len(urlSplits) > 0 {
+		lastItem := urlSplits[len(urlSplits)-1]
+		return strings.Split(lastItem, ".")[0]
+	}
+	return ""
 }

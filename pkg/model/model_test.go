@@ -67,6 +67,15 @@ var _ = Describe("Test Model Unit", func() {
 			Entry("IdlePower with invalid coreRatio = -1", true, -1.0, 1.0),
 			Entry("IdlePower with invalid coreRatio > 1", true, 1.2, 1.0),
 		)
+
+		DescribeTable("Test GetModelNameFromURL()", func(url, expectedModelName string) {
+			Expect(utils.GetModelNameFromURL(url)).To(Equal(expectedModelName))
+		},
+			Entry("empty", "", ""),
+			Entry("some model with multiple subfolders", "http://some/path/to/some_model.json", "some_model"),
+			Entry("some model with direct path", "http://some_model.json", "some_model"),
+			Entry("some model without file extension", "http://some_model", "some_model"),
+		)
 	})
 
 })
