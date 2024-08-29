@@ -51,10 +51,13 @@ func CreateNodePlatformPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatu
 	var err error
 	nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err != nil {
-		klog.Errorf("Failed to create %s/%s Model to estimate Node Platform Power: %v", modelConfig.ModelType, modelConfig.ModelOutputType, err)
+		klog.Errorf("Failed to create %s/%s Model from %s to estimate Node Platform Power: %v",
+			modelConfig.ModelType, modelConfig.ModelOutputType,
+			modelConfig.SourceURL(), err)
 		return
 	}
-	klog.V(1).Infof("Using the %s/%s Model to estimate Node Platform Power", modelConfig.ModelType, modelConfig.ModelOutputType)
+	klog.V(1).Infof("Using the %s/%s Model from %s to estimate Node Platform Power",
+		modelConfig.ModelType, modelConfig.ModelOutputType, modelConfig.SourceURL())
 }
 
 // IsNodePlatformPowerModelEnabled returns if the estimator has been enabled or not

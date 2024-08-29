@@ -37,8 +37,7 @@ type powerInterface interface {
 }
 
 // dummy satisfies the powerInterface and can be used as the default NOP source
-type dummy struct {
-}
+type dummy struct{}
 
 func (dummy) GetName() string {
 	return "none"
@@ -47,6 +46,7 @@ func (dummy) GetName() string {
 func (dummy) IsSystemCollectionSupported() bool {
 	return false
 }
+
 func (dummy) StopPower() {
 }
 
@@ -60,6 +60,12 @@ var (
 )
 
 func InitPowerImpl() {
+	if !enabled {
+		klog.V(1).Infoln("System power collection is disabled, using dummy method")
+		powerImpl = &dummy{}
+		return
+	}
+
 	// switch the platform power collector source to hmc if the system architecture is s390x
 	// TODO: add redfish or ipmi as well.
 	if runtime.GOARCH == "s390x" {

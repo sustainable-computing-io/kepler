@@ -55,11 +55,14 @@ func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeat
 	var err error
 	nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err != nil {
-		klog.Errorf("Failed to create %s/%s Model to estimate Node Component Power: %v", modelConfig.ModelType, modelConfig.ModelOutputType, err)
+		klog.Errorf("Failed to create %s/%s Model from %s to estimate Node Component Power: %v",
+			modelConfig.ModelType, modelConfig.ModelOutputType,
+			modelConfig.SourceURL(), err)
 		return
 	}
 
-	klog.V(1).Infof("Using the %s/%s Model to estimate Node Component Power", modelConfig.ModelType, modelConfig.ModelOutputType)
+	klog.V(1).Infof("Using the %s/%s Model from %s to estimate Node Component Power",
+		modelConfig.ModelType, modelConfig.ModelOutputType, modelConfig.SourceURL())
 }
 
 // IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
