@@ -22,16 +22,25 @@ The model weights can be obtained by Kepler Model Server or configured initial m
 
 package regressor
 
+import (
+	"fmt"
+)
+
 type LinearPredictor struct {
 	ModelWeights
 }
 
 // NewLinearPredictor creates a new LinearPredictor instance with the provided ModelWeights
 func NewLinearPredictor(weight ModelWeights) (predictor Predictor, err error) {
-	if len(weight.AllWeights.CurveFitWeights) == 0 {
-		return &LinearPredictor{ModelWeights: weight}, nil
+	if len(weight.AllWeights.CurveFitWeights) != 0 {
+		return nil, fmt.Errorf("linear predictor: %w", errModelWeightsInvalid)
 	}
-	return nil, errModelWeightsInvalid
+
+	return &LinearPredictor{ModelWeights: weight}, nil
+}
+
+func (p *LinearPredictor) name() string {
+	return "linear"
 }
 
 func (p *LinearPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {

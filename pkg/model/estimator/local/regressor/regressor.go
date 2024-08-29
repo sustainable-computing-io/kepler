@@ -46,6 +46,7 @@ type ModelRequest struct {
 
 // Predictor defines required implementation for power prediction
 type Predictor interface {
+	name() string
 	predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64
 }
 
@@ -261,6 +262,7 @@ func (r *Regressor) createPredictor(weight ModelWeights) (predictor Predictor, e
 	default:
 		predictor, err = NewLinearPredictor(weight)
 	}
+	klog.Infof("Created predictor %s for trainer: %q", predictor.name(), r.TrainerName)
 	return
 }
 
