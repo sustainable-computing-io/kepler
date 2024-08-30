@@ -2,14 +2,16 @@
   "model_name": "SGDRegressorTrainer_0",
   "package": {
     "All_Weights": {
-      "Bias_Weight": 38.856412561925055,
+      "Bias_Weight": 89.26166499273477,
       "Categorical_Variables": {},
       "Numerical_Variables": {
         "bpf_cpu_time_ms": {
-          "scale": 5911.969193263386,
-          "mean": 0,
-          "variance": 0,
-          "weight": 22.258830113477515
+          "scale": 95877.0,
+          "weight": 304.9021003654337
+        },
+        "bpf_page_cache_hit": {
+          "scale": 1.0,
+          "weight": 0.0
         }
       }
     }
@@ -20,9 +22,11 @@
       "Categorical_Variables": {},
       "Numerical_Variables": {
         "bpf_cpu_time_ms": {
-          "scale": 5911.969193263386,
-          "mean": 0,
-          "variance": 0,
+          "scale": 95877.0,
+          "weight": 0.0
+        },
+        "bpf_page_cache_hit": {
+          "scale": 1.0,
           "weight": 0.0
         }
       }
@@ -34,9 +38,11 @@
       "Categorical_Variables": {},
       "Numerical_Variables": {
         "bpf_cpu_time_ms": {
-          "scale": 5911.969193263386,
-          "mean": 0,
-          "variance": 0,
+          "scale": 95877.0,
+          "weight": 0.0
+        },
+        "bpf_page_cache_hit": {
+          "scale": 1.0,
           "weight": 0.0
         }
       }
@@ -44,14 +50,16 @@
   },
   "dram": {
     "All_Weights": {
-      "Bias_Weight": 9.080889901856153,
+      "Bias_Weight": 4.456733766091277,
       "Categorical_Variables": {},
       "Numerical_Variables": {
         "bpf_cpu_time_ms": {
-          "scale": 5911.969193263386,
-          "mean": 0,
-          "variance": 0,
-          "weight": 3.0358946796490924
+          "scale": 95877.0,
+          "weight": 8.249791438136015
+        },
+        "bpf_page_cache_hit": {
+          "scale": 1.0,
+          "weight": 0.0
         }
       }
     }
