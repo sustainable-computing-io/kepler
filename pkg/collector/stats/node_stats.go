@@ -25,22 +25,31 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
-var (
-	NodeName            = GetNodeName()
-	NodeCPUArchitecture = getCPUArch()
-	NodeCPUPackageMap   = getCPUPackageMap()
-
-	// NodeMetricNames holds the name of the system metadata information.
-	NodeMetadataFeatureNames []string = []string{"cpu_architecture"}
-	// SystemMetadata holds the metadata regarding the system information
-	NodeMetadataFeatureValues []string = []string{NodeCPUArchitecture}
-)
-
 type NodeStats struct {
 	Stats
 
 	// IdleResUtilization is used to determine idle pmap[string]eriods
 	IdleResUtilization map[string]uint64
+}
+
+// NodeCPUArchitecture returns the CPU architecture
+func NodeCPUArchitecture() string {
+	return getCPUArch()
+}
+
+// NodeCPUPackageMap returns the CPU package map
+func NodeCPUPackageMap() map[int32]string {
+	return getCPUPackageMap()
+}
+
+// NodeMetadataFeatureNames returns the feature names for metadata
+func NodeMetadataFeatureNames() []string {
+	return []string{"cpu_architecture"}
+}
+
+// NodeMetadataFeatureValues returns the feature values for metadata
+func NodeMetadataFeatureValues() []string {
+	return []string{NodeCPUArchitecture()}
 }
 
 func NewNodeStats(bpfSupportedMetrics bpf.SupportedMetrics) *NodeStats {
@@ -57,7 +66,7 @@ func (ne *NodeStats) ResetDeltaValues() {
 
 func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) {
 	// gpu metric
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
 			ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
 		}

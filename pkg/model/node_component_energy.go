@@ -32,7 +32,7 @@ var nodeComponentPowerModel PowerModelInterface
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
 func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) *types.ModelConfig {
-	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey)
+	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey())
 	if modelConfig.InitModelURL == "" {
 		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource)
 	}
@@ -111,9 +111,9 @@ func UpdateNodeComponentIdleEnergy(nodeMetrics *stats.NodeStats) {
 func addEnergy(nodeMetrics *stats.NodeStats, metrics []string, isIdle bool) {
 	for socket, power := range GetNodeComponentPowers(nodeMetrics, isIdle) {
 		strID := fmt.Sprintf("%d", socket)
-		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec())
 	}
 }

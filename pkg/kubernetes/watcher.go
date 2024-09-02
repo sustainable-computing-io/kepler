@@ -76,14 +76,14 @@ type ObjListWatcher struct {
 func newK8sClient() *kubernetes.Clientset {
 	var restConf *rest.Config
 	var err error
-	if config.KubeConfig == "" {
+	if config.KubeConfig() == "" {
 		// creates the in-cluster config
 		restConf, err = rest.InClusterConfig()
 		klog.Infoln("Using in cluster k8s config")
 	} else {
 		// use the current context in kubeconfig
-		restConf, err = clientcmd.BuildConfigFromFlags("", config.KubeConfig)
-		klog.Infoln("Using out cluster k8s config: ", config.KubeConfig)
+		restConf, err = clientcmd.BuildConfigFromFlags("", config.KubeConfig())
+		klog.Infoln("Using out cluster k8s config: ", config.KubeConfig())
 	}
 	if err != nil {
 		klog.Infof("failed to get config: %v", err)
@@ -105,11 +105,11 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatche
 		bpfSupportedMetrics: bpfSupportedMetrics,
 		workqueue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
-	if w.k8sCli == nil || !config.EnableAPIServer {
+	if w.k8sCli == nil || !config.APIServerEnabled() {
 		return w, nil
 	}
 	optionsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = fields.Set{"spec.nodeName": stats.GetNodeName()}.AsSelector().String() // to filter events per node
+		options.FieldSelector = fields.Set{"spec.nodeName": stats.NodeName()}.AsSelector().String() // to filter events per node
 	}
 	objListWatcher := cache.NewFilteredListWatchFromClient(
 		w.k8sCli.CoreV1().RESTClient(),

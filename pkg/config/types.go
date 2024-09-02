@@ -68,4 +68,39 @@ const (
 	IdleEnergyInGPU      = "idle_energy_in_gpu"
 	IdleEnergyInOther    = "idle_energy_in_other"
 	IdleEnergyInPlatform = "idle_energy_in_platform"
+
+	cGroupIDMinKernelVersion = 4.18
+	// If this file is present, cgroups v2 is enabled on that node.
+	cGroupV2Path   = "/sys/fs/cgroup/cgroup.controllers"
+	metricPathKey  = "METRIC_PATH"
+	bindAddressKey = "BIND_ADDRESS"
+	// model_parameter_attributes
+	EstimatorEnabledKey      = "ESTIMATOR"
+	LocalRegressorEnabledKey = "LOCAL_REGRESSOR"
+	InitModelURLKey          = "INIT_URL"
+	FixedTrainerNameKey      = "TRAINER"
+	ModelFiltersKey          = "FILTERS"
+	DefaultTrainerName       = "SGDRegressorTrainer"
+	// Local defaults
+	defaultMetricValue      = ""
+	defaultNamespace        = "kepler"
+	defaultModelServerPort  = "8100"
+	defaultModelRequestPath = "/model"
+	defaultMaxLookupRetry   = 500
+	// MaxIRQ is the maximum number of IRQs to be monitored
+	MaxIRQ = 10
+	// defaultSamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
+	defaultSamplePeriodSec = 3
+	configDir              = "/etc/kepler/kepler.config"
+	defaultKubeConfig      = ""
+	defaultBPFSampleRate   = 0
+	defaultCPUArchOverride = ""
+	// model_parameter_prefix
+	defaultNodePlatformPowerKey        = "NODE_TOTAL"
+	defaultNodeComponentsPowerKey      = "NODE_COMPONENTS"
+	defaultContainerPlatformPowerKey   = "CONTAINER_TOTAL"
+	defaultContainerComponentsPowerKey = "CONTAINER_COMPONENTS"
+	defaultProcessPlatformPowerKey     = "PROCESS_TOTAL"
+	defaultProcessComponentsPowerKey   = "PROCESS_COMPONENTS"
+	DefaultMachineSpecFilePath         = "/etc/kepler/models/machine/spec.json"
 )

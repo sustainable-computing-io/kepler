@@ -36,7 +36,7 @@ func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, col
 	if config.IsExposeComponentPowerEnabled() {
 		// collect the dynamic energy metrics
 		for i, collectorName := range consts.EnergyMetricNames {
-			if collectorName == config.GPU && !config.EnabledGPU {
+			if collectorName == config.GPU && !config.EnabledGPU() {
 				continue
 			}
 			collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
@@ -57,7 +57,7 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 		for collectorName := range bpfSupportedMetrics.HardwareCounters {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
-		if config.EnabledGPU {
+		if config.EnabledGPU() {
 			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
 				for _, collectorName := range consts.GPUMetricNames {
 					CollectResUtil(ch, instance, collectorName, collectors[collectorName])
@@ -150,7 +150,7 @@ func collectEnergy(ch chan<- prometheus.Metric, instance interface{}, metricName
 		if _, exist := node.EnergyUsage[metricName]; exist {
 			for deviceID, utilization := range node.EnergyUsage[metricName] {
 				value = float64(utilization.GetAggr()) / JouleMillijouleConversionFactor
-				labelValues = []string{deviceID, stats.NodeName, mode}
+				labelValues = []string{deviceID, stats.NodeName(), mode}
 				collect(ch, collector, value, labelValues)
 			}
 		}
@@ -208,7 +208,7 @@ func CollectResUtil(ch chan<- prometheus.Metric, instance interface{}, metricNam
 		if _, exist := node.ResourceUsage[metricName]; exist {
 			for deviceID, utilization := range node.ResourceUsage[metricName] {
 				value = float64(utilization.GetAggr())
-				labelValues = []string{deviceID, stats.NodeName}
+				labelValues = []string{deviceID, stats.NodeName()}
 				collect(ch, collector, value, labelValues)
 			}
 		}

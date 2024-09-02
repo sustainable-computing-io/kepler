@@ -62,7 +62,7 @@ func InitPowerImpl() {
 	}
 
 	msrImpl := &source.PowerMSR{}
-	if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
+	if msrImpl.IsSystemCollectionSupported() && config.IsEnabledMSR() {
 		klog.V(1).Infoln("use MSR to obtain power")
 		powerImpl = msrImpl
 		return

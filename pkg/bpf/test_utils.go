@@ -23,7 +23,7 @@ func defaultHardwareCounters() sets.Set[string] {
 
 func defaultSoftwareCounters() sets.Set[string] {
 	swCounters := sets.New(config.CPUTime, config.PageCacheHit)
-	if config.ExposeIRQCounterMetrics {
+	if config.ExposeIRQCounterMetrics() {
 		swCounters.Insert(config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel)
 	}
 	return swCounters

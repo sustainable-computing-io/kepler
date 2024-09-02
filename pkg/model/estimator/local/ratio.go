@@ -40,7 +40,7 @@ const (
 	DramUsageMetric
 	UncoreUsageMetric
 	OtherUsageMetric
-	GpuUsageMetric
+	GPUUsageMetric
 	PkgDynPower
 	CoreDynPower
 	DramDynPower
@@ -180,7 +180,7 @@ func (r *RatioPowerModel) GetGPUPower(isIdlePower bool) ([]uint64, error) {
 		if isIdlePower {
 			processPower = uint64Division(r.nodeFeatureValues[GpuIdlePower], numProcesses)
 		} else {
-			processPower = r.getPowerByRatio(processIdx, int(GpuUsageMetric), int(GpuDynPower), numProcesses)
+			processPower = r.getPowerByRatio(processIdx, int(GPUUsageMetric), int(GpuDynPower), numProcesses)
 		}
 		nodeComponentsPowerOfAllProcesses = append(nodeComponentsPowerOfAllProcesses, processPower)
 	}

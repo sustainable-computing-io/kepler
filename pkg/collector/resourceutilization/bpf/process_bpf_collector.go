@@ -99,7 +99,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		}
 
 		// if the pid is within a container, it will have a container ID
-		containerID, err := cgroup.GetContainerID(ct.CgroupId, ct.Pid, config.EnabledEBPFCgroupID)
+		containerID, err := cgroup.GetContainerID(ct.CgroupId, ct.Pid, config.EnabledEBPFCgroupID())
 		if err != nil {
 			klog.V(6).Infof("failed to resolve container for PID %v (command=%s): %v, set containerID=%s", ct.Pid, comm, err, utils.SystemProcessName)
 		}
@@ -114,7 +114,7 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		}
 
 		mapKey := ct.Pid
-		if ct.CgroupId == 1 && config.EnabledEBPFCgroupID {
+		if ct.CgroupId == 1 && config.EnabledEBPFCgroupID() {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
 			mapKey = 1

@@ -115,11 +115,12 @@ var _ = Describe("Test Configuration", func() {
 		Expect(float32(-1)).To(Equal(getKernelVersion(mockc)))
 	})
 	It("Test real kernel version", func() {
+		conf := GetConfig()
 		// we assume running on Linux env should be bigger than 3.0
 		// env now, so make it 3.0 as minimum test:
 		switch runtime.GOOS {
 		case "linux":
-			Expect(true).To(Equal(getKernelVersion(c) > 3.0))
+			Expect(true).To(Equal(getKernelVersion(conf) > 3.0))
 		default:
 			// no test
 		}
