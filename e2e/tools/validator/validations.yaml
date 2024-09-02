@@ -1,4 +1,63 @@
 validations:
+  # absolute power comparison
+  - name: platform - absolute
+    actual: |
+      sum(
+        rate(
+        kepler_{level}_platform_joules_total{{
+          job="{metal_job_name}",
+          {vm_selector},
+        }}[{rate_interval}]
+        )
+      )
+    expected: |
+      sum(
+        rate(
+          kepler_node_platform_joules_total{{
+            job="{vm_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+
+  - name: package - absolute
+    actual: |
+      sum(
+        rate(
+          kepler_{level}_package_joules_total{{
+            job="{metal_job_name}",
+            {vm_selector},
+          }}[{rate_interval}]
+        )
+      )
+    expected: |
+      sum(
+        rate(
+          kepler_node_package_joules_total{{
+            job="{vm_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+
+  - name: core - absolute
+    actual: |
+      sum(
+        rate(
+          kepler_{level}_core_joules_total{{
+            job="{metal_job_name}",
+            {vm_selector},
+          }}[{rate_interval}]
+        )
+      )
+    expected: |
+      sum(
+        rate(
+          kepler_node_core_joules_total{{
+            job="{vm_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+
+  # dynamic power comparison
   - name: platform - dynamic
     actual: |
       rate(
@@ -66,6 +125,8 @@ validations:
           mode="dynamic",
         }}[{rate_interval}]
       )
+
+  # idle power comparison
 
   - name: platform - idle
     actual: |
