@@ -208,7 +208,7 @@ def write_md_report(results_dir: str, r: TestResult):
         md.li(f"MSE  : `{v.mse}`")
         md.li(f"MAPE : `{v.mape} %`")
         md.write("\n**Charts**:\n")
-        img_path = create_charts_for_result(v)
+        img_path = create_charts_for_result(results_dir, v)
         md.img(v.name, img_path)
 
     md.close()
@@ -232,12 +232,11 @@ def snake_case(s: str) -> str:
     return re.sub("[_-]+", "_", re.sub(r"[/\s]+", "_", s)).lower().strip()
 
 
-def create_charts_for_result(r: ValidationResult) -> str:
+def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
     actual_json_path = r.actual_filepath
     expected_json_path = r.expected_filepath
 
-    dirname = os.path.dirname(r.actual_filepath)
-    images_dir = os.path.join(dirname, "images")
+    images_dir = os.path.join(results_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(18, 7), sharex=True, sharey=True)
@@ -289,7 +288,7 @@ def create_charts_for_result(r: ValidationResult) -> str:
 
     plt.savefig(out_file, format="png")
 
-    return os.path.relpath(out_file, dirname)
+    return os.path.relpath(out_file, results_dir)
 
 
 def create_report_dir(report_dir: str) -> tuple[str, str]:
@@ -303,8 +302,11 @@ def create_report_dir(report_dir: str) -> tuple[str, str]:
 
 
 def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series) -> str:
+    artifacts_dir = os.path.join(raw_results_dir, "artifacts")
+    os.makedirs(artifacts_dir, exist_ok=True)
+
     filename = f"{query.metric_name}--{query.mode}.json"
-    out_file = os.path.join(raw_results_dir, filename)
+    out_file = os.path.join(artifacts_dir, filename)
 
     with open(out_file, "w") as f:
         f.write(
