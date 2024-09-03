@@ -81,6 +81,9 @@ class ValueOrError(NamedTuple):
 class Result(NamedTuple):
     expected_series: Series
     actual_series: Series
+    expected_dropped: int
+    actual_dropped: int
+
     mse: ValueOrError
     mape: ValueOrError
 
@@ -248,19 +251,14 @@ class Comparator:
         actual_series = self.single_series(actual_query, start, end)
 
         expected, actual = filter_by_equal_timestamps(expected_series, actual_series)
-
         expected_dropped = len(expected_series.samples) - len(expected.samples)
         actual_dropped = len(actual_series.samples) - len(actual.samples)
-        if expected_dropped > 0 or actual_dropped > 0:
-            logger.warning(
-                "dropped %d samples from expected and %d samples from actual",
-                expected_dropped,
-                actual_dropped,
-            )
 
         return Result(
             mse=mse(actual.values, expected.values),
             mape=mape(actual.values, expected.values),
             expected_series=expected_series,
             actual_series=actual_series,
+            expected_dropped=expected_dropped,
+            actual_dropped=actual_dropped,
         )
