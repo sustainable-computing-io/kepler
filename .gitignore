@@ -46,3 +46,6 @@ coverage.out
 
 # old libbpf-based binaries
 bpfassets/
+
+*_bpfe[lb].o
+*_bpfe[lb].go

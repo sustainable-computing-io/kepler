@@ -270,7 +270,7 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 			}
 		}
 	}()
-	return rf.systems != nil && len(rf.systems) > 0
+	return len(rf.systems) > 0
 }
 
 // GetAbsEnergyFromPlatform returns the power consumption in Watt

@@ -17,7 +17,6 @@ linters-settings:
       - octalLiteral
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
-
   govet:
     enable:
       - shadow
@@ -87,6 +86,9 @@ run:
 
 issues:
   exclude-rules:
+    # disable typecheck in folder where it breaks because of build tags
+    - path: .*_bpfe[lb]\\.go
+      linters: [typecheck]
     - linters: [dupl]
       text: .*pkg/collector/stats/types/types_test.go.* # false positive, https://github.com/mibk/dupl/issues/20
     - text: 'shadow: declaration of "(err|ctx)" shadows declaration at' # yamllint disable-line rule:quoted-strings

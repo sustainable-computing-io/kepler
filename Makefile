@@ -165,9 +165,14 @@ push-image:  ## Push image.
 
 ##@ General build
 clean-cross-build: ## clean Kepler build for multiple archs
+	$(RM) -rf pkg/bpf/*.o
+	$(RM) -rf pkg/bpftest/*.o
+	$(RM) -rf pkg/bpf/*_bpfe[lb].go
+	$(RM) -rf pkg/bpftest/*_bpfe[lb].go
 	$(RM) -r '$(CROSS_BUILD_BINDIR)'
 	$(RM) -rf $(OUTPUT_DIR)/staging
 	if [ -d '$(OUTPUT_DIR)' ]; then rmdir --ignore-fail-on-non-empty '$(OUTPUT_DIR)'; fi
+	./hack/bpf-generate.sh clean
 .PHONY: clean-cross-build
 
 build: clean_build_local _build_local copy_build_local ##  Build binary and copy to $(OUTPUT_DIR)/bin
@@ -221,7 +226,12 @@ containerized_build_container_rpm: ## Build the Containerized Kepler RPM inside 
 		make build_container_rpm
 
 clean_build_local: ## Clean local build directory
-	rm -rf $(CROSS_BUILD_BINDIR)
+	$(RM) -rf $(CROSS_BUILD_BINDIR)
+	$(RM) -rf pkg/bpf/*.o
+	$(RM) -rf pkg/bpftest/*.o
+	$(RM) -rf pkg/bpf/*_bpfe[lb].go
+	$(RM) -rf pkg/bpftest/*_bpfe[lb].go
+	./hack/bpf-generate.sh clean
 
 copy_build_local: ## Copy Kepler binary to $(OUTPUT_DIR)/bin.
 	cp $(CROSS_BUILD_BINDIR)/$(GOOS)_$(GOARCH)/kepler $(CROSS_BUILD_BINDIR)
@@ -291,7 +301,7 @@ unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
 		$(TEST_PKGS)
 
 .PHONY: bench
-bench: ## Run benchmarks.
+bench: generate ## Run benchmarks.
 	@echo TAGS=$(GO_TEST_TAGS)
 	$(GOENV) go test -tags $(GO_TEST_TAGS) \
 		$(go_test_args) \
@@ -311,7 +321,7 @@ bpf-test: generate ginkgo-set ## Run BPF tests.$(GOBIN)
 escapes_detect: tidy-vendor
 	@$(GOENV) go build -tags $(GO_BUILD_TAGS) -gcflags="-m -l" ./... 2>&1 | grep "escapes to heap" || true
 
-check-govuln: govulncheck tidy-vendor ## Check Go vulnerabilities.
+check-govuln: generate govulncheck tidy-vendor ## Check Go vulnerabilities.
 	@$(GOVULNCHECK) ./... || true
 
 format: ## Check Go format.
@@ -321,7 +331,7 @@ c-format: ## Check C format.
 	@echo "Checking c format"
 	@git ls-files -- '*.c' '*.h' ':!:vendor' ':!:/bpf/include/' | xargs clang-format --dry-run --Werror
 
-golint: ## Go lint
+golint: generate ## Go lint
 	@mkdir -p $(base_dir)/.cache/golangci-lint
 	$(CTR_CMD) pull golangci/golangci-lint:latest
 	$(CTR_CMD) run --tty --rm \
