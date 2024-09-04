@@ -6,10 +6,12 @@ on: # yamllint disable-line rule:truthy
     types: [created]
 
 jobs:
-  test-mock-acpi:
+  initalize-workflow:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
-    name: Test Mock ACPI
+    name: Initialize workflow
     runs-on: ubuntu-latest
+    outputs:
+      head_sha: ${{ steps.pr_branch.outputs.head_sha }}
     steps:
       # Since `issue_comment` event runs on the default branch,
       # we need to get the branch of the pull request
@@ -27,15 +29,22 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: pending
 
+  test-mock-acpi:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Test Mock ACPI
+    needs: initalize-workflow
+    runs-on: self-hosted
+    outputs:
+      runner-name: ${{ runner.name }}
+    steps:
       - name: Checkout code
-        if: ${{ success() }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.pr_branch.outputs.head_sha }}
+          ref: ${{ needs.initalize-workflow.outputs.head_sha }}
 
       - name: metal-runner-action
+        # TODO: use the forked version of metal-runner-action inside sustainable-computing-io organization
         uses: vprashar2929/metal-runner-action@custom-action
-        # uses: equinix-labs/metal-runner-action@v0.3.0
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
@@ -65,7 +74,6 @@ jobs:
       - name: Run playbook
         id: run-playbook
         if: ${{ success() }}
-        continue-on-error: true # This is done to release equinix runners irrespective of failure
         run: |
           echo "Setting up the infra"
           cd ${GITHUB_WORKSPACE}/ansible
@@ -73,24 +81,31 @@ jobs:
           echo "Launching Mock ACPI compose and running validator"
           ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
 
+  cleanup:
+    if: ${{ always() }}
+    name: Cleanup
+    needs: [initalize-workflow, test-mock-acpi]
+    runs-on: ubuntu-latest
+    steps:
       - name: delete runner
+        if: ${{ always() }}
         uses: rootfs/metal-delete-action@main
         with:
           authToken: ${{ secrets.EQUINIX_API_TOKEN }}
           projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
-          runnerName: ${{ runner.name }}
+          runnerName: ${{ needs.test-mock-acpi.outputs.runner-name }}
 
       # Marking the workflow as failed if the playbook fails
       - name: Mark workflow as failed if playbook failed
-        if: ${{ steps.run-playbook.outcome == 'failure' }}
+        if: ${{ needs.test-mock-acpi.result == 'failure' }}
         run: |
           echo "Playbook failed, marking workflow as failed"
           exit 1
 
       - name: Set job status as ${{ job.status }}
         uses: myrotvorets/set-commit-status-action@master
-        if: always()
+        if: ${{ always() }}
         with:
-          sha: ${{ steps.pr_branch.outputs.head_sha }}
+          sha: ${{ needs.initalize-workflow.outputs.head_sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
           status: ${{ job.status }}
