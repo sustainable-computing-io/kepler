@@ -50,6 +50,7 @@ class ValidationResult:
 
     mse_passed: bool = True
     mape_passed: bool = True
+
     unexpected_error: str = ""
 
     def __init__(self, name: str, actual: str, expected: str) -> None:
@@ -59,13 +60,15 @@ class ValidationResult:
 
     @property
     def verdict(self) -> str:
+        note = " (dropped)" if self.actual_dropped > 0 or self.expected_dropped > 0 else ""
+
         if self.unexpected_error or self.mse.error or self.mape.error:
-            return "ERROR"
+            return f"ERROR{note}"
 
         if self.mse_passed and self.mape_passed:
-            return "PASS"
+            return f"PASS{note}"
 
-        return "FAIL"
+        return f"FAIL{note}"
 
 
 @dataclass
