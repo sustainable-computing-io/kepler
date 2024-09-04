@@ -86,10 +86,35 @@ services:
       retries: ${HEALTHCHECK_RETRIES:-3}
       start_period: ${HEALTHCHECK_START_PERIOD:-1m}
 
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    pid: host
+    ports:
+      - 9100:9100
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+      - type: bind
+        source: /sys
+        target: /host/sys
+      - type: bind
+        source: /
+        target: /rootfs
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.rapl  # Enable RAPL collector
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    user: root
+    networks:
+      - node-exporter-network
 
 networks:
   scaph-network:
   kepler-network:
+  node-exporter-network:
   #
   #
   #  NOTE: To allow access to VM from prometheus container
