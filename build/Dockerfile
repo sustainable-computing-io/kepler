@@ -1,5 +1,4 @@
 FROM quay.io/sustainable_computing_io/kepler_builder:ubi-9-libbpf-1.3.0 AS builder
-ARG INSTALL_HABANA=false
 WORKDIR /workspace
 
 COPY . .
