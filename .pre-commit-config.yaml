@@ -37,4 +37,10 @@ repos:
       - id: commitlint
         stages: [commit-msg]
         additional_dependencies: ['@commitlint/config-conventional']  # yamllint disable-line rule:quoted-strings
+  - repo: local
+    hooks:
+      - id: make-clean
+        name: Check bpf2go generated files
+        language: system
+        entry: ./hack/bpf-generate.sh precommit
 exclude: ^vendor/.*|^_output/.*|^bpf/include/.*|^local-dev-cluster/.*

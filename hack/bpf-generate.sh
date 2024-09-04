@@ -54,6 +54,23 @@ sed -i '/^\/\/go:build mockbpf/d' "$PKG_BPFTEST/mocktest.go"
 sed -i '/^\/\/ +build mockbpf/d' "$PKG_BPFTEST/mocktest.go"
 }
 
+precommit(){
+bpf2gofiles=$(git diff --cached --name-only | grep '.*_bpfe[lb]\.go$')
+if [ ${#bpf2gofiles[@]} -gt 0 ]; then
+    echo "Need to run make clean before committing ${bpf2gofiles[*]}"
+    make clean
+    return 1
+fi
+mockfiles=$(git diff --cached --name-only | grep '.*mock.*\.go$')
+for filename in "$mockfiles"; do
+  if grep -q "mockbpf" "$filename"; then
+    echo "Need to run make clean before committing $filename"
+    make clean
+    return 1
+  fi
+done
+}
+
 main() {
 	local ret=0
 	case "${1-}" in
@@ -66,6 +83,9 @@ main() {
     clean)
 		clean
 		;;
+    precommit)
+        precommit
+        ;;
 	*)
 		die "invalid args"
 		;;
