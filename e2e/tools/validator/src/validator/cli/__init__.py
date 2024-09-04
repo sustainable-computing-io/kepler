@@ -42,6 +42,9 @@ class ValidationResult:
     mse: ValueOrError
     mape: ValueOrError
 
+    actual_dropped: int = 0
+    expected_dropped: int = 0
+
     actual_filepath: str = ""
     expected_filepath: str = ""
 
@@ -203,6 +206,11 @@ def write_md_report(results_dir: str, r: TestResult):
             md.write("\n**Errors**:\n")
             md.code(v.unexpected_error)
             continue
+
+        if v.actual_dropped or v.expected_dropped:
+            md.write("\n**Dropped**:\n")
+            md.li(f"Actual : `{v.actual_dropped}`")
+            md.li(f"Expected: `{v.expected_dropped}`")
 
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
@@ -500,6 +508,9 @@ def run_validation(
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
         click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+
+        result.expected_dropped = cmp.expected_dropped
+        result.actual_dropped = cmp.expected_dropped
 
         if cmp.expected_dropped > 0 or cmp.actual_dropped > 0:
             logger.warning(
