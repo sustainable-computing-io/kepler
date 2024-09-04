@@ -42,11 +42,15 @@ class ValidationResult:
     mse: ValueOrError
     mape: ValueOrError
 
+    actual_dropped: int = 0
+    expected_dropped: int = 0
+
     actual_filepath: str = ""
     expected_filepath: str = ""
 
     mse_passed: bool = True
     mape_passed: bool = True
+
     unexpected_error: str = ""
 
     def __init__(self, name: str, actual: str, expected: str) -> None:
@@ -56,13 +60,15 @@ class ValidationResult:
 
     @property
     def verdict(self) -> str:
+        note = " (dropped)" if self.actual_dropped > 0 or self.expected_dropped > 0 else ""
+
         if self.unexpected_error or self.mse.error or self.mape.error:
-            return "ERROR"
+            return f"ERROR{note}"
 
         if self.mse_passed and self.mape_passed:
-            return "PASS"
+            return f"PASS{note}"
 
-        return "FAIL"
+        return f"FAIL{note}"
 
 
 @dataclass
@@ -203,6 +209,11 @@ def write_md_report(results_dir: str, r: TestResult):
             md.write("\n**Errors**:\n")
             md.code(v.unexpected_error)
             continue
+
+        if v.actual_dropped or v.expected_dropped:
+            md.write("\n**Dropped**:\n")
+            md.li(f"Actual : `{v.actual_dropped}`")
+            md.li(f"Expected: `{v.expected_dropped}`")
 
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
@@ -500,6 +511,9 @@ def run_validation(
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
         click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+
+        result.expected_dropped = cmp.expected_dropped
+        result.actual_dropped = cmp.expected_dropped
 
         if cmp.expected_dropped > 0 or cmp.actual_dropped > 0:
             logger.warning(
