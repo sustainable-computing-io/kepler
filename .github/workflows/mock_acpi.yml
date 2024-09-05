@@ -29,19 +29,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           status: pending
 
-  test-mock-acpi:
+  create-runner:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
-    name: Test Mock ACPI
+    name: Create self-hosted runner
     needs: initalize-workflow
-    runs-on: self-hosted
-    outputs:
-      runner-name: ${{ runner.name }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.initalize-workflow.outputs.head_sha }}
-
       - name: metal-runner-action
         # TODO: use the forked version of metal-runner-action inside sustainable-computing-io organization
         uses: vprashar2929/metal-runner-action@custom-action
@@ -53,6 +46,19 @@ jobs:
           plan: c3.small.x86
           os: ubuntu_20_04
           organization: sustainable-computing-io
+
+  test-mock-acpi:
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Test Mock ACPI
+    needs: [initalize-workflow, create-runner]
+    runs-on: self-hosted
+    outputs:
+      runner-name: ${{ runner.name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.initalize-workflow.outputs.head_sha }}
 
       - name: Configure SSH
         if: ${{ success() }}
