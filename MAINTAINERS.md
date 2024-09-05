@@ -27,4 +27,5 @@
 | Vibhu Prashar         | Red Hat    | vprashar2929   | <vibhu.sharma2929@gmail.com>     |
 | Vimal Kumar           | Red Hat    | vimalk78       | <vimal78@gmail.com>              |
 | Dave Tucker           | Red Hat    | dave-tucker    | <datucker@redhat.com>            |
+| Maryam Tahhan         | Red Hat    | maryamtahhan   | <mtahhan@redhat.com>             |
 <!-- markdownlint-enable  MD013 -->
