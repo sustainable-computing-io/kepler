@@ -533,8 +533,8 @@ def run_validation(
         if not result.mape_passed:
             click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
 
-        result.actual_filepath = dump_query_result(results_dir, v.expected, cmp.expected_series)
-        result.expected_filepath = dump_query_result(results_dir, v.actual, cmp.actual_series)
+        result.actual_filepath = dump_query_result(results_dir, v.expected, cmp.actual_series)
+        result.expected_filepath = dump_query_result(results_dir, v.actual, cmp.expected_series)
 
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
