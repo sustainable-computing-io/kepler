@@ -69,7 +69,7 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 		m.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}
 
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
 			m.ResourceUsage[config.GPUComputeUtilization] = types.NewUInt64StatCollection()
 			m.ResourceUsage[config.GPUMemUtilization] = types.NewUInt64StatCollection()
@@ -127,7 +127,7 @@ func (m *Stats) UpdateDynEnergy() {
 		m.CalcDynEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.DynEnergyInPlatform, sensorID)
 	}
 	// gpu metric
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
 			for gpuID := range m.EnergyUsage[config.AbsEnergyInGPU] {
 				m.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
@@ -162,7 +162,7 @@ func calcDynEnergy(totalE, idleE uint64) uint64 {
 
 func normalize(val float64, shouldNormalize bool) float64 {
 	if shouldNormalize {
-		return val / float64(config.SamplePeriodSec)
+		return val / float64(config.SamplePeriodSec())
 	}
 	return val
 }
@@ -181,7 +181,7 @@ func (m *Stats) ToEstimatorValues(featuresName []string, shouldNormalize bool) [
 		}
 		// some features are not related to resource utilization, such as power metrics
 		switch feature {
-		case config.GeneralUsageMetric: // is an empty string for UNCORE and OTHER resource usage
+		case config.GeneralUsageMetric(): // is an empty string for UNCORE and OTHER resource usage
 			featureValues = append(featureValues, 0)
 
 		case config.DynEnergyInPkg: // for dynamic PKG power consumption

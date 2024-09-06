@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler-exporter
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: kepler-exporter
+          volumeMounts:
+            - name: machine-spec
+              mountPath: /etc/kepler/models/machine
+              readOnly: true
+      volumes:
+        - name: config-models
+          configMap:
+            name: kepler-machine-spec
+            items:
+              - key: m5.metal # set a target machine refer to kepler-machine-spec configmap
+                path: spec.json

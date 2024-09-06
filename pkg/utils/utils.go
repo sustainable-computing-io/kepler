@@ -94,3 +94,8 @@ func GetCgroupIDFromPath(byteOrder binary.ByteOrder, path string) (uint64, error
 	}
 	return byteOrder.Uint64(handle.Bytes()), nil
 }
+
+func IsFileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}

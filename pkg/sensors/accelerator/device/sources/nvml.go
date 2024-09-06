@@ -184,7 +184,7 @@ func (n *GPUNvml) AbsEnergyFromDevice() []uint32 {
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
 		// necessary to calculate the energy consumption for the entire waiting period
-		energy := uint32(uint64(power) * config.SamplePeriodSec)
+		energy := uint32(uint64(power) * config.SamplePeriodSec())
 		gpuEnergy = append(gpuEnergy, energy)
 	}
 	return gpuEnergy
@@ -234,7 +234,7 @@ func (n *GPUNvml) ProcessResourceUtilizationPerDevice(dev any, since time.Durati
 		}
 
 		if !n.processUtilizationSupported { // If processUtilizationSupported is false, try deviceGetMPSComputeRunningProcesses_v3 to use memory usage to ratio power usage
-			config.GpuUsageMetric = config.GPUMemUtilization
+			config.GPUUsageMetric = config.GPUMemUtilization
 			processInfo, ret := d.DeviceHandler.(nvml.Device).GetComputeRunningProcesses()
 			if ret != nvml.SUCCESS {
 				if ret == nvml.ERROR_NOT_FOUND {

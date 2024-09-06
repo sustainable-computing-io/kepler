@@ -95,7 +95,7 @@ func TestIsSupported(t *testing.T) {
 	// set ENV variable NODE_NAME to "node1"
 	os.Setenv("NODE_NAME", "node1")
 	// check if getNodeName() returns "node1"
-	nodeName := metric_util.GetNodeName()
+	nodeName := metric_util.NodeName()
 	if nodeName != "node1" {
 		t.Errorf("Expected nodeName: node1, got: %v", nodeName)
 	}

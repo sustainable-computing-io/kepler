@@ -17,6 +17,9 @@ limitations under the License.
 package utils
 
 import (
+	"math"
+	"strings"
+
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 )
 
@@ -25,20 +28,20 @@ const (
 )
 
 // GetComponentPower called by getPodComponentPowers to check if component key is present in powers response and fills with single 0
-func GetComponentPower(powers map[string][]float64, componentKey string, index int) uint64 {
+func GetComponentPower(powers map[string][]float64, componentKey string, index int, coreRatio float64) uint64 {
 	values := powers[componentKey]
 	if index >= len(values) {
 		return 0
 	} else {
-		return uint64(values[index] * JouleMillijouleConversionFactor)
+		return uint64(values[index] * JouleMillijouleConversionFactor * coreRatio)
 	}
 }
 
 // GetPlatformPower returns powerInMilliJoule
-func GetPlatformPower(powers []float64) []uint64 {
+func GetPlatformPower(powers []float64, coreRatio float64) []uint64 {
 	powerInMilliJoule := make([]uint64, len(powers))
 	for index := range powers {
-		powerInMilliJoule[index] = uint64(powers[index] * JouleMillijouleConversionFactor)
+		powerInMilliJoule[index] = uint64(powers[index] * JouleMillijouleConversionFactor * coreRatio)
 	}
 	return powerInMilliJoule
 }
@@ -57,4 +60,22 @@ func FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower uint64)
 		DRAM:   dramPower,
 		Pkg:    pkgPower,
 	}
+}
+
+// GetCoreRatio returns core ratio to apply only with idle power
+func GetCoreRatio(isIdlePower bool, inCoreRatio float64) float64 {
+	var coreRatio float64 = 1
+	if isIdlePower && inCoreRatio > 0 {
+		coreRatio = math.Min(inCoreRatio, 1)
+	}
+	return coreRatio
+}
+
+func GetModelNameFromURL(url string) string {
+	urlSplits := strings.Split(url, "/")
+	if len(urlSplits) > 0 {
+		lastItem := urlSplits[len(urlSplits)-1]
+		return strings.Split(lastItem, ".")[0]
+	}
+	return ""
 }

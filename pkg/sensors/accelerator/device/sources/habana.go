@@ -108,7 +108,7 @@ func (g *GPUHabana) AbsEnergyFromDevice() []uint32 {
 			klog.Errorf("failed to get power usage on device %v: %v\n", dev, ret)
 			continue
 		}
-		energy := uint32(uint64(power) * config.SamplePeriodSec)
+		energy := uint32(uint64(power) * config.SamplePeriodSec())
 		gpuEnergy = append(gpuEnergy, energy)
 
 		dname, _ := dev.(device.GPUDevice).DeviceHandler.(hlml.Device).Name()

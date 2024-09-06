@@ -81,7 +81,7 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
 			gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 			metrics = append(metrics, gpuMetrics...)
@@ -92,7 +92,7 @@ func GetProcessFeatureNames(bpfSupportedMetrics bpf.SupportedMetrics) []string {
 	return metrics
 }
 
-func GetNodeName() string {
+func NodeName() string {
 	if nodeName := os.Getenv("NODE_NAME"); nodeName != "" {
 		return nodeName
 	}
@@ -298,7 +298,7 @@ func getCPUPmuName() (pmuName string, err error) {
 
 func getCPUArchitecture() (string, error) {
 	// check if there is a CPU architecture override
-	cpuArchOverride := config.CPUArchOverride
+	cpuArchOverride := config.CPUArchOverride()
 	if cpuArchOverride != "" {
 		klog.V(2).Infof("cpu arch override: %v\n", cpuArchOverride)
 		return cpuArchOverride, nil

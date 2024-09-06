@@ -79,8 +79,8 @@ func (c *Collector) Initialize() error {
 	// model component decide whether/how to init
 	model.CreatePowerEstimatorModels(
 		stats.GetProcessFeatureNames(c.bpfSupportedMetrics),
-		stats.NodeMetadataFeatureNames,
-		stats.NodeMetadataFeatureValues,
+		stats.NodeMetadataFeatureNames(),
+		stats.NodeMetadataFeatureValues(),
 		c.bpfSupportedMetrics,
 	)
 
@@ -161,7 +161,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
-	if config.EnabledGPU {
+	if config.EnabledGPU() {
 		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
 			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
 		}
@@ -184,7 +184,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 				// aggregate metrics per container
 				if config.IsExposeContainerStatsEnabled() {
 					if process.ContainerID != "" {
-						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID)
+						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
 						c.ContainerStats[process.ContainerID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 						foundContainer[process.ContainerID] = true
 					}
@@ -270,7 +270,7 @@ func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 				// aggregate metrics per container
 				if config.IsExposeContainerStatsEnabled() {
 					if process.ContainerID != "" {
-						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID)
+						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
 						c.ContainerStats[process.ContainerID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 					}
 				}

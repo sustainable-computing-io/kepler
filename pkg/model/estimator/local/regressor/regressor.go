@@ -32,24 +32,21 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	// TODO: determine node type dynamically
-	defaultNodeType int = 1
-)
-
 // ModelRequest defines a request to Kepler Model Server to get model weights
 type ModelRequest struct {
-	MetricNames  []string `json:"metrics"`
-	OutputType   string   `json:"output_type"`
-	EnergySource string   `json:"source"`
-	NodeType     int      `json:"node_type"`
-	Weight       bool     `json:"weight"`
-	TrainerName  string   `json:"trainer_name"`
-	SelectFilter string   `json:"filter"`
+	MetricNames  []string           `json:"metrics"`
+	OutputType   string             `json:"output_type"`
+	EnergySource string             `json:"source"`
+	NodeType     int                `json:"node_type"`
+	Weight       bool               `json:"weight"`
+	TrainerName  string             `json:"trainer_name"`
+	SelectFilter string             `json:"filter"`
+	MachineSpec  config.MachineSpec `json:"machine_spec"`
 }
 
 // Predictor defines required implementation for power prediction
 type Predictor interface {
+	name() string
 	predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64
 }
 
@@ -74,9 +71,12 @@ type Regressor struct {
 	// xidx represents the instance slide window position, where an instance can be process/process/pod/node
 	xidx int
 
-	enabled         bool
-	modelWeight     *ComponentModelWeights
-	modelPredictors map[string]Predictor
+	enabled               bool
+	modelWeight           *ComponentModelWeights
+	coreRatio             float64
+	modelPredictors       map[string]Predictor
+	RequestMachineSpec    *config.MachineSpec
+	DiscoveredMachineSpec *config.MachineSpec
 }
 
 // Start returns nil if model weight is obtainable
@@ -85,8 +85,9 @@ func (r *Regressor) Start() error {
 	var weight *ComponentModelWeights
 	outputStr := r.OutputType.String()
 	r.enabled = false
+	r.coreRatio = 1
 	// try getting weight from model server if it is enabled
-	if config.ModelServerEnable && config.ModelServerEndpoint != "" {
+	if config.IsModelServerEnabled() && config.ModelServerEndpoint() != "" {
 		weight, err = r.getWeightFromServer()
 		klog.V(3).Infof("Regression Model (%s): getWeightFromServer: %v (error: %v)", outputStr, weight, err)
 	}
@@ -153,8 +154,8 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 		EnergySource: r.EnergySource,
 		TrainerName:  r.TrainerName,
 		SelectFilter: r.SelectFilter,
-		NodeType:     defaultNodeType,
 		Weight:       true,
+		MachineSpec:  *r.RequestMachineSpec,
 	}
 	modelRequestJSON, err := json.Marshal(modelRequest)
 	if err != nil {
@@ -180,20 +181,23 @@ func (r *Regressor) getWeightFromServer() (*ComponentModelWeights, error) {
 	}
 	body, _ := io.ReadAll(response.Body)
 
-	var powerResonse ComponentModelWeights
-	err = json.Unmarshal(body, &powerResonse)
+	var weightResponse ComponentModelWeights
+	err = json.Unmarshal(body, &weightResponse)
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
-	if powerResonse.ModelName != "" {
-		klog.V(3).Infof("Using weights trained by %s", powerResonse.ModelName)
+	if weightResponse.ModelName != "" {
+		r.TrainerName = weightResponse.Trainer()
+		klog.V(3).Infof("Using weights from model %s trained by %s for %s", weightResponse.ModelName, r.TrainerName, r.EnergySource)
 	}
-	return &powerResonse, nil
+	r.updateCoreRatio(weightResponse.ModelMachineSpec)
+	return &weightResponse, nil
 }
 
 // loadWeightFromURLorLocal get weight from either local or URL
 // if string start with '/', we take it as local file
 func (r *Regressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
+	var modelName string // to be set by ModelWeightsURL
 	var body []byte
 	var err error
 
@@ -203,12 +207,22 @@ func (r *Regressor) loadWeightFromURLorLocal() (*ComponentModelWeights, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		modelName = utils.GetModelNameFromURL(r.ModelWeightsURL)
 	}
 	var content ComponentModelWeights
 	err = json.Unmarshal(body, &content)
 	if err != nil {
 		return nil, fmt.Errorf("model unmarshal error: %v (%s)", err, string(body))
 	}
+	if content.ModelName == "" {
+		// Expect for the case loadWeightFromURL
+		// ModelWeightsFilepath should contain model_name field
+		content.ModelName = modelName
+	}
+	r.TrainerName = content.Trainer()
+	klog.V(3).Infof("Using weights from model %s trained by %s for %s", content.ModelName, r.TrainerName, r.EnergySource)
+	r.updateCoreRatio(content.ModelMachineSpec)
 	return &content, nil
 }
 
@@ -248,17 +262,18 @@ func (r *Regressor) loadWeightFromURL() ([]byte, error) {
 // Create Predictor based on trainer name
 func (r *Regressor) createPredictor(weight ModelWeights) (predictor Predictor, err error) {
 	switch r.TrainerName {
-	case "SGDRegressorTrainer":
+	case types.LinearRegressionTrainer:
 		predictor, err = NewLinearPredictor(weight)
-	case "LogarithmicRegressionTrainer":
+	case types.LogarithmicTrainer:
 		predictor, err = NewLogarithmicPredictor(weight)
-	case "LogisticRegressionTrainer":
+	case types.LogisticTrainer:
 		predictor, err = NewLogisticPredictor(weight)
-	case "ExponentialRegressionTrainer":
+	case types.ExponentialTrainer:
 		predictor, err = NewExponentialPredictor(weight)
 	default:
 		predictor, err = NewLinearPredictor(weight)
 	}
+	klog.Infof("Created predictor %s for trainer: %q", predictor.name(), r.TrainerName)
 	return
 }
 
@@ -273,10 +288,11 @@ func (r *Regressor) GetPlatformPower(isIdlePower bool) ([]uint64, error) {
 			floatFeatureValues = r.floatFeatureValuesForIdlePower[0:r.xidx]
 		}
 		if predictor, found := (r.modelPredictors)[config.PLATFORM]; found {
+			coreRatio := utils.GetCoreRatio(isIdlePower, r.coreRatio)
 			powers := predictor.predict(
 				r.FloatFeatureNames, floatFeatureValues,
 				r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
-			return utils.GetPlatformPower(powers), nil
+			return utils.GetPlatformPower(powers, coreRatio), nil
 		}
 		return []uint64{}, fmt.Errorf("model Weight for model type %s is not valid: %v", r.OutputType.String(), r.modelWeight)
 	}
@@ -302,18 +318,29 @@ func (r *Regressor) GetComponentsPower(isIdlePower bool) ([]source.NodeComponent
 			r.FloatFeatureNames, floatFeatureValues,
 			r.SystemMetaDataFeatureNames, r.SystemMetaDataFeatureValues)
 	}
-
+	coreRatio := utils.GetCoreRatio(isIdlePower, r.coreRatio)
 	nodeComponentsPower := []source.NodeComponentsEnergy{}
 	num := r.xidx // number of processes
 	for index := 0; index < num; index++ {
-		pkgPower := utils.GetComponentPower(compPowers, config.PKG, index)
-		corePower := utils.GetComponentPower(compPowers, config.CORE, index)
-		uncorePower := utils.GetComponentPower(compPowers, config.UNCORE, index)
-		dramPower := utils.GetComponentPower(compPowers, config.DRAM, index)
+		pkgPower := utils.GetComponentPower(compPowers, config.PKG, index, coreRatio)
+		corePower := utils.GetComponentPower(compPowers, config.CORE, index, coreRatio)
+		uncorePower := utils.GetComponentPower(compPowers, config.UNCORE, index, coreRatio)
+		dramPower := utils.GetComponentPower(compPowers, config.DRAM, index, coreRatio)
 		nodeComponentsPower = append(nodeComponentsPower, utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower))
 	}
 
 	return nodeComponentsPower, nil
+}
+
+// updateCoreRatio sets coreRatio attribute as a ratio of the discovered number of cores over the cores of machine used for training a model
+func (r *Regressor) updateCoreRatio(mSpec *config.MachineSpec) {
+	if mSpec == nil || r.DiscoveredMachineSpec == nil {
+		return
+	}
+	if r.DiscoveredMachineSpec.Cores > 0 && mSpec.Cores >= r.DiscoveredMachineSpec.Cores {
+		r.coreRatio = float64(r.DiscoveredMachineSpec.Cores) / float64(mSpec.Cores)
+		klog.Infof("Update core ratio to %.2f for computing %s idle power", r.coreRatio, r.EnergySource)
+	}
 }
 
 // GetComponentsPower returns GPU Power in Watts associated to each each process

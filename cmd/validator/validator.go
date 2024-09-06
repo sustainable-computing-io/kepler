@@ -32,6 +32,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
 const (
@@ -171,11 +172,6 @@ func getX86Architecture() (string, error) {
 	return uarch, err
 }
 
-func isFileExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
-}
-
 func main() {
 	// init stuffs
 	flag.Parse()
@@ -199,7 +195,7 @@ func main() {
 	platform.InitPowerImpl()
 
 	csvFilePath := filepath.Join(resultDirPath, "power.csv")
-	if !isFileExists(csvFilePath) {
+	if !utils.IsFileExists(csvFilePath) {
 		columnHeaders := []string{"Pkg", "Core", "Uncore", "Dram"}
 		csvFile, e := os.Create(csvFilePath)
 		if e != nil {

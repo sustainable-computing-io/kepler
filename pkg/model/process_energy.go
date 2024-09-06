@@ -50,10 +50,10 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 	// Ratio power model has different features than the other estimators.
 	// Ratio power model has node resource and power consumption as features, as it is used to calculate the ratio.
 	if modelConfig.ModelType == types.Ratio {
-		if powerSourceTarget == config.ProcessComponentsPowerKey {
-			pkgUsageMetric := config.CoreUsageMetric
-			coreUsageMetric := config.CoreUsageMetric
-			dramUsageMetric := config.DRAMUsageMetric
+		if powerSourceTarget == config.ProcessComponentsPowerKey() {
+			pkgUsageMetric := config.CoreUsageMetric()
+			coreUsageMetric := config.CoreUsageMetric()
+			dramUsageMetric := config.DRAMUsageMetric()
 			if !bpfSupportedMetrics.HardwareCounters.Has(config.CPUTime) {
 				// Given that there is no HW counter in  some scenarios (e.g. on VMs), we have to use CPUTime data.
 				// Although a busy CPU is more likely to be accessing memory the CPU utilization (CPUTime) does not directly
@@ -62,12 +62,12 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 			}
 			// ProcessFeatureNames contains the metrics that represents the process resource utilization
 			modelConfig.ProcessFeatureNames = []string{
-				pkgUsageMetric,            // for PKG resource usage
-				coreUsageMetric,           // for CORE resource usage
-				dramUsageMetric,           // for DRAM resource usage
-				config.GeneralUsageMetric, // for UNCORE resource usage
-				config.GeneralUsageMetric, // for OTHER resource usage
-				config.GpuUsageMetric,     // for GPU resource usage
+				pkgUsageMetric,              // for PKG resource usage
+				coreUsageMetric,             // for CORE resource usage
+				dramUsageMetric,             // for DRAM resource usage
+				config.GeneralUsageMetric(), // for UNCORE resource usage
+				config.GeneralUsageMetric(), // for OTHER resource usage
+				config.GPUUsageMetric(),     // for GPU resource usage
 			}
 			// NodeFeatureNames contains the metrics that represents the node resource utilization plus the dynamic and idle power power consumption
 			modelConfig.NodeFeatureNames = modelConfig.ProcessFeatureNames
@@ -85,8 +85,8 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 				config.IdleEnergyInOther,  // for idle OTHER power consumption
 				config.IdleEnergyInGPU,    // for idle GPU power consumption
 			}...)
-		} else if powerSourceTarget == config.ProcessPlatformPowerKey {
-			platformUsageMetric := config.CoreUsageMetric
+		} else if powerSourceTarget == config.ProcessPlatformPowerKey() {
+			platformUsageMetric := config.CoreUsageMetric()
 			if !bpfSupportedMetrics.HardwareCounters.Has(config.CPUTime) {
 				// Given that there is no HW counter in  some scenarios (e.g. on VMs), we have to use CPUTime data.
 				platformUsageMetric = config.CPUTime
@@ -107,7 +107,7 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 
 func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string, bpfSupportedMetrics bpf.SupportedMetrics) {
 	var err error
-	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource, bpfSupportedMetrics)
+	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey(), processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.PlatformEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
 	processPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -117,7 +117,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames, systemMetaDataFeature
 		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 	}
 
-	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey, processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource, bpfSupportedMetrics)
+	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey(), processFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues, types.ComponentEnergySource, bpfSupportedMetrics)
 	modelConfig.IsNodePowerModel = false
 	processComponentPowerModel, err = createPowerModelEstimator(modelConfig)
 	if err == nil {
@@ -195,7 +195,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
 		// estimate the associated power consumption of GPU for each process
-		if config.EnabledGPU {
+		if config.EnabledGPU() {
 			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
 				processGPUPower, errGPU = processComponentPowerModel.GetGPUPower(isIdlePower)
 				if errGPU != nil {
@@ -217,7 +217,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		if errComp == nil {
 			// add PKG power consumption
 			// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is necessary to calculate the energy consumption for the entire waiting period
-			energy = processComponentsPower[i].Pkg * config.SamplePeriodSec
+			energy = processComponentsPower[i].Pkg * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -225,7 +225,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 
 			// add CORE power consumption
-			energy = processComponentsPower[i].Core * config.SamplePeriodSec
+			energy = processComponentsPower[i].Core * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -233,7 +233,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 
 			// add DRAM power consumption
-			energy = processComponentsPower[i].DRAM * config.SamplePeriodSec
+			energy = processComponentsPower[i].DRAM * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -241,7 +241,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 
 			// add Uncore power consumption
-			energy = processComponentsPower[i].Uncore * config.SamplePeriodSec
+			energy = processComponentsPower[i].Uncore * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -250,7 +250,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 
 			// add GPU power consumption
 			if errGPU == nil {
-				energy = processGPUPower[i] * (config.SamplePeriodSec)
+				energy = processGPUPower[i] * (config.SamplePeriodSec())
 				if isIdlePower {
 					processesMetrics[processID].EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
 				} else {
@@ -260,7 +260,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		}
 
 		if errPlat == nil {
-			energy = processPlatformPower[i] * config.SamplePeriodSec
+			energy = processPlatformPower[i] * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
@@ -277,7 +277,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			} else {
 				otherPower = processPlatformPower[i] - processComponentsPower[i].Pkg - processComponentsPower[i].DRAM
 			}
-			energy = otherPower * config.SamplePeriodSec
+			energy = otherPower * config.SamplePeriodSec()
 			if isIdlePower {
 				processesMetrics[processID].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {

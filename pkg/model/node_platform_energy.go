@@ -30,30 +30,34 @@ const (
 	estimatorACPISensorID string = "estimator"
 )
 
-var (
-	nodePlatformPowerModel PowerModelInterface
-)
+var nodePlatformPowerModel PowerModelInterface
 
 // CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
-func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
-	if !platform.IsSystemCollectionSupported() {
-		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey)
-		if modelConfig.InitModelURL == "" {
-			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
-		}
-		modelConfig.NodeFeatureNames = nodeFeatureNames
-		modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
-		modelConfig.SystemMetaDataFeatureValues = systemMetaDataFeatureValues
-		modelConfig.IsNodePowerModel = true
-		// init func for NodeTotalPower
-		var err error
-		nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
-		if err == nil {
-			klog.V(1).Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		} else {
-			klog.Infof("Failed to create %s Power Model to estimate Node Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
-		}
+func CreateNodePlatformPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+	if platform.IsSystemCollectionSupported() {
+		klog.Infof("Skipping creation of Node Platform Power Model since the system collection is supported")
 	}
+
+	modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
+	if modelConfig.InitModelURL == "" {
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
+	}
+	modelConfig.NodeFeatureNames = nodeFeatureNames
+	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
+	modelConfig.SystemMetaDataFeatureValues = systemMetaDataFeatureValues
+	modelConfig.IsNodePowerModel = true
+	//
+	// init func for NodeTotalPower
+	var err error
+	nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
+	if err != nil {
+		klog.Errorf("Failed to create %s/%s Model from %s to estimate Node Platform Power: %v",
+			modelConfig.ModelType, modelConfig.ModelOutputType,
+			modelConfig.SourceURL(), err)
+		return
+	}
+	klog.V(1).Infof("Using the %s/%s Model from %s to estimate Node Platform Power",
+		modelConfig.ModelType, modelConfig.ModelOutputType, modelConfig.SourceURL())
 }
 
 // IsNodePlatformPowerModelEnabled returns if the estimator has been enabled or not
@@ -94,7 +98,7 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }
 
@@ -102,6 +106,6 @@ func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 func UpdateNodePlatformIdleEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
 	for sourceID, power := range platformPower {
-		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-machine-spec
+  namespace: system
+data:
+  m5.metal: |
+    {"processor": "intel_xeon_platinum_8259cl", "cores": 96, "chips": 2, "memory": 377, "frequency": 3500}
+  i3.metal: |
+    {"processor": "intel_xeon_e5_2686v4", "cores": 72, "chips": 2, "memory": 503, "frequency": 3000}
+  c5.metal: |
+    {"processor": "intel_xeon_platinum_8275cl", "cores": 96, "chips": 2, "memory": 188, "frequency": 3900}
+  r5.metal: |
+    {"processor": "intel_xeon_platinum_8259cl", "cores": 96, "chips": 2, "memory": 755, "frequency": 3500}
+  m5zn.metal: |
+    {"processor": "intel_xeon_platinum_8252c", "cores": 48, "chips": 2, "memory": 188, "frequency": 4500}
+  m7i.metal-24xl: |
+    {"processor": "intel_xeon_platinum_8488c", "cores": 96, "chips": 1, "memory": 377, "frequency": 3800}

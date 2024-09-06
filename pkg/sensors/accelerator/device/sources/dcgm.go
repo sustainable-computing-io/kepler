@@ -307,7 +307,7 @@ func (d *GPUDcgm) AbsEnergyFromDevice() []uint32 {
 		}
 		// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is
 		// necessary to calculate the energy consumption for the entire waiting period
-		energy := uint32(uint64(power) * config.SamplePeriodSec)
+		energy := uint32(uint64(power) * config.SamplePeriodSec())
 		gpuEnergy = append(gpuEnergy, energy)
 	}
 	return gpuEnergy

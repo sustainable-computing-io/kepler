@@ -25,7 +25,7 @@ import (
 
 var (
 	exponentialCurveFits          = []float64{1, 1, 1}
-	dummyExponentialWeightHandler = genHandlerFunc(exponentialCurveFits)
+	dummyExponentialWeightHandler = genHandlerFunc(exponentialCurveFits, types.ExponentialTrainer)
 )
 
 var _ = Describe("Test Exponential Predictor Unit", func() {

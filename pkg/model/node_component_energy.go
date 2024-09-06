@@ -27,14 +27,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	// the absolute power model includes both the absolute and idle power consumption
-	nodeComponentPowerModel PowerModelInterface
-)
+// the absolute power model includes both the absolute and idle power consumption
+var nodeComponentPowerModel PowerModelInterface
 
 // createNodeComponentPowerModelConfig: the node component power model url must be set by default.
 func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) *types.ModelConfig {
-	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey)
+	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey())
 	if modelConfig.InitModelURL == "" {
 		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource)
 	}
@@ -45,19 +43,26 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeature
 	return modelConfig
 }
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node components power metrics are not available
-func CreateNodeComponentPoweEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
-	var err error
-	if !components.IsSystemCollectionSupported() {
-		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-		// init func for NodeComponentPower
-		nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
-		if err == nil {
-			klog.V(1).Infof("Using the %s Power Model to estimate Node Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		} else {
-			klog.Infof("Failed to create %s Power Model to estimate Node Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
-		}
+// CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node components power metrics are not available
+func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
+	if components.IsSystemCollectionSupported() {
+		klog.Infof("Skipping creation of Node Component Power Model since the system collection is supported")
+		return
 	}
+
+	modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	// init func for NodeComponentPower
+	var err error
+	nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
+	if err != nil {
+		klog.Errorf("Failed to create %s/%s Model from %s to estimate Node Component Power: %v",
+			modelConfig.ModelType, modelConfig.ModelOutputType,
+			modelConfig.SourceURL(), err)
+		return
+	}
+
+	klog.V(1).Infof("Using the %s/%s Model from %s to estimate Node Component Power",
+		modelConfig.ModelType, modelConfig.ModelOutputType, modelConfig.SourceURL())
 }
 
 // IsNodeComponentPowerModelEnabled returns if the estimator has been enabled or not
@@ -106,9 +111,9 @@ func UpdateNodeComponentIdleEnergy(nodeMetrics *stats.NodeStats) {
 func addEnergy(nodeMetrics *stats.NodeStats, metrics []string, isIdle bool) {
 	for socket, power := range GetNodeComponentPowers(nodeMetrics, isIdle) {
 		strID := fmt.Sprintf("%d", socket)
-		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec)
-		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec)
+		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec())
 	}
 }

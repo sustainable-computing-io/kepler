@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9a9194f87191a7e9055e3e9b95b8cfb13023bb08 # v4.1.1
+        uses: actions/checkout@2d7d9f7ff5b310f983d059b68785b3c74d8b8edd # v4.1.1
         with:
           persist-credentials: false
 
@@ -51,7 +51,7 @@ jobs:
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: Upload artifact
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@b18b1d32f3f31abcdc29dee3f2484801fe7822f4 # v4.3.6
         with:
           name: SARIF file
           path: scorecard-results.sarif

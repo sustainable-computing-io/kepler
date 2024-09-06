@@ -41,8 +41,12 @@ services:
         set -x;
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
+          -disable-power-meter=$$DISABLE_POWER_METER \
           -v "8" \
           -enable-gpu=false
+
+    environment:
+      - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
 
 networks:
   kepler-network:

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
@@ -53,4 +54,28 @@ var _ = Describe("Test Model Unit", func() {
 		initModelURL := configValues[getModelConfigKey(modelItem, config.InitModelURLKey)]
 		Expect(initModelURL).NotTo(Equal(""))
 	})
+
+	Context("utils", func() {
+		DescribeTable("Test GetCoreRatio()", func(isIdlePower bool, inCoreRatio float64, expectedCoreRatio float64) {
+			coreRatio := utils.GetCoreRatio(isIdlePower, inCoreRatio)
+			Expect(coreRatio).To(Equal(expectedCoreRatio))
+		},
+			Entry("DynPower with valid coreRatio < 1", false, 0.5, 1.0),
+			Entry("IdlePower with valid coreRatio < 1", true, 0.5, 0.5),
+			Entry("IdlePower with valid coreRatio = 1", true, 1.0, 1.0),
+			Entry("IdlePower with invalid coreRatio = 0", true, 0.0, 1.0),
+			Entry("IdlePower with invalid coreRatio = -1", true, -1.0, 1.0),
+			Entry("IdlePower with invalid coreRatio > 1", true, 1.2, 1.0),
+		)
+
+		DescribeTable("Test GetModelNameFromURL()", func(url, expectedModelName string) {
+			Expect(utils.GetModelNameFromURL(url)).To(Equal(expectedModelName))
+		},
+			Entry("empty", "", ""),
+			Entry("some model with multiple subfolders", "http://some/path/to/some_model.json", "some_model"),
+			Entry("some model with direct path", "http://some_model.json", "some_model"),
+			Entry("some model without file extension", "http://some_model", "some_model"),
+		)
+	})
+
 })

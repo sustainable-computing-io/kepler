@@ -39,7 +39,7 @@ class QueryTemplate:
     def mode(self) -> str:
         m = re.search(r"mode=['\"]([a-z]+)['\"]", self._promql)
         if not m:
-            return "unknown"
+            return "absolute"
         return m.group(1)
 
 

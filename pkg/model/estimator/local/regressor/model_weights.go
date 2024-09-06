@@ -19,6 +19,11 @@ package regressor
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 )
 
 var (
@@ -96,12 +101,13 @@ type NormalizedNumericalFeature struct {
 }
 
 type ComponentModelWeights struct {
-	ModelName string        `json:"model_name,omitempty"`
-	Platform  *ModelWeights `json:"platform,omitempty"`
-	Core      *ModelWeights `json:"core,omitempty"`
-	Uncore    *ModelWeights `json:"uncore,omitempty"`
-	Package   *ModelWeights `json:"package,omitempty"`
-	DRAM      *ModelWeights `json:"dram,omitempty"`
+	ModelName        string              `json:"model_name,omitempty"`
+	ModelMachineSpec *config.MachineSpec `json:"machine_spec,omitempty"`
+	Platform         *ModelWeights       `json:"platform,omitempty"`
+	Core             *ModelWeights       `json:"core,omitempty"`
+	Uncore           *ModelWeights       `json:"uncore,omitempty"`
+	Package          *ModelWeights       `json:"package,omitempty"`
+	DRAM             *ModelWeights       `json:"dram,omitempty"`
 }
 
 func (w ComponentModelWeights) String() string {
@@ -109,4 +115,25 @@ func (w ComponentModelWeights) String() string {
 		return fmt.Sprintf("%s (platform: %v)", w.ModelName, w.Platform)
 	}
 	return fmt.Sprintf("%s (package: %v (core: %v, uncore: %v), dram: %v)", w.ModelName, w.Package, w.Core, w.Uncore, w.DRAM)
+}
+
+func (w ComponentModelWeights) Trainer() string {
+	if w.ModelName == "" {
+		return ""
+	}
+	modelNameSplits := strings.Split(w.ModelName, "_")
+	splitTrainer := strings.Join(modelNameSplits[0:len(modelNameSplits)-1], "_")
+	if isSupportedTrainer(splitTrainer) {
+		return splitTrainer
+	}
+	return ""
+}
+
+func isSupportedTrainer(trainer string) bool {
+	for _, supportedTrainer := range types.WeightSupportedTrainers {
+		if trainer == supportedTrainer {
+			return true
+		}
+	}
+	return false
 }

@@ -47,16 +47,11 @@ type PowerRequest struct {
 	SelectFilter                string      `json:"filter"`
 }
 
-// PlatformPowerResponse defines a response of a list of total powers from Kepler Estimator
-type PlatformPowerResponse struct {
-	Powers  []float64 `json:"powers"`
-	Message string    `json:"msg"`
-}
-
 // ComponentPowerResponse defines a response of a map of component powers from Kepler Estimator
 type ComponentPowerResponse struct {
-	Powers  map[string][]float64 `json:"powers"`
-	Message string               `json:"msg"`
+	Powers    map[string][]float64 `json:"powers"`
+	Message   string               `json:"msg"`
+	CoreRatio float64              `json:"core_ratio,omitempty"`
 }
 
 // EstimatorSidecar defines power estimator with Kepler Estimator sidecar
@@ -78,7 +73,8 @@ type EstimatorSidecar struct {
 	// xidx represents the instance slide window position, where an instance can be process/process/pod/node
 	xidx int
 
-	enabled bool
+	enabled   bool
+	coreRatio float64
 }
 
 // Start returns nil if estimator is connected and has compatible power model
@@ -139,6 +135,9 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 		klog.V(4).Infof("estimator unmarshal error: %v (%s)", err, string(buf[0:n]))
 		return nil, err
 	}
+	if powerResponse.CoreRatio > 0 {
+		c.coreRatio = powerResponse.CoreRatio
+	}
 	return powers, nil
 }
 
@@ -162,7 +161,8 @@ func (c *EstimatorSidecar) GetPlatformPower(isIdlePower bool) ([]uint64, error) 
 	if powers, found := power[config.PLATFORM]; !found {
 		return []uint64{}, fmt.Errorf("not found %s in response %v", config.PLATFORM, power)
 	} else {
-		return utils.GetPlatformPower(powers), nil
+		coreRatio := utils.GetCoreRatio(isIdlePower, c.coreRatio)
+		return utils.GetPlatformPower(powers, coreRatio), nil
 	}
 }
 
@@ -187,11 +187,12 @@ func (c *EstimatorSidecar) GetComponentsPower(isIdlePower bool) ([]source.NodeCo
 		break
 	}
 	nodeComponentsPower := make([]source.NodeComponentsEnergy, num)
+	coreRatio := utils.GetCoreRatio(isIdlePower, c.coreRatio)
 	for index := 0; index < num; index++ {
-		pkgPower := utils.GetComponentPower(power, config.PKG, index)
-		corePower := utils.GetComponentPower(power, config.CORE, index)
-		uncorePower := utils.GetComponentPower(power, config.UNCORE, index)
-		dramPower := utils.GetComponentPower(power, config.DRAM, index)
+		pkgPower := utils.GetComponentPower(power, config.PKG, index, coreRatio)
+		corePower := utils.GetComponentPower(power, config.CORE, index, coreRatio)
+		uncorePower := utils.GetComponentPower(power, config.UNCORE, index, coreRatio)
+		dramPower := utils.GetComponentPower(power, config.DRAM, index, coreRatio)
 		nodeComponentsPower[index] = utils.FillNodeComponentsPower(pkgPower, corePower, uncorePower, dramPower)
 	}
 

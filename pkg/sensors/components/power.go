@@ -48,6 +48,12 @@ var (
 )
 
 func InitPowerImpl() {
+	if !enabled {
+		klog.V(1).Infoln("System power collection is disabled, using estimate method")
+		powerImpl = &source.PowerEstimate{}
+		return
+	}
+
 	sysfsImpl := &source.PowerSysfs{}
 	if sysfsImpl.IsSystemCollectionSupported() /*&& false*/ {
 		klog.V(1).Infoln("use sysfs to obtain power")
@@ -56,7 +62,7 @@ func InitPowerImpl() {
 	}
 
 	msrImpl := &source.PowerMSR{}
-	if msrImpl.IsSystemCollectionSupported() && config.EnabledMSR {
+	if msrImpl.IsSystemCollectionSupported() && config.IsEnabledMSR() {
 		klog.V(1).Infoln("use MSR to obtain power")
 		powerImpl = msrImpl
 		return

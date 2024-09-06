@@ -28,6 +28,8 @@ dependencies = [
   "prometheus-api-client",
 	"pyyaml",
 	"numpy",
+	"pandas",
+	"matplotlib",
 ]
 
 [project.scripts]

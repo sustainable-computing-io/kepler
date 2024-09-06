@@ -33,12 +33,16 @@ main() {
 		0:5
 	)
 
+	# sleep 5  so that first run and the second run look the same
+	echo "Warmup .."
+	run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load 0 --timeout 5
+
 	for i in $(seq 1 5); do
 		echo "Running: $i/5"
 		for x in "${load_curve[@]}"; do
 			local load="${x%%:*}"
 			local time="${x##*:}s"
-			run stress-ng --cpu "$cpus" --cpu-load "$load" --timeout "$time"
+			run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
 		done
 	done
 }

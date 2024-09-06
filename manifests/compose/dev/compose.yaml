@@ -51,8 +51,13 @@ services:
         set -x;
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
+          -disable-power-meter=$$DISABLE_POWER_METER \
           -v "8" \
           -enable-gpu=false
+
+    environment:
+      - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
+
     networks:
       - kepler-network
     cap_add:
@@ -95,13 +100,11 @@ services:
       - --path.rootfs=/rootfs
       - --collector.rapl  # Enable RAPL collector
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
-    privileged: true
     user: root
-    cap_add:
-      - ALL
     networks:
-      - kepler-network
+      - node-exporter-network
 
 networks:
   scaph-network:
   kepler-network:
+  node-exporter-network:

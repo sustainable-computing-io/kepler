@@ -13,6 +13,11 @@ import typing
 from dataclasses import dataclass
 
 import click
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+from matplotlib import ticker
+from matplotlib.dates import DateFormatter
 
 from validator import config
 from validator.__about__ import __version__
@@ -33,10 +38,19 @@ class ValidationResult:
     name: str
     actual: str
     expected: str
+
     mse: ValueOrError
     mape: ValueOrError
+
+    actual_dropped: int = 0
+    expected_dropped: int = 0
+
+    actual_filepath: str = ""
+    expected_filepath: str = ""
+
     mse_passed: bool = True
     mape_passed: bool = True
+
     unexpected_error: str = ""
 
     def __init__(self, name: str, actual: str, expected: str) -> None:
@@ -46,13 +60,15 @@ class ValidationResult:
 
     @property
     def verdict(self) -> str:
+        note = " (dropped)" if self.actual_dropped > 0 or self.expected_dropped > 0 else ""
+
         if self.unexpected_error or self.mse.error or self.mape.error:
-            return "ERROR"
+            return f"ERROR{note}"
 
         if self.mse_passed and self.mape_passed:
-            return "PASS"
+            return f"PASS{note}"
 
-        return "FAIL"
+        return f"FAIL{note}"
 
 
 @dataclass
@@ -88,13 +104,17 @@ class TestResult:
         return self.end_time - self.start_time
 
 
-class MarkdownReport(typing.NamedTuple):
+class MarkdownReport:
     file: typing.TextIO
+
+    def __init__(self, file: typing.TextIO) -> None:
+        self.file = file
 
     def write(self, text: str) -> None:
         self.file.write(text)
 
     def close(self) -> None:
+        self.flush()
         self.file.close()
 
     def flush(self) -> None:
@@ -117,6 +137,9 @@ class MarkdownReport(typing.NamedTuple):
 
     def li(self, text: str) -> None:
         self.write(f"   - {text}\n")
+
+    def img(self, alt_text: str, image_path: str) -> None:
+        self.write(f"![{alt_text}]({image_path})\n")
 
     def table(self, headers: list[str], rows: list[list[str]]) -> None:
         self.write("| " + " | ".join(headers) + " |\n")
@@ -187,16 +210,96 @@ def write_md_report(results_dir: str, r: TestResult):
             md.code(v.unexpected_error)
             continue
 
+        if v.actual_dropped or v.expected_dropped:
+            md.write("\n**Dropped**:\n")
+            md.li(f"Actual : `{v.actual_dropped}`")
+            md.li(f"Expected: `{v.expected_dropped}`")
+
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
         md.li(f"MAPE : `{v.mape} %`")
+        md.write("\n**Charts**:\n")
+        img_path = create_charts_for_result(results_dir, v)
+        md.img(v.name, img_path)
 
-    md.flush()
     md.close()
 
     click.secho("Report Generated ", fg="bright_green")
     click.secho(f" * report: {path} ", fg="bright_green")
     click.secho(f" * time-range:   {r.start_time} - {r.end_time}", fg="bright_green")
+
+
+def extract_dates_and_values(json_path: str) -> tuple[npt.NDArray, list[float]]:
+    with open(json_path) as f:
+        json_data = json.load(f)
+
+    timestamps = json_data["timestamps"]
+    time_list = np.array([datetime.datetime.fromtimestamp(ts, tz=datetime.UTC) for ts in timestamps])
+    values = json_data["values"]
+    return time_list, values
+
+
+def snake_case(s: str) -> str:
+    return re.sub("[_-]+", "_", re.sub(r"[/\s]+", "_", s)).lower().strip()
+
+
+def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
+    actual_json_path = r.actual_filepath
+    expected_json_path = r.expected_filepath
+
+    images_dir = os.path.join(results_dir, "images")
+    os.makedirs(images_dir, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(18, 7), sharex=True, sharey=True)
+    plt.title(r.name)
+
+    # actual in blue
+    time, values = extract_dates_and_values(actual_json_path)
+    ax.plot(time, values, marker="x", color="#024abf", label=r.actual)
+
+    # expected in orange
+    time, values = extract_dates_and_values(expected_json_path)
+    ax.plot(time, values, marker="o", color="#ff742e", label=r.expected)
+
+    # Set the x-axis tick format to display time
+    ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
+
+    # Set the x-axis tick interval to 5 seconds
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(int((time[-1] - time[0]).total_seconds() / 10) + 1))
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    # TODO: add units to validation queries
+
+    ax.legend(bbox_to_anchor=(0.5, -0.15), ncol=1)
+
+    err_report = ""
+    if r.mse.error is None:
+        err_report += f"\nMSE: {r.mse.value:.2f}"
+
+    if r.mape.error is None:
+        err_report += f"\nMAPE: {r.mape.value:.2f}%"
+
+    ax.text(
+        0.98,
+        1.10,
+        err_report.lstrip(),
+        transform=ax.transAxes,
+        fontsize=14,
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox={"facecolor": "white", "alpha": 0.5},
+    )
+
+    ax.grid(True)
+    plt.tight_layout()
+
+    # export it
+    filename = snake_case(r.name)
+    out_file = os.path.join(images_dir, f"{filename}.png")
+
+    plt.savefig(out_file, format="png")
+
+    return os.path.relpath(out_file, results_dir)
 
 
 def create_report_dir(report_dir: str) -> tuple[str, str]:
@@ -209,9 +312,14 @@ def create_report_dir(report_dir: str) -> tuple[str, str]:
     return results_dir, tag
 
 
-def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series):
-    out_file = f"{query.metric_name}--{query.mode}.json"
-    with open(os.path.join(raw_results_dir, out_file), "w") as f:
+def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series) -> str:
+    artifacts_dir = os.path.join(raw_results_dir, "artifacts")
+    os.makedirs(artifacts_dir, exist_ok=True)
+
+    filename = f"{query.metric_name}--{query.mode}.json"
+    out_file = os.path.join(artifacts_dir, filename)
+
+    with open(out_file, "w") as f:
         f.write(
             json.dumps(
                 {
@@ -222,6 +330,7 @@ def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series
                 }
             )
         )
+    return out_file
 
 
 @click.group(
@@ -402,6 +511,17 @@ def run_validation(
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
         click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+
+        result.expected_dropped = cmp.expected_dropped
+        result.actual_dropped = cmp.expected_dropped
+
+        if cmp.expected_dropped > 0 or cmp.actual_dropped > 0:
+            logger.warning(
+                "dropped %d samples from expected and %d samples from actual",
+                cmp.expected_dropped,
+                cmp.actual_dropped,
+            )
+
         result.mse, result.mape = cmp.mse, cmp.mape
 
         result.mse_passed = v.max_mse is None or (cmp.mse.error is None and cmp.mse.value <= v.max_mse)
@@ -413,8 +533,9 @@ def run_validation(
         if not result.mape_passed:
             click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
 
-        dump_query_result(results_dir, v.expected, cmp.expected_series)
-        dump_query_result(results_dir, v.actual, cmp.actual_series)
+        result.actual_filepath = dump_query_result(results_dir, v.expected, cmp.actual_series)
+        result.expected_filepath = dump_query_result(results_dir, v.actual, cmp.expected_series)
+
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         click.secho(f"\t    {v.name} failed: {e} ", fg="red")
