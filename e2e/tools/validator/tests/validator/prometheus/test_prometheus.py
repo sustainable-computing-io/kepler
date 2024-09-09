@@ -188,24 +188,24 @@ def test_mse():
 
 def test_mse_with_large_arrays():
     actual = np.random.rand(1000)
-    expected = np.random.rand(1000)
-    assert mse(actual, expected).value >= 0.0  # MSE should always be non-negative
+    predicted = np.random.rand(1000)
+    assert mse(actual, predicted).value >= 0.0  # MSE should always be non-negative
 
 
 def test_mse_expections():
     v = mse([], [])
     assert v.value == 0.0
     assert v.error is not None
-    assert str(v) == "Error: actual (0) and expected (0) must not be empty"
+    assert str(v) == "Error: actual (0) and predicted (0) must not be empty"
 
 
 def test_mse_with_different_lengths():
     actual = [1, 2, 3]
-    expected = [1, 2]
-    v = mse(actual, expected)
+    predicted = [1, 2]
+    v = mse(actual, predicted)
     assert v.value == 0.0
     assert v.error is not None
-    assert str(v) == "Error: actual and expected must be of equal length: 3 != 2"
+    assert str(v) == "Error: actual and predicted must be of equal length: 3 != 2"
 
 
 class MockPromClient:

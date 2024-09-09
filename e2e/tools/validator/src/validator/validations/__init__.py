@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import NamedTuple, Any
+from typing import Any, NamedTuple
 
 import yaml
 
