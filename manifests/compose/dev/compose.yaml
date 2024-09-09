@@ -95,10 +95,16 @@ services:
         source: /
         target: /rootfs
     command:
+      # - --log.level=debug
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
       - --path.rootfs=/rootfs
-      - --collector.rapl  # Enable RAPL collector
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.cpufreq
+      - --collector.perf
+      - --collector.meminfo
+      - --collector.rapl
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     user: root
     networks:
