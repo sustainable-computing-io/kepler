@@ -4,6 +4,29 @@ config:
     predicted: vm
 
 validations:
+  - name: node-rapl - kepler-package
+    units: Watts
+    mapping:
+      actual: node-rapl
+      predicted: kepler-package
+
+    node-rapl: |
+      sum(
+        rate(
+          node_rapl_package_joules_total[{rate_interval}]
+        )
+      )
+    kepler-package: |
+      sum(
+        rate(
+          kepler_node_package_joules_total{{
+            job="{metal_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+    max_mse: 5.0
+    max_mape: 5.0
+
   # absolute power comparison
   - name: platform - absolute
     units: Watts
