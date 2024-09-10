@@ -88,10 +88,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		nodeStats.UpdateDynEnergy()
 
-		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics),
-			stats.NodeMetadataFeatureNames(),
-			stats.NodeMetadataFeatureValues(),
-			bpfSupportedMetrics)
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
 		model.UpdateProcessEnergy(processStats, &nodeStats)
 
 		// get metrics from prometheus
