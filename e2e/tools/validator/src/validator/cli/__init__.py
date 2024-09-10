@@ -61,8 +61,8 @@ class ValidationResult:
         self, name: str, actual: str, predicted: str, actual_label: str, predicted_label: str, units: str
     ) -> None:
         self.name = name
-        self.actual = actual
-        self.predicted = predicted
+        self.actual = actual.strip()
+        self.predicted = predicted.strip()
         self.actual_label = actual_label
         self.predicted_label = predicted_label
         self.units = units
@@ -174,6 +174,10 @@ class MarkdownReport:
 
 def write_md_report(results_dir: str, r: TestResult):
     path = os.path.join(results_dir, f"report-{r.tag}.md")
+
+    def rel_path(x: str) -> str:
+        return os.path.relpath(x, results_dir)
+
     # ruff: noqa: SIM115 : suppressed use context handler
     md = MarkdownReport(open(path, "w"))
 
@@ -201,7 +205,7 @@ def write_md_report(results_dir: str, r: TestResult):
     md.table(
         ["Name", "MSE", "MAPE", "Pass / Fail"],
         [
-            [v.name, f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
+            [f"[{v.name}](#{v.name.replace(' ', '-')})", f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
             for v in r.validations.results
             if not v.unexpected_error
         ],
@@ -211,8 +215,8 @@ def write_md_report(results_dir: str, r: TestResult):
     for v in r.validations.results:
         md.h4(v.name)
         md.write("\n**Queries**:\n")
-        md.li(f"Actual  ({v.actual_label}) : `{v.actual}`")
-        md.li(f"Predicted ({v.predicted_label}) : `{v.predicted}`")
+        md.li(f"Actual  ({v.actual_label}) : [`{v.actual}`]({rel_path(v.actual_filepath)})")
+        md.li(f"Predicted ({v.predicted_label}) : [`{v.predicted}`]({rel_path(v.predicted_filepath)})")
 
         if v.unexpected_error:
             md.write("\n**Errors**:\n")
