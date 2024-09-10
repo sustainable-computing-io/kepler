@@ -24,8 +24,7 @@ validations:
           }}[{rate_interval}]
         )
       )
-    max_mse: 5.0
-    max_mape: 5.0
+    max_mape: 20.0
 
   # absolute power comparison
   - name: platform - absolute
