@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import yaml
 
@@ -45,21 +45,44 @@ class QueryTemplate:
 
 class Validation(NamedTuple):
     name: str
-    expected: QueryTemplate
     actual: QueryTemplate
+    predicted: QueryTemplate
+    actual_label: str
+    predicted_label: str
+
+    units: str = ""
     max_mse: float | None = None
     max_mape: float | None = None
+
+
+def yaml_node(yml: dict[str, Any], key_path: list[str], default: Any) -> Any:
+    node = yml
+
+    for x in key_path:
+        if x in node:
+            node = node[x]
+        else:
+            return default
+
+    return node
 
 
 def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Validation]:
     with open(file_path) as file:
         yml = yaml.safe_load(file)
+
+        mapping = yaml_node(yml, ["config", "mapping"], {})
+        actual_label = mapping.get("actual", "actual")
+        predicted_label = mapping.get("predicted", "predicted")
+
         return [
             Validation(
                 name=v["name"],
-                expected=QueryTemplate(v["expected"], promql_vars),
-                actual=QueryTemplate(v["actual"], promql_vars),
-                max_mse=v.get("max_mse", None),
+                actual=QueryTemplate(v[actual_label], promql_vars),
+                predicted=QueryTemplate(v[predicted_label], promql_vars),
+                actual_label=actual_label,
+                predicted_label=predicted_label,
+                units=v.get("units", ""),
                 max_mape=v.get("max_mape", None),
             )
             for v in yml["validations"]

@@ -79,58 +79,45 @@ class ValueOrError(NamedTuple):
 
 
 class Result(NamedTuple):
-    expected_series: Series
     actual_series: Series
-    expected_dropped: int
+    predicted_series: Series
+
     actual_dropped: int
+    predicted_dropped: int
 
     mse: ValueOrError
     mape: ValueOrError
 
-    def print(self):
-        # ruff: noqa: T201 (Suppressed as printing is intentional and necessary in this context)
-        print("Expected:")
-        print("────────────────────────────────────────")
-        print(f" {self.expected_series.query}")
-        print(f" {self.expected_series.values}")
-        print("\t\t\t\t⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n")
 
-        print("Actual:")
-        print("────────────────────────────────────────\n")
-        print(f"{self.actual_series.query}")
-        print(f"{self.actual_series.values}")
-        print("\t\t\t\t⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n")
+def validate_arrays(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
+    actual, predicted = np.array(actual), np.array(predicted)
 
-        print(f"MSE : {self.mse}")
-        print(f"MAPE: {self.mape}")
-        print("\t\t\t\t━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
-def validate_arrays(actual: npt.ArrayLike, expected: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
-    actual, expected = np.array(actual), np.array(expected)
-    if len(actual) != len(expected):
-        msg = f"actual and expected must be of equal length: {len(actual)} != {len(expected)}"
-        raise ValueError(msg)
-    if len(actual) == 0 or len(expected) == 0:
-        msg = f"actual ({len(actual)}) and expected ({len(expected)}) must not be empty"
+    if len(actual) != len(predicted):
+        msg = f"actual and predicted must be of equal length: {len(actual)} != {len(predicted)}"
         raise ValueError(msg)
 
-    return (actual, expected)
+    if len(actual) == 0 or len(predicted) == 0:
+        msg = f"actual ({len(actual)}) and predicted ({len(predicted)}) must not be empty"
+        raise ValueError(msg)
+
+    return (actual, predicted)
 
 
-def mse(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
+def mse(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
-        actual, expected = validate_arrays(actual, expected)
-        return ValueOrError(value=np.square(np.subtract(actual, expected)).mean())
+        actual, predicted = validate_arrays(actual, predicted)
+        return ValueOrError(value=np.square(np.subtract(actual, predicted)).mean())
+
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
 
 
-def mape(actual: npt.ArrayLike, expected: npt.ArrayLike) -> ValueOrError:
+def mape(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
-        actual, expected = validate_arrays(actual, expected)
-        return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, expected), actual)).mean())
+        actual, predicted = validate_arrays(actual, predicted)
+        return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, predicted), actual)).mean())
+
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
         return ValueOrError(value=0, error=str(e))
@@ -245,20 +232,20 @@ class Comparator:
         start: datetime,
         end: datetime,
         actual_query: str,
-        expected_query: str,
+        predicted_query: str,
     ) -> Result:
-        expected_series = self.single_series(expected_query, start, end)
         actual_series = self.single_series(actual_query, start, end)
+        predicted_series = self.single_series(predicted_query, start, end)
 
-        expected, actual = filter_by_equal_timestamps(expected_series, actual_series)
-        expected_dropped = len(expected_series.samples) - len(expected.samples)
+        actual, predicted = filter_by_equal_timestamps(actual_series, predicted_series)
         actual_dropped = len(actual_series.samples) - len(actual.samples)
+        predicted_dropped = len(predicted_series.samples) - len(predicted.samples)
 
         return Result(
-            mse=mse(actual.values, expected.values),
-            mape=mape(actual.values, expected.values),
-            expected_series=expected_series,
+            mse=mse(actual.values, predicted.values),
+            mape=mape(actual.values, predicted.values),
             actual_series=actual_series,
-            expected_dropped=expected_dropped,
+            predicted_series=predicted_series,
             actual_dropped=actual_dropped,
+            predicted_dropped=predicted_dropped,
         )
