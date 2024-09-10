@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@6fbd381238e97e1d1f3358f0d6d65de78dcf9245 #v2.20.0
+        uses: securego/gosec@6fbd381238e97e1d1f3358f0d6d65de78dcf9245 # v2.20.0
         with:
           # Arguments for gosec, -no-fail to not fail the workflow based on findings
           args: -no-fail -fmt sarif -out gosec-results.sarif ./...
