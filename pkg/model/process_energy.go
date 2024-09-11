@@ -109,25 +109,26 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 }
 
 func CreateProcessPowerEstimatorModel(processFeatureNames []string, bpfSupportedMetrics bpf.SupportedMetrics) {
-	var err error
-	modelConfig := createProcessPowerModelConfig(config.ProcessPlatformPowerKey(), processFeatureNames, types.PlatformEnergySource, bpfSupportedMetrics)
-	modelConfig.IsNodePowerModel = false
-	processPlatformPowerModel, err = createPowerModelEstimator(modelConfig)
-	if err == nil {
-		klog.V(1).Infof("Using the %s Power Model to estimate Process Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
-	} else {
-		klog.Infof("Failed to create %s Power Model to estimate Process Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+	keys := map[string]string{
+		config.ProcessPlatformPowerKey():   types.PlatformEnergySource,
+		config.ProcessComponentsPowerKey(): types.ComponentEnergySource,
 	}
-
-	modelConfig = createProcessPowerModelConfig(config.ProcessComponentsPowerKey(), processFeatureNames, types.ComponentEnergySource, bpfSupportedMetrics)
-	modelConfig.IsNodePowerModel = false
-	processComponentPowerModel, err = createPowerModelEstimator(modelConfig)
-	if err == nil {
-		klog.V(1).Infof("Using the %s Power Model to estimate Process Component Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
-		klog.V(1).Infof("Process feature names: %v", modelConfig.ProcessFeatureNames)
-	} else {
-		klog.Infof("Failed to create %s Power Model to estimate Process Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+	for k, v := range keys {
+		modelConfig := createProcessPowerModelConfig(k, processFeatureNames, v, bpfSupportedMetrics)
+		modelConfig.IsNodePowerModel = false
+		m, err := createPowerModelEstimator(modelConfig)
+		switch k {
+		case config.ProcessPlatformPowerKey():
+			processPlatformPowerModel = m
+		case config.ProcessComponentsPowerKey():
+			processComponentPowerModel = m
+		}
+		if err != nil {
+			klog.Infof("Failed to create %s Power Model to estimate %s Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), k, err)
+		} else {
+			klog.V(1).Infof("Using the %s Power Model to estimate %s Power", m.GetModelType(), k)
+			klog.V(1).Infof("Feature names: %v", m.GetProcessFeatureNamesList())
+		}
 	}
 }
 
