@@ -166,7 +166,7 @@ validations:
     metal: |
       sum(
         rate(
-          kepler_vm_bpf_cpu_time_ms_total{{
+          kepler_{level}_bpf_cpu_time_ms_total{{
             {vm_selector},
             job="{metal_job_name}"
           }}[{rate_interval}]
@@ -175,7 +175,7 @@ validations:
     vm: |
       sum(
         rate(
-          kepler_{level}_bpf_cpu_time_ms_total{{
+          kepler_process_bpf_cpu_time_ms_total{{
             job="{vm_job_name}",
           }}[{rate_interval}]
         )
