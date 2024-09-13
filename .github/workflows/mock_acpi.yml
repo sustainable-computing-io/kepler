@@ -50,6 +50,7 @@ jobs:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Test Mock ACPI
     needs: [initalize-workflow, create-runner]
+    continue-on-error: true
     runs-on: self-hosted
     outputs:
       runner-name: ${{ runner.name }}
@@ -87,7 +88,7 @@ jobs:
           ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
 
   cleanup:
-    if: ${{ always() }}
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Cleanup
     needs: [initalize-workflow, test-mock-acpi]
     runs-on: ubuntu-latest
