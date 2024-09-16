@@ -31,7 +31,6 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/build"
-	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/manager"
 	"github.com/sustainable-computing-io/kepler/pkg/metrics"
@@ -146,8 +145,6 @@ func main() {
 	defer components.StopPower()
 	platform.InitPowerImpl()
 	defer platform.StopPower()
-
-	stats.InitAvailableParamAndMetrics()
 
 	if config.EnabledGPU() {
 		r := accelerator.GetRegistry()

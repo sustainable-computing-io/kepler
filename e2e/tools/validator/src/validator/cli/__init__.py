@@ -37,30 +37,39 @@ data_dict = {}
 class ValidationResult:
     name: str
     actual: str
-    expected: str
+    predicted: str
+
+    actual_label: str
+    predicted_label: str
+    units: str
 
     mse: ValueOrError
     mape: ValueOrError
 
     actual_dropped: int = 0
-    expected_dropped: int = 0
+    predicted_dropped: int = 0
 
     actual_filepath: str = ""
-    expected_filepath: str = ""
+    predicted_filepath: str = ""
 
     mse_passed: bool = True
     mape_passed: bool = True
 
     unexpected_error: str = ""
 
-    def __init__(self, name: str, actual: str, expected: str) -> None:
+    def __init__(
+        self, name: str, actual: str, predicted: str, actual_label: str, predicted_label: str, units: str
+    ) -> None:
         self.name = name
-        self.actual = actual
-        self.expected = expected
+        self.actual = actual.strip()
+        self.predicted = predicted.strip()
+        self.actual_label = actual_label
+        self.predicted_label = predicted_label
+        self.units = units
 
     @property
     def verdict(self) -> str:
-        note = " (dropped)" if self.actual_dropped > 0 or self.expected_dropped > 0 else ""
+        note = " (dropped)" if self.actual_dropped > 0 or self.predicted_dropped > 0 else ""
 
         if self.unexpected_error or self.mse.error or self.mape.error:
             return f"ERROR{note}"
@@ -165,6 +174,10 @@ class MarkdownReport:
 
 def write_md_report(results_dir: str, r: TestResult):
     path = os.path.join(results_dir, f"report-{r.tag}.md")
+
+    def rel_path(x: str) -> str:
+        return os.path.relpath(x, results_dir)
+
     # ruff: noqa: SIM115 : suppressed use context handler
     md = MarkdownReport(open(path, "w"))
 
@@ -192,7 +205,7 @@ def write_md_report(results_dir: str, r: TestResult):
     md.table(
         ["Name", "MSE", "MAPE", "Pass / Fail"],
         [
-            [v.name, f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
+            [f"[{v.name}](#{v.name.replace(' ', '-')})", f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
             for v in r.validations.results
             if not v.unexpected_error
         ],
@@ -202,18 +215,18 @@ def write_md_report(results_dir: str, r: TestResult):
     for v in r.validations.results:
         md.h4(v.name)
         md.write("\n**Queries**:\n")
-        md.li(f"Actual  : `{v.actual}`")
-        md.li(f"Expected: `{v.expected}`")
+        md.li(f"Actual  ({v.actual_label}) : [`{v.actual}`]({rel_path(v.actual_filepath)})")
+        md.li(f"Predicted ({v.predicted_label}) : [`{v.predicted}`]({rel_path(v.predicted_filepath)})")
 
         if v.unexpected_error:
             md.write("\n**Errors**:\n")
             md.code(v.unexpected_error)
             continue
 
-        if v.actual_dropped or v.expected_dropped:
+        if v.actual_dropped or v.predicted_dropped:
             md.write("\n**Dropped**:\n")
-            md.li(f"Actual : `{v.actual_dropped}`")
-            md.li(f"Expected: `{v.expected_dropped}`")
+            md.li(f"Actual ({v.actual_label}) : `{v.actual_dropped}`")
+            md.li(f"Predicted ({v.predicted_label}) : `{v.predicted_dropped}`")
 
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
@@ -245,21 +258,22 @@ def snake_case(s: str) -> str:
 
 def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
     actual_json_path = r.actual_filepath
-    expected_json_path = r.expected_filepath
+    predicted_json_path = r.predicted_filepath
 
     images_dir = os.path.join(results_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(18, 7), sharex=True, sharey=True)
     plt.title(r.name)
+    ax.set_ylabel(r.units)
 
     # actual in blue
     time, values = extract_dates_and_values(actual_json_path)
-    ax.plot(time, values, marker="x", color="#024abf", label=r.actual)
+    ax.plot(time, values, marker="x", color="#024abf", label=f"{r.actual_label}: {r.actual}")
 
     # expected in orange
-    time, values = extract_dates_and_values(expected_json_path)
-    ax.plot(time, values, marker="o", color="#ff742e", label=r.expected)
+    time, values = extract_dates_and_values(predicted_json_path)
+    ax.plot(time, values, marker="o", color="#ff742e", label=f"{r.predicted_label}: {r.predicted}")
 
     # Set the x-axis tick format to display time
     ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
@@ -295,7 +309,7 @@ def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
 
     # export it
     filename = snake_case(r.name)
-    out_file = os.path.join(images_dir, f"{filename}.png")
+    out_file = os.path.join(images_dir, f"{r.actual_label}-vs-{r.predicted_label}-{filename}.png")
 
     plt.savefig(out_file, format="png")
 
@@ -312,11 +326,11 @@ def create_report_dir(report_dir: str) -> tuple[str, str]:
     return results_dir, tag
 
 
-def dump_query_result(raw_results_dir: str, query: QueryTemplate, series: Series) -> str:
+def dump_query_result(raw_results_dir: str, prefix: str, query: QueryTemplate, series: Series) -> str:
     artifacts_dir = os.path.join(raw_results_dir, "artifacts")
     os.makedirs(artifacts_dir, exist_ok=True)
 
-    filename = f"{query.metric_name}--{query.mode}.json"
+    filename = f"{prefix}-{query.metric_name}--{query.mode}.json"
     out_file = os.path.join(artifacts_dir, filename)
 
     with open(out_file, "w") as f:
@@ -495,31 +509,34 @@ def run_validation(
     result = ValidationResult(
         v.name,
         v.actual.one_line,
-        v.expected.one_line,
+        v.predicted.one_line,
+        v.actual_label,
+        v.predicted_label,
+        v.units,
     )
 
     click.secho(f"{v.name}", fg="cyan")
-    click.secho(f"  - actual  :  {v.actual.one_line}")
-    click.secho(f"  - expected:  {v.expected.one_line}")
+    click.secho(f"  - {v.actual_label}  :  {v.actual.one_line}")
+    click.secho(f"  - {v.predicted_label}  :  {v.predicted.one_line}")
 
     try:
         cmp = comparator.compare(
             start_time,
             end_time,
             v.actual.promql,
-            v.expected.promql,
+            v.predicted.promql,
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
         click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
 
-        result.expected_dropped = cmp.expected_dropped
-        result.actual_dropped = cmp.expected_dropped
+        result.predicted_dropped = cmp.predicted_dropped
+        result.actual_dropped = cmp.predicted_dropped
 
-        if cmp.expected_dropped > 0 or cmp.actual_dropped > 0:
+        if cmp.predicted_dropped > 0 or cmp.actual_dropped > 0:
             logger.warning(
-                "dropped %d samples from expected and %d samples from actual",
-                cmp.expected_dropped,
+                "dropped %d samples from actual and %d samples from predicted",
                 cmp.actual_dropped,
+                cmp.predicted_dropped,
             )
 
         result.mse, result.mape = cmp.mse, cmp.mape
@@ -533,8 +550,8 @@ def run_validation(
         if not result.mape_passed:
             click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
 
-        result.actual_filepath = dump_query_result(results_dir, v.expected, cmp.actual_series)
-        result.expected_filepath = dump_query_result(results_dir, v.actual, cmp.expected_series)
+        result.actual_filepath = dump_query_result(results_dir, v.actual_label, v.actual, cmp.actual_series)
+        result.predicted_filepath = dump_query_result(results_dir, v.predicted_label, v.predicted, cmp.predicted_series)
 
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:

@@ -22,6 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"k8s.io/klog/v2"
 )
@@ -32,32 +33,28 @@ const (
 
 var nodePlatformPowerModel PowerModelInterface
 
-// CreateNodeComponentPoweEstimatorModel only create a new power model estimator if node platform power metrics are not available
-func CreateNodePlatformPowerEstimatorModel(nodeFeatureNames, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) {
-	if platform.IsSystemCollectionSupported() {
-		klog.Infof("Skipping creation of Node Platform Power Model since the system collection is supported")
+// CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node platform power metrics are not available
+func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames []string) {
+	systemMetaDataFeatureNames := node.MetadataFeatureNames()
+	systemMetaDataFeatureValues := node.MetadataFeatureValues()
+	if !platform.IsSystemCollectionSupported() {
+		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
+		if modelConfig.InitModelURL == "" {
+			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
+		}
+		modelConfig.NodeFeatureNames = nodeFeatureNames
+		modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
+		modelConfig.SystemMetaDataFeatureValues = systemMetaDataFeatureValues
+		modelConfig.IsNodePowerModel = true
+		// init func for NodeTotalPower
+		var err error
+		nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
+		if err == nil {
+			klog.V(1).Infof("Using the %s Power Model to estimate Node Platform Power", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String())
+		} else {
+			klog.Infof("Failed to create %s Power Model to estimate Node Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
+		}
 	}
-
-	modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
-	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
-	}
-	modelConfig.NodeFeatureNames = nodeFeatureNames
-	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
-	modelConfig.SystemMetaDataFeatureValues = systemMetaDataFeatureValues
-	modelConfig.IsNodePowerModel = true
-	//
-	// init func for NodeTotalPower
-	var err error
-	nodePlatformPowerModel, err = createPowerModelEstimator(modelConfig)
-	if err != nil {
-		klog.Errorf("Failed to create %s/%s Model from %s to estimate Node Platform Power: %v",
-			modelConfig.ModelType, modelConfig.ModelOutputType,
-			modelConfig.SourceURL(), err)
-		return
-	}
-	klog.V(1).Infof("Using the %s/%s Model from %s to estimate Node Platform Power",
-		modelConfig.ModelType, modelConfig.ModelOutputType, modelConfig.SourceURL())
 }
 
 // IsNodePlatformPowerModelEnabled returns if the estimator has been enabled or not

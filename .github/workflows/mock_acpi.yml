@@ -36,8 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: metal-runner-action
-        # TODO: use the forked version of metal-runner-action inside sustainable-computing-io organization
-        uses: vprashar2929/metal-runner-action@custom-action
+        uses: sustainable-computing-io/metal-runner-action@main
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
@@ -51,6 +50,7 @@ jobs:
     if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Test Mock ACPI
     needs: [initalize-workflow, create-runner]
+    continue-on-error: true
     runs-on: self-hosted
     outputs:
       runner-name: ${{ runner.name }}
@@ -88,14 +88,14 @@ jobs:
           ansible-playbook -vv -i inventory.yaml mock_acpi_playbook.yaml -e "pr_number=${{ github.event.issue.number }}"
 
   cleanup:
-    if: ${{ always() }}
+    if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
     name: Cleanup
     needs: [initalize-workflow, test-mock-acpi]
     runs-on: ubuntu-latest
     steps:
       - name: delete runner
         if: ${{ always() }}
-        uses: rootfs/metal-delete-action@main
+        uses: sustainable-computing-io/metal-sweeper-action@main
         with:
           authToken: ${{ secrets.EQUINIX_API_TOKEN }}
           projectID: ${{ secrets.EQUINIX_PROJECT_ID }}

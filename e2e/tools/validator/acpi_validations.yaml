@@ -1,6 +1,8 @@
 validations:
   - name: mock - node
     actual: |
+      mock_acpi_power1_average/10^6
+    predicted: |
       sum(
         rate(
           kepler_node_platform_joules_total{{
@@ -8,7 +10,5 @@ validations:
           }}[{rate_interval}]
         )
       )
-    expected: |
-      mock_acpi_power1_average/10^6
     max_mse: 0.0001
     # max_mape: 0

@@ -12,7 +12,6 @@ var _ = Describe("Stats", func() {
 		config.GetConfig()
 		config.SetEnabledHardwareCounterMetrics(false)
 		supportedMetrics := bpf.DefaultSupportedMetrics()
-		InitAvailableParamAndMetrics()
 		exp := []string{}
 		Expect(len(GetProcessFeatureNames(supportedMetrics)) >= len(exp)).To(BeTrue())
 	})

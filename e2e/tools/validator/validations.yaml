@@ -1,7 +1,35 @@
+config:
+  mapping:
+    actual: metal
+    predicted: vm
+
 validations:
+  - name: node-rapl - kepler-package
+    units: Watts
+    mapping:
+      actual: node-rapl
+      predicted: kepler-package
+
+    node-rapl: |
+      sum(
+        rate(
+          node_rapl_package_joules_total[{rate_interval}]
+        )
+      )
+    kepler-package: |
+      sum(
+        rate(
+          kepler_node_package_joules_total{{
+            job="{metal_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+    max_mape: 20.0
+
   # absolute power comparison
   - name: platform - absolute
-    actual: |
+    units: Watts
+    metal: |
       sum(
         rate(
         kepler_{level}_platform_joules_total{{
@@ -10,7 +38,7 @@ validations:
         }}[{rate_interval}]
         )
       )
-    expected: |
+    vm: |
       sum(
         rate(
           kepler_node_platform_joules_total{{
@@ -20,7 +48,8 @@ validations:
       )
 
   - name: package - absolute
-    actual: |
+    units: Watts
+    metal: |
       sum(
         rate(
           kepler_{level}_package_joules_total{{
@@ -29,7 +58,7 @@ validations:
           }}[{rate_interval}]
         )
       )
-    expected: |
+    vm: |
       sum(
         rate(
           kepler_node_package_joules_total{{
@@ -39,7 +68,8 @@ validations:
       )
 
   - name: core - absolute
-    actual: |
+    units: Watts
+    metal: |
       sum(
         rate(
           kepler_{level}_core_joules_total{{
@@ -48,7 +78,7 @@ validations:
           }}[{rate_interval}]
         )
       )
-    expected: |
+    vm: |
       sum(
         rate(
           kepler_node_core_joules_total{{
@@ -59,7 +89,8 @@ validations:
 
   # dynamic power comparison
   - name: platform - dynamic
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_platform_joules_total{{
           job="{metal_job_name}",
@@ -67,7 +98,7 @@ validations:
           mode="dynamic",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_platform_joules_total{{
           job="{vm_job_name}",
@@ -76,7 +107,8 @@ validations:
       )
 
   - name: package - dynamic
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_package_joules_total{{
           job="{metal_job_name}",
@@ -84,7 +116,7 @@ validations:
           mode="dynamic",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_package_joules_total{{
           job="{vm_job_name}",
@@ -93,7 +125,8 @@ validations:
       )
 
   - name: core - dynamic
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_core_joules_total{{
           job="{metal_job_name}",
@@ -101,7 +134,7 @@ validations:
           mode="dynamic",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_core_joules_total{{
           job="{vm_job_name}",
@@ -110,7 +143,8 @@ validations:
       )
 
   - name: dram - dynamic
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_dram_joules_total{{
           job="{metal_job_name}",
@@ -118,7 +152,7 @@ validations:
           mode="dynamic",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_dram_joules_total{{
           job="{vm_job_name}",
@@ -126,10 +160,32 @@ validations:
         }}[{rate_interval}]
       )
 
+  # CPU time comparison
+  - name: cpu-time - absolute
+    units: Milliseconds
+    metal: |
+      sum(
+        rate(
+          kepler_{level}_bpf_cpu_time_ms_total{{
+            {vm_selector},
+            job="{metal_job_name}"
+          }}[{rate_interval}]
+        )
+      )
+    vm: |
+      sum(
+        rate(
+          kepler_process_bpf_cpu_time_ms_total{{
+            job="{vm_job_name}",
+          }}[{rate_interval}]
+        )
+      )
+
   # idle power comparison
 
   - name: platform - idle
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_platform_joules_total{{
           job="{metal_job_name}",
@@ -137,7 +193,7 @@ validations:
           mode="idle",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_platform_joules_total{{
           job="{vm_job_name}",
@@ -146,7 +202,8 @@ validations:
       )
 
   - name: package - idle
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_package_joules_total{{
           job="{metal_job_name}",
@@ -154,7 +211,7 @@ validations:
           mode="idle",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_package_joules_total{{
           job="{vm_job_name}",
@@ -163,7 +220,8 @@ validations:
       )
 
   - name: core - idle
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_core_joules_total{{
           job="{metal_job_name}",
@@ -171,7 +229,7 @@ validations:
           mode="idle",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_core_joules_total{{
           job="{vm_job_name}",
@@ -180,7 +238,8 @@ validations:
       )
 
   - name: dram - idle
-    actual: |
+    units: Watts
+    metal: |
       rate(
         kepler_{level}_dram_joules_total{{
           job="{metal_job_name}",
@@ -188,7 +247,7 @@ validations:
           mode="idle",
         }}[{rate_interval}]
       )
-    expected: |
+    vm: |
       rate(
         kepler_node_dram_joules_total{{
           job="{vm_job_name}",
