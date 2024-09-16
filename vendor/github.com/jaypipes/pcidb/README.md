@@ -1,6 +1,6 @@
 # `pcidb` - the Golang PCI DB library
 
-[![Build Status](https://github.com/jaypipes/pcidb/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/jaypipes/pcidb/actions)
+[![Build Status](https://github.com/jaypipes/pcidb/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jaypipes/pcidb/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jaypipes/pcidb)](https://goreportcard.com/report/github.com/jaypipes/pcidb)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
