@@ -91,7 +91,13 @@ func (e *exporter) attach() error {
 
 	// Set program global variables
 	err = specs.RewriteConstants(map[string]interface{}{
-		"SAMPLE_RATE": int32(config.GetBPFSampleRate()),
+		"ACTIVE_TIME": int32(config.GetBPFActiveSampleWindowMS()),
+	})
+	if err != nil {
+		return fmt.Errorf("error rewriting program constants: %v", err)
+	}
+	err = specs.RewriteConstants(map[string]interface{}{
+		"IDLE_TIME": int32(config.GetBPFIdleSampleWindowMS()),
 	})
 	if err != nil {
 		return fmt.Errorf("error rewriting program constants: %v", err)

@@ -167,11 +167,30 @@ SEC(".rodata.config")
 __attribute__((btf_decl_tag(
 	"Hardware Events Enabled"))) static volatile const int HW = 1;
 
-// The sampling rate should be disabled by default because its impact on the
-// measurements is unknown.
+// Global parameters for tracking periods (in milli seconds)
 SEC(".rodata.config")
-__attribute__((
-	btf_decl_tag("Sample Rate"))) static volatile const int SAMPLE_RATE = 0;
+__attribute__((btf_decl_tag(
+	"Active Time"))) static volatile const int ACTIVE_TIME = 20;
+
+// Global parameters for non-tracking periods (in milli seconds)
+SEC(".rodata.config")
+__attribute__((btf_decl_tag("Idle Time"))) static volatile const int IDLE_TIME = 80;
+
+// BPF map to track whether we are in the tracking period or not
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, u32);
+	__type(value, u32);
+	__uint(max_entries, 1);
+} tracking_flag_map SEC(".maps");
+
+// BPF map to store the timestamp when the tracking started
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, u32);
+	__type(value, u64);
+	__uint(max_entries, 1);
+} start_time_map SEC(".maps");
 
 int counter_sched_switch = 0;
 
@@ -317,24 +336,31 @@ static inline int do_kepler_sched_switch_trace(
 
 	cpu_id = bpf_get_smp_processor_id();
 
-	// Skip some samples to minimize overhead
-	if (SAMPLE_RATE > 0) {
-		if (counter_sched_switch > 0) {
-			// update hardware counters to be used when sample is taken
-			if (counter_sched_switch == 1) {
-				collect_metrics_and_reset_counters(
-					&buf, prev_pid, curr_ts, cpu_id);
-				// Add task on-cpu running start time
-				bpf_map_update_elem(
-					&pid_time_map, &next_pid, &curr_ts,
-					BPF_ANY);
-				// create new process metrics
-				register_new_process_if_not_exist(next_tgid);
-			}
-			counter_sched_switch--;
+	// Retrieve tracking flag and start time
+	u32 key = 0;
+	u32 *tracking_flag = bpf_map_lookup_elem(&tracking_flag_map, &key);
+	u64 *start_time = bpf_map_lookup_elem(&start_time_map, &key);
+
+	if (tracking_flag && start_time) {
+		u64 elapsed_time = (curr_ts - *start_time) / 1000000ULL;
+
+		// Update the tracking flag based on elapsed time
+		if (*tracking_flag && elapsed_time >= ACTIVE_TIME) {
+			// Stop tracking
+			*tracking_flag = 0;
+			// Reset start time
+			*start_time = curr_ts;
+		} else if (!*tracking_flag && elapsed_time >= IDLE_TIME) {
+			// Start tracking
+			*tracking_flag = 1;
+			// Reset start time
+			*start_time = curr_ts;
+		}
+
+		// If we are not in the tracking period, return immediately
+		if (!*tracking_flag) {
 			return 0;
 		}
-		counter_sched_switch = SAMPLE_RATE;
 	}
 
 	collect_metrics_and_reset_counters(&buf, prev_pid, curr_ts, cpu_id);
