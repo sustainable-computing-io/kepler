@@ -118,7 +118,7 @@ func newConfig() *Config {
 		Metrics:                getMetricsConfig(),
 		Redfish:                getRedfishConfig(),
 		Libvirt:                getLibvirtConfig(),
-		DCGMHostEngineEndpoint: getConfig("DCGM_HOST_ENGINE_ENDPOINT", ""),
+		DCGMHostEngineEndpoint: getConfig("NVIDIA_HOSTENGINE_ENDPOINT", defaultDCGMHostEngineEndpoint),
 		KernelVersion:          float32(0),
 	}
 }
