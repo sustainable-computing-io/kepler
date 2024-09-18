@@ -116,7 +116,6 @@ func TestGetAliveContainers(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			InitCache()
 			c := GetCache()
 			res := c.getAliveContainers(&testcase.pods)
 			g.Expect(res).To(Equal(testcase.expectResults))

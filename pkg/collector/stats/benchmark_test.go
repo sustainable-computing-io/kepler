@@ -19,14 +19,12 @@ import (
 	"testing"
 
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 )
 
 func benchmarkNtesting(b *testing.B, processNumber int) {
-	cgroup.InitCache()
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics

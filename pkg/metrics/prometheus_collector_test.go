@@ -31,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
@@ -68,7 +67,6 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 			err := gpu.Device().Init() // create structure instances that will be accessed to create a containerMetric
 			Expect(err).NotTo(HaveOccurred())
 		}
-		cgroup.InitCache()
 		stats.SetMockedCollectorMetrics()
 		processStats := stats.CreateMockedProcessStats(2)
 		nodeStats := stats.CreateMockedNodeStats()

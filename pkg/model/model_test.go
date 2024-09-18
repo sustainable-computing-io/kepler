@@ -22,7 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/utils"
@@ -35,7 +34,6 @@ var _ = Describe("Test Model Unit", func() {
 
 	BeforeEach(func() {
 		source.SystemCollectionSupported = false // disable the system power collection to use the prediction power model
-		cgroup.InitCache()
 		stats.SetMockedCollectorMetrics()
 
 		configStr := "CONTAINER_COMPONENTS_INIT_URL=https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-server/test_models/tests/test_models/DynComponentModelWeight/CgroupOnly/ScikitMixed/ScikitMixed.json\n"

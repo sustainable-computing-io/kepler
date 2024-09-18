@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
@@ -44,7 +43,6 @@ var _ = Describe("ProcessPower", func() {
 			// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 			components.SetIsSystemCollectionSupported(false)
 			platform.SetIsSystemCollectionSupported(false)
-			cgroup.InitCache()
 			stats.SetMockedCollectorMetrics()
 
 			processStats = stats.CreateMockedProcessStats(2)

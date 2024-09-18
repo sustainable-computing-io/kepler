@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -28,7 +27,6 @@ import (
 
 var _ = Describe("Test Ratio Unit", func() {
 	It("GetProcessEnergyRatio", func() {
-		cgroup.InitCache()
 		stats.SetMockedCollectorMetrics()
 		processStats := stats.CreateMockedProcessStats(3)
 
