@@ -668,3 +668,8 @@ func APIServerEnabled() bool {
 	ensureConfigInitialized()
 	return instance.Kepler.EnableAPIServer
 }
+
+func DCGMHostEngineEndpoint() string {
+	ensureConfigInitialized()
+	return instance.DCGMHostEngineEndpoint
+}
