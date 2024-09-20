@@ -117,10 +117,32 @@ services:
     networks:
       - node-exporter-network
 
+  libvirt-exporter:
+    image: quay.io/osism/prometheus-libvirt-exporter:2024.1
+    ports:
+      - 9177:9177
+    volumes:
+      - type: bind
+        source: /run
+        target: /host/run
+
+    entrypoint: [/usr/bin/bash, -c]
+
+    command:
+      - |
+        set -x;
+        /prometheus-libvirt-exporter/prometheus-libvirt-exporter \
+        --libvirt.uri="/host/run/libvirt/libvirt-sock" \
+        --log.level=debug
+    privileged: true
+    networks:
+      - libvirt-exporter-network
+
 networks:
   scaph-network:
   kepler-network:
   node-exporter-network:
+  libvirt-exporter-network:
   #
   #
   #  NOTE: To allow access to VM from prometheus container

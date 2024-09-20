@@ -17,3 +17,4 @@ services:
     networks:
       - scaph-network
       - node-exporter-network
+      - libvirt-exporter-network
