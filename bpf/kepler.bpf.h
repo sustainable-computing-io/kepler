@@ -353,11 +353,12 @@ static inline int do_kepler_sched_switch_trace(
 		}
 	}
 
-	// Add task on-cpu running start time
-	bpf_map_update_elem(&pid_time_map, &next_pid, &curr_ts, BPF_ANY);
-
 	// create new process metrics
 	register_new_process_if_not_exist(prev_tgid);
+
+	// Add task on-cpu running start time
+	curr_ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(&pid_time_map, &next_pid, &curr_ts, BPF_ANY);
 
 	return 0;
 }
