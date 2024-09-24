@@ -8,10 +8,10 @@ package cpu
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -22,6 +22,7 @@ import (
 
 var (
 	regexForCpulCore = regexp.MustCompile("^cpu([0-9]+)$")
+	onlineFile       = "online"
 )
 
 func (i *Info) load() error {
@@ -47,7 +48,7 @@ func processorsGet(ctx *context.Context) []*Processor {
 	// /sys/devices/system/cpu pseudodir contains N number of pseudodirs with
 	// information about the logical processors on the host. These logical
 	// processor pseudodirs are of the pattern /sys/devices/system/cpu/cpu{N}
-	fnames, err := ioutil.ReadDir(paths.SysDevicesSystemCPU)
+	fnames, err := os.ReadDir(paths.SysDevicesSystemCPU)
 	if err != nil {
 		ctx.Warn("failed to read /sys/devices/system/cpu: %s", err)
 		return []*Processor{}
@@ -64,6 +65,10 @@ func processorsGet(ctx *context.Context) []*Processor {
 			continue
 		}
 
+		onlineFilePath := filepath.Join(paths.SysDevicesSystemCPU, fmt.Sprintf("cpu%d", lpID), onlineFile)
+		if util.SafeIntFromFile(ctx, onlineFilePath) == 0 {
+			continue
+		}
 		procID := processorIDFromLogicalProcessorID(ctx, lpID)
 		proc, found := procs[procID]
 		if !found {
@@ -113,6 +118,9 @@ func processorsGet(ctx *context.Context) []*Processor {
 	}
 	res := []*Processor{}
 	for _, p := range procs {
+		for _, c := range p.Cores {
+			sort.Ints(c.LogicalProcessors)
+		}
 		res = append(res, p)
 	}
 	return res
@@ -172,7 +180,7 @@ func CoresForNode(ctx *context.Context, nodeID int) ([]*ProcessorCore, error) {
 		return c
 	}
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +204,10 @@ func CoresForNode(ctx *context.Context, nodeID int) ([]*ProcessorCore, error) {
 				"failed to determine procID from %s. Expected integer after 3rd char.",
 				filename,
 			)
+			continue
+		}
+		onlineFilePath := filepath.Join(cpuPath, onlineFile)
+		if util.SafeIntFromFile(ctx, onlineFilePath) == 0 {
 			continue
 		}
 		coreIDPath := filepath.Join(cpuPath, "topology", "core_id")

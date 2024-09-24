@@ -16,6 +16,7 @@ services:
       - scaph-network
       - kepler-network
       - node-exporter-network
+      - libvirt-exporter-network
       - virt-net # external n/w for accessing VM
     volumes:
       - type: bind
