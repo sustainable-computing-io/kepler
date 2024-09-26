@@ -37,7 +37,7 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames []string) *types.Model
 	systemMetaDataFeatureValues := node.MetadataFeatureValues()
 	modelConfig := CreatePowerModelConfig(config.NodeComponentsPowerKey())
 	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource)
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.ComponentEnergySource, node.CPUArchitecture())
 	}
 	modelConfig.NodeFeatureNames = nodeFeatureNames
 	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames

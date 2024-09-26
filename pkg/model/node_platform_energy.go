@@ -40,7 +40,7 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames []string) {
 	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
 		if modelConfig.InitModelURL == "" {
-			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
+			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource, node.CPUArchitecture())
 		}
 		modelConfig.NodeFeatureNames = nodeFeatureNames
 		modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
