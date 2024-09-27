@@ -7,7 +7,7 @@ COPY . .
 
 RUN if [[ "$INSTALL_DCGM" == "true" ]]; then \
 		dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
-		yum install -y datacenter-gpu-manager; \
+		yum install -y datacenter-gpu-manager libnvidia-ml; \
 	fi; \
 	if [[ "$INSTALL_HABANA" == "true" ]]; then \
 		rpm -Uvh https://vault.habana.ai/artifactory/rhel/9/9.2/habanalabs-firmware-tools-1.15.1-15.el9.x86_64.rpm --nodeps; \
@@ -45,7 +45,7 @@ RUN set -e -x ;\
 			yum install -y cpuid; \
 			if [[ "$INSTALL_DCGM" == "true" ]]; then \
 				dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo; \
-				yum install -y datacenter-gpu-manager; \
+				yum install -y datacenter-gpu-manager libnvidia-ml; \
 			fi; \
 			if [[ "$INSTALL_HABANA" == "true" ]]; then \
 				rpm -Uvh https://vault.habana.ai/artifactory/rhel/9/9.2/habanalabs-firmware-tools-1.15.1-15.el9.x86_64.rpm --nodeps; \

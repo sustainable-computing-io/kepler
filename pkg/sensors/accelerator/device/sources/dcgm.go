@@ -54,6 +54,7 @@ type GPUDcgm struct {
 	devices             map[int]device.GPUDevice
 	migDevices          map[int]map[int]device.GPUDevice // list of mig devices for each GPU instance
 	libInited           bool
+	nvmlInited          bool
 	deviceGroupName     string
 	deviceGroupHandle   dcgm.GroupHandle
 	fieldGroupName      string
@@ -145,16 +146,19 @@ func (d *GPUDcgm) InitLib() (err error) {
 		}
 		klog.Info("Started DCGM in the Embedded mode ")
 	}
-
+	d.nvmlInited = false
 	d.devices = make(map[int]device.GPUDevice)
 	d.cleanup = cleanup
 	dcgm.FieldsInit()
 
 	if err := d.initNVML(); err != nil {
+		klog.Errorf("Could not init NVML. Error: %s", err)
 		d.Shutdown()
 		return err
 	}
+	d.nvmlInited = true
 	if err := d.loadDevices(); err != nil {
+		klog.Errorf("Could not load Devices. Error: %s", err)
 		d.Shutdown()
 		return err
 	}
@@ -281,7 +285,9 @@ func (d *GPUDcgm) SetDeviceCollectionSupported(supported bool) {
 }
 
 func (d *GPUDcgm) Shutdown() bool {
-	nvml.Shutdown()
+	if d.nvmlInited {
+		nvml.Shutdown()
+	}
 	dcgm.FieldsTerm()
 	if d.deviceGroupName != "" {
 		dcgm.DestroyGroup(d.deviceGroupHandle)
@@ -294,6 +300,7 @@ func (d *GPUDcgm) Shutdown() bool {
 	}
 	d.collectionSupported = false
 	d.libInited = false
+	d.nvmlInited = false
 	return true
 }
 
