@@ -103,4 +103,5 @@ const (
 	defaultProcessPlatformPowerKey     = "PROCESS_TOTAL"
 	defaultProcessComponentsPowerKey   = "PROCESS_COMPONENTS"
 	DefaultMachineSpecFilePath         = "/etc/kepler/models/machine/spec.json"
+	defaultDCGMHostEngineEndpoint      = "localhost:5555"
 )
