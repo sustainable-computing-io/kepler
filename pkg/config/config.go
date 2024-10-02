@@ -247,8 +247,18 @@ func setModelServerReqEndpoint() string {
 
 // return local path to power model weight
 // e.g., /var/lib/kepler/data/model_weight/acpi_AbsPowerModel.json
-func GetDefaultPowerModelURL(modelOutputType, energySource string) string {
-	return fmt.Sprintf(`/var/lib/kepler/data/model_weight/%s_%sModel.json`, energySource, modelOutputType)
+func GetDefaultPowerModelURL(modelOutputType, energySource, cpuArch string) string {
+	// strip white space or new line from cpuArch
+	cpuArch = strings.TrimSuffix(cpuArch, "\n")
+	cpuArch = strings.TrimSpace(cpuArch)
+	fullPath := fmt.Sprintf(`/var/lib/kepler/data/%s/model_weight/%s_%sModel.json`, cpuArch, energySource, modelOutputType)
+	// if the model does not exist, return the default model
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		klog.Warningf("model %s does not exist, using default model", fullPath)
+		return fmt.Sprintf(`/var/lib/kepler/data/model_weight/%s_%sModel.json`, energySource, modelOutputType)
+	}
+	// otherwise, return the full path
+	return fullPath
 }
 
 func logBoolConfigs() {
