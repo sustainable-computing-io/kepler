@@ -67,7 +67,7 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.EnabledGPU() {
-		if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 			gpuEnergy := gpu.Device().AbsEnergyFromDevice()
 			for gpu, energy := range gpuEnergy {
 				nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
