@@ -44,7 +44,7 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 		return nil
 	}
 	if modelConfig.InitModelURL == "" {
-		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), energySource)
+		modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), energySource, node.CPUArchitecture())
 	}
 	modelConfig.ProcessFeatureNames = processFeatureNames
 	modelConfig.SystemMetaDataFeatureNames = systemMetaDataFeatureNames
