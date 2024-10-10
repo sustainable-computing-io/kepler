@@ -110,17 +110,19 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		}
 
 		mapKey := ct.Pid
+		process := comm
 		if ct.CgroupId == 1 && config.EnabledEBPFCgroupID() {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
 			mapKey = 1
+			process = "kernel_processes"
 		}
 
 		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(ct.Pid, ct.CgroupId, containerID, vmID, comm, bpfSupportedMetrics)
+			pStat = stats.NewProcessStats(mapKey, ct.CgroupId, containerID, vmID, process, bpfSupportedMetrics)
 			processStats[mapKey] = pStat
 		} else if pStat.Command == "" {
 			pStat.Command = comm
