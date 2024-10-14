@@ -13,6 +13,10 @@ services:
         target: /etc/prometheus/prometheus.yml
     networks:
       - monitoring
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-admin-api
 
     healthcheck:
       test: wget -q --spider http://localhost:9090/ -O /dev/null || exit 1
