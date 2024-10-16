@@ -174,7 +174,7 @@ func (s *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
 
 // calcDynEnergy calculates the dynamic energy.
 func calcDynEnergy(totalE, idleE uint64) uint64 {
-	if (totalE == 0) || (idleE == 0) || (totalE < idleE) {
+	if (totalE == 0) || (totalE < idleE) {
 		return 0
 	}
 	return totalE - idleE
