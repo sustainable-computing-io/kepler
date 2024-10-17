@@ -87,6 +87,7 @@ class Result(NamedTuple):
 
     mse: ValueOrError
     mape: ValueOrError
+    mae: ValueOrError
 
 
 def validate_arrays(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
@@ -117,6 +118,16 @@ def mape(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
         actual, predicted = validate_arrays(actual, predicted)
         return ValueOrError(value=100 * np.abs(np.divide(np.subtract(actual, predicted), actual)).mean())
+
+    # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
+    except Exception as e:
+        return ValueOrError(value=0, error=str(e))
+
+
+def mae(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
+    try:
+        actual, predicted = validate_arrays(actual, predicted)
+        return ValueOrError(value=np.abs(np.subtract(actual, predicted)).mean())
 
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
@@ -244,6 +255,7 @@ class Comparator:
         return Result(
             mse=mse(actual.values, predicted.values),
             mape=mape(actual.values, predicted.values),
+            mae=mae(actual.values, predicted.values),
             actual_series=actual_series,
             predicted_series=predicted_series,
             actual_dropped=actual_dropped,

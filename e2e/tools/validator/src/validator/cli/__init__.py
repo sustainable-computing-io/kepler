@@ -45,6 +45,7 @@ class ValidationResult:
 
     mse: ValueOrError
     mape: ValueOrError
+    mae: ValueOrError
 
     actual_dropped: int = 0
     predicted_dropped: int = 0
@@ -54,6 +55,7 @@ class ValidationResult:
 
     mse_passed: bool = True
     mape_passed: bool = True
+    mae_passed: bool = True
 
     unexpected_error: str = ""
 
@@ -71,10 +73,10 @@ class ValidationResult:
     def verdict(self) -> str:
         note = " (dropped)" if self.actual_dropped > 0 or self.predicted_dropped > 0 else ""
 
-        if self.unexpected_error or self.mse.error or self.mape.error:
+        if self.unexpected_error or self.mse.error or self.mape.error or self.mae.error:
             return f"ERROR{note}"
 
-        if self.mse_passed and self.mape_passed:
+        if self.mse_passed and self.mape_passed and self.mae_passed:
             return f"PASS{note}"
 
         return f"FAIL{note}"
@@ -203,9 +205,15 @@ def write_md_report(results_dir: str, r: TestResult):
     md.h2("Validations")
     md.h3("Summary")
     md.table(
-        ["Name", "MSE", "MAPE", "Pass / Fail"],
+        ["Name", "MSE", "MAPE", "MAE", "Pass / Fail"],
         [
-            [f"[{v.name}](#{v.name.replace(' ', '-')})", f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
+            [
+                f"[{v.name}](#{v.name.replace(' ', '-')})",
+                f"{v.mse.value:.2f}",
+                f"{v.mape.value:.2f}",
+                f"{v.mae.value:.2f}",
+                v.verdict,
+            ]
             for v in r.validations.results
             if not v.unexpected_error
         ],
@@ -231,6 +239,7 @@ def write_md_report(results_dir: str, r: TestResult):
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
         md.li(f"MAPE : `{v.mape} %`")
+        md.li(f"MAE  : `{v.mae}`")
         md.write("\n**Charts**:\n")
         img_path = create_charts_for_result(results_dir, v)
         md.img(v.name, img_path)
@@ -292,6 +301,9 @@ def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
 
     if r.mape.error is None:
         err_report += f"\nMAPE: {r.mape.value:.2f}%"
+
+    if r.mae.error is None:
+        err_report += f"\nMAE: {r.mae.value:.2f}"
 
     ax.text(
         0.98,
@@ -527,7 +539,8 @@ def run_validation(
             v.predicted.promql,
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
-        click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+        click.secho(f"\t MAPE: {cmp.mape} %", fg="bright_blue")
+        click.secho(f"\t MAE : {cmp.mae}\n", fg="bright_blue")
 
         result.predicted_dropped = cmp.predicted_dropped
         result.actual_dropped = cmp.predicted_dropped
@@ -539,16 +552,20 @@ def run_validation(
                 cmp.predicted_dropped,
             )
 
-        result.mse, result.mape = cmp.mse, cmp.mape
+        result.mse, result.mape, result.mae = cmp.mse, cmp.mape, cmp.mae
 
         result.mse_passed = v.max_mse is None or (cmp.mse.error is None and cmp.mse.value <= v.max_mse)
         result.mape_passed = v.max_mape is None or (cmp.mape.error is None and cmp.mape.value <= v.max_mape)
+        result.mae_passed = v.max_mae is None or (cmp.mae.error is None and cmp.mae.value <= v.max_mae)
 
         if not result.mse_passed:
             click.secho(f"MSE exceeded threshold. mse: {cmp.mse}, max_mse: {v.max_mse}", fg="red")
 
         if not result.mape_passed:
             click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
+
+        if not result.mae_passed:
+            click.secho(f"MAE exceeded threshold. mae: {cmp.mae}, max_mae: {v.max_mae}", fg="red")
 
         result.actual_filepath = dump_query_result(results_dir, v.actual_label, v.actual, cmp.actual_series)
         result.predicted_filepath = dump_query_result(results_dir, v.predicted_label, v.predicted, cmp.predicted_series)
@@ -617,7 +634,18 @@ def create_json(res):
             value["mape"] = float(i.mape.value)
         else:
             value["mape"] = float(i.mape.error)
-        value["status"] = "mape passed: " + str(i.mape_passed) + ", mse passed: " + str(i.mse_passed)
+        if i.mae_passed:
+            value["mae"] = float(i.mae.value)
+        else:
+            value["mae"] = float(i.mae.error)
+        value["status"] = (
+            "mape passed: "
+            + str(i.mape_passed)
+            + ", mse passed: "
+            + str(i.mse_passed)
+            + ", mae passed: "
+            + str(i.mae_passed)
+        )
         m_name = i.name.replace(" - ", "_")
 
         result.append({m_name: value})
