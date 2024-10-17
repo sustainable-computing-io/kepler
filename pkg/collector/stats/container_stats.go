@@ -18,8 +18,6 @@ package stats
 
 import (
 	"fmt"
-
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 )
 
 type ContainerStats struct {
@@ -33,9 +31,9 @@ type ContainerStats struct {
 }
 
 // NewContainerStats creates a new ContainerStats instance
-func NewContainerStats(containerName, podName, podNamespace, containerID string, bpfSupportedMetrics bpf.SupportedMetrics) *ContainerStats {
+func NewContainerStats(containerName, podName, podNamespace, containerID string) *ContainerStats {
 	c := &ContainerStats{
-		Stats:         *NewStats(bpfSupportedMetrics),
+		Stats:         *NewStats(),
 		PIDS:          make(map[uint64]bool),
 		ContainerID:   containerID,
 		PodName:       podName,

@@ -286,7 +286,7 @@ func (w *ObjListWatcher) fillInfo(pod *corev1.Pod, containers []corev1.Container
 			continue
 		}
 		if _, exist = w.ContainerStats[containerID]; !exist {
-			w.ContainerStats[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID, w.bpfSupportedMetrics)
+			w.ContainerStats[containerID] = stats.NewContainerStats(containers[j].Name, pod.Name, pod.Namespace, containerID)
 		}
 		klog.V(5).Infof("receiving container %s %s %s %s", containers[j].Name, pod.Name, pod.Namespace, containerID)
 		w.ContainerStats[containerID].ContainerName = containers[j].Name

@@ -18,8 +18,6 @@ package stats
 
 import (
 	"fmt"
-
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 )
 
 type ProcessStats struct {
@@ -33,14 +31,14 @@ type ProcessStats struct {
 }
 
 // NewProcessStats creates a new ProcessStats instance
-func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string, bpfSupportedMetrics bpf.SupportedMetrics) *ProcessStats {
+func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string) *ProcessStats {
 	p := &ProcessStats{
 		PID:         pid,
 		CGroupID:    cGroupID,
 		ContainerID: containerID,
 		VMID:        vmID,
 		Command:     command,
-		Stats:       *NewStats(bpfSupportedMetrics),
+		Stats:       *NewStats(),
 	}
 	return p
 }

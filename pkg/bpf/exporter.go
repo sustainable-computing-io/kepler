@@ -50,8 +50,8 @@ type exporter struct {
 
 func NewExporter() (Exporter, error) {
 	e := &exporter{
-		enabledHardwareCounters: sets.New[string](),
-		enabledSoftwareCounters: sets.New[string](),
+		enabledHardwareCounters: sets.New[string](config.BPFHwCounters()...),
+		enabledSoftwareCounters: sets.New[string](config.BPFSwCounters()...),
 	}
 	err := e.attach()
 	if err != nil {
@@ -110,7 +110,6 @@ func (e *exporter) attach() error {
 	if err != nil {
 		return fmt.Errorf("error attaching sched_switch tracepoint: %v", err)
 	}
-	e.enabledSoftwareCounters[config.CPUTime] = struct{}{}
 
 	if config.ExposeIRQCounterMetrics() {
 		e.irqLink, err = link.AttachTracing(link.TracingOptions{
@@ -120,9 +119,6 @@ func (e *exporter) attach() error {
 		if err != nil {
 			return fmt.Errorf("could not attach irq/softirq_entry: %w", err)
 		}
-		e.enabledSoftwareCounters[config.IRQNetTXLabel] = struct{}{}
-		e.enabledSoftwareCounters[config.IRQNetRXLabel] = struct{}{}
-		e.enabledSoftwareCounters[config.IRQBlockLabel] = struct{}{}
 	}
 
 	group := "writeback"
@@ -143,8 +139,6 @@ func (e *exporter) attach() error {
 	})
 	if err != nil {
 		klog.Warningf("failed to attach fentry/mark_page_accessed: %v. Kepler will not collect page cache read events. This will affect the DRAM power model estimation on VMs.", err)
-	} else if !e.enabledSoftwareCounters.Has(config.PageCacheHit) {
-		e.enabledSoftwareCounters[config.PageCacheHit] = struct{}{}
 	}
 
 	// Return early if hardware counters are not enabled
@@ -162,9 +156,6 @@ func (e *exporter) attach() error {
 	if err != nil {
 		return nil
 	}
-	e.enabledHardwareCounters[config.CPUCycle] = struct{}{}
-	e.enabledHardwareCounters[config.CPUInstruction] = struct{}{}
-	e.enabledHardwareCounters[config.CacheMiss] = struct{}{}
 
 	return nil
 }
