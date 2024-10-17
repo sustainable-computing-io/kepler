@@ -53,6 +53,7 @@ class Validation(NamedTuple):
     units: str = ""
     max_mse: float | None = None
     max_mape: float | None = None
+    max_mae: float | None = None
 
 
 def yaml_node(yml: dict[str, Any], key_path: list[str], default: Any) -> Any:
