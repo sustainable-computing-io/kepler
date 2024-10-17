@@ -104,7 +104,9 @@ func UpdateNodeEnergyMetrics(nodeStats *stats.NodeStats) {
 	// update platform power later to avoid race condition when using estimation power model
 	UpdatePlatformEnergy(nodeStats)
 	// after updating the total energy we calculate the idle, dynamic and other components energy
-	UpdateNodeIdleEnergy(nodeStats)
+	if config.IsIdlePowerEnabled() {
+		UpdateNodeIdleEnergy(nodeStats)
+	}
 	nodeStats.UpdateDynEnergy()
 	nodeStats.SetNodeOtherComponentsEnergy()
 }
