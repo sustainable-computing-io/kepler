@@ -1,3 +1,6 @@
+//go:build !habana
+// +build !habana
+
 /*
 Copyright 2024.
 
@@ -13,23 +16,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package devices
 
-package device
+import "k8s.io/klog/v2"
 
-type GPUProcessUtilizationSample struct {
-	Pid         uint32
-	TimeStamp   uint64
-	ComputeUtil uint32
-	MemUtil     uint32
-	EncUtil     uint32
-	DecUtil     uint32
-}
-
-// Device can hold GPU Device or Multi Instance GPU slice handler
-type GPUDevice struct {
-	DeviceHandler interface{}
-	ID            int // Entity ID or Parent ID if Subdevice
-	IsSubdevice   bool
-	ParentID      int     // GPU Entity ID  or Parent GPU ID if MIG slice
-	MIGSMRatio    float64 // Ratio of MIG SMs / Total GPU SMs to be used to normalize the MIG metrics
+func habanaCheck(r *Registry) {
+	klog.V(5).Info("Error initializing habana: ERROR_LIBRARY_NOT_FOUND")
 }

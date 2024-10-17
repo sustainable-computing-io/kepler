@@ -58,7 +58,7 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
 		if config.EnabledGPU() {
-			if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+			if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 				for _, collectorName := range consts.GPUMetricNames {
 					CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 				}

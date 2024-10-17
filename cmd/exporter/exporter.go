@@ -148,7 +148,7 @@ func main() {
 
 	if config.EnabledGPU() {
 		r := accelerator.GetRegistry()
-		if a, err := accelerator.New(accelerator.GPU, true); err == nil {
+		if a, err := accelerator.New(config.GPU, true); err == nil {
 			r.MustRegister(a) // Register the accelerator with the registry
 		} else {
 			klog.Errorf("failed to init GPU accelerators: %v", err)
