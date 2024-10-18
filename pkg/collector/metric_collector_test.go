@@ -44,8 +44,7 @@ var _ = Describe("Test Collector Unit", func() {
 		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 		metricCollector := newMockCollector(bpfExporter)
 		// The default estimator model is the ratio
-		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
-		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames())
 		// update container and node metrics
 		metricCollector.UpdateProcessEnergyUtilizationMetrics()
 		metricCollector.AggregateProcessEnergyUtilizationMetrics()

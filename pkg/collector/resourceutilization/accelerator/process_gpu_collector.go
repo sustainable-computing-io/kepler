@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/cgroup"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -43,7 +42,7 @@ var (
 )
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
-func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats, bpfSupportedMetrics bpf.SupportedMetrics) {
+func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
 	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
 		d := gpu.Device()
 		migDevices := d.DeviceInstances()
@@ -54,17 +53,17 @@ func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessSt
 				for _, migDevice := range migDevices[_device.(dev.GPUDevice).ID] {
 					// device.ID is equal to migDevice.ParentID
 					// we add the process metrics with the parent GPU ID, so that the Ratio power model will use this data to split the GPU power among the process
-					addGPUUtilizationToProcessStats(d, processStats, migDevice.(dev.GPUDevice), migDevice.(dev.GPUDevice).ParentID, bpfSupportedMetrics)
+					addGPUUtilizationToProcessStats(d, processStats, migDevice.(dev.GPUDevice), migDevice.(dev.GPUDevice).ParentID)
 				}
 			} else {
-				addGPUUtilizationToProcessStats(d, processStats, _device.(dev.GPUDevice), _device.(dev.GPUDevice).ID, bpfSupportedMetrics)
+				addGPUUtilizationToProcessStats(d, processStats, _device.(dev.GPUDevice), _device.(dev.GPUDevice).ID)
 			}
 		}
 	}
 	lastUtilizationTimestamp = time.Now()
 }
 
-func addGPUUtilizationToProcessStats(ai dev.Device, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int, bpfSupportedMetrics bpf.SupportedMetrics) {
+func addGPUUtilizationToProcessStats(ai dev.Device, processStats map[uint64]*stats.ProcessStats, d dev.GPUDevice, gpuID int) {
 	var err error
 	var processesUtilization map[uint32]any
 
@@ -97,7 +96,7 @@ func addGPUUtilizationToProcessStats(ai dev.Device, processStats map[uint64]*sta
 					}
 				}
 			}
-			processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command, bpfSupportedMetrics)
+			processStats[uintPid] = stats.NewProcessStats(uintPid, uint64(0), containerID, vmID, command)
 		}
 		gpuName := fmt.Sprintf("%d", gpuID) // GPU ID or Parent GPU ID for MIG slices
 		processStats[uintPid].ResourceUsage[config.GPUComputeUtilization].AddDeltaStat(gpuName, uint64(processUtilization.(dev.GPUProcessUtilizationSample).ComputeUtil))

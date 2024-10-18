@@ -18,14 +18,11 @@ func DefaultSupportedMetrics() SupportedMetrics {
 }
 
 func defaultHardwareCounters() sets.Set[string] {
-	return sets.New(config.CPUCycle, config.CPUInstruction, config.CacheMiss)
+	return sets.New(config.BPFHwCounters()...)
 }
 
 func defaultSoftwareCounters() sets.Set[string] {
-	swCounters := sets.New(config.CPUTime, config.PageCacheHit)
-	if config.ExposeIRQCounterMetrics() {
-		swCounters.Insert(config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel)
-	}
+	swCounters := sets.New(config.BPFSwCounters()...)
 	return swCounters
 }
 

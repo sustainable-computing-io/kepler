@@ -20,17 +20,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats/types"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"k8s.io/klog/v2"
 )
-
-var defaultBPFMetrics = []string{
-	config.CPUCycle, config.CPURefCycle, config.CPUInstruction, config.CacheMiss, config.CPUTime,
-	config.PageCacheHit, config.IRQNetTXLabel, config.IRQNetRXLabel, config.IRQBlockLabel,
-}
 
 // metricSets stores different sets of metrics for energy and resource usage.
 type metricSets struct {
@@ -40,7 +34,6 @@ type metricSets struct {
 	bpfMetrics        []string
 }
 
-// Stats stores resource and energy usage statistics.
 type Stats struct {
 	ResourceUsage    map[string]types.UInt64StatCollection
 	EnergyUsage      map[string]types.UInt64StatCollection
@@ -62,12 +55,12 @@ func newMetricSets() *metricSets {
 			config.IdleEnergyInCore, config.IdleEnergyInDRAM, config.IdleEnergyInUnCore, config.IdleEnergyInPkg,
 			config.IdleEnergyInGPU, config.IdleEnergyInOther, config.IdleEnergyInPlatform,
 		},
-		bpfMetrics: defaultBPFMetrics,
+		bpfMetrics: AvailableBPFMetrics(),
 	}
 }
 
 // NewStats creates a new Stats instance
-func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
+func NewStats() *Stats {
 	stats := &Stats{
 		ResourceUsage:    make(map[string]types.UInt64StatCollection),
 		EnergyUsage:      make(map[string]types.UInt64StatCollection),
@@ -82,8 +75,9 @@ func NewStats(bpfSupportedMetrics bpf.SupportedMetrics) *Stats {
 		stats.EnergyUsage[metricName] = types.NewUInt64StatCollection()
 	}
 
-	// Initialize the resource utilization metrics in the map.
-	for _, metricName := range stats.BPFMetrics() {
+	// initialize the resource utilization metrics in the map
+	resMetrics := append([]string{}, AvailableBPFMetrics()...)
+	for _, metricName := range resMetrics {
 		stats.ResourceUsage[metricName] = types.NewUInt64StatCollection()
 	}
 
@@ -285,4 +279,9 @@ func (s *Stats) IdleEnergyMetrics() []string {
 
 func (s *Stats) BPFMetrics() []string {
 	return s.availableMetrics.bpfMetrics
+}
+
+func AvailableBPFMetrics() []string {
+	metrics := append(config.BPFHwCounters(), config.BPFSwCounters()...)
+	return metrics
 }

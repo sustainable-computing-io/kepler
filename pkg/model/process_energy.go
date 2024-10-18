@@ -36,9 +36,10 @@ var (
 )
 
 // createProcessPowerModelConfig: the process component power model must be set by default.
-func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames []string, energySource string, bpfSupportedMetrics bpf.SupportedMetrics) (modelConfig *types.ModelConfig) {
+func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames []string, energySource string) (modelConfig *types.ModelConfig) {
 	systemMetaDataFeatureNames := node.MetadataFeatureNames()
 	systemMetaDataFeatureValues := node.MetadataFeatureValues()
+	bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
 	modelConfig = CreatePowerModelConfig(powerSourceTarget)
 	if modelConfig == nil {
 		return nil
@@ -108,13 +109,13 @@ func createProcessPowerModelConfig(powerSourceTarget string, processFeatureNames
 	return modelConfig
 }
 
-func CreateProcessPowerEstimatorModel(processFeatureNames []string, bpfSupportedMetrics bpf.SupportedMetrics) {
+func CreateProcessPowerEstimatorModel(processFeatureNames []string) {
 	keys := map[string]string{
 		config.ProcessPlatformPowerKey():   types.PlatformEnergySource,
 		config.ProcessComponentsPowerKey(): types.ComponentEnergySource,
 	}
 	for k, v := range keys {
-		modelConfig := createProcessPowerModelConfig(k, processFeatureNames, v, bpfSupportedMetrics)
+		modelConfig := createProcessPowerModelConfig(k, processFeatureNames, v)
 		modelConfig.IsNodePowerModel = false
 		m, err := createPowerModelEstimator(modelConfig)
 		switch k {
