@@ -28,7 +28,7 @@ repos:
         additional_dependencies:
           - tomli
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.59.1
+    rev: v1.61.0
     hooks:
       - id: golangci-lint
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
