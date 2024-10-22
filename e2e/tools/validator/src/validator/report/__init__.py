@@ -3,16 +3,17 @@ from typing import Any
 
 
 class Value:
-    def __init__(self, mse: str = "", mape: str = "", status: str = ""):
+    def __init__(self, mse: str = "", mape: str = "", mae: str = "", status: str = ""):
         self.mse = mse
         self.mape = mape
+        self.mae = mae
         self.status = status
 
     def to_dict(self):
-        return {"mse": self.mse, "mape": self.mape, "status": self.status}
+        return {"mse": self.mse, "mape": self.mape, "mae": self.mae, "status": self.status}
 
     def __repr__(self):
-        return f"Value(mse='{self.mse}', mape='{self.mape}', status='{self.status}')"
+        return f"Value(mse='{self.mse}', mape='{self.mape}', mae='{self.mae}', status='{self.status}')"
 
 
 class Result:
