@@ -116,7 +116,7 @@ def mse(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
 
 def mape(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
-        return ValueOrError(value=mean_absolute_percentage_error(actual, predicted))
+        return ValueOrError(value=mean_absolute_percentage_error(actual, predicted) * 100)
 
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
