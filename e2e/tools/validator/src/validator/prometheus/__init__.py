@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 from typing import NamedTuple, Protocol
 
-import numpy as np
 import numpy.typing as npt
 from prometheus_api_client import PrometheusConnect
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
@@ -91,20 +90,6 @@ class Result(NamedTuple):
     mae: ValueOrError
 
 
-def validate_arrays(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> tuple[npt.ArrayLike, npt.ArrayLike]:
-    actual, predicted = np.array(actual), np.array(predicted)
-
-    if len(actual) != len(predicted):
-        msg = f"actual and predicted must be of equal length: {len(actual)} != {len(predicted)}"
-        raise ValueError(msg)
-
-    if len(actual) == 0 or len(predicted) == 0:
-        msg = f"actual ({len(actual)}) and predicted ({len(predicted)}) must not be empty"
-        raise ValueError(msg)
-
-    return (actual, predicted)
-
-
 def mse(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
         return ValueOrError(value=mean_squared_error(actual, predicted))
@@ -116,7 +101,7 @@ def mse(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
 
 def mape(actual: npt.ArrayLike, predicted: npt.ArrayLike) -> ValueOrError:
     try:
-        return ValueOrError(value=mean_absolute_percentage_error(actual, predicted))
+        return ValueOrError(value=mean_absolute_percentage_error(actual, predicted) * 100)
 
     # ruff: noqa: BLE001 (Suppressed as we want to catch all exceptions here)
     except Exception as e:
