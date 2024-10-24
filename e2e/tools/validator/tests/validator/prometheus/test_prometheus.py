@@ -155,41 +155,43 @@ def test_mse():
         "a": [ 1, 2, 3, ],
         "b": [ 4, 5, 6, ],
         "mse": 9.0, # (1 - 4)^2 + (2 - 5)^2 + (3 - 6)^2 / 3
-        "mape": 1.833333,
+        "mape": 183.3333,
         "mae": 3.0, # (|1-4| + |2-5| + |3-6|) / 3
     }, {
         "a": [ 1.5, 2.5, 3.5 ],
         "b": [ 1.0, 2.0, 3.0 ],
         "mse": 0.25, # 3 x (0.5^2) / 3
-        "mape": 0.225396,
+        "mape": 22.5396,
         "mae": 0.5, # |1.5 - 1.0| + |2.5 - 2.0| + |3.5 - 3.0|
     }, {
         "a": [ 1, -2, 3 ],
         "b": [ -1, 2, -3 ],
         "mse": 18.6666, # 2.0^2 + 4.0^2 + 6.0^2 / 3
-        "mape": 2.000,
+        "mape": 200.0,
         "mae": 4.0 # (|1-(-1)| + |-2-2| + |3-(-3)|) / 3
     }]
     # fmt: on
 
     for s in inputs:
+        for a, b in ([s["a"], s["b"]], [s["b"], s["a"]]):
+            expected_mse = s["mse"]
+            actual_mse = mse(a, b)
+            assert actual_mse.error is None
+            assert pytest.approx(actual_mse.value, rel=1e-3) == expected_mse
+
+            actual_mae = mae(a, b)
+            assert actual_mae.error is None
+            expected_mae = s["mae"]
+            assert pytest.approx(actual_mae.value, rel=1e-3) == expected_mae
+
+    # NOTE: MAPE(a , b) != MAPE(b, a) unlike MSE and MAE
+    for s in inputs:
         a = s["a"]
         b = s["b"]
-
-        expected_mse = s["mse"]
-        actual_mse = mse(a, b)
-        assert actual_mse.error is None
-        assert expected_mse == pytest.approx(actual_mse.value, rel=1e-3)
-
         actual_mape = mape(a, b)
         assert actual_mape.error is None
         expected_mape = s["mape"]
-        assert expected_mape == pytest.approx(actual_mape.value, rel=1e-3)
-
-        actual_mae = mae(a, b)
-        assert actual_mae.error is None
-        expected_mae = s["mae"]
-        assert expected_mae == pytest.approx(actual_mae.value, rel=1e-3)
+        assert pytest.approx(actual_mape.value, rel=1e-3) == expected_mape
 
 
 def test_mse_with_large_arrays():
