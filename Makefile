@@ -43,14 +43,8 @@ CTR_CMD_PUSH_OPTIONS ?=
 
 GENERAL_TAGS := include_gcs include_oss containers_image_openpgp gssapi providerless netgo osusergo
 GPU_TAGS :=
-ifeq ($(shell ldconfig -p | grep -q libnvml_injection.so && echo exists),exists)
-	GPU_TAGS := nvml
-endif
-ifeq ($(shell ldconfig -p | grep -q libdcgm.so && echo exists),exists)
-	GPU_TAGS := dcgm
-endif
 ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
-	GPU_TAGS := habana
+    GPU_TAGS := habana
 endif
 
 # set GOENV

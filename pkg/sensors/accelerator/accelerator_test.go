@@ -1,17 +1,28 @@
+/*
+Copyright 2024.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package accelerator
 
 import (
 	"testing"
 
-	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
-
-	// Add supported devices.
-
-	_ "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device/sources"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/devices"
 )
 
-func newMockDevice() device.Device {
-	return device.Startup(AcceleratorType(0).String())
+func newMockDevice() devices.Device {
+	return devices.Startup(devices.MOCK.String())
 }
 
 func cleanupMockDevice() {
@@ -30,7 +41,7 @@ func TestRegistry(t *testing.T) {
 			name: "Empty registry",
 			setup: func() *Registry {
 				registry := Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
 				SetRegistry(&registry)
 
@@ -38,19 +49,18 @@ func TestRegistry(t *testing.T) {
 			},
 			expectedLen: 0,
 			expectError: false,
-			cleanup:     func() {},
+			cleanup:     func() { cleanupMockDevice() },
 		},
 		{
 			name: "Non-empty registry",
 			setup: func() *Registry {
 				registry := &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
 				SetRegistry(registry)
-
+				devices.RegisterMockDevice()
 				a := &accelerator{
 					dev:     newMockDevice(),
-					accType: AcceleratorType(0),
 					running: true,
 				}
 				registry.MustRegister(a)
@@ -68,10 +78,10 @@ func TestRegistry(t *testing.T) {
 			var a Accelerator
 			var err error
 			registry := tt.setup()
-			if a, err = New(AcceleratorType(0), true); err == nil {
+			if a, err = New("MOCK", true); err == nil {
 				registry.MustRegister(a) // Register the accelerator with the registry
 			}
-			accs := registry.Accelerators()
+			accs := GetAccelerators()
 			if tt.expectError && err == nil {
 				t.Errorf("expected an error but got nil")
 			}
@@ -90,7 +100,6 @@ func TestActiveAcceleratorByType(t *testing.T) {
 	tests := []struct {
 		name        string
 		setup       func() *Registry
-		accType     AcceleratorType
 		expectError bool
 		cleanup     func()
 	}{
@@ -98,53 +107,37 @@ func TestActiveAcceleratorByType(t *testing.T) {
 			name: "No accelerators of given type",
 			setup: func() *Registry {
 				return &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
 			},
-			accType:     AcceleratorType(0),
 			expectError: true,
-			cleanup:     func() {},
+			cleanup:     func() { cleanupMockDevice() },
 		},
 		{
 			name: "One active accelerator of given type",
 			setup: func() *Registry {
 				registry := &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
-				registry.Registry[AcceleratorType(0)] = &accelerator{
+				SetRegistry(registry)
+				devices.RegisterMockDevice()
+				a := &accelerator{
 					dev:     newMockDevice(),
-					accType: AcceleratorType(0),
 					running: true,
 				}
-				return registry
+				registry.MustRegister(a)
+
+				return GetRegistry()
 			},
-			accType:     AcceleratorType(0),
 			expectError: false,
 			cleanup:     func() { cleanupMockDevice() },
-		},
-		{
-			name: "One inactive accelerator of given type",
-			setup: func() *Registry {
-				registry := &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
-				}
-				registry.Registry[AcceleratorType(0)] = &accelerator{
-					dev:     newMockDevice(),
-					accType: AcceleratorType(0),
-					running: false,
-				}
-				return registry
-			},
-			accType:     AcceleratorType(0),
-			expectError: true,
-			cleanup:     func() {},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := tt.setup()
-			accs := registry.ActiveAcceleratorByType(tt.accType)
+			tt.setup()
+			accs := GetActiveAcceleratorByType("MOCK")
 			if tt.expectError && accs != nil {
 				t.Errorf("expected an error")
 			}
@@ -159,7 +152,7 @@ func TestActiveAcceleratorByType(t *testing.T) {
 func TestCreateAndRegister(t *testing.T) {
 	tests := []struct {
 		name        string
-		accType     AcceleratorType
+		accType     string
 		setup       func() *Registry
 		sleep       bool
 		expectError bool
@@ -167,15 +160,15 @@ func TestCreateAndRegister(t *testing.T) {
 	}{
 		{
 			name:    "Unsupported accelerator",
-			accType: AcceleratorType(999), // invalid accelerator type
+			accType: "UNSUPPORTED", // invalid accelerator type
 			setup: func() *Registry {
 				return &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
 			},
 			sleep:       false,
 			expectError: true,
-			cleanup:     func() {},
+			cleanup:     func() { cleanupMockDevice() },
 		},
 	}
 
@@ -197,37 +190,34 @@ func TestCreateAndRegister(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func() *Registry
-		accType AcceleratorType
+		name  string
+		setup func() *Registry
 	}{
 		{
 			name: "Shutdown active accelerators",
 			setup: func() *Registry {
 				registry := &Registry{
-					Registry: map[AcceleratorType]Accelerator{},
+					Registry: map[string]Accelerator{},
 				}
 
 				SetRegistry(registry)
+				devices.RegisterMockDevice()
 				a := &accelerator{
 					dev:     newMockDevice(),
-					accType: AcceleratorType(0),
 					running: true,
 				}
 				registry.MustRegister(a)
 				return GetRegistry()
 			},
-			accType: AcceleratorType(0),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := tt.setup()
-			SetRegistry(registry)
+			tt.setup()
 			Shutdown()
 
-			accs := GetRegistry().Accelerators()
+			accs := GetAccelerators()
 			for _, a := range accs {
 				if a.IsRunning() {
 					t.Errorf("expected accelerator to be stopped but it is still running")
@@ -238,23 +228,30 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestAcceleratorMethods(t *testing.T) {
-	devType := device.DeviceType(0)
+	registry := &Registry{
+		Registry: map[string]Accelerator{},
+	}
+
+	SetRegistry(registry)
+
+	devices.RegisterMockDevice()
+
 	acc := &accelerator{
 		dev:     newMockDevice(),
 		running: true,
-		accType: AcceleratorType(0),
 	}
+	registry.MustRegister(acc)
 
-	if got := acc.Device(); got.DevType() != devType {
+	devType := acc.dev.HwType()
+
+	if got := acc.Device(); got.HwType() != devType {
 		t.Errorf("expected device type %v, got %v", devType, got.DevType())
 	}
-	if got := acc.Device().DevType(); got != devType {
+	if got := acc.Device().HwType(); got != devType {
 		t.Errorf("expected device type %v, got %v", devType, got)
 	}
 	if got := acc.IsRunning(); !got {
 		t.Errorf("expected accelerator to be running, got %v", got)
 	}
-	if got := acc.AccType(); got != AcceleratorType(0) {
-		t.Errorf("expected accelerator type AcceleratorType(0), got %v", got)
-	}
+	Shutdown()
 }

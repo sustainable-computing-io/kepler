@@ -31,7 +31,7 @@ func GetProcessFeatureNames() []string {
 
 	// gpu metric
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 			metrics = append(metrics, gpuMetrics...)
 			klog.V(3).Infof("Available GPU metrics: %v", gpuMetrics)
