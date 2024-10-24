@@ -32,7 +32,51 @@ Kepler Exporter exposes a variety of
 [metrics](https://sustainable-computing.io/design/metrics/) about the energy
 consumption of Kubernetes components such as Pods and Nodes.
 
-![Architecture](doc/kepler-arch.png)
+```mermaid
+flowchart TD
+    subgraph Kernel Level
+        TP[Kernel Tracepoint] --> EBPF[Kepler eBPF Program]
+        EBPF --> |Performance Counter Stats|OM[Output Map]
+    end
+
+    subgraph Userspace Program
+        subgraph Resource Info Collection
+            P1[Process Info Collector] --> |PID, Names|INFO[Process/Container/VM Info]
+            C1[Container Info Collector] --> |Container/Pod ID, Namespace|INFO
+            V1[VM Info Collector] --> |VM ID|INFO
+        end
+
+        subgraph Hardware Metrics
+            H1[RAPL or hwmon] --> |CPU/DRAM/Package Power|PWR[Hardware Power Readings]
+            H2[NVIDIA/Intel GPU API] --> |GPU Power|PWR
+            H3[Redfish or ACPI Power Meter] --> |Platform Power|PWR
+        end
+
+        subgraph Estimator Metrics
+            E1[ML Features: CPU Time] --> |CPU/DRAM/Package Power|PWR[Hardware Power Readings]
+            E2[ML Features: CPU Time] --> |Platform Power|PWR
+        end
+
+        OM --> |Read Map Data|MAP[Activity Mapping]
+        INFO --> MAP
+        
+        MAP --> |Map via PID/cgroup ID|CALC[Energy Calculator]
+        PWR --> CALC
+    end
+
+    subgraph Power Model
+        CALC --> |Process Activity Ratio|ATTR[Idle and Dynamic Energy Attribution]
+        ATTR --> |Per Process/Container/VM|EXP[Energy Metrics]
+    end
+
+    EXP --> PROM[Prometheus Export]
+
+    %% Styling
+   
+    class TP,EBPF,OM kernel;
+    class P1,C1,V1,E1,E2,H1,H2,H3,MAP,CALC,INFO,PWR userspace;
+    class ATTR,EXP,PROM export;
+```    
 
 ## Install Kepler
 
