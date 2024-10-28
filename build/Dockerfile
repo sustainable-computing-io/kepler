@@ -41,7 +41,7 @@ RUN set -e -x ;\
 		microdnf install -y $INSTALL_PKGS ;\
 		\
 		if [[ "$TARGETARCH" == "amd64" ]]; then \
-			microdnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
+			rpm -i https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
 			microdnf install -y cpuid; \
 			if [[ "$INSTALL_DCGM" == "true" ]]; then \
 				curl https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo -o /etc/yum.repos.d/cuda-rhel9.repo; \
