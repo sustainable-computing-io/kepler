@@ -82,7 +82,7 @@ func NewStats() *Stats {
 	}
 
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			stats.ResourceUsage[config.GPUComputeUtilization] = types.NewUInt64StatCollection()
 			stats.ResourceUsage[config.GPUMemUtilization] = types.NewUInt64StatCollection()
 			stats.ResourceUsage[config.IdleEnergyInGPU] = types.NewUInt64StatCollection()
@@ -141,7 +141,7 @@ func (s *Stats) UpdateDynEnergy() {
 	}
 	// GPU metric
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			for gpuID := range s.EnergyUsage[config.AbsEnergyInGPU] {
 				s.CalcDynEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.DynEnergyInGPU, gpuID)
 			}

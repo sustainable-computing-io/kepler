@@ -1,22 +1,39 @@
-package device
+/*
+Copyright 2024.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package devices
 
 import (
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"golang.org/x/exp/maps"
 	"k8s.io/klog/v2"
 )
 
 const (
-	DUMMY DeviceType = iota
+	MOCK DeviceType = iota
 	HABANA
 	DCGM
 	NVML
 )
 
 var (
-	globalRegistry *Registry
+	deviceRegistry *Registry
 	once           sync.Once
 )
 
@@ -29,7 +46,7 @@ type (
 )
 
 func (d DeviceType) String() string {
-	return [...]string{"DUMMY", "HABANA", "DCGM", "NVML"}[d]
+	return [...]string{"MOCK", "HABANA", "DCGM", "NVML"}[d]
 }
 
 type Device interface {
@@ -66,18 +83,33 @@ type Device interface {
 // Registry gets the default device Registry instance
 func GetRegistry() *Registry {
 	once.Do(func() {
-		globalRegistry = &Registry{
-			Registry: map[string]map[DeviceType]deviceStartupFunc{},
-		}
+		deviceRegistry = newRegistry()
+		registerDevices(deviceRegistry)
 	})
-	return globalRegistry
+	return deviceRegistry
+}
+
+// NewRegistry creates a new instance of Registry without registering devices
+func newRegistry() *Registry {
+	return &Registry{
+		Registry: map[string]map[DeviceType]deviceStartupFunc{},
+	}
 }
 
 // SetRegistry replaces the global registry instance
 // NOTE: All plugins will need to be manually registered
 // after this function is called.
 func SetRegistry(registry *Registry) {
-	globalRegistry = registry
+	deviceRegistry = registry
+	registerDevices(deviceRegistry)
+}
+
+// Register all available devices in the global registry
+func registerDevices(r *Registry) {
+	// Call individual device check functions
+	dcgmCheck(r)
+	habanaCheck(r)
+	nvmlCheck(r)
 }
 
 func (r *Registry) MustRegister(a string, d DeviceType, deviceStartup deviceStartupFunc) {
@@ -103,41 +135,44 @@ func (r *Registry) Unregister(d DeviceType) {
 	klog.Errorf("Device with type %s doesn't exist", d)
 }
 
-// AddDeviceInterface adds a supported device interface, prints a fatal error in case of double registration.
-func AddDeviceInterface(dtype DeviceType, accType string, deviceStartup deviceStartupFunc) {
+// GetAllDeviceTypes returns a slice with all the registered devices.
+func (r *Registry) GetAllDeviceTypes() []string {
+	devices := append([]string{}, maps.Keys(r.Registry)...)
+	return devices
+}
+
+func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) error {
 	switch accType {
-	case "GPU", "DUMMY":
-		// Handle GPU|Dummy device startup function registration
-		if existingDevice := GetRegistry().Registry[accType][dtype]; existingDevice != nil {
+	case config.GPU:
+		// Check if device is already registered
+		if existingDevice := registry.Registry[accType][dtype]; existingDevice != nil {
 			klog.Errorf("Multiple Devices attempting to register with name %q", dtype.String())
-			return
+			return errors.New("multiple Devices attempting to register with name")
 		}
 
 		if dtype == DCGM {
 			// Remove "nvml" if "dcgm" is being registered
-			GetRegistry().Unregister(NVML)
+			registry.Unregister(NVML)
 		} else if dtype == NVML {
 			// Do not register "nvml" if "dcgm" is already registered
-			if _, ok := GetRegistry().Registry["GPU"][DCGM]; ok {
-				return
+			if _, ok := registry.Registry[config.GPU][DCGM]; ok {
+				return errors.New("DCGM already registered. Skipping NVML")
 			}
 		}
+
 		klog.V(5).Infof("Try to Register %s", dtype)
-		GetRegistry().MustRegister(accType, dtype, deviceStartup)
+		registry.MustRegister(accType, dtype, deviceStartup)
 	default:
-		klog.Errorf("Unsupported device type %q", dtype)
+		klog.V(5).Infof("Try to Register %s", dtype)
+		registry.MustRegister(accType, dtype, deviceStartup)
 	}
 
 	klog.V(5).Infof("Registered %s", dtype)
+
+	return nil
 }
 
-// GetAllDeviceTypes returns a slice with all the registered devices.
-func GetAllDeviceTypes() []string {
-	devices := append([]string{}, maps.Keys(GetRegistry().Registry)...)
-	return devices
-}
-
-// Startup initializes and returns a new Device according to the given DeviceType [NVML|DCGM|DUMMY|HABANA].
+// Startup initializes and returns a new Device according to the given DeviceType [NVML|DCGM|HABANA].
 func Startup(a string) Device {
 	// Retrieve the global registry
 	registry := GetRegistry()

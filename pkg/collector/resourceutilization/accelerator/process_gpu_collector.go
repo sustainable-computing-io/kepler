@@ -26,7 +26,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/libvirt"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
-	dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/device"
+	dev "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/devices"
 	"k8s.io/klog/v2"
 
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -43,7 +43,7 @@ var (
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
 func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
-	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+	if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 		d := gpu.Device()
 		migDevices := d.DeviceInstances()
 		for _, _device := range d.DevicesByID() {
