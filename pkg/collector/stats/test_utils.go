@@ -19,7 +19,6 @@ package stats
 import (
 	"strconv"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"k8s.io/klog/v2"
@@ -33,7 +32,7 @@ const (
 // TODO: do not use a fixed usageMetric array in the power models, a structured data is more disarable.
 func SetMockedCollectorMetrics() {
 	config.GetConfig()
-	if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+	if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 		err := gpu.Device().Init() // create structure instances that will be accessed to create a processMetric
 		klog.Fatalln(err)
 	}
@@ -54,7 +53,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 	vmID := "vm" + strconv.Itoa(idx)
 	command := "command" + strconv.Itoa(idx)
 	uintPid := uint64(idx)
-	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command, bpf.DefaultSupportedMetrics())
+	processMetrics := NewProcessStats(uintPid, uintPid, containerID, vmID, command)
 	// counter - attacher package
 	processMetrics.ResourceUsage[config.CPUCycle].SetDeltaStat(MockedSocketID, 30000)
 	processMetrics.ResourceUsage[config.CPUInstruction].SetDeltaStat(MockedSocketID, 30000)
@@ -66,7 +65,7 @@ func createMockedProcessMetric(idx int) *ProcessStats {
 
 // CreateMockedNodeStats creates a node metric with power consumption and add the process resource utilization
 func CreateMockedNodeStats() NodeStats {
-	nodeMetrics := NewNodeStats(bpf.DefaultSupportedMetrics())
+	nodeMetrics := NewNodeStats()
 	// add power metrics
 	// add first values to be the idle power
 	nodeMetrics.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(MockedSocketID, 5000) // mili joules

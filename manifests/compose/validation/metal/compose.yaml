@@ -110,10 +110,15 @@ services:
       - --collector.cpu
       - --collector.cpufreq
       - --collector.perf
+      - --collector.perf.cpus=0-19 # specify range of all cpus
+      - --collector.perf.software-profilers=ContextSwitch
       - --collector.meminfo
       - --collector.rapl
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     user: root
+    cap_add: # Add capabilities for perf collection.
+      - SYS_ADMIN
+      - SYS_PTRACE
     networks:
       - node-exporter-network
 

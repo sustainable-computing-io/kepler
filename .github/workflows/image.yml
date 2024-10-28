@@ -21,6 +21,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -96,8 +98,16 @@ jobs:
         run: |
           cosign sign -y quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}@${{ steps.build-push-image.outputs.digest }}
 
+      - name: Generate image attestation
+        if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')}}
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}
+          subject-digest: ${{ steps.build-push-image.outputs.digest }}
+          push-to-registry: ${{ inputs.pushImage }}
+
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.17.2
+        uses: anchore/sbom-action@v0.17.4
         with:
           image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
@@ -105,8 +115,17 @@ jobs:
 
       - name: save Kepler image SBOM as artifact
         if: ${{ inputs.pushImage }}
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           retention-days: 1
+
+      - name: Generate SBOM attestation
+        uses: actions/attest-sbom@v1
+        if: ${{ inputs.pushImage }}
+        with:
+          subject-name: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}
+          subject-digest: ${{ steps.build-push-image.outputs.digest }}
+          sbom-path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
+          push-to-registry: ${{ inputs.pushImage }}

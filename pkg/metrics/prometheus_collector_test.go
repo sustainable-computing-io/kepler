@@ -33,6 +33,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
@@ -63,7 +64,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 		// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 		components.SetIsSystemCollectionSupported(false)
 		platform.SetIsSystemCollectionSupported(false)
-		if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 			err := gpu.Device().Init() // create structure instances that will be accessed to create a containerMetric
 			Expect(err).NotTo(HaveOccurred())
 		}
@@ -88,7 +89,7 @@ var _ = Describe("Test Prometheus Collector Unit", func() {
 
 		nodeStats.UpdateDynEnergy()
 
-		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
+		model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames())
 		model.UpdateProcessEnergy(processStats, &nodeStats)
 
 		// get metrics from prometheus

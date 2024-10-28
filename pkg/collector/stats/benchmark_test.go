@@ -38,8 +38,7 @@ func benchmarkNtesting(b *testing.B, processNumber int) {
 	metricCollector.AggregateProcessResourceUtilizationMetrics()
 
 	// The default estimator model is the ratio
-	bpfSupportedMetrics := bpf.DefaultSupportedMetrics()
-	model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames(bpfSupportedMetrics), bpfSupportedMetrics)
+	model.CreatePowerEstimatorModels(stats.GetProcessFeatureNames())
 
 	// update container and node metrics
 	b.ReportAllocs()

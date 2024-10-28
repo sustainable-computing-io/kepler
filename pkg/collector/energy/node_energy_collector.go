@@ -67,7 +67,7 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if config.EnabledGPU() {
-		if gpu := acc.GetRegistry().ActiveAcceleratorByType(acc.GPU); gpu != nil {
+		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 			gpuEnergy := gpu.Device().AbsEnergyFromDevice()
 			for gpu, energy := range gpuEnergy {
 				nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
@@ -104,7 +104,9 @@ func UpdateNodeEnergyMetrics(nodeStats *stats.NodeStats) {
 	// update platform power later to avoid race condition when using estimation power model
 	UpdatePlatformEnergy(nodeStats)
 	// after updating the total energy we calculate the idle, dynamic and other components energy
-	UpdateNodeIdleEnergy(nodeStats)
+	if config.IsIdlePowerEnabled() {
+		UpdateNodeIdleEnergy(nodeStats)
+	}
 	nodeStats.UpdateDynEnergy()
 	nodeStats.SetNodeOtherComponentsEnergy()
 }

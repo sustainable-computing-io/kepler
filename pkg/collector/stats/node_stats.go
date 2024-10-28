@@ -19,7 +19,6 @@ package stats
 import (
 	"fmt"
 
-	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/node"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
@@ -36,9 +35,9 @@ type NodeStats struct {
 	nodeInfo node.Node
 }
 
-func NewNodeStats(bpfSupportedMetrics bpf.SupportedMetrics) *NodeStats {
+func NewNodeStats() *NodeStats {
 	return &NodeStats{
-		Stats:              *NewStats(bpfSupportedMetrics),
+		Stats:              *NewStats(),
 		IdleResUtilization: map[string]uint64{},
 		nodeInfo:           node.NewNodeInfo(),
 	}
@@ -52,7 +51,7 @@ func (ne *NodeStats) ResetDeltaValues() {
 func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported bool) {
 	// gpu metric
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			ne.CalcIdleEnergy(config.AbsEnergyInGPU, config.IdleEnergyInGPU, config.GPUComputeUtilization)
 		}
 	}

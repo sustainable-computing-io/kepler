@@ -26,10 +26,11 @@ dependencies = [
   "click",
   "paramiko",
   "prometheus-api-client",
-	"pyyaml",
-	"numpy",
-	"pandas",
-	"matplotlib",
+  "pyyaml",
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "scikit-learn",
 ]
 
 [project.scripts]
@@ -45,6 +46,7 @@ dependencies = [
   "pytest",
   "ipython",
   "ipdb",
+  "scikit-learn",
 ]
 
 [tool.hatch.envs.default.scripts]

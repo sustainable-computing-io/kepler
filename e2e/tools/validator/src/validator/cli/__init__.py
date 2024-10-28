@@ -30,7 +30,6 @@ from validator.validations import Loader, QueryTemplate, Validation
 
 logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
-data_dict = {}
 
 
 @dataclass
@@ -45,6 +44,7 @@ class ValidationResult:
 
     mse: ValueOrError
     mape: ValueOrError
+    mae: ValueOrError
 
     actual_dropped: int = 0
     predicted_dropped: int = 0
@@ -54,6 +54,7 @@ class ValidationResult:
 
     mse_passed: bool = True
     mape_passed: bool = True
+    mae_passed: bool = True
 
     unexpected_error: str = ""
 
@@ -71,10 +72,10 @@ class ValidationResult:
     def verdict(self) -> str:
         note = " (dropped)" if self.actual_dropped > 0 or self.predicted_dropped > 0 else ""
 
-        if self.unexpected_error or self.mse.error or self.mape.error:
+        if self.unexpected_error or self.mse.error or self.mape.error or self.mae.error:
             return f"ERROR{note}"
 
-        if self.mse_passed and self.mape_passed:
+        if self.mse_passed and self.mape_passed and self.mae_passed:
             return f"PASS{note}"
 
         return f"FAIL{note}"
@@ -203,9 +204,15 @@ def write_md_report(results_dir: str, r: TestResult):
     md.h2("Validations")
     md.h3("Summary")
     md.table(
-        ["Name", "MSE", "MAPE", "Pass / Fail"],
+        ["Name", "MSE", "MAPE", "MAE", "Pass / Fail"],
         [
-            [f"[{v.name}](#{v.name.replace(' ', '-')})", f"{v.mse.value:.2f}", f"{v.mape.value:.2f}", v.verdict]
+            [
+                f"[{v.name}](#{v.name.replace(' ', '-')})",
+                f"{v.mse.value:.2f}",
+                f"{v.mape.value:.2f}",
+                f"{v.mae.value:.2f}",
+                v.verdict,
+            ]
             for v in r.validations.results
             if not v.unexpected_error
         ],
@@ -231,6 +238,7 @@ def write_md_report(results_dir: str, r: TestResult):
         md.write("\n**Results**:\n")
         md.li(f"MSE  : `{v.mse}`")
         md.li(f"MAPE : `{v.mape} %`")
+        md.li(f"MAE  : `{v.mae}`")
         md.write("\n**Charts**:\n")
         img_path = create_charts_for_result(results_dir, v)
         md.img(v.name, img_path)
@@ -292,6 +300,9 @@ def create_charts_for_result(results_dir: str, r: ValidationResult) -> str:
 
     if r.mape.error is None:
         err_report += f"\nMAPE: {r.mape.value:.2f}%"
+
+    if r.mae.error is None:
+        err_report += f"\nMAE: {r.mae.value:.2f}"
 
     ax.text(
         0.98,
@@ -403,8 +414,6 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     click.secho("  * Generating report dir and tag", fg="green")
     results_dir, tag = create_report_dir(report_dir)
     click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
-    filepath = results_dir + "/" + tag + ".json"
-    data_dict.update({"file_path": filepath})
 
     res = TestResult(tag)
 
@@ -425,7 +434,7 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
     time.sleep(10)
 
     res.validations = run_validations(cfg, stress_test, results_dir)
-    create_json(res)
+    write_json_report(results_dir, res)
     write_md_report(results_dir, res)
 
 
@@ -461,6 +470,7 @@ def gen_report(cfg: config.Validator, start: datetime.datetime, end: datetime.da
     script_result = ScriptResult(start, end)
     res.validations = run_validations(cfg, script_result, results_dir)
 
+    write_json_report(results_dir, res)
     write_md_report(results_dir, res)
 
 
@@ -527,7 +537,8 @@ def run_validation(
             v.predicted.promql,
         )
         click.secho(f"\t MSE : {cmp.mse}", fg="bright_blue")
-        click.secho(f"\t MAPE: {cmp.mape} %\n", fg="bright_blue")
+        click.secho(f"\t MAPE: {cmp.mape} %", fg="bright_blue")
+        click.secho(f"\t MAE : {cmp.mae}\n", fg="bright_blue")
 
         result.predicted_dropped = cmp.predicted_dropped
         result.actual_dropped = cmp.predicted_dropped
@@ -539,16 +550,20 @@ def run_validation(
                 cmp.predicted_dropped,
             )
 
-        result.mse, result.mape = cmp.mse, cmp.mape
+        result.mse, result.mape, result.mae = cmp.mse, cmp.mape, cmp.mae
 
         result.mse_passed = v.max_mse is None or (cmp.mse.error is None and cmp.mse.value <= v.max_mse)
         result.mape_passed = v.max_mape is None or (cmp.mape.error is None and cmp.mape.value <= v.max_mape)
+        result.mae_passed = v.max_mae is None or (cmp.mae.error is None and cmp.mae.value <= v.max_mae)
 
         if not result.mse_passed:
             click.secho(f"MSE exceeded threshold. mse: {cmp.mse}, max_mse: {v.max_mse}", fg="red")
 
         if not result.mape_passed:
             click.secho(f"MAPE exceeded threshold. mape: {cmp.mape}, max_mape: {v.max_mape}", fg="red")
+
+        if not result.mae_passed:
+            click.secho(f"MAE exceeded threshold. mae: {cmp.mae}, max_mae: {v.max_mae}", fg="red")
 
         result.actual_filepath = dump_query_result(results_dir, v.actual_label, v.actual, cmp.actual_series)
         result.predicted_filepath = dump_query_result(results_dir, v.predicted_label, v.predicted, cmp.predicted_series)
@@ -595,73 +610,80 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     return int(res.validations.passed)
 
 
-def create_json(res):
-    def update_list_json(new_value: list, new_key: str):
-        data_dict[new_key] = new_value
+def write_json_report(results_dir: str, res: TestResult):
+    pattern = re.compile(r'[{]?(\w+)=("[^"]*"|[^,]+)[},]?')
 
-    def custom_encode(input_string):
-        pattern = re.compile(r'(\w+)=("[^"]*"|[^,]+)')
+    def extract_label_value(input_string):
         matches = pattern.findall(input_string)
-        parsed_dict = {key: value.strip('"') for key, value in matches}
-        return json.dumps(parsed_dict)
+        return {key: value.strip('"') for key, value in matches}
 
-    result = []
+    data_dict = {}
+    results = []
 
-    for i in res.validations.results:
-        value = {}
-        if i.mse_passed:
-            value["mse"] = float(i.mse.value)
-        else:
-            value["mse"] = float(i.mse.error)
-        if i.mape_passed:
-            value["mape"] = float(i.mape.value)
-        else:
-            value["mape"] = float(i.mape.error)
-        value["status"] = "mape passed: " + str(i.mape_passed) + ", mse passed: " + str(i.mse_passed)
-        m_name = i.name.replace(" - ", "_")
-
-        result.append({m_name: value})
+    for r in res.validations.results:
+        value = {
+            "mae": str(r.mae),
+            "mape": str(r.mape),
+            "mse": str(r.mse),
+            "status": (
+                "mape passed: "
+                + str(r.mape_passed).lower()
+                + ", mse passed: "
+                + str(r.mse_passed).lower()
+                + ", mae passed: "
+                + str(r.mae_passed).lower()
+            ),
+        }
+        results.append({r.name: value})
 
     build_info = []
-    for i in res.build_info:
-        tmp = i.replace("kepler_exporter_build_info", "")
-        build_info.append(custom_encode(tmp))
+    for r in res.build_info:
+        selector = r.replace("kepler_exporter_build_info", "")
+        build_info.append(extract_label_value(selector))
 
     node_info = []
-    for i in res.node_info:
-        tmp = i.replace("kepler_exporter_node_info", "")
-        node_info.append(custom_encode(tmp))
+    for r in res.node_info:
+        selector = r.replace("kepler_exporter_node_info", "")
+        node_info.append(extract_label_value(selector))
 
-    update_list_json(build_info, "build_info")
-    update_list_json(node_info, "node_info")
+    data_dict["build_info"] = build_info
+    data_dict["node_info"] = node_info
 
-    machine_spec = []
-    machine_spec.append(
+    machine_specs = []
+    machine_specs.append(
         {
             "type": "host",
-            "model": res.host_spec[0][0],
-            "cores": res.host_spec[0][1],
-            "threads": res.host_spec[0][2],
-            "sockets": res.host_spec[0][3],
-            "flags": res.host_spec[0][4],
-            "dram": res.host_spec[1],
+            "model": res.host_spec.cpu_spec.model,
+            "cores": res.host_spec.cpu_spec.cores,
+            "threads": res.host_spec.cpu_spec.threads,
+            "sockets": res.host_spec.cpu_spec.sockets,
+            "flags": res.host_spec.cpu_spec.flags,
+            "dram": res.host_spec.dram_size,
         }
     )
-    machine_spec.append(
-        {
-            "type": "vm",
-            "model": res.vm_spec[0][0],
-            "cores": res.vm_spec[0][1],
-            "threads": res.vm_spec[0][2],
-            "sockets": res.vm_spec[0][3],
-            "flags": res.vm_spec[0][4],
-            "dram": res.vm_spec[1],
-        }
-    )
-    update_list_json(machine_spec, "machine_spec")
+    if res.vm_spec is not None:
+        machine_specs.append(
+            {
+                "type": "vm",
+                "model": res.vm_spec.cpu_spec.model,
+                "cores": res.vm_spec.cpu_spec.cores,
+                "threads": res.vm_spec.cpu_spec.threads,
+                "sockets": res.vm_spec.cpu_spec.sockets,
+                "flags": res.vm_spec.cpu_spec.flags,
+                "dram": res.vm_spec.dram_size,
+            }
+        )
 
-    update_list_json(result, "result")
+    data_dict["machine_specs"] = machine_specs
+    data_dict["results"] = results
+
     json_template = JsonTemplate(**data_dict)
-    file_name = data_dict["file_path"]
-    with open(file_name, "w") as file:
+
+    path = os.path.join(results_dir, f"{res.tag}.json")
+    with open(path, "w") as file:
         json.dump(json_template, file, cls=CustomEncoder, indent=2)
+
+    #
+    # TODO: remove all the above in favor of below
+    # with open(file_name+"sane.json", "w") as file:
+    #     json.dump(dataclasses.asdict(res), file, cls=CustomEncoder, indent=2)

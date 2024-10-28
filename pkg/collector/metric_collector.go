@@ -64,7 +64,7 @@ type Collector struct {
 func NewCollector(bpfExporter bpf.Exporter) *Collector {
 	bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 	c := &Collector{
-		NodeStats:           *stats.NewNodeStats(bpfSupportedMetrics),
+		NodeStats:           *stats.NewNodeStats(),
 		ContainerStats:      map[string]*stats.ContainerStats{},
 		ProcessStats:        map[uint64]*stats.ProcessStats{},
 		VMStats:             map[string]*stats.VMStats{},
@@ -78,8 +78,7 @@ func (c *Collector) Initialize() error {
 	// For local estimator, there is endpoint provided, thus we should let
 	// model component decide whether/how to init
 	model.CreatePowerEstimatorModels(
-		stats.GetProcessFeatureNames(c.bpfSupportedMetrics),
-		c.bpfSupportedMetrics,
+		stats.GetProcessFeatureNames(),
 	)
 
 	return nil
@@ -160,8 +159,8 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
 	if config.EnabledGPU() {
-		if acc.GetRegistry().ActiveAcceleratorByType(acc.GPU) != nil {
-			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats, c.bpfSupportedMetrics)
+		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
+			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
 		}
 	}
 }
@@ -192,7 +191,7 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfSupportedMetrics)
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
 						}
 						c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 						foundVM[process.VMID] = true
@@ -277,7 +276,7 @@ func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 				if config.IsExposeVMStatsEnabled() {
 					if process.VMID != "" {
 						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID, c.bpfSupportedMetrics)
+							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
 						}
 						c.VMStats[process.VMID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 					}

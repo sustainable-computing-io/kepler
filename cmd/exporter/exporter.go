@@ -79,7 +79,7 @@ func newAppConfig() *AppConfig {
 	flag.StringVar(&_config.Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
 	flag.BoolVar(&_config.ApiserverEnabled, "apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
 	flag.StringVar(&_config.RedfishCredFilePath, "redfish-cred-file-path", "", "path to the redfish credential file")
-	flag.BoolVar(&_config.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "estimated idle power is meaningful only if Kepler is running on bare-metal or when there is only one virtual machine on the node")
+	flag.BoolVar(&_config.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "Whether to expose the estimated idle power as a metric")
 	flag.StringVar(&_config.MachineSpecFilePath, "machine-spec", "", "path to the machine spec file in json format")
 	flag.BoolVar(&_config.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
 
@@ -125,7 +125,7 @@ func main() {
 	config.SetEnabledHardwareCounterMetrics(appConfig.ExposeHardwareCounterMetrics)
 	config.SetEnabledGPU(appConfig.EnableGPU)
 	config.SetEnabledMSR(appConfig.EnableMSR)
-	config.SetEnabledIdlePower(appConfig.ExposeEstimatedIdlePower || components.IsSystemCollectionSupported())
+	config.SetEnabledIdlePower(appConfig.ExposeEstimatedIdlePower)
 
 	config.SetKubeConfig(appConfig.Kubeconfig)
 	config.SetEnableAPIServer(appConfig.ApiserverEnabled)
@@ -148,7 +148,7 @@ func main() {
 
 	if config.EnabledGPU() {
 		r := accelerator.GetRegistry()
-		if a, err := accelerator.New(accelerator.GPU, true); err == nil {
+		if a, err := accelerator.New(config.GPU, true); err == nil {
 			r.MustRegister(a) // Register the accelerator with the registry
 		} else {
 			klog.Errorf("failed to init GPU accelerators: %v", err)
