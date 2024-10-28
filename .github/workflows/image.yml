@@ -107,7 +107,7 @@ jobs:
           push-to-registry: ${{ inputs.pushImage }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.17.4
+        uses: anchore/sbom-action@v0.17.5
         with:
           image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
