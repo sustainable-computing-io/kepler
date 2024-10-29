@@ -64,6 +64,7 @@ type KeplerConfig struct {
 	EstimatorSelectFilter        string
 	CPUArchOverride              string
 	MachineSpecFilePath          string
+	ExcludeSwapperProcess        bool
 }
 type MetricsConfig struct {
 	CoreUsageMetric    string
@@ -158,6 +159,7 @@ func getKeplerConfig() KeplerConfig {
 		EstimatorModel:               getConfig("ESTIMATOR_MODEL", defaultMetricValue),
 		EstimatorSelectFilter:        getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue), // no filter
 		CPUArchOverride:              getConfig("CPU_ARCH_OVERRIDE", defaultCPUArchOverride),
+		ExcludeSwapperProcess:        getBoolConfig("EXCLUDE_SWAPPER_PROCESS", defaultExcludeSwapperProcess),
 	}
 }
 
@@ -262,6 +264,7 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_COMPONENT_POWER: %t", instance.Kepler.ExposeComponentPower)
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", instance.Kepler.ExposeIdlePowerMetrics)
 		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", instance.Kepler.BPFSampleRate)
+		klog.V(5).Infof("EXCLUDE_SWAPPER_PROCESS: %t", instance.Kepler.ExcludeSwapperProcess)
 	}
 }
 
@@ -680,4 +683,9 @@ func BPFSwCounters() []string {
 func DCGMHostEngineEndpoint() string {
 	ensureConfigInitialized()
 	return instance.DCGMHostEngineEndpoint
+}
+
+func ExcludeSwapperProcess() bool {
+	ensureConfigInitialized()
+	return instance.Kepler.ExcludeSwapperProcess
 }
