@@ -90,11 +90,12 @@ const (
 	// MaxIRQ is the maximum number of IRQs to be monitored
 	MaxIRQ = 10
 	// defaultSamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
-	defaultSamplePeriodSec = 3
-	configDir              = "/etc/kepler/kepler.config"
-	defaultKubeConfig      = ""
-	defaultBPFSampleRate   = 0
-	defaultCPUArchOverride = ""
+	defaultSamplePeriodSec       = 3
+	configDir                    = "/etc/kepler/kepler.config"
+	defaultKubeConfig            = ""
+	defaultBPFSampleRate         = 0
+	defaultCPUArchOverride       = ""
+	defaultExcludeSwapperProcess = false
 	// model_parameter_prefix
 	defaultNodePlatformPowerKey        = "NODE_TOTAL"
 	defaultNodeComponentsPowerKey      = "NODE_COMPONENTS"
