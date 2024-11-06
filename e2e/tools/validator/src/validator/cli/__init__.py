@@ -172,6 +172,9 @@ class MarkdownReport:
             ],
         )
 
+    def new_line(self):
+        self.write("\n")
+
 
 def write_md_report(results_dir: str, r: TestResult):
     path = os.path.join(results_dir, f"report-{r.tag}.md")
@@ -193,8 +196,10 @@ def write_md_report(results_dir: str, r: TestResult):
 
     md.h2("Machine Specs")
     md.add_machine_spec("Host", r.host_spec)
+    md.new_line()
     if r.vm_spec is not None:
         md.add_machine_spec("VM", r.vm_spec)
+        md.new_line()
 
     md.h2("Validation Results")
     md.li(f"Started At: `{r.start_time}`")
@@ -217,6 +222,7 @@ def write_md_report(results_dir: str, r: TestResult):
             if not v.unexpected_error
         ],
     )
+    md.new_line()
 
     md.h3("Details")
     for v in r.validations.results:
