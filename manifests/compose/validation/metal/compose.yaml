@@ -154,7 +154,7 @@ services:
     volumes:
       - ../config/process-exporter.yaml:/config/process-exporter.yaml
       - /proc:/host/proc:ro
-    
+
     networks:
       - process-exporter-network
 

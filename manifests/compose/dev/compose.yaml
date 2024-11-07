@@ -147,7 +147,7 @@ services:
     volumes:
       - ./config/process-exporter.yaml:/config/process-exporter.yaml
       - /proc:/host/proc:ro
-    
+
     networks:
       - process-exporter-network
 
@@ -157,4 +157,3 @@ networks:
   node-exporter-network:
   libvirt-exporter-network:
   process-exporter-network:
-
