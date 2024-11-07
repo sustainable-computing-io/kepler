@@ -18,3 +18,4 @@ services:
       - scaph-network
       - node-exporter-network
       - libvirt-exporter-network
+      - process-exporter-network
