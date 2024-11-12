@@ -142,8 +142,8 @@ services:
     ports:
       - 9256:9256
     command:
-      - '--procfs=/host/proc'
-      - '--config.path=/config/process-exporter.yaml'
+      - --procfs=/host/proc
+      - --config.path=/config/process-exporter.yaml
     volumes:
       - ./config/process-exporter.yaml:/config/process-exporter.yaml
       - /proc:/host/proc:ro
