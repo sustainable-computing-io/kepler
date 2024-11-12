@@ -2,6 +2,9 @@ config:
   mapping:
     actual: metal
     predicted: vm
+  stressor:
+    total_runtime_seconds: 1200
+    curve_type: default
 
 validations:
   - name: node-rapl - kepler-package
