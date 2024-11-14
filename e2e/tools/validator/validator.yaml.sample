@@ -20,4 +20,8 @@ prometheus:
   rate_interval: 20s  # Rate interval for Promql, default is 20s, typically 4 x $scrape_interval
   steps: 3s  # Step duration for Prometheus range queries
 
+stressor:
+    total_runtime_seconds: 1200
+    curve_type: default
+
 validations_file: ./validations.yaml  # Path to the validations file, default is ./validations.yaml

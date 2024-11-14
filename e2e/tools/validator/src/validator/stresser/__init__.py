@@ -27,8 +27,6 @@ class Remote:
         self.user = config.user
         self.port = config.port
         self.password = config.password
-        self.total_runtime_seconds = config.total_runtime_seconds
-        self.curve_type = config.curve_type
 
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -65,16 +63,13 @@ class Remote:
         self.ssh_client.exec_command(f"chmod +x {target_script}")
         logger.info("copying script %s to remote - %s - successful", script_path, target_script)
 
-    def run_script(self, script_path: str) -> ScriptResult:
+    def run_script(self, script_path: str, target_script: str, **kwargs) -> ScriptResult:
         self.connect()
-        logger.info("Running script %s ...", script_path)
 
-        # ruff: noqa: S108 (Suppressed hard-coded path because we want to intentionally copy stress.sh inside `/tmp` dir)
-        target_script = "/tmp/stress.sh"
-        cli_options = f"-t {self.total_runtime_seconds} -c {self.curve_type}"
+        cli_options = " ".join([f"-{k} {v}" for k, v in kwargs.items()]) if kwargs else ""
         command = f"{target_script} {cli_options}"
         self.copy(script_path, target_script)
-
+        logger.info("Running command %s ...", command)
         # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
         start_time = datetime.now()
         _, stdout, stderr = self.ssh_client.exec_command(command)

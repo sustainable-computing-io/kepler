@@ -431,7 +431,11 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
 
     click.secho("  * Running stress test ...", fg="green")
     remote = Remote(cfg.remote)
-    stress_test = remote.run_script(script_path)
+    total_runtime_seconds = cfg.stressor.total_runtime_seconds
+    curve_type = cfg.stressor.curve_type
+    stress_test = remote.run_script(
+        script_path=script_path, target_script="/tmp/stress.sh", t=total_runtime_seconds, c=curve_type
+    )
     res.start_time = stress_test.start_time
     res.end_time = stress_test.end_time
 
