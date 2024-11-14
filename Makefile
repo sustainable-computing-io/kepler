@@ -331,6 +331,7 @@ TOOLS = govulncheck \
 		kubectl \
 		kustomize \
 		yq \
+		bpf2go \
 
 tools: ## Install required Kepler tools
 	./hack/tools.sh
