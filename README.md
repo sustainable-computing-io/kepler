@@ -32,7 +32,73 @@ Kepler Exporter exposes a variety of
 [metrics](https://sustainable-computing.io/design/metrics/) about the energy
 consumption of Kubernetes components such as Pods and Nodes.
 
-![Architecture](doc/kepler-arch.png)
+```mermaid
+flowchart BT
+    classDef kernel fill:#e6f3ff,stroke:#4a90e2,color:#000
+    classDef collector fill:#f0fff0,stroke:#2ecc71,color:#000
+    classDef hardware fill:#fff0f5,stroke:#e74c3c,color:#000
+    classDef estimator fill:#fff5e6,stroke:#f39c12,color:#000
+    classDef mapping fill:#f5f0ff,stroke:#9b59b6,color:#000
+    classDef calculator fill:#f0f5ff,stroke:#3498db,color:#000
+    classDef attribution fill:#fff0f0,stroke:#e74c3c,color:#000
+    classDef export fill:#f5fff0,stroke:#27ae60,color:#000
+
+    classDef kernelLevel fill:#e6f3ff,stroke:#999,color:#000
+    classDef userSpace fill:#f5f5f5,stroke:#999,color:#000
+    classDef resourceCollection fill:#f0fff0,stroke:#999,color:#000
+    classDef hardwareMetrics fill:#fff0f5,stroke:#999,color:#000
+    classDef estimatorMetrics fill:#fff5e6,stroke:#999,color:#000
+    classDef powerModel fill:#f0f0ff,stroke:#999,color:#000
+
+    subgraph KL[Kernel Level]
+        direction BT
+        TP[Kernel Tracepoint]:::kernel --> EBPF[Kepler eBPF Program]:::kernel
+        EBPF --> |Performance Counter Stats|OM[Output Map]:::kernel
+    end
+
+    subgraph UP[Userspace Program]
+        direction BT
+        subgraph RC[Resource Info Collection]
+            direction BT
+            P1[Process Info Collector]:::collector --> |PID, Names|INFO[Process/Container/VM Info]:::collector
+            C1[Container Info Collector]:::collector --> |Container/Pod ID, Namespace|INFO
+            V1[VM Info Collector]:::collector --> |VM ID|INFO
+        end
+
+        subgraph HM[Hardware Metrics]
+            direction BT
+            H1[RAPL or hwmon]:::hardware --> |CPU/DRAM/Package Power|PWR[Hardware Power Readings]:::hardware
+            H2[NVIDIA/Intel GPU API]:::hardware --> |GPU Power|PWR
+            H3[Redfish or ACPI Power Meter]:::hardware --> |Platform Power|PWR
+        end
+
+        subgraph EM[Estimator Metrics]
+            direction BT
+            E1[ML Features: CPU Time]:::estimator --> |CPU/DRAM/Package Power|PWR
+            E2[ML Features: CPU Time]:::estimator --> |Platform Power|PWR
+        end
+
+        OM --> |Read Map Data|MAP[Activity Mapping]:::mapping
+        INFO --> MAP
+        MAP --> |Map via PID/cgroup ID|CALC[Energy Calculator]:::calculator
+        PWR --> CALC
+    end
+
+    subgraph PM[Power Model]
+        direction BT
+        CALC --> |Process Activity Ratio|ATTR[Idle and Dynamic Energy Attribution]:::attribution
+        ATTR --> |Per Process/Container/VM|EXP[Energy Metrics]:::attribution
+    end
+
+    EXP --> PROM[Prometheus Export]:::export
+
+    class KL kernelLevel
+    class UP userSpace
+    class RC resourceCollection
+    class HM hardwareMetrics
+    class EM estimatorMetrics
+    class PM powerModel
+```
 
 ## Install Kepler
 
