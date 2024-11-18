@@ -20,10 +20,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
 
 var _ = Describe("Test Linear Predictor Unit", func() {
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).ShouldNot(HaveOccurred())
+	})
 	It("Get Node Platform Power By Linear Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(DummyWeightHandler, types.LinearRegressionTrainer)
 		Expect(powers[0]).Should(BeEquivalentTo(3000))

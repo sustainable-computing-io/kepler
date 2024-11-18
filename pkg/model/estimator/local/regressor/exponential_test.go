@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
 
@@ -29,6 +30,11 @@ var (
 )
 
 var _ = Describe("Test Exponential Predictor Unit", func() {
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
 	It("Get Node Platform Power By Exponential Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(dummyExponentialWeightHandler, types.ExponentialTrainer)
 		Expect(simplifyOutputInMilliJoules(powers[0])).Should(BeEquivalentTo(4000))

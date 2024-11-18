@@ -91,7 +91,6 @@ const (
 	MaxIRQ = 10
 	// defaultSamplePeriodSec is the time in seconds that the reader will wait before reading the metrics again
 	defaultSamplePeriodSec       = 3
-	configDir                    = "/etc/kepler/kepler.config"
 	defaultKubeConfig            = ""
 	defaultBPFSampleRate         = 0
 	defaultCPUArchOverride       = ""
@@ -106,3 +105,5 @@ const (
 	DefaultMachineSpecFilePath         = "/etc/kepler/models/machine/spec.json"
 	defaultDCGMHostEngineEndpoint      = "localhost:5555"
 )
+
+var BaseDir string = "/etc/kepler/kepler.config"

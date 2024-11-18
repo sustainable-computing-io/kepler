@@ -8,6 +8,11 @@ import (
 
 var _ = Describe("ProcessMetric", func() {
 
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Test ResetDeltaValues", func() {
 		SetMockedCollectorMetrics()
 		metrics := CreateMockedProcessStats(1)

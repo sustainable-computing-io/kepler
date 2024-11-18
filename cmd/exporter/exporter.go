@@ -53,6 +53,7 @@ const (
 
 // AppConfig holds the configuration info for the application.
 type AppConfig struct {
+	BaseDir                      string
 	Address                      string
 	MetricsPath                  string
 	EnableGPU                    bool
@@ -69,21 +70,22 @@ type AppConfig struct {
 
 func newAppConfig() *AppConfig {
 	// Initialize flags
-	_config := &AppConfig{}
-	flag.StringVar(&_config.Address, "address", "0.0.0.0:8888", "bind address")
-	flag.StringVar(&_config.MetricsPath, "metrics-path", "/metrics", "metrics path")
-	flag.BoolVar(&_config.EnableGPU, "enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
-	flag.BoolVar(&_config.EnableEBPFCgroupID, "enable-cgroup-id", true, "whether enable eBPF to collect cgroup id")
-	flag.BoolVar(&_config.ExposeHardwareCounterMetrics, "expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
-	flag.BoolVar(&_config.EnableMSR, "enable-msr", false, "whether MSR is allowed to obtain energy data")
-	flag.StringVar(&_config.Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
-	flag.BoolVar(&_config.ApiserverEnabled, "apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
-	flag.StringVar(&_config.RedfishCredFilePath, "redfish-cred-file-path", "", "path to the redfish credential file")
-	flag.BoolVar(&_config.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "Whether to expose the estimated idle power as a metric")
-	flag.StringVar(&_config.MachineSpecFilePath, "machine-spec", "", "path to the machine spec file in json format")
-	flag.BoolVar(&_config.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
+	cfg := &AppConfig{}
+	flag.StringVar(&cfg.BaseDir, "config-dir", config.BaseDir, "path to config base directory")
+	flag.StringVar(&cfg.Address, "address", "0.0.0.0:8888", "bind address")
+	flag.StringVar(&cfg.MetricsPath, "metrics-path", "/metrics", "metrics path")
+	flag.BoolVar(&cfg.EnableGPU, "enable-gpu", false, "whether enable gpu (need to have libnvidia-ml installed)")
+	flag.BoolVar(&cfg.EnableEBPFCgroupID, "enable-cgroup-id", true, "whether enable eBPF to collect cgroup id")
+	flag.BoolVar(&cfg.ExposeHardwareCounterMetrics, "expose-hardware-counter-metrics", true, "whether expose hardware counter as prometheus metrics")
+	flag.BoolVar(&cfg.EnableMSR, "enable-msr", false, "whether MSR is allowed to obtain energy data")
+	flag.StringVar(&cfg.Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file, if empty we use the in-cluster configuration")
+	flag.BoolVar(&cfg.ApiserverEnabled, "apiserver", true, "if apiserver is disabled, we collect pod information from kubelet")
+	flag.StringVar(&cfg.RedfishCredFilePath, "redfish-cred-file-path", "", "path to the redfish credential file")
+	flag.BoolVar(&cfg.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "Whether to expose the estimated idle power as a metric")
+	flag.StringVar(&cfg.MachineSpecFilePath, "machine-spec", "", "path to the machine spec file in json format")
+	flag.BoolVar(&cfg.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
 
-	return _config
+	return cfg
 }
 
 func healthProbe(w http.ResponseWriter, req *http.Request) {
@@ -99,7 +101,11 @@ func main() {
 	klog.InitFlags(nil)
 	appConfig := newAppConfig() // Initialize appConfig and define flags
 	flag.Parse()                // Parse command-line flags
-	config.GetConfig()          // Initialize the configuration
+
+	if _, err := config.Initialize(appConfig.BaseDir); err != nil {
+		klog.Fatalf("Failed to initialize config: %v", err)
+	}
+
 	klog.Infof("Kepler running on version: %s", build.Version)
 
 	registry := metrics.GetRegistry()

@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 )
 
@@ -29,6 +30,11 @@ var (
 )
 
 var _ = Describe("Test Logistic Predictor Unit", func() {
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
 	It("Get Node Platform Power By Logistic Regression", func() {
 		powers := GetNodePlatformPowerFromDummyServer(dummyLogisticWeightHandler, types.LogisticTrainer)
 		Expect(simplifyOutputInMilliJoules(powers[0])).Should(BeEquivalentTo(2000))

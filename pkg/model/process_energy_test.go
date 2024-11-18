@@ -36,6 +36,8 @@ var _ = Describe("ProcessPower", func() {
 
 	Context("with manually defined node power", func() {
 		BeforeEach(func() {
+			_, err := config.Initialize(".")
+			Expect(err).NotTo(HaveOccurred())
 			// we need to disable the system real time power metrics for testing since we add mock values or use power model estimator
 			components.SetIsSystemCollectionSupported(false)
 			platform.SetIsSystemCollectionSupported(false)
