@@ -27,7 +27,10 @@ import (
 )
 
 func TestRedFishClient_IsPowerSupported(t *testing.T) {
-	config.GetConfig()
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
+	}
+
 	// Create a mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/redfish/v1/Systems" {

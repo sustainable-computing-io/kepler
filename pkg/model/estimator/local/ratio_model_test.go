@@ -26,6 +26,10 @@ import (
 )
 
 var _ = Describe("Test Ratio Unit", func() {
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+	})
 	It("GetProcessEnergyRatio", func() {
 		stats.SetMockedCollectorMetrics()
 		processStats := stats.CreateMockedProcessStats(3)

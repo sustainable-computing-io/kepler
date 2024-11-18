@@ -8,7 +8,9 @@ import (
 
 var _ = Describe("Stats", func() {
 	It("Test InitAvailableParamAndMetrics", func() {
-		config.GetConfig()
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+
 		config.SetEnabledHardwareCounterMetrics(false)
 		exp := []string{}
 		Expect(len(GetProcessFeatureNames()) >= len(exp)).To(BeTrue())
