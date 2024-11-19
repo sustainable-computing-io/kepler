@@ -143,11 +143,28 @@ services:
     networks:
       - libvirt-exporter-network
 
+  process-exporter:
+    image: ncabatoff/process-exporter
+    privileged: true
+    ports:
+      - 9256:9256
+    command:
+      - --procfs=/host/proc
+      - --config.path=/config/process-exporter.yaml
+    volumes:
+      - ../config/process-exporter.yaml:/config/process-exporter.yaml
+      - /proc:/host/proc:ro
+
+    networks:
+      - process-exporter-network
+
 networks:
   scaph-network:
   kepler-network:
   node-exporter-network:
   libvirt-exporter-network:
+  process-exporter-network:
+
   #
   #
   #  NOTE: To allow access to VM from prometheus container
