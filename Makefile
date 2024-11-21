@@ -247,7 +247,7 @@ ginkgo-set:
 	mkdir -p $(GOBIN)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	@test -f $(ENVTEST_ASSETS_DIR)/ginkgo || \
-		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.19.0  && \
+		(go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.20.1  && \
 		cp $(GOBIN)/ginkgo $(ENVTEST_ASSETS_DIR)/ginkgo)
 
 .PHONY: container_test
