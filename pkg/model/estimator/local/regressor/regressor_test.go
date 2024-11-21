@@ -33,6 +33,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
+	"github.com/sustainable-computing-io/kepler/pkg/node"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
 )
 
@@ -141,7 +142,7 @@ func genRegressor(outputType types.ModelOutputType, energySource, modelServerEnd
 
 func GetNodePlatformPowerFromDummyServer(handler http.HandlerFunc, trainer string) (power []uint64) {
 	testServer := httptest.NewServer(handler)
-	modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.PlatformEnergySource)
+	modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.PlatformEnergySource, node.CPUArchitecture())
 	r := genRegressor(types.AbsPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, trainer)
 	err := r.Start()
 	Expect(err).To(BeNil())
@@ -155,7 +156,7 @@ func GetNodePlatformPowerFromDummyServer(handler http.HandlerFunc, trainer strin
 
 func GetNodeComponentsPowerFromDummyServer(handler http.HandlerFunc, trainer string) (compPowers []source.NodeComponentsEnergy) {
 	testServer := httptest.NewServer(handler)
-	modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
+	modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 	r := genRegressor(types.AbsPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath, trainer)
 	err := r.Start()
 	Expect(err).To(BeNil())
@@ -189,7 +190,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 
 		It("Get Process Platform Power By Default Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(DummyWeightHandler)
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource, node.CPUArchitecture())
 			r := genRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, "")
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -210,7 +211,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 
 		It("Get Process Components Power By Default Regression Estimator with ModelServerEndpoint", func() {
 			testServer := httptest.NewServer(DummyWeightHandler)
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 			r := genRegressor(types.DynPower, types.ComponentEnergySource, testServer.URL, "", modelWeightFilepath, "")
 			err := r.Start()
 			Expect(err).To(BeNil())
@@ -234,7 +235,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 	Context("without model server", func() {
 		It("Get Node Platform Power By Default Regression Estimator without ModelServerEndpoint", func() {
 			/// Estimate Node Components Power using Linear Regression
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genRegressor(types.AbsPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath, "")
 			err := r.Start()
@@ -247,7 +248,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 
 		It("Get Node Components Power By Default Regression Estimator without ModelServerEndpoint", func() {
 			/// Estimate Node Components Power using Linear Regression
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.AbsPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/AbsPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genRegressor(types.AbsPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath, "")
 			err := r.Start()
@@ -260,7 +261,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 
 		It("Get Process Components Power By Default Regression Estimator without ModelServerEndpoint", func() {
 			// Estimate Process Components Power using Linear Regression
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/acpi/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genRegressor(types.DynPower, types.PlatformEnergySource, "", initModelURL, modelWeightFilepath, "")
 			err := r.Start()
@@ -275,7 +276,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 
 		It("Get Process Components Power By Default Regression Estimator without ModelServerEndpoint", func() {
 			// Estimate Process Components Power using Linear Regression
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.ComponentEnergySource, node.CPUArchitecture())
 			initModelURL := "https://raw.githubusercontent.com/sustainable-computing-io/kepler-model-db/main/models/v0.6/nx12/std_v0.6/rapl/DynPower/BPFOnly/SGDRegressorTrainer_1.json"
 			r := genRegressor(types.DynPower, types.ComponentEnergySource, "", initModelURL, modelWeightFilepath, "")
 			err := r.Start()
@@ -293,7 +294,7 @@ var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
 		DescribeTable("Test core ratio computation", func(discoveredCore, modelCores int, expectedCoreRatio float64) {
 			ModelCores = modelCores
 			testServer := httptest.NewServer(DummyWeightHandler)
-			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource)
+			modelWeightFilepath := config.GetDefaultPowerModelURL(types.DynPower.String(), types.PlatformEnergySource, node.CPUArchitecture())
 			r := genRegressor(types.DynPower, types.PlatformEnergySource, testServer.URL, "", modelWeightFilepath, "")
 			r.DiscoveredMachineSpec = &config.MachineSpec{
 				Cores: discoveredCore,
