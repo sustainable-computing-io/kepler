@@ -89,6 +89,11 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 	for _, ct := range processesData {
 		comm := C.GoString((*C.char)(unsafe.Pointer(&ct.Comm)))
 
+		if ct.Pid == 0 && config.ExcludeSwapperProcess() {
+			// exclude swapper process
+			continue
+		}
+
 		if ct.Pid != 0 {
 			klog.V(6).Infof("process %s (pid=%d, cgroup=%d) has %d process run time, %d CPU cycles, %d instructions, %d cache misses, %d page cache hits",
 				comm, ct.Pid, ct.CgroupId, ct.ProcessRunTime, ct.CpuCycles, ct.CpuInstr, ct.CacheMiss, ct.PageCacheHit)

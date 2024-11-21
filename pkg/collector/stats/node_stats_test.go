@@ -31,6 +31,9 @@ var _ = Describe("Test Node Metric", func() {
 	)
 
 	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+
 		SetMockedCollectorMetrics()
 		processMetrics = CreateMockedProcessStats(2)
 		nodeMetrics = CreateMockedNodeStats()

@@ -172,6 +172,9 @@ class MarkdownReport:
             ],
         )
 
+    def new_line(self):
+        self.write("\n")
+
 
 def write_md_report(results_dir: str, r: TestResult):
     path = os.path.join(results_dir, f"report-{r.tag}.md")
@@ -193,8 +196,10 @@ def write_md_report(results_dir: str, r: TestResult):
 
     md.h2("Machine Specs")
     md.add_machine_spec("Host", r.host_spec)
+    md.new_line()
     if r.vm_spec is not None:
         md.add_machine_spec("VM", r.vm_spec)
+        md.new_line()
 
     md.h2("Validation Results")
     md.li(f"Started At: `{r.start_time}`")
@@ -217,6 +222,7 @@ def write_md_report(results_dir: str, r: TestResult):
             if not v.unexpected_error
         ],
     )
+    md.new_line()
 
     md.h3("Details")
     for v in r.validations.results:
@@ -425,7 +431,11 @@ def stress(cfg: config.Validator, script_path: str, report_dir: str):
 
     click.secho("  * Running stress test ...", fg="green")
     remote = Remote(cfg.remote)
-    stress_test = remote.run_script(script_path)
+    total_runtime_seconds = cfg.stressor.total_runtime_seconds
+    curve_type = cfg.stressor.curve_type
+    stress_test = remote.run_script(
+        script_path=script_path, target_script="/tmp/stress.sh", t=total_runtime_seconds, c=curve_type
+    )
     res.start_time = stress_test.start_time
     res.end_time = stress_test.end_time
 

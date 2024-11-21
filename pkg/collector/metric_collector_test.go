@@ -40,7 +40,13 @@ func newMockCollector(mockAttacher bpf.Exporter) *Collector {
 
 var _ = Describe("Test Collector Unit", func() {
 
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Get container power", func() {
+
 		bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
 		metricCollector := newMockCollector(bpfExporter)
 		// The default estimator model is the ratio

@@ -8,6 +8,11 @@ import (
 
 var _ = Describe("VMMetric", func() {
 
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Test ResetDeltaValues", func() {
 		SetMockedCollectorMetrics()
 		vm := NewVMStats(0, "name")

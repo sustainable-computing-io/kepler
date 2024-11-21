@@ -26,6 +26,7 @@ GOARCH="$(go env GOARCH)"
 
 declare -r PROJECT_ROOT GOOS GOARCH
 declare -r LOCAL_BIN="$PROJECT_ROOT/tmp/bin"
+declare -r VENDOR_DIR="$PROJECT_ROOT/vendor"
 
 # tools
 declare -r KUBECTL_VERSION=${KUBECTL_VERSION:-v1.28.4}
@@ -36,6 +37,7 @@ declare -r JQ_VERSION=${JQ_VERSION:-1.7}
 declare -r JQ_INSTALL_URL="https://github.com/jqlang/jq/releases/download/jq-$JQ_VERSION"
 declare -r YQ_VERSION=${YQ_VERSION:-v4.34.2}
 declare -r YQ_INSTALL_URL="https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_${GOOS}_${GOARCH}"
+declare -r BPF2GO_VERSION="v0.15.0"
 
 source "$PROJECT_ROOT/hack/utils.bash"
 
@@ -137,6 +139,12 @@ install_kubectl() {
 	chmod +x "$LOCAL_BIN/kubectl"
 	ok "kubectl - $KUBECTL_VERSION was installed successfully"
 
+}
+
+install_bpf2go() {
+	# not using go_install because we need it in vendor folder
+	GOBIN=$VENDOR_DIR go install github.com/cilium/ebpf/cmd/bpf2go@${BPF2GO_VERSION}
+	ok "bpf2go version $BPF2GO_VERSION was installed successfully"
 }
 
 install_all() {

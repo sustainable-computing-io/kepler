@@ -64,6 +64,7 @@ type KeplerConfig struct {
 	EstimatorSelectFilter        string
 	CPUArchOverride              string
 	MachineSpecFilePath          string
+	ExcludeSwapperProcess        bool
 }
 type MetricsConfig struct {
 	CoreUsageMetric    string
@@ -109,7 +110,20 @@ type Config struct {
 }
 
 // newConfig creates and returns a new Config instance.
-func newConfig() *Config {
+func newConfig() (*Config, error) {
+	absBaseDir, err := filepath.Abs(BaseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for config-dir: %s: %w", BaseDir, err)
+	}
+
+	s, err := os.Stat(absBaseDir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("config-dir %s does not exist", BaseDir)
+	}
+	if !s.IsDir() {
+		return nil, fmt.Errorf("config-dir %s is not a directory", BaseDir)
+	}
+
 	return &Config{
 		ModelServerService:     fmt.Sprintf("kepler-model-server.%s.svc.cluster.local", getConfig("KEPLER_NAMESPACE", defaultNamespace)),
 		Kepler:                 getKeplerConfig(),
@@ -120,20 +134,22 @@ func newConfig() *Config {
 		Libvirt:                getLibvirtConfig(),
 		DCGMHostEngineEndpoint: getConfig("NVIDIA_HOSTENGINE_ENDPOINT", defaultDCGMHostEngineEndpoint),
 		KernelVersion:          float32(0),
-	}
+	}, nil
 }
 
-// GetConfig returns the singleton Config instance, creating it if necessary.
-func GetConfig() *Config {
-	once.Do(func() {
-		instance = newConfig()
-	})
+// Instance returns the singleton Config instance
+func Instance() *Config {
 	return instance
 }
 
-// SetConfig replaces the global instance
-func SetConfig(conf *Config) {
-	instance = conf
+// Initialize initializes the global instance once and returns an error if
+func Initialize(baseDir string) (*Config, error) {
+	var err error
+	once.Do(func() {
+		BaseDir = baseDir
+		instance, err = newConfig()
+	})
+	return instance, err
 }
 
 func getKeplerConfig() KeplerConfig {
@@ -158,6 +174,7 @@ func getKeplerConfig() KeplerConfig {
 		EstimatorModel:               getConfig("ESTIMATOR_MODEL", defaultMetricValue),
 		EstimatorSelectFilter:        getConfig("ESTIMATOR_SELECT_FILTER", defaultMetricValue), // no filter
 		CPUArchOverride:              getConfig("CPU_ARCH_OVERRIDE", defaultCPUArchOverride),
+		ExcludeSwapperProcess:        getBoolConfig("EXCLUDE_SWAPPER_PROCESS", defaultExcludeSwapperProcess),
 	}
 }
 
@@ -227,7 +244,7 @@ func getConfig(key, defaultValue string) string {
 	}
 
 	// return config file value if there is one
-	configFile := filepath.Join(configDir, key)
+	configFile := filepath.Join(BaseDir, key)
 	if value, err := os.ReadFile(configFile); err == nil {
 		return strings.TrimSpace(bytes.NewBuffer(value).String())
 	}
@@ -262,25 +279,24 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_COMPONENT_POWER: %t", instance.Kepler.ExposeComponentPower)
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", instance.Kepler.ExposeIdlePowerMetrics)
 		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", instance.Kepler.BPFSampleRate)
+		klog.V(5).Infof("EXCLUDE_SWAPPER_PROCESS: %t", instance.Kepler.ExcludeSwapperProcess)
 	}
 }
 
 func LogConfigs() {
+	klog.V(5).Infof("config-dir: %s", BaseDir)
 	logBoolConfigs()
 }
 
 func SetRedfishCredFilePath(credFilePath string) {
-	ensureConfigInitialized()
 	instance.Redfish.CredFilePath = credFilePath
 }
 
 func SetRedfishProbeIntervalInSeconds(interval string) {
-	ensureConfigInitialized()
 	instance.Redfish.ProbeIntervalInSeconds = interval
 }
 
 func SetRedfishSkipSSLVerify(skipSSLVerify bool) {
-	ensureConfigInitialized()
 	instance.Redfish.SkipSSLVerify = skipSSLVerify
 }
 
@@ -291,9 +307,9 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 	// set to false if any config source set it to false
 	enabled = enabled && instance.Kepler.EnabledEBPFCgroupID
 	klog.Infoln("using gCgroup ID in the BPF program:", enabled)
-	instance.KernelVersion = getKernelVersion(instance)
+	instance.KernelVersion = getKernelVersion(&realSystem{})
 	klog.Infoln("kernel version:", instance.KernelVersion)
-	if (enabled) && (instance.KernelVersion >= cGroupIDMinKernelVersion) && (isCGroupV2(instance)) {
+	if (enabled) && (instance.KernelVersion >= cGroupIDMinKernelVersion) && (isCGroupV2(&realSystem{})) {
 		instance.Kepler.EnabledEBPFCgroupID = true
 	} else {
 		instance.Kepler.EnabledEBPFCgroupID = false
@@ -302,7 +318,6 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 
 // SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
 func SetEnabledHardwareCounterMetrics(enabled bool) {
-	ensureConfigInitialized()
 	// set to false is any config source set it to false
 	instance.Kepler.ExposeHardwareCounterMetrics = enabled && instance.Kepler.ExposeHardwareCounterMetrics
 }
@@ -315,7 +330,6 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 // Idle power prediction is limited to bare-metal or single VM setups.
 // Know the number of running VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
 func SetEnabledIdlePower(enabled bool) {
-	ensureConfigInitialized()
 	// set to true is any config source set it to true or if system power metrics are available
 	instance.Kepler.ExposeIdlePowerMetrics = enabled || instance.Kepler.ExposeIdlePowerMetrics
 	if instance.Kepler.ExposeIdlePowerMetrics {
@@ -325,54 +339,45 @@ func SetEnabledIdlePower(enabled bool) {
 
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
-	ensureConfigInitialized()
 	// set to true if any config source set it to true
 	instance.Kepler.EnabledGPU = enabled || instance.Kepler.EnabledGPU
 }
 
 func SetModelServerEnable(enabled bool) {
-	ensureConfigInitialized()
 	instance.Model.ModelServerEnable = enabled || instance.Model.ModelServerEnable
 }
 
 // SetEnabledMSR enables the exposure of MSR metrics
 func SetEnabledMSR(enabled bool) {
-	ensureConfigInitialized()
 	// set to true if any config source set it to true
 	instance.Kepler.EnabledMSR = enabled || instance.Kepler.EnabledMSR
 }
 
 // SetKubeConfig set kubeconfig file
 func SetKubeConfig(k string) {
-	ensureConfigInitialized()
 	instance.Kepler.KubeConfig = k
 }
 
 // SetEnableAPIServer enables Kepler to watch apiserver
 func SetEnableAPIServer(enabled bool) {
-	ensureConfigInitialized()
 	instance.Kepler.EnableAPIServer = enabled
 }
 
 func SetEstimatorConfig(modelName, selectFilter string) {
-	ensureConfigInitialized()
 	instance.Kepler.EstimatorModel = modelName
 	instance.Kepler.EstimatorSelectFilter = selectFilter
 }
 
 func SetModelServerEndpoint(serverEndpoint string) {
-	ensureConfigInitialized()
 	instance.Model.ModelServerEndpoint = serverEndpoint
 }
 
 func SetMachineSpecFilePath(specFilePath string) {
-	ensureConfigInitialized()
 	instance.Kepler.MachineSpecFilePath = specFilePath
 }
 
 // GetMachineSpec initializes a map of MachineSpecValues from MACHINE_SPEC
 func GetMachineSpec() *MachineSpec {
-	ensureConfigInitialized()
 	if instance.Kepler.MachineSpecFilePath != "" {
 		if spec, err := readMachineSpec(instance.Kepler.MachineSpecFilePath); err == nil {
 			return spec
@@ -395,13 +400,18 @@ func SetGPUUsageMetric(metric string) {
 	instance.Metrics.GPUUsageMetric = metric
 }
 
-func (c *Config) getUnixName() (unix.Utsname, error) {
+type realSystem struct {
+}
+
+var _ Client = &realSystem{}
+
+func (c *realSystem) getUnixName() (unix.Utsname, error) {
 	var utsname unix.Utsname
 	err := unix.Uname(&utsname)
 	return utsname, err
 }
 
-func (c *Config) getCgroupV2File() string {
+func (c *realSystem) getCgroupV2File() string {
 	return cGroupV2Path
 }
 
@@ -446,7 +456,7 @@ func isCGroupV2(c Client) bool {
 
 // Get cgroup version, return 1 or 2
 func GetCGroupVersion() int {
-	if isCGroupV2(instance) {
+	if isCGroupV2(&realSystem{}) {
 		return 2
 	} else {
 		return 1
@@ -455,70 +465,51 @@ func GetCGroupVersion() int {
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
 func InitModelConfigMap() {
-	ensureConfigInitialized()
 	if instance.Model.ModelConfigValues == nil {
 		instance.Model.ModelConfigValues = GetModelConfigMap()
-	}
-}
-
-// EnsureConfigInitialized checks if the instance is initialized, and if not, initializes it.
-func ensureConfigInitialized() {
-	if instance == nil {
-		once.Do(func() {
-			instance = newConfig()
-		})
 	}
 }
 
 // IsIdlePowerEnabled always return true if Kepler has access to system power metrics.
 // However, if pre-trained power models are being used, Kepler should only expose metrics if the user is aware of the implications.
 func IsIdlePowerEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeIdlePowerMetrics
 }
 
 // IsExposeProcessStatsEnabled returns false if process metrics are disabled to minimize overhead in the Kepler standalone mode.
 func IsExposeProcessStatsEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.EnableProcessStats
 }
 
 // IsExposeContainerStatsEnabled returns false if container metrics are disabled to minimize overhead in the Kepler standalone mode.
 func IsExposeContainerStatsEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeContainerStats
 }
 
 // IsExposeVMStatsEnabled returns false if VM metrics are disabled to minimize overhead.
 func IsExposeVMStatsEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeVMStats
 }
 
 // IsExposeBPFMetricsEnabled returns false if BPF Metrics metrics are disabled to minimize overhead.
 func IsExposeBPFMetricsEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeBPFMetrics
 }
 
 // IsExposeComponentPowerEnabled returns false if component power metrics are disabled to minimize overhead.
 func IsExposeComponentPowerEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeComponentPower
 }
 
 func IsEnabledMSR() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.EnabledMSR
 }
 
 func IsModelServerEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Model.ModelServerEnable
 }
 
 func ModelServerEndpoint() string {
-	ensureConfigInitialized()
 	return instance.Model.ModelServerEndpoint
 }
 
@@ -538,31 +529,25 @@ func GetModelConfigMap() map[string]string {
 }
 
 func GetLibvirtMetadataURI() string {
-	ensureConfigInitialized()
 	return instance.Libvirt.MetadataURI
 }
 
 func GetLibvirtMetadataToken() string {
-	ensureConfigInitialized()
 	return instance.Libvirt.MetadataToken
 }
 
 func ExposeIRQCounterMetrics() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeIRQCounterMetrics
 }
 
 func GetBPFSampleRate() int {
-	ensureConfigInitialized()
 	return instance.Kepler.BPFSampleRate
 }
 
 func GetRedfishCredFilePath() string {
-	ensureConfigInitialized()
 	return instance.Redfish.CredFilePath
 }
 func GetRedfishProbeIntervalInSeconds() int {
-	ensureConfigInitialized()
 	// convert string "redfishProbeIntervalInSeconds" to int
 	probeInterval, err := strconv.Atoi(instance.Redfish.ProbeIntervalInSeconds)
 	if err != nil {
@@ -573,99 +558,79 @@ func GetRedfishProbeIntervalInSeconds() int {
 }
 
 func GetRedfishSkipSSLVerify() bool {
-	ensureConfigInitialized()
 	return instance.Redfish.SkipSSLVerify
 }
 func GetMockACPIPowerPath() string {
-	ensureConfigInitialized()
 	return instance.Kepler.MockACPIPowerPath
 }
 
 func ExposeHardwareCounterMetrics() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.ExposeHardwareCounterMetrics
 }
 
 func EnabledGPU() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.EnabledGPU
 }
 
 func SamplePeriodSec() uint64 {
-	ensureConfigInitialized()
 	return instance.SamplePeriodSec
 }
 
 func CoreUsageMetric() string {
-	ensureConfigInitialized()
 	return instance.Metrics.CoreUsageMetric
 }
 
 func DRAMUsageMetric() string {
-	ensureConfigInitialized()
 	return instance.Metrics.DRAMUsageMetric
 }
 
 func GPUUsageMetric() string {
-	ensureConfigInitialized()
 	return instance.Metrics.GPUUsageMetric
 }
 
 func CPUArchOverride() string {
-	ensureConfigInitialized()
 	return instance.Kepler.CPUArchOverride
 }
 
 func GeneralUsageMetric() string {
-	ensureConfigInitialized()
 	return instance.Metrics.GeneralUsageMetric
 }
 
 func KubeConfig() string {
-	ensureConfigInitialized()
 	return instance.Kepler.KubeConfig
 }
 
 func EnabledEBPFCgroupID() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.EnabledEBPFCgroupID
 }
 
 func NodePlatformPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.NodePlatformPowerKey
 }
 
 func NodeComponentsPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.NodeComponentsPowerKey
 }
 
 func ContainerPlatformPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.ContainerPlatformPowerKey
 }
 
 func ModelConfigValues(k string) string {
-	ensureConfigInitialized()
 	return instance.Model.ModelConfigValues[k]
 }
 
 func ContainerComponentsPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.ContainerComponentsPowerKey
 }
 func ProcessPlatformPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.ProcessPlatformPowerKey
 }
 func ProcessComponentsPowerKey() string {
-	ensureConfigInitialized()
 	return instance.Model.ProcessComponentsPowerKey
 }
 
 func APIServerEnabled() bool {
-	ensureConfigInitialized()
 	return instance.Kepler.EnableAPIServer
 }
 
@@ -678,6 +643,9 @@ func BPFSwCounters() []string {
 }
 
 func DCGMHostEngineEndpoint() string {
-	ensureConfigInitialized()
 	return instance.DCGMHostEngineEndpoint
+}
+
+func ExcludeSwapperProcess() bool {
+	return instance.Kepler.ExcludeSwapperProcess
 }

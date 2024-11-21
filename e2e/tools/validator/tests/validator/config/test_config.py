@@ -30,6 +30,10 @@ metal:
 
 prometheus:
   url: http://localhost:9090
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: default
     """
     )
 
@@ -59,6 +63,34 @@ def test_minimal_config_file(minimal_config_file):
 
 
 @pytest.fixture
+def stressor_config_file(config_file):
+    return config_file(
+        """
+remote:
+  host: example.com
+
+metal:
+  vm:
+    pid: 1337
+
+prometheus:
+  url: http://localhost:9090
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: default
+    """
+    )
+
+
+def test_stressor_config(stressor_config_file):
+    config = load(stressor_config_file)
+    stressor = config.stressor
+    assert stressor.total_runtime_seconds == 1200
+    assert stressor.curve_type == "default"
+
+
+@pytest.fixture
 def config_file_use_password(config_file):
     return config_file(
         """
@@ -72,6 +104,10 @@ metal:
 
 prometheus:
   url: http://localhost:9090
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: default
 """
     )
 
@@ -97,6 +133,10 @@ remote:
 metal:
   vm:
     pid: 1337
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: default
 
 prometheus:
   url: http://localhost:9090
@@ -130,6 +170,10 @@ metal:
 
 prometheus:
   url: http://localhost:9090
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: default
 """
     )
 

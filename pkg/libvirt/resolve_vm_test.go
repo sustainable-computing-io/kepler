@@ -38,7 +38,8 @@ var _ = Describe("Test LibVirt", func() {
 
 	BeforeEach(func() {
 		mockProcDir = createTempDir()
-		config.GetConfig()
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {

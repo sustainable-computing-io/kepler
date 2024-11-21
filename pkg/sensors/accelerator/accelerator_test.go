@@ -18,6 +18,7 @@ package accelerator
 import (
 	"testing"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator/devices"
 )
 
@@ -71,6 +72,10 @@ func TestRegistry(t *testing.T) {
 			expectError: false,
 			cleanup:     func() { cleanupMockDevice() },
 		},
+	}
+
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
@@ -134,6 +139,10 @@ func TestActiveAcceleratorByType(t *testing.T) {
 		},
 	}
 
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
@@ -170,6 +179,10 @@ func TestCreateAndRegister(t *testing.T) {
 			expectError: true,
 			cleanup:     func() { cleanupMockDevice() },
 		},
+	}
+
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tt := range tests {
@@ -211,6 +224,9 @@ func TestShutdown(t *testing.T) {
 			},
 		},
 	}
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -228,6 +244,9 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestAcceleratorMethods(t *testing.T) {
+	if _, err := config.Initialize("."); err != nil {
+		t.Fatal(err)
+	}
 	registry := &Registry{
 		Registry: map[string]Accelerator{},
 	}

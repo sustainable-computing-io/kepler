@@ -24,6 +24,11 @@ import (
 
 var _ = Describe("Test Container Metric", func() {
 
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Test ResetDeltaValues", func() {
 		SetMockedCollectorMetrics()
 		c := NewContainerStats("containerA", "podA", "test", "containerIDA")

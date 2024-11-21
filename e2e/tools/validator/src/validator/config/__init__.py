@@ -40,11 +40,17 @@ class Prometheus(NamedTuple):
     job: PrometheusJob
 
 
+class Stressor(NamedTuple):
+    total_runtime_seconds: int
+    curve_type: str
+
+
 class Validator(NamedTuple):
     log_level: str
     remote: Remote
     metal: Metal
     prometheus: Prometheus
+    stressor: Stressor
     validations_file: str
 
     def __repr__(self):
@@ -105,6 +111,15 @@ def load(config_file: str) -> Validator:
         job=job,
     )
 
+    stressor_config = config["stressor"]
+    if not stressor_config:
+        stressor = Stressor(total_runtime_seconds=1200, curve_type="default")
+    else:
+        stressor = Stressor(
+            total_runtime_seconds=stressor_config.get("total_runtime_seconds", 1200),
+            curve_type=stressor_config.get("curve_type", "default"),
+        )
+
     validations_file = config.get("validations_file", "validations.yaml")
     log_level = config.get("log_level", "warn")
 
@@ -112,6 +127,7 @@ def load(config_file: str) -> Validator:
         remote=remote,
         metal=metal,
         prometheus=prometheus,
+        stressor=stressor,
         validations_file=validations_file,
         log_level=log_level,
     )

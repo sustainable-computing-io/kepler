@@ -1,0 +1,4 @@
+process_names:
+  - name: "{{.PID}}"
+    cmdline:
+      - ".+" # yamllint disable-line rule:quoted-strings

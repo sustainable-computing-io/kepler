@@ -34,6 +34,7 @@ import (
 const (
 	cpuModelDataPath = "/var/lib/kepler/data/cpus.yaml"
 	cpuPmuNamePath   = "/sys/devices/cpu/caps/pmu_name"
+	unknownCPUArch   = "unknown"
 )
 
 type nodeInfo struct {
@@ -51,10 +52,10 @@ type Node interface {
 }
 
 type cpuModelData struct {
-	uarch    string `yaml:"uarch"`
-	family   string `yaml:"family"`
-	model    string `yaml:"model"`
-	stepping string `yaml:"stepping"`
+	Uarch    string `yaml:"uarch"`
+	Family   string `yaml:"family"`
+	Model    string `yaml:"model"`
+	Stepping string `yaml:"stepping"`
 }
 
 type cpuInfo struct {
@@ -121,7 +122,7 @@ func cpuArch() string {
 		return arch
 	} else {
 		klog.Errorf("getCPUArch failure: %s", err)
-		return "unknown"
+		return unknownCPUArch
 	}
 }
 
@@ -215,32 +216,27 @@ func readCPUModelData() ([]byte, error) {
 	return os.ReadFile("./data/cpus.yaml")
 }
 
-func cpuMicroArchitecture(family, model, stepping string) (string, error) {
-	yamlBytes, err := readCPUModelData()
-	if err != nil {
-		klog.Errorf("failed to read cpus.yaml: %v", err)
-		return "", err
-	}
+func cpuMicroArchitectureFromModel(yamlBytes []byte, family, model, stepping string) (string, error) {
 	cpus := &cpuInfo{
 		cpusInfo: []cpuModelData{},
 	}
-	err = yaml.Unmarshal(yamlBytes, &cpus.cpusInfo)
+	err := yaml.Unmarshal(yamlBytes, &cpus.cpusInfo)
 	if err != nil {
 		klog.Errorf("failed to parse cpus.yaml: %v", err)
 		return "", err
 	}
 
 	for _, info := range cpus.cpusInfo {
-		if info.family == family {
+		if info.Family == family {
 			var reModel *regexp.Regexp
-			reModel, err = regexp.Compile(info.model)
+			reModel, err = regexp.Compile(info.Model)
 			if err != nil {
 				return "", err
 			}
 			if reModel.FindString(model) == model {
-				if info.stepping != "" {
+				if info.Stepping != "" {
 					var reStepping *regexp.Regexp
-					reStepping, err = regexp.Compile(info.stepping)
+					reStepping, err = regexp.Compile(info.Stepping)
 					if err != nil {
 						return "", err
 					}
@@ -248,11 +244,24 @@ func cpuMicroArchitecture(family, model, stepping string) (string, error) {
 						continue
 					}
 				}
-				return info.uarch, nil
+				return info.Uarch, nil
 			}
 		}
 	}
 	klog.V(3).Infof("CPU match not found for family %s, model %s, stepping %s. Use pmu_name as uarch.", family, model, stepping)
+	return "unknown", fmt.Errorf("CPU match not found")
+}
+
+func cpuMicroArchitecture(family, model, stepping string) (string, error) {
+	yamlBytes, err := readCPUModelData()
+	if err != nil {
+		klog.Errorf("failed to read cpus.yaml: %v", err)
+		return "", err
+	}
+	arch, err := cpuMicroArchitectureFromModel(yamlBytes, family, model, stepping)
+	if err == nil {
+		return arch, nil
+	}
 	return cpuPmuName()
 }
 
@@ -262,7 +271,7 @@ func cpuPmuName() (string, error) {
 		klog.V(3).Infoln(err)
 		return "", err
 	}
-	return string(data), nil
+	return strings.TrimSpace(string(data)), nil
 }
 
 func getCPUArchitecture() (string, error) {

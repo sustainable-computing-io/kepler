@@ -22,6 +22,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 )
 
@@ -30,6 +31,7 @@ const (
 )
 
 func benchmarkNtesting(b *testing.B, processNumber int) {
+	_, _ = config.Initialize(".")
 	// enable metrics
 	stats.SetMockedCollectorMetrics()
 	// create node node metrics

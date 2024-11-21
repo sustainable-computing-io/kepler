@@ -122,7 +122,6 @@ func genHandlerFunc(curvefit []float64, trainerName string) (handlerFunc func(w 
 }
 
 func genRegressor(outputType types.ModelOutputType, energySource, modelServerEndpoint, modelWeightsURL, modelWeightFilepath, trainerName string) Regressor {
-	config.GetConfig()
 	config.SetModelServerEnable(true)
 	config.SetModelServerEndpoint(modelServerEndpoint)
 	return Regressor{
@@ -169,6 +168,12 @@ func GetNodeComponentsPowerFromDummyServer(handler http.HandlerFunc, trainer str
 }
 
 var _ = Describe("Test Regressor Weight Unit (default trainer)", func() {
+
+	BeforeEach(func() {
+		_, err := config.Initialize(".")
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
 	Context("with dummy model server", func() {
 		It("Get Node Platform Power By Default Regression with ModelServerEndpoint", func() {
 			powers := GetNodePlatformPowerFromDummyServer(DummyWeightHandler, "")
