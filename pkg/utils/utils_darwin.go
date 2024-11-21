@@ -1,5 +1,5 @@
-//go:build !darwin
-// +build !darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021.
@@ -25,8 +25,6 @@ import (
 	"os"
 	"strings"
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 func CreateTempFile(contents string) (filename string, reterr error) {
@@ -91,11 +89,7 @@ func GetPathFromPID(searchPath string, pid uint64) (string, error) {
 }
 
 func GetCgroupIDFromPath(byteOrder binary.ByteOrder, path string) (uint64, error) {
-	handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, path, 0)
-	if err != nil {
-		return uint64(0), fmt.Errorf("error resolving handle: %v", err)
-	}
-	return byteOrder.Uint64(handle.Bytes()), nil
+	return uint64(0), nil
 }
 
 func IsFileExists(path string) bool {

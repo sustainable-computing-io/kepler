@@ -340,7 +340,7 @@ func SetEnabledIdlePower(enabled bool) {
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
 	// set to true if any config source set it to true
-	instance.Kepler.EnabledGPU = enabled || instance.Kepler.EnabledGPU
+	instance.Kepler.EnabledGPU = enabled
 }
 
 func SetModelServerEnable(enabled bool) {
@@ -452,15 +452,6 @@ func getKernelVersion(c Client) float32 {
 func isCGroupV2(c Client) bool {
 	_, err := os.Stat(c.getCgroupV2File())
 	return !os.IsNotExist(err)
-}
-
-// Get cgroup version, return 1 or 2
-func GetCGroupVersion() int {
-	if isCGroupV2(&realSystem{}) {
-		return 2
-	} else {
-		return 1
-	}
 }
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
