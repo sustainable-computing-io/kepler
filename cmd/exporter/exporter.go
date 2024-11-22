@@ -152,7 +152,7 @@ func main() {
 	platform.InitPowerImpl()
 	defer platform.StopPower()
 
-	if config.EnabledGPU() {
+	if config.IsEnabledGPU() {
 		r := accelerator.GetRegistry()
 		if a, err := accelerator.New(config.GPU, true); err == nil {
 			r.MustRegister(a) // Register the accelerator with the registry

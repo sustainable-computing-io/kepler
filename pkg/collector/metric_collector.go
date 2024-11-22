@@ -158,7 +158,7 @@ func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) 
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
-	if config.EnabledGPU() {
+	if config.IsEnabledGPU() {
 		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
 		}
