@@ -14,15 +14,14 @@ WORKDIR /elfutils-source/elfutils-0.191
 RUN ./configure --disable-debuginfod
 RUN make install
 
-#libbpf-1.4.0-1.el9.src.rpm 
 WORKDIR /libbpf-source
 RUN yumdownloader --source libbpf
 RUN rpm2cpio libbpf-1.4.0-1.el9.src.rpm | cpio -iv
 RUN tar xf ./linux-*el9.tar.xz
-WORKDIR /libbpf-source/linux-5.14.0-424.el9/tools/lib/bpf
+WORKDIR /libbpf-source/linux-5.14.0-473.el9/tools/lib/bpf
 RUN make install_headers
 RUN prefix=/usr BUILD_STATIC_ONLY=y make install
-WORKDIR /libbpf-source/linux-5.14.0-424.el9/tools/bpf
+WORKDIR /libbpf-source/linux-5.14.0-473.el9/tools/bpf
 RUN make bpftool
 
 # rpmautospec requires epel-release
