@@ -55,13 +55,23 @@ jobs:
   changes_baseimage:
     runs-on: ubuntu-latest
     outputs:
-      src: ${{ steps.changes.outputs.src }}
+      src: ${{ steps.changes_baseimage.outputs.src }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
-        id: changes
+        id: changes_baseimage
         with:
           filters: |
             src:
               - './.github/workflows/image_base.yml'
               - './build/Dockerfile.builder'
+
+  base_image:
+    needs: changes_baseimage
+    if: ${{ needs.changes_baseimage.outputs.src == 'true' }}
+    uses: ./.github/workflows/image_base.yml
+    with:
+      pushImage: false
+    secrets:
+      username: ${{ secrets.BOT_NAME }}
+      password: ${{ secrets.BOT_TOKEN }}
