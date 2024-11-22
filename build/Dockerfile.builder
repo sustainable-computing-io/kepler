@@ -8,7 +8,7 @@ RUN yum-config-manager --enable ubi-9-baseos-source
 WORKDIR /elfutils-source
 RUN yumdownloader --source elfutils
 RUN yum -y install cpio
-RUN rpm2cpio elfutils-0.190-2.el9.src.rpm | cpio -iv
+RUN rpm2cpio elfutils-0.191-4.el9.src.rpm | cpio -iv
 RUN tar xjvf elfutils-0.190.tar.bz2
 WORKDIR /elfutils-source/elfutils-0.190
 RUN ./configure --disable-debuginfod
