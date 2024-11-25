@@ -525,7 +525,7 @@ func GetLibvirtMetadataToken() string {
 	return instance.Libvirt.MetadataToken
 }
 
-func IsExposeIRQCounterMetrics() bool {
+func ExposeIRQCounterMetrics() bool {
 	return instance.Kepler.ExposeIRQCounterMetrics
 }
 
@@ -553,11 +553,11 @@ func GetMockACPIPowerPath() string {
 	return instance.Kepler.MockACPIPowerPath
 }
 
-func IsExposeHardwareCounterMetrics() bool {
+func ExposeHardwareCounterMetrics() bool {
 	return instance.Kepler.ExposeHardwareCounterMetrics
 }
 
-func IsEnabledGPU() bool {
+func IsGPUEnabled() bool {
 	return instance.Kepler.EnabledGPU
 }
 

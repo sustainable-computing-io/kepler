@@ -36,7 +36,7 @@ func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, col
 	if config.IsExposeComponentPowerEnabled() {
 		// collect the dynamic energy metrics
 		for i, collectorName := range consts.EnergyMetricNames {
-			if collectorName == config.GPU && !config.IsEnabledGPU() {
+			if collectorName == config.GPU && !config.IsGPUEnabled() {
 				continue
 			}
 			collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
@@ -57,7 +57,7 @@ func CollectResUtilizationMetrics(ch chan<- prometheus.Metric, instance interfac
 		for collectorName := range bpfSupportedMetrics.HardwareCounters {
 			CollectResUtil(ch, instance, collectorName, collectors[collectorName])
 		}
-		if config.IsEnabledGPU() {
+		if config.IsGPUEnabled() {
 			if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 				for _, collectorName := range consts.GPUMetricNames {
 					CollectResUtil(ch, instance, collectorName, collectors[collectorName])

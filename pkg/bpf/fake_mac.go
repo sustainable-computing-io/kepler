@@ -113,7 +113,7 @@ func (e *exporter) attach() error {
 		return fmt.Errorf("error attaching sched_switch tracepoint: %v", err)
 	}
 
-	if config.IsExposeIRQCounterMetrics() {
+	if config.ExposeIRQCounterMetrics() {
 		e.irqLink, err = link.AttachTracing(link.TracingOptions{
 			Program:    e.bpfObjects.KeplerIrqTrace,
 			AttachType: ebpf.AttachTraceRawTp,
@@ -144,7 +144,7 @@ func (e *exporter) attach() error {
 	}
 
 	// Return early if hardware counters are not enabled
-	if !config.IsExposeHardwareCounterMetrics() {
+	if !config.ExposeHardwareCounterMetrics() {
 		klog.Infof("Hardware counter metrics are disabled")
 		return nil
 	}

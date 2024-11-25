@@ -30,7 +30,7 @@ func GetProcessFeatureNames() []string {
 	klog.V(3).Infof("Available ebpf counters: %v", metrics)
 
 	// gpu metric
-	if config.IsEnabledGPU() {
+	if config.IsGPUEnabled() {
 		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
 			gpuMetrics := []string{config.GPUComputeUtilization, config.GPUMemUtilization}
 			metrics = append(metrics, gpuMetrics...)

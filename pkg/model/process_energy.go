@@ -200,7 +200,7 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			klog.V(5).Infoln("Could not estimate the Process Components Power")
 		}
 		// estimate the associated power consumption of GPU for each process
-		if config.IsEnabledGPU() {
+		if config.IsGPUEnabled() {
 			if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 				processGPUPower, errGPU = processComponentPowerModel.GetGPUPower(isIdlePower)
 				if errGPU != nil {

@@ -66,7 +66,7 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 // UpdateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
 func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if config.IsEnabledGPU() {
+	if config.IsGPUEnabled() {
 		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 			gpuEnergy := gpu.Device().AbsEnergyFromDevice()
 			for gpu, energy := range gpuEnergy {

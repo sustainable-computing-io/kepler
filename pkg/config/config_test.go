@@ -147,7 +147,7 @@ var _ = Describe("Test Configuration", func() {
 		Expect(IsExposeVMStatsEnabled()).To(BeTrue())
 		Expect(IsExposeBPFMetricsEnabled()).To(BeTrue())
 		Expect(IsExposeComponentPowerEnabled()).To(BeTrue())
-		Expect(IsExposeIRQCounterMetrics()).To(BeTrue())
+		Expect(ExposeIRQCounterMetrics()).To(BeTrue())
 		Expect(GetBPFSampleRate()).To(Equal(0))
 
 	})
@@ -157,10 +157,10 @@ var _ = Describe("Test Configuration", func() {
 		// test set and is enable functions.
 		SetEnabledGPU(true)
 		Expect(Config.Kepler.EnabledGPU).To(BeTrue())
-		Expect(IsEnabledGPU()).To(BeTrue())
+		Expect(IsGPUEnabled()).To(BeTrue())
 		SetEnabledGPU(false)
 		Expect(Config.Kepler.EnabledGPU).To(BeFalse())
-		Expect(IsEnabledGPU()).To(BeFalse())
+		Expect(IsGPUEnabled()).To(BeFalse())
 
 		SetEnabledMSR(true)
 		Expect(Config.Kepler.EnabledMSR).To(BeTrue())
@@ -188,9 +188,9 @@ var _ = Describe("Test Configuration", func() {
 
 		SetEnabledHardwareCounterMetrics(true)
 		Expect(Config.Kepler.ExposeHardwareCounterMetrics).To(BeTrue())
-		Expect(IsExposeHardwareCounterMetrics()).To(BeTrue())
+		Expect(ExposeHardwareCounterMetrics()).To(BeTrue())
 		SetEnabledHardwareCounterMetrics(false)
 		Expect(Config.Kepler.ExposeHardwareCounterMetrics).To(BeFalse())
-		Expect(IsExposeHardwareCounterMetrics()).To(BeFalse())
+		Expect(ExposeHardwareCounterMetrics()).To(BeFalse())
 	})
 })
