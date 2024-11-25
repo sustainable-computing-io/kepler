@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -12,12 +12,12 @@ repos:
     hooks:
       - id: yamllint
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v17.0.6
+    rev: v19.1.4
     hooks:
       - id: clang-format
         types_or: [c]
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.9.2
+    rev: v0.15.0
     hooks:
       - id: markdownlint-cli2-rules-docker
   - repo: https://github.com/codespell-project/codespell
@@ -28,11 +28,11 @@ repos:
         additional_dependencies:
           - tomli
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.61.0
+    rev: v1.62.0
     hooks:
       - id: golangci-lint
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: v9.16.0
+    rev: v9.18.0
     hooks:
       - id: commitlint
         stages: [commit-msg]

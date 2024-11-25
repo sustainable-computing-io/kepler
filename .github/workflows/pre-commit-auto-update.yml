@@ -1,0 +1,31 @@
+name: Pre-commit auto-update
+
+on: # yamllint disable-line rule:truthy
+  schedule:
+    - cron: 0 0 1 * *
+
+jobs:
+  auto-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit autoupdate
+        run: pre-commit autoupdate
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update/pre-commit-autoupdate
+          title: Auto-update pre-commit hooks
+          commit-message: Auto-update pre-commit hooks
+          body: |
+            Update pre-commit hooks to latest version
+          labels: dependencies
