@@ -139,5 +139,8 @@ Issue or Pull Request becomes stale if no any inactivity for 60 days.
 ## For Mac and Windows user
 
 kepler currently focus on linux platform.
-for other platforms, to make kepler is easy for anyone contributes from any platform, we are welcome any benefits(PRs) for kepler including parts as compilable on other platform.
-before the specific platform is supported, we just running CI on linux as PR merge standard and official support.
+for other platforms, to make kepler is easy for anyone contributes from
+any platform, we are welcome any benefits(PRs) for kepler including
+parts as compilable on other platform.
+before the specific platform is supported, we just running CI on linux
+as PR merge standard and official support.
