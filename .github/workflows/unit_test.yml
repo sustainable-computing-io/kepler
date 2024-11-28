@@ -7,7 +7,7 @@ on: # yamllint disable-line rule:truthy
 
 permissions:
   pull-requests: write
-  contents: write
+  contents: read
   repository-projects: write
   packages: write
 
