@@ -8,9 +8,6 @@ on: # yamllint disable-line rule:truthy
       - enhancements/**
       - "*.md"
 
-permissions:
-  pull-requests: read
-
 jobs:
   c:
     uses: ./.github/workflows/c.yml
