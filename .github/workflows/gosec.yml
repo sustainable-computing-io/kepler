@@ -5,6 +5,9 @@ name: Security Scan
 on: # yamllint disable-line rule:truthy
   workflow_call:
 
+permissions:
+  pull-requests: read
+
 jobs:
   tests:
     runs-on: ubuntu-latest

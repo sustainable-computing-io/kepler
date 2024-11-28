@@ -3,6 +3,8 @@ name: local dev env validation
 on: # yamllint disable-line rule:truthy
   workflow_call:
 
+permissions: read-all
+
 jobs:
   local_env:
     runs-on: ubuntu-latest
