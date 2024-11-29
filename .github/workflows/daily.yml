@@ -6,7 +6,8 @@ on: # yamllint disable-line rule:truthy
   schedule:
     - cron: 12 9 * * *
 
-permissions: read-all
+permissions:
+  security-events: write
 
 jobs:
   # daily go security
