@@ -106,7 +106,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatche
 		bpfSupportedMetrics: bpfSupportedMetrics,
 		workqueue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
-	if w.k8sCli == nil || !config.APIServerEnabled() {
+	if w.k8sCli == nil || !config.IsAPIServerEnabled() {
 		return w, nil
 	}
 	optionsModifier := func(options *metav1.ListOptions) {

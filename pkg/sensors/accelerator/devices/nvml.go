@@ -1,3 +1,6 @@
+//go:build !darwin
+// +build !darwin
+
 /*
 Copyright 2021-2024
 
