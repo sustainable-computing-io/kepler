@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -119,6 +120,12 @@ func TestGetAliveContainers(t *testing.T) {
 			c := GetCache()
 			res := c.getAliveContainers(&testcase.pods)
 			g.Expect(res).To(Equal(testcase.expectResults))
+			containerID := testcase.pods[0].Status.InitContainerStatuses[0].ContainerID
+			exists := c.hasContainerID(containerID)
+			g.Expect(exists).To(BeTrue())
+			containerInfo, err := c.getContainerInfo(containerID)
+			g.Expect(containerInfo).NotTo(BeNil())
+			g.Expect(err).NotTo(HaveOccurred())
 		})
 	}
 }
@@ -194,4 +201,38 @@ func TestExtractPodContainerIDfromPathWithCgroup(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetPathFromcGroupID(t *testing.T) {
+	g := NewWithT(t)
+	c := GetCache()
+	c.cGroupIDToPath.Store(uint64(123), "abc")
+	path, err := c.getPathFromcGroupID(uint64(123))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(path).To(Equal("abc"))
+}
+
+func TestContainerIDCache(t *testing.T) {
+	g := NewWithT(t)
+	c := GetCache()
+	c.setContainerIDCache(uint64(123), "ID")
+	id, exists := c.getContainerIDFromCache(uint64(123))
+	g.Expect(exists).To(BeTrue())
+	g.Expect(id).To(Equal("ID"))
+	id, err := c.getContainerIDFromcGroupID(uint64(123))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(id).To(Equal("ID"))
+	id, exists = c.getContainerIDFromCache(uint64(404))
+	g.Expect(exists).To(BeFalse())
+	g.Expect(id).To(Equal(""))
+	AddContainerIDToCache(uint64(124), "ID1")
+	id, err = GetContainerIDFromPID(uint64(124))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(id).To(Equal("ID1"))
+}
+
+func TestValidContainerID(t *testing.T) {
+	g := NewWithT(t)
+	result := validContainerID("")
+	g.Expect(result).To(Equal(utils.SystemProcessName))
 }
