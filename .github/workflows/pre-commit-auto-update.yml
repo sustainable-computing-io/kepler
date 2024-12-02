@@ -4,8 +4,6 @@ on: # yamllint disable-line rule:truthy
   schedule:
     - cron: 0 0 1 * *
 
-permissions: read-all
-
 jobs:
   auto-update:
     runs-on: ubuntu-latest
