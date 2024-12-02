@@ -7,7 +7,6 @@ on: # yamllint disable-line rule:truthy
 
 permissions:
   security-events: write
-  contents: read
 
 jobs:
   tests:
