@@ -1,6 +1,7 @@
 name: Pre-commit auto-update
 
 on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
   schedule:
     - cron: 0 0 1 * *
 
