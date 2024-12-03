@@ -118,7 +118,14 @@ func newConfig() (*Config, error) {
 
 	s, err := os.Stat(absBaseDir)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("config-dir %s does not exist", BaseDir)
+		// if the directory does not exist, create it
+		if err := os.MkdirAll(absBaseDir, 0755); err != nil {
+			return nil, fmt.Errorf("config-dir %s does not exist", BaseDir)
+		}
+		s, err = os.Stat(absBaseDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat config-dir %s: %w", BaseDir, err)
+		}
 	}
 	if !s.IsDir() {
 		return nil, fmt.Errorf("config-dir %s is not a directory", BaseDir)
@@ -319,7 +326,7 @@ func SetEnabledEBPFCgroupID(enabled bool) {
 // SetEnabledHardwareCounterMetrics enables the exposure of hardware counter metrics
 func SetEnabledHardwareCounterMetrics(enabled bool) {
 	// set to false is any config source set it to false
-	instance.Kepler.ExposeHardwareCounterMetrics = enabled && instance.Kepler.ExposeHardwareCounterMetrics
+	instance.Kepler.ExposeHardwareCounterMetrics = enabled
 }
 
 // SetEnabledIdlePower allows enabling idle power exposure in Kepler's metrics. When direct power metrics access is available,
@@ -331,7 +338,7 @@ func SetEnabledHardwareCounterMetrics(enabled bool) {
 // Know the number of running VMs becomes crucial for achieving a fair distribution of idle power, particularly when following the GHG (Greenhouse Gas) protocol.
 func SetEnabledIdlePower(enabled bool) {
 	// set to true is any config source set it to true or if system power metrics are available
-	instance.Kepler.ExposeIdlePowerMetrics = enabled || instance.Kepler.ExposeIdlePowerMetrics
+	instance.Kepler.ExposeIdlePowerMetrics = enabled
 	if instance.Kepler.ExposeIdlePowerMetrics {
 		klog.Infoln("The Idle power will be exposed. Are you running on Baremetal or using single VM per node?")
 	}
@@ -339,8 +346,7 @@ func SetEnabledIdlePower(enabled bool) {
 
 // SetEnabledGPU enables the exposure of gpu metrics
 func SetEnabledGPU(enabled bool) {
-	// set to true if any config source set it to true
-	instance.Kepler.EnabledGPU = enabled || instance.Kepler.EnabledGPU
+	instance.Kepler.EnabledGPU = enabled
 }
 
 func SetModelServerEnable(enabled bool) {
@@ -349,8 +355,7 @@ func SetModelServerEnable(enabled bool) {
 
 // SetEnabledMSR enables the exposure of MSR metrics
 func SetEnabledMSR(enabled bool) {
-	// set to true if any config source set it to true
-	instance.Kepler.EnabledMSR = enabled || instance.Kepler.EnabledMSR
+	instance.Kepler.EnabledMSR = enabled
 }
 
 // SetKubeConfig set kubeconfig file
@@ -452,15 +457,6 @@ func getKernelVersion(c Client) float32 {
 func isCGroupV2(c Client) bool {
 	_, err := os.Stat(c.getCgroupV2File())
 	return !os.IsNotExist(err)
-}
-
-// Get cgroup version, return 1 or 2
-func GetCGroupVersion() int {
-	if isCGroupV2(&realSystem{}) {
-		return 2
-	} else {
-		return 1
-	}
 }
 
 // InitModelConfigMap initializes map of config from MODEL_CONFIG
@@ -568,7 +564,7 @@ func ExposeHardwareCounterMetrics() bool {
 	return instance.Kepler.ExposeHardwareCounterMetrics
 }
 
-func EnabledGPU() bool {
+func IsGPUEnabled() bool {
 	return instance.Kepler.EnabledGPU
 }
 
@@ -630,7 +626,7 @@ func ProcessComponentsPowerKey() string {
 	return instance.Model.ProcessComponentsPowerKey
 }
 
-func APIServerEnabled() bool {
+func IsAPIServerEnabled() bool {
 	return instance.Kepler.EnableAPIServer
 }
 

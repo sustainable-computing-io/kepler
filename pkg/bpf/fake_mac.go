@@ -1,5 +1,5 @@
-//go:build !darwin
-// +build !darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021.
@@ -25,7 +25,6 @@ import (
 	"os"
 	"runtime"
 	"time"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -224,21 +223,7 @@ func (e *exporter) CollectProcesses() ([]ProcessMetrics, error) {
 // utility functions
 
 func unixOpenPerfEvent(typ, conf, cpuCores int) ([]int, error) {
-	sysAttr := &unix.PerfEventAttr{
-		Type:   uint32(typ),
-		Size:   uint32(unsafe.Sizeof(unix.PerfEventAttr{})),
-		Config: uint64(conf),
-	}
-	fds := []int{}
-	for i := 0; i < cpuCores; i++ {
-		cloexecFlags := unix.PERF_FLAG_FD_CLOEXEC
-		fd, err := unix.PerfEventOpen(sysAttr, -1, i, -1, cloexecFlags)
-		if fd < 0 {
-			return nil, fmt.Errorf("failed to open bpf perf event on cpu %d: %w", i, err)
-		}
-		fds = append(fds, fd)
-	}
-	return fds, nil
+	return []int{}, nil
 }
 
 func unixClosePerfEvents(fds []int) {
@@ -286,26 +271,6 @@ func createHardwarePerfEvents(cpuInstructionsMap, cpuCyclesMap, cacheMissMap *eb
 			unixClosePerfEvents(events.cacheMissPerfEvents)
 		}
 	}()
-
-	// Create perf events and update each eBPF map
-	events.cpuCyclesPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_CPU_CYCLES, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for CPU cycles: ", err)
-		return nil, err
-	}
-
-	events.cpuInstructionsPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HARDWARE, unix.PERF_COUNT_HW_INSTRUCTIONS, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for CPU instructions: ", err)
-		return nil, err
-	}
-
-	events.cacheMissPerfEvents, err = unixOpenPerfEvent(unix.PERF_TYPE_HW_CACHE, unix.PERF_COUNT_HW_CACHE_MISSES, numCPU)
-	if err != nil {
-		klog.Warning("Failed to open perf event for cache misses: ", err)
-		return nil, err
-	}
-
 	for i, fd := range events.cpuCyclesPerfEvents {
 		if err = cpuCyclesMap.Update(uint32(i), uint32(fd), ebpf.UpdateAny); err != nil {
 			klog.Warningf("Failed to update cpu_cycles_event_reader map: %v", err)

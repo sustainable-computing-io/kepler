@@ -86,7 +86,7 @@ func SCMetricsPromDesc(context string, bpfSupportedMetrics bpf.SupportedMetrics)
 
 func GPUUsageMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
-	if config.EnabledGPU() {
+	if config.IsGPUEnabled() {
 		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 			for _, name := range consts.GPUMetricNames {
 				descriptions[name] = resMetricsPromDesc(context, name, gpu.Device().Name())

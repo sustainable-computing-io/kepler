@@ -17,7 +17,7 @@ jobs:
       # we need to get the branch of the pull request
       - name: Get PR branch
         id: pr_branch
-        uses: xt0rted/pull-request-comment-branch@v2
+        uses: xt0rted/pull-request-comment-branch@v3
       # Since `issue_comment` event workflow will not appear on the
       # pull request page, we need to set the status of the job
       # in order to attach it to the pull request itself

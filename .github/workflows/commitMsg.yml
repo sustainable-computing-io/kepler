@@ -2,6 +2,8 @@ name: Commit Message Check
 on: # yamllint disable-line rule:truthy
   pull_request:
 
+permissions: read-all
+
 jobs:
   check-commit-message:
     name: Check Commit Message
@@ -12,5 +14,3 @@ jobs:
 
       - name: Check commit message
         uses: webiny/action-conventional-commits@v1.3.0
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
