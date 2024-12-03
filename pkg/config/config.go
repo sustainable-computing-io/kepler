@@ -118,7 +118,14 @@ func newConfig() (*Config, error) {
 
 	s, err := os.Stat(absBaseDir)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("config-dir %s does not exist", BaseDir)
+		// if the directory does not exist, create it
+		if err := os.MkdirAll(absBaseDir, 0755); err != nil {
+			return nil, fmt.Errorf("config-dir %s does not exist", BaseDir)
+		}
+		s, err = os.Stat(absBaseDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat config-dir %s: %w", BaseDir, err)
+		}
 	}
 	if !s.IsDir() {
 		return nil, fmt.Errorf("config-dir %s is not a directory", BaseDir)
