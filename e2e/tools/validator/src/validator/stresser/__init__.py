@@ -154,10 +154,10 @@ def retrieve_time_interval_from_log(time_interval_filepath):
 
 
 class Local:
-    def __init__(self, config: config.Local):
-        self.load_curve = config.load_curve
-        self.iterations = config.iterations
-        self.mount_dir = config.mount_dir
+    def __init__(self, lc: config.Local):
+        self.load_curve = lc.load_curve
+        self.iterations = lc.iterations
+        self.mount_dir = lc.mount_dir
         self.time_range_log = os.path.join(self.mount_dir, "time_interval.log")
         stresser_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
         self.stresser_script =os.path.join(stresser_dir, "scripts", "targeted_stresser.sh")
@@ -194,9 +194,9 @@ class Local:
 
 
 class Process(Local):
-    def __init__(self, config: config.Local):
-        super().__init__(config)
-        self.isolated_cpu = config.isolated_cpu
+    def __init__(self, pc: config.LocalProcess):
+        super().__init__(pc)
+        self.isolated_cpu = pc.isolated_cpu
 
     def __repr__(self):
         return f"<Local> Process Stresser\nLoad Curve: {self.load_curve}"
@@ -243,10 +243,10 @@ class Process(Local):
 
 
 class Container(Local):
-    def __init__(self, config: config.Local):
-        super().__init__(config)
-        self.isolated_cpu = config.isolated_cpu
-        self.container_name = config.container_name
+    def __init__(self, cc: config.LocalContainer):
+        super().__init__(cc)
+        self.isolated_cpu = cc.isolated_cpu
+        self.container_name = cc.container_name
         self.client = docker.from_env()
 
     def __repr__(self):
@@ -280,7 +280,7 @@ class Container(Local):
         print(f"container logs:\n{container_logs}")
         stress_container.remove()
         print(status_map)
-        
+
         status_code = status_map["StatusCode"]
         if status_map["StatusCode"] != 0:
             logger.error("stresser command failed -> %s", command)
