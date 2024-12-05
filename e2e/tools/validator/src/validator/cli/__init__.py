@@ -16,6 +16,7 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from click.exceptions import Exit
 from matplotlib import ticker
 from matplotlib.dates import DateFormatter
 
@@ -598,7 +599,7 @@ def run_validation(
     show_default=True,
 )
 @pass_config
-def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str) -> int:
+def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str) -> None:
     results_dir, tag = create_report_dir(report_dir)
     res = TestResult(tag)
 
@@ -617,7 +618,7 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     click.secho("  * Generating validate acpi report file and dir", fg="green")
     write_md_report(results_dir, res)
 
-    return int(res.validations.passed)
+    raise Exit(1) if not res.validations.passed else Exit(0)
 
 
 def write_json_report(results_dir: str, res: TestResult):
