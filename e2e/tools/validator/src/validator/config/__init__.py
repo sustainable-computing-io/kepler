@@ -57,6 +57,113 @@ class Validator(NamedTuple):
         return f"<Config {self.remote}@{self.prometheus}>"
 
 
+# consider switching to dataclass to avoid repeated fields
+class Local(NamedTuple):
+    load_curve: str
+    iterations: str
+    mount_dir: str
+
+
+class LocalProcess(NamedTuple):
+    isolated_cpu: str
+    load_curve: str
+    iterations: str
+    mount_dir: str
+
+
+class LocalContainer(NamedTuple):
+    isolated_cpu: str
+    container_name: str
+    load_curve: str
+    iterations: str
+    mount_dir: str
+
+
+class LocalPrometheus(NamedTuple):
+    url: str
+    rate_interval: str
+    step: str
+    job: str
+
+
+class BMValidator(NamedTuple):
+    log_level: str
+    prom: LocalPrometheus
+    node: Local
+    process: LocalProcess
+    container: LocalContainer
+    validations_file: str
+
+
+def bload(config_file: str) -> BMValidator:
+    """
+    Reads Baremetal YAML configuration file and returns a Config object.
+
+    Args:
+        config_file (str): Path to Baremetal YAML configuration file.
+
+    Returns:
+        BMValidator: A named tuple containing configuration values for Baremetal Validation.
+    """
+    with open(config_file) as file:
+        config = yaml.safe_load(file)
+
+    log_level = config.get("log_level", "warn")
+    prom_config = config["prometheus"]
+    if not prom_config:
+        prom_config = {}
+    prom = LocalPrometheus(
+        url=prom_config.get("url", "http://localhost:9090"),
+        rate_interval=prom_config.get("rate_interval", "20s"),
+        step=prom_config.get("step", "3s"),
+        job=prom_config.get("job", "metal")
+    )
+    print(prom)
+
+    default_config = config["config"]
+    node_config = config["node"]
+    process_config = config["process"]
+    container_config = config["container"]
+    # node config
+    if not node_config:
+        node_config = {}
+    node = Local(
+        load_curve=node_config.get("load_curve", default_config["load_curve"]),
+        iterations=node_config.get("iterations", default_config["iterations"]),
+        mount_dir=os.path.expanduser(node_config.get("mount_dir", default_config["mount_dir"]))
+    )
+    print(node)
+    if not process_config:
+        process_config = {}
+    process = LocalProcess(
+        isolated_cpu=process_config.get("isolated_cpu", default_config["isolated_cpu"]),
+        load_curve=process_config.get("load_curve", default_config["load_curve"]),
+        iterations=process_config.get("iterations", default_config["iterations"]),
+        mount_dir=os.path.expanduser(process_config.get("mount_dir", default_config["mount_dir"]))
+    )
+    print(process)
+    if not container_config:
+        container_config = {}
+    container = LocalContainer(
+        isolated_cpu=container_config.get("isolated_cpu", default_config["isolated_cpu"]),
+        container_name=container_config.get("container_name", default_config["container_name"]),
+        load_curve=container_config.get("load_curve", default_config["load_curve"]),
+        iterations=container_config.get("iterations", default_config["iterations"]),
+        mount_dir=os.path.expanduser(container_config.get("mount_dir", default_config["mount_dir"]))
+    )
+    print(container)
+
+    validations_file = config.get("validations_file", "bm_validations.yaml")
+
+    BMValidator(
+        log_level=log_level,
+        prom=prom,
+        node=node,
+        process=process,
+        container=container,
+        validations_file=validations_file
+    )
+
 def load(config_file: str) -> Validator:
     """
     Reads the YAML configuration file and returns a Config object.
