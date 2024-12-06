@@ -57,18 +57,16 @@ var (
 		LogisticTrainer,
 		ExponentialTrainer,
 	}
+	ModelOutputTypeConverter = []string{"AbsPower", "DynPower"}
+	ModelTypeConverter       = []string{"Ratio", "Regressor", "EstimatorSidecar"}
 )
 
 func getModelOutputTypeConverter() []string {
-	return []string{
-		"AbsPower", "DynPower",
-	}
+	return ModelOutputTypeConverter
 }
 
 func getModelTypeConverter() []string {
-	return []string{
-		"Ratio", "Regressor", "EstimatorSidecar",
-	}
+	return ModelTypeConverter
 }
 
 func (s ModelOutputType) String() string {

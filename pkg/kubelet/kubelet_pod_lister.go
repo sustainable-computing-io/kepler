@@ -38,6 +38,7 @@ const (
 
 var (
 	podURL string
+	client http.Client
 )
 
 func init() {
@@ -50,6 +51,8 @@ func init() {
 		port = "10250"
 	}
 	podURL = "https://" + nodeName + ":" + port + "/pods"
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	client = http.Client{}
 }
 
 func httpGet(url string) (*http.Response, error) {
@@ -65,8 +68,6 @@ func httpGet(url string) (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Add("Authorization", bearer)
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get response from %q: %v", url, err)

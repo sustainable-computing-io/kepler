@@ -234,7 +234,7 @@ func getBoolConfig(configKey string, defaultBool bool) bool {
 }
 
 func getIntConfig(configKey string, defaultInt int) int {
-	defaultValue := fmt.Sprintf("%d", defaultInt)
+	defaultValue := strconv.Itoa(defaultInt)
 	value, err := strconv.Atoi(getConfig(configKey, defaultValue))
 	if err == nil {
 		return value
