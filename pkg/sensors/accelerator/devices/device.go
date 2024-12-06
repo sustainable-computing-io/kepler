@@ -30,6 +30,7 @@ const (
 	HABANA
 	DCGM
 	NVML
+	GRACE
 )
 
 var (
@@ -46,7 +47,7 @@ type (
 )
 
 func (d DeviceType) String() string {
-	return [...]string{"MOCK", "HABANA", "DCGM", "NVML"}[d]
+	return [...]string{"MOCK", "HABANA", "DCGM", "NVML", "GRACE HOPPER"}[d]
 }
 
 type Device interface {
@@ -110,6 +111,7 @@ func registerDevices(r *Registry) {
 	dcgmCheck(r)
 	habanaCheck(r)
 	nvmlCheck(r)
+	graceCheck(r)
 }
 
 func (r *Registry) MustRegister(a string, d DeviceType, deviceStartup deviceStartupFunc) {
