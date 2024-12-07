@@ -1,8 +1,8 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.21.0
+go 1.22
 
-toolchain go1.21.9
+toolchain go1.23.1
 
 require (
 	github.com/HabanaAI/gohlml v1.16.0
@@ -22,6 +22,7 @@ require (
 	github.com/prometheus/prometheus v0.54.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
+	go.uber.org/mock v0.5.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	golang.org/x/sys v0.26.0
 	gopkg.in/yaml.v3 v3.0.1

@@ -29,6 +29,7 @@ import (
 	resourceBpf "github.com/sustainable-computing-io/kepler/pkg/collector/resourceutilization/bpf"
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
+	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/model"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
@@ -59,6 +60,9 @@ type Collector struct {
 	bpfExporter bpf.Exporter
 	// bpfSupportedMetrics holds the supported metrics by the bpf exporter
 	bpfSupportedMetrics bpf.SupportedMetrics
+
+	// podLister list pod from k8s api
+	podLister kubelet.KubeletPodLister
 }
 
 func NewCollector(bpfExporter bpf.Exporter) *Collector {
@@ -70,6 +74,7 @@ func NewCollector(bpfExporter bpf.Exporter) *Collector {
 		VMStats:             map[string]*stats.VMStats{},
 		bpfExporter:         bpfExporter,
 		bpfSupportedMetrics: bpfSupportedMetrics,
+		podLister:           kubelet.KubeletPodListerImpl{},
 	}
 	return c
 }
@@ -229,7 +234,7 @@ func (c *Collector) handleIdlingProcess(pStat *stats.ProcessStats) {
 func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 	numOfInactive := len(c.ContainerStats) - len(foundContainer)
 	if numOfInactive > maxInactiveContainers {
-		aliveContainers, err := cgroup.GetAliveContainers()
+		aliveContainers, err := cgroup.GetAliveContainers(c.podLister)
 		if err != nil {
 			klog.V(5).Infoln(err)
 			return
