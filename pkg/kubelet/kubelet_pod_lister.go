@@ -28,7 +28,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type KubeletPodLister struct{}
+type KubeletPodListerImpl struct{}
+
+type KubeletPodLister interface {
+	ListPods() (*[]corev1.Pod, error)
+}
 
 const (
 	saPath         = "/var/run/secrets/kubernetes.io/serviceaccount/token"
@@ -75,7 +79,7 @@ func httpGet(url string) (*http.Response, error) {
 }
 
 // ListPods obtains PodList
-func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
+func (k KubeletPodListerImpl) ListPods() (*[]corev1.Pod, error) {
 	resp, err := httpGet(podURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get response: %v", err)

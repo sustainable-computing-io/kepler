@@ -274,7 +274,7 @@ SUDO_TEST_PKGS := $(shell go list -tags $(GO_BUILD_TAGS) ./... | grep pkg/bpftes
 ##@ testing
 
 .PHONY: test
-test: unit-test bpf-test bench ## Run all tests.
+test: generatemock unit-test bpf-test bench ## Run all tests.
 
 .PHONY: unit-test
 unit-test: generate ginkgo-set tidy-vendor ## Run unit tests.
@@ -454,3 +454,8 @@ platform-validation: ginkgo-set get-env ## Run Kepler platform validation.
 
 check: tidy-vendor check-govuln format golint test ## Run checks and tests.
 .PHONY: check
+
+.PHONY: generatemock
+generatemock:
+	go install go.uber.org/mock/mockgen@latest
+	go generate ./pkg/...

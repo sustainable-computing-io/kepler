@@ -56,11 +56,6 @@ type cache struct {
 	byteOrder                  binary.ByteOrder
 }
 
-func Init() (*[]corev1.Pod, error) {
-	pods := []corev1.Pod{}
-	return &pods, nil
-}
-
 // init() Creates the singleton Config instance
 func init() {
 	instance = newCache()
@@ -354,8 +349,7 @@ func getPathFromPID(searchPath string, pid uint64) (string, error) {
 }
 
 // GetAliveContainers returns a map of alive containers from the provided pods
-func GetAliveContainers() (map[string]bool, error) {
-	podLister := kubelet.KubeletPodLister{}
+func GetAliveContainers(podLister kubelet.KubeletPodLister) (map[string]bool, error) {
 	pods, err := podLister.ListPods()
 	if err != nil {
 		return nil, err
