@@ -17,11 +17,13 @@ limitations under the License.
 package cgroup
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 
+	gomock "go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -99,7 +101,7 @@ var results = map[string]bool{
 	"c3": true,
 }
 
-func TestGetAliveContainers(t *testing.T) {
+func TestCacheGetAliveContainers(t *testing.T) {
 	g := NewWithT(t)
 
 	var testcases = []struct {
@@ -235,4 +237,48 @@ func TestValidContainerID(t *testing.T) {
 	g := NewWithT(t)
 	result := validContainerID("")
 	g.Expect(result).To(Equal(utils.SystemProcessName))
+}
+
+func TestGetAliveContainers(t *testing.T) {
+	g := NewWithT(t)
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+	mock := NewMockKubeletPodLister(controller)
+	mock.EXPECT().ListPods().Return(nil, fmt.Errorf("")).AnyTimes()
+	result, err := GetAliveContainers(mock)
+	g.Expect(result).To(BeNil())
+	g.Expect(err).To(HaveOccurred())
+}
+
+func TestGetAliveContainersInError(t *testing.T) {
+	g := NewWithT(t)
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+	mock := NewMockKubeletPodLister(controller)
+	var testcases = []struct {
+		name          string
+		pods          []corev1.Pod
+		expectErr     bool
+		expectResults map[string]bool
+	}{
+		{
+			name:          "test normal status from kubelet",
+			pods:          normalPods,
+			expectErr:     false,
+			expectResults: results,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			mock.EXPECT().ListPods().Return(&testcase.pods, nil).AnyTimes()
+			result, err := GetAliveContainers(mock)
+			g.Expect(result).NotTo(BeNil())
+			g.Expect(err).NotTo(HaveOccurred())
+		})
+	}
+}
+
+func TestGetPathFromPID(t *testing.T) {
+
 }

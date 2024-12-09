@@ -27,7 +27,3 @@ func TestPodLoader(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CGroup Suite")
 }
-
-var _ = BeforeSuite(func() {
-	_, _ = Init()
-})
