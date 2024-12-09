@@ -116,7 +116,6 @@ func ReadMSR(packageID int, msr int64) (uint64, error) {
 	}
 
 	msrVal := byteOrder.Uint64(buf)
-
 	return msrVal, nil
 }
 

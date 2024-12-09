@@ -14,10 +14,10 @@ type UInt64Stat struct {
 }
 
 func NewUInt64Stat(aggr, delta uint64) *UInt64Stat {
-	stat := &UInt64Stat{}
+	stat := UInt64Stat{}
 	stat.aggr.Store(aggr)
 	stat.delta.Store(delta)
-	return stat
+	return &stat
 }
 
 func (s *UInt64Stat) String() string {
