@@ -1,6 +1,7 @@
 import logging
 import re
 from typing import Any, NamedTuple
+from abc import ABC, abstractmethod
 
 import yaml
 
@@ -68,7 +69,7 @@ def yaml_node(yml: dict[str, Any], key_path: list[str], default: Any) -> Any:
     return node
 
 
-def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Validation]:
+def read_validations(file_path: str, promql_vars: dict[str, str], level: str = "") -> list[Validation]:
     with open(file_path) as file:
         yml = yaml.safe_load(file)
         global_mapping = yaml_node(yml, ["config", "mapping"], {})
@@ -90,7 +91,50 @@ def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Valida
                 max_mape=v.get("max_mape"),
             )
 
-        return [validation_from_yaml(v) for v in yml["validations"]]
+        return [validation_from_yaml(v) for v in (yml["validations"][level] if level else yml["validations"])]
+
+
+class BLoader:
+    def __init__(self, cfg: config.BMValidator):
+        self.cfg = cfg
+
+    def _load_base_promql_vars(self) -> dict[str, str]:
+        promql_vars = {}
+        prom = self.cfg.prometheus
+        promql_vars["rate_interval"] = prom.rate_interval
+        promql_vars["job"] = prom.job.metal
+        return promql_vars
+    
+    def load_node_validations(self) -> list[Validation]:
+        promql_vars = self._load_base_promql_vars()
+        
+        return read_validations(
+            self.cfg.validations_file,
+            promql_vars,
+            "node"
+        )
+
+    def load_process_validations(self, process_pids: list[str]) -> list[Validation]:
+        promql_vars = self._load_base_promql_vars()
+        pids = "|".join(map(str, process_pids))
+        pid_label = f'pid=~"{pids}"'
+        promql_vars["target_pids"] = pid_label
+
+        return read_validations(
+            self.cfg.validations_file, 
+            promql_vars,
+            "process"
+        )
+
+    def load_container_validations(self, container_id: str) -> list[Validation]:
+        promql_vars = self._load_base_promql_vars()
+        promql_vars["target_container_id"] = container_id
+
+        return read_validations(
+            self.cfg.validations_file,
+            promql_vars,
+            "container"
+        )
 
 
 class Loader:
