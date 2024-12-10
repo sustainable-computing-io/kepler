@@ -127,7 +127,7 @@ class ProcessOutput(NamedTuple):
 
 
 class ContainerOutput(NamedTuple):
-    ScriptResult: ScriptResult
+    script_result: ScriptResult
     container_id: str
 
 

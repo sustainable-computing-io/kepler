@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: APACHE-2.0
 
 import os
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 import yaml
 
@@ -79,19 +79,19 @@ class LocalContainer(NamedTuple):
     mount_dir: str
 
 
-class LocalPrometheus(NamedTuple):
-    url: str
-    rate_interval: str
-    step: str
-    job: str
+# class LocalPrometheus(NamedTuple):
+#     url: str
+#     rate_interval: str
+#     step: str
+#     job_name: str
 
 
 class BMValidator(NamedTuple):
     log_level: str
-    prom: LocalPrometheus
-    node: Local
-    process: LocalProcess
-    container: LocalContainer
+    prometheus: Prometheus
+    node: Optional[Local]
+    process: Optional[LocalProcess]
+    container: Optional[LocalContainer]
     validations_file: str
 
 
@@ -112,52 +112,63 @@ def bload(config_file: str) -> BMValidator:
     prom_config = config["prometheus"]
     if not prom_config:
         prom_config = {}
-    prom = LocalPrometheus(
+    prom = Prometheus(
         url=prom_config.get("url", "http://localhost:9090"),
         rate_interval=prom_config.get("rate_interval", "20s"),
         step=prom_config.get("step", "3s"),
-        job=prom_config.get("job", "metal")
+        job=PrometheusJob(
+            metal=prom_config.get("job", "metal"),
+            vm="",
+        )
     )
     print(prom)
 
     default_config = config["config"]
-    node_config = config["node"]
-    process_config = config["process"]
-    container_config = config["container"]
-    # node config
-    if not node_config:
-        node_config = {}
-    node = Local(
-        load_curve=node_config.get("load_curve", default_config["load_curve"]),
-        iterations=node_config.get("iterations", default_config["iterations"]),
-        mount_dir=os.path.expanduser(node_config.get("mount_dir", default_config["mount_dir"]))
-    )
+    
+    node = None
+    if "node" in config:
+        node_config = config["node"]
+        if not node_config:
+            node_config = {}
+        node = Local(
+            load_curve=node_config.get("load_curve", default_config["load_curve"]),
+            iterations=node_config.get("iterations", default_config["iterations"]),
+            mount_dir=os.path.expanduser(node_config.get("mount_dir", default_config["mount_dir"]))
+        )
     print(node)
-    if not process_config:
-        process_config = {}
-    process = LocalProcess(
-        isolated_cpu=process_config.get("isolated_cpu", default_config["isolated_cpu"]),
-        load_curve=process_config.get("load_curve", default_config["load_curve"]),
-        iterations=process_config.get("iterations", default_config["iterations"]),
-        mount_dir=os.path.expanduser(process_config.get("mount_dir", default_config["mount_dir"]))
-    )
+    
+    process = None
+    if "process" in config:
+        process_config = config["process"]
+        if not process_config:
+            process_config = {}
+        process = LocalProcess(
+            isolated_cpu=process_config.get("isolated_cpu", default_config["isolated_cpu"]),
+            load_curve=process_config.get("load_curve", default_config["load_curve"]),
+            iterations=process_config.get("iterations", default_config["iterations"]),
+            mount_dir=os.path.expanduser(process_config.get("mount_dir", default_config["mount_dir"]))
+        )
     print(process)
-    if not container_config:
-        container_config = {}
-    container = LocalContainer(
-        isolated_cpu=container_config.get("isolated_cpu", default_config["isolated_cpu"]),
-        container_name=container_config.get("container_name", default_config["container_name"]),
-        load_curve=container_config.get("load_curve", default_config["load_curve"]),
-        iterations=container_config.get("iterations", default_config["iterations"]),
-        mount_dir=os.path.expanduser(container_config.get("mount_dir", default_config["mount_dir"]))
-    )
+    
+    container = None
+    if "container" in config:
+        container_config = config["container"]
+        if not container_config:
+            container_config = {}
+        container = LocalContainer(
+            isolated_cpu=container_config.get("isolated_cpu", default_config["isolated_cpu"]),
+            container_name=container_config.get("container_name", default_config["container_name"]),
+            load_curve=container_config.get("load_curve", default_config["load_curve"]),
+            iterations=container_config.get("iterations", default_config["iterations"]),
+            mount_dir=os.path.expanduser(container_config.get("mount_dir", default_config["mount_dir"]))
+        )
     print(container)
 
     validations_file = config.get("validations_file", "bm_validations.yaml")
 
-    BMValidator(
+    return BMValidator(
         log_level=log_level,
-        prom=prom,
+        prometheus=prom,
         node=node,
         process=process,
         container=container,

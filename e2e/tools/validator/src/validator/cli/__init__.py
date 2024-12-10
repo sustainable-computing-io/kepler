@@ -25,12 +25,12 @@ from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series, ValueOrError
 from validator.report import CustomEncoder, JsonTemplate
 from validator.specs import MachineSpec, get_host_spec, get_vm_spec
-from validator.stresser import Remote, ScriptResult
-from validator.validations import Loader, QueryTemplate, Validation
+from validator.stresser import Remote, ScriptResult, Local, Process, Container
+from validator.validations import Loader, BLoader, QueryTemplate, Validation
 
 logger = logging.getLogger(__name__)
 pass_config = click.make_pass_decorator(config.Validator)
-
+pass_bm_config = click.make_pass_decorator(config.BMValidator)
 
 @dataclass
 class ValidationResult:
@@ -364,6 +364,20 @@ def dump_query_result(raw_results_dir: str, prefix: str, query: QueryTemplate, s
     return out_file
 
 
+def setup_validator(ctx: click.Context, config_file: str, log_level: str, loader):
+    cfg = loader(config_file)
+    log_level = cfg.log_level if log_level == "config" else log_level
+    try:
+        level = getattr(logging, log_level.upper())
+    except AttributeError:
+        # ruff: noqa: T201
+        print(f"Invalid log level: {cfg.log_level}; setting to debug")
+        level = logging.DEBUG
+
+    logging.basicConfig(level=level)
+    ctx.obj = cfg
+
+
 @click.group(
     context_settings={"help_option_names": ["-h", "--help"]},
     invoke_without_command=False,
@@ -385,17 +399,42 @@ def dump_query_result(raw_results_dir: str, prefix: str, query: QueryTemplate, s
 )
 @click.pass_context
 def validator(ctx: click.Context, config_file: str, log_level: str):
-    cfg = config.load(config_file)
-    log_level = cfg.log_level if log_level == "config" else log_level
-    try:
-        level = getattr(logging, log_level.upper())
-    except AttributeError:
-        # ruff: noqa: T201 (Suppressed as an early print statement before logging level is set)
-        print(f"Invalid log level: {cfg.log_level}; setting to debug")
-        level = logging.DEBUG
+    setup_validator(ctx, config_file, log_level, config.load)
+    # cfg = config.load(config_file)
+    # log_level = cfg.log_level if log_level == "config" else log_level
+    # try:
+    #     level = getattr(logging, log_level.upper())
+    # except AttributeError:
+    #     # ruff: noqa: T201 (Suppressed as an early print statement before logging level is set)
+    #     print(f"Invalid log level: {cfg.log_level}; setting to debug")
+    #     level = logging.DEBUG
 
-    logging.basicConfig(level=level)
-    ctx.obj = cfg
+    # logging.basicConfig(level=level)
+    # ctx.obj = cfg
+
+
+@click.group(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    invoke_without_command=False,
+)
+@click.version_option(version=__version__, prog_name="bm_validator")
+@click.option(
+    "--log-level",
+    "-l",
+    type=click.Choice(["debug", "info", "warn", "error", "config"]),
+    default="config",
+    required=False,
+)
+@click.option(
+    "--config-file",
+    "-f",
+    default="validator.bm.yaml",
+    type=click.Path(exists=True),
+    show_default=True,
+)
+@click.pass_context
+def bm_validator(ctx: click.Context, config_file: str, log_level: str):
+    setup_validator(ctx, config_file, log_level, config.bload)
 
 
 @validator.command()
@@ -619,6 +658,100 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
 
     return int(res.validations.passed)
 
+
+@bm_validator.command()
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
+@click.option(
+    "--report-dir",
+    "-o",
+    default="/tmp",
+    type=click.Path(exists=True, dir_okay=True, writable=True),
+    show_default=True,
+)
+@pass_config
+def regression(
+    cfg: config.BMValidator,
+    report_dir: str,
+):
+    """
+    Run Kepler Baremetal Validation Tests
+    """
+    click.secho("  * Generating report dir and tag", fg="green")
+    results_dir, tag = create_report_dir(report_dir)
+    click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
+    res = TestResult(tag)
+    res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
+    res.start_time = datetime.datetime.now()
+    click.secho("  * Generating spec report ...", fg="green")
+    res.host_spec = get_host_spec()
+    validation_results = []
+    click.secho("  * Running stress test ...", fg="green")
+    if cfg.node:
+        click.secho(" * Running node stress test ...", fg="blue")
+        local_stress = Local(
+            lc=cfg.node
+        )
+        local_stress_test = local_stress.stress()
+        start_time = local_stress_test.start_time
+        end_time = local_stress_test.end_time
+
+        # sleep a bit for prometheus to finish scrapping
+        click.secho("  * Sleeping for 10 seconds ...", fg="green")
+        time.sleep(10)
+        click.secho("  * Acquiring local stress validations ...", fg="green")
+        prom = PrometheusClient(cfg.prometheus)
+        comparator = Comparator(prom)
+        validations = BLoader(cfg).load_node_validations()
+
+        validation_results.extend([run_validation(v, comparator, start_time, end_time, results_dir) for v in validations])
+
+    if cfg.process:
+        click.secho(" * Running process stress test ...", fg="blue")
+        stress_process = Process(
+            pc=cfg.process
+        )
+        process_stress_test = stress_process.stress()
+        start_time = process_stress_test.script_result.start_time
+        end_time = process_stress_test.script_result.end_time
+        relevant_pids = process_stress_test.relevant_pids
+
+        # sleep a bit for prometheus to finish scrapping
+        click.secho("  * Sleeping for 10 seconds ...", fg="green")
+        time.sleep(10)
+        click.secho("  * Acquiring process stress validations ...", fg="green")
+        prom = PrometheusClient(cfg.prometheus)
+        comparator = Comparator(prom)
+        validations = BLoader(cfg).load_process_validations(relevant_pids)
+
+        validation_results.extend([run_validation(v, comparator, start_time, end_time, results_dir) for v in validations])
+
+    if cfg.container:
+        click.secho(" * Running container stress test ...", fg="blue")
+        container_process = Container(
+            cc=cfg.container
+        )
+        container_stress_test = container_process.stress()
+        start_time = container_stress_test.script_result.start_time
+        end_time = container_stress_test.script_result.end_time
+        container_id = container_stress_test.container_id
+
+        # sleep a bit for prometheus to finish scrapping
+        click.secho("  * Sleeping for 10 seconds ...", fg="green")
+        time.sleep(10)
+        click.secho("  * Acquiring container stress validations ...", fg="green")
+        prom = PrometheusClient(cfg.prometheus)
+        comparator = Comparator(prom)
+        validations = BLoader(cfg).load_container_validations(container_id)
+
+        validation_results.extend([run_validation(v, comparator, start_time, end_time, results_dir) for v in validations])
+
+    res.end_time = datetime.datetime.now()
+
+    res.validations = validation_results
+    write_json_report(results_dir, res)
+    write_md_report(results_dir, res)
+
+    return int(res.validations.passed)
 
 def write_json_report(results_dir: str, res: TestResult):
     pattern = re.compile(r'[{]?(\w+)=("[^"]*"|[^,]+)[},]?')
