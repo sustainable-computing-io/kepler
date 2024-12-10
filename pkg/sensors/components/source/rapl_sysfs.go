@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 )
@@ -43,7 +44,9 @@ const (
 )
 
 var (
-	eventPaths map[string]map[string]string
+	eventPaths                map[string]map[string]string
+	once                      sync.Once
+	systemCollectionSupported bool
 )
 
 func init() {
@@ -125,9 +128,14 @@ func (PowerSysfs) GetName() string {
 }
 
 func (r *PowerSysfs) IsSystemCollectionSupported() bool {
-	path := fmt.Sprintf(packageNamePathTemplate, 0)
-	_, err := os.ReadFile(path + energyFile)
-	return err == nil
+	// use a hard code to reduce escapes to heap
+	// there are parts of code invokes this function
+	// use once to reduce IO
+	once.Do(func() {
+		_, err := os.ReadFile("/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj")
+		systemCollectionSupported = (err == nil)
+	})
+	return systemCollectionSupported
 }
 
 func (r *PowerSysfs) GetAbsEnergyFromDram() (uint64, error) {
