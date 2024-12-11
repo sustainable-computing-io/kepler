@@ -36,11 +36,6 @@ const (
 	graceOemInfoFile       = "_oem_info"
 	graceAverageFile       = "_average"
 
-	// Grace power component identifiers from hwmon
-	gracePowerLabel = "Grace Power Socket" // Total socket power including DRAM
-	graceCPULabel   = "CPU Power Socket"   // CPU rail power
-	graceSysIOLabel = "SysIO Power Socket" // SOC rail power
-
 	// Conversion factors
 	microWattToMilliJoule = 1000 // Convert microwatts to mJ assuming 1 second sampling
 )
@@ -82,7 +77,7 @@ func (g *GraceACPI) findPowerPathsByLabel() error {
 
 		// Extract socket number and power type
 		// Per docs, Grace has 2 sockets, Grace Hopper has 1 CPU and 1 GPU socket
-		socketNum := -1
+		var socketNum int
 		if strings.HasSuffix(label, "Socket 0") {
 			socketNum = 0
 		} else if strings.HasSuffix(label, "Socket 1") {

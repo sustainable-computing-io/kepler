@@ -97,7 +97,7 @@ func (g *gpuGraceACPI) findModulePowerPaths() error {
 			continue
 		}
 
-		socketNum := -1
+		var socketNum int
 		if strings.HasSuffix(label, "Socket 0") {
 			socketNum = 0
 		} else if strings.HasSuffix(label, "Socket 1") {
