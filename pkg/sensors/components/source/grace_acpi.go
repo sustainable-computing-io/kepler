@@ -30,7 +30,7 @@ import (
 // Per https://docs.nvidia.com/grace-perf-tuning-guide/index.html#power-and-thermal-management
 const (
 	// Grace ACPI power paths and identifiers
-	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*/"
+	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*"
 	graceDevicePath        = "device/"
 	gracePowerPrefix       = "power1"
 	graceOemInfoFile       = "_oem_info"
@@ -70,7 +70,7 @@ func (g *GraceACPI) findPowerPathsByLabel() error {
 	}
 
 	for _, hwmonDir := range hwmonDirs {
-		deviceDir := hwmonDir + graceDevicePath
+		deviceDir := hwmonDir + "/" + graceDevicePath
 
 		// Check for power OEM info file
 		oemFile := deviceDir + gracePowerPrefix + graceOemInfoFile
