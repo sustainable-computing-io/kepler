@@ -2,8 +2,8 @@ log_level: warn # Logging level, defaults is warn
 
 prometheus:
   job: metal # Job name for baremetal metrics
-  url: http://localhost:9090 # Prometheus server URL
-  rate_interval: 20s  # Rate interval for Promql, default is 20s, typically 4 x $scrape_interval
+  url: http://localhost:9091 # Prometheus server URL
+  rate_interval: 21s  # Rate interval for Promql, default is 20s, typically 4 x $scrape_interval
   step: 3s  # Step duration for Prometheus range queries
 
 config: # default settings
@@ -15,11 +15,15 @@ config: # default settings
 
 #node: {} or node: or node: ~
 node:
-
+  load_curve: "0:20,50:20,100:20,50:20,0:20"
 process:
-  iterations: "2"
+  #iterations: "2"
+  isolated_cpu: "5"
+  load_curve: "0:20,50:20,100:20,50:20,0:20"
 
 container:
-  iterations: "2"
+  #iterations: "2"
+  isolated_cpu: "5"
+  load_curve: "0:20,50:20,100:20,50:20,0:20"
 
 validations_file: ./bm_validations.yaml  # Path to the validations file, default is ./bm_validations.yaml

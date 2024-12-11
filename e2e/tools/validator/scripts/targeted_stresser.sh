@@ -64,14 +64,16 @@ main() {
 
     start_time=$(date +%s)
     echo "Stress Start Time: $start_time" >> "$TIME_INTERVAL_LOG"
-
+    local all_cpus
+	all_cpus=$(nproc)
     for i in $(seq 1 "$iterations"); do
         echo "Running $i/$iterations"
         for x in "${load_curve[@]}"; do
             local load="${x%%:*}"
             local time="${x##*:}s"
             if $set_general_mode; then
-                run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
+                # replace cpus with all avaialbe cpus with nproc
+                run stress-ng --cpu "$all_cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
             else
                 run taskset -c "$cpu_range" stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
             fi

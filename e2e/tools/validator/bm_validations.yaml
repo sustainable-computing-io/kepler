@@ -1,0 +1,231 @@
+# metal_job_name: metal
+# scaphandre_job_name: scaphandre
+# node_exporter_job_name: node_exporter
+# remove path if possible
+
+validations:
+  process:
+    # validate process bpf cpu time with node exporter
+    - name: node-cpu-time - kepler-process-bpf-cpu-time
+      mapping:
+        actual: node-cpu-time
+        predicted: kepler-process-bpf-cpu-time
+      units: Milliseconds
+      node-cpu-time: |
+        sum(
+          rate(
+            node_cpu_seconds_total{{
+              cpu="{isolated_cpu}", 
+              mode!="idle"
+            }}[{rate_interval}]
+          )
+        ) * 1000
+      kepler-process-bpf-cpu-time: |
+        sum(
+          rate(
+            kepler_process_bpf_cpu_time_ms_total{{
+              job="{metal_job_name}",
+              pid=~"{pids}"
+            }}[{rate_interval}]
+          )
+        )
+    
+    # validate kepler bpf cpu time with process exporter (namedgroup must be pid)
+    # include system and user
+    - name: scaph-process-cpu-time - kepler-process-bpf-cpu-time
+      mapping:
+        actual: scaph-process-cpu-time
+        predicted: kepler-process-bpf-cpu-time
+      units: Milliseconds
+      scaph-process-cpu-time: |
+        sum(
+          rate(
+            namedprocess_namegroup_cpu_seconds_total{{
+              groupname=~"{pids}"
+            }}[{rate_interval}]
+          )
+        ) * 1000
+      kepler-process-bpf-cpu-time: |
+        sum(
+          rate(
+            kepler_process_bpf_cpu_time_ms_total{{
+              job="{metal_job_name}",
+              pid=~"{pids}"
+            }}[{rate_interval}]
+          )
+        )
+
+    - name: kepler-process-bpf-cpu-time usage * node-package-power - kepler-process-package-power
+      mapping:
+        actual: kepler-process-cpu-ratio-node-package-power
+        predicted: kepler-process-package-power
+      units: Watts
+      kepler-process-cpu-ratio-node-package-power: |
+        (
+          sum(
+            rate(
+              kepler_process_bpf_cpu_time_ms_total{{
+                job="{metal_job_name}",
+                pid=~"{pids}"
+              }}[{rate_interval}]
+            )
+          ) / 
+          sum(
+            rate(
+              kepler_process_bpf_cpu_time_ms_total{{
+                job="{metal_job_name}",
+              }}[{rate_interval}]
+            )
+          )
+        ) * 
+        sum(
+          rate(
+            node_rapl_package_joules_total{{
+              path="/host/sys/class/powercap/intel-rapl:0"
+            }}[{rate_interval}]
+          )
+        )
+      kepler-process-package-power: |
+        sum(
+          rate(
+            kepler_process_package_joules_total{{
+              job="{metal_job_name}",
+              pid=~"{pids}"
+            }}[{rate_interval}]
+          )
+        )
+
+    - name: node-exporter-cpu usage * node-package-power - kepler-process-package-power
+      mapping:
+        actual: kepler-process-cpu-ratio-node-package-power
+        predicted: kepler-process-package-power
+      units: Watts
+      kepler-process-cpu-ratio-node-package-power: |
+        (
+          (
+            sum(
+              rate(
+                node_cpu_seconds_total{{
+                  cpu=~"{isolated_cpu}", 
+                  mode!="idle"
+                }}[{rate_interval}]
+              )
+            ) * 1000
+          ) / 
+          (
+            sum(
+              rate(
+                node_cpu_seconds_total{{
+                  mode!="idle",
+                }}[{rate_interval}]
+              )
+            ) * 1000
+          )
+        ) * 
+        sum(
+          rate(
+            node_rapl_package_joules_total{{
+              path="/host/sys/class/powercap/intel-rapl:0"
+            }}[{rate_interval}]
+          )
+        )
+      kepler-process-package-power: |
+        sum(
+          rate(
+            kepler_process_package_joules_total{{
+              job="{metal_job_name}",
+              pid=~"{pids}"
+            }}[{rate_interval}]
+          )
+        )
+
+
+  container:
+    # validate container bpf cpu time with node exporter
+    - name: node-cpu-time - kepler-container-bpf-cpu-time
+      mapping:
+        actual: node-cpu-time
+        predicted: kepler-container-bpf-cpu-time
+      units: Milliseconds
+      node-cpu-time: |
+        sum(
+          rate(
+            node_cpu_seconds_total{{
+              cpu=~"{isolated_cpu}", 
+              mode!="idle"
+            }}[{rate_interval}]
+          )
+        ) * 1000
+      kepler-container-bpf-cpu-time: |
+        sum(
+          rate(
+            kepler_container_bpf_cpu_time_ms_total{{
+              job="{metal_job_name}",
+              container_id="{container_id}"
+            }}[{rate_interval}]
+          )
+        )
+    
+    - name: kepler-container-bpf-cpu-time usage * node-package-power - kepler-container-package-power
+      mapping:
+        actual: kepler-container-cpu-ratio-node-package-power
+        predicted: kepler-container-package-power
+      units: Watts
+      kepler-container-cpu-ratio-node-package-power: |
+        (
+          sum(
+            rate(
+              kepler_container_bpf_cpu_time_ms_total{{
+                job="{metal_job_name}",
+                container_id="{container_id}"
+              }}[{rate_interval}]
+            )
+          ) / 
+          sum(
+            rate(
+              kepler_container_bpf_cpu_time_ms_total{{
+                job="{metal_job_name}",
+              }}[{rate_interval}]
+            )
+          )
+        ) * 
+        sum(
+          rate(
+            node_rapl_package_joules_total{{
+              path="/host/sys/class/powercap/intel-rapl:0"
+            }}[{rate_interval}]
+          )
+        )
+      kepler-container-package-power: |
+        sum(
+          rate(
+            kepler_container_package_joules_total{{
+              job="{metal_job_name}",
+              container_id="{container_id}"
+            }}[{rate_interval}]
+          )
+        )
+
+  node:
+    # node level package power comparison
+    - name: node-rapl - kepler-node-package
+      mapping:
+        actual: node-rapl
+        predicted: kepler-node-package
+      units: Watts
+      node-rapl: |
+        sum(
+          rate(
+            node_rapl_package_joules_total{{
+              path="/host/sys/class/powercap/intel-rapl:0"
+            }}[{rate_interval}]
+          )
+        )
+      kepler-node-package: |
+        sum(
+          rate(
+            kepler_node_package_joules_total{{
+              job="{metal_job_name}",
+            }}[{rate_interval}]
+          )
+        )

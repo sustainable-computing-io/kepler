@@ -32,10 +32,12 @@ dependencies = [
   "matplotlib",
   "scikit-learn",
   "docker",
+  "psutil",
 ]
 
 [project.scripts]
 validator = "validator.cli:validator"
+bm_validator = "validator.cli:bm_validator"
 
 [tool.hatch.version]
 path = "src/validator/__about__.py"

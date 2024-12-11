@@ -668,8 +668,8 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     type=click.Path(exists=True, dir_okay=True, writable=True),
     show_default=True,
 )
-@pass_config
-def regression(
+@pass_bm_config
+def stress(
     cfg: config.BMValidator,
     report_dir: str,
 ):
@@ -681,7 +681,8 @@ def regression(
     click.secho(f"\tresults dir: {results_dir}, tag: {tag}", fg="bright_green")
     res = TestResult(tag)
     res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
-    res.start_time = datetime.datetime.now()
+    test_start_time = datetime.datetime.now()
+    res.start_time = test_start_time
     click.secho("  * Generating spec report ...", fg="green")
     res.host_spec = get_host_spec()
     validation_results = []
@@ -694,7 +695,7 @@ def regression(
         local_stress_test = local_stress.stress()
         start_time = local_stress_test.start_time
         end_time = local_stress_test.end_time
-
+        print(f"node: start time: {start_time}, end time: {end_time}")
         # sleep a bit for prometheus to finish scrapping
         click.secho("  * Sleeping for 10 seconds ...", fg="green")
         time.sleep(10)
@@ -714,7 +715,7 @@ def regression(
         start_time = process_stress_test.script_result.start_time
         end_time = process_stress_test.script_result.end_time
         relevant_pids = process_stress_test.relevant_pids
-
+        print(f"process: start time: {start_time}, end time: {end_time}")
         # sleep a bit for prometheus to finish scrapping
         click.secho("  * Sleeping for 10 seconds ...", fg="green")
         time.sleep(10)
@@ -722,7 +723,6 @@ def regression(
         prom = PrometheusClient(cfg.prometheus)
         comparator = Comparator(prom)
         validations = BLoader(cfg).load_process_validations(relevant_pids)
-
         validation_results.extend([run_validation(v, comparator, start_time, end_time, results_dir) for v in validations])
 
     if cfg.container:
@@ -734,7 +734,7 @@ def regression(
         start_time = container_stress_test.script_result.start_time
         end_time = container_stress_test.script_result.end_time
         container_id = container_stress_test.container_id
-
+        print(f"container: start time: {start_time}, end time: {end_time}")
         # sleep a bit for prometheus to finish scrapping
         click.secho("  * Sleeping for 10 seconds ...", fg="green")
         time.sleep(10)
@@ -745,9 +745,14 @@ def regression(
 
         validation_results.extend([run_validation(v, comparator, start_time, end_time, results_dir) for v in validations])
 
-    res.end_time = datetime.datetime.now()
+    test_end_time = datetime.datetime.now()
+    res.end_time = test_end_time
 
-    res.validations = validation_results
+    res.validations = ValidationResults(
+        started_at=test_start_time,
+        ended_at=test_end_time,
+        results=validation_results
+    )
     write_json_report(results_dir, res)
     write_md_report(results_dir, res)
 
