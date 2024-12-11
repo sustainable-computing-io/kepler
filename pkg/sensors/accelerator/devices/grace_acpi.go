@@ -30,7 +30,7 @@ import (
 
 const (
 	// Grace ACPI power paths and identifiers
-	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*/"
+	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*"
 	graceDevicePath        = "device/"
 	gracePowerPrefix       = "power1"
 	graceOemInfoFile       = "_oem_info"
@@ -85,7 +85,7 @@ func (g *gpuGraceACPI) findModulePowerPaths() error {
 	}
 
 	for _, hwmonDir := range hwmonDirs {
-		deviceDir := hwmonDir + graceDevicePath
+		deviceDir := hwmonDir + "/" + graceDevicePath
 		oemFile := deviceDir + gracePowerPrefix + graceOemInfoFile
 		data, err := os.ReadFile(oemFile)
 		if err != nil {
