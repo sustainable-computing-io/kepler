@@ -18,7 +18,6 @@ package collector
 
 import (
 	"os"
-	"sync"
 	"syscall"
 	"time"
 
@@ -63,7 +62,7 @@ type Collector struct {
 
 func NewCollector(bpfExporter bpf.Exporter) *Collector {
 	bpfSupportedMetrics := bpfExporter.SupportedMetrics()
-	c := &Collector{
+	c := Collector{
 		NodeStats:           *stats.NewNodeStats(),
 		ContainerStats:      map[string]*stats.ContainerStats{},
 		ProcessStats:        map[uint64]*stats.ProcessStats{},
@@ -71,7 +70,7 @@ func NewCollector(bpfExporter bpf.Exporter) *Collector {
 		bpfExporter:         bpfExporter,
 		bpfSupportedMetrics: bpfSupportedMetrics,
 	}
-	return c
+	return &c
 }
 
 func (c *Collector) Initialize() error {
@@ -139,22 +138,12 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 }
 
 func (c *Collector) updateResourceUtilizationMetrics() {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go c.updateNodeResourceUtilizationMetrics(wg)
-	go c.updateProcessResourceUtilizationMetrics(wg)
-	wg.Wait()
+	c.updateProcessResourceUtilizationMetrics()
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
 }
 
-// update the node metrics that are not related to aggregated resource utilization of processes
-func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	wg.Done()
-}
-
-func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *Collector) updateProcessResourceUtilizationMetrics() {
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)

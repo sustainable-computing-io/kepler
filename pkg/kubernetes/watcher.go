@@ -99,7 +99,7 @@ func newK8sClient() *kubernetes.Clientset {
 }
 
 func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatcher, error) {
-	w := &ObjListWatcher{
+	w := ObjListWatcher{
 		stopChannel:         make(chan struct{}),
 		k8sCli:              newK8sClient(),
 		ResourceKind:        podResourceType,
@@ -107,7 +107,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatche
 		workqueue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
 	if w.k8sCli == nil || !config.IsAPIServerEnabled() {
-		return w, nil
+		return &w, nil
 	}
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = fields.Set{"spec.nodeName": node.Name()}.AsSelector().String() // to filter events per node
@@ -150,7 +150,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatche
 		return nil, err
 	}
 	IsWatcherEnabled = true
-	return w, nil
+	return &w, nil
 }
 
 func (w *ObjListWatcher) processNextItem() bool {
