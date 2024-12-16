@@ -1,0 +1,354 @@
+config:
+  mapping:
+    actual: latest
+    predicted: dev
+
+validations:
+  # node rapl comparison
+  - name: node-rapl - kepler-package
+    units: Watts
+    mapping:
+      actual: node-rapl
+      predicted: kepler-package
+
+    node-rapl: |
+      sum(
+        rate(
+          node_rapl_package_joules_total[{rate_interval}]
+        )
+      )
+
+    kepler-package: |
+      sum(
+        rate(
+          kepler_node_package_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: node-rapl - kepler-core
+    units: Watts
+    mapping:
+      actual: node-rapl
+      predicted: kepler-core
+
+    node-rapl: |
+      sum(
+        rate(
+          node_rapl_core_joules_total[{rate_interval}]
+        )
+      )
+
+    kepler-core: |
+      sum(
+        rate(
+          kepler_node_core_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: node-rapl - kepler-dram
+    units: Watts
+    mapping:
+      actual: node-rapl
+      predicted: kepler-dram
+
+    node-rapl: |
+      sum(
+        rate(
+          node_rapl_dram_joules_total[{rate_interval}]
+        )
+      )
+
+    kepler-dram: |
+      sum(
+        rate(
+          kepler_node_dram_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  # absolute power comparison
+  - name: Total - absolute
+    latest: |
+      sum(
+        rate(
+        kepler_process_joules_total{{
+          job="latest",
+        }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_joules_total{{
+            job="dev",
+          }}[{rate_interval}]
+        )
+      )
+
+    max_mae: 2.01
+
+  # CPU time comparison
+  - name: cpu-time
+    units: Milliseconds
+    latest: |
+      sum(
+        rate(
+          kepler_process_bpf_cpu_time_ms_total{{
+            job="latest"
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_bpf_cpu_time_ms_total{{
+            job="dev",
+          }}[{rate_interval}]
+        )
+      )
+    # max_mae: 20.0
+
+  # process comparison
+  - name: platform - dynamic
+    latest: |
+      sum(
+        rate(
+        kepler_process_platform_joules_total{{
+          job="latest", mode="dynamic",
+        }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_platform_joules_total{{
+            job="dev", mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+
+    max_mae: 2.01
+
+  - name: package - dynamic
+    units: Watts
+    latest: |
+      sum(
+        rate(
+          kepler_process_package_joules_total{{
+            job="latest",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_package_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: core - dynamic
+    units: Watts
+    latest: |
+      sum(
+        rate(
+          kepler_process_core_joules_total{{
+            job="latest",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_core_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: dram - dynamic
+    units: Watts
+    latest: |
+      sum(
+        rate(
+          kepler_process_dram_joules_total{{
+            job="latest",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_dram_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: other - dynamic
+    units: Watts
+    latest: |
+      sum(
+        rate(
+          kepler_process_other_joules_total{{
+            job="latest",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_other_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  - name: uncore - dynamic
+    units: Watts
+    latest: |
+      sum(
+        rate(
+          kepler_process_uncore_joules_total{{
+            job="latest",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    dev: |
+      sum(
+        rate(
+          kepler_process_uncore_joules_total{{
+            job="dev",
+            mode="dynamic",
+          }}[{rate_interval}]
+        )
+      )
+    max_mae: 2.01
+
+  # node comparison
+  - name: node platform - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_platform_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_platform_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01
+
+  - name: node package - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_package_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_package_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01
+
+  - name: node core - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_core_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_core_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01
+
+  - name: node dram - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_dram_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_dram_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01
+
+  - name: node other - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_other_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_other_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01
+
+  - name: node uncore - dynamic
+    units: Watts
+    latest: |
+      rate(kepler_node_uncore_joules_total{{
+          job="latest",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+
+    dev: |
+      rate(kepler_node_uncore_joules_total{{
+          job="dev",
+          mode="dynamic",
+        }}[{rate_interval}]
+      )
+    max_mae: 2.01

@@ -32,7 +32,7 @@ class Duration(click.ParamType):
     def convert(self, value, param, ctx):
         td = parse_timedelta("now", value)
         if not td:
-            self.self.fail(
+            self.fail(
                 "Expected duration format got " f"{value:r}",
                 param,
                 ctx,

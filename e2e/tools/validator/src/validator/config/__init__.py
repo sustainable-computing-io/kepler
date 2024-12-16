@@ -43,6 +43,9 @@ class Prometheus(NamedTuple):
 class Stressor(NamedTuple):
     total_runtime_seconds: int
     curve_type: str
+    repeats: int
+    warmup_seconds: int
+    cooldown_seconds: int
 
 
 class Validator(NamedTuple):
@@ -113,11 +116,16 @@ def load(config_file: str) -> Validator:
 
     stressor_config = config["stressor"]
     if not stressor_config:
-        stressor = Stressor(total_runtime_seconds=1200, curve_type="default")
+        stressor = Stressor(
+            total_runtime_seconds=1200, curve_type="default", repeats=5, warmup_seconds=5, cooldown_seconds=5
+        )
     else:
         stressor = Stressor(
             total_runtime_seconds=stressor_config.get("total_runtime_seconds", 1200),
             curve_type=stressor_config.get("curve_type", "default"),
+            repeats=stressor_config.get("repeats", 5),
+            warmup_seconds=stressor_config.get("warmup_seconds", 5),
+            cooldown_seconds=stressor_config.get("cooldown_seconds", 5),
         )
 
     validations_file = config.get("validations_file", "validations.yaml")

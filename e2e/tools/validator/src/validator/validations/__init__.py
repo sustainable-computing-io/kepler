@@ -88,6 +88,7 @@ def read_validations(file_path: str, promql_vars: dict[str, str]) -> list[Valida
                 predicted_label=predicted_label,
                 units=v.get("units", ""),
                 max_mape=v.get("max_mape"),
+                max_mae=v.get("max_mae"),
             )
 
         return [validation_from_yaml(v) for v in yml["validations"]]

@@ -1,4 +1,7 @@
 import logging
+import os
+import shutil
+import subprocess
 from datetime import datetime
 from typing import NamedTuple
 
@@ -18,6 +21,51 @@ class RunResult(NamedTuple):
     stdout: str
     stderr: str
     exit_code: int
+
+
+class Local:
+    def copy(self, script_path, target_script):
+        logger.info("copying script %s - %s", script_path, target_script)
+        shutil.copy(script_path, target_script)
+        os.chmod(target_script, 0o700)
+        logger.info("copying script %s - %s - successful", script_path, target_script)
+
+    def run_script(self, script_path: str, **kwargs) -> ScriptResult:
+        logger.info("Running script %s ...", script_path)
+        # Prepare CLI options
+        cli_options = " ".join([f"-{k} {v}" for k, v in kwargs.items()]) if kwargs else ""
+        # ruff: noqa: S108 (Suppressed hard-coded path because we want to intentionally copy stress.sh inside `/tmp` dir)
+        target_script = "/tmp/regression-stress.sh"
+        self.copy(script_path, target_script)
+
+        command = [target_script, *cli_options.split()]
+        logger.info("Running command %s ...", command)
+        # ruff: noqa: DTZ005 (Suppressed non-time-zone aware object creation as it is not necessary for this use case)
+        start_time = datetime.now()
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        end_time = datetime.now()
+
+        # Output stdout
+        print("stdout output:")
+        for line in stdout.decode().splitlines():
+            print(" ┊ ", line)
+
+        # Output stderr
+        print("\nstderr output:")
+        for line in stderr.decode().splitlines():
+            print(" ┊ ", line)
+        print("‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\n\n")
+
+        if process.returncode != 0:
+            logger.warning("script execution failed")
+        else:
+            logger.info("script execution successful")
+
+        return ScriptResult(
+            start_time=start_time,
+            end_time=end_time,
+        )
 
 
 class Remote:

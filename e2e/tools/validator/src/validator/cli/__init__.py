@@ -26,7 +26,7 @@ from validator.cli import options
 from validator.prometheus import Comparator, PrometheusClient, Series, ValueOrError
 from validator.report import CustomEncoder, JsonTemplate
 from validator.specs import MachineSpec, get_host_spec, get_vm_spec
-from validator.stresser import Remote, ScriptResult
+from validator.stresser import Local, Remote, ScriptResult
 from validator.validations import Loader, QueryTemplate, Validation
 
 logger = logging.getLogger(__name__)
@@ -600,6 +600,9 @@ def run_validation(
 )
 @pass_config
 def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_dir: str) -> None:
+    """
+    Run Kepler ACPI validation test
+    """
     results_dir, tag = create_report_dir(report_dir)
     res = TestResult(tag)
 
@@ -616,6 +619,59 @@ def validate_acpi(cfg: config.Validator, duration: datetime.timedelta, report_di
     res.validations = run_validations(cfg, script_result, results_dir)
 
     click.secho("  * Generating validate acpi report file and dir", fg="green")
+    write_md_report(results_dir, res)
+
+    raise Exit(1) if not res.validations.passed else Exit(0)
+
+
+@validator.command()
+@click.option(
+    "--script-path",
+    "-s",
+    default="./scripts/stressor.sh",
+    type=click.Path(exists=True),
+    show_default=True,
+)
+# ruff: noqa: S108 (Suppressed as we are intentionally using `/tmp` as reporting directory)
+@click.option(
+    "--report-dir",
+    "-o",
+    default="/tmp",
+    type=click.Path(exists=True, dir_okay=True, writable=True),
+    show_default=True,
+)
+@pass_config
+def regression(
+    cfg: config.Validator,
+    script_path: str,
+    report_dir: str,
+):
+    """
+    Run Kepler regression test
+    """
+    results_dir, tag = create_report_dir(report_dir)
+    res = TestResult(tag)
+    click.secho("  * Generating build and node info ...", fg="green")
+    res.build_info, res.node_info = get_build_and_node_info(cfg.prometheus)
+    click.secho("  * Generating spec report ...", fg="green")
+    res.host_spec = get_host_spec()
+    local = Local()
+    warmup_seconds = cfg.stressor.warmup_seconds
+    cooldown_seconds = cfg.stressor.cooldown_seconds
+    curve_type = cfg.stressor.curve_type
+    repeats = cfg.stressor.repeats
+    stress_test = local.run_script(
+        script_path=script_path, c=curve_type, w=warmup_seconds, d=cooldown_seconds, r=repeats
+    )
+    res.start_time = stress_test.start_time
+    res.end_time = stress_test.end_time
+
+    # sleep a bit for prometheus to finish scrapping
+    click.secho("  * Sleeping for 10 seconds ...", fg="green")
+    time.sleep(10)
+
+    res.validations = run_validations(cfg, stress_test, results_dir)
+    click.secho("  * Generating validate metrics report file and dir", fg="green")
     write_md_report(results_dir, res)
 
     raise Exit(1) if not res.validations.passed else Exit(0)
