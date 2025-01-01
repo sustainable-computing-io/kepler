@@ -37,6 +37,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
+	"gopkg.in/yaml.v3"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -50,6 +51,15 @@ const (
 	finishingMsg = "Exiting..."
 	startedMsg   = "Started Kepler in %s"
 )
+
+type TLSConfig struct {
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+}
+
+type TLSServerConfig struct {
+	TLSConfig TLSConfig `yaml:"tls_server_config"`
+}
 
 // AppConfig holds the configuration info for the application.
 type AppConfig struct {
@@ -66,6 +76,7 @@ type AppConfig struct {
 	ExposeEstimatedIdlePower     bool
 	MachineSpecFilePath          string
 	DisablePowerMeter            bool
+	TLSFilePath                  string
 }
 
 func newAppConfig() *AppConfig {
@@ -84,6 +95,7 @@ func newAppConfig() *AppConfig {
 	flag.BoolVar(&cfg.ExposeEstimatedIdlePower, "expose-estimated-idle-power", false, "Whether to expose the estimated idle power as a metric")
 	flag.StringVar(&cfg.MachineSpecFilePath, "machine-spec", "", "path to the machine spec file in json format")
 	flag.BoolVar(&cfg.DisablePowerMeter, "disable-power-meter", false, "whether manually disable power meter read and forcefully apply the estimator for node powers")
+	flag.StringVar(&cfg.TLSFilePath, "web.config.file", "", "path to TLS web config file")
 
 	return cfg
 }
@@ -181,6 +193,32 @@ func main() {
 	metricPathConfig := config.GetMetricPath(appConfig.MetricsPath)
 	bindAddressConfig := config.GetBindAddress(appConfig.Address)
 
+	var certFile, keyFile string
+	tlsConfigured := false
+
+	// Retrieve the TLS config
+	if appConfig.TLSFilePath != "" {
+		configPath := appConfig.TLSFilePath
+
+		configFile, err := os.Open(configPath)
+		if err != nil {
+			klog.Errorf("Error opening config file: %v\n", err)
+		}
+		defer configFile.Close()
+
+		var tlsServerConfig TLSServerConfig
+		decoder := yaml.NewDecoder(configFile)
+		if err := decoder.Decode(&tlsServerConfig); err != nil {
+			klog.Errorf("Error parsing config file: %v\n", err)
+		}
+
+		if tlsServerConfig.TLSConfig.CertFile != "" && tlsServerConfig.TLSConfig.KeyFile != "" {
+			certFile = tlsServerConfig.TLSConfig.CertFile
+			keyFile = tlsServerConfig.TLSConfig.KeyFile
+			tlsConfigured = true
+		}
+	}
+
 	handler := http.ServeMux{}
 	reg := m.PrometheusCollector.RegisterMetrics()
 	handler.Handle(metricPathConfig, promhttp.HandlerFor(
@@ -207,7 +245,17 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if tlsConfigured {
+			// Run server in TLS mode
+			klog.Infof("Starting server with TLS")
+			err = srv.ListenAndServeTLS(certFile, keyFile)
+		} else {
+			// Fall back to non-TLS mode
+			klog.Infof("Starting server without TLS")
+			err = srv.ListenAndServe()
+		}
+
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- err
 		}
 	}()
