@@ -43,25 +43,50 @@ declare -a load_curve_default=(
 	0:5
 )
 
+declare -a load_curve_regression=(
+	0:15
+	10:30
+	25:30
+	50:30
+	75:30
+	50:30
+	25:30
+	10:30
+	0:15
+
+)
+
 main() {
 	local total_time=0
 	local repeats=5
 	local curve_type="default"
+	local cooldown_time=5
+	local warmup_time=5
 
-	while getopts "t:r:c:" opt; do
+	while getopts "t:r:c:d:w:" opt; do
 		case $opt in
-			t) total_time=$OPTARG ;;
-			c) curve_type=$OPTARG ;;
-			*) echo "Usage: $0 [-t total_time_in_seconds] [-c curve_type(default|stepwise)]" >&2; exit 1 ;;
+		t) total_time=$OPTARG ;;
+		c) curve_type=$OPTARG ;;
+		r) repeats=$OPTARG ;;
+		w) warmup_time=$OPTARG ;;
+		d) cooldown_time=$OPTARG ;;
+		*)
+			echo "Usage: $0 [-t total_time_in_seconds] [-w warmup_time_in_seconds] [-c cooldown_time_in_seconds] [-r repeats] [-c curve_type]"
+			exit 1
+			;;
 		esac
 	done
 
 	# Select load curve based on curve_type
 	local -a load_curve
 	case $curve_type in
-		"default") load_curve=("${load_curve_default[@]}") ;;
-		"stepwise") load_curve=("${load_curve_stepwise[@]}") ;;
-		*) echo "Invalid curve type. Use 'default' or 'stepwise'" >&2; exit 1 ;;
+	"default") load_curve=("${load_curve_default[@]}") ;;
+	"stepwise") load_curve=("${load_curve_stepwise[@]}") ;;
+	"regression") load_curve=("${load_curve_regression[@]}") ;;
+	*)
+		echo "Invalid curve type. Use 'default' or 'stepwise or regression'" >&2
+		exit 1
+		;;
 	esac
 
 	local cpus
@@ -81,9 +106,9 @@ main() {
 
 	echo "Total time: $total_time seconds, Repeats: $repeats, Curve type: $curve_type"
 
-	# sleep 5 so that first run and the second run look the same
+	# sleep so that first run and the second run look the same
 	echo "Warmup .."
-	run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load 0 --timeout 5
+	run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load 0 --timeout "$warmup_time"
 
 	for i in $(seq 1 "$repeats"); do
 		echo "Running: $i/$repeats"
@@ -92,6 +117,9 @@ main() {
 			local time="${x##*:}s"
 			run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load "$load" --timeout "$time"
 		done
+		# sleep so that the next run looks the same
+		echo "Cooldown .."
+		run stress-ng --cpu "$cpus" --cpu-method ackermann --cpu-load 0 --timeout "$cooldown_time"
 	done
 }
 
