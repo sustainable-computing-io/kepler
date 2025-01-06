@@ -1,3 +1,3 @@
-FROM quay.io/prometheus/prometheus:v2.55.0
+FROM quay.io/prometheus/prometheus:latest
 
 COPY /prometheus.yml /etc/prometheus/prometheus.yml

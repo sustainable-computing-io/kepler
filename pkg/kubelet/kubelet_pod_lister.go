@@ -37,7 +37,9 @@ const (
 )
 
 var (
-	podURL string
+	podURL      string
+	client      http.Client
+	bearerToken string
 )
 
 func init() {
@@ -50,23 +52,24 @@ func init() {
 		port = "10250"
 	}
 	podURL = "https://" + nodeName + ":" + port + "/pods"
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	client = http.Client{}
 }
 
-func httpGet(url string) (*http.Response, error) {
-	objToken, err := os.ReadFile(saPath)
+func loadToken(path string) (string, error) {
+	objToken, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read from %q: %v", saPath, err)
+		return "", fmt.Errorf("failed to read from %q: %v", path, err)
 	}
-	token := string(objToken)
+	return "Bearer " + string(objToken), nil
+}
 
-	var bearer = "Bearer " + token
+func doFetchPod(url string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", bearer)
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	client := &http.Client{}
+	req.Header.Add("Authorization", bearerToken)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get response from %q: %v", url, err)
@@ -74,9 +77,28 @@ func httpGet(url string) (*http.Response, error) {
 	return resp, err
 }
 
+func httpGet(path, url string) (*http.Response, error) {
+	var err error
+	if bearerToken == "" {
+		bearerToken, err = loadToken(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read from %q: %v", path, err)
+		}
+	}
+	resp, err := doFetchPod(url)
+	if resp != nil && resp.StatusCode > 399 && resp.StatusCode < 500 { // if response in 4xx retry once
+		bearerToken, err = loadToken(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read from %q: %v", path, err)
+		}
+		resp, err = doFetchPod(url)
+	}
+	return resp, err
+}
+
 // ListPods obtains PodList
 func (k *KubeletPodLister) ListPods() (*[]corev1.Pod, error) {
-	resp, err := httpGet(podURL)
+	resp, err := httpGet(saPath, podURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get response: %v", err)
 	}

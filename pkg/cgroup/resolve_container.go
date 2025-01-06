@@ -119,12 +119,9 @@ func (c *cache) getContainerIDFromCache(pid uint64) (string, bool) {
 }
 
 func (c *cache) getGetContainerIDFromPID(pid uint64) (string, error) {
-	p, ok := instance.containerIDCache.Load(pid)
+	containerID, ok := instance.getContainerIDFromCache(pid)
 	if ok {
-		containerID, ok := p.(string)
-		if ok {
-			return containerID, nil
-		}
+		return containerID, nil
 	}
 
 	path, err := getPathFromPID(procPath, pid)
@@ -132,7 +129,7 @@ func (c *cache) getGetContainerIDFromPID(pid uint64) (string, error) {
 		return utils.SystemProcessName, err
 	}
 
-	containerID, err := extractPodContainerIDfromPath(path)
+	containerID, err = extractPodContainerIDfromPathWithCgroup(path)
 	if err != nil {
 		return utils.SystemProcessName, err
 	}
@@ -152,7 +149,7 @@ func (c *cache) getContainerIDFromcGroupID(cGroupID uint64) (string, error) {
 		return utils.SystemProcessName, err
 	}
 
-	containerID, err := extractPodContainerIDfromPath(path)
+	containerID, err := extractPodContainerIDfromPathWithCgroup(path)
 	if err != nil {
 		return utils.SystemProcessName, err
 	}
@@ -180,20 +177,24 @@ func (c *cache) getPathFromcGroupID(cgroupID uint64) (string, error) {
 		if err != nil {
 			return fmt.Errorf("error resolving handle: %w", err)
 		}
+		// found a path and load into cache.
 		instance.cGroupIDToPath.Store(getCgroupID, path)
 		return nil
 	})
 
+	// if error is not nil
 	if err != nil {
 		return unknownPath, fmt.Errorf("failed to find cgroup id: %v", err)
 	}
-
+	// if path found and load from cache.
 	p, ok = instance.cGroupIDToPath.Load(cgroupID)
 	if ok {
 		return p.(string), nil
 	}
-
+	// if error is nil, but path not found
+	// add mapping in cache
 	instance.cGroupIDToPath.Store(cgroupID, unknownPath)
+	// return
 	return unknownPath, nil
 }
 
@@ -289,11 +290,6 @@ func getContainerIDFromPath(cGroupID, pid uint64, withCGroupID bool) (string, er
 		return instance.getContainerIDFromcGroupID(cGroupID)
 	}
 	return instance.getGetContainerIDFromPID(pid)
-}
-
-// extractPodContainerIDfromPath extracts the container ID from the provided cgroup path
-func extractPodContainerIDfromPath(path string) (string, error) {
-	return extractPodContainerIDfromPathWithCgroup(path)
 }
 
 // extractPodContainerIDfromPathWithCgroup extracts the container ID from a cgroup path
