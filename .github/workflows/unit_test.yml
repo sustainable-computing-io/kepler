@@ -9,7 +9,7 @@ permissions:
   pull-requests: write
   contents: read
   repository-projects: write
-  packages: write
+  packages: read
 
 jobs:
   unit_test:
