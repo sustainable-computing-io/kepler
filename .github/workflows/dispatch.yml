@@ -34,6 +34,5 @@ jobs:
           title: 'Automated PR: Update generated files'
           body: 'This is an automated pull request created by GitHub Actions.'
           commit-message: 'Auto-generated changes'
-          push-to-fork: SamYuan1990/kepler
           sign-commits: true
           labels: automated # 可选：为 PR 添加标签
