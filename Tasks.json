@@ -1,0 +1,20 @@
+{
+  "tasks": [
+    {
+      "id": "my_example_task_for_golang",
+      "inputFilePath": "./cmd/exporter/exporter.go",
+      "inputFileProcessMethod": "by_function",
+      "prompt": "Please help me create unit test file for this function with ginkgo framework, here is the function:",
+      "outputProcessMethod": "regex_match",
+      "outputFilePath": "./cmd/exporter/exporter{{index}}_test.go"
+    },
+    {
+      "id": "my_example_task_for_golang_test",
+      "inputFilePath": "./pkg/collector/metric_collector_test.go",
+      "inputFileProcessMethod": "by_function",
+      "prompt": "Please help me create benchmark test content for this function, here is the content:",
+      "outputProcessMethod": "regex_match",
+      "outputFilePath": "./pkg/collector/metric_collector{{index}}_test.go"
+    }
+  ]
+}
