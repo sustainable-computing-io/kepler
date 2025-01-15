@@ -21,7 +21,7 @@ jobs:
 
       - name: Test Local Action
         id: test-action
-        uses: SamYuan1990/OpenAI_CodeAgent-action
+        uses: SamYuan1990/OpenAI_CodeAgent-action@main
         with:
           baseURL: https://api.deepseek.com
           apiKey: ${{ secrets.API_KEY }}
