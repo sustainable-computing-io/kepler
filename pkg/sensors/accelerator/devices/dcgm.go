@@ -76,21 +76,22 @@ func dcgmCheck(r *Registry) {
 }
 
 func dcgmDeviceStartup() Device {
-	a := dcgmAccImpl
+	klog.V(3).Infof("Attempting to startup DCGM")
+	d := dcgmAccImpl
 
-	if err := a.InitLib(); err != nil {
+	if err := d.InitLib(); err != nil {
 		klog.Errorf("Error initializing %s: %v", dcgmType.String(), err)
 		return nil
 	}
 
-	if err := a.Init(); err != nil {
+	if err := d.Init(); err != nil {
 		klog.Errorf("failed to StartupDevice: %v", err)
 		return nil
 	}
 
 	klog.Infof("Using %s to obtain gpu power", dcgmType.String())
 
-	return &a
+	return &d
 }
 
 func (d *gpuDcgm) Init() error {
@@ -138,6 +139,7 @@ func (d *gpuDcgm) InitLib() (err error) {
 	if err != nil {
 		klog.Infof("There is no DCGM daemon running in the host: %s", err)
 		// embedded mode is not recommended for production per https://github.com/NVIDIA/dcgm-exporter/issues/22#issuecomment-1321521995
+		klog.Info("Attempting to inilialize dcgm in Embedded mode.")
 		cleanup, err = dcgm.Init(dcgm.Embedded)
 		if err != nil {
 			klog.Errorf("Could not start DCGM. Error: %s", err)
@@ -147,6 +149,8 @@ func (d *gpuDcgm) InitLib() (err error) {
 			return fmt.Errorf("not able to connect to DCGM: %s", err)
 		}
 		klog.Info("Started DCGM in the Embedded mode ")
+	} else {
+		klog.Info("Started DCGM in the Standalone mode ")
 	}
 	d.nvmlInited = false
 	d.devs = make(map[int]GPUDevice)
@@ -172,6 +176,7 @@ func (d *gpuDcgm) InitLib() (err error) {
 }
 
 func (d *gpuDcgm) loadDevices() error {
+	klog.V(5).Infof("Attempting to load dcgm devices.")
 	d.devs = map[int]GPUDevice{}
 	count, err := nvml.DeviceGetCount()
 	if err != nvml.SUCCESS {

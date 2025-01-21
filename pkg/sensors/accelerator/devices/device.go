@@ -121,8 +121,13 @@ func (r *Registry) MustRegister(a string, d DeviceType, deviceStartup deviceStar
 		return
 	}
 	klog.V(5).Infof("Adding the device to the registry [%s][%s]", a, d.String())
-	r.Registry[a] = map[DeviceType]deviceStartupFunc{
-		d: deviceStartup,
+	m, ok := r.Registry[a]
+	if !ok {
+		r.Registry[a] = map[DeviceType]deviceStartupFunc{
+			d: deviceStartup,
+		}
+	} else {
+		m[d] = deviceStartup
 	}
 }
 
@@ -141,6 +146,18 @@ func (r *Registry) Unregister(d DeviceType) {
 func (r *Registry) GetAllDeviceTypes() []string {
 	devices := append([]string{}, maps.Keys(r.Registry)...)
 	return devices
+}
+
+func (r *Registry) GetAllDevices() map[string]map[string]interface{} {
+	all := map[string]map[string]interface{}{}
+	for t, m := range r.Registry {
+		devices := map[string]interface{}{}
+		for d := range m {
+			devices[d.String()] = struct{}{}
+		}
+		all[t] = devices
+	}
+	return all
 }
 
 func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) error {
