@@ -12,23 +12,23 @@ repos:
     hooks:
       - id: yamllint
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.5
+    rev: v19.1.7
     hooks:
       - id: clang-format
         types_or: [c]
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.17.1
+    rev: v0.17.2
     hooks:
       - id: markdownlint-cli2-rules-docker
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
       - id: codespell
         args: [--toml, kepler-codespell.precommit-toml]
         additional_dependencies:
           - tomli
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.62.2
+    rev: v1.63.4
     hooks:
       - id: golangci-lint
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
