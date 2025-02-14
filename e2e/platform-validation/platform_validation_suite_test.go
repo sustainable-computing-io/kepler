@@ -85,7 +85,7 @@ var _ = BeforeSuite(func() {
 	fmt.Println("Dump ENVs...")
 	fmt.Printf("cpuArch:%s\nraplEnable:%t\nacpiEnable:%t\nhmcEnable:%t\nredfishEnable:%t\nraplPkgEnable:%t\nraplDramEnable:%t\nraplCoreEnable:%t\nraplUncoreEnable:%t\n", cpuArch, raplEnable, acpiEnable, hmcEnable, redfishEnable, raplPkgEnable, raplDramEnable, raplCoreEnable, raplUncoreEnable)
 
-	// get test power data: before kind/before kepler/afte kepler
+	// get test power data: before kind/before kepler/after kepler
 	f, e := os.Open("power.csv")
 	if e != nil {
 		fmt.Println("open power.csv failed")
