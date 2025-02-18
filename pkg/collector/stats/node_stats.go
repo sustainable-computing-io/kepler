@@ -117,8 +117,7 @@ type NodeStats struct {
 	IdleResUtilization map[string]uint64
 
 	// Pkg idle energy
-	IdleEnergyPkg     *IdleEnergyCalculator
-	IdleEnergyPkgAggr *IdleEnergyCalculator
+	IdleEnergyPkg *IdleEnergyCalculator
 
 	currentIdleEnergy uint64
 
@@ -177,31 +176,7 @@ func (ne *NodeStats) CalcIdleEnergyLR(absM, idleM, resouceUtil string) {
 	} else {
 		idleEnergy := ne.IdleEnergyPkg.UpdateIdleEnergy(float64(totalResUtilization), float64(totalEnergy))
 		klog.V(5).Infof("Idle Energy: %f", idleEnergy)
-		klog.V(5).Infof("Idle Energy: %f", ne.IdleEnergyPkg.calculatedIdleEnergy)
-	}
-	klog.V(5).Infof("Test Aggr Values Instead")
-	totalResUtilization = ne.ResourceUsage[resouceUtil].SumAllAggrValues()
-	totalEnergy = ne.EnergyUsage[absM].SumAllAggrValues()
-	if totalEnergy == 0 {
-		klog.V(5).Infof("Skipping Idle Energy: Set to 0")
-		return
-	}
-
-	if ne.IdleEnergyPkgAggr == nil {
-		initialMinUtilization := NewCoordinate(
-			float64(totalResUtilization),
-			float64(totalEnergy),
-		)
-		initialMaxUtilization := NewCoordinate(
-			float64(totalResUtilization),
-			float64(totalEnergy),
-		)
-		ne.IdleEnergyPkgAggr = NewIdleEnergyCalculator(initialMinUtilization, initialMaxUtilization)
-		klog.V(5).Infof("Initialize Idle Energy: %f", ne.IdleEnergyPkgAggr.calculatedIdleEnergy)
-	} else {
-		idleEnergy := ne.IdleEnergyPkgAggr.UpdateIdleEnergy(float64(totalResUtilization), float64(totalEnergy))
-		klog.V(5).Infof("Idle Energy: %f", idleEnergy)
-		klog.V(5).Infof("Idle Energy: %f", ne.IdleEnergyPkgAggr.calculatedIdleEnergy)
+		klog.V(5).Infof("Stored Idle Energy: %f", ne.IdleEnergyPkg.calculatedIdleEnergy)
 	}
 }
 
