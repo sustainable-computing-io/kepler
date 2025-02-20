@@ -405,8 +405,7 @@ func SetGPUUsageMetric(metric string) {
 	instance.Metrics.GPUUsageMetric = metric
 }
 
-type realSystem struct {
-}
+type realSystem struct{}
 
 var _ Client = &realSystem{}
 
@@ -543,6 +542,7 @@ func GetBPFSampleRate() int {
 func GetRedfishCredFilePath() string {
 	return instance.Redfish.CredFilePath
 }
+
 func GetRedfishProbeIntervalInSeconds() int {
 	// convert string "redfishProbeIntervalInSeconds" to int
 	probeInterval, err := strconv.Atoi(instance.Redfish.ProbeIntervalInSeconds)
@@ -556,6 +556,7 @@ func GetRedfishProbeIntervalInSeconds() int {
 func GetRedfishSkipSSLVerify() bool {
 	return instance.Redfish.SkipSSLVerify
 }
+
 func GetMockACPIPowerPath() string {
 	return instance.Kepler.MockACPIPowerPath
 }
@@ -619,9 +620,11 @@ func ModelConfigValues(k string) string {
 func ContainerComponentsPowerKey() string {
 	return instance.Model.ContainerComponentsPowerKey
 }
+
 func ProcessPlatformPowerKey() string {
 	return instance.Model.ProcessPlatformPowerKey
 }
+
 func ProcessComponentsPowerKey() string {
 	return instance.Model.ProcessComponentsPowerKey
 }
