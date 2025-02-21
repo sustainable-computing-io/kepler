@@ -46,7 +46,7 @@ func (c csvNodeCred) GetNodeCredByNodeName(nodeName, target string) (map[string]
 		cred["redfish_username"] = credMap["redfish_username"]
 		cred["redfish_password"] = credMap["redfish_password"]
 		cred["redfish_host"] = credMap["redfish_host"]
-		if cred["redfish_username"] == "" || cred["redfish_password"] == "" || cred["redfish_host"] == "" {
+		if cred["redfish_host"] == "" {
 			return nil, fmt.Errorf("no credential found")
 		}
 		return cred, nil

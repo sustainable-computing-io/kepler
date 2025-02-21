@@ -102,20 +102,20 @@ func getRedfishModel(access RedfishAccessInfo, endpoint string, model interface{
 	return returnErr
 }
 
-func getRedfishSystem(access RedfishAccessInfo) (*RedfishSystemModel, error) {
-	var system RedfishSystemModel
-	err := getRedfishModel(access, "/redfish/v1/Systems", &system)
+func getRedfishChassis(access RedfishAccessInfo) (*RedfishChassisModel, error) {
+	var chassis RedfishChassisModel
+	err := getRedfishModel(access, "/redfish/v1/Chassis", &chassis)
 	if err != nil {
-		klog.V(1).Infof("Failed to get system: %v", err)
+		klog.V(1).Infof("Failed to get chassis: %v", err)
 		return nil, err
 	}
 
-	return &system, nil
+	return &chassis, nil
 }
 
-func getRedfishPower(access RedfishAccessInfo, system string) (*RedfishPowerModel, error) {
+func getRedfishPower(access RedfishAccessInfo, chassis string) (*RedfishPowerModel, error) {
 	var power RedfishPowerModel
-	err := getRedfishModel(access, "/redfish/v1/Chassis/"+system+"/Power#/PowerControl", &power)
+	err := getRedfishModel(access, "/redfish/v1/Chassis/"+chassis+"/Power#/PowerControl", &power)
 	if err != nil {
 		klog.V(1).Infof("Failed to get power: %v", err)
 		return nil, err
