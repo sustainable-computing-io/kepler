@@ -29,10 +29,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// RedfishSystemModel is the struct for the system model
-// this is generated via the following command:
-// redfishtool Systems
-type RedfishSystemModel struct {
+// RedfishChassisModel is the struct for the physical components of a ystem.
+type RedfishChassisModel struct {
 	OdataContext string `json:"@odata.context"`
 	OdataID      string `json:"@odata.id"`
 	OdataType    string `json:"@odata.type"`
@@ -46,7 +44,7 @@ type RedfishSystemModel struct {
 
 // RedfishPowerModel is the struct for the power model
 // this is generated via the following command:
-// redfishtool raw GET /redfish/v1/Chassis/System.Embedded.1/Power#/PowerControl, where "System.Embedded.1" is the system ID from the RedfishSystemModel
+// redfishtool raw GET /redfish/v1/Chassis/System.Embedded.1/Power#/PowerControl, where "System.Embedded.1" is the chassis ID from the RedfishChassisModel
 // the output is then formatted via https://mholt.github.io/json-to-go/ based on sample output from https://www.dmtf.org/sites/default/files/standards/documents/DSP2046_2023.1.pdf
 type RedfishPowerModel struct {
 	OdataType     string          `json:"@odata.type,omitempty"`
@@ -142,7 +140,7 @@ type Actions struct {
 
 // RedfishSystemPowerResult is the system power query result
 type RedfishSystemPowerResult struct {
-	system        string
+	chassis       string
 	consumedWatts int
 	timestamp     time.Time
 }
@@ -183,7 +181,7 @@ func NewRedfishClient() *RedFishClient {
 			userName := redfishCred["redfish_username"]
 			password := redfishCred["redfish_password"]
 			host := redfishCred["redfish_host"]
-			if userName != "" && password != "" && host != "" {
+			if host != "" {
 				klog.V(5).Infof("Initialized redfish credential")
 				probeInterval := config.GetRedfishProbeIntervalInSeconds()
 				interval := time.Duration(probeInterval) * time.Second
@@ -213,17 +211,17 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 		return true
 	}
 
-	system, err := getRedfishSystem(rf.accessInfo)
+	chassis, err := getRedfishChassis(rf.accessInfo)
 
 	if err != nil {
-		klog.Infof("failed to get redfish system info: %v\n", err)
+		klog.Infof("failed to get redfish chassis info: %v\n", err)
 		return false
 	}
 
 	intervalInMin := 0
-	// iterate each "Members" in the system and get the power info
-	for index, member := range system.Members {
-		// split the OdataID by delimiter "/" and get the system ID
+	// iterate each "Members" in the chassis and get the power info
+	for index, member := range chassis.Members {
+		// split the OdataID by delimiter "/" and get the chassis ID
 		split := strings.Split(member.OdataID, "/")
 		if len(split) < 2 {
 			continue
@@ -235,7 +233,7 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 			if index < len(rf.systems) {
 				rf.systems[index].consumedWatts = power.PowerControl[0].PowerConsumedWatts
 			} else {
-				res.system = id
+				res.chassis = id
 				res.consumedWatts = power.PowerControl[0].PowerConsumedWatts
 				res.timestamp = time.Now()
 				rf.systems = append(rf.systems, &res)
@@ -257,7 +255,7 @@ func (rf *RedFishClient) IsSystemCollectionSupported() bool {
 		for {
 			<-rf.ticker.C
 			for _, system := range rf.systems {
-				power, err := getRedfishPower(rf.accessInfo, system.system)
+				power, err := getRedfishPower(rf.accessInfo, system.chassis)
 				if err == nil && len(power.PowerControl) > 0 {
 					// mutex
 					rf.mutex.Lock()
@@ -284,7 +282,7 @@ func (rf *RedFishClient) GetAbsEnergyFromPlatform() (map[string]float64, error) 
 			elapsed := now.Sub(system.timestamp).Seconds()
 			system.timestamp = time.Now()
 			klog.V(5).Infof("power info: %+v\n", system)
-			power[system.system] = float64(system.consumedWatts*1000) * elapsed // convert to mW
+			power[system.chassis] = float64(system.consumedWatts*1000) * elapsed // convert to mW
 			rf.mutex.Unlock()
 		}
 		return power, nil
