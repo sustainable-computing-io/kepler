@@ -40,6 +40,7 @@ const (
 type nodeInfo struct {
 	name                  string
 	cpuArchitecture       string
+	cpuCount              uint64
 	metadataFeatureNames  []string
 	metadataFeatureValues []string
 }
@@ -47,6 +48,7 @@ type nodeInfo struct {
 type Node interface {
 	Name() string
 	CPUArchitecture() string
+	CPUCount() uint64
 	MetadataFeatureNames() []string
 	MetadataFeatureValues() []string
 }
@@ -70,6 +72,10 @@ func CPUArchitecture() string {
 	return cpuArch()
 }
 
+func CPUCount() uint64 {
+	return cpuCount()
+}
+
 func MetadataFeatureNames() []string {
 	return []string{"cpu_architecture"}
 }
@@ -84,6 +90,7 @@ func NewNodeInfo() Node {
 	return &nodeInfo{
 		name:                  nodeName(),
 		cpuArchitecture:       cpuArchitecture,
+		cpuCount:              cpuCount(),
 		metadataFeatureNames:  []string{"cpu_architecture"},
 		metadataFeatureValues: []string{cpuArchitecture},
 	}
@@ -95,6 +102,10 @@ func (ni *nodeInfo) Name() string {
 
 func (ni *nodeInfo) CPUArchitecture() string {
 	return ni.cpuArchitecture
+}
+
+func (ni *nodeInfo) CPUCount() uint64 {
+	return ni.cpuCount
 }
 
 func (ni *nodeInfo) MetadataFeatureNames() []string {
@@ -114,6 +125,20 @@ func nodeName() string {
 		klog.Fatalf("could not get the node name: %s", err)
 	}
 	return nodeName
+}
+
+func cpuCount() uint64 {
+	cpu := exec.Command("nproc")
+	output, err := cpu.Output()
+	if err != nil {
+		klog.Fatalf("cpuCount command failure: %s", err)
+		return 0
+	}
+	cpuNum, err := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 64)
+	if err != nil {
+		klog.Fatalf("cpuCount string conversion failure: %s", err)
+	}
+	return cpuNum
 }
 
 func cpuArch() string {
