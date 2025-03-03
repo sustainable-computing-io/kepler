@@ -134,8 +134,7 @@ jobs:
         uses: sustainable-computing-io/kepler-action@v0.0.7
         with:
           cluster_provider: ${{matrix.cluster_provider}}
-          ebpfprovider: libbpf
-          local_dev_cluster_version: v0.0.3
+          local_dev_cluster_version: v0.0.9
           prometheus_enable: true
           grafana_enable: true
 
