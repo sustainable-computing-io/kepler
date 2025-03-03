@@ -62,6 +62,7 @@ hardware:
 * [`ghw.Network()`](#network)
 * [`ghw.PCI()`](#pci)
 * [`ghw.GPU()`](#gpu) (graphical processing unit)
+* [`ghw.Accelerator()`](#accelerator) (processing accelerators, AI)
 * [`ghw.Chassis()`](#chassis)
 * [`ghw.BIOS()`](#bios)
 * [`ghw.Baseboard()`](#baseboard)
@@ -76,8 +77,8 @@ information about the CPUs on the host system.
 
 * `ghw.CPUInfo.TotalCores` has the total number of physical cores the host
   system contains
-* `ghw.CPUInfo.TotalThreads` has the total number of hardware threads the
-  host system contains
+* `ghw.CPUInfo.TotalHardwareThreads` has the total number of hardware threads
+  the host system contains
 * `ghw.CPUInfo.Processors` is an array of `ghw.Processor` structs, one for each
   physical processor package contained in the host
 
@@ -85,10 +86,10 @@ Each `ghw.Processor` struct contains a number of fields:
 
 * `ghw.Processor.ID` is the physical processor `uint32` ID according to the
   system
-* `ghw.Processor.NumCores` is the number of physical cores in the processor
+* `ghw.Processor.TotalCores` is the number of physical cores in the processor
   package
-* `ghw.Processor.NumThreads` is the number of hardware threads in the processor
-  package
+* `ghw.Processor.TotalHardwareThreads` is the number of hardware threads in the
+  processor package
 * `ghw.Processor.Vendor` is a string containing the vendor name
 * `ghw.Processor.Model` is a string containing the vendor's model name
 * `ghw.Processor.Capabilities` (Linux only) is an array of strings indicating
@@ -102,8 +103,8 @@ A `ghw.ProcessorCore` has the following fields:
   core. Note that this does *not* necessarily equate to a zero-based index of
   the core within a physical package. For example, the core IDs for an Intel Core
   i7 are 0, 1, 2, 8, 9, and 10
-* `ghw.ProcessorCore.NumThreads` is the number of hardware threads associated
-  with the core
+* `ghw.ProcessorCore.TotalHardwareThreads` is the number of hardware threads
+  associated with the core
 * `ghw.ProcessorCore.LogicalProcessors` is an array of ints representing the
   logical processor IDs assigned to any processing unit for the core. These are
   sometimes called the "thread siblings". Logical processor IDs are the
@@ -893,7 +894,7 @@ information about the host computer's graphics hardware.
 The `ghw.GPUInfo` struct contains one field:
 
 * `ghw.GPUInfo.GraphicCards` is an array of pointers to `ghw.GraphicsCard`
-  structs, one for each graphics card found for the systen
+  structs, one for each graphics card found for the system
 
 Each `ghw.GraphicsCard` struct contains the following fields:
 
@@ -944,6 +945,60 @@ information
 **NOTE**: You can [read more](#topology) about the fields of the
 `ghw.TopologyNode` struct if you'd like to dig deeper into the NUMA/topology
 subsystem
+
+### Accelerator
+
+The `ghw.Accelerator()` function returns a `ghw.AcceleratorInfo` struct that contains
+information about the host computer's processing accelerator hardware. In this category
+we can find used hardware for AI. The hardware detected in this category will be
+processing accelerators (PCI class `1200`), 3D controllers (`0302`) and Display
+controllers (`0380`).
+
+The `ghw.AcceleratorInfo` struct contains one field:
+
+* `ghw.AcceleratorInfo.Devices` is an array of pointers to `ghw.AcceleratorDevice`
+  structs, one for each processing accelerator card found for the system.
+
+Each `ghw.AcceleratorDevice` struct contains the following fields:
+
+* `ghw.AcceleratorDevice.Address` is the PCI address for the processing accelerator card.
+* `ghw.AcceleratorDevice.PCIDevice` is a pointer to a `ghw.PCIDevice` struct.
+  describing the processing accelerator card. This may be `nil` if no PCI device
+  information could be determined for the card.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/jaypipes/ghw"
+)
+
+func main() {
+	accel, err := ghw.Accelerator()
+	if err != nil {
+		fmt.Printf("Error getting processing accelerator info: %v", err)
+	}
+
+	fmt.Printf("%v\n", accel)
+
+	for _, card := range accel.Devices {
+		fmt.Printf(" %v\n", device)
+	}
+}
+```
+
+Example output from a testing machine:
+
+```
+processing accelerators (1 device)
+ device @0000:00:04.0 -> driver: 'fake_pci_driver' class: 'Processing accelerators' vendor: 'Red Hat, Inc.' product: 'QEMU PCI Test Device'
+```
+
+**NOTE**: You can [read more](#pci) about the fields of the `ghw.PCIDevice`
+struct if you'd like to dig deeper into PCI subsystem and programming interface
+information
 
 ### Chassis
 
