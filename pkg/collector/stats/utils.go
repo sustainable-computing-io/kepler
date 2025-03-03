@@ -29,6 +29,10 @@ type Coordinate struct {
 	X, Y float64
 }
 
+type LinearModel struct {
+	intercept, slope float64
+}
+
 func percentDiff(a, b float64) float64 {
 	if a == 0 || b == 0 {
 		return 1.0

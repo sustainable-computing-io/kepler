@@ -156,23 +156,23 @@ func (s *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
 	}
 	totalPower := s.EnergyUsage[absM][id].GetDelta()
 	klog.V(6).Infof("Absolute Energy stat: %v (%s)", s.EnergyUsage[absM], id)
-	idlePower := uint64(0)
+	//idlePower := uint64(0)
 	if idleStat, found := s.EnergyUsage[idleM][id]; found {
-		idlePower = idleStat.GetDelta()
-		klog.V(6).Infof("Idle Energy stat: %v (%s)", s.EnergyUsage[idleM], id)
+		//idlePower = idleStat.GetDelta()
+		klog.V(6).Infof("Idle Energy stat: %v (%s)", idleStat, id)
 	}
-	dynPower := calcDynEnergy(totalPower, idlePower)
-	s.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
+	//dynPower := calcDynEnergy(totalPower, idlePower)
+	s.EnergyUsage[dynM].SetDeltaStat(id, totalPower)
 	klog.V(6).Infof("Dynamic Energy stat: %v (%s)", s.EnergyUsage[dynM], id)
 }
 
-// calcDynEnergy calculates the dynamic energy.
-func calcDynEnergy(totalE, idleE uint64) uint64 {
-	if (totalE == 0) || (totalE < idleE) {
-		return 0
-	}
-	return totalE - idleE
-}
+// // calcDynEnergy calculates the dynamic energy.
+// func calcDynEnergy(totalE, idleE uint64) uint64 {
+// 	if (totalE == 0) || (totalE < idleE) {
+// 		return 0
+// 	}
+// 	return totalE - idleE
+// }
 
 // normalize normalizes the value if required.
 func normalize(val float64, shouldNormalize bool) float64 {

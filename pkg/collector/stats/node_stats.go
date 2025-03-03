@@ -29,16 +29,27 @@ import (
 )
 
 var (
-	minUpperLowerBoundDiff = 0.5
-	historyLength          = 10
+	// Modify Manually
+	spreadDiff           = 0.3
+	historyLength        = 10
+	energyTypeToMinSlope = map[string]float64{
+		config.IdleEnergyInCore:   0.01,
+		config.IdleEnergyInPkg:    0.3,
+		config.IdleEnergyInUnCore: 0.3,
+		config.IdleEnergyInDRAM:   0.3,
+	}
+	energyTypeToMinIntercept = map[string]float64{
+		config.IdleEnergyInCore:   0,
+		config.IdleEnergyInPkg:    0,
+		config.IdleEnergyInUnCore: 0,
+		config.IdleEnergyInDRAM:   0,
+	}
 )
 
 type IdleEnergyResult struct {
 	calculatedIdleEnergy float64
 	diff                 float64
 	history              []float64
-	averageIdlePower     float64
-	totalDatapoints      float64
 }
 
 type IdleEnergyCalculator struct {
@@ -46,6 +57,10 @@ type IdleEnergyCalculator struct {
 	minUtilization *Coordinate
 	// Max CPU Time
 	maxUtilization *Coordinate
+	// Min y-intercept
+	minIntercept float64
+	// Min slope
+	minSlope float64
 
 	result *IdleEnergyResult
 }
@@ -59,58 +74,85 @@ func (ic *IdleEnergyCalculator) UpdateIdleEnergy(newResutilization float64, newE
 	if newResutilization > ic.minUtilization.X && newResutilization < ic.maxUtilization.X {
 		klog.V(5).Infof("Excess Datapoint: (%f, %f)", newResutilization, newEnergyDelta)
 		// Record History
-		klog.V(5).Infof("Push idleEnergy to history")
+		klog.V(5).Infof("Push Idle Energy to history")
 		appendToSliceWithSizeRestriction(&ic.result.history, historyLength, ic.result.calculatedIdleEnergy)
 		return
 	}
-
+	var newMinUtilizationX float64 = ic.minUtilization.X
+	var newMinUtilizationY float64 = ic.minUtilization.Y
+	var newMaxUtilizationX float64 = ic.maxUtilization.X
+	var newMaxUtilizationY float64 = ic.maxUtilization.Y
 	if newResutilization <= ic.minUtilization.X {
 		if newResutilization == ic.minUtilization.X {
 			klog.V(5).Infof("Modified Min Utilization Y Value")
-			ic.minUtilization.Y = math.Min(newEnergyDelta, ic.minUtilization.Y)
+			//ic.minUtilization.Y = math.Min(newEnergyDelta, ic.minUtilization.Y)
+			newMinUtilizationY = math.Min(newEnergyDelta, newMinUtilizationY)
 		} else {
 			klog.V(5).Infof("Modified Min Utilization X, Y Value")
-			ic.minUtilization.X = newResutilization
-			ic.minUtilization.Y = newEnergyDelta
+			// ic.minUtilization.X = newResutilization
+			// ic.minUtilization.Y = newEnergyDelta
+			newMinUtilizationX = newResutilization
+			newMinUtilizationY = newEnergyDelta
 		}
 	}
 
 	if ic.maxUtilization.X <= newResutilization {
 		if newResutilization == ic.maxUtilization.X {
 			klog.V(5).Infof("Modified Max Utilization Y Value")
-			ic.maxUtilization.Y = math.Min(newEnergyDelta, ic.maxUtilization.Y)
+			//ic.maxUtilization.Y = math.Min(newEnergyDelta, ic.maxUtilization.Y)
+			newMaxUtilizationY = math.Min(newEnergyDelta, newMaxUtilizationY)
 		} else {
 			klog.V(5).Infof("Modified Max Utilization X, Y Value")
 			// replace maxUtilization X and Y
-			ic.maxUtilization.X = newResutilization
-			ic.maxUtilization.Y = newEnergyDelta
+			//ic.maxUtilization.X = newResutilization
+			//ic.maxUtilization.Y = newEnergyDelta
+			newMaxUtilizationX = newResutilization
+			newMaxUtilizationY = newEnergyDelta
 		}
 	}
 
+	// log candidates
+	klog.V(5).Infof("Candidate Min Utilization Datapoint: (%f, %f)", newMinUtilizationX, newMinUtilizationY)
+	klog.V(5).Infof("Candidate Max Utilization Datapoint: (%f, %f)", newMaxUtilizationX, newMaxUtilizationY)
+
 	// note minutilization == maxutilization only occurs when we only have one value at the very beginning
 	// in that case, we can rely on the default values provided by NewIdleEnergyCalculator
-	if ic.minUtilization.X < ic.maxUtilization.X {
-		ic.result.calculatedIdleEnergy = CalculateLR(ic.minUtilization, ic.maxUtilization)
-		// Record History
-		appendToSliceWithSizeRestriction(&ic.result.history, historyLength, ic.result.calculatedIdleEnergy)
-		// calculate diff
-		klog.V(5).Infof("percent difference: %f", math.Abs(ic.minUtilization.X/maxTheoreticalCPUTime-ic.maxUtilization.X/maxTheoreticalCPUTime))
-		ic.result.diff = math.Abs(ic.minUtilization.X/maxTheoreticalCPUTime - ic.maxUtilization.X/maxTheoreticalCPUTime)
+	//if ic.minUtilization.X < ic.maxUtilization.X {
+	if newMinUtilizationX < newMaxUtilizationX {
+		linearModel := CalculateLR(newMinUtilizationX, newMinUtilizationY, newMaxUtilizationX, newMaxUtilizationY)
+		klog.V(5).Infof("Calculated Intercept: %f, Calculated Slope: %f", linearModel.intercept, linearModel.slope)
+		if linearModel.intercept >= ic.minIntercept && linearModel.slope >= ic.minSlope {
+			klog.V(5).Infof("Successfully passed Min Intercept (%f) and Min Slope (%f) Requirements", ic.minIntercept, ic.minSlope)
+			// update min,max utilization, result idle energy
+			ic.minUtilization.X = newMinUtilizationX
+			ic.minUtilization.Y = newMinUtilizationY
+			ic.maxUtilization.X = newMaxUtilizationX
+			ic.maxUtilization.Y = newMaxUtilizationY
+			ic.result.calculatedIdleEnergy = linearModel.intercept
+			// record history
+			appendToSliceWithSizeRestriction(&ic.result.history, historyLength, ic.result.calculatedIdleEnergy)
+			// calculate diff
+			ic.result.diff = math.Abs(ic.minUtilization.X/maxTheoreticalCPUTime - ic.maxUtilization.X/maxTheoreticalCPUTime)
+		}
 	}
 	// log new minUtilization and maxUtilization
 	klog.V(5).Infof("New Min Utilization Datapoint: (%f, %f)", ic.minUtilization.X, ic.minUtilization.Y)
 	klog.V(5).Infof("New Max Utilization Datapoint: (%f, %f)", ic.maxUtilization.X, ic.maxUtilization.Y)
+	klog.V(5).Infof("New Calculated Idle Energy: (%f)", ic.result.calculatedIdleEnergy)
 	klog.V(5).Infof("New History: (%v)", ic.result.history)
-	klog.V(5).Infof("New Spread/Diff: (%v)", ic.result.diff)
+	klog.V(5).Infof("New Spread/Diff: (%f)", ic.result.diff)
 
 }
 
-func CalculateLR(coordinateA, coordinateB *Coordinate) float64 {
-	slope := (coordinateB.Y - coordinateA.Y) / (coordinateB.X - coordinateA.X)
+func CalculateLR(x_one, y_one, x_two, y_two float64) *LinearModel {
+	slope := (y_two - y_one) / (x_two - x_one)
 	klog.V(5).Infof("Slope Calculation: %f", slope)
-	idleEnergy := coordinateA.Y - slope*coordinateA.X
-	klog.V(5).Infof("Calculated Idle Energy: %f", idleEnergy)
-	return idleEnergy
+	intercept := y_one - slope*x_one
+	klog.V(5).Infof("Calculated Idle Energy: %f", intercept)
+	return &LinearModel{
+		intercept: intercept,
+		slope:     slope,
+	}
 }
 
 func NewEnergyCoord(resourceUtilization, energyUsage float64) *Coordinate {
@@ -120,10 +162,12 @@ func NewEnergyCoord(resourceUtilization, energyUsage float64) *Coordinate {
 	}
 }
 
-func NewIdleEnergyCalculator(minUtilization, maxUtilization *Coordinate) *IdleEnergyCalculator {
+func NewIdleEnergyCalculator(minUtilization, maxUtilization *Coordinate, minIntercept, minSlope float64) *IdleEnergyCalculator {
 	return &IdleEnergyCalculator{
 		minUtilization: minUtilization,
 		maxUtilization: maxUtilization,
+		minIntercept:   minIntercept,
+		minSlope:       minSlope,
 		result: &IdleEnergyResult{
 			calculatedIdleEnergy: 0.0,
 			diff:                 0.0,
@@ -199,7 +243,12 @@ func (ne *NodeStats) CalcIdleEnergyLR(absM, idleM, resouceUtil string) {
 			float64(totalResUtilization),
 			float64(totalEnergy),
 		)
-		ne.IdleEnergy[idleM] = NewIdleEnergyCalculator(initialMinUtilization, initialMaxUtilization)
+		ne.IdleEnergy[idleM] = NewIdleEnergyCalculator(
+			initialMinUtilization,
+			initialMaxUtilization,
+			energyTypeToMinIntercept[idleM],
+			energyTypeToMinSlope[idleM],
+		)
 		klog.V(5).Infof("Initialize Idle Energy (%s): %f", idleM, ne.IdleEnergy[idleM].result.calculatedIdleEnergy)
 	} else {
 		cpuCount := ne.nodeInfo.CPUCount()
@@ -209,15 +258,16 @@ func (ne *NodeStats) CalcIdleEnergyLR(absM, idleM, resouceUtil string) {
 		ne.IdleEnergy[idleM].UpdateIdleEnergy(float64(totalResUtilization), float64(totalEnergy), float64(maxTheoreticalCPUTime))
 		klog.V(5).Infof("Stored Idle Energy (%s): %f", idleM, ne.IdleEnergy[idleM].result.calculatedIdleEnergy)
 		klog.V(5).Infof("Checking if Stored Idle Energy is reliable")
+		result := ne.IdleEnergy[idleM].result
 		if !ne.isIdlePowerReliable {
-			result := ne.IdleEnergy[idleM].result
 			klog.V(5).Infof("Checking if Sample Size is large enough")
-			if result.diff >= minUpperLowerBoundDiff {
+			if result.diff >= spreadDiff {
 				klog.V(5).Infof("Sample Size is large enough!")
 				klog.V(5).Infof("Checking if Idle Energy is consistent")
 				if percentDiff(getAverage(result.history), result.calculatedIdleEnergy) <= 0.1 {
 					klog.V(5).Infof("Idle Energy is Consistent! Idle Energy is ready to be passed.")
 					ne.isIdlePowerReliable = true
+					ne.EnergyUsage[idleM].SetDeltaStat("0", uint64(result.calculatedIdleEnergy))
 				} else {
 					klog.V(5).Infof("Idle Energy is not Consistent yet. Continue Checks")
 				}
@@ -225,7 +275,8 @@ func (ne *NodeStats) CalcIdleEnergyLR(absM, idleM, resouceUtil string) {
 				klog.V(5).Infof("Sample Size is not large enough. Continue Checks")
 			}
 		} else {
-			klog.V(5).Infof("Idle Energy has already been approved. Idle Energy is ready to be passed.")
+			klog.V(5).Infof("Idle Energy has already been approved. Idle Energy is ready to be passed (Regardless).")
+			ne.EnergyUsage[idleM].SetDeltaStat("0", uint64(result.calculatedIdleEnergy))
 		}
 	}
 }
@@ -255,6 +306,7 @@ func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
 
 	for socketID, value := range ne.EnergyUsage[absM] {
 		newIdleDelta := value.GetDelta()
+		klog.V(5).Infof("Socket ID: %s", socketID)
 		klog.V(5).Infof("Old Idle calculation: %d", newIdleDelta)
 		if newIdleDelta == 0 {
 			// during the first power collection iterations, the delta values could be 0, so we skip until there are delta values
