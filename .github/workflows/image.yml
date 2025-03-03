@@ -107,7 +107,7 @@ jobs:
           push-to-registry: ${{ inputs.pushImage }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0.17.9
+        uses: anchore/sbom-action@v0.18.0
         with:
           image: quay.io/sustainable_computing_io/${{matrix.IMAGE_NAME}}:${{matrix.LABEL}}
           artifact-name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.json
@@ -115,7 +115,7 @@ jobs:
 
       - name: save Kepler image SBOM as artifact
         if: ${{ inputs.pushImage }}
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v4.6.1
         with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
