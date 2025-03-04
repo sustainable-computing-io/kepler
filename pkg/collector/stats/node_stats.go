@@ -30,13 +30,13 @@ import (
 
 var (
 	// Modify Manually
-	spreadDiff           = 0.3
+	spreadDiff           = 0.5
 	historyLength        = 10
 	energyTypeToMinSlope = map[string]float64{
 		config.IdleEnergyInCore:   0.01,
-		config.IdleEnergyInPkg:    0.3,
-		config.IdleEnergyInUnCore: 0.3,
-		config.IdleEnergyInDRAM:   0.3,
+		config.IdleEnergyInPkg:    0.01,
+		config.IdleEnergyInUnCore: 0.01,
+		config.IdleEnergyInDRAM:   0.01,
 	}
 	energyTypeToMinIntercept = map[string]float64{
 		config.IdleEnergyInCore:   0,
@@ -63,6 +63,9 @@ type IdleEnergyCalculator struct {
 	minSlope float64
 
 	result *IdleEnergyResult
+
+	// flag to check if idle calculation is reliable
+	isIdlePowerReliable bool
 }
 
 func (ic *IdleEnergyCalculator) UpdateIdleEnergy(newResutilization float64, newEnergyDelta float64, maxTheoreticalCPUTime float64) {
@@ -185,9 +188,6 @@ type NodeStats struct {
 	// idle energy
 	IdleEnergy map[string]*IdleEnergyCalculator
 
-	// flag to check if idle calculation is reliable
-	isIdlePowerReliable bool
-
 	// nodeInfo allows access to node information
 	nodeInfo node.Node
 }
@@ -259,14 +259,14 @@ func (ne *NodeStats) CalcIdleEnergyLR(absM, idleM, resouceUtil string) {
 		klog.V(5).Infof("Stored Idle Energy (%s): %f", idleM, ne.IdleEnergy[idleM].result.calculatedIdleEnergy)
 		klog.V(5).Infof("Checking if Stored Idle Energy is reliable")
 		result := ne.IdleEnergy[idleM].result
-		if !ne.isIdlePowerReliable {
+		if !ne.IdleEnergy[idleM].isIdlePowerReliable {
 			klog.V(5).Infof("Checking if Sample Size is large enough")
 			if result.diff >= spreadDiff {
 				klog.V(5).Infof("Sample Size is large enough!")
 				klog.V(5).Infof("Checking if Idle Energy is consistent")
 				if percentDiff(getAverage(result.history), result.calculatedIdleEnergy) <= 0.1 {
 					klog.V(5).Infof("Idle Energy is Consistent! Idle Energy is ready to be passed.")
-					ne.isIdlePowerReliable = true
+					ne.IdleEnergy[idleM].isIdlePowerReliable = true
 					ne.EnergyUsage[idleM].SetDeltaStat("0", uint64(result.calculatedIdleEnergy))
 				} else {
 					klog.V(5).Infof("Idle Energy is not Consistent yet. Continue Checks")
@@ -301,7 +301,7 @@ func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSu
 func (ne *NodeStats) CalcIdleEnergy(absM, idleM, resouceUtil string) {
 	newTotalResUtilization := ne.ResourceUsage[resouceUtil].SumAllDeltaValues()
 	currIdleTotalResUtilization := ne.IdleResUtilization[resouceUtil]
-	klog.V(5).Infof("Old Idle Energy: %s", absM)
+	klog.V(5).Infof("Old Idle Energy Type: %s", absM)
 	klog.V(5).Infof("Old Idle Calculation Res util: %d", newTotalResUtilization)
 
 	for socketID, value := range ne.EnergyUsage[absM] {
