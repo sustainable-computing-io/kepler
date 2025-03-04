@@ -22,7 +22,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: sudo apt-get install clang llvm
+      - name: Install Dependencies
+        run: sudo apt-get install -y clang llvm cpuid
       - name: Get ginkgo
         run: make ginkgo-set
         env:
@@ -30,18 +31,15 @@ jobs:
           GOBIN: /home/runner/go/bin
       - name: Prepare environment
         run: |
-          sudo apt-get install -y cpuid clang
           cd doc/ && sudo ./dev/prepare_dev_env.sh && cd -
           git config --global --add safe.directory /kepler
-      - name: Run
+      - name: Run tests and generate coverage
         run: |
           make VERBOSE=1 test
-          go tool cover -func=coverage.out -o=coverage.out
-
       - name: Upload coverage reports to Codecov
         if: github.event_name != 'pull_request'
         uses: codecov/codecov-action@v5.1.2
         with:
           fail_ci_if_error: false # because codecov updates occasionally fail
-          files: coverage.out
+          files: ./coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
