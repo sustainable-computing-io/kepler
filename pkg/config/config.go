@@ -287,6 +287,9 @@ func logBoolConfigs() {
 		klog.V(5).Infof("EXPOSE_ESTIMATED_IDLE_POWER_METRICS: %t. This only impacts when the power is estimated using pre-prained models. Estimated idle power is meaningful only when Kepler is running on bare-metal or with a single virtual machine (VM) on the node.", instance.Kepler.ExposeIdlePowerMetrics)
 		klog.V(5).Infof("EXPERIMENTAL_BPF_SAMPLE_RATE: %d", instance.Kepler.BPFSampleRate)
 		klog.V(5).Infof("EXCLUDE_SWAPPER_PROCESS: %t", instance.Kepler.ExcludeSwapperProcess)
+		if instance.Kepler.EnabledGPU {
+			klog.V(5).Infof("DCGMHostEngineEndpoint %s", instance.DCGMHostEngineEndpoint)
+		}
 	}
 }
 
