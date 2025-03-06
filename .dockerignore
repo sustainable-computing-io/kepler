@@ -1,0 +1,4 @@
+./_output/
+./ansible/
+./enhancements/
+./manifests/
