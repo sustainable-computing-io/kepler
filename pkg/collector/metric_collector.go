@@ -37,9 +37,8 @@ import (
 )
 
 const (
-	maxInactiveContainers        = 10
-	maxInactiveVM                = 3
-	procPath              string = "/proc/%d/cgroup"
+	maxInactiveContainers = 10
+	maxInactiveVM         = 3
 )
 
 type Collector struct {

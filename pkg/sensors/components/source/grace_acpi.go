@@ -24,17 +24,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/klog/v2"
 )
 
 // Per https://docs.nvidia.com/grace-perf-tuning-guide/index.html#power-and-thermal-management
 const (
 	// Grace ACPI power paths and identifiers
-	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*"
-	graceDevicePath        = "device/"
-	gracePowerPrefix       = "power1"
-	graceOemInfoFile       = "_oem_info"
-	graceAverageFile       = "_average"
+	graceDevicePath  = "device/"
+	gracePowerPrefix = "power1"
+	graceOemInfoFile = "_oem_info"
+	graceAverageFile = "_average"
 
 	// Conversion factors
 	microWattToMilliJoule = 1000 // Convert microwatts to mJ assuming 1 second sampling
@@ -59,6 +59,7 @@ func (GraceACPI) GetName() string {
 func (g *GraceACPI) findPowerPathsByLabel() error {
 	g.sockets = make(map[int]*socketPowerPaths)
 
+	graceHwmonPathTemplate := config.SysDir() + "/class/hwmon/hwmon*"
 	hwmonDirs, err := filepath.Glob(graceHwmonPathTemplate)
 	if err != nil {
 		return fmt.Errorf("failed to find hwmon directories: %v", err)

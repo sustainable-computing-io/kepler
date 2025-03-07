@@ -24,10 +24,11 @@ services:
     volumes:
       - type: bind
         source: /proc
-        target: /proc
+        target: /host/proc
       - type: bind
         source: /sys
-        target: /sys
+        target: /host/sys
+
       - type: bind
         source: ./kepler/etc/kepler
         target: /etc/kepler

@@ -31,9 +31,8 @@ import (
 )
 
 const (
-	procPath            string = "/proc/%d/cgroup"
-	maxCacheSize        int    = 1000
-	cacheRemoveElements int    = 100
+	maxCacheSize        int = 1000
+	cacheRemoveElements int = 100
 )
 
 var (
@@ -43,8 +42,8 @@ var (
 )
 
 func GetVMID(pid uint64) (string, error) {
-	fileName := fmt.Sprintf(procPath, pid)
-	return getVMID(pid, fileName)
+	filePath := fmt.Sprintf("%s/%d/cgroup", config.ProcDir(), pid)
+	return getVMID(pid, filePath)
 }
 
 func getVMID(pid uint64, fileName string) (string, error) {

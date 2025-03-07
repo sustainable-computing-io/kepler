@@ -71,7 +71,7 @@ const (
 
 	cGroupIDMinKernelVersion = 4.18
 	// If this file is present, cgroups v2 is enabled on that node.
-	cGroupV2Path   = "/sys/fs/cgroup/cgroup.controllers"
+	cGroupV2Path   = "%s/fs/cgroup/cgroup.controllers"
 	metricPathKey  = "METRIC_PATH"
 	bindAddressKey = "BIND_ADDRESS"
 	// model_parameter_attributes

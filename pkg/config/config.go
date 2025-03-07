@@ -97,6 +97,11 @@ type LibvirtConfig struct {
 	MetadataToken string
 }
 
+type HostConfig struct {
+	ProcDir string
+	SysDir  string
+}
+
 type Config struct {
 	ModelServerService     string
 	KernelVersion          float32
@@ -106,6 +111,7 @@ type Config struct {
 	Metrics                MetricsConfig
 	Redfish                RedfishConfig
 	Libvirt                LibvirtConfig
+	Host                   HostConfig
 	DCGMHostEngineEndpoint string
 }
 
@@ -141,6 +147,7 @@ func newConfig() (*Config, error) {
 		Libvirt:                getLibvirtConfig(),
 		DCGMHostEngineEndpoint: getConfig("NVIDIA_HOSTENGINE_ENDPOINT", defaultDCGMHostEngineEndpoint),
 		KernelVersion:          float32(0),
+		Host:                   getHostConfig(),
 	}, nil
 }
 
@@ -203,6 +210,14 @@ func getRedfishConfig() RedfishConfig {
 	}
 }
 
+func ProcDir() string {
+	return instance.Host.ProcDir
+}
+
+func SysDir() string {
+	return instance.Host.SysDir
+}
+
 func getModelConfig() ModelConfig {
 	return ModelConfig{
 		ModelServerEnable:           getBoolConfig("MODEL_SERVER_ENABLE", false),
@@ -214,6 +229,13 @@ func getModelConfig() ModelConfig {
 		ContainerComponentsPowerKey: getConfig("CONTAINER_COMPONENTS_POWER_KEY", defaultContainerComponentsPowerKey),
 		ProcessPlatformPowerKey:     getConfig("PROCESS_TOTAL_POWER_KEY", defaultProcessPlatformPowerKey),
 		ProcessComponentsPowerKey:   getConfig("PROCESS_COMPONENTS_POWER_KEY", defaultProcessComponentsPowerKey),
+	}
+}
+
+func getHostConfig() HostConfig {
+	return HostConfig{
+		ProcDir: getConfig("PROC_DIR", "/proc"),
+		SysDir:  getConfig("SYS_DIR", "/sys"),
 	}
 }
 
@@ -277,6 +299,8 @@ func GetDefaultPowerModelURL(modelOutputType, energySource string) string {
 
 func logBoolConfigs() {
 	if klog.V(5).Enabled() {
+		klog.V(5).Infof("PROC_DIR: %s", instance.Host.ProcDir)
+		klog.V(5).Infof("SYS_DIR: %s", instance.Host.SysDir)
 		klog.V(5).Infof("ENABLE_EBPF_CGROUPID: %t", instance.Kepler.EnabledEBPFCgroupID)
 		klog.V(5).Infof("ENABLE_GPU: %t", instance.Kepler.EnabledGPU)
 		klog.V(5).Infof("ENABLE_PROCESS_METRICS: %t", instance.Kepler.EnableProcessStats)
@@ -405,8 +429,7 @@ func SetGPUUsageMetric(metric string) {
 	instance.Metrics.GPUUsageMetric = metric
 }
 
-type realSystem struct {
-}
+type realSystem struct{}
 
 var _ Client = &realSystem{}
 
@@ -417,7 +440,7 @@ func (c *realSystem) getUnixName() (unix.Utsname, error) {
 }
 
 func (c *realSystem) getCgroupV2File() string {
-	return cGroupV2Path
+	return fmt.Sprintf(cGroupV2Path, SysDir())
 }
 
 func getKernelVersion(c Client) float32 {
@@ -543,6 +566,7 @@ func GetBPFSampleRate() int {
 func GetRedfishCredFilePath() string {
 	return instance.Redfish.CredFilePath
 }
+
 func GetRedfishProbeIntervalInSeconds() int {
 	// convert string "redfishProbeIntervalInSeconds" to int
 	probeInterval, err := strconv.Atoi(instance.Redfish.ProbeIntervalInSeconds)
@@ -556,6 +580,7 @@ func GetRedfishProbeIntervalInSeconds() int {
 func GetRedfishSkipSSLVerify() bool {
 	return instance.Redfish.SkipSSLVerify
 }
+
 func GetMockACPIPowerPath() string {
 	return instance.Kepler.MockACPIPowerPath
 }
@@ -619,9 +644,11 @@ func ModelConfigValues(k string) string {
 func ContainerComponentsPowerKey() string {
 	return instance.Model.ContainerComponentsPowerKey
 }
+
 func ProcessPlatformPowerKey() string {
 	return instance.Model.ProcessPlatformPowerKey
 }
+
 func ProcessComponentsPowerKey() string {
 	return instance.Model.ProcessComponentsPowerKey
 }

@@ -33,7 +33,6 @@ import (
 
 const (
 	cpuModelDataPath = "/var/lib/kepler/data/cpus.yaml"
-	cpuPmuNamePath   = "/sys/devices/cpu/caps/pmu_name"
 	unknownCPUArch   = "unknown"
 )
 
@@ -266,6 +265,7 @@ func cpuMicroArchitecture(family, model, stepping string) (string, error) {
 }
 
 func cpuPmuName() (string, error) {
+	cpuPmuNamePath := config.SysDir() + "/devices/cpu/caps/pmu_name"
 	data, err := os.ReadFile(cpuPmuNamePath)
 	if err != nil {
 		klog.V(3).Infoln(err)

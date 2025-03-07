@@ -31,19 +31,13 @@ import (
 )
 
 const (
-	freqPathDir         = "/sys/devices/system/cpu/cpufreq/"
-	freqPath            = "/sys/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
-	hwmonPowerPath      = "/sys/class/hwmon/hwmon2/device/"
-	acpiPowerPath       = "/sys/devices/LNXSYSTM:00"
 	acpiPowerFilePrefix = "power"
 	acpiPowerFileSuffix = "_average"
 	poolingInterval     = 3000 * time.Millisecond // in seconds
 	sensorIDPrefix      = "energy"
 )
 
-var (
-	numCPUS int32 = int32(runtime.NumCPU())
-)
+var numCPUS int32 = int32(runtime.NumCPU())
 
 // Advanced Configuration and Power Interface (APCI) makes the system hardware sensor status
 // information available to the operating system via hwmon in sysfs.
@@ -57,6 +51,8 @@ func NewACPIPowerMeter(mockpath string) *ACPI {
 		klog.Infof("using user provided ACPI power path: %s", mockpath)
 		return &ACPI{powerPath: mockpath, CollectEnergy: true}
 	}
+
+	hwmonPowerPath := config.SysDir() + "/class/hwmon/hwmon2/device/"
 	acpi := &ACPI{powerPath: hwmonPowerPath}
 	if acpi.IsHWMONCollectionSupported() {
 		acpi.CollectEnergy = true
@@ -77,6 +73,8 @@ func NewACPIPowerMeter(mockpath string) *ACPI {
 
 func findACPIPowerPath() string {
 	var powerPath string
+
+	acpiPowerPath := config.SysDir() + "/devices/LNXSYSTM:00"
 	err := filepath.WalkDir(acpiPowerPath, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -109,12 +107,14 @@ func (a *ACPI) StopPower() {
 }
 
 func (a *ACPI) GetCPUCoreFrequency() map[int32]uint64 {
+	freqPathDir := config.SysDir() + "/devices/system/cpu/cpufreq/"
 	files, err := os.ReadDir(freqPathDir)
 	cpuCoreFrequency := map[int32]uint64{}
 	if err != nil {
 		klog.Warning(err)
 		return cpuCoreFrequency
 	}
+	freqPath := config.SysDir() + "/devices/system/cpu/cpufreq/policy%d/scaling_cur_freq"
 
 	ch := make(chan []uint64)
 	for i := 0; i < len(files); i++ {
