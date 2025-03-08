@@ -33,15 +33,15 @@ spec:
             - /bin/sh
             - -c
           args:
-            - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -kernel-source-dir=/usr/share/kepler/kernel_sources -redfish-cred-file-path=/etc/redfish/redfish.csv
+            - until [ -e /tmp/estimator.sock ]; do sleep 1; done && /usr/bin/kepler -v=$(KEPLER_LOG_LEVEL) -redfish-cred-file-path=/etc/redfish/redfish.csv
           volumeMounts:
             - mountPath: /tmp
               name: tmp
           name: kepler-exporter
         - image: kepler_model_server
           imagePullPolicy: IfNotPresent
-          command: [python3.8]
-          args: [-u, src/estimate/estimator.py]
+          command: [python3]
+          args: [-u, src/kepler_model/estimate/estimator.py]
           name: estimator
           volumeMounts:
             - name: cfm
