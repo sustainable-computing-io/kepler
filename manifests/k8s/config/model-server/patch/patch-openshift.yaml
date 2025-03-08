@@ -11,3 +11,10 @@ spec:
         - name: server-api
           securityContext:
             privileged: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-volume
+              readOnly: false
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
