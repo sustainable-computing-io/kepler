@@ -49,7 +49,7 @@ func createNodeComponentPowerModelConfig(nodeFeatureNames []string) *types.Model
 // CreateNodeComponentPowerEstimatorModel only create a new power model estimator if node components power metrics are not available
 func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames []string) {
 	var err error
-	if !components.IsSystemCollectionSupported() {
+	if !components.IsSystemCollectionSupported() && !config.DisablePowerModels() {
 		modelConfig := createNodeComponentPowerModelConfig(nodeFeatureNames)
 		// init func for NodeComponentPower
 		nodeComponentPowerModel, err = createPowerModelEstimator(modelConfig)
@@ -59,7 +59,7 @@ func CreateNodeComponentPowerEstimatorModel(nodeFeatureNames []string) {
 			klog.Infof("Failed to create %s Power Model to estimate Node Component Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 		}
 	} else {
-		klog.Infof("Skipping creation of Node Component Power Model since the system collection is supported")
+		klog.Infof("Skipping creation of Node Component Power Model since the system collection is supported or models are disabled")
 		return
 	}
 }
