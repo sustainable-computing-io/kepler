@@ -52,6 +52,8 @@ type PowerModelInterface interface {
 	Train() error
 	// IsEnabled returns true if the power model was trained and is active
 	IsEnabled() bool
+	// SetEnabled modifies the enabled flag to activate or deactivate the power model
+	SetEnabled(enable bool)
 	// GetModelType returns if the model is Ratio, Regressor or EstimatorSidecar
 	GetModelType() types.ModelType
 	// GetProcessFeatureNamesList returns the list of process features that the model was configured to use
@@ -88,6 +90,7 @@ func createPowerModelEstimator(modelConfig *types.ModelConfig) (PowerModelInterf
 			ProcessFeatureNames: modelConfig.ProcessFeatureNames,
 			NodeFeatureNames:    modelConfig.NodeFeatureNames,
 		}
+		model.SetEnabled(true)
 		klog.V(3).Infof("Using Power Model Ratio")
 		return model, nil
 
@@ -189,15 +192,17 @@ func getModelConfigKey(modelItem, attribute string) string {
 // getPowerModelType return the model type for a given power source, such as platform or components power sources
 // The default power model type is Ratio
 func getPowerModelType(powerSourceTarget string) (modelType types.ModelType) {
-	useEstimatorSidecarStr := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.EstimatorEnabledKey))
-	if strings.EqualFold(useEstimatorSidecarStr, "true") {
-		modelType = types.EstimatorSidecar
-		return
-	}
-	useLocalRegressor := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey))
-	if strings.EqualFold(useLocalRegressor, "true") {
-		modelType = types.Regressor
-		return
+	if !config.DisablePowerModels() {
+		useEstimatorSidecarStr := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.EstimatorEnabledKey))
+		if strings.EqualFold(useEstimatorSidecarStr, "true") {
+			modelType = types.EstimatorSidecar
+			return
+		}
+		useLocalRegressor := config.ModelConfigValues(getModelConfigKey(powerSourceTarget, config.LocalRegressorEnabledKey))
+		if strings.EqualFold(useLocalRegressor, "true") {
+			modelType = types.Regressor
+			return
+		}
 	}
 	// set the default node power model as Regressor
 	if powerSourceTarget == config.NodePlatformPowerKey() || powerSourceTarget == config.NodeComponentsPowerKey() {

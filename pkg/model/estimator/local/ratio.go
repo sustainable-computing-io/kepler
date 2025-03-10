@@ -70,7 +70,8 @@ type RatioPowerModel struct {
 	processFeatureValues [][]float64 // metrics per process/process/pod
 	nodeFeatureValues    []float64   // node metrics
 	// xidx represents the features slide window position
-	xidx int
+	xidx    int
+	enabled bool
 }
 
 func (r *RatioPowerModel) getPowerByRatio(processIdx, resUsageFeature, nodePowerFeature int, numProcesses float64) uint64 {
@@ -235,9 +236,14 @@ func (r *RatioPowerModel) Train() error {
 	return nil
 }
 
-// IsEnabled returns true as Ratio Power model is always active
+// IsEnabled returns if ratio power model is active or not
 func (r *RatioPowerModel) IsEnabled() bool {
-	return true
+	return r.enabled
+}
+
+// SetEnabled modifies the enabled flag to activate or deactivate the ratio power model
+func (r *RatioPowerModel) SetEnabled(enable bool) {
+	r.enabled = enable
 }
 
 // GetModelType returns the model type

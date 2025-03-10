@@ -25,7 +25,9 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/model/types"
 	"github.com/sustainable-computing-io/kepler/pkg/node"
 	acc "github.com/sustainable-computing-io/kepler/pkg/sensors/accelerator"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/components"
 	"github.com/sustainable-computing-io/kepler/pkg/sensors/components/source"
+	"github.com/sustainable-computing-io/kepler/pkg/sensors/platform"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	"k8s.io/klog/v2"
 )
@@ -118,11 +120,18 @@ func CreateProcessPowerEstimatorModel(processFeatureNames []string) {
 		modelConfig := createProcessPowerModelConfig(k, processFeatureNames, v)
 		modelConfig.IsNodePowerModel = false
 		m, err := createPowerModelEstimator(modelConfig)
+		klog.V(5).Infof("Generating Process models now")
 		switch k {
 		case config.ProcessPlatformPowerKey():
 			processPlatformPowerModel = m
+			if !platform.IsSystemCollectionSupported() && config.DisablePowerModels() {
+				processPlatformPowerModel.SetEnabled(false)
+			}
 		case config.ProcessComponentsPowerKey():
 			processComponentPowerModel = m
+			if !components.IsSystemCollectionSupported() && config.DisablePowerModels() {
+				processComponentPowerModel.SetEnabled(false)
+			}
 		}
 		if err != nil {
 			klog.Infof("Failed to create %s Power Model to estimate %s Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), k, err)
