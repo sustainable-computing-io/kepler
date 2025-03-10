@@ -30,11 +30,10 @@ import (
 
 const (
 	// Grace ACPI power paths and identifiers
-	graceHwmonPathTemplate = "/sys/class/hwmon/hwmon*"
-	graceDevicePath        = "device/"
-	gracePowerPrefix       = "power1"
-	graceOemInfoFile       = "_oem_info"
-	graceAverageFile       = "_average"
+	graceDevicePath  = "device/"
+	gracePowerPrefix = "power1"
+	graceOemInfoFile = "_oem_info"
+	graceAverageFile = "_average"
 
 	// Grace Hopper module power identifier
 	graceModuleLabel = "Module Power Socket" // Total CG1 module power (GPU+HBM)
@@ -78,6 +77,7 @@ func graceDeviceStartup() Device {
 
 func (g *gpuGraceACPI) findModulePowerPaths() error {
 	g.modulePowerPaths = make(map[int]string)
+	graceHwmonPathTemplate := config.SysDir() + "/class/hwmon/hwmon*"
 
 	hwmonDirs, err := filepath.Glob(graceHwmonPathTemplate)
 	if err != nil {

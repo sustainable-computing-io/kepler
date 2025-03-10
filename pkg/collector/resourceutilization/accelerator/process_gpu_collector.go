@@ -32,14 +32,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 )
 
-const (
-	procPath string = "/proc/%d/cgroup"
-)
-
-var (
-	// lastUtilizationTimestamp represents the CPU timestamp in microseconds at which utilization samples were last read
-	lastUtilizationTimestamp time.Time = time.Now()
-)
+// lastUtilizationTimestamp represents the CPU timestamp in microseconds at which utilization samples were last read
+var lastUtilizationTimestamp time.Time = time.Now()
 
 // UpdateProcessGPUUtilizationMetrics reads the GPU metrics of each process using the GPU
 func UpdateProcessGPUUtilizationMetrics(processStats map[uint64]*stats.ProcessStats) {
@@ -105,7 +99,8 @@ func addGPUUtilizationToProcessStats(ai dev.Device, processStats map[uint64]*sta
 }
 
 func getProcessCommand(pid uint64) string {
-	fileName := fmt.Sprintf(procPath, pid)
+	procPath := "%s/proc/%d/cgroup"
+	fileName := fmt.Sprintf(procPath, config.ProcDir(), pid)
 	// Read the file
 	comm, err := os.ReadFile(fileName)
 	if err != nil {

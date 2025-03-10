@@ -23,19 +23,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"k8s.io/klog/v2"
 )
 
 const (
-	// sysfs path templates for Ampere Xgene hwmon
-	powerLabelPathTemplate = "/sys/class/hwmon/hwmon*/power*_label"
-	cpuPowerLabel          = "CPU power"
-	uJTomJ                 = 1000
+	cpuPowerLabel = "CPU power"
+	uJTomJ        = 1000
 )
 
-var (
-	powerInputPath = ""
-)
+var powerInputPath = ""
 
 type ApmXgeneSysfs struct {
 	currTime time.Time
@@ -46,6 +43,8 @@ func (ApmXgeneSysfs) GetName() string {
 }
 
 func (r *ApmXgeneSysfs) IsSystemCollectionSupported() bool {
+	// sysfs path templates for Ampere Xgene hwmon
+	powerLabelPathTemplate := config.SysDir() + "/class/hwmon/hwmon*/power*_label"
 	labelFiles, err := filepath.Glob(powerLabelPathTemplate)
 	if err != nil {
 		return false

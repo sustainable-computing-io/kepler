@@ -22,7 +22,12 @@ import (
 	"strings"
 )
 
-func detectEventPaths() {
+func detectEventPaths(sysDir string) map[string]map[string]string {
+	paths := map[string]map[string]string{}
+
+	packageNamePathTemplate := sysDir + "/class/powercap/intel-rapl/intel-rapl:%d/"
+	eventNamePathTemplate := sysDir + "/class/powercap/intel-rapl/intel-rapl:%d/intel-rapl:%d:%d/"
+
 	for i := 0; i < numPackages; i++ {
 		packagePath := fmt.Sprintf(packageNamePathTemplate, i)
 		data, err := os.ReadFile(packagePath + "name")
@@ -30,8 +35,8 @@ func detectEventPaths() {
 		if err != nil {
 			continue
 		}
-		eventPaths[packageName] = map[string]string{}
-		eventPaths[packageName][packageName] = packagePath
+		paths[packageName] = map[string]string{}
+		paths[packageName][packageName] = packagePath
 		for j := 0; j < numRAPLEvents; j++ {
 			eventNamePath := fmt.Sprintf(eventNamePathTemplate, i, i, j)
 			data, err := os.ReadFile(eventNamePath + "name")
@@ -39,9 +44,10 @@ func detectEventPaths() {
 			if err != nil {
 				continue
 			}
-			eventPaths[packageName][eventName] = eventNamePath
+			paths[packageName][eventName] = eventNamePath
 		}
 	}
+	return paths
 }
 
 func hasEvent(event string) bool {

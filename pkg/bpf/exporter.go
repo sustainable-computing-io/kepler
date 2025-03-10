@@ -126,7 +126,7 @@ func (e *exporter) attach() error {
 
 	group := "writeback"
 	name := "writeback_dirty_page"
-	if _, err := os.Stat("/sys/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
+	if _, err := os.Stat(config.SysDir() + "/kernel/debug/tracing/events/writeback/writeback_dirty_folio"); err == nil {
 		name = "writeback_dirty_folio"
 	}
 	e.pageWriteLink, err = link.Tracepoint(group, name, e.bpfObjects.KeplerWritePageTrace, nil)

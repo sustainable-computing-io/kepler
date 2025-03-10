@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sustainable-computing-io/kepler/pkg/config"
 	"github.com/sustainable-computing-io/kepler/pkg/kubelet"
 	"github.com/sustainable-computing-io/kepler/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -41,13 +42,9 @@ type ContainerInfo struct {
 
 const (
 	unknownPath string = "unknown"
-	procPath    string = "/proc/%d/cgroup"
-	cgroupPath  string = "/sys/fs/cgroup"
 )
 
-var (
-	instance *cache
-)
+var instance *cache
 
 type cache struct {
 	containerIDCache           sync.Map // map[uint64]string
@@ -124,6 +121,7 @@ func (c *cache) getGetContainerIDFromPID(pid uint64) (string, error) {
 		return containerID, nil
 	}
 
+	procPath := config.ProcDir() + "/%d/cgroup"
 	path, err := getPathFromPID(procPath, pid)
 	if err != nil {
 		return utils.SystemProcessName, err
@@ -164,6 +162,7 @@ func (c *cache) getPathFromcGroupID(cgroupID uint64) (string, error) {
 		return p.(string), nil
 	}
 
+	cgroupPath := config.SysDir() + "/fs/cgroup"
 	err := filepath.WalkDir(cgroupPath, func(path string, dentry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -181,7 +180,6 @@ func (c *cache) getPathFromcGroupID(cgroupID uint64) (string, error) {
 		instance.cGroupIDToPath.Store(getCgroupID, path)
 		return nil
 	})
-
 	// if error is not nil
 	if err != nil {
 		return unknownPath, fmt.Errorf("failed to find cgroup id: %v", err)
