@@ -19,3 +19,5 @@ services:
       - node-exporter-network
       - libvirt-exporter-network
       - process-exporter-network
+    extra_hosts:
+      - host.docker.internal:host-gateway

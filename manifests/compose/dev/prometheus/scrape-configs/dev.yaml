@@ -3,6 +3,10 @@ scrape_configs:
     static_configs:
       - targets: [kepler-dev:8888]
 
+  - job_name: host
+    static_configs:
+      - targets: [host.docker.internal:8888]
+
   - job_name: scaphandre
     static_configs:
       - targets: [scaphandre:8080]
