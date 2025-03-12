@@ -18,7 +18,6 @@ package collector
 
 import (
 	"os"
-	"sync"
 	"syscall"
 	"time"
 
@@ -86,7 +85,6 @@ func (c *Collector) Initialize() error {
 // Update updates the node and container energy and resource usage metrics
 func (c *Collector) Update() {
 	start := time.Now()
-
 	// reset the previous collected value because not all process will have new data
 	// that is, a process that was inactive will not have any update but we need to set its metrics to 0
 	c.resetDeltaValue()
@@ -138,22 +136,14 @@ func (c *Collector) UpdateProcessEnergyUtilizationMetrics() {
 }
 
 func (c *Collector) updateResourceUtilizationMetrics() {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go c.updateNodeResourceUtilizationMetrics(wg)
-	go c.updateProcessResourceUtilizationMetrics(wg)
-	wg.Wait()
+	// NOTE: no node resource utilization metrics to aggregate
+	c.updateProcessResourceUtilizationMetrics()
+
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
 }
 
-// update the node metrics that are not related to aggregated resource utilization of processes
-func (c *Collector) updateNodeResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	wg.Done()
-}
-
-func (c *Collector) updateProcessResourceUtilizationMetrics(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *Collector) updateProcessResourceUtilizationMetrics() {
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
