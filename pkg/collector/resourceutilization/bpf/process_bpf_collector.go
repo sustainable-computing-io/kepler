@@ -20,6 +20,7 @@ limitations under the License.
 package bpf
 
 import "C"
+
 import (
 	"unsafe"
 
@@ -118,21 +119,22 @@ func UpdateProcessBPFMetrics(bpfExporter bpf.Exporter, processStats map[uint64]*
 		}
 
 		mapKey := ct.Pid
-		process := comm
+		procCmd := comm
 		if ct.CgroupId == 1 && config.EnabledEBPFCgroupID() {
 			// we aggregate all kernel process to minimize overhead
 			// all kernel process has cgroup id as 1 and pid 1 is also a kernel process
 			mapKey = 1
-			process = "kernel_processes"
+			procCmd = "kernel_processes"
 		}
 
 		bpfSupportedMetrics := bpfExporter.SupportedMetrics()
 		var ok bool
 		var pStat *stats.ProcessStats
 		if pStat, ok = processStats[mapKey]; !ok {
-			pStat = stats.NewProcessStats(mapKey, ct.CgroupId, containerID, vmID, process)
+			pStat = stats.NewProcessStats(mapKey, ct.CgroupId, containerID, vmID, procCmd)
 			processStats[mapKey] = pStat
-		} else if pStat.Command == "" {
+		}
+		if pStat.Command == "" && comm != "" {
 			pStat.Command = comm
 		}
 		// when the process metrics are updated, reset the idle counter

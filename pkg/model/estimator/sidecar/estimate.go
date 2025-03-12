@@ -116,7 +116,6 @@ func (c *EstimatorSidecar) makeRequest(usageValues [][]float64, systemValues []s
 	defer conn.Close()
 
 	_, err = conn.Write(powerRequestJSON)
-
 	if err != nil {
 		klog.V(4).Infof("estimator write error: %v", err)
 		return nil, err
