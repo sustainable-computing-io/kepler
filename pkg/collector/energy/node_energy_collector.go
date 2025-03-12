@@ -19,7 +19,6 @@ package energy
 import (
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/sustainable-computing-io/kepler/pkg/collector/stats"
 	"github.com/sustainable-computing-io/kepler/pkg/config"
@@ -44,8 +43,7 @@ func UpdatePlatformEnergy(nodeStats *stats.NodeStats) {
 }
 
 // UpdateNodeComponentsEnergy updates each node component power consumption, i.e., the CPU core, uncore, package/socket and DRAM
-func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
-	defer wg.Done()
+func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats) {
 	if components.IsSystemCollectionSupported() {
 		nodeComponentsEnergy := components.GetAbsEnergyFromNodeComponents()
 		// the RAPL metrics return counter metrics not gauge
@@ -64,15 +62,17 @@ func UpdateNodeComponentsEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) 
 }
 
 // UpdateNodeGPUEnergy updates each GPU power consumption. Right now we don't support other types of accelerators
-func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
-	defer wg.Done()
-	if config.IsGPUEnabled() {
-		if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
-			gpuEnergy := gpu.Device().AbsEnergyFromDevice()
-			for gpu, energy := range gpuEnergy {
-				nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
-			}
-		}
+func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats) {
+	if !config.IsGPUEnabled() {
+		return
+	}
+	gpu := acc.GetActiveAcceleratorByType(config.GPU)
+	if gpu == nil {
+		return
+	}
+	gpuEnergy := gpu.Device().AbsEnergyFromDevice()
+	for gpu, energy := range gpuEnergy {
+		nodeStats.EnergyUsage[config.AbsEnergyInGPU].SetDeltaStat(fmt.Sprintf("%d", gpu), uint64(energy))
 	}
 }
 
@@ -96,12 +96,8 @@ func UpdateNodeIdleEnergy(nodeStats *stats.NodeStats) {
 
 // UpdateNodeEnergyMetrics updates the node energy consumption of each component
 func UpdateNodeEnergyMetrics(nodeStats *stats.NodeStats) {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go UpdateNodeComponentsEnergy(nodeStats, wg)
-	go UpdateNodeGPUEnergy(nodeStats, wg)
-	wg.Wait()
-	// update platform power later to avoid race condition when using estimation power model
+	UpdateNodeComponentsEnergy(nodeStats)
+	UpdateNodeGPUEnergy(nodeStats)
 	UpdatePlatformEnergy(nodeStats)
 	// after updating the total energy we calculate the idle, dynamic and other components energy
 	if config.IsIdlePowerEnabled() {
