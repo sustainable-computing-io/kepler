@@ -55,8 +55,12 @@ type gpuGraceACPI struct {
 }
 
 func graceCheck(r *Registry) {
-	if err := graceAccImpl.InitLib(); err != nil {
-		klog.V(5).Infof("Error initializing Grace GPU: %v", err)
+	if err := graceAccImpl.Init(); err != nil {
+		klog.V(5).Infof("Grace GPU initialization failed: %v", err)
+		return
+	}
+	if !graceAccImpl.IsDeviceCollectionSupported() {
+		klog.V(5).Infof("No Grace GPU power modules found")
 		return
 	}
 	graceType = GRACE
@@ -68,10 +72,6 @@ func graceCheck(r *Registry) {
 }
 
 func graceDeviceStartup() Device {
-	if err := graceAccImpl.Init(); err != nil {
-		klog.Errorf("failed to init Grace GPU device: %v", err)
-		return nil
-	}
 	return &graceAccImpl
 }
 
@@ -163,9 +163,11 @@ func (g *gpuGraceACPI) Init() error {
 		return err
 	}
 	g.collectionSupported = len(g.modulePowerPaths) > 0
-	if g.collectionSupported {
-		klog.V(4).Infof("Detected Grace Hopper system with %d GPUs", len(g.modulePowerPaths))
+	if !g.collectionSupported {
+		return fmt.Errorf("no Grace GPU power modules found")
 	}
+
+	klog.V(4).Infof("Detected Grace Hopper system with %d GPUs", len(g.modulePowerPaths))
 	return nil
 }
 
