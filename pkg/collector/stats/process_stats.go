@@ -47,7 +47,7 @@ func NewProcessStats(pid, cGroupID uint64, containerID, vmID, command string) *P
 func (p *ProcessStats) ResetDeltaValues() {
 	p.Stats.ResetDeltaValues()
 	// if the metrics are not updated, this counter will increment, otherwise it will be set to 0
-	p.IdleCounter += 1
+	p.IdleCounter++
 }
 
 func (p *ProcessStats) String() string {

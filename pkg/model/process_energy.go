@@ -118,12 +118,14 @@ func CreateProcessPowerEstimatorModel(processFeatureNames []string) {
 		modelConfig := createProcessPowerModelConfig(k, processFeatureNames, v)
 		modelConfig.IsNodePowerModel = false
 		m, err := createPowerModelEstimator(modelConfig)
+
 		switch k {
 		case config.ProcessPlatformPowerKey():
 			processPlatformPowerModel = m
 		case config.ProcessComponentsPowerKey():
 			processComponentPowerModel = m
 		}
+
 		if err != nil {
 			klog.Infof("Failed to create %s Power Model to estimate %s Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), k, err)
 		} else {
@@ -134,7 +136,7 @@ func CreateProcessPowerEstimatorModel(processFeatureNames []string) {
 }
 
 // UpdateProcessEnergy resets the power model samples, add new samples to the power models, then estimates the idle and dynamic energy
-func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeMetrics *stats.NodeStats) {
+func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeStats *stats.NodeStats) {
 	if processPlatformPowerModel == nil {
 		klog.Errorln("Process Platform Power Model was not created")
 	}
@@ -146,7 +148,7 @@ func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeMe
 	processComponentPowerModel.ResetSampleIdx()
 
 	// add features values for prediction
-	processIDList := addSamplesToPowerModels(processesMetrics, nodeMetrics)
+	processIDList := addSamplesToPowerModels(processesMetrics, nodeStats)
 	addEstimatedEnergy(processIDList, processesMetrics, idlePower)
 	addEstimatedEnergy(processIDList, processesMetrics, absPower)
 }
@@ -155,7 +157,8 @@ func UpdateProcessEnergy(processesMetrics map[uint64]*stats.ProcessStats, nodeMe
 func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, nodeMetrics *stats.NodeStats) []uint64 {
 	processIDList := []uint64{}
 	// Add process metrics
-	for processID, c := range processesMetrics {
+	klog.V(8).Infof("adding %d process to model", len(processesMetrics))
+	for pid, c := range processesMetrics {
 		// add samples to estimate the platform power
 		if processPlatformPowerModel.IsEnabled() {
 			featureValues := c.ToEstimatorValues(processPlatformPowerModel.GetProcessFeatureNamesList(), true) // add process features with normalized values
@@ -169,8 +172,10 @@ func addSamplesToPowerModels(processesMetrics map[uint64]*stats.ProcessStats, no
 			processComponentPowerModel.AddProcessFeatureValues(featureValues)
 		}
 
-		processIDList = append(processIDList, processID)
+		processIDList = append(processIDList, pid)
 	}
+	klog.V(8).Infof("added %3d / %-3d process to model", len(processIDList), len(processesMetrics))
+
 	// Add node metrics.
 	if processPlatformPowerModel.IsEnabled() {
 		featureValues := nodeMetrics.ToEstimatorValues(processPlatformPowerModel.GetNodeFeatureNamesList(), true) // add node features with normalized values
@@ -218,48 +223,48 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 	}
 
 	var energy uint64
-	for i, processID := range processIDList {
+	for i, pid := range processIDList {
 		if errComp == nil {
 			// add PKG power consumption
 			// since Kepler collects metrics at intervals of SamplePeriodSec, which is greater than 1 second, it is necessary to calculate the energy consumption for the entire waiting period
 			energy = processComponentsPower[i].Pkg * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInPkg].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 
 			// add CORE power consumption
 			energy = processComponentsPower[i].Core * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInCore].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 
 			// add DRAM power consumption
 			energy = processComponentsPower[i].DRAM * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 
 			// add Uncore power consumption
 			energy = processComponentsPower[i].Uncore * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInUnCore].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 
 			// add GPU power consumption
 			if errGPU == nil {
 				energy = processGPUPower[i] * (config.SamplePeriodSec())
 				if isIdlePower {
-					processesMetrics[processID].EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
+					processesMetrics[pid].EnergyUsage[config.IdleEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
 				} else {
-					processesMetrics[processID].EnergyUsage[config.DynEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
+					processesMetrics[pid].EnergyUsage[config.DynEnergyInGPU].SetDeltaStat(utils.GenericSocketID, energy)
 				}
 			}
 		}
@@ -267,9 +272,9 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 		if errPlat == nil {
 			energy = processPlatformPower[i] * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 		}
 
@@ -284,9 +289,9 @@ func addEstimatedEnergy(processIDList []uint64, processesMetrics map[uint64]*sta
 			}
 			energy = otherPower * config.SamplePeriodSec()
 			if isIdlePower {
-				processesMetrics[processID].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.IdleEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
 			} else {
-				processesMetrics[processID].EnergyUsage[config.DynEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
+				processesMetrics[pid].EnergyUsage[config.DynEnergyInOther].SetDeltaStat(utils.GenericSocketID, energy)
 			}
 		}
 	}

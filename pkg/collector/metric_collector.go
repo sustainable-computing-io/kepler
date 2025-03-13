@@ -139,6 +139,11 @@ func (c *Collector) updateResourceUtilizationMetrics() {
 	// NOTE: no node resource utilization metrics to aggregate
 	c.updateProcessResourceUtilizationMetrics()
 
+	// NOTE: stale resources are cleaned up from the internal process, container
+	// and VM maps as soon as bpf is updated so that these resources are not
+	// aggregated and no further checks need to be done by other functions
+	c.cleanupStaleResources()
+
 	// aggregate processes' resource utilization metrics to containers, virtual machines and nodes
 	c.AggregateProcessResourceUtilizationMetrics()
 }
@@ -147,44 +152,96 @@ func (c *Collector) updateProcessResourceUtilizationMetrics() {
 	// update process metrics regarding the resource utilization to be used to calculate the energy consumption
 	// we first updates the bpf which is responsible to include new processes in the ProcessStats collection
 	resourceBpf.UpdateProcessBPFMetrics(c.bpfExporter, c.ProcessStats)
-	if config.IsGPUEnabled() {
-		if acc.GetActiveAcceleratorByType(config.GPU) != nil {
-			accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
-		}
+
+	if config.IsGPUEnabled() && acc.GetActiveAcceleratorByType(config.GPU) != nil {
+		accelerator.UpdateProcessGPUUtilizationMetrics(c.ProcessStats)
 	}
+}
+
+// cleanupStaleResources removes processes, containers and VMs  that were not updated
+// for multiple iterations
+func (c *Collector) cleanupStaleResources() {
+	var deletedAggr, deleteDelta, deletedCount uint64
+	procLen := len(c.ProcessStats)
+	klog.V(8).Infof("going to cleanup %3d process", procLen)
+
+	containersFound := map[string]bool{}
+	vmsFound := map[string]bool{}
+
+	for pid, process := range c.ProcessStats {
+		// if the process metrics were not updated for multiple iterations,
+		// verify if that process still exist, otherwise delete it from the map
+		if process.IdleCounter == 0 || processExists(process.PID) {
+			// NOTE: resetting IdleCounter here because we don't want to delete the process if it is still active
+			process.IdleCounter = 0
+
+			if config.IsExposeContainerStatsEnabled() && process.ContainerID != "" {
+				if _, ok := c.ContainerStats[process.ContainerID]; ok {
+					containersFound[process.ContainerID] = true
+				}
+			}
+
+			if config.IsExposeVMStatsEnabled() && process.VMID != "" {
+				if _, ok := c.VMStats[process.VMID]; ok {
+					vmsFound[process.VMID] = true
+				}
+			}
+			continue
+		}
+
+		// only calculate if we are in debug mode
+		if klog.V(8).Enabled() {
+			deletedCount++
+			deletedAggr += process.EnergyUsage[config.DynEnergyInPkg].SumAllAggrValues()
+			deleteDelta += process.EnergyUsage[config.DynEnergyInPkg].SumAllDeltaValues()
+		}
+
+		delete(c.ProcessStats, pid)
+	}
+	klog.V(8).Infof("deleted %3d stale process from %3d -> new len: %3d : aggr: %10d | delta: %-10d",
+		deletedCount, procLen, len(c.ProcessStats), deletedAggr, deleteDelta)
+
+	if config.IsExposeContainerStatsEnabled() {
+		c.handleInactiveContainers(containersFound)
+	}
+	if config.IsExposeVMStatsEnabled() {
+		c.handleInactiveVM(vmsFound)
+	}
+}
+
+func processExists(pid uint64) bool {
+	// check if the process still exist
+
+	// NOTE: from docs
+	// On Unix systems, FindProcess always succeeds and returns a Process
+	// for the given pid, regardless of whether the process exists. To test whether
+	// the process actually exists, see whether p.Signal(syscall.Signal(0)) reports
+	// an error.
+	//
+	// TODO: package os uses int for pid, perhaps we should as well
+	proc, _ := os.FindProcess(int(pid))
+	return proc.Signal(syscall.Signal(0)) == nil
 }
 
 // AggregateProcessResourceUtilizationMetrics aggregates processes' resource utilization metrics to containers, virtual machines and nodes
 func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
-	foundContainer := make(map[string]bool)
-	foundVM := make(map[string]bool)
 	for _, process := range c.ProcessStats {
-		if process.IdleCounter > 0 {
-			// if the process metrics were not updated for multiple iterations, very if the process still exist, otherwise delete it from the map
-			c.handleIdlingProcess(process)
-		}
 		for metricName, resource := range process.ResourceUsage {
 			for id := range resource {
 				delta := resource[id].GetDelta() // currently the process metrics are single socket
 
 				// aggregate metrics per container
-				if config.IsExposeContainerStatsEnabled() {
-					if process.ContainerID != "" {
-						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
-						c.ContainerStats[process.ContainerID].ResourceUsage[metricName].AddDeltaStat(id, delta)
-						foundContainer[process.ContainerID] = true
-					}
+				if config.IsExposeContainerStatsEnabled() && process.ContainerID != "" {
+					c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
+					c.ContainerStats[process.ContainerID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 				}
 
 				// aggregate metrics per Virtual Machine
-				if config.IsExposeVMStatsEnabled() {
-					if process.VMID != "" {
-						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
-						}
-						c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
-						foundVM[process.VMID] = true
+				if config.IsExposeVMStatsEnabled() && process.VMID != "" {
+					if _, ok := c.VMStats[process.VMID]; !ok {
+						c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
 					}
+					c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
 				}
 
 				// aggregate metrics from all process to represent the node resource utilization
@@ -192,44 +249,77 @@ func (c *Collector) AggregateProcessResourceUtilizationMetrics() {
 			}
 		}
 	}
-
-	// clean up the cache
-	// TODO: improve the removal of deleted containers from ContainerStats. Currently we verify the maxInactiveContainers using the found map
-	if config.IsExposeContainerStatsEnabled() {
-		c.handleInactiveContainers(foundContainer)
-	}
-	if config.IsExposeVMStatsEnabled() {
-		c.handleInactiveVM(foundVM)
-	}
 }
 
-// handleInactiveProcesses
-func (c *Collector) handleIdlingProcess(pStat *stats.ProcessStats) {
-	proc, _ := os.FindProcess(int(pStat.PID))
-	err := proc.Signal(syscall.Signal(0))
-	if err != nil {
-		// delete if the process does not exist anymore
-		delete(c.ProcessStats, pStat.PID)
-		return
-	}
-}
+// // AggregateProcessResourceUtilizationMetrics aggregates processes' resource utilization metrics to containers, virtual machines and nodes
+// func (c *Collector) AggregateProcessResourceUtilizationMetricsX() {
+// 	foundContainer := make(map[string]bool)
+// 	foundVM := make(map[string]bool)
+// 	for _, process := range c.ProcessStats {
+// 		if process.IdleCounter > 0 {
+// 			// if the process metrics were not updated for multiple iterations,
+// 			// verify if the process still exist, otherwise delete it from the map
+// 			c.handleIdlingProcess(process)
+// 		}
+//
+// 		for metricName, resource := range process.ResourceUsage {
+// 			for id := range resource {
+// 				delta := resource[id].GetDelta() // currently the process metrics are single socket
+//
+// 				// aggregate metrics per container
+// 				if config.IsExposeContainerStatsEnabled() {
+// 					if process.ContainerID != "" {
+// 						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
+// 						c.ContainerStats[process.ContainerID].ResourceUsage[metricName].AddDeltaStat(id, delta)
+// 						foundContainer[process.ContainerID] = true
+// 					}
+// 				}
+//
+// 				// aggregate metrics per Virtual Machine
+// 				if config.IsExposeVMStatsEnabled() {
+// 					if process.VMID != "" {
+// 						if _, ok := c.VMStats[process.VMID]; !ok {
+// 							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
+// 						}
+// 						c.VMStats[process.VMID].ResourceUsage[metricName].AddDeltaStat(id, delta)
+// 						foundVM[process.VMID] = true
+// 					}
+// 				}
+//
+// 				// aggregate metrics from all process to represent the node resource utilization
+// 				c.NodeStats.ResourceUsage[metricName].AddDeltaStat(id, delta)
+// 			}
+// 		}
+// 	}
+//
+// 	// clean up the cache
+// 	// TODO: improve the removal of deleted containers from ContainerStats. Currently we verify the maxInactiveContainers using the found map
+// 	if config.IsExposeContainerStatsEnabled() {
+// 		c.handleInactiveContainers(foundContainer)
+// 	}
+// 	if config.IsExposeVMStatsEnabled() {
+// 		c.handleInactiveVM(foundVM)
+// 	}
+// }
 
 // handleInactiveContainers
 func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 	numOfInactive := len(c.ContainerStats) - len(foundContainer)
-	if numOfInactive > maxInactiveContainers {
-		aliveContainers, err := cgroup.GetAliveContainers()
-		if err != nil {
-			klog.V(5).Infoln(err)
-			return
+	if numOfInactive <= maxInactiveContainers {
+		return
+	}
+	aliveContainers, err := cgroup.GetAliveContainers()
+	if err != nil {
+		klog.V(5).Infoln(err)
+		return
+	}
+
+	for containerID := range c.ContainerStats {
+		if containerID == utils.SystemProcessName || containerID == utils.KernelProcessName {
+			continue
 		}
-		for containerID := range c.ContainerStats {
-			if containerID == utils.SystemProcessName || containerID == utils.KernelProcessName {
-				continue
-			}
-			if _, found := aliveContainers[containerID]; !found {
-				delete(c.ContainerStats, containerID)
-			}
+		if _, found := aliveContainers[containerID]; !found {
+			delete(c.ContainerStats, containerID)
 		}
 	}
 }
@@ -237,11 +327,12 @@ func (c *Collector) handleInactiveContainers(foundContainer map[string]bool) {
 // handleInactiveVirtualMachine
 func (c *Collector) handleInactiveVM(foundVM map[string]bool) {
 	numOfInactive := len(c.VMStats) - len(foundVM)
-	if numOfInactive > maxInactiveVM {
-		for vmID := range c.VMStats {
-			if _, found := foundVM[vmID]; !found {
-				delete(c.VMStats, vmID)
-			}
+	if numOfInactive <= maxInactiveVM {
+		return
+	}
+	for vmID := range c.VMStats {
+		if _, found := foundVM[vmID]; !found {
+			delete(c.VMStats, vmID)
 		}
 	}
 }
@@ -254,21 +345,17 @@ func (c *Collector) AggregateProcessEnergyUtilizationMetrics() {
 				delta := stat[id].GetDelta() // currently the process metrics are single socket
 
 				// aggregate metrics per container
-				if config.IsExposeContainerStatsEnabled() {
-					if process.ContainerID != "" {
-						c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
-						c.ContainerStats[process.ContainerID].EnergyUsage[metricName].AddDeltaStat(id, delta)
-					}
+				if config.IsExposeContainerStatsEnabled() && process.ContainerID != "" {
+					c.createContainerStatsIfNotExist(process.ContainerID, process.CGroupID, process.PID, config.EnabledEBPFCgroupID())
+					c.ContainerStats[process.ContainerID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 				}
 
 				// aggregate metrics per Virtual Machine
-				if config.IsExposeVMStatsEnabled() {
-					if process.VMID != "" {
-						if _, ok := c.VMStats[process.VMID]; !ok {
-							c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
-						}
-						c.VMStats[process.VMID].EnergyUsage[metricName].AddDeltaStat(id, delta)
+				if config.IsExposeVMStatsEnabled() && process.VMID != "" {
+					if _, ok := c.VMStats[process.VMID]; !ok {
+						c.VMStats[process.VMID] = stats.NewVMStats(process.PID, process.VMID)
 					}
+					c.VMStats[process.VMID].EnergyUsage[metricName].AddDeltaStat(id, delta)
 				}
 			}
 		}
