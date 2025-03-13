@@ -87,6 +87,7 @@ var _ = Describe("Test Ratio Unit", func() {
 				config.IdleEnergyInGPU,      // for idle GPU power consumption
 			},
 		}
+		model.SetEnabled(true)
 		model.ResetSampleIdx()
 		// Add process metrics
 		for _, c := range processStats {
