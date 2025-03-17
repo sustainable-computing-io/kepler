@@ -406,11 +406,6 @@ func (r *Regressor) IsEnabled() bool {
 	return r.enabled
 }
 
-// SetEnabled modifies the enabled flag to activate or deactivate the regressor power model
-func (r *Regressor) SetEnabled(enable bool) {
-	r.enabled = enable
-}
-
 // GetModelType returns the model type
 func (r *Regressor) GetModelType() types.ModelType {
 	return types.Regressor

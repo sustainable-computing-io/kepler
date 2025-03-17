@@ -37,7 +37,7 @@ var nodePlatformPowerModel PowerModelInterface
 func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames []string) {
 	systemMetaDataFeatureNames := node.MetadataFeatureNames()
 	systemMetaDataFeatureValues := node.MetadataFeatureValues()
-	if !platform.IsSystemCollectionSupported() && !config.DisablePowerModels() {
+	if !platform.IsSystemCollectionSupported() {
 		modelConfig := CreatePowerModelConfig(config.NodePlatformPowerKey())
 		if modelConfig.InitModelURL == "" {
 			modelConfig.InitModelFilepath = config.GetDefaultPowerModelURL(modelConfig.ModelOutputType.String(), types.PlatformEnergySource)
@@ -54,8 +54,6 @@ func CreateNodePlatformPoweEstimatorModel(nodeFeatureNames []string) {
 		} else {
 			klog.Infof("Failed to create %s Power Model to estimate Node Platform Power: %v\n", modelConfig.ModelType.String()+"/"+modelConfig.ModelOutputType.String(), err)
 		}
-	} else {
-		klog.Infof("Skipping creation of Node Platform Power Model since the system collection is supported or models are disabled")
 	}
 }
 

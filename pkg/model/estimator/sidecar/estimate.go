@@ -262,11 +262,6 @@ func (c *EstimatorSidecar) IsEnabled() bool {
 	return c.enabled
 }
 
-// SetEnabled modifies the enabled flag to activate or deactivate the power model
-func (c *EstimatorSidecar) SetEnabled(enable bool) {
-	c.enabled = enable
-}
-
 // GetModelType returns the model type
 func (c *EstimatorSidecar) GetModelType() types.ModelType {
 	return types.EstimatorSidecar

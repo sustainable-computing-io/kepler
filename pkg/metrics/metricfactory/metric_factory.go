@@ -41,13 +41,12 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 			if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 				source = gpu.Device().Name()
 			}
-		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
+		} else if platform.IsSystemCollectionSupported() && strings.Contains(name, config.PLATFORM) {
 			source = platform.GetSourceName()
-		} else if strings.Contains(allComponents, name) && components.IsSystemCollectionSupported() {
+		} else if components.IsSystemCollectionSupported() && strings.Contains(allComponents, name) {
 			// TODO: need to update condition when we have more type of energy metric such as network, disk.
 			source = components.GetSourceName()
 		}
-		// check if trained power model in use here
 		if !config.DisablePowerModels() || source != modeltypes.TrainedPowerModelSource {
 			descriptions[name] = energyMetricsPromDesc(context, name, source)
 		}
