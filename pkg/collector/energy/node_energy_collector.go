@@ -80,7 +80,7 @@ func UpdateNodeGPUEnergy(nodeStats *stats.NodeStats, wg *sync.WaitGroup) {
 // When the node power model estimator is utilized, the idle power is updated with the estimated power considering minimal resource utilization.
 func UpdateNodeIdleEnergy(nodeStats *stats.NodeStats) {
 	isComponentsSystemCollectionSupported := components.IsSystemCollectionSupported()
-	nodeStats.UpdateIdleEnergyWithLinearRegresion(isComponentsSystemCollectionSupported)
+	nodeStats.UpdateIdleEnergyWithLinearRegression(isComponentsSystemCollectionSupported, 3, nodeStats.CPUCount())
 	// the idle energy is only updated if we find the node using less resources than previously observed
 	// TODO: Use regression to estimate the idle power when real-time system power metrics are available, instead of relying on the minimum power consumption.
 	//nodeStats.UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSupported)
