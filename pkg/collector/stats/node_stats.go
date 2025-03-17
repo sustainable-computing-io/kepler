@@ -64,7 +64,7 @@ type IdleEnergyModelInputs struct {
 	IdleEnergyType          string           // Idle energy metric name
 	ResourceUtilizationType string           // Resource utilization metric name
 	ScrapeInterval          uint64           // Duration between power sensor scrapes in seconds
-	CpuCount                uint64           // Number of available CPUs
+	CPUCount                uint64           // Number of available CPUs
 	Config                  IdleEnergyConfig // Configuration for IdleEnergyCalculator
 }
 
@@ -220,9 +220,7 @@ func (ic *IdleEnergyCalculator) updateUtilizationValues(datapoint NewEnergyPoint
 ) {
 	newResUtil := datapoint.NewResUtil
 	newEnergyDelta := datapoint.NewEnergyDelta
-	newMinUtilizationX = ic.MinUtilization.X
 	newMinUtilizationY = ic.MinUtilization.Y
-	newMaxUtilizationX = ic.MaxUtilization.X
 	newMaxUtilizationY = ic.MaxUtilization.Y
 	newMinUtilizationX = math.Min(ic.MinUtilization.X, newResUtil)
 	newMaxUtilizationX = math.Max(ic.MaxUtilization.X, newResUtil)
@@ -257,24 +255,24 @@ type LinearModel struct {
 
 // CalculateLR computes a linear regression model based on two data points.
 // It calculates the slope and intercept of the line that passes through the points
-// (x_one, y_one) and (x_two, y_two).
+// (xOne, yOne) and (xTwo, yTwo).
 //
 // Parameters:
-//   - x_one: The X-coordinate of the first data point (resource utilization).
-//   - y_one: The Y-coordinate of the first data point (energy delta).
-//   - x_two: The X-coordinate of the second data point (resource utilization).
-//   - y_two: The Y-coordinate of the second data point (energy delta).
+//   - xOne: The X-coordinate of the first data point (resource utilization).
+//   - yOne: The Y-coordinate of the first data point (energy delta).
+//   - xTwo: The X-coordinate of the second data point (resource utilization).
+//   - yTwo: The Y-coordinate of the second data point (energy delta).
 //
 // Returns:
 //   - A LinearModel
 //
 // Behavior:
-//   - The slope is calculated as (y_two - y_one) / (x_two - x_one).
-//   - The intercept is calculated as y_one - slope * x_one.
-func CalculateLR(x_one, y_one, x_two, y_two float64) LinearModel {
-	slope := (y_two - y_one) / (x_two - x_one)
+//   - The slope is calculated as (yTwo - yOne) / (xTwo - xOne).
+//   - The intercept is calculated as yOne - slope * xOne.
+func CalculateLR(xOne, yOne, xTwo, yTwo float64) LinearModel {
+	slope := (yTwo - yOne) / (xTwo - xOne)
 	klog.V(5).Infof("Slope Calculation: %f", slope)
-	intercept := y_one - slope*x_one
+	intercept := yOne - slope*xOne
 	klog.V(5).Infof("Calculated Idle Energy: %f", intercept)
 	return LinearModel{
 		intercept: intercept,
@@ -331,14 +329,14 @@ func (ne *NodeStats) ResetDeltaValues() {
 //   - The function assumes CPU time as the resource utilization type for all energy types.
 func (ne *NodeStats) UpdateIdleEnergyWithLinearRegression(isComponentsSystemCollectionSupported bool, duration, cpuCount uint64) {
 	if isComponentsSystemCollectionSupported {
-		var minSpread float64 = 0.5
-		var historySize int = 10
-		ne.CalcIdleEnergyLR(IdleEnergyModelInputs{
+		minSpread := 0.5
+		historySize := 10
+		ne.CalcIdleEnergyLR(&IdleEnergyModelInputs{
 			AbsoluteEnergyType:      config.AbsEnergyInPkg,
 			IdleEnergyType:          config.IdleEnergyInPkg,
 			ResourceUtilizationType: config.CPUTime,
 			ScrapeInterval:          duration,
-			CpuCount:                cpuCount,
+			CPUCount:                cpuCount,
 			Config: IdleEnergyConfig{
 				MinSpread:    minSpread,
 				MinIntercept: 0.0,
@@ -346,12 +344,12 @@ func (ne *NodeStats) UpdateIdleEnergyWithLinearRegression(isComponentsSystemColl
 				HistorySize:  historySize,
 			},
 		})
-		ne.CalcIdleEnergyLR(IdleEnergyModelInputs{
+		ne.CalcIdleEnergyLR(&IdleEnergyModelInputs{
 			AbsoluteEnergyType:      config.AbsEnergyInDRAM,
 			IdleEnergyType:          config.IdleEnergyInDRAM,
 			ResourceUtilizationType: config.CPUTime,
 			ScrapeInterval:          duration,
-			CpuCount:                cpuCount,
+			CPUCount:                cpuCount,
 			Config: IdleEnergyConfig{
 				MinSpread:    minSpread,
 				MinIntercept: 0.0,
@@ -359,12 +357,12 @@ func (ne *NodeStats) UpdateIdleEnergyWithLinearRegression(isComponentsSystemColl
 				HistorySize:  historySize,
 			},
 		}) // TODO: we should use another resource for DRAM
-		ne.CalcIdleEnergyLR(IdleEnergyModelInputs{
+		ne.CalcIdleEnergyLR(&IdleEnergyModelInputs{
 			AbsoluteEnergyType:      config.AbsEnergyInCore,
 			IdleEnergyType:          config.IdleEnergyInCore,
 			ResourceUtilizationType: config.CPUTime,
 			ScrapeInterval:          duration,
-			CpuCount:                cpuCount,
+			CPUCount:                cpuCount,
 			Config: IdleEnergyConfig{
 				MinSpread:    minSpread,
 				MinIntercept: 0.0,
@@ -372,12 +370,12 @@ func (ne *NodeStats) UpdateIdleEnergyWithLinearRegression(isComponentsSystemColl
 				HistorySize:  historySize,
 			},
 		})
-		ne.CalcIdleEnergyLR(IdleEnergyModelInputs{
+		ne.CalcIdleEnergyLR(&IdleEnergyModelInputs{
 			AbsoluteEnergyType:      config.AbsEnergyInUnCore,
 			IdleEnergyType:          config.IdleEnergyInUnCore,
 			ResourceUtilizationType: config.CPUTime,
 			ScrapeInterval:          duration,
-			CpuCount:                cpuCount,
+			CPUCount:                cpuCount,
 			Config: IdleEnergyConfig{
 				MinSpread:    minSpread,
 				MinIntercept: 0.0,
@@ -405,12 +403,12 @@ func (ne *NodeStats) UpdateIdleEnergyWithLinearRegression(isComponentsSystemColl
 //   - Once idle energy is marked as reliable, it is permanent
 //   - If the idle energy is reliable, it distributes the idle energy among the sockets using
 //     distributeIdleEnergyAmongSockets (Note this is incorrect and must be corrected in future refactoring).
-func (ne *NodeStats) CalcIdleEnergyLR(input IdleEnergyModelInputs) {
+func (ne *NodeStats) CalcIdleEnergyLR(input *IdleEnergyModelInputs) {
 	absType := input.AbsoluteEnergyType
 	idleType := input.IdleEnergyType
 	recourceUtilType := input.ResourceUtilizationType
 	scrapeInterval := input.ScrapeInterval
-	cpuCount := input.CpuCount
+	cpuCount := input.CPUCount
 
 	totalResUtilization := ne.ResourceUsage[recourceUtilType].SumAllDeltaValues()
 	totalEnergy := ne.EnergyUsage[absType].SumAllDeltaValues()
@@ -554,7 +552,7 @@ func (ne *NodeStats) UpdateIdleEnergyWithMinValue(isComponentsSystemCollectionSu
 		ne.CalcIdleEnergy(config.AbsEnergyInDRAM, config.IdleEnergyInDRAM, config.CPUTime) // TODO: we should use another resource for DRAM
 		ne.CalcIdleEnergy(config.AbsEnergyInUnCore, config.IdleEnergyInUnCore, config.CPUTime)
 		ne.CalcIdleEnergy(config.AbsEnergyInPkg, config.IdleEnergyInPkg, config.CPUTime)
-		//ne.CalcIdleEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.CPUTime)
+		ne.CalcIdleEnergy(config.AbsEnergyInPlatform, config.IdleEnergyInPlatform, config.CPUTime)
 	}
 }
 

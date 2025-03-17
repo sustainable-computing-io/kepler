@@ -38,7 +38,6 @@ func percentDiff(a, b float64) float64 {
 
 func appendToSliceWithSizeRestriction(slice *[]float64, length int, value float64) {
 	if len(*slice) >= length {
-		//ic.result.history = append(ic.result.history[1:], ic.result.calculatedIdleEnergy)
 		copy(*slice, (*slice)[1:])
 		// After copying, the 0th element is removed and the 4th element is a duplicate.
 		// Now we can replace the 4th element with new idleEnergy
@@ -55,19 +54,6 @@ func getAverage(slice []float64) float64 {
 		sum += value
 	}
 	return sum / float64(len(slice))
-}
-
-func checkSliceAllSame(slice []float64) bool {
-	if len(slice) == 0 {
-		return true
-	}
-	firstElem := slice[0]
-	for _, value := range slice {
-		if value != firstElem {
-			return false
-		}
-	}
-	return true
 }
 
 func GetProcessFeatureNames() []string {

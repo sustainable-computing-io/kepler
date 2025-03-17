@@ -27,18 +27,18 @@ import (
 var _ = Describe("Test IdleEnergyCalculator", func() {
 	var (
 		ic                     *IdleEnergyCalculator
-		maxTheoreticalCPUTime  float64 = 100.0
-		minSpread              float64 = 0.5
-		historySize            int     = 10
-		minSlope               float64 = 0.01
-		minYIntercept          float64 = 0.0
-		initialMinUtilizationX float64 = 10.0
-		initialMinUtilizationY float64 = 15.0
-		initialMaxUtilizationX float64 = 20.0
-		initialMaxUtilizationY float64 = 25.0
-		initialSlope           float64 = 17 / 15
-		initialYIntercept      float64 = 5.0
-		initialSpread          float64 = 0.1
+		maxTheoreticalCPUTime  = 100.0
+		minSpread              = 0.5
+		historySize            = 10
+		minSlope               = 0.01
+		minYIntercept          = 0.0
+		initialMinUtilizationX = 10.0
+		initialMinUtilizationY = 15.0
+		initialMaxUtilizationX = 20.0
+		initialMaxUtilizationY = 25.0
+		initialSlope           = 1.0
+		initialYIntercept      = 5.0
+		initialSpread          = 0.1
 	)
 	BeforeEach(func() {
 		// Initialize IdleEnergyCalculator with default starter values
@@ -233,18 +233,18 @@ type MockRaplZone struct {
 	EnergyFn           func(float64, float64, float64) float64
 }
 
-func (m *MockRaplZone) tick(secondsElapsed float64, cpuRatio float64) float64 {
+func (m *MockRaplZone) tick(secondsElapsed, cpuRatio float64) float64 {
 	prevEnergy := m.Energy
 	m.Energy = m.Energy + m.EnergyFn(secondsElapsed, cpuRatio, m.MaxEnergyPerSecond) + (m.Idle * secondsElapsed)
 	return prevEnergy
 }
 
-func LinearEnergy(secondsElapsed float64, cpuRatio float64, maxEnergyPerSecond float64) float64 {
+func LinearEnergy(secondsElapsed, cpuRatio, maxEnergyPerSecond float64) float64 {
 	return cpuRatio * maxEnergyPerSecond * secondsElapsed
 }
 
 type ScrapeInfo struct {
-	CpuTime   uint64
+	CPUTime   uint64
 	Converged bool
 }
 
@@ -254,7 +254,7 @@ type IdleEnergyCalcTestInput struct {
 	EnergyFn           func(float64, float64, float64) float64
 	Scrapes            []ScrapeInfo
 	Duration           uint64
-	CpuCount           uint64
+	CPUCount           uint64
 }
 
 var _ = Describe("Test Node Stats Idle Energy Calculation", func() {
@@ -286,37 +286,37 @@ var _ = Describe("Test Node Stats Idle Energy Calculation", func() {
 					Energy:             0.0,
 					EnergyFn:           input.EnergyFn,
 				}
-				minCpuTime := float64(input.Scrapes[0].CpuTime)
-				maxCpuTime := float64(input.Scrapes[0].CpuTime)
+				minCPUTime := float64(input.Scrapes[0].CPUTime)
+				maxCPUTime := float64(input.Scrapes[0].CPUTime)
 
 				for index, scrape := range input.Scrapes {
-					maxTheoreticalCpuTime := input.CpuCount * input.Duration * 1000
-					cpuRatio := float64(scrape.CpuTime) / float64(maxTheoreticalCpuTime)
+					maxTheoreticalCPUTime := input.CPUCount * input.Duration * 1000
+					cpuRatio := float64(scrape.CPUTime) / float64(maxTheoreticalCPUTime)
 					// Tick Mock Rapl
 					prevEnergy := testRapl.tick(
 						float64(input.Duration),
 						cpuRatio,
 					)
 					// Update CPU Time in Node Stats
-					ns.ResourceUsage[config.CPUTime].SetDeltaStat(MockedSocketID, scrape.CpuTime)
-					Expect(scrape.CpuTime).To(Equal(ns.ResourceUsage[config.CPUTime].SumAllDeltaValues()))
-					minCpuTime = math.Min(float64(minCpuTime), float64(scrape.CpuTime))
-					maxCpuTime = math.Max(float64(maxCpuTime), float64(scrape.CpuTime))
+					ns.ResourceUsage[config.CPUTime].SetDeltaStat(MockedSocketID, scrape.CPUTime)
+					Expect(scrape.CPUTime).To(Equal(ns.ResourceUsage[config.CPUTime].SumAllDeltaValues()))
+					minCPUTime = math.Min(float64(minCPUTime), float64(scrape.CPUTime))
+					maxCPUTime = math.Max(float64(maxCPUTime), float64(scrape.CPUTime))
 					// Update Pkg Energy in Node Stats
 					// Note: SetAggrStat won't allow addition of 0 at the start and SetDeltaStat won't allow 0 values after initialization
 					ns.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(MockedSocketID, uint64(testRapl.Energy)-uint64(prevEnergy))
 					Expect(uint64(testRapl.Energy) - uint64(prevEnergy)).To(Equal(ns.EnergyUsage[config.AbsEnergyInPkg].SumAllDeltaValues()))
 					// including platform and uncore together might detail if there is a bug
-					ns.UpdateIdleEnergyWithLinearRegression(true, input.Duration, input.CpuCount)
+					ns.UpdateIdleEnergyWithLinearRegression(true, input.Duration, input.CPUCount)
 
 					// Validate utilization points, spread, convergence, and idle energy
 					calculator := ns.IdleEnergy[config.IdleEnergyInPkg]
 					minUtilization := ns.IdleEnergy[config.IdleEnergyInPkg].MinUtilization
 					maxUtilization := ns.IdleEnergy[config.IdleEnergyInPkg].MaxUtilization
-					Expect(minUtilization.X).To(BeNumerically("~", minCpuTime, 1e-9))
-					Expect(maxUtilization.X).To(BeNumerically("~", maxCpuTime, 1e-9))
+					Expect(minUtilization.X).To(BeNumerically("~", minCPUTime, 1e-9))
+					Expect(maxUtilization.X).To(BeNumerically("~", maxCPUTime, 1e-9))
 					Expect(calculator.Result.Spread).To(BeNumerically("~",
-						maxCpuTime/float64(maxTheoreticalCpuTime)-minCpuTime/float64(maxTheoreticalCpuTime),
+						maxCPUTime/float64(maxTheoreticalCPUTime)-minCPUTime/float64(maxTheoreticalCPUTime),
 						1e-9))
 					if index == 0 {
 						Expect(calculator.Result.CalculatedIdleEnergy).To(BeNumerically("~", 0.0, 1e-9))
@@ -333,35 +333,35 @@ var _ = Describe("Test Node Stats Idle Energy Calculation", func() {
 					EnergyFn:           LinearEnergy,
 					Scrapes: []ScrapeInfo{
 						{
-							CpuTime:   700,
+							CPUTime:   700,
 							Converged: false,
 						},
 						{
-							CpuTime:   500,
+							CPUTime:   500,
 							Converged: false,
 						},
 						{
-							CpuTime:   1500,
+							CPUTime:   1500,
 							Converged: false,
 						},
 						{
-							CpuTime:   200,
+							CPUTime:   200,
 							Converged: false,
 						},
 						{
-							CpuTime:   5000,
+							CPUTime:   5000,
 							Converged: true,
 						},
 						{
-							CpuTime:   6000,
+							CPUTime:   6000,
 							Converged: true,
 						},
 						{
-							CpuTime:   10,
+							CPUTime:   10,
 							Converged: true,
 						},
 					},
-					CpuCount: 2,
+					CPUCount: 2,
 					Duration: 3,
 				},
 			),
