@@ -277,7 +277,7 @@ var _ = Describe("Test Node Stats Idle Energy Calculation", func() {
 		ns.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(MockedSocketID, 0)
 	})
 	// precondition: CpuTime > 0.0
-	Describe("UpdateIdleEnergyWithLinearRegresion", func() {
+	Describe("UpdateIdleEnergyWithLinearRegression", func() {
 		DescribeTable("with different data point arrays",
 			func(input IdleEnergyCalcTestInput) {
 				testRapl := MockRaplZone{
