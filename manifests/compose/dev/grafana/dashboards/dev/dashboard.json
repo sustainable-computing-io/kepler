@@ -29,556 +29,6 @@
         "x": 0,
         "y": 0
       },
-      "id": 151,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PDE6745920139CE56"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 1
-          },
-          "id": 152,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_package_joules_total{job=\"latest\", mode=\"dynamic\"}[$__rate_interval])",
-              "instant": false,
-              "legendFormat": "latest - {{mode}}",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_package_joules_total{job=\"dev\", mode=\"dynamic\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "dev - {{mode}}",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_package_joules_total{job=\"dev\", mode=\"idle\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "dev - {{mode}}",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_package_joules_total{job=\"latest\", mode=\"idle\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "latest - {{mode}}",
-              "range": true,
-              "refId": "D"
-            }
-          ],
-          "title": "Dynamic/Idle Package Power (W)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PDE6745920139CE56"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 1
-          },
-          "id": 153,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_core_joules_total{job=\"latest\", mode=\"dynamic\"}[$__rate_interval])",
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_core_joules_total{job=\"latest\", mode=\"idle\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_core_joules_total{job=\"dev\", mode=\"dynamic\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "rate(kepler_node_core_joules_total{job=\"dev\", mode=\"idle\"}[$__rate_interval])",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "D"
-            }
-          ],
-          "title": "Dynamic/Idle Core Power (W)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PDE6745920139CE56"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 9
-          },
-          "id": 154,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_package_joules_total{job=\"latest\", mode=\"dynamic\"}",
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_package_joules_total{job=\"latest\", mode=\"idle\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_package_joules_total{job=\"dev\", mode=\"dynamic\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_package_joules_total{job=\"dev\", mode=\"idle\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "D"
-            }
-          ],
-          "title": "Dynamic/Idle Package Energy (J)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PDE6745920139CE56"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 9
-          },
-          "id": 155,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_core_joules_total{job=\"latest\", mode=\"dynamic\"}",
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_core_joules_total{job=\"latest\", mode=\"idle\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_core_joules_total{job=\"dev\", mode=\"dynamic\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PDE6745920139CE56"
-              },
-              "editorMode": "code",
-              "expr": "kepler_node_core_joules_total{job=\"dev\", mode=\"idle\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{job}} - {{mode}}",
-              "range": true,
-              "refId": "D"
-            }
-          ],
-          "title": "Dynamic/Idle Core Energy (J)",
-          "type": "timeseries"
-        }
-      ],
-      "title": "Idle",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 1
-      },
       "id": 7,
       "panels": [
         {
@@ -600,8 +50,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "dark-red",
@@ -695,8 +144,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "light-green",
-                    "value": null
+                    "color": "light-green"
                   }
                 ]
               }
@@ -791,8 +239,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "dark-red",
@@ -885,8 +332,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "light-green",
-                    "value": null
+                    "color": "light-green"
                   }
                 ]
               }
@@ -982,8 +428,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "semi-dark-red",
@@ -1076,8 +521,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "light-green",
-                    "value": null
+                    "color": "light-green"
                   }
                 ]
               }
@@ -1172,8 +616,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "dark-red",
@@ -1266,8 +709,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "light-green",
-                    "value": null
+                    "color": "light-green"
                   }
                 ]
               }
@@ -1362,8 +804,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "dark-red",
@@ -1456,8 +897,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "light-green",
-                    "value": null
+                    "color": "light-green"
                   }
                 ]
               }
@@ -1553,8 +993,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "semi-dark-green",
-                    "value": null
+                    "color": "semi-dark-green"
                   }
                 ]
               }
@@ -1649,8 +1088,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "semi-dark-green",
-                    "value": null
+                    "color": "semi-dark-green"
                   }
                 ]
               }
@@ -1745,8 +1183,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "semi-dark-green",
-                    "value": null
+                    "color": "semi-dark-green"
                   }
                 ]
               }
@@ -1841,8 +1278,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "semi-dark-green",
-                    "value": null
+                    "color": "semi-dark-green"
                   }
                 ]
               }
@@ -1937,8 +1373,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "semi-dark-green",
-                    "value": null
+                    "color": "semi-dark-green"
                   }
                 ]
               }
@@ -2090,8 +1525,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "semi-dark-red",
@@ -2218,8 +1652,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2399,8 +1832,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2553,8 +1985,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red",
-                    "value": null
+                    "color": "dark-red"
                   },
                   {
                     "color": "semi-dark-red",
@@ -2681,8 +2112,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2862,8 +2292,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4333,7 +3762,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 2
+        "y": 1
       },
       "id": 8,
       "panels": [
@@ -8834,6 +8263,800 @@
       ],
       "title": "Process",
       "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 151,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-blue",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#02f2ea",
+                      "mode": "shades"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 1
+          },
+          "id": 152,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_package_joules_total{job=\"latest\", mode=\"dynamic\"}[$__rate_interval])",
+              "instant": false,
+              "legendFormat": "latest - {{mode}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_package_joules_total{job=\"dev\", mode=\"dynamic\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "dev - {{mode}}",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_package_joules_total{job=\"dev\", mode=\"idle\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "dev - {{mode}}",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_package_joules_total{job=\"latest\", mode=\"idle\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "latest - {{mode}}",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Dynamic/Idle Package Power (W)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-blue",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#02f2ea",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 1
+          },
+          "id": 153,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_core_joules_total{job=\"latest\", mode=\"dynamic\"}[$__rate_interval])",
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_core_joules_total{job=\"latest\", mode=\"idle\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_core_joules_total{job=\"dev\", mode=\"dynamic\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "rate(kepler_node_core_joules_total{job=\"dev\", mode=\"idle\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Dynamic/Idle Core Power (W)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-blue",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#02f2ea",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 9
+          },
+          "id": 154,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_package_joules_total{job=\"latest\", mode=\"dynamic\"}",
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_package_joules_total{job=\"latest\", mode=\"idle\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_package_joules_total{job=\"dev\", mode=\"dynamic\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_package_joules_total{job=\"dev\", mode=\"idle\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Dynamic/Idle Package Energy (J)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "latest - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - dynamic"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "dark-blue",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "dev - idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#02f2ea",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 9
+          },
+          "id": 155,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_core_joules_total{job=\"latest\", mode=\"dynamic\"}",
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_core_joules_total{job=\"latest\", mode=\"idle\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_core_joules_total{job=\"dev\", mode=\"dynamic\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PDE6745920139CE56"
+              },
+              "editorMode": "code",
+              "expr": "kepler_node_core_joules_total{job=\"dev\", mode=\"idle\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{job}} - {{mode}}",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Dynamic/Idle Core Energy (J)",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Idle Energy",
+      "type": "row"
     }
   ],
   "refresh": "",
@@ -8843,10 +9066,9 @@
     "list": [
       {
         "current": {
-          "isNone": true,
           "selected": false,
-          "text": "None",
-          "value": ""
+          "text": "Chrome_ChildIOT | 5253",
+          "value": "5253"
         },
         "datasource": {
           "type": "prometheus",
@@ -8872,7 +9094,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
