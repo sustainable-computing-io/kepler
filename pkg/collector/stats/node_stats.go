@@ -35,7 +35,7 @@ import (
 // IdleEnergyResult contains the results of an idle energy calculation using regression.
 type IdleEnergyResult struct {
 	CalculatedIdleEnergy float64   // Estimated baseline idle energy in milijoules
-	Slope                float64   // Slope of the linear regression model (milijoules/miliseconds)
+	Slope                float64   // Slope of the linear regression model (milijoules/milliseconds)
 	Spread               float64   // Percent Spread between min/max utilization datapoints
 	History              []float64 // Historical idle energy values for consistency checking
 }
@@ -45,7 +45,7 @@ type IdleEnergyResult struct {
 type IdleEnergyConfig struct {
 	MinSpread    float64 // Minimum required utilization spread (0.0-1.0) between min/max utilization datapoints
 	MinIntercept float64 // Minimum acceptable intercept value in milijoules
-	MinSlope     float64 // Minimum acceptable slope value (milijoules/miliseconds)
+	MinSlope     float64 // Minimum acceptable slope value (milijoules/milliseconds)
 	HistorySize  int     // Number of historical values to maintain for consistency checks
 }
 
