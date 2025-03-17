@@ -48,7 +48,7 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 			source = components.GetSourceName()
 		}
 		// check if trained power model in use here
-		if source != modeltypes.TrainedPowerModelSource || !config.DisablePowerModels() {
+		if !config.DisablePowerModels() || source != modeltypes.TrainedPowerModelSource {
 			descriptions[name] = energyMetricsPromDesc(context, name, source)
 		}
 	}

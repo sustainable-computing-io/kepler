@@ -39,6 +39,9 @@ func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, col
 			if collectorName == config.GPU && !config.IsGPUEnabled() {
 				continue
 			}
+			if _, ok := collectors[collectorName]; !ok {
+				continue
+			}
 			collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
 			// idle power is not enabled by default on VMs, since it is the host idle power and was not split among all running VMs
 			if config.IsIdlePowerEnabled() {
