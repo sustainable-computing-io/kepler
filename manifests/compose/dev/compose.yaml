@@ -52,9 +52,8 @@ services:
         /usr/bin/kepler \
           -address "0.0.0.0:8888" \
           -disable-power-meter=$$DISABLE_POWER_METER \
-          -v "5" \
-          -enable-gpu=false \
-          -expose-estimated-idle-power=true
+          -v "8" \
+          -enable-gpu=false
 
     environment:
       - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
