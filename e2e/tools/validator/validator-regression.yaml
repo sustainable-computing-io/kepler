@@ -1,0 +1,30 @@
+log_level: info # Logging level, defaults is warn
+
+remote:
+  host: 192.168.1.1 # IP address or hostname of the VM
+  port: 22 # SSH port, default is 22
+  username: user # SSH username
+  password: yourpassword # SSH password
+  pkey: ~/.ssh/id_rsa # Path to SSH private key
+
+metal:
+  vm:
+    pid: 123456 # Process ID for the KVM process running on metal
+
+prometheus:
+  job:
+    vm: vm  # Job name for virtual machine metrics, default is vm
+    metal: metal  # Job name for metal metrics, default is metal
+
+  url: http://localhost:9090 # Prometheus server URL
+  rate_interval: 60s  # Rate interval for Promql, setting this to 60s for accurate MAE evaluation
+  step: 3s  # Step duration for Prometheus range queries
+
+stressor:
+  total_runtime_seconds: 1200
+  curve_type: regression
+  warmup_seconds: 15
+  repeats: 1
+  cooldown_seconds: 60
+
+validations_file: ./metric_validations.yaml  # Path to the validations file, default is ./validations.yaml
