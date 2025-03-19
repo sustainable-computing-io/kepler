@@ -95,6 +95,9 @@ func GetNodePlatformPower(nodeMetrics *stats.NodeStats, isIdlePower bool) (platf
 func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, absPower)
 	for sourceID, power := range platformPower {
+		if config.DisablePowerModels() {
+			power = 0
+		}
 		nodeMetrics.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }
@@ -103,6 +106,9 @@ func UpdateNodePlatformEnergy(nodeMetrics *stats.NodeStats) {
 func UpdateNodePlatformIdleEnergy(nodeMetrics *stats.NodeStats) {
 	platformPower := GetNodePlatformPower(nodeMetrics, idlePower)
 	for sourceID, power := range platformPower {
+		if config.DisablePowerModels() {
+			power = 0
+		}
 		nodeMetrics.EnergyUsage[config.IdleEnergyInPlatform].SetDeltaStat(sourceID, power*config.SamplePeriodSec())
 	}
 }

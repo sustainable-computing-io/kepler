@@ -46,6 +46,8 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 		} else if components.IsSystemCollectionSupported() && strings.Contains(allComponents, name) {
 			// TODO: need to update condition when we have more type of energy metric such as network, disk.
 			source = components.GetSourceName()
+		} else if strings.Contains(name, config.OTHER) {
+			source = ""
 		}
 		if !config.DisablePowerModels() || source != modeltypes.TrainedPowerModelSource {
 			descriptions[name] = energyMetricsPromDesc(context, name, source)
