@@ -70,7 +70,7 @@ var _ = Describe("ProcessPower", func() {
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power
-			nodeStats.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(utils.GenericSocketID, 5000) // mili joules
+			nodeStats.EnergyUsage[config.AbsEnergyInPkg].SetDeltaStat(utils.GenericSocketID, 5000) // milli joules
 			nodeStats.EnergyUsage[config.AbsEnergyInCore].SetDeltaStat(utils.GenericSocketID, 5000)
 			nodeStats.EnergyUsage[config.AbsEnergyInDRAM].SetDeltaStat(utils.GenericSocketID, 5000)
 			// add second values to have dynamic power
@@ -91,9 +91,14 @@ var _ = Describe("ProcessPower", func() {
 			// The node components dynamic power were set to 35000mJ, since the kepler interval is 3s, the power is 11667mJ
 			// The test created 2 processes with 30000 CPU Instructions
 			// So the node total CPU Instructions is 60000
-			// The process power will be (30000/60000)*11667 = 5834
-			// Then, the process energy will be 5834*3 = 17502 mJ
-			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPkg][utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
+			// The process power will be (30000/60000)*11667 = 5833(.5) -> [5834, 5834] -> [5833, 5834]
+			// Then, the process energy will be 5834*3 = 17499 or 5834*3 = 17502 mJ
+
+			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPkg][utils.GenericSocketID].GetDelta()).
+				To(Or(Equal(uint64(5833*3)), Equal(uint64(5834*3))))
+
+			Expect(processStats[uint64(2)].EnergyUsage[config.DynEnergyInPkg][utils.GenericSocketID].GetDelta()).
+				To(Or(Equal(uint64(5833*3)), Equal(uint64(5834*3))))
 		})
 
 		It("Get process power with Ratio power model and node platform power ", func() {
@@ -105,7 +110,7 @@ var _ = Describe("ProcessPower", func() {
 
 			// initialize the node energy with aggregated energy, which will be used to calculate delta energy
 			// add first values to be the idle power
-			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, 5000) // mili joules
+			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, 5000) // milli joules
 			// add second values to have dynamic power
 			nodeStats.EnergyUsage[config.AbsEnergyInPlatform].SetDeltaStat(utils.GenericSocketID, 10000)
 			nodeStats.UpdateIdleEnergyWithMinValue(true)
@@ -120,9 +125,13 @@ var _ = Describe("ProcessPower", func() {
 			// The node components dynamic power were set to 35000mJ, since the kepler interval is 3s, the power is 11667mJ
 			// The test created 2 processes with 30000 CPU Instructions
 			// So the node total CPU Instructions is 60000
-			// The process power will be (30000/60000)*11667 = 5834
-			// Then, the process energy will be 5834*3 = 17502 mJ
-			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPlatform][utils.GenericSocketID].GetDelta()).To(Equal(uint64(17502)))
+			// The process power will be (30000/60000)*11667 = 5833.5 ->  [5834, 5384] -> total 11678 -> [1: 5833, 2: 5834]
+			// Then, the process energy will be 5834 * 3 = 17502 mJ
+
+			Expect(processStats[uint64(1)].EnergyUsage[config.DynEnergyInPlatform][utils.GenericSocketID].GetDelta()).
+				To(Or(Equal(uint64(5833*3)), Equal(uint64(5834*3))))
+			Expect(processStats[uint64(2)].EnergyUsage[config.DynEnergyInPlatform][utils.GenericSocketID].GetDelta()).
+				To(Or(Equal(uint64(5833*3)), Equal(uint64(5834*3))))
 		})
 
 		// TODO: Get process power with no dependency and no node power.

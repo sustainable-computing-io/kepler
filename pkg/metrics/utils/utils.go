@@ -33,17 +33,19 @@ import (
 var JouleMillijouleConversionFactor = utils.JouleMillijouleConversionFactor
 
 func CollectEnergyMetrics(ch chan<- prometheus.Metric, instance interface{}, collectors map[string]metricfactory.PromMetric) {
-	if config.IsExposeComponentPowerEnabled() {
-		// collect the dynamic energy metrics
-		for i, collectorName := range consts.EnergyMetricNames {
-			if collectorName == config.GPU && !config.IsGPUEnabled() {
-				continue
-			}
-			collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
-			// idle power is not enabled by default on VMs, since it is the host idle power and was not split among all running VMs
-			if config.IsIdlePowerEnabled() {
-				collectEnergy(ch, instance, consts.IdleEnergyMetricNames[i], "idle", collectors[collectorName])
-			}
+	if !config.IsExposeComponentPowerEnabled() {
+		return
+	}
+	// collect the dynamic energy metrics
+	for i, collectorName := range consts.EnergyMetricNames {
+		if collectorName == config.GPU && !config.IsGPUEnabled() {
+			continue
+		}
+
+		collectEnergy(ch, instance, consts.DynEnergyMetricNames[i], "dynamic", collectors[collectorName])
+		// idle power is not enabled by default on VMs, since it is the host idle power and was not split among all running VMs
+		if config.IsIdlePowerEnabled() {
+			collectEnergy(ch, instance, consts.IdleEnergyMetricNames[i], "idle", collectors[collectorName])
 		}
 	}
 }
