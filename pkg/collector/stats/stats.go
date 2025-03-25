@@ -159,7 +159,7 @@ func (s *Stats) CalcDynEnergy(absM, idleM, dynM, id string) {
 	idlePower := uint64(0)
 	if idleStat, found := s.EnergyUsage[idleM][id]; found {
 		idlePower = idleStat.GetDelta()
-		klog.V(6).Infof("Idle Energy stat: %v (%s)", s.EnergyUsage[idleM], id)
+		klog.V(6).Infof("Idle Energy stat: %v (%s)", idleStat, id)
 	}
 	dynPower := calcDynEnergy(totalPower, idlePower)
 	s.EnergyUsage[dynM].SetDeltaStat(id, dynPower)
