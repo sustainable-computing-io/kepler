@@ -133,7 +133,7 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
     """
 
     filtered_a = []
-    filterd_b = []
+    filtered_b = []
 
     idx_a, idx_b = 0, 0
 
@@ -144,7 +144,7 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
     while idx_a < len(a.samples) and idx_b < len(b.samples):
         if abs(b.samples[idx_b].timestamp - a.samples[idx_a].timestamp) < scrape_interval:
             filtered_a.append(a.samples[idx_a])
-            filterd_b.append(b.samples[idx_b])
+            filtered_b.append(b.samples[idx_b])
             idx_a += 1
             idx_b += 1
         elif a.samples[idx_a].timestamp < b.samples[idx_b].timestamp:
@@ -154,7 +154,7 @@ def filter_by_equal_timestamps(a: Series, b: Series) -> tuple[Series, Series]:
 
     return (
         Series.from_samples(a.query, filtered_a, a.labels),
-        Series.from_samples(b.query, filterd_b, b.labels),
+        Series.from_samples(b.query, filtered_b, b.labels),
     )
 
 
@@ -208,11 +208,31 @@ class PrometheusClient:
         labels = [r["metric"] for r in resp]
         return [to_metric(b) for b in labels]
 
+# Add Interface for Comparator
+# class Comparator(ABC):
+#     def single_series(self, query: str, start: datetime, end: datetime) -> Series:
+#         series = self.prom_client.range_query(query, start, end)
+
+#         if len(series) != 1:
+#             raise SeriesError(query, 1, len(series))
+
+#         return series[0]
+    
+#     @abstractmethod
+#     def compare(
+#         self,
+#         start: datetime,
+#         end: datetime,
+#         actual_query: str,
+#         predicted_query: str,
+#     ) -> Result:
+#         raise NotImplementedError
+
 
 class Comparator:
     def __init__(self, client: Queryable):
         self.prom_client = client
-
+    
     def single_series(self, query: str, start: datetime, end: datetime) -> Series:
         series = self.prom_client.range_query(query, start, end)
 
@@ -234,7 +254,6 @@ class Comparator:
         actual, predicted = filter_by_equal_timestamps(actual_series, predicted_series)
         actual_dropped = len(actual_series.samples) - len(actual.samples)
         predicted_dropped = len(predicted_series.samples) - len(predicted.samples)
-
         return Result(
             mse=mse(actual.values, predicted.values),
             mape=mape(actual.values, predicted.values),
