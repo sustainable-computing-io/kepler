@@ -611,6 +611,10 @@ func (ne *NodeStats) CPUArchitecture() string {
 	return ne.nodeInfo.CPUArchitecture()
 }
 
+// CPUCount returns number of CPUs on node
+//
+// Returns:
+//   - Number of CPUs on node in uint64
 func (ne *NodeStats) CPUCount() uint64 {
 	return ne.nodeInfo.CPUCount()
 }

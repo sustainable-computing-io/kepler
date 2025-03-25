@@ -72,6 +72,10 @@ func CPUArchitecture() string {
 	return cpuArch()
 }
 
+// CPUCount returns number of CPUs on node
+//
+// Returns:
+//   - Number of CPUs on node in uint64
 func CPUCount() uint64 {
 	return cpuCount()
 }
@@ -127,6 +131,15 @@ func nodeName() string {
 	return nodeName
 }
 
+// cpuCount returns number of CPUs on node using nproc
+//
+// Returns:
+//   - Number of CPUs on node in uint64
+//
+// Behavior:
+//   - Runs nproc using os/exec and outputs the value as uint64
+//   - Result of nproc is the product of number of cores, number of
+//     logical threads, and number of sockets
 func cpuCount() uint64 {
 	cpu := exec.Command("nproc")
 	output, err := cpu.Output()
