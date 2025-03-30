@@ -1,6 +1,8 @@
 package collector
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -74,3 +76,23 @@ var _ = Describe("Test Collector Unit", func() {
 	})
 
 })
+
+func BenchmarkHandleInactiveContainers(b *testing.B) {
+	// Initialize the mock exporter and collector
+	config.Initialize(".")
+	bpfExporter := bpf.NewMockExporter(bpf.DefaultSupportedMetrics())
+	metricCollector := newMockCollector(bpfExporter)
+
+	// Create a map of found containers
+	foundContainer := make(map[string]bool)
+	foundContainer["container1"] = true
+	foundContainer["container2"] = true
+
+	// Reset the timer to exclude setup time from the benchmark
+	b.ResetTimer()
+
+	// Run the benchmark
+	for i := 0; i < b.N; i++ {
+		metricCollector.handleInactiveContainers(foundContainer)
+	}
+}
