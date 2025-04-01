@@ -18,14 +18,17 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 
 	"github.com/oklog/run"
+	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
 func main() {
 	logger := setupLogger("info", "text")
+	logVersionInfo(logger)
 
 	var g run.Group
 
@@ -72,6 +75,19 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("Graceful shutdown completed")
+}
+
+func logVersionInfo(logger *slog.Logger) {
+	v := version.Info()
+	logger.Info("Kepler version information",
+		"version", v.Version,
+		"buildTime", v.BuildTime,
+		"gitBranch", v.GitBranch,
+		"gitCommit", v.GitCommit,
+		"goVersion", v.GoVersion,
+		"goOS", v.GoOS,
+		"goArch", v.GoArch,
+	)
 }
 
 func waitForInterrupt(ctx context.Context, signals ...os.Signal) (func() error, func(error)) {

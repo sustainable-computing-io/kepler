@@ -23,6 +23,13 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
 
+LDFLAGS=-ldflags "\
+	-X github.com/sustainable-computing-io/kepler/internal/version.version=$(VERSION) \
+	-X github.com/sustainable-computing-io/kepler/internal/version.buildTime=$(BUILD_TIME) \
+	-X github.com/sustainable-computing-io/kepler/internal/version.gitBranch=$(GIT_BRANCH) \
+	-X github.com/sustainable-computing-io/kepler/internal/version.gitCommit=$(GIT_COMMIT) \
+"
+
 # Docker parameters
 IMG_BASE ?= quay.io/sustainable_computing_io
 
