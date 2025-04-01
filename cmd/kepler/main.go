@@ -21,47 +21,73 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
-	"time"
+
+	"github.com/oklog/run"
 )
 
 func main() {
+
+	var g run.Group
+
 	fmt.Println("Starting Kepler...")
 
-	// Register signal handler for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		sig := <-signalCh
-		fmt.Printf("Received termination signal: %s, shutting down...\n", sig.String())
-		cancel()
-	}()
-
-	// Add main logic
-	// ...
-
-	fmt.Println("Kepler is running. Press Ctrl+C to stop.")
-
-	// Wait for termination signal
-	<-ctx.Done()
-
-	// Create a context with timeout for graceful shutdown
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-
-	// Graceful shutdown logic
-	// ...
-
-	// Wait for graceful shutdown period
-	select {
-	case <-shutdownCtx.Done():
-		if shutdownCtx.Err() == context.DeadlineExceeded {
-			fmt.Println("Graceful shutdown timed out")
-		}
-	case <-time.After(100 * time.Millisecond): // quick shutdown
-		fmt.Println("Kepler stopped successfully")
+	{
+		g.Add(waitForInterrupt(ctx, os.Interrupt))
 	}
 
+	{
+		// TODO: replace with monitor.Start()
+		g.Add(
+			func() error {
+				fmt.Println("Monitor is running. Press Ctrl+C to stop.")
+				<-ctx.Done()
+				fmt.Println("Monitor is done running.")
+				return nil
+			},
+			func(err error) {
+				fmt.Println("Shutting down...:", err)
+				cancel()
+			},
+		)
+	}
+
+	{
+
+		// TODO: replace with server.Start()
+		g.Add(
+			func() error {
+				fmt.Println("HTTP server is running. Press Ctrl+C to stop.")
+				<-ctx.Done()
+				return nil
+			},
+			func(err error) {
+				fmt.Println("HTTP Server: Shutting down...:", err)
+				cancel()
+			},
+		)
+	}
+
+	// run all groups
+	if err := g.Run(); err != nil {
+		fmt.Printf("Kepler terminated with error: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Println("Graceful shutdown completed")
+}
+
+func waitForInterrupt(ctx context.Context, signals ...os.Signal) (func() error, func(error)) {
+	ctx, cancel := context.WithCancel(ctx)
+	return func() error {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, signals...)
+			select {
+			case <-c:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}, func(error) {
+			cancel()
+		}
 }
