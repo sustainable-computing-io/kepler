@@ -109,10 +109,20 @@ func UpdateNodeComponentIdleEnergy(nodeMetrics *stats.NodeStats) {
 
 func addEnergy(nodeMetrics *stats.NodeStats, metrics []string, isIdle bool) {
 	for socket, power := range GetNodeComponentPowers(nodeMetrics, isIdle) {
+		corePower := power.Core
+		dramPower := power.DRAM
+		uncorePower := power.Uncore
+		pkgPower := power.Pkg
+		if config.DisablePowerModels() {
+			corePower = 0
+			dramPower = 0
+			uncorePower = 0
+			pkgPower = 0
+		}
 		strID := fmt.Sprintf("%d", socket)
-		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, power.Core*config.SamplePeriodSec())
-		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, power.DRAM*config.SamplePeriodSec())
-		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, power.Uncore*config.SamplePeriodSec())
-		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, power.Pkg*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[0]].SetDeltaStat(strID, corePower*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[1]].SetDeltaStat(strID, dramPower*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[2]].SetDeltaStat(strID, uncorePower*config.SamplePeriodSec())
+		nodeMetrics.EnergyUsage[metrics[3]].SetDeltaStat(strID, pkgPower*config.SamplePeriodSec())
 	}
 }
