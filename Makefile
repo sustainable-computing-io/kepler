@@ -82,7 +82,7 @@ deps:
 	$(GOMOD) verify
 
 # Build Docker image
-image: test deps
+image:
 	docker build -t \
 		$(KEPLER_IMAGE) \
 		--platform=linux/$(GOARCH) .

@@ -1,0 +1,81 @@
+name: pr-checks
+
+on:
+  pull_request:
+    branches: [ reboot ]
+
+jobs:
+  # docs:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@main
+  #     - uses: actions/setup-go@main
+  #       with:
+  #         go-version-file: go.mod
+  #
+  #     - name: make docs
+  #       shell: bash
+  #       run: |
+  #         make docs && git diff --exit-code
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: make fmt
+        shell: bash
+        run:  make fmt && git diff --exit-code
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: make test
+        shell: bash
+        run: make test
+
+  golangci:
+    permissions:
+      contents: read
+      pull-requests: read
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: code checkout
+        uses: actions/checkout@v3
+      - uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.56
+          args: --timeout=3m --issues-exit-code=0 ./...
+          only-new-issues: true
+
+  build-images:
+    needs: [fmt, test, golangci ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: build images for PR checks
+        uses: ./.github/publish-image
+        with:
+          registry: "localhost:5001"
