@@ -29,11 +29,16 @@ runs:
         cache: true
 
     - name: Login to Image Registry
+      if: "!startsWith(inputs.registry, 'localhost')"
       uses: docker/login-action@v2
       with:
         registry: ${{ inputs.registry }}
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
+
+    - name: make deps
+      shell: bash
+      run: make deps
 
     - name: Build Image
       shell: bash
@@ -44,6 +49,7 @@ runs:
 
     - name: Push Image
       shell: bash
+      if: "!startsWith(inputs.registry, 'localhost')"
       run: |
         make push
       env:
