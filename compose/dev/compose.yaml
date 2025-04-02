@@ -1,0 +1,152 @@
+name: dev
+include:
+  - path:
+      - ../monitoring/compose.yaml
+      - ./override.yaml
+
+services:
+  ### 📦 kepler created from the current repo (local development)
+  kepler-dev:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+
+    ports:
+      # NOTE: Use 28282 for host
+      - 28283:28282
+    privileged: true
+    # pid: host
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+    # command:
+    #  - --log.level=debug
+    #  - --host.proc=/host/proc
+    #  - --host.sys=/host/sys
+    #  - --monitor.interval=2500ms
+
+    networks:
+      - kepler-network
+    # cap_add:
+    #   - ALL
+
+  kepler-latest:
+    image: quay.io/sustainable_computing_io/kepler:latest
+    privileged: true
+    pid: host
+    networks:
+      - kepler-network
+    cap_add:
+      - ALL
+    ports:
+      - 29288:8888
+
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+      - type: bind
+        source: /sys
+        target: /host/sys
+      - type: bind
+        source: ./kepler/etc/kepler
+        target: /etc/kepler
+
+    entrypoint: [/usr/bin/bash, -c]
+    command:
+      - |
+        echo Starting kepler;
+        # NOTE: uncomment to wait for estimator container
+        # echo waiting for estimator socket to be ready;
+        # until [[ -e /tmp/estimator.sock ]]; do
+        #   echo " ... waiting for socket";
+        #   sleep 1;
+        # done;
+        set -x;
+        /usr/bin/kepler \
+          -address "0.0.0.0:8888" \
+          -disable-power-meter=$$DISABLE_POWER_METER \
+          -v "8" \
+          -enable-gpu=false
+
+    environment:
+      - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
+
+  scaphandre:
+    image: hubblo/scaphandre
+    privileged: true
+    ports:
+      - 28880:8080
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys/class/powercap
+        target: /sys/class/powercap
+    command: [prometheus]
+    networks:
+      - scaph-network
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    pid: host
+    ports:
+      - 29100:9100
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+      - type: bind
+        source: /sys
+        target: /host/sys
+      - type: bind
+        source: /
+        target: /rootfs
+    command:
+      # - --log.level=debug
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.cpufreq
+      - --collector.perf
+      - --collector.perf.cpus=0-19 # specify range of all cpus
+      - --collector.perf.software-profilers=ContextSwitch
+      - --collector.meminfo
+      - --collector.rapl
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    user: root
+    cap_add: # Add capabilities for perf collection.
+      - SYS_ADMIN
+      - SYS_PTRACE
+    networks:
+      - node-exporter-network
+
+  process-exporter:
+    image: ncabatoff/process-exporter
+    privileged: true
+    ports:
+      - 29256:9256
+    command:
+      - --procfs=/host/proc
+      - --config.path=/config/process-exporter.yaml
+    volumes:
+      - ./config/process-exporter.yaml:/config/process-exporter.yaml
+      - /proc:/host/proc
+
+    networks:
+      - process-exporter-network
+
+networks:
+  kepler-network:
+  scaph-network:
+  node-exporter-network:
+  process-exporter-network:

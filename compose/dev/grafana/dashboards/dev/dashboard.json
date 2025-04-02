@@ -1,0 +1,1531 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "This dashboard visualizes energy consumption metrics collected by k2, Node exporter, and Kepler, providing comparison between different measurement sources.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 4,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 7,
+      "panels": [],
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Overall dashboard explanation and information about the metrics being collected",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 154,
+      "options": {
+        "code": {
+          "language": "markdown",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## Energy Monitoring Dashboard\n\nThis dashboard compares energy consumption metrics from multiple sources:\n- **k2**: K2 energy monitoring tool\n- **Node Exporter**: Prometheus node exporter metrics\n- **Kepler**: Kubernetes-based energy monitoring\n\nUse the variables at the top to select the RAPL zone, job, and process to monitor. The dashboard shows both system-wide and per-process energy consumption metrics.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.4.2",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "CPU information from the k2 monitoring tool",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cores"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 164,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (instance, model_name, vendor_id) (k2_node_cpu_info)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Information",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true
+            },
+            "includeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "Value": "Processor Count",
+              "instance": "Instance",
+              "model_name": "CPU Model",
+              "vendor_id": "Vendor"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Build information for k2 monitoring tool",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 11
+      },
+      "id": 161,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "k2_build_info",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "k2 Build Information",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "branch",
+                "version",
+                "revision"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Build information for Node Exporter monitoring tool",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 11
+      },
+      "id": 162,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "node_exporter_build_info",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Node Exporter Build Information",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "branch",
+                "version",
+                "revision"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Build information for Kepler monitoring tool",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 11
+      },
+      "id": 163,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "kepler_exporter_build_info",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Kepler Build Information",
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "branch",
+                "version",
+                "revision"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "id": 156,
+      "panels": [],
+      "title": "Node-Level Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Current values of energy metrics from different sources",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 155,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])",
+          "instant": false,
+          "legendFormat": "K2 Node (${zones})",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "k2_node_rapl_${zones}_watts{job=\"${job}\"}",
+          "instant": false,
+          "legendFormat": "K2 Node (${zones}) Watts",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s]))",
+          "instant": false,
+          "legendFormat": "Node Exporter (${zones})",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "instant": false,
+          "legendFormat": "Kepler (${zones})",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Current Energy Consumption Values",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Difference between Node exporter and k2 energy measurements in joules. Values close to zero indicate good alignment between the metrics.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds",
+            "seriesBy": "max"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisLabel": "Joules Delta",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "dark-green",
+                "value": -0.5
+              },
+              {
+                "color": "super-light-green",
+                "value": -0.25
+              },
+              {
+                "color": "green",
+                "value": -0.1
+              },
+              {
+                "color": "light-green",
+                "value": 0
+              },
+              {
+                "color": "semi-dark-yellow",
+                "value": 0.1
+              },
+              {
+                "color": "dark-orange",
+                "value": 0.5
+              },
+              {
+                "color": "dark-red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 99,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
+          "instant": false,
+          "legendFormat": "Delta (${zones})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Node Exporter vs k2 Measurement Delta (Joules)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Difference between Node exporter and k2 energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds",
+            "seriesBy": "max"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisLabel": "Watts Delta",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "dark-green",
+                "value": -0.5
+              },
+              {
+                "color": "super-light-green",
+                "value": -0.25
+              },
+              {
+                "color": "green",
+                "value": -0.1
+              },
+              {
+                "color": "light-green",
+                "value": 0
+              },
+              {
+                "color": "semi-dark-yellow",
+                "value": 0.1
+              },
+              {
+                "color": "dark-orange",
+                "value": 0.5
+              },
+              {
+                "color": "dark-red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 151,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(k2_node_rapl_${zones}_watts)\n",
+          "instant": false,
+          "legendFormat": "Delta (${zones})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Node Exporter vs k2 Measurement Delta (Watts)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Direct comparison of energy measurements from all three monitoring systems - Node Exporter, k2, and Kepler.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Watts",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 153,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])",
+          "instant": false,
+          "legendFormat": "k2 (${zones})",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Node Exporter (${zones})",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler (${zones})",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Node Energy Measurement Comparison",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Process-Level Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Comparing process-level monitoring with selected PID: ${pid} (${process})",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "id": 157,
+      "options": {
+        "code": {
+          "language": "markdown",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## Process Energy Monitoring\n\nThis section compares process-level energy metrics between k2 and Kepler. You can select a process using the variable selector at the top of the dashboard.\n\nThe comparison shows both the direct process measurements and the delta between node-level and process-level measurements.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.4.2",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Difference between node-level and process-level energy measurements.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds",
+            "seriesBy": "max"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Watts Delta",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "super-light-green",
+                "value": 0
+              },
+              {
+                "color": "semi-dark-yellow",
+                "value": 0.5
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "dark-red",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "id": 131,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])) - on() sum(rate(k2_process_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "instant": false,
+          "legendFormat": "k2 attribution gap",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s])) - sum(rate(kepler_process_${zones}_joules_total[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "kepler attribution gap",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Node-Process Energy Attribution Gap",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Direct comparison of process energy measurements between k2 and Kepler for the selected process (PID: ${pid}).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Watts",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "id": 100,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{pid=\"$pid\"}[20s]))",
+          "instant": false,
+          "legendFormat": "Kepler - ${zones}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(k2_process_rapl_${zones}_joules_total{pid=\"$pid\",job=\"$job\"}[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "k2 - ${zones}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Process Energy Comparison - PID: ${pid} (${process})",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 59
+      },
+      "id": 158,
+      "panels": [],
+      "title": "Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Percentage of energy measured at node level that is not attributed to specific processes. Lower values indicate more complete process-level energy attribution.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "id": 159,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "100 * (sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])) - sum(rate(k2_process_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))) / sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "instant": false,
+          "legendFormat": "k2 attribution gap (%)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "k2 - Energy Attribution Gap Percentage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Percentage of energy measured at node level that is not attributed to specific processes. Lower values indicate more complete process-level energy attribution.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "id": 160,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total[20s])) - sum(rate(kepler_process_${zones}_joules_total[20s]))) / sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "instant": false,
+          "legendFormat": "kepler attribution gap (%)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Kepler - Energy Attribution Gap Percentage",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "/usr/lib/systemd/systemd | 1",
+          "value": "1"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PDE6745920139CE56"
+        },
+        "definition": "query_result(label_join( count by (pid, comm) (k2_process_rapl_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
+        "description": "Select a process to monitor",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "process",
+        "options": [],
+        "query": {
+          "qryType": 3,
+          "query": "query_result(label_join( count by (pid, comm) (k2_process_rapl_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "/process=\\\"(?<text>[^\\\"]+)|pid=\\\"(?<value>[^\\\"]+)/g",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "k2-dev",
+          "value": "k2-dev"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PDE6745920139CE56"
+        },
+        "definition": "label_values(k2_node_rapl_package_joules_total,job)",
+        "description": "k2 job/instance",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(k2_node_rapl_package_joules_total,job)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "package",
+          "value": "package"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PDE6745920139CE56"
+        },
+        "definition": "metrics(k2_node_rapl.*_joules_total)",
+        "description": "RAPL energy monitoring zones (package, core, dram, etc.)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Energy Zone",
+        "multi": false,
+        "name": "zones",
+        "options": [],
+        "query": {
+          "qryType": 2,
+          "query": "metrics(k2_node_rapl.*_joules_total)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "k2_node_rapl_([a-z]+)_joules_total",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "1",
+          "value": "1"
+        },
+        "description": "Process ID extracted from process selection",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "pid",
+        "options": [
+          {
+            "selected": true,
+            "text": "1",
+            "value": "1"
+          }
+        ],
+        "query": "${process}",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "K2 Energy Monitor",
+  "uid": "behh30oymoi68f",
+  "version": 4,
+  "weekStart": ""
+}
