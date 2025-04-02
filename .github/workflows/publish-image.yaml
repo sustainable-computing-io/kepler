@@ -1,0 +1,26 @@
+name: Publish image
+
+on:
+  push:
+    branches: [ reboot ]
+
+jobs:
+  publish:
+    name: Publish Kepler image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build and Publish image to external registry
+        uses: ./.github/publish-image
+        with:
+          registry: quay.io/sustainable_computing_io
+          username: ${{ secrets.BOT_NAME }}
+          password: ${{ secrets.BOT_TOKEN }}
+

@@ -1,0 +1,51 @@
+name: Build and Publish Images
+description: "Publishes Kepler image to an Image Registry"
+inputs:
+  registry:
+    description: "image registry"
+    required: true
+  username:
+    description: "registry username"
+    required: true
+  password:
+    description: "registry password"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+      with:
+        # NOTE: setting fetch-depth to 0 to retrieve the entire history
+        # intead of a shallow -clone so that all tags are fetched as well.
+        # This is necessary for computing the VERSION using `git describe`
+        fetch-depth: 0
+
+    - uses: actions/setup-go@main
+      with:
+        go-version-file: go.mod
+        check-latest: true
+        cache: true
+
+    - name: Login to Image Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Build Image
+      shell: bash
+      run: |
+        make image
+      env:
+        IMG_BASE: ${{ inputs.registry }}
+
+    - name: Push Image
+      shell: bash
+      run: |
+        make push
+      env:
+        IMG_BASE: ${{ inputs.registry }}
+
