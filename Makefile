@@ -1,4 +1,4 @@
-.PHONY: all build clean test lint vet fmt image push
+.PHONY: all build build-debug clean test coverage lint vet fmt deps image push run
 
 # Go parameters
 GOCMD=go
@@ -32,8 +32,8 @@ LDFLAGS=-ldflags "\
 
 # Docker parameters
 IMG_BASE ?= quay.io/sustainable_computing_io
-
 KEPLER_IMAGE ?= $(IMG_BASE)/kepler-reboot:$(VERSION)
+ADDITIONAL_TAGS ?=
 
 # Test parameters
 COVER_PROFILE=coverage.out
@@ -86,12 +86,48 @@ image: test deps
 	docker build -t \
 		$(KEPLER_IMAGE) \
 		--platform=linux/$(GOARCH) .
+	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Push Docker image
 push:
-	docker push $(KEPLER_IMAGE)
+	$(call docker_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Run the application
 run:
 	$(BINARY_DIR)/$(BINARY_NAME)
+
+# docker_tag accepts an image:tag and a list of additional tags comma-separated
+# it tags the image with the additional tags
+# E.g. given foo:bar, a,b,c, it will tag foo:bar as foo:a, foo:b, foo:c
+define docker_tag
+@{ \
+	set -eu ;\
+	img="$(1)" ;\
+	tags="$(2)" ;\
+	echo "tagging container image $$img with additional tags: '$$tags'" ;\
+	\
+	img_path=$${img%:*} ;\
+	for tag in $$(echo $$tags | tr -s , ' ' ); do \
+		docker tag $$img $$img_path:$$tag ;\
+	done \
+}
+endef
+
+# docker_push accepts an image:tag and a list of additional tags comma-separated
+# it pushes the image:tag and all other images with the additional tags
+# E.g. given foo:bar, a,b,c, it will push foo:bar, foo:a, foo:b, foo:c
+define docker_push
+@{ \
+	set -eu ;\
+	img="$(1)" ;\
+	tags="$(2)" ;\
+	echo "docker push $$img and additional tags: '$$tags'" ;\
+	\
+	img_path=$${img%:*} ;\
+	docker push $$img ;\
+	for tag in $$(echo $$tags | tr -s , ' ' ); do \
+		docker push $$img_path:$$tag ;\
+	done \
+}
+endef
 

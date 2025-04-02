@@ -10,6 +10,9 @@ inputs:
   password:
     description: "registry password"
     required: true
+  additional_tags:
+    description: "additional tags for container image"
+    required: false
 
 runs:
   using: composite
@@ -41,6 +44,7 @@ runs:
         make image
       env:
         IMG_BASE: ${{ inputs.registry }}
+        ADDITIONAL_TAGS: ${{ inputs.additional_tags }}
 
     - name: Push Image
       shell: bash
@@ -48,4 +52,4 @@ runs:
         make push
       env:
         IMG_BASE: ${{ inputs.registry }}
-
+        ADDITIONAL_TAGS: ${{ inputs.additional_tags }}

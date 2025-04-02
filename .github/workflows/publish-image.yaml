@@ -17,10 +17,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: additional tags
+        id: additional_tags
+        shell: bash
+        run: |
+         echo "result=$(git rev-parse --short HEAD)-$(date +%Y%m%d%H%M%S),latest" >> $GITHUB_OUTPUT
+
       - name: Build and Publish image to external registry
         uses: ./.github/publish-image
         with:
           registry: quay.io/sustainable_computing_io
           username: ${{ secrets.BOT_NAME }}
           password: ${{ secrets.BOT_TOKEN }}
+          additional_tags: ${{ steps.additional_tags.outputs.result }}
 
