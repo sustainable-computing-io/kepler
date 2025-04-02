@@ -18,19 +18,21 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 
 	"github.com/oklog/run"
+	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
 func main() {
+	logger := setupLogger("info", "text")
+	logVersionInfo(logger)
 
 	var g run.Group
 
-	fmt.Println("Starting Kepler...")
-
+	logger.Info("Starting Kepler...")
 	ctx, cancel := context.WithCancel(context.Background())
 	{
 		g.Add(waitForInterrupt(ctx, os.Interrupt))
@@ -40,29 +42,28 @@ func main() {
 		// TODO: replace with monitor.Start()
 		g.Add(
 			func() error {
-				fmt.Println("Monitor is running. Press Ctrl+C to stop.")
+				logger.Info("Monitor is running. Press Ctrl+C to stop.")
 				<-ctx.Done()
-				fmt.Println("Monitor is done running.")
+				logger.Info("Monitor is done running.")
 				return nil
 			},
 			func(err error) {
-				fmt.Println("Shutting down...:", err)
+				logger.Warn("Shutting down...:", "error", err)
 				cancel()
 			},
 		)
 	}
 
 	{
-
 		// TODO: replace with server.Start()
 		g.Add(
 			func() error {
-				fmt.Println("HTTP server is running. Press Ctrl+C to stop.")
+				logger.Info("HTTP server is running. Press Ctrl+C to stop.")
 				<-ctx.Done()
 				return nil
 			},
 			func(err error) {
-				fmt.Println("HTTP Server: Shutting down...:", err)
+				logger.Info("HTTP Server: Shutting down...:", "error", err)
 				cancel()
 			},
 		)
@@ -70,10 +71,23 @@ func main() {
 
 	// run all groups
 	if err := g.Run(); err != nil {
-		fmt.Printf("Kepler terminated with error: %v\n", err)
+		logger.Warn("Kepler terminated with error: %v\n", "error", err)
 		os.Exit(1)
 	}
-	fmt.Println("Graceful shutdown completed")
+	logger.Info("Graceful shutdown completed")
+}
+
+func logVersionInfo(logger *slog.Logger) {
+	v := version.Info()
+	logger.Info("Kepler version information",
+		"version", v.Version,
+		"buildTime", v.BuildTime,
+		"gitBranch", v.GitBranch,
+		"gitCommit", v.GitCommit,
+		"goVersion", v.GoVersion,
+		"goOS", v.GoOS,
+		"goArch", v.GoArch,
+	)
 }
 
 func waitForInterrupt(ctx context.Context, signals ...os.Signal) (func() error, func(error)) {
