@@ -1,0 +1,56 @@
+name: monitoring
+
+services:
+  prometheus:
+    build:
+      context: ./prometheus
+    ports:
+      - 29090:9090
+    volumes:
+      - prom-data:/prometheus
+      - type: bind
+        source: ./prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+    networks:
+      - monitoring
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-admin-api
+
+    healthcheck:
+      test: wget -q --spider http://localhost:9090/ -O /dev/null || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
+  grafana:
+    build:
+      context: ./grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+
+    user: "1000" # NOTE: change this to your `id -u`
+    depends_on:
+      - prometheus
+    ports:
+      - 23000:3000
+    networks:
+      - monitoring
+
+    healthcheck:
+      test: curl -f http://localhost:3000/ || exit 1
+      interval: ${HEALTHCHECK_INTERVAL:-50s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-30s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-1m}
+
+volumes:
+  # volume for holding prometheus (ts)db
+  prom-data:
+
+networks:
+  monitoring:
