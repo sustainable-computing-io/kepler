@@ -36,6 +36,7 @@ KEPLER_IMAGE ?= $(IMG_BASE)/kepler-reboot:$(VERSION)
 ADDITIONAL_TAGS ?=
 
 # Test parameters
+TEST_PKGS:= $(shell go list ./... | grep -v cmd)
 COVER_PROFILE=coverage.out
 COVER_HTML=coverage.html
 
@@ -58,7 +59,7 @@ clean:
 
 # Run tests with coverage
 test:
-	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) ./...
+	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 
 # Generate coverage report
 coverage: test
