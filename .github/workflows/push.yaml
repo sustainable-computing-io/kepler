@@ -1,8 +1,8 @@
 name: Push
 
-on:
+on: # yamllint disable-line rule:truthy
   push:
-    branches: [ reboot ]
+    branches: [reboot]
 
 jobs:
   codecov-upload:
@@ -36,4 +36,3 @@ jobs:
           username: ${{ secrets.BOT_NAME }}
           password: ${{ secrets.BOT_TOKEN }}
           additional_tags: ${{ steps.additional_tags.outputs.result }}
-

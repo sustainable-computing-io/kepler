@@ -1,17 +1,17 @@
 name: Build and Publish Images
-description: "Publishes Kepler image to an Image Registry"
+description: Publishes Kepler image to an Image Registry
 inputs:
   registry:
-    description: "image registry"
+    description: image registry
     required: true
   username:
-    description: "registry username"
+    description: registry username
     required: true
   password:
-    description: "registry password"
+    description: registry password
     required: true
   additional_tags:
-    description: "additional tags for container image"
+    description: additional tags for container image
     required: false
 
 runs:
@@ -21,7 +21,7 @@ runs:
       uses: actions/checkout@v4
       with:
         # NOTE: setting fetch-depth to 0 to retrieve the entire history
-        # intead of a shallow -clone so that all tags are fetched as well.
+        # instead of a shallow -clone so that all tags are fetched as well.
         # This is necessary for computing the VERSION using `git describe`
         fetch-depth: 0
 

@@ -1,8 +1,8 @@
 name: PR Checks
 
-on:
+on: # yamllint disable-line rule:truthy
   pull_request:
-    branches: [ reboot ]
+    branches: [reboot]
 
 jobs:
   # docs:
@@ -29,9 +29,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: make deps
+        shell: bash
+        run: make deps
+
       - name: make fmt
         shell: bash
-        run:  make fmt && git diff --exit-code
+        run: make fmt && git diff --exit-code
 
   codecov-upload:
     uses: ./.github/workflows/codecov-upload.yaml
@@ -47,7 +51,7 @@ jobs:
     steps:
       - name: checkout source
         uses: actions/checkout@v4
-      
+
       - name: setup go
         uses: actions/setup-go@v5.4.0
         with:
@@ -60,6 +64,18 @@ jobs:
           version: v1.56
           args: --timeout=3m --issues-exit-code=0 ./...
           only-new-issues: true
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v3
+
+      - name: Setup Pre-Commit
+        uses: pre-commit/action@v3.0.1
 
   build-images:
     needs: [fmt, golangci, codecov-upload]
@@ -77,4 +93,4 @@ jobs:
       - name: build images for PR checks
         uses: ./.github/publish-image
         with:
-          registry: "localhost:5001"
+          registry: localhost:5001

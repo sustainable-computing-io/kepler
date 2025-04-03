@@ -1,0 +1,12 @@
+extends:
+  - '@commitlint/config-conventional' # yamllint disable-line rule:quoted-strings
+rules:
+  subject-case:
+    - 2
+    - never
+    - - sentence-case
+      - start-case
+      - pascal-case
+      - upper-case
+# Custom URL to show upon failure
+helpUrl: "https://github.com/conventional-changelog/commitlint/#what-is-commitlint" # yamllint disable-line rule:quoted-strings
