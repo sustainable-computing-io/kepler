@@ -64,6 +64,20 @@ func TestLoadEmptyFromYAML(t *testing.T) {
 	assert.Equal(t, defaultCfg.Log.Format, cfg.Log.Format)
 }
 
+func TestLoadInvalidConfigFromYAML(t *testing.T) {
+	// Test loading an empty configuration
+	yamlData := `
+log:
+  level: FATAL
+  format: json
+`
+	reader := strings.NewReader(yamlData)
+	cfg, err := Load(reader)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid configuration")
+	assert.Nil(t, cfg)
+}
+
 func TestCommandLinePrecedence(t *testing.T) {
 	// Create config from YAML
 	yamlData := `
@@ -210,8 +224,54 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			err := updateConfig(cfg)
 			assert.Error(t, err, "invalid input should be rejected by validation")
 			assert.Contains(t, err.Error(), tc.expectedError)
+		})
+	}
+}
 
+func TestConfigString(t *testing.T) {
+	testCases := []struct {
+		name   string
+		config *Config
+	}{{
+		name: "default config",
+		config: &Config{
+			Log: Log{
+				Level:  "info",
+				Format: "text",
+			},
+		},
+	}, {
+		name: "custom config",
+		config: &Config{
+			Log: Log{
+				Level:  "debug",
+				Format: "json",
+			},
+		},
+	}}
+
+	// test yaml marshall
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Get string representation
+			str := tc.config.String()
+
+			// Verify it's valid YAML and contains the expected values
+			assert.Contains(t, str, "log:")
+			assert.Contains(t, str, "level: "+tc.config.Log.Level)
+			assert.Contains(t, str, "format: "+tc.config.Log.Format)
 		})
 	}
 
+	// test manual string builder approach
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Get string representation
+			str := tc.config.manualString()
+
+			// Verify it's valid YAML and contains the expected values
+			assert.Contains(t, str, "log.level: "+tc.config.Log.Level)
+			assert.Contains(t, str, "log.format: "+tc.config.Log.Format)
+		})
+	}
 }

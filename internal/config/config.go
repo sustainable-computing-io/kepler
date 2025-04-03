@@ -172,10 +172,12 @@ func (c *Config) String() string {
 	if err == nil {
 		return string(bytes)
 	}
-
 	// NOTE:  this code path should not happen but if it does (i.e if yaml marshal) fails
 	// for some reason, manually build the string
+	return c.manualString()
+}
 
+func (c *Config) manualString() string {
 	cfgs := []struct {
 		Name  string
 		Value string
