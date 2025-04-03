@@ -15,7 +15,6 @@ limitations under the License.
 */
 package device
 
-
 // powerMeter is a generic interface for power meters which reads energy
 // or power readings from hardware devices like CPU/GPU/DRAM etc
 type powerMeter interface {

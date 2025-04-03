@@ -20,3 +20,13 @@ func (e Energy) MicroJoules() uint64 {
 func (e Energy) String() string {
 	return fmt.Sprintf("%fJ", e.Joules())
 }
+
+type Power float64
+
+func (p Power) Watts() float64 {
+	return float64(p)
+}
+
+func (p Power) String() string {
+	return fmt.Sprintf("%fW", p.Watts())
+}
