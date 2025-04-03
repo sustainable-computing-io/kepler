@@ -25,6 +25,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/oklog/run"
 	"github.com/sustainable-computing-io/kepler/internal/config"
+	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
@@ -47,15 +48,10 @@ func main() {
 
 	{
 		// TODO: replace with monitor.Start()
-		g.Add(
-			func() error {
-				logger.Info("Monitor is running. Press Ctrl+C to stop.")
-				<-ctx.Done()
-				logger.Info("Monitor is done running.")
-				return nil
-			},
+		monitor := monitor.NewPowerMonitor(logger)
+		g.Add(func() error { return monitor.Start(ctx) },
 			func(err error) {
-				logger.Warn("Shutting down...:", "error", err)
+				monitor.Stop()
 				cancel()
 			},
 		)
