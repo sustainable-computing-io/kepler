@@ -130,4 +130,3 @@ define docker_push
 	done \
 }
 endef
-

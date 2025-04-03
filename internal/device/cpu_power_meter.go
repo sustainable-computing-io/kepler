@@ -30,7 +30,7 @@ type EnergyZone interface {
 	// Path() returns the path from which the energy usage value ie being read
 	Path() string
 
-	// Energy() retuns energy consumed by the zone.
+	// Energy() returns energy consumed by the zone.
 	Energy() Energy
 
 	// MaxEnergy returns  the maximum value of energy usage that can be read.
