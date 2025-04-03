@@ -1,4 +1,4 @@
-name: pr-checks
+name: PR Checks
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ jobs:
   # docs:
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@main
-  #     - uses: actions/setup-go@main
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-go@v5.4.0
   #       with:
   #         go-version-file: go.mod
   #
@@ -21,8 +21,11 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-go@main
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
         with:
           go-version-file: go.mod
 
@@ -30,17 +33,10 @@ jobs:
         shell: bash
         run:  make fmt && git diff --exit-code
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@main
-      - uses: actions/setup-go@main
-        with:
-          go-version-file: go.mod
-
-      - name: make test
-        shell: bash
-        run: make test
+  codecov-upload:
+    uses: ./.github/workflows/codecov-upload.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   golangci:
     permissions:
@@ -49,9 +45,11 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - name: code checkout
-        uses: actions/checkout@v3
-      - uses: actions/setup-go@main
+      - name: checkout source
+        uses: actions/checkout@v4
+      
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
         with:
           go-version-file: go.mod
           cache: false
@@ -64,13 +62,14 @@ jobs:
           only-new-issues: true
 
   build-images:
-    needs: [fmt, test, golangci ]
+    needs: [fmt, golangci, codecov-upload]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v3
+      - name: checkout source
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@main
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
         with:
           go-version-file: go.mod
           cache: false

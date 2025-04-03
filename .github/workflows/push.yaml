@@ -1,29 +1,35 @@
-name: Publish image
+name: Push
 
 on:
   push:
     branches: [ reboot ]
 
 jobs:
+  codecov-upload:
+    uses: ./.github/workflows/codecov-upload.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   publish:
-    name: Publish Kepler image
+    needs: [codecov-upload]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@main
+      - name: Setup Go
+        uses: actions/setup-go@v5.4.0
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: additional tags
+      - name: Additional tags
         id: additional_tags
         shell: bash
         run: |
          echo "result=$(git rev-parse --short HEAD)-$(date +%Y%m%d%H%M%S),latest" >> $GITHUB_OUTPUT
 
-      - name: Build and Publish image to external registry
+      - name: Build and publish image to external registry
         uses: ./.github/publish-image
         with:
           registry: quay.io/sustainable_computing_io
