@@ -18,17 +18,26 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/oklog/run"
+	"github.com/sustainable-computing-io/kepler/internal/config"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
 func main() {
-	logger := setupLogger("info", "text")
+	// parse args and config and exit with error if there is an error
+	cfg, err := parseArgsAndConfig()
+	if err != nil {
+		os.Exit(1)
+	}
+	logger := setupLogger(cfg.Log.Level, cfg.Log.Format)
 	logVersionInfo(logger)
+	printConfigInfo(logger, cfg)
 
 	var g run.Group
 
@@ -104,4 +113,48 @@ func waitForInterrupt(ctx context.Context, signals ...os.Signal) (func() error, 
 		}, func(error) {
 			cancel()
 		}
+}
+
+func parseArgsAndConfig() (*config.Config, error) {
+	const appName = "kepler"
+	app := kingpin.New(appName, "Power consumption monitoring exporter for Prometheus.")
+
+	configFile := app.Flag("config.file", "Path to YAML configuration file").String()
+	updateConfig := config.RegisterFlags(app)
+	kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	logger := setupLogger("info", "text")
+	cfg := config.DefaultConfig()
+	if *configFile != "" {
+		logger.Info("Loading configuration file", "path", *configFile)
+		loadedCfg, err := config.FromFile(*configFile)
+		if err != nil {
+			logger.Error("Error loading config file", "error", err.Error())
+			return nil, err
+		}
+		// Replace default config with loaded config
+		cfg = loadedCfg
+		logger.Info("Completed loading of configuration file", "path", *configFile)
+	}
+
+	// Apply command line flags (these override config file settings)
+	if err := updateConfig(cfg); err != nil {
+		logger.Error("Error applying command line flags", "error", err.Error())
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func printConfigInfo(logger *slog.Logger, cfg *config.Config) {
+	if !logger.Enabled(context.Background(), slog.LevelInfo) || cfg.Log.Format == "json" {
+		return
+	}
+
+	fmt.Printf(`
+Configuration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+%s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`, cfg)
 }
