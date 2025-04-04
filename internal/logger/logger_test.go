@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package logger
 
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -65,7 +66,7 @@ func TestSetupLogger(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.expectPanic {
 				assert.Panics(t, func() {
-					_ = setupLogger(tt.format, tt.logLevel)
+					_ = New(tt.logLevel, tt.format)
 				}, "Expected setupLogger to panic with invalid format")
 				//
 				return
@@ -77,7 +78,7 @@ func TestSetupLogger(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			logger := setupLogger(tt.logLevel, tt.format)
+			logger := New(tt.logLevel, tt.format)
 			logger.Info("test message", "key", "value")
 
 			// Restore stdout
@@ -117,6 +118,52 @@ func TestSetupLogger(t *testing.T) {
 				assert.Contains(t, logParts, "key", "JSON log: missing 'key' field")
 				assert.Equal(t, "value", logParts["key"], "JSON log: incorrect 'key' value")
 			}
+		})
+	}
+}
+
+func TestParseLogLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		level    string
+		expected slog.Level
+	}{
+		{
+			name:     "debug level",
+			level:    "debug",
+			expected: slog.LevelDebug,
+		},
+		{
+			name:     "info level",
+			level:    "info",
+			expected: slog.LevelInfo,
+		},
+		{
+			name:     "warn level",
+			level:    "warn",
+			expected: slog.LevelWarn,
+		},
+		{
+			name:     "error level",
+			level:    "error",
+			expected: slog.LevelError,
+		},
+		{
+			name:     "invalid level defaults to info",
+			level:    "invalid",
+			expected: slog.LevelInfo,
+		},
+		{
+			name:     "empty level defaults to info",
+			level:    "",
+			expected: slog.LevelInfo,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseLogLevel(tt.level)
+			assert.Equal(t, tt.expected, result, "parseLogLevel(%q) = %v, want %v", tt.level, result, tt.expected)
 		})
 	}
 }
