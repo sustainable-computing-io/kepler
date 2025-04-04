@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package logger
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-func setupLogger(level, format string) *slog.Logger {
+func SetupLogger(level, format string) *slog.Logger {
 	logLevel := parseLogLevel(level)
 	return slog.New(handlerForFormat(format, logLevel))
 }

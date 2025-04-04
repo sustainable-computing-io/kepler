@@ -26,6 +26,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/oklog/run"
 	"github.com/sustainable-computing-io/kepler/internal/config"
+	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	logger := setupLogger(cfg.Log.Level, cfg.Log.Format)
+	logger := logger.SetupLogger(cfg.Log.Level, cfg.Log.Format)
 	logVersionInfo(logger)
 	printConfigInfo(logger, cfg)
 
@@ -123,7 +124,7 @@ func parseArgsAndConfig() (*config.Config, error) {
 	updateConfig := config.RegisterFlags(app)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	logger := setupLogger("info", "text")
+	logger := logger.SetupLogger("info", "text")
 	cfg := config.DefaultConfig()
 	if *configFile != "" {
 		logger.Info("Loading configuration file", "path", *configFile)
