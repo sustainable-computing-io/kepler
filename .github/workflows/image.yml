@@ -115,7 +115,7 @@ jobs:
 
       - name: save Kepler image SBOM as artifact
         if: ${{ inputs.pushImage }}
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
           path: ./sbom-${{matrix.IMAGE_NAME}}-${{matrix.LABEL}}.spdx.json
