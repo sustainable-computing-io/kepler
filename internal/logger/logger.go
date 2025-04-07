@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package logger
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func setupLogger(level, format string) *slog.Logger {
+func New(level, format string) *slog.Logger {
 	logLevel := parseLogLevel(level)
 	return slog.New(handlerForFormat(format, logLevel))
 }
