@@ -3,6 +3,8 @@
 
 package device
 
+import "context"
+
 // EnergyZone represents a measurable energy or power zone/domain exposed by a power meter.
 // An EnergyZone typically represents a logical zone of the hardware unit, e.g. cpu core, cpu package
 // dram, uncore etc.
@@ -32,4 +34,31 @@ type CPUPowerMeter interface {
 
 	// Zones() returns a slice of the energy measurement zones
 	Zones() ([]EnergyZone, error)
+}
+
+var _ CPUPowerMeter = (*cpuPowerMeter)(nil)
+
+type cpuPowerMeter struct{}
+
+func (c *cpuPowerMeter) Zones() ([]EnergyZone, error) {
+	return nil, nil
+}
+
+func (c *cpuPowerMeter) Name() string {
+	// TODO: set a proper name when rapl is implemented
+	return "cpu"
+}
+
+func (c *cpuPowerMeter) Start(ctx context.Context) error {
+	// TODO: Implement power monitoring logic
+	return nil
+}
+
+func (c *cpuPowerMeter) Stop() error {
+	// TODO: Implement stop logic
+	return nil
+}
+
+func NewCPUPowerMeter() *cpuPowerMeter {
+	return &cpuPowerMeter{}
 }
