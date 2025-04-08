@@ -36,3 +36,10 @@ repos:
       - id: commitlint
         stages: [commit-msg]
         additional_dependencies: ['@commitlint/config-conventional'] # yamllint disable-line rule:quoted-strings
+
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v5.0.2
+    hooks:
+      - id: reuse-lint-file
+        types: [file]
+        files: \.go$
