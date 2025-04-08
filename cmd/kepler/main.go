@@ -14,6 +14,8 @@ import (
 	"github.com/oklog/run"
 	"github.com/sustainable-computing-io/kepler/internal/config"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
+	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/service"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
@@ -27,46 +29,31 @@ func main() {
 	logVersionInfo(logger)
 	printConfigInfo(logger, cfg)
 
-	var g run.Group
-
-	logger.Info("Starting Kepler...")
+	// create & register all services with run group
+	services := createServices(logger)
 	ctx, cancel := context.WithCancel(context.Background())
-	{
-		g.Add(waitForInterrupt(ctx, os.Interrupt))
-	}
-
-	{
-		// TODO: replace with monitor.Start()
+	var g run.Group
+	for _, s := range services {
 		g.Add(
 			func() error {
-				logger.Info("Monitor is running. Press Ctrl+C to stop.")
-				<-ctx.Done()
-				logger.Info("Monitor is done running.")
-				return nil
+				return s.Start(ctx)
 			},
 			func(err error) {
-				logger.Warn("Shutting down...:", "error", err)
+				if err != nil {
+					logger.Warn("service terminated with error", "service", s.Name(), "error", err)
+				}
+
+				if cleanupErr := s.Stop(); cleanupErr != nil {
+					logger.Warn("service cleanup failed with error", "service", s.Name(), "error", cleanupErr)
+				}
 				cancel()
 			},
 		)
 	}
-
-	{
-		// TODO: replace with server.Start()
-		g.Add(
-			func() error {
-				logger.Info("HTTP server is running. Press Ctrl+C to stop.")
-				<-ctx.Done()
-				return nil
-			},
-			func(err error) {
-				logger.Info("HTTP Server: Shutting down...:", "error", err)
-				cancel()
-			},
-		)
-	}
+	g.Add(waitForInterrupt(ctx, logger, os.Interrupt))
 
 	// run all groups
+	logger.Info("Starting Kepler")
 	if err := g.Run(); err != nil {
 		logger.Warn("Kepler terminated with error: %v\n", "error", err)
 		os.Exit(1)
@@ -87,11 +74,12 @@ func logVersionInfo(logger *slog.Logger) {
 	)
 }
 
-func waitForInterrupt(ctx context.Context, signals ...os.Signal) (func() error, func(error)) {
+func waitForInterrupt(ctx context.Context, logger *slog.Logger, signals ...os.Signal) (func() error, func(error)) {
 	ctx, cancel := context.WithCancel(ctx)
 	return func() error {
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, signals...)
+			logger.Info("Press Ctrl+C to shutdown")
 			select {
 			case <-c:
 				return nil
@@ -145,4 +133,14 @@ Configuration
 %s
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `, cfg)
+}
+
+func createServices(logger *slog.Logger) []service.Service {
+	logger.Debug("Creating all services")
+
+	return []service.Service{
+		monitor.NewPowerMonitor(
+			monitor.WithLogger(logger),
+		),
+	}
 }

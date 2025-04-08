@@ -3,6 +3,8 @@
 
 package device
 
+import "context"
+
 // powerMeter is a generic interface for power meters which reads energy
 // or power readings from hardware devices like CPU/GPU/DRAM etc
 type powerMeter interface {
@@ -10,7 +12,7 @@ type powerMeter interface {
 	Name() string
 
 	// Start() initialuzes and starts the power meter for reading energy or power
-	Start() error
+	Start(ctx context.Context) error
 
 	// Stop() stops the power meter and releases any resources held
 	Stop() error
