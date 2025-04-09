@@ -15,6 +15,7 @@ package accelerator
 
 //nolint:gci // The supported device imports are kept separate.
 import (
+	"encoding/json"
 	"slices"
 	"sync"
 	"time"
@@ -130,7 +131,10 @@ func New(atype string, sleep bool) (Accelerator, error) {
 
 	// Init the available devices.
 
-	devs := devices.GetRegistry().GetAllDeviceTypes()
+	r := devices.GetRegistry()
+	j, _ := json.Marshal(r.GetAllDevices())
+	klog.V(5).Infof("Accelerator Registry AllDevices: %s", string(j))
+	devs := r.GetAllDeviceTypes()
 	numDevs := len(devs)
 	if numDevs == 0 || !slices.Contains(devs, atype) {
 		return nil, errors.New("no devices found")
