@@ -13,8 +13,10 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/oklog/run"
 	"github.com/sustainable-computing-io/kepler/internal/config"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
@@ -55,7 +57,7 @@ func main() {
 	// run all groups
 	logger.Info("Starting Kepler")
 	if err := g.Run(); err != nil {
-		logger.Warn("Kepler terminated with error: %v\n", "error", err)
+		logger.Error("Kepler terminated with an error", "error", err)
 		os.Exit(1)
 	}
 	logger.Info("Graceful shutdown completed")
@@ -75,7 +77,7 @@ func logVersionInfo(logger *slog.Logger) {
 }
 
 func waitForInterrupt(ctx context.Context, logger *slog.Logger, signals ...os.Signal) (func() error, func(error)) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctxInternal, cancel := context.WithCancel(ctx)
 	return func() error {
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, signals...)
@@ -85,6 +87,8 @@ func waitForInterrupt(ctx context.Context, logger *slog.Logger, signals ...os.Si
 				return nil
 			case <-ctx.Done():
 				return ctx.Err()
+			case <-ctxInternal.Done():
+				return ctxInternal.Err()
 			}
 		}, func(error) {
 			cancel()
@@ -137,10 +141,18 @@ Configuration
 
 func createServices(logger *slog.Logger) []service.Service {
 	logger.Debug("Creating all services")
+	pm := monitor.NewPowerMonitor(
+		monitor.WithLogger(logger),
+	)
+	apiServer := server.NewAPIServer(
+		server.WithLogger(logger),
+	)
+	// TODO: enable exporters based on config / flags
+	promExporter := prometheus.NewExporter(pm, apiServer, prometheus.WithLogger(logger))
 
 	return []service.Service{
-		monitor.NewPowerMonitor(
-			monitor.WithLogger(logger),
-		),
+		promExporter,
+		apiServer,
+		pm,
 	}
 }
