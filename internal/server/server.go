@@ -155,6 +155,6 @@ func (s *APIServer) Stop() error {
 
 func (s *APIServer) Register(endpoint, summary, description string, handler http.Handler) error {
 	s.mux.Handle(endpoint, handler)
-	s.endpointDescription += fmt.Sprintf(`<li> <a href="%s"> %s </a> %s </li>\n`, endpoint, summary, description)
+	s.endpointDescription += fmt.Sprintf("<li> <a href=\"%s\"> %s </a> %s </li>\n", endpoint, summary, description)
 	return nil
 }
