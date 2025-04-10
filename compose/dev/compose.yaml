@@ -34,7 +34,6 @@ services:
     networks:
       - kepler-network
     # cap_add:
-    #   - ALL
 
   kepler-latest:
     image: quay.io/sustainable_computing_io/kepler:latest
