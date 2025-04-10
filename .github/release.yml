@@ -1,0 +1,37 @@
+# .github/release.yml
+
+changelog:
+  exclude:
+    # Exclude PRs with these labels
+    labels:
+      - skip-changelog
+      - dependencies # Example: Exclude bot PRs like Dependabot
+    # Exclude commits from specific authors (e.g., bots)
+    authors:
+      - github-actions[bot]
+      - dependabot[bot]
+  categories:
+    # Category for new features, matched by labels
+    - title: 🚀 Features
+      labels:
+        - feature
+        - feat
+        - enhancement
+    # Category for bug fixes
+    - title: 🐛 Bug Fixes
+      labels:
+        - fix
+        - bug
+    # Category for documentation changes
+    - title: 📖 Documentation
+      labels:
+        - documentation
+        - docs
+    # Category for maintenance, chores, CI/CD, etc.
+    - title: 🧰 Maintenance
+      labels:
+        - chore
+        - ci
+        - build
+        - refactor
+        - test
