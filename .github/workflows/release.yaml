@@ -59,17 +59,6 @@ jobs:
           VERSION=$(echo "$TAG_NAME" | sed 's/-reboot//')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: release-${{ steps.version.outputs.version }}
-          body: ${{ steps.changelog.outputs.changelog }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         env:
