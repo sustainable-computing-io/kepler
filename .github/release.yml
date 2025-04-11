@@ -1,0 +1,22 @@
+changelog:
+  exclude:
+    # Exclude commits from specific authors (e.g., bots)
+    authors:
+      - github-actions[bot]
+      - dependabot[bot]
+  categories:
+    - title: 🚀 Features
+      labels:
+        - feat
+    - title: 🐛 Bug Fixes
+      labels:
+        - fix
+    - title: 📖 Documentation
+      labels:
+        - docs
+    - title: ♻️ Refactor
+      labels:
+        - refactor
+    - title: ⚡ Performance
+      labels:
+        - perf
