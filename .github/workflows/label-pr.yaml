@@ -1,0 +1,17 @@
+name: Label PR
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches: [reboot]
+
+jobs:
+  label-pr:
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: grafana/pr-labeler-action@v0.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
