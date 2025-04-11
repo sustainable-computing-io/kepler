@@ -46,11 +46,6 @@ jobs:
         run: |
           make image
 
-      - name: Push Image
-        shell: bash
-        run: |
-          make push
-
       - name: Extract version
         shell: bash
         id: version
@@ -59,30 +54,18 @@ jobs:
           VERSION=$(echo "$TAG_NAME" | sed 's/-reboot//')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Get previous tag
-        shell: bash
-        id: previous-tag
-        run: |
-          CURR_TAG=${{ github.ref_name }}
-          PREV_TAG=$(git tag --sort=v:refname -l 'v[0-9]*.[0-9]*.[0-9]*-reboot' | grep -B1 -x "$CURR_TAG" | head -n 1)
-          echo "previous_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Generate changelog
-        shell: bash
-        id: changelog
-        run: |
-          ./hack/scripts/changelog.sh --from ${{ steps.previous-tag.outputs.previous_tag }} --to ${{ github.ref_name }} | tee changelog.md
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          cat changelog.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub release
-        uses: actions/create-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: release-${{ steps.version.outputs.version }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          tag_name: ${{ github.ref_name }}
+          name: release-${{ steps.version.outputs.version }} (reboot)
+          generate_release_notes: true
           draft: false
-          prerelease: false
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Image
+        shell: bash
+        run: |
+          make push
