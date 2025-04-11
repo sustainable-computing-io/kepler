@@ -1,23 +1,57 @@
 name: PR Checks
 
 on: # yamllint disable-line rule:truthy
-  pull_request:
+  pull_request_target:
     branches: [reboot]
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
-  # label-pr:
-  #   permissions:
-  #     contents: read
-  #     issues: read
-  #     pull-requests: write
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: checkout source
-  #       uses: actions/checkout@v4
-  #
-  #     - uses: grafana/pr-labeler-action@v0.1.0
-  #       with:
-  #         token: ${{ secrets.GITHUB_TOKEN }}
+  assign-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: Execute assign labels
+        id: action-assign-labels
+        uses: mauroalderete/action-assign-labels@v1.5.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          conventional-commits: |
+            conventional-commits:
+              - type: 'fix'
+                nouns: ['FIX', 'Fix', 'fix']
+                labels: ['fix']
+              - type: 'feat'
+                nouns: ['FEAT', 'Feat', 'feat']
+                labels: ['feat']
+              - type: 'doc'
+                nouns: ['Docs','docs','Doc','doc']
+                labels: ['docs']
+              - type: 'refactor'
+                nouns: ['Refactor','refactor']
+                labels: ['refactor']
+              - type: 'perf'
+                nouns: ['Perf','perf']
+                labels: ['perf']
+              - type: 'ci'
+                nouns: ['CI','ci']
+                labels: ['ci']
+              - type: 'chore'
+                nouns: ['Chore','chore']
+                labels: ['chore']
+              - type: 'test'
+                nouns: ['Test','test']
+                labels: ['test']
+              - type: 'revert'
+                nouns: ['Revert','revert']
+                labels: ['revert']
+          maintain-labels-not-matched: false
+          # apply-changes: false
   # docs:
   #   runs-on: ubuntu-latest
   #   steps:
