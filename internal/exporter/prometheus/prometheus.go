@@ -12,6 +12,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collectors"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 )
@@ -112,6 +113,10 @@ func (e *Exporter) Start(ctx context.Context) error {
 		e.logger.Info("Enabling debug collector", "collector", c)
 		e.registry.MustRegister(collector)
 	}
+
+	// Register build info collector
+	buildInfoCollector := collector.NewBuildInfoCollector()
+	e.registry.MustRegister(buildInfoCollector)
 
 	err := e.server.Register("/metrics", "Metrics", "Prometheus metrics",
 		promhttp.HandlerFor(
