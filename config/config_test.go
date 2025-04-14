@@ -206,7 +206,8 @@ func TestInvalidConfigurationValues(t *testing.T) {
 				Format: "jAson", // invalid log format
 			},
 			Host: Host{
-				SysFS: "/sys",
+				SysFS:  "/sys",
+				ProcFS: "/proc",
 			},
 		},
 		error: "invalid log level",
@@ -222,6 +223,30 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			},
 		},
 		error: "invalid sysfs path",
+	}, {
+		name: "custom host procfs",
+		config: &Config{
+			Log: Log{
+				Level:  "info",
+				Format: "text",
+			},
+			Host: Host{
+				ProcFS: "/invalid/path",
+			},
+		},
+		error: "invalid procfs path",
+	}, {
+		name: "unreadable host procfs",
+		config: &Config{
+			Log: Log{
+				Level:  "info",
+				Format: "text",
+			},
+			Host: Host{
+				ProcFS: "/root",
+			},
+		},
+		error: "invalid procfs path",
 	}, {
 		name: "unreadable host sysfs",
 		config: &Config{
@@ -260,6 +285,7 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			assert.Contains(t, str, "log.level: "+tc.config.Log.Level)
 			assert.Contains(t, str, "log.format: "+tc.config.Log.Format)
 			assert.Contains(t, str, "host.sysfs: "+tc.config.Host.SysFS)
+			assert.Contains(t, str, "host.procfs: "+tc.config.Host.ProcFS)
 		})
 	}
 }
@@ -273,6 +299,7 @@ func TestConfigValidation(t *testing.T) {
 		{"invalid log.level", []string{"--log.level=FATAL"}, "invalid log level"},
 		{"invalid log.format", []string{"--log.format=JASON"}, "invalid log format"},
 		{"invalid host.sysfs", []string{"--host.sysfs=/non-existent-dir"}, "invalid sysfs"},
+		{"invalid host.procfs", []string{"--host.procfs=/non-existent-dir"}, "invalid procfs"},
 	}
 
 	for _, tc := range tt {
@@ -316,6 +343,13 @@ func TestConfigString(t *testing.T) {
 				SysFS: "/sys/fake",
 			},
 		},
+	}, {
+		name: "custom host procfs",
+		config: &Config{
+			Host: Host{
+				ProcFS: "/proc/fake",
+			},
+		},
 	}}
 
 	// test yaml marshall
@@ -341,6 +375,7 @@ func TestConfigString(t *testing.T) {
 			assert.Contains(t, str, "log.level: "+tc.config.Log.Level)
 			assert.Contains(t, str, "log.format: "+tc.config.Log.Format)
 			assert.Contains(t, str, "host.sysfs: "+tc.config.Host.SysFS)
+			assert.Contains(t, str, "host.procfs: "+tc.config.Host.ProcFS)
 		})
 	}
 }

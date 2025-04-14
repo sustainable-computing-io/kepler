@@ -20,7 +20,8 @@ type (
 		Format string `yaml:"format"`
 	}
 	Host struct {
-		SysFS string `yaml:"sysfs"`
+		SysFS  string `yaml:"sysfs"`
+		ProcFS string `yaml:"procfs"`
 	}
 
 	Config struct {
@@ -31,9 +32,10 @@ type (
 
 const (
 	// Flags
-	LogLevelFlag  = "log.level"
-	LogFormatFlag = "log.format"
-	HostSysFSFlag = "host.sysfs"
+	LogLevelFlag   = "log.level"
+	LogFormatFlag  = "log.format"
+	HostSysFSFlag  = "host.sysfs"
+	HostProcFSFlag = "host.procfs"
 )
 
 // DefaultConfig returns a Config with default values
@@ -44,7 +46,8 @@ func DefaultConfig() *Config {
 			Format: "text",
 		},
 		Host: Host{
-			SysFS: "/sys",
+			SysFS:  "/sys",
+			ProcFS: "/proc",
 		},
 	}
 
@@ -108,7 +111,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	logLevel := app.Flag(LogLevelFlag, "Logging level: debug, info, warn, error").Default("info").Enum("debug", "info", "warn", "error")
 	logFormat := app.Flag(LogFormatFlag, "Logging format: text or json").Default("text").Enum("text", "json")
 	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
-
+	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -123,6 +126,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Host.SysFS = *hostSysFS
 		}
 
+		if flagsSet[HostProcFSFlag] {
+			cfg.Host.ProcFS = *hostProcFS
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
@@ -132,6 +139,7 @@ func (c *Config) sanitize() {
 	c.Log.Level = strings.TrimSpace(c.Log.Level)
 	c.Log.Format = strings.TrimSpace(c.Log.Format)
 	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
+	c.Host.ProcFS = strings.TrimSpace(c.Host.ProcFS)
 }
 
 // Validate checks for configuration errors
@@ -164,6 +172,9 @@ func (c *Config) Validate() error {
 	{ // Validate host settings
 		if err := canReadDir(c.Host.SysFS); err != nil {
 			errs = append(errs, fmt.Sprintf("invalid sysfs path: %s: %s ", c.Host.SysFS, err.Error()))
+		}
+		if err := canReadDir(c.Host.ProcFS); err != nil {
+			errs = append(errs, fmt.Sprintf("invalid procfs path: %s: %s ", c.Host.ProcFS, err.Error()))
 		}
 	}
 
@@ -211,6 +222,7 @@ func (c *Config) manualString() string {
 		{LogLevelFlag, c.Log.Level},
 		{LogFormatFlag, c.Log.Format},
 		{HostSysFSFlag, c.Host.SysFS},
+		{HostProcFSFlag, c.Host.ProcFS},
 	}
 	sb := strings.Builder{}
 
