@@ -8,18 +8,27 @@ import (
 )
 
 // Energy represents energy usage as an uint64 MicroJoule count.
-// The maximum energy that can be captured is
-// Use functions Joule and MicroJoule to get the energy value as
-// Joule or MicroJoule
+// The maximum energy that can be captured is 2^64 - 1 MicroJoules
+// Use functions Joules, MilliJoules and MicroJoules to get the energy
+// value as Joule, MilliJoule or MicroJoule respectively
 type Energy uint64
 
-// Joule returns the underlying energy value as Joules
-func (e Energy) Joules() float64 {
-	return float64(e) / 1_000_000
-}
+const (
+	MicroJoule Energy = 1
+	MilliJoule        = 1000 * MicroJoule
+	Joule             = 1000 * MilliJoule
+)
 
 func (e Energy) MicroJoules() uint64 {
 	return uint64(e)
+}
+
+func (e Energy) MilliJoules() float64 {
+	return float64(e) / float64(MilliJoule)
+}
+
+func (e Energy) Joules() float64 {
+	return float64(e) / float64(Joule)
 }
 
 func (e Energy) String() string {
@@ -27,8 +36,8 @@ func (e Energy) String() string {
 }
 
 // Power represents power usage as an float64 MicroWatts.
-// Use functions Watts and MicroWatts to get the power value as
-// Watts or MicroWatts
+// Use functions Watts, MilliWatts and MicroWatts to get the power value as
+// Watts, MilliWatts or MicroWatts respectively
 type Power float64
 
 const (
