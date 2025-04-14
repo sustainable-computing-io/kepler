@@ -155,8 +155,19 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	apiServer := server.NewAPIServer(
 		server.WithLogger(logger),
 	)
+
+	collectors, err := prometheus.CreateCollectors(
+		pm,
+		prometheus.WithLogger(logger),
+		prometheus.WithProcFSPath(cfg.Host.ProcFS),
+	)
 	// TODO: enable exporters based on config / flags
-	promExporter := prometheus.NewExporter(pm, apiServer, prometheus.WithLogger(logger))
+	promExporter := prometheus.NewExporter(
+		pm,
+		apiServer,
+		prometheus.WithLogger(logger),
+		prometheus.WithCollectors(collectors),
+	)
 
 	return []service.Service{
 		promExporter,
