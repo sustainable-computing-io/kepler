@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	namespace      = "kepler"
 	buildSubsystem = "build"
 )
 

@@ -118,6 +118,10 @@ func (e *Exporter) Start(ctx context.Context) error {
 	buildInfoCollector := collector.NewBuildInfoCollector()
 	e.registry.MustRegister(buildInfoCollector)
 
+	// TODO: pass sysroot from config
+	cpuInfoCollector := collector.NewCpuInfoCollector("")
+	e.registry.MustRegister(cpuInfoCollector)
+
 	err := e.server.Register("/metrics", "Metrics", "Prometheus metrics",
 		promhttp.HandlerFor(
 			e.registry,
