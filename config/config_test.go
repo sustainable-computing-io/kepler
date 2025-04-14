@@ -191,7 +191,80 @@ func TestReadError(t *testing.T) {
 func TestInvalidConfigurationValues(t *testing.T) {
 	// Test validation of configuration values (command line and YAML)
 	// Create a kingpin app and register flags
+	tt := []struct {
+		name   string
+		config *Config
+		error  string
+	}{{
+		name:   "default config",
+		config: DefaultConfig(), // no errors
+	}, {
+		name: "custom config",
+		config: &Config{
+			Log: Log{
+				Level:  "debg",  // invalid log level
+				Format: "jAson", // invalid log format
+			},
+			Host: Host{
+				SysFS: "/sys",
+			},
+		},
+		error: "invalid log level",
+	}, {
+		name: "custom host sysfs",
+		config: &Config{
+			Log: Log{
+				Level:  "info",
+				Format: "text",
+			},
+			Host: Host{
+				SysFS: "/invalid/path",
+			},
+		},
+		error: "invalid sysfs path",
+	}, {
+		name: "unreadable host sysfs",
+		config: &Config{
+			Log: Log{
+				Level:  "info",
+				Format: "text",
+			},
+			Host: Host{
+				SysFS: "/root",
+			},
+		},
+		error: "invalid sysfs path",
+	}}
 
+	// test yaml marshall
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			// Get string representation
+			err := tc.config.Validate()
+			if tc.error == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.error)
+			}
+		})
+	}
+
+	// test manual string builder approach
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			// Get string representation
+			str := tc.config.manualString()
+
+			// Verify it's valid YAML and contains the expected values
+			assert.Contains(t, str, "log.level: "+tc.config.Log.Level)
+			assert.Contains(t, str, "log.format: "+tc.config.Log.Format)
+			assert.Contains(t, str, "host.sysfs: "+tc.config.Host.SysFS)
+		})
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
 	tt := []struct {
 		name          string
 		args          []string
@@ -199,6 +272,7 @@ func TestInvalidConfigurationValues(t *testing.T) {
 	}{
 		{"invalid log.level", []string{"--log.level=FATAL"}, "invalid log level"},
 		{"invalid log.format", []string{"--log.format=JASON"}, "invalid log format"},
+		{"invalid host.sysfs", []string{"--host.sysfs=/non-existent-dir"}, "invalid sysfs"},
 	}
 
 	for _, tc := range tt {
@@ -216,7 +290,7 @@ func TestInvalidConfigurationValues(t *testing.T) {
 }
 
 func TestConfigString(t *testing.T) {
-	testCases := []struct {
+	tt := []struct {
 		name   string
 		config *Config
 	}{{
@@ -235,10 +309,17 @@ func TestConfigString(t *testing.T) {
 				Format: "json",
 			},
 		},
+	}, {
+		name: "custom host sysfs",
+		config: &Config{
+			Host: Host{
+				SysFS: "/sys/fake",
+			},
+		},
 	}}
 
 	// test yaml marshall
-	for _, tc := range testCases {
+	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			// Get string representation
 			str := tc.config.String()
@@ -251,7 +332,7 @@ func TestConfigString(t *testing.T) {
 	}
 
 	// test manual string builder approach
-	for _, tc := range testCases {
+	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			// Get string representation
 			str := tc.config.manualString()
@@ -259,6 +340,7 @@ func TestConfigString(t *testing.T) {
 			// Verify it's valid YAML and contains the expected values
 			assert.Contains(t, str, "log.level: "+tc.config.Log.Level)
 			assert.Contains(t, str, "log.format: "+tc.config.Log.Format)
+			assert.Contains(t, str, "host.sysfs: "+tc.config.Host.SysFS)
 		})
 	}
 }
