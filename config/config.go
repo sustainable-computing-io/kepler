@@ -19,9 +19,13 @@ type (
 		Level  string `yaml:"level"`
 		Format string `yaml:"format"`
 	}
+	Host struct {
+		SysFS string `yaml:"sysfs"`
+	}
 
 	Config struct {
-		Log Log `yaml:"log"`
+		Log  Log  `yaml:"log"`
+		Host Host `yaml:"host"`
 	}
 )
 
@@ -29,6 +33,7 @@ const (
 	// Flags
 	LogLevelFlag  = "log.level"
 	LogFormatFlag = "log.format"
+	HostSysFSFlag = "host.sysfs"
 )
 
 // DefaultConfig returns a Config with default values
@@ -37,6 +42,9 @@ func DefaultConfig() *Config {
 		Log: Log{
 			Level:  "info",
 			Format: "text",
+		},
+		Host: Host{
+			SysFS: "/sys",
 		},
 	}
 
@@ -99,6 +107,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	// Logging
 	logLevel := app.Flag(LogLevelFlag, "Logging level: debug, info, warn, error").Default("info").Enum("debug", "info", "warn", "error")
 	logFormat := app.Flag(LogFormatFlag, "Logging format: text or json").Default("text").Enum("text", "json")
+	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -110,6 +119,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Log.Format = *logFormat
 		}
 
+		if flagsSet[HostSysFSFlag] {
+			cfg.Host.SysFS = *hostSysFS
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
@@ -118,6 +131,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 func (c *Config) sanitize() {
 	c.Log.Level = strings.TrimSpace(c.Log.Level)
 	c.Log.Format = strings.TrimSpace(c.Log.Format)
+	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
 }
 
 // Validate checks for configuration errors
@@ -147,8 +161,33 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	{ // Validate host settings
+		if err := canReadDir(c.Host.SysFS); err != nil {
+			errs = append(errs, fmt.Sprintf("invalid sysfs path: %s: %s ", c.Host.SysFS, err.Error()))
+		}
+	}
+
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %s", strings.Join(errs, ", "))
+	}
+
+	return nil
+}
+
+func canReadDir(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		// ignored on purpose
+		_ = f.Close()
+	}()
+
+	_, err = f.ReadDir(1)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -171,6 +210,7 @@ func (c *Config) manualString() string {
 	}{
 		{LogLevelFlag, c.Log.Level},
 		{LogFormatFlag, c.Log.Format},
+		{HostSysFSFlag, c.Host.SysFS},
 	}
 	sb := strings.Builder{}
 
