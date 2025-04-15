@@ -7,17 +7,16 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
-// MockCPUPowerMeter is a mock implementation of device.CPUPowerMeter
+// MockCPUPowerMeter is a mock implementation of CPUPowerMeter
 type MockCPUPowerMeter struct {
 	mock.Mock
 }
 
-func (m *MockCPUPowerMeter) Zones() ([]device.EnergyZone, error) {
+func (m *MockCPUPowerMeter) Zones() ([]EnergyZone, error) {
 	args := m.Called()
-	return args.Get(0).([]device.EnergyZone), args.Error(1)
+	return args.Get(0).([]EnergyZone), args.Error(1)
 }
 
 func (m *MockCPUPowerMeter) Name() string {
@@ -54,12 +53,12 @@ func (m *MockEnergyZone) Path() string {
 	return args.String(0)
 }
 
-func (m *MockEnergyZone) Energy() device.Energy {
+func (m *MockEnergyZone) Energy() (Energy, error) {
 	args := m.Called()
-	return args.Get(0).(device.Energy)
+	return args.Get(0).(Energy), args.Error(1)
 }
 
-func (m *MockEnergyZone) MaxEnergy() device.Energy {
+func (m *MockEnergyZone) MaxEnergy() Energy {
 	args := m.Called()
-	return args.Get(0).(device.Energy)
+	return args.Get(0).(Energy)
 }
