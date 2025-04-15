@@ -118,6 +118,10 @@ func (e *Exporter) Start(ctx context.Context) error {
 	buildInfoCollector := collector.NewBuildInfoCollector()
 	e.registry.MustRegister(buildInfoCollector)
 
+	// Register power collector
+	powerCollector := collector.NewPowerCollector(e.monitor, e.logger)
+	e.registry.MustRegister(powerCollector)
+
 	err := e.server.Register("/metrics", "Metrics", "Prometheus metrics",
 		promhttp.HandlerFor(
 			e.registry,

@@ -98,7 +98,9 @@ func TestNewExporter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockMonitor := new(MockMonitor)
+			mockMonitor := &MockMonitor{}
+			mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
+
 			mockRegistry := new(MockAPIRegistry)
 
 			exporter := NewExporter(mockMonitor, mockRegistry, tt.opts...)
@@ -115,6 +117,7 @@ func TestNewExporter(t *testing.T) {
 
 func TestExporter_Name(t *testing.T) {
 	mockMonitor := &MockMonitor{}
+	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 	mockRegistry := &MockAPIRegistry{}
 
 	exporter := NewExporter(mockMonitor, mockRegistry)
@@ -125,6 +128,7 @@ func TestExporter_Name(t *testing.T) {
 func TestExporter_Start(t *testing.T) {
 	t.Run("starts successfully", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
+		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 		mockRegistry := &MockAPIRegistry{}
 
 		// Setup the mock expectations
@@ -155,6 +159,7 @@ func TestExporter_Start(t *testing.T) {
 
 	t.Run("registry returns error", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
+		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 		mockRegistry := &MockAPIRegistry{}
 
 		// Setup the mock to return an error
@@ -174,6 +179,7 @@ func TestExporter_Start(t *testing.T) {
 
 	t.Run("with invalid collector", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
+		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 		mockRegistry := &MockAPIRegistry{}
 
 		// Create an exporter with an unknown collector
@@ -194,6 +200,7 @@ func TestExporter_Start(t *testing.T) {
 
 	t.Run("with multiple valid collectors", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
+		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 		mockRegistry := &MockAPIRegistry{}
 
 		mockRegistry.On("Register", "/metrics", "Metrics", "Prometheus metrics", mock.Anything).Return(nil)
@@ -223,6 +230,7 @@ func TestExporter_Start(t *testing.T) {
 
 func TestExporter_Stop(t *testing.T) {
 	mockMonitor := &MockMonitor{}
+	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 	mockRegistry := &MockAPIRegistry{}
 
 	exporter := NewExporter(mockMonitor, mockRegistry)
@@ -314,6 +322,7 @@ func TestDefaultOpts(t *testing.T) {
 
 func TestExporter_Integration(t *testing.T) {
 	mockMonitor := &MockMonitor{}
+	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 	mockRegistry := &MockAPIRegistry{}
 
 	mockRegistry.On("Register", "/metrics", "Metrics", "Prometheus metrics", mock.Anything).Return(nil)
@@ -349,7 +358,7 @@ func TestExporter_Integration(t *testing.T) {
 	// Verify all mocks
 	mockRegistry.AssertExpectations(t)
 	// TODO: verify mockMonitor calls once the exporter is implemented
-	// mockMonitor.AssertExpectations(t)
+	mockMonitor.AssertExpectations(t)
 
 	// Test stop method
 	err := exporter.Stop()
