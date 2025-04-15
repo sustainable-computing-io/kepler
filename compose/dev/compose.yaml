@@ -25,11 +25,10 @@ services:
         source: /sys
         target: /host/sys
         read_only: true
-    # command:
-    #  - --log.level=debug
-    #  - --host.proc=/host/proc
-    #  - --host.sys=/host/sys
-    #  - --monitor.interval=2500ms
+    command:
+      - --log.level=debug
+      - --host.procfs=/host/proc
+      - --host.sysfs=/host/sys
 
     networks:
       - kepler-network

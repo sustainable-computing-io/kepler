@@ -1,3 +1,7 @@
 log:
-  level: debug  # default: info
-  format: text  # default
+  level: debug  # debug, info, warn, error (default: info)
+  format: text  # text or json (default: text)
+
+host:
+  sysfs: /sys   # Path to sysfs filesystem (default: /sys)
+  procfs: /proc # Path to procfs filesystem (default: /proc)
