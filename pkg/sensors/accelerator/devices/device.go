@@ -152,10 +152,11 @@ func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, de
 			return errors.New("multiple Devices attempting to register with name")
 		}
 
-		if dtype == DCGM {
+		switch dtype {
+		case DCGM:
 			// Remove "nvml" if "dcgm" is being registered
 			registry.Unregister(NVML)
-		} else if dtype == NVML {
+		case NVML:
 			// Do not register "nvml" if "dcgm" is already registered
 			if _, ok := registry.Registry[config.GPU][DCGM]; ok {
 				return errors.New("DCGM already registered. Skipping NVML")

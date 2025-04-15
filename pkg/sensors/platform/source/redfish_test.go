@@ -33,7 +33,8 @@ func TestRedFishClient_IsPowerSupported(t *testing.T) {
 
 	// Create a mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/redfish/v1/Chassis" {
+		switch r.URL.Path {
+		case "/redfish/v1/Chassis":
 			system := RedfishChassisModel{
 				Name: "Test Chassis",
 				Members: []struct {
@@ -50,7 +51,7 @@ func TestRedFishClient_IsPowerSupported(t *testing.T) {
 			if err := json.NewEncoder(w).Encode(system); err != nil {
 				fmt.Println(err)
 			}
-		} else if r.URL.Path == "/redfish/v1/Chassis/1/Power" || r.URL.Path == "/redfish/v1/Chassis/2/Power" {
+		case "/redfish/v1/Chassis/1/Power", "/redfish/v1/Chassis/2/Power":
 			power := RedfishPowerModel{
 				Name: "Test Power",
 				PowerControl: []PowerControl{
@@ -62,7 +63,8 @@ func TestRedFishClient_IsPowerSupported(t *testing.T) {
 			if err := json.NewEncoder(w).Encode(power); err != nil {
 				fmt.Println(err)
 			}
-		} else {
+
+		default:
 			fmt.Printf("Path not found: %s\n", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 		}

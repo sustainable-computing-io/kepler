@@ -26,7 +26,7 @@ type LogarithmicPredictor struct {
 }
 
 func NewLogarithmicPredictor(weight ModelWeights) (predictor Predictor, err error) {
-	if len(weight.AllWeights.CurveFitWeights) != 3 {
+	if len(weight.CurveFitWeights) != 3 {
 		return nil, fmt.Errorf("logarithmic predictor: %w", errModelWeightsInvalid)
 	}
 
@@ -38,16 +38,16 @@ func (LogarithmicPredictor) name() string {
 }
 
 func (p *LogarithmicPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
-	categoricalX, numericalX, _ := p.ModelWeights.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	categoricalX, numericalX, _ := p.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	var basePower float64
 	// TODO: update categoricalX transform (current no categorical value trained)
 	for _, val := range categoricalX {
 		basePower += val
 	}
 	var powers []float64
-	a := p.ModelWeights.CurveFitWeights[0]
-	b := p.ModelWeights.CurveFitWeights[1]
-	c := p.ModelWeights.CurveFitWeights[2]
+	a := p.CurveFitWeights[0]
+	b := p.CurveFitWeights[1]
+	c := p.CurveFitWeights[2]
 	for _, x := range numericalX {
 		// note: curvefit use only index 0 feature
 		power := basePower + a*math.Log(b*x[0]+1) + c

@@ -32,7 +32,7 @@ type LinearPredictor struct {
 
 // NewLinearPredictor creates a new LinearPredictor instance with the provided ModelWeights
 func NewLinearPredictor(weight ModelWeights) (predictor Predictor, err error) {
-	if len(weight.AllWeights.CurveFitWeights) != 0 {
+	if len(weight.CurveFitWeights) != 0 {
 		return nil, fmt.Errorf("linear predictor: %w", errModelWeightsInvalid)
 	}
 
@@ -44,8 +44,8 @@ func (p *LinearPredictor) name() string {
 }
 
 func (p *LinearPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
-	categoricalX, numericalX, numericalWeights := p.ModelWeights.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
-	basePower := p.ModelWeights.AllWeights.BiasWeight
+	categoricalX, numericalX, numericalWeights := p.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	basePower := p.BiasWeight
 	for _, val := range categoricalX {
 		basePower += val
 	}

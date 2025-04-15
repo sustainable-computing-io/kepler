@@ -26,7 +26,7 @@ type LogisticPredictor struct {
 }
 
 func NewLogisticPredictor(weight ModelWeights) (predictor Predictor, err error) {
-	if len(weight.AllWeights.CurveFitWeights) != 4 {
+	if len(weight.CurveFitWeights) != 4 {
 		return nil, fmt.Errorf("logistic predictor: %w", errModelWeightsInvalid)
 	}
 
@@ -38,17 +38,17 @@ func (LogisticPredictor) name() string {
 }
 
 func (p *LogisticPredictor) predict(usageMetricNames []string, usageMetricValues [][]float64, systemMetaDataFeatureNames, systemMetaDataFeatureValues []string) []float64 {
-	categoricalX, numericalX, _ := p.ModelWeights.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
+	categoricalX, numericalX, _ := p.getX(usageMetricNames, usageMetricValues, systemMetaDataFeatureNames, systemMetaDataFeatureValues)
 	var basePower float64
 	// TODO: update categoricalX transform (current no categorical value trained)
 	for _, val := range categoricalX {
 		basePower += val
 	}
 	var powers []float64
-	A := p.ModelWeights.CurveFitWeights[0]
-	x0 := p.ModelWeights.CurveFitWeights[1]
-	k := p.ModelWeights.CurveFitWeights[2]
-	off := p.ModelWeights.CurveFitWeights[3]
+	A := p.CurveFitWeights[0]
+	x0 := p.CurveFitWeights[1]
+	k := p.CurveFitWeights[2]
+	off := p.CurveFitWeights[3]
 	for _, x := range numericalX {
 		// note: curvefit use only index 0 feature
 		power := basePower + A/(1+math.Exp(-k*(x[0]-x0))) + off
