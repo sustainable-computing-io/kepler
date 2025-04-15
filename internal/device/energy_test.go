@@ -52,6 +52,29 @@ func TestEnergy_MicroJoules(t *testing.T) {
 	}
 }
 
+func TestEnergy_MilliJoules(t *testing.T) {
+	tests := []struct {
+		name   string
+		energy Energy
+		want   float64
+	}{
+		{"Zero", 0, 0.0},
+		{"2 Thousand MilliJoules", 2_000_000, 2_000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.energy.MilliJoules()
+			assert.Equal(t, tt.want, got, "MilliJoules = %v, want %v", got, tt.want)
+		})
+	}
+
+	// NOTE: cannot compare Max Milli joules directly as above due to float64 precision
+	// E.g. {"Max MilliJoules", math.MaxFloat64 / 1000 * MilliWatt, math.MaxFloat64}, won't work
+	// compute max milli Joules
+	maxMilliJoules := Energy(math.MaxUint64 * MicroJoule).MilliJoules()
+	assert.InDelta(t, math.MaxUint64/1_000, maxMilliJoules, 0.01)
+}
+
 func TestEnergy_String(t *testing.T) {
 	tests := []struct {
 		name   string

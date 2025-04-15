@@ -13,6 +13,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/oklog/run"
 	"github.com/sustainable-computing-io/kepler/config"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
@@ -32,7 +33,12 @@ func main() {
 	printConfigInfo(logger, cfg)
 
 	// create & register all services with run group
-	services := createServices(logger)
+	services, err := createServices(logger, cfg)
+	if err != nil {
+		logger.Error("failed to create services", "error", err)
+		os.Exit(1)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	var g run.Group
 	for _, s := range services {
@@ -139,11 +145,13 @@ Configuration
 `, cfg)
 }
 
-func createServices(logger *slog.Logger) []service.Service {
+func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service, error) {
 	logger.Debug("Creating all services")
-	pm := monitor.NewPowerMonitor(
-		monitor.WithLogger(logger),
-	)
+	pm, err := createPowerMonitor(logger, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create power monitor: %w", err)
+	}
+
 	apiServer := server.NewAPIServer(
 		server.WithLogger(logger),
 	)
@@ -154,5 +162,20 @@ func createServices(logger *slog.Logger) []service.Service {
 		promExporter,
 		apiServer,
 		pm,
+	}, nil
+}
+
+func createPowerMonitor(logger *slog.Logger, cfg *config.Config) (*monitor.PowerMonitor, error) {
+	logger.Debug("Creating PowerMonitor")
+	cpuPowerMeter, err := device.NewCPUPowerMeter(cfg.Host.SysFS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
+
+	pm := monitor.NewPowerMonitor(
+		cpuPowerMeter,
+		monitor.WithLogger(logger),
+	)
+
+	return pm, nil
 }

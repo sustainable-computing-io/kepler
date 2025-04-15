@@ -20,7 +20,7 @@ type (
 type Usage struct {
 	Absolute Energy // Cumulative joules counter
 	Delta    Energy // Difference since last measurement
-	Watts    Power  // Current power in watts
+	Power    Power  // Current power in watts
 }
 
 // ZoneUsageMap maps zones to energy data
@@ -49,7 +49,7 @@ type Snapshot struct {
 // NewSnapshot creates a new Snapshot instance
 func NewSnapshot() *Snapshot {
 	return &Snapshot{
-		Timestamp: time.Now(),
+		// Timestamp: time.Time{}, // Zero value to indicate unset
 		Node: &Node{
 			Zones: make(ZoneUsageMap),
 		},
