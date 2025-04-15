@@ -1,51 +1,15 @@
-linters-settings:
-  dupl:
-    threshold: 150
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-  goimports:
-    local-prefixes: github.com/golangci/golangci-lint
-
-  govet:
-    enable:
-      - shadow
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-  lll:
-    line-length: 140
-  misspell:
-    locale: US
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
+    - asciicheck
     - bodyclose
     - dupl
     - errcheck
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
     - goprintffuncname
-    - gosimple
     - govet
     - ineffassign
     - misspell
@@ -53,41 +17,70 @@ linters:
     - noctx
     - nolintlint
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
-    - whitespace
     - unused
-    - asciicheck
-    # don't enable:
-    # - lll
-    # - dogsled
-    # - gochecknoinits
-    # - gomnd
-    # - unused
-    # TODO: try to enable
-    # - scopelint
-    # - gochecknoglobals
-    # - gocognit
-    # - godot
-    # - godox
-    # - goerr113
-    # - interfacer
-    # - maligned
-    # - nestif
-    # - prealloc
-    # - testpackage
-    # - revive
-    # - wsl
-    # - funlen
-
-run:
-  timeout: 5m
-
-issues:
-  exclude-rules:
-    - linters: [dupl]
-      text: .*pkg/collector/stats/types/types_test.go.* # false positive, https://github.com/mibk/dupl/issues/20
-    - text: 'shadow: declaration of "(err|ctx)" shadows declaration at' # yamllint disable-line rule:quoted-strings
-      linters: [govet]
+    - whitespace
+  settings:
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    govet:
+      enable:
+        - shadow
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+        text: .*pkg/collector/stats/types/types_test.go.*
+      - linters:
+          - govet
+        text: 'shadow: declaration of "(err|ctx)" shadows declaration at' # yamllint disable-line rule:quoted-strings
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/golangci/golangci-lint
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

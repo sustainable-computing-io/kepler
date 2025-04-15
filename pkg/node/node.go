@@ -285,11 +285,12 @@ func getCPUArchitecture() (string, error) {
 		myCPUArch string
 		err       error
 	)
-	if runtime.GOARCH == "amd64" {
+	switch runtime.GOARCH {
+	case "amd64":
 		myCPUArch, err = x86Architecture()
-	} else if runtime.GOARCH == "s390x" {
+	case "s390x":
 		return s390xArchitecture()
-	} else {
+	default:
 		myCPUArch, err = cpuPmuName()
 	}
 
