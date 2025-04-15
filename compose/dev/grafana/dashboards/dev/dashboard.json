@@ -15,10 +15,10 @@
       }
     ]
   },
-  "description": "This dashboard visualizes energy consumption metrics collected by k2, Node exporter, and Kepler, providing comparison between different measurement sources.",
+  "description": "A comprehensive dashboard visualizing energy consumption metrics from Kepler Reboot, Node Exporter, and Kepler, with detailed comparisons between measurement sources for system-wide and per-process energy monitoring.",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": 4,
   "links": [],
   "panels": [
@@ -32,7 +32,7 @@
       },
       "id": 7,
       "panels": [],
-      "title": "Overview",
+      "title": "📊 Dashboard Overview",
       "type": "row"
     },
     {
@@ -42,7 +42,7 @@
       },
       "description": "Overall dashboard explanation and information about the metrics being collected",
       "gridPos": {
-        "h": 6,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 1
@@ -54,7 +54,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## Energy Monitoring Dashboard\n\nThis dashboard compares energy consumption metrics from multiple sources:\n- **k2**: K2 energy monitoring tool\n- **Node Exporter**: Prometheus node exporter metrics\n- **Kepler**: Kubernetes-based energy monitoring\n\nUse the variables at the top to select the RAPL zone, job, and process to monitor. The dashboard shows both system-wide and per-process energy consumption metrics.",
+        "content": "## 🔋 Energy Monitoring Dashboard\n\nThis dashboard provides a comprehensive comparison of energy consumption metrics from multiple sources:\n\n| Source | Description |\n|--------|-------------|\n| **🚀 Kepler Reboot** | Next generation of Kepler energy monitoring with enhanced precision |\n| **🔥 Node Exporter** | Prometheus node exporter metrics for hardware-level monitoring |\n| **⚡ Kepler** | Kubernetes-based energy monitoring for containerized environments |\n\nUse the variables at the top to select the RAPL zone, job, and process to monitor. The dashboard provides:\n- System-wide energy consumption metrics\n- Per-process energy attribution\n- Comparison between different monitoring solutions\n- Measurement deltas to evaluate accuracy",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -65,7 +65,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "CPU information from the k2 monitoring tool",
+      "description": "CPU information from the Kepler Reboot monitoring tool",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -108,7 +108,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 11
       },
       "id": 164,
       "options": {
@@ -132,7 +132,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (instance, model_name, vendor_id) (k2_node_cpu_info)",
+          "expr": "count by (instance, model_name, vendor_id) (kepler_node_cpu_info)",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -167,7 +167,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Build information for k2 monitoring tool",
+      "description": "Build information for Kepler Reboot",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -197,7 +197,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 11
+        "y": 15
       },
       "id": 161,
       "options": {
@@ -221,7 +221,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "k2_build_info",
+          "expr": "kepler_build_info",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -229,7 +229,7 @@
           "refId": "A"
         }
       ],
-      "title": "k2 Build Information",
+      "title": "Kepler Reboot Build Information",
       "transformations": [
         {
           "id": "filterFieldsByName",
@@ -293,7 +293,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 11
+        "y": 15
       },
       "id": 162,
       "options": {
@@ -385,7 +385,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 11
+        "y": 15
       },
       "id": 163,
       "options": {
@@ -448,11 +448,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 19
       },
       "id": 156,
       "panels": [],
-      "title": "Node-Level Metrics",
+      "title": "🖥️ Node-Level Metrics",
       "type": "row"
     },
     {
@@ -464,15 +464,27 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 5
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 50
               }
             ]
           },
@@ -484,11 +496,11 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 20
       },
       "id": 155,
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
@@ -511,9 +523,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])",
+          "expr": "rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])",
           "instant": false,
-          "legendFormat": "K2 Node (${zones})",
+          "legendFormat": "Kepler Reboot Node (${zones})",
           "range": true,
           "refId": "A"
         },
@@ -523,9 +535,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "k2_node_rapl_${zones}_watts{job=\"${job}\"}",
+          "expr": "kepler_node_${zones}_watts{job=\"${job}\"}",
           "instant": false,
-          "legendFormat": "K2 Node (${zones}) Watts",
+          "legendFormat": "Kepler Reboot Node (${zones}) Watts",
           "range": true,
           "refId": "B"
         },
@@ -547,7 +559,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "instant": false,
           "legendFormat": "Kepler (${zones})",
           "range": true,
@@ -562,7 +574,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between Node exporter and k2 energy measurements in joules. Values close to zero indicate good alignment between the metrics.",
+      "description": "Difference between Node exporter and Kepler Reboot energy measurements in joules. Values close to zero indicate good alignment between the metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -648,7 +660,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 24
       },
       "id": 99,
       "options": {
@@ -677,14 +689,14 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
           "instant": false,
           "legendFormat": "Delta (${zones})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Exporter vs k2 Measurement Delta (Joules)",
+      "title": "Node Exporter vs Kepler Reboot Measurement Delta (Joules)",
       "type": "timeseries"
     },
     {
@@ -692,7 +704,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between Node exporter and k2 energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
+      "description": "Difference between Node exporter and Kepler Reboot energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -778,7 +790,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 24
       },
       "id": 151,
       "options": {
@@ -807,14 +819,14 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(k2_node_rapl_${zones}_watts)\n",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(kepler_node_${zones}_watts)\n",
           "instant": false,
           "legendFormat": "Delta (${zones})",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Exporter vs k2 Measurement Delta (Watts)",
+      "title": "Node Exporter vs Kepler Reboot Measurement Delta (Watts)",
       "type": "timeseries"
     },
     {
@@ -822,7 +834,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Direct comparison of energy measurements from all three monitoring systems - Node Exporter, k2, and Kepler.",
+      "description": "Direct comparison of energy measurements from all three monitoring systems - Node Exporter, Kepler Reboot, and Kepler.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -879,7 +891,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 32
       },
       "id": 153,
       "options": {
@@ -907,9 +919,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])",
+          "expr": "rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])",
           "instant": false,
-          "legendFormat": "k2 (${zones})",
+          "legendFormat": "Kepler Reboot (${zones})",
           "range": true,
           "refId": "A"
         },
@@ -932,7 +944,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Kepler (${zones})",
@@ -949,11 +961,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 42
       },
       "id": 102,
       "panels": [],
-      "title": "Process-Level Metrics",
+      "title": "⚙️ Process-Level Metrics",
       "type": "row"
     },
     {
@@ -963,10 +975,10 @@
       },
       "description": "Comparing process-level monitoring with selected PID: ${pid} (${process})",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 43
       },
       "id": 157,
       "options": {
@@ -975,7 +987,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## Process Energy Monitoring\n\nThis section compares process-level energy metrics between k2 and Kepler. You can select a process using the variable selector at the top of the dashboard.\n\nThe comparison shows both the direct process measurements and the delta between node-level and process-level measurements.",
+        "content": "## 📊 Process Energy Monitoring\n\nThis section compares process-level energy metrics between Kepler Reboot and Kepler. **Select a process** using the variable selector at the top of the dashboard.\n\nThe comparison shows:\n- Direct process measurements from both monitoring systems\n- Delta between node-level and process-level measurements (attribution gap)",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -1060,7 +1072,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 48
       },
       "id": 131,
       "options": {
@@ -1101,7 +1113,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zones}_joules_total[20s])) - sum(rate(kepler_process_${zones}_joules_total[20s]))",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
           "legendFormat": "kepler attribution gap",
@@ -1117,7 +1129,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Direct comparison of process energy measurements between k2 and Kepler for the selected process (PID: ${pid}).",
+      "description": "Direct comparison of process energy measurements between Kepler Reboot and Kepler for the selected process (PID: ${pid}).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1174,7 +1186,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 56
       },
       "id": 100,
       "options": {
@@ -1232,11 +1244,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 64
       },
       "id": 158,
       "panels": [],
-      "title": "Summary",
+      "title": "📈 Summary & Analysis",
       "type": "row"
     },
     {
@@ -1265,6 +1277,10 @@
                 "value": 30
               },
               {
+                "color": "orange",
+                "value": 50
+              },
+              {
                 "color": "red",
                 "value": 70
               }
@@ -1278,7 +1294,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 65
       },
       "id": 159,
       "options": {
@@ -1292,9 +1308,13 @@
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
+        "showThresholdLabels": true,
         "showThresholdMarkers": true,
-        "sizing": "auto"
+        "sizing": "auto",
+        "text": {
+          "titleSize": 18,
+          "valueSize": 24
+        }
       },
       "pluginVersion": "10.4.2",
       "targets": [
@@ -1304,14 +1324,14 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "100 * (sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])) - sum(rate(k2_process_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))) / sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\"}[20s]))) / sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))",
           "instant": false,
-          "legendFormat": "k2 attribution gap (%)",
+          "legendFormat": "Kepler Reboot attribution gap (%)",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "k2 - Energy Attribution Gap Percentage",
+      "title": "Kepler Reboot - Energy Attribution Gap",
       "type": "gauge"
     },
     {
@@ -1340,6 +1360,10 @@
                 "value": 30
               },
               {
+                "color": "orange",
+                "value": 50
+              },
+              {
                 "color": "red",
                 "value": 70
               }
@@ -1353,7 +1377,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 65
       },
       "id": 160,
       "options": {
@@ -1367,9 +1391,13 @@
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
+        "showThresholdLabels": true,
         "showThresholdMarkers": true,
-        "sizing": "auto"
+        "sizing": "auto",
+        "text": {
+          "titleSize": 18,
+          "valueSize": 24
+        }
       },
       "pluginVersion": "10.4.2",
       "targets": [
@@ -1379,42 +1407,48 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total[20s])) - sum(rate(kepler_process_${zones}_joules_total[20s]))) / sum(rate(kepler_node_${zones}_joules_total[20s]))",
+          "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))) / sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "instant": false,
           "legendFormat": "kepler attribution gap (%)",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Kepler - Energy Attribution Gap Percentage",
+      "title": "Kepler - Energy Attribution Gap",
       "type": "gauge"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": [],
+  "tags": [
+    "energy",
+    "monitoring",
+    "kepler",
+    "performance"
+  ],
   "templating": {
     "list": [
       {
         "current": {
           "selected": false,
-          "text": "/usr/lib/systemd/systemd | 1",
-          "value": "1"
+          "text": "None",
+          "value": ""
         },
         "datasource": {
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "query_result(label_join( count by (pid, comm) (k2_process_rapl_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
-        "description": "Select a process to monitor",
+        "definition": "query_result(label_join( count by (pid, comm) (kepler_process_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
+        "description": "Select a process to monitor for detailed energy consumption analysis",
         "hide": 0,
         "includeAll": false,
+        "label": "🔍 Select Process",
         "multi": false,
         "name": "process",
         "options": [],
         "query": {
           "qryType": 3,
-          "query": "query_result(label_join( count by (pid, comm) (k2_process_rapl_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
+          "query": "query_result(label_join( count by (pid, comm) (kepler_process_package_watts{job=\"$job\"}), \"process\", \" | \", \"comm\", \"pid\" )\t)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1425,24 +1459,25 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "k2-dev",
-          "value": "k2-dev"
+          "selected": true,
+          "text": "kepler-dev",
+          "value": "kepler-dev"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "label_values(k2_node_rapl_package_joules_total,job)",
-        "description": "k2 job/instance",
+        "definition": "label_values(kepler_node_package_watts,job)",
+        "description": "Select Kepler Reboot job/instance for monitoring",
         "hide": 0,
         "includeAll": false,
+        "label": "⚙️ Kepler Job",
         "multi": false,
         "name": "job",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(k2_node_rapl_package_joules_total,job)",
+          "query": "label_values(kepler_node_package_watts,job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1461,21 +1496,21 @@
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "metrics(k2_node_rapl.*_joules_total)",
+        "definition": "metrics(kepler_node.*_watts)",
         "description": "RAPL energy monitoring zones (package, core, dram, etc.)",
         "hide": 0,
         "includeAll": false,
-        "label": "Energy Zone",
+        "label": "🔋 Energy Zone",
         "multi": false,
         "name": "zones",
         "options": [],
         "query": {
           "qryType": 2,
-          "query": "metrics(k2_node_rapl.*_joules_total)",
+          "query": "metrics(kepler_node_.*_watts)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "k2_node_rapl_([a-z]+)_joules_total",
+        "regex": "kepler_node_([a-z]+)_watts",
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
@@ -1487,17 +1522,11 @@
           "value": "1"
         },
         "description": "Process ID extracted from process selection",
-        "hide": 0,
+        "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "pid",
-        "options": [
-          {
-            "selected": true,
-            "text": "1",
-            "value": "1"
-          }
-        ],
+        "options": [],
         "query": "${process}",
         "queryValue": "",
         "skipUrlSync": false,
@@ -1524,7 +1553,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "K2 Energy Monitor",
+  "title": "Kepler Energy Monitoring Dashboard",
   "uid": "behh30oymoi68f",
   "version": 4,
   "weekStart": ""
