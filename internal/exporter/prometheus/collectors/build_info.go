@@ -4,7 +4,7 @@
 package collectors
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/version"
 )
 
@@ -14,13 +14,13 @@ const (
 )
 
 type BuildInfoCollector struct {
-	buildInfo *prometheus.GaugeVec
+	buildInfo *prom.GaugeVec
 }
 
 // NewBuildInfoCollector creates a new collector for build information
 func NewBuildInfoCollector() *BuildInfoCollector {
-	buildInfo := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	buildInfo := prom.NewGaugeVec(
+		prom.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: buildSubsystem,
 			Name:      "info",
@@ -34,11 +34,11 @@ func NewBuildInfoCollector() *BuildInfoCollector {
 	}
 }
 
-func (c *BuildInfoCollector) Describe(ch chan<- *prometheus.Desc) {
+func (c *BuildInfoCollector) Describe(ch chan<- *prom.Desc) {
 	c.buildInfo.Describe(ch)
 }
 
-func (c *BuildInfoCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *BuildInfoCollector) Collect(ch chan<- prom.Metric) {
 	info := version.Info()
 
 	c.buildInfo.WithLabelValues(

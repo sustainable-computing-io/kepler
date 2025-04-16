@@ -29,6 +29,8 @@ type APIRegistry interface {
 type Opts struct {
 	logger          *slog.Logger
 	debugCollectors map[string]bool
+	collectors      map[string]prom.Collector
+	procfs          string
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -38,6 +40,7 @@ func DefaultOpts() Opts {
 		debugCollectors: map[string]bool{
 			"go": true,
 		},
+		collectors: map[string]prom.Collector{},
 	}
 }
 
@@ -60,6 +63,18 @@ func WithDebugCollectors(c *[]string) OptionFn {
 	}
 }
 
+func WithProcFSPath(procfs string) OptionFn {
+	return func(o *Opts) {
+		o.procfs = procfs
+	}
+}
+
+func WithCollectors(c map[string]prom.Collector) OptionFn {
+	return func(o *Opts) {
+		o.collectors = c
+	}
+}
+
 // Exporter exports power data to Prometheus
 type Exporter struct {
 	logger          *slog.Logger
@@ -67,6 +82,7 @@ type Exporter struct {
 	registry        *prom.Registry
 	server          APIRegistry
 	debugCollectors map[string]bool
+	collectors      map[string]prom.Collector
 }
 
 var _ Service = (*Exporter)(nil)
@@ -78,15 +94,16 @@ func NewExporter(pm Monitor, s APIRegistry, applyOpts ...OptionFn) *Exporter {
 		apply(&opts)
 	}
 
-	monitor := &Exporter{
+	exporter := &Exporter{
 		monitor:         pm,
 		server:          s,
 		logger:          opts.logger.With("service", "prometheus"),
 		debugCollectors: opts.debugCollectors,
+		collectors:      opts.collectors,
 		registry:        prom.NewRegistry(),
 	}
 
-	return monitor
+	return exporter
 }
 
 func collectorForName(name string) (prom.Collector, error) {
@@ -98,6 +115,26 @@ func collectorForName(name string) (prom.Collector, error) {
 	default:
 		return nil, fmt.Errorf("unknown collector: %s", name)
 	}
+}
+
+func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collector, error) {
+	opts := Opts{
+		logger: slog.Default(),
+		procfs: "/proc",
+	}
+	for _, apply := range applyOpts {
+		apply(&opts)
+	}
+	collectors := map[string]prom.Collector{
+		"build_info": collectors.NewBuildInfoCollector(),
+		"power":      collector.NewPowerCollector(pm, opts.logger),
+	}
+	cpuInfoCollector, err := collector.NewCPUInfoCollector(opts.procfs)
+	if err != nil {
+		return nil, err
+	}
+	collectors["cpu_info"] = cpuInfoCollector
+	return collectors, nil
 }
 
 // Start implements Exporter.Start
@@ -114,13 +151,10 @@ func (e *Exporter) Start(ctx context.Context) error {
 		e.registry.MustRegister(collector)
 	}
 
-	// Register build info collector
-	buildInfoCollector := collector.NewBuildInfoCollector()
-	e.registry.MustRegister(buildInfoCollector)
-
-	// Register power collector
-	powerCollector := collector.NewPowerCollector(e.monitor, e.logger)
-	e.registry.MustRegister(powerCollector)
+	for name, collector := range e.collectors {
+		e.logger.Info("Enabling collector", "collector", name)
+		e.registry.MustRegister(collector)
+	}
 
 	err := e.server.Register("/metrics", "Metrics", "Prometheus metrics",
 		promhttp.HandlerFor(

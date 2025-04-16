@@ -322,16 +322,17 @@ func TestDefaultOpts(t *testing.T) {
 
 func TestExporter_Integration(t *testing.T) {
 	mockMonitor := &MockMonitor{}
-	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
 	mockRegistry := &MockAPIRegistry{}
 
 	mockRegistry.On("Register", "/metrics", "Metrics", "Prometheus metrics", mock.Anything).Return(nil)
 
-	// Create exporter with both collectors
+	dummyCollector := prom.CollectorFunc(func(ch chan<- prom.Metric) {})
+	// Create exporter with dummyCollector
 	exporter := NewExporter(
 		mockMonitor,
 		mockRegistry,
 		WithDebugCollectors(&[]string{"go", "process"}),
+		WithCollectors(map[string]prom.Collector{"dummy": dummyCollector}),
 	)
 
 	// Set up a cancellable context
@@ -363,4 +364,23 @@ func TestExporter_Integration(t *testing.T) {
 	// Test stop method
 	err := exporter.Stop()
 	assert.NoError(t, err)
+}
+
+func TestExporter_CreateCollectors(t *testing.T) {
+	mockMonitor := &MockMonitor{}
+	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
+
+	// create Collectors
+	coll, err := CreateCollectors(
+		mockMonitor,
+		WithLogger(slog.Default()),
+		WithProcFSPath("/proc"),
+	)
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify mocks
+	mockMonitor.AssertExpectations(t)
+
+	assert.NoError(t, err)
+	assert.Len(t, coll, 3)
 }
