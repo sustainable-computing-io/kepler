@@ -1,7 +1,13 @@
 log:
-  level: debug  # debug, info, warn, error (default: info)
-  format: text  # text or json (default: text)
+  level: debug # debug, info, warn, error (default: info)
+  format: text # text or json (default: text)
 
 host:
-  sysfs: /sys   # Path to sysfs filesystem (default: /sys)
+  sysfs: /sys # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
+
+# WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
+dev:
+  fake-cpu-meter:
+    enabled: false
+    zones: [] # zones to be enabled, empty enables all default zones
