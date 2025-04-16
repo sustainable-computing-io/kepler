@@ -50,7 +50,6 @@ jobs:
                 nouns: ['Revert','revert']
                 labels: ['revert']
           maintain-labels-not-matched: false
-          # apply-changes: false
   # docs:
   #   runs-on: ubuntu-latest
   #   steps:
