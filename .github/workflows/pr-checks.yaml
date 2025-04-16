@@ -1,16 +1,15 @@
 name: PR Checks
 
 on: # yamllint disable-line rule:truthy
-  pull_request_target:
-    branches: [reboot]
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  pull_request:
+    branches: [test-lab]
 
 jobs:
   assign-labels:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
