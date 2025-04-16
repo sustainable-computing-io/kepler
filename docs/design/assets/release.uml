@@ -1,0 +1,51 @@
+@startuml Release Workflow Sequence
+' NOTE: Render using http://sujoyu.github.io/plantuml-previewer or any PlantUML tool
+
+title Release Workflow for kepler (vX.Y.Z-reboot)
+
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 150
+skinparam style strictuml
+
+actor "Developer" as Dev
+participant "Repo" as SR
+box "GitHub Actions" #LightBlue
+participant "Workflow Runner" as Runner
+end box
+participant "Quay.io" as Registry
+
+== Trigger ==
+Dev -> SR: Push tag matching v*.*.*."-reboot"
+SR -> Runner: Trigger release workflow
+
+== Setup & Build ==
+group Environment Setup
+    Runner -> Runner: Checkout source code
+    Runner -> Runner: Setup Go environment
+    Runner -> Registry: Authenticate with registry
+    note right: Using docker/login-action
+end
+
+group Build Process
+    Runner -> Runner: Install dependencies
+    note right: make deps
+    Runner -> Runner: Build container image
+    note right: make image
+end
+
+== Release Creation ==
+Runner -> Runner: Extract version from tag
+note right: Remove "-reboot" suffix
+Runner -> SR: Create GitHub Release
+note right: Using softprops/action-gh-release\nwith extracted version
+
+== Publish ==
+Runner -> Registry: Push container image
+note right: make push
+
+== Complete ==
+Runner --> SR: Workflow complete
+
+@enduml
