@@ -167,7 +167,8 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 func createPowerMonitor(logger *slog.Logger, cfg *config.Config) (*monitor.PowerMonitor, error) {
 	logger.Debug("Creating PowerMonitor")
-	cpuPowerMeter, err := device.NewCPUPowerMeter(cfg.Host.SysFS)
+
+	cpuPowerMeter, err := createCPUMeter(logger, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
@@ -178,4 +179,11 @@ func createPowerMonitor(logger *slog.Logger, cfg *config.Config) (*monitor.Power
 	)
 
 	return pm, nil
+}
+
+func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
+	if fake := cfg.Dev.FakeCpuMeter; fake.Enabled {
+		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
+	}
+	return device.NewCPUPowerMeter(cfg.Host.SysFS)
 }

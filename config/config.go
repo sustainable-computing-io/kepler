@@ -24,9 +24,18 @@ type (
 		ProcFS string `yaml:"procfs"`
 	}
 
+	// Development mode settings; disabled by default
+	Dev struct {
+		FakeCpuMeter struct {
+			Enabled bool     `yaml:"enabled"`
+			Zones   []string `yaml:"zones"`
+		} `yaml:"fake-cpu-meter"`
+	}
+
 	Config struct {
 		Log  Log  `yaml:"log"`
 		Host Host `yaml:"host"`
+		Dev  Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
 	}
 )
 
@@ -36,6 +45,8 @@ const (
 	LogFormatFlag  = "log.format"
 	HostSysFSFlag  = "host.sysfs"
 	HostProcFSFlag = "host.procfs"
+
+// WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
 
 // DefaultConfig returns a Config with default values
