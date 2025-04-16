@@ -300,3 +300,52 @@ func TestZone_None(t *testing.T) {
 	assert.Equal(t, 0, len(zones))
 	mockReader.AssertExpectations(t)
 }
+
+// TestNewCPUPowerMeter_InvalidPath tests that NewCPUPowerMeter returns an error with an invalid sysfs path
+func TestNewCPUPowerMeter_InvalidPath(t *testing.T) {
+	meter, err := NewCPUPowerMeter("/nonexistent/path")
+	assert.Error(t, err, "Should return an error with an invalid path")
+	assert.Nil(t, meter, "Should not return a meter with an invalid path")
+}
+
+// TestCPUPowerMeter_ZonesError tests that the Zones method correctly handles errors from the reader
+func TestCPUPowerMeter_ZonesError(t *testing.T) {
+	mockReader := &mockRaplReader{}
+	expectedErr := errors.New("error")
+	mockReader.On("Zones").Return([]EnergyZone{}, expectedErr)
+
+	meter := &raplPowerMeter{reader: mockReader}
+	zones, err := meter.Zones()
+
+	assert.Error(t, err, "Should return an error when the reader fails")
+	assert.Equal(t, expectedErr, err, "Should return the error from the reader")
+	assert.Nil(t, zones, "Should return nil zones when there's an error")
+	mockReader.AssertExpectations(t)
+}
+
+// TestCPUPowerMeter_NoZones tests that Zones returns an error when no zones are found
+func TestCPUPowerMeter_NoZones(t *testing.T) {
+	mockReader := &mockRaplReader{}
+	mockReader.On("Zones").Return([]EnergyZone{}, nil)
+
+	meter := &raplPowerMeter{reader: mockReader}
+	zones, err := meter.Zones()
+
+	assert.Error(t, err, "Should return an error when no zones are found")
+	assert.Equal(t, "no RAPL zones found", err.Error(), "Should return a specific error message")
+	assert.Nil(t, zones, "Should return nil zones when no zones are found")
+	mockReader.AssertExpectations(t)
+}
+
+// TestCPUPowerMeter_StartNoZones tests that Start returns an error when no zones are found
+func TestCPUPowerMeter_StartNoZones(t *testing.T) {
+	mockReader := &mockRaplReader{}
+	mockReader.On("Zones").Return([]EnergyZone{}, nil)
+
+	meter := &raplPowerMeter{reader: mockReader}
+	err := meter.Start(context.Background())
+
+	assert.Error(t, err, "Start() should return an error when no zones are found")
+	assert.Equal(t, "no RAPL zones found", err.Error(), "Start() should return a specific error message")
+	mockReader.AssertExpectations(t)
+}
