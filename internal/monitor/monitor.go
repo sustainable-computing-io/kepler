@@ -39,6 +39,7 @@ type PowerMonitor struct {
 	logger *slog.Logger
 	cpu    device.CPUPowerMeter
 
+	interval     time.Duration
 	clock        clock.WithTicker
 	maxStaleness time.Duration
 
@@ -49,6 +50,10 @@ type PowerMonitor struct {
 	snapshot     atomic.Pointer[Snapshot]
 
 	zonesNames []string // cache of all zones
+
+	// For managing the collection loop
+	collectionCtx    context.Context
+	collectionCancel context.CancelFunc
 }
 
 var _ Service = (*PowerMonitor)(nil)
@@ -60,12 +65,17 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 		apply(&opts)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	monitor := &PowerMonitor{
-		logger:       opts.logger.With("service", "monitor"),
-		cpu:          meter,
-		clock:        opts.clock,
-		dataCh:       make(chan struct{}, 1),
-		maxStaleness: opts.maxStaleness,
+		logger:           opts.logger.With("service", "monitor"),
+		cpu:              meter,
+		clock:            opts.clock,
+		interval:         opts.interval,
+		dataCh:           make(chan struct{}, 1),
+		maxStaleness:     opts.maxStaleness,
+		collectionCtx:    ctx,
+		collectionCancel: cancel,
 	}
 
 	return monitor
@@ -98,6 +108,7 @@ func (pm *PowerMonitor) signalNewData() {
 
 func (pm *PowerMonitor) Run(ctx context.Context) error {
 	pm.logger.Info("Monitor is running...")
+	go pm.collectionLoop() // NOTE: runs in background
 	<-ctx.Done()
 	pm.logger.Info("Monitor has terminated.")
 	return nil
@@ -105,6 +116,7 @@ func (pm *PowerMonitor) Run(ctx context.Context) error {
 
 func (pm *PowerMonitor) Shutdown() error {
 	pm.logger.Info("shutting down monitor")
+	pm.collectionCancel()
 	return pm.cpu.Stop()
 }
 
@@ -144,6 +156,36 @@ func (pm *PowerMonitor) initZones() error {
 	return nil
 }
 
+// collectionLoop handles periodic data collection
+func (pm *PowerMonitor) collectionLoop() {
+	if err := pm.collectData(); err != nil {
+		pm.logger.Error("Failed to collect initial power data", "error", err)
+	}
+
+	if pm.interval > 0 {
+		pm.scheduleNextCollection()
+	}
+}
+
+// scheduleNextCollection schedules the next data collection
+func (pm *PowerMonitor) scheduleNextCollection() {
+	timer := pm.clock.After(pm.interval)
+
+	go func() {
+		select {
+		case <-timer:
+			if err := pm.collectData(); err != nil {
+				pm.logger.Error("Failed to collect power data", "error", err)
+			}
+			pm.scheduleNextCollection()
+
+		case <-pm.collectionCtx.Done():
+			pm.logger.Debug("Collection loop terminated")
+			return
+		}
+	}()
+}
+
 // ensureFreshData ensures that the data returned is recent enough (< maxStaleness)
 func (pm *PowerMonitor) ensureFreshData() error {
 	if pm.isFresh() {
@@ -154,7 +196,7 @@ func (pm *PowerMonitor) ensureFreshData() error {
 }
 
 // collectData creates a new snapshot of power consumption
-// This is called by ensureFresh when the snapshot is stale
+// This is called by the scheduled collector and by ensureFresh
 func (pm *PowerMonitor) collectData() error {
 	// Use singleflight to ensure only one go routine does computation at a time
 
