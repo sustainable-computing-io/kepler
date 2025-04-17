@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package collectors
+package collector
 
 import (
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -17,8 +17,8 @@ type BuildInfoCollector struct {
 	buildInfo *prom.GaugeVec
 }
 
-// NewBuildInfoCollector creates a new collector for build information
-func NewBuildInfoCollector() *BuildInfoCollector {
+// NewKeplerBuildInfoCollector creates a new collector for build information
+func NewKeplerBuildInfoCollector() *BuildInfoCollector {
 	buildInfo := prom.NewGaugeVec(
 		prom.GaugeOpts{
 			Namespace: namespace,

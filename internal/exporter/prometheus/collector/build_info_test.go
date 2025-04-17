@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package collectors
+package collector
 
 import (
 	"sync"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestBuildInfo_Describe(t *testing.T) {
-	collector := NewBuildInfoCollector()
+	collector := NewKeplerBuildInfoCollector()
 	ch := make(chan *prometheus.Desc, 1)
 	collector.Describe(ch)
 	assert.Len(t, ch, 1, "expected one metric description")
@@ -20,7 +20,7 @@ func TestBuildInfo_Describe(t *testing.T) {
 
 func TestBuildInfo_Collect(t *testing.T) {
 	// Create collector
-	collector := NewBuildInfoCollector()
+	collector := NewKeplerBuildInfoCollector()
 
 	// Create a channel for metrics
 	ch := make(chan prometheus.Metric, 1)
@@ -46,7 +46,7 @@ func TestBuildInfo_Collect(t *testing.T) {
 
 func TestBuildInfo_ParallelCollect(t *testing.T) {
 	// Create collector
-	collector := NewBuildInfoCollector()
+	collector := NewKeplerBuildInfoCollector()
 	parallelCalls := 10
 
 	// Create a shared channel for metrics

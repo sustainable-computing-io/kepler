@@ -12,7 +12,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collectors"
+	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 )
@@ -126,7 +126,7 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 		apply(&opts)
 	}
 	collectors := map[string]prom.Collector{
-		"build_info": collectors.NewBuildInfoCollector(),
+		"build_info": collector.NewKeplerBuildInfoCollector(),
 		"power":      collector.NewPowerCollector(pm, opts.logger),
 	}
 	cpuInfoCollector, err := collector.NewCPUInfoCollector(opts.procfs)
