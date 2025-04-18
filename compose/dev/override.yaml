@@ -18,6 +18,5 @@ services:
       - scaph-network
       - kepler-network
       - node-exporter-network
-      - process-exporter-network
     extra_hosts:
       - host.docker.internal:host-gateway
