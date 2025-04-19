@@ -60,21 +60,22 @@ func TestNodePowerCollection(t *testing.T) {
 			core.Inc(10 * Joule)
 
 			// Create PowerData instance
-			powerData := NewSnapshot()
+			prev := NewSnapshot()
+			current := NewSnapshot()
 
 			// Collect node power data
-			err := pm.calculateNodePower(powerData)
+			err := pm.calculateNodePower(current.Node, prev.Node)
 			assert.NoError(t, err)
 
 			// Verify mock expectations
 			mockCPUPowerMeter.AssertExpectations(t)
 
 			// Check that both zones have data
-			assert.Contains(t, powerData.Node.Zones, pkg)
-			assert.Contains(t, powerData.Node.Zones, core)
+			assert.Contains(t, current.Node.Zones, pkg)
+			assert.Contains(t, current.Node.Zones, core)
 
 			// Check package zone values
-			pkgZone := powerData.Node.Zones[pkg]
+			pkgZone := current.Node.Zones[pkg]
 			// should equal what package zone returns
 			raplPkgEnergy, _ := pkg.Energy()
 			assert.Equal(t, raplPkgEnergy.MicroJoules(), pkgZone.Absolute.MicroJoules())
@@ -82,13 +83,13 @@ func TestNodePowerCollection(t *testing.T) {
 			assert.Equal(t, Power(0), pkgZone.Power)  // Should be 0 for first reading
 
 			// Check core zone values
-			coreZone := powerData.Node.Zones[core]
+			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
 			assert.Equal(t, raplCoreEnergy.MicroJoules(), coreZone.Absolute.MicroJoules())
 			assert.Equal(t, Energy(0), coreZone.Delta)
 			assert.Equal(t, Power(0), coreZone.Power)
 
-			pm.snapshot = powerData
+			pm.snapshot.Store(current)
 		})
 
 		// Clear existing mocks set up updated values
@@ -104,26 +105,28 @@ func TestNodePowerCollection(t *testing.T) {
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 			// Collect node power data again
-			powerData := NewSnapshot()
-			err := pm.calculateNodePower(powerData)
+
+			prev := pm.snapshot.Load()
+			current := NewSnapshot()
+			err := pm.calculateNodePower(current.Node, prev.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
 
 			// Check package zone values for second reading
-			pkgZone := powerData.Node.Zones[pkg]
+			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
 			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)     // No difference in Absolute counter
 			assert.InDelta(t, 50, pkgZone.Delta.Joules(), 0.001) // Should see 50 joules difference
 			assert.InDelta(t, 50, pkgZone.Power.Watts(), 0.001)  // 50 joules / 1 second = 50 watts
 
-			coreZone := powerData.Node.Zones[core]
+			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
 			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)    // No difference in Absolute counter
 			assert.InDelta(t, 25, coreZone.Delta.Joules(), 0.001) // Should see 25 joules difference
 			assert.InDelta(t, 25, coreZone.Power.Watts(), 0.001)  // 25 joules / 1 second = 25 watts
 
-			pm.snapshot = powerData
+			pm.snapshot.Store(current)
 		})
 
 		t.Run("After 3s", func(t *testing.T) {
@@ -137,26 +140,27 @@ func TestNodePowerCollection(t *testing.T) {
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 			// Collect node power data again
-			powerData := NewSnapshot()
-			err := pm.calculateNodePower(powerData)
+			prev := pm.snapshot.Load()
+			current := NewSnapshot()
+			err := pm.calculateNodePower(current.Node, prev.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
 
 			// Check package zone values for second reading
-			pkgZone := powerData.Node.Zones[pkg]
+			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
 			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
 			assert.InDelta(t, 75, pkgZone.Delta.Joules(), 0.001)
 			assert.InDelta(t, 25, pkgZone.Power.Watts(), 0.001)
 
-			coreZone := powerData.Node.Zones[core]
+			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
 			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
 			assert.InDelta(t, 45, coreZone.Delta.Joules(), 0.001)
 			assert.InDelta(t, 15, coreZone.Power.Watts(), 0.001)
 
-			pm.snapshot = powerData
+			pm.snapshot.Store(current)
 		})
 
 		t.Run("Counter Wrap Around", func(t *testing.T) {
@@ -177,27 +181,28 @@ func TestNodePowerCollection(t *testing.T) {
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 			// Collect node power data again
-			powerData := NewSnapshot()
-			err := pm.calculateNodePower(powerData)
+			prev := pm.snapshot.Load()
+			current := NewSnapshot()
+			err := pm.calculateNodePower(current.Node, prev.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
 
 			// Check package zone values for second reading
-			pkgZone := powerData.Node.Zones[pkg]
+			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
 			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
 
 			assert.InDelta(t, 80, pkgZone.Delta.Joules(), 0.001)
 			assert.InDelta(t, 8, pkgZone.Power.Watts(), 0.001)
 
-			coreZone := powerData.Node.Zones[core]
+			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
 			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
 			assert.InDelta(t, 30, coreZone.Delta.Joules(), 0.001)
 			assert.InDelta(t, 3, coreZone.Power.Watts(), 0.001)
 
-			pm.snapshot = powerData
+			pm.snapshot.Store(current)
 		})
 	})
 }
@@ -231,8 +236,9 @@ func TestNodeErrorHandling(t *testing.T) {
 
 	t.Run("Zone Listing Error", func(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return([]EnergyZone(nil), assert.AnError)
-		powerData := NewSnapshot()
-		err := pm.calculateNodePower(powerData)
+		prev := NewSnapshot()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(current.Node, prev.Node)
 		assert.Error(t, err, "zone read errors must be propagated")
 
 		mockCPUPowerMeter.AssertExpectations(t)
@@ -244,15 +250,16 @@ func TestNodeErrorHandling(t *testing.T) {
 		pkg.OnEnergy(0, assert.AnError)
 		core.OnEnergy(10, nil)
 
-		powerData := NewSnapshot()
-		err := pm.calculateNodePower(powerData)
+		prev := NewSnapshot()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(current.Node, prev.Node)
 		assert.Error(t, err, "pkg read error must be propagated")
 
 		mockCPUPowerMeter.AssertExpectations(t)
 
 		// Should have zone info for both
-		assert.NotContains(t, powerData.Node.Zones, pkg)
-		assert.Contains(t, powerData.Node.Zones, core)
+		assert.NotContains(t, current.Node.Zones, pkg)
+		assert.Contains(t, current.Node.Zones, core)
 	})
 }
 

@@ -43,7 +43,7 @@ func TestNewPowerMonitor(t *testing.T) {
 			assert.NotNil(t, monitor)
 			assert.Equal(t, tt.want, monitor.Name())
 			assert.NotNil(t, monitor.dataCh)
-			assert.NotNil(t, monitor.snapshot)
+			assert.Nil(t, monitor.snapshot.Load())
 			assert.NotNil(t, monitor.logger)
 			assert.NotNil(t, monitor.cpu)
 		})
@@ -158,6 +158,18 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 	assert.Nil(t, err)
 
 	// ensure that snapshot is a clone
-	assert.NotSame(t, monitor.snapshot, snapshot)
-	assert.Equal(t, monitor.snapshot, snapshot)
+	assert.NotSame(t, monitor.snapshot.Load(), snapshot)
+	assert.Equal(t, monitor.snapshot.Load(), snapshot)
+}
+
+func TestPowerMonitor_InitZones(t *testing.T) {
+	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
+	require.NoError(t, err, "failed to create fake power meter")
+	monitor := NewPowerMonitor(fakePowerMeter)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = monitor.Init(ctx)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, monitor.zonesNames)
 }
