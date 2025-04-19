@@ -5,11 +5,14 @@ package monitor
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
@@ -49,7 +52,9 @@ func TestNewPowerMonitor(t *testing.T) {
 
 var _ device.EnergyZone = (*MockEnergyZone)(nil)
 
-func TestPowerMonitor_Start(t *testing.T) {
+// TestPowerMonitor_Init tests the Init method that initializes the monitor and
+// has Zone names calculated
+func TestPowerMonitor_Init(t *testing.T) {
 	mockPowerMeter := &MockCPUPowerMeter{}
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
@@ -57,40 +62,58 @@ func TestPowerMonitor_Start(t *testing.T) {
 	pkg.On("Path").Return("")
 	pkg.On("Energy").Return(Energy(100_000), nil)
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
-
 	energyZones := []device.EnergyZone{
 		pkg,
 	}
-
-	// Create a context with a short timeout, shared by the Start methods
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	mockPowerMeter.On("Start", ctx).Return(nil)
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
+	mockPowerMeter.On("Name").Return("mock-cpu")
+	mockPowerMeter.On("Init", mock.Anything).Return(nil)
 
-	monitor := NewPowerMonitor(
+	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
+	require.NoError(t, err)
+
+	powerMeters := []device.CPUPowerMeter{
 		mockPowerMeter,
-		WithLogger(slog.Default()),
-	)
+		fakePowerMeter,
+	}
 
-	// Start the monitor and verify it blocks until context cancellation
-	startTime := time.Now()
-	err := monitor.Start(ctx)
-	duration := time.Since(startTime)
+	zoneNamesFromMeter := func(meter device.CPUPowerMeter) []string {
+		energyZones, err := meter.Zones()
+		if err != nil {
+			log.Fatal(err)
+		}
+		var zoneNames []string
+		for _, zone := range energyZones {
+			zoneNames = append(zoneNames, zone.Name())
+		}
+		return zoneNames
+	}
 
-	// Verify the method returns when context is done and there's no error
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, duration, 50*time.Millisecond, "Start should block until context is done")
+	for _, powerMeter := range powerMeters {
+		t.Run(powerMeter.Name(), func(t *testing.T) {
+			// Create a context with a short timeout, shared by the Init methods
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
 
+			monitor := NewPowerMonitor(
+				powerMeter,
+				WithLogger(slog.Default()),
+			)
+
+			err := monitor.Init(ctx)
+			assert.NoError(t, err)
+			assert.Equal(t, monitor.ZoneNames(), zoneNamesFromMeter(powerMeter))
+		})
+	}
 	mockPowerMeter.AssertExpectations(t)
 }
 
-func TestPowerMonitor_Stop(t *testing.T) {
+func TestPowerMonitor_Shutdown(t *testing.T) {
 	mockPowerMeter := &MockCPUPowerMeter{}
 	mockPowerMeter.On("Stop").Return(nil)
 
 	monitor := NewPowerMonitor(mockPowerMeter)
-	err := monitor.Stop()
+	err := monitor.Shutdown()
 	assert.NoError(t, err)
 	mockPowerMeter.AssertExpectations(t)
 }
@@ -125,7 +148,7 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 		pkg,
 	}
 
-	mockPowerMeter.On("Start").Return(nil)
+	mockPowerMeter.On("Init").Return(nil)
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
 
 	monitor := NewPowerMonitor(mockPowerMeter)

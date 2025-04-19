@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -43,9 +44,18 @@ func TestFakeRaplMeter_Name(t *testing.T) {
 func TestFakeRaplMeter_StartStop(t *testing.T) {
 	meter, _ := NewFakeCPUMeter(nil)
 
-	ctx := context.Background()
-	err := meter.Start(ctx)
-	assert.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	errCh := make(chan error, 1)
+	start := time.Now()
+	go func() {
+		errCh <- meter.Run(ctx)
+	}()
+
+	err := <-errCh
+	duration := time.Since(start)
+	assert.NoError(t, err, "Run() should not return an error")
+	assert.GreaterOrEqual(t, duration, 50*time.Millisecond, "Run() should run until the context is cancelled")
 
 	err = meter.Stop()
 	assert.NoError(t, err)

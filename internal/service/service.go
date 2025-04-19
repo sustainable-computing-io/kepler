@@ -9,8 +9,13 @@ import "context"
 type Service interface {
 	// Name returns the name of the service
 	Name() string
-	// Start starts the service
-	Start(ctx context.Context) error
-	// Stop stops the service
-	Stop() error
+	// Init initializes the service and is called before the service is run. Init
+	// is not required to be thread safe.
+	Init(ctx context.Context) error
+
+	// Run runs the service and is expected to block and be thread safe
+	Run(ctx context.Context) error
+
+	// Shutdown() shuts down the service and is called after the service is run
+	Shutdown() error
 }

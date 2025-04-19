@@ -80,17 +80,8 @@ func (pm *PowerMonitor) Name() string {
 	return "monitor"
 }
 
-func (pm *PowerMonitor) signalNewData() {
-	select {
-	case pm.dataCh <- struct{}{}: // send signal to any waiting goroutinel
-	default:
-	}
-}
-
-func (pm *PowerMonitor) Start(ctx context.Context) error {
-	pm.logger.Info("Monitor is running...")
-
-	if err := pm.cpu.Start(ctx); err != nil {
+func (pm *PowerMonitor) Init(ctx context.Context) error {
+	if err := pm.cpu.Init(ctx); err != nil {
 		return fmt.Errorf("failed to start cpu power meter: %w", err)
 	}
 
@@ -106,13 +97,25 @@ func (pm *PowerMonitor) Start(ctx context.Context) error {
 	}
 	pm.signalNewData()
 
+	return nil
+}
+
+func (pm *PowerMonitor) signalNewData() {
+	select {
+	case pm.dataCh <- struct{}{}: // send signal to any waiting goroutinel
+	default:
+	}
+}
+
+func (pm *PowerMonitor) Run(ctx context.Context) error {
+	pm.logger.Info("Monitor is running...")
 	<-ctx.Done()
 	pm.logger.Info("Monitor has terminated.")
 
 	return nil
 }
 
-func (pm *PowerMonitor) Stop() error {
+func (pm *PowerMonitor) Shutdown() error {
 	return pm.cpu.Stop()
 }
 
