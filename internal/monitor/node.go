@@ -7,17 +7,14 @@ import (
 	"errors"
 )
 
-func (pm *PowerMonitor) calculateNodePower(snapshot *Snapshot) error {
-	// Get previous measurements for calculating watts
-	pm.snapshotMu.RLock()
-	prevReadTime := pm.snapshot.Node.Timestamp
-	prevZones := pm.snapshot.Node.Zones
-	pm.snapshotMu.RUnlock()
-
-	if prevReadTime.IsZero() {
+func (pm *PowerMonitor) calculateNodePower(snapshot *Snapshot, prevNode *Node) error {
+	if prevNode == nil || prevNode.Timestamp.IsZero() {
 		// No previous data, nothing to do
 		return pm.firstNodeRead(snapshot)
 	}
+	// Get previous measurements for calculating watts
+	prevReadTime := prevNode.Timestamp
+	prevZones := prevNode.Zones
 
 	now := pm.clock.Now()
 	snapshot.Node.Timestamp = now
