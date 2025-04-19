@@ -132,7 +132,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (instance, model_name, vendor_id) (kepler_node_cpu_info)",
+          "expr": "count by (instance, model_name, vendor_id) (kepler_cpu_info)",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
