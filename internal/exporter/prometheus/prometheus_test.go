@@ -23,12 +23,17 @@ type MockMonitor struct {
 	mock.Mock
 }
 
-func (m *MockMonitor) Start(ctx context.Context) error {
+func (m *MockMonitor) Init(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
 
-func (m *MockMonitor) Stop() error {
+func (m *MockMonitor) Run(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockMonitor) Shutdown() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -125,7 +130,40 @@ func TestExporter_Name(t *testing.T) {
 	assert.Equal(t, "prometheus", exporter.Name())
 }
 
-func TestExporter_Start(t *testing.T) {
+func TestExporter_Run(t *testing.T) {
+	mockMonitor := &MockMonitor{}
+	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
+	mockRegistry := &MockAPIRegistry{}
+	// Setup the mock expectations
+	mockRegistry.On("Register", "/metrics", "Metrics", "Prometheus metrics", mock.Anything).Return(nil)
+
+	exporter := NewExporter(mockMonitor, mockRegistry)
+
+	// Create context with timeout to ensure the test doesn't hang
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	err := exporter.Init(ctx)
+	assert.NoError(t, err)
+
+	// Start in a goroutine because it will block until context is done
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- exporter.Run(ctx)
+	}()
+
+	// Wait for timeout or error
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Start didn't return after context was cancelled")
+	}
+
+	mockRegistry.AssertExpectations(t)
+}
+
+func TestExporter_Init(t *testing.T) {
 	t.Run("starts successfully", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
 		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
@@ -140,19 +178,8 @@ func TestExporter_Start(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
-		// Start in a goroutine because it will block until context is done
-		errCh := make(chan error)
-		go func() {
-			errCh <- exporter.Start(ctx)
-		}()
-
-		// Wait for timeout or error
-		select {
-		case err := <-errCh:
-			assert.NoError(t, err)
-		case <-time.After(200 * time.Millisecond):
-			t.Fatal("Start didn't return after context was cancelled")
-		}
+		err := exporter.Init(ctx)
+		assert.NoError(t, err)
 
 		mockRegistry.AssertExpectations(t)
 	})
@@ -170,7 +197,7 @@ func TestExporter_Start(t *testing.T) {
 
 		// Start with a context - should return the error immediately
 		ctx := context.Background()
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.Error(t, err)
 		assert.Equal(t, expectedErr, err)
@@ -191,7 +218,7 @@ func TestExporter_Start(t *testing.T) {
 
 		// Start should return an error
 		ctx := context.Background()
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown collector: unknown_collector")
@@ -221,7 +248,7 @@ func TestExporter_Start(t *testing.T) {
 			cancel()
 		}()
 
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.NoError(t, err)
 		mockRegistry.AssertExpectations(t)
@@ -236,7 +263,7 @@ func TestExporter_Stop(t *testing.T) {
 	exporter := NewExporter(mockMonitor, mockRegistry)
 
 	// Stop should return nil since it's a no-op in the implementation
-	err := exporter.Stop()
+	err := exporter.Shutdown()
 	assert.NoError(t, err)
 }
 
@@ -337,11 +364,12 @@ func TestExporter_Integration(t *testing.T) {
 
 	// Set up a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
+	assert.NoError(t, exporter.Init(ctx), "exporter init failed")
 
-	// Start exporter in goroutine and cancel after brief period
+	// Run exporter in goroutine and cancel after brief period
 	errCh := make(chan error)
 	go func() {
-		errCh <- exporter.Start(ctx)
+		errCh <- exporter.Run(ctx)
 	}()
 
 	// Allow some time for registration then cancel
@@ -362,7 +390,7 @@ func TestExporter_Integration(t *testing.T) {
 	mockMonitor.AssertExpectations(t)
 
 	// Test stop method
-	err := exporter.Stop()
+	err := exporter.Shutdown()
 	assert.NoError(t, err)
 }
 

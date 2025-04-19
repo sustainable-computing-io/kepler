@@ -24,7 +24,12 @@ func (m *MockCPUPowerMeter) Name() string {
 	return args.String(0)
 }
 
-func (m *MockCPUPowerMeter) Start(ctx context.Context) error {
+func (m *MockCPUPowerMeter) Init(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockCPUPowerMeter) Run(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
