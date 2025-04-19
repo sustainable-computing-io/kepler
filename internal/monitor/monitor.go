@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/device"
@@ -39,18 +39,21 @@ type PowerMonitor struct {
 	logger *slog.Logger
 	cpu    device.CPUPowerMeter
 
-	clock clock.WithTicker
+	interval     time.Duration
+	clock        clock.WithTicker
+	maxStaleness time.Duration
 
 	// signals when a snapshot has been updated
 	dataCh chan struct{}
 
 	computeGroup singleflight.Group
-	maxStaleness time.Duration
+	snapshot     atomic.Pointer[Snapshot]
 
-	zones []string // cache of all zones read
+	zonesNames []string // cache of all zones
 
-	snapshotMu sync.RWMutex
-	snapshot   *Snapshot
+	// For managing the collection loop
+	collectionCtx    context.Context
+	collectionCancel context.CancelFunc
 }
 
 var _ Service = (*PowerMonitor)(nil)
@@ -62,15 +65,17 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 		apply(&opts)
 	}
 
-	logger := opts.logger.With("service", "monitor")
+	ctx, cancel := context.WithCancel(context.Background())
 
 	monitor := &PowerMonitor{
-		logger:       logger,
-		cpu:          meter,
-		clock:        opts.clock,
-		dataCh:       make(chan struct{}, 1),
-		snapshot:     NewSnapshot(),
-		maxStaleness: opts.maxStaleness,
+		logger:           opts.logger.With("service", "monitor"),
+		cpu:              meter,
+		clock:            opts.clock,
+		interval:         opts.interval,
+		dataCh:           make(chan struct{}, 1),
+		maxStaleness:     opts.maxStaleness,
+		collectionCtx:    ctx,
+		collectionCancel: cancel,
 	}
 
 	return monitor
@@ -80,6 +85,20 @@ func (pm *PowerMonitor) Name() string {
 	return "monitor"
 }
 
+func (pm *PowerMonitor) Init(ctx context.Context) error {
+	if err := pm.cpu.Init(ctx); err != nil {
+		return fmt.Errorf("failed to start cpu power meter: %w", err)
+	}
+
+	if err := pm.initZones(); err != nil {
+		return fmt.Errorf("failed to initialize zones: %w", err)
+	}
+	// signal now so that exporters can construct descriptors
+	pm.signalNewData()
+
+	return nil
+}
+
 func (pm *PowerMonitor) signalNewData() {
 	select {
 	case pm.dataCh <- struct{}{}: // send signal to any waiting goroutinel
@@ -87,32 +106,17 @@ func (pm *PowerMonitor) signalNewData() {
 	}
 }
 
-func (pm *PowerMonitor) Start(ctx context.Context) error {
+func (pm *PowerMonitor) Run(ctx context.Context) error {
 	pm.logger.Info("Monitor is running...")
-
-	if err := pm.cpu.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start cpu power meter: %w", err)
-	}
-
-	// zone names need to be collected once and can be cached
-	zones, err := pm.cpu.Zones()
-	if err != nil {
-		return err
-	}
-
-	pm.zones = make([]string, len(zones))
-	for i, zone := range zones {
-		pm.zones[i] = zone.Name()
-	}
-	pm.signalNewData()
-
+	go pm.collectionLoop() // NOTE: runs in background
 	<-ctx.Done()
 	pm.logger.Info("Monitor has terminated.")
-
 	return nil
 }
 
-func (pm *PowerMonitor) Stop() error {
+func (pm *PowerMonitor) Shutdown() error {
+	pm.logger.Info("shutting down monitor")
+	pm.collectionCancel()
 	return pm.cpu.Stop()
 }
 
@@ -121,7 +125,8 @@ func (pm *PowerMonitor) DataChannel() <-chan struct{} {
 }
 
 func (pm *PowerMonitor) ZoneNames() []string {
-	return pm.zones
+	// need not lock since it is read-only
+	return pm.zonesNames
 }
 
 func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
@@ -129,21 +134,56 @@ func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
 		return nil, err
 	}
 
-	pm.snapshotMu.RLock()
-	defer pm.snapshotMu.RUnlock()
-	return pm.snapshot.Clone(), nil
+	snapshot := pm.snapshot.Load()
+	if snapshot == nil {
+		return nil, fmt.Errorf("failed to get snapshot")
+	}
+	return snapshot.Clone(), nil
 }
 
-func (pm *PowerMonitor) isFresh() bool {
-	pm.snapshotMu.RLock()
-	defer pm.snapshotMu.RUnlock()
-
-	if pm.snapshot == nil || pm.snapshot.Timestamp.IsZero() {
-		return false
+func (pm *PowerMonitor) initZones() error {
+	// zone names need to be collected only once and can be cached
+	zones, err := pm.cpu.Zones()
+	if err != nil {
+		return err
 	}
 
-	age := pm.clock.Now().Sub(pm.snapshot.Timestamp)
-	return age <= pm.maxStaleness
+	pm.zonesNames = make([]string, len(zones))
+	for i, zone := range zones {
+		pm.zonesNames[i] = zone.Name()
+	}
+
+	return nil
+}
+
+// collectionLoop handles periodic data collection
+func (pm *PowerMonitor) collectionLoop() {
+	if err := pm.collectData(); err != nil {
+		pm.logger.Error("Failed to collect initial power data", "error", err)
+	}
+
+	if pm.interval > 0 {
+		pm.scheduleNextCollection()
+	}
+}
+
+// scheduleNextCollection schedules the next data collection
+func (pm *PowerMonitor) scheduleNextCollection() {
+	timer := pm.clock.After(pm.interval)
+
+	go func() {
+		select {
+		case <-timer:
+			if err := pm.collectData(); err != nil {
+				pm.logger.Error("Failed to collect power data", "error", err)
+			}
+			pm.scheduleNextCollection()
+
+		case <-pm.collectionCtx.Done():
+			pm.logger.Debug("Collection loop terminated")
+			return
+		}
+	}()
 }
 
 // ensureFreshData ensures that the data returned is recent enough (< maxStaleness)
@@ -151,9 +191,17 @@ func (pm *PowerMonitor) ensureFreshData() error {
 	if pm.isFresh() {
 		return nil // Data is fresh, nothing more to do
 	}
-	// NOTE: ensure that only one goroutine is computing power even if multiple calls are made
+
+	return pm.collectData()
+}
+
+// collectData creates a new snapshot of power consumption
+// This is called by the scheduled collector and by ensureFresh
+func (pm *PowerMonitor) collectData() error {
+	// Use singleflight to ensure only one go routine does computation at a time
+
 	_, err, _ := pm.computeGroup.Do("compute", func() (any, error) {
-		// NOTE: Double-check freshness after acquiring singleflight lock
+		// NOTE: (Double) check freshness after acquiring singleflight lock
 		//
 		//  The reason this double checking pattern is required is to mitigate the following scenario
 		//
@@ -188,21 +236,36 @@ func (pm *PowerMonitor) ensureFreshData() error {
 	return err
 }
 
+func (pm *PowerMonitor) isFresh() bool {
+	snapshot := pm.snapshot.Load()
+	if snapshot == nil || snapshot.Timestamp.IsZero() {
+		return false
+	}
+
+	age := pm.clock.Now().Sub(snapshot.Timestamp)
+	return age <= pm.maxStaleness
+}
+
 // computePower create a new snapshot of the power consumption of various levels( currently only node)
 func (pm *PowerMonitor) computePower() error {
 	started := time.Now()
 	defer func() { pm.logger.Info("Computed power", "duration", time.Since(started)) }()
 
+	prevSnapshot := pm.snapshot.Load()
+	// ensure snapshot is not nil from here on
+	if prevSnapshot == nil {
+		prevSnapshot = NewSnapshot()
+	}
+
 	newSnapshot := NewSnapshot()
-	if err := pm.calculateNodePower(newSnapshot); err != nil {
+
+	if err := pm.calculateNodePower(newSnapshot, prevSnapshot.Node); err != nil {
 		return fmt.Errorf("failed to calculate node power %w", err)
 	}
 
 	// update snapshot
 	newSnapshot.Timestamp = time.Now()
-	pm.snapshotMu.Lock()
-	pm.snapshot = newSnapshot
-	pm.snapshotMu.Unlock()
+	pm.snapshot.Store(newSnapshot)
 
 	pm.signalNewData()
 

@@ -93,26 +93,33 @@ func TestNewAPIServer(t *testing.T) {
 	}
 }
 
-func TestAPIServer_Start(t *testing.T) {
+func TestAPIServer_Init(t *testing.T) {
 	server := NewAPIServer()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
+	err := server.Init(ctx)
+	assert.NoError(t, err)
+}
+
+func TestAPIServer_Run(t *testing.T) {
+	server := NewAPIServer()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
 	startTime := time.Now()
-
-	err := server.Start(ctx)
+	err := server.Run(ctx)
 	duration := time.Since(startTime)
 
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, duration, 50*time.Millisecond,
-		"Start should block until context is done")
+		"Run should block until context is done")
 }
 
-func TestAPIServer_Stop(t *testing.T) {
+func TestAPIServer_Shutdown(t *testing.T) {
 	server := NewAPIServer()
 
-	err := server.Stop()
+	err := server.Shutdown()
 	assert.NoError(t, err)
 }
 
@@ -162,27 +169,26 @@ func TestAPIServer_Register(t *testing.T) {
 	})
 }
 
-func TestAPIServer_StartWithNoListenAddr(t *testing.T) {
+func TestAPIServer_InitWithNoListenAddr(t *testing.T) {
 	server := NewAPIServer(WithListenAddress([]string{}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := server.Start(ctx)
-
-	assert.Error(t, err)
+	err := server.Init(ctx)
+	assert.Error(t, err, "Init should fail with no listen address")
 	assert.Contains(t, err.Error(), "no listening address provided")
 }
 
-func TestAPIServer_StartWithContextCancellation(t *testing.T) {
+func TestAPIServer_InitWithContextCancellation(t *testing.T) {
 	server := NewAPIServer()
 
 	// NOTE: create a context and cancel it immediately
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	// Start should **NOT** return an error if context is cancelled
-	err := server.Start(ctx)
+	// Init should **NOT** return an error if context is cancelled
+	err := server.Run(ctx)
 	assert.NoError(t, err)
 }
 
@@ -223,7 +229,7 @@ func TestAPIServer_PortConflict(t *testing.T) {
 	port := findFreePort()
 	addr := fmt.Sprintf(":%d", port)
 
-	// Start a HTTP server that listens on the same port as the API server
+	// Init a HTTP server that listens on the same port as the API server
 	blockingServer := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -249,10 +255,10 @@ func TestAPIServer_PortConflict(t *testing.T) {
 	// Create our API server with the same port
 	apiServer := NewAPIServer(WithListenAddress([]string{addr}))
 
-	// Starting the API server on the same port should fail due to port conflict
+	// Initing the API server on the same port should fail due to port conflict
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err = apiServer.Start(ctx)
+	err = apiServer.Run(ctx)
 	assert.Error(t, err, "API server should fail to start due to port conflict")
 
 	// The error should contain a specific message indicating port is in use: from log output
@@ -282,6 +288,9 @@ func TestAPIServer_RootEndpoint(t *testing.T) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	server := NewAPIServer(WithListenAddress([]string{addr}))
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	assert.NoError(t, server.Init(ctx))
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -289,13 +298,12 @@ func TestAPIServer_RootEndpoint(t *testing.T) {
 	err := server.Register("/api/test", "Test API", "Test API endpoint", testHandler)
 	require.NoError(t, err)
 
-	// 3. Start the server with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+	// 3. Init the server with a timeout
+	// ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.Start(ctx)
+		errCh <- server.Run(ctx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)
