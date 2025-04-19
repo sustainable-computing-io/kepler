@@ -27,6 +27,7 @@ type PowerCollector struct {
 	mutex sync.RWMutex
 
 	// Node power metrics
+	ready                 bool
 	nodeJoulesDescriptors map[string]*prometheus.Desc
 	nodeWattsDescriptors  map[string]*prometheus.Desc
 }
@@ -48,12 +49,10 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 // updateDescriptors creates metric descriptors based on available zones
 func (c *PowerCollector) updateDescriptors() {
 	<-c.pm.DataChannel()
+	zoneNames := c.pm.ZoneNames() // must be thread-safe
 
-	c.mutex.Lock()
+	c.mutex.Lock() // for write
 	defer c.mutex.Unlock()
-
-	zoneNames := c.pm.ZoneNames()
-
 	for _, name := range zoneNames {
 		zoneName := SanitizeMetricName(name)
 
@@ -75,14 +74,18 @@ func (c *PowerCollector) updateDescriptors() {
 				nil,
 			)
 		}
-
 	}
+	c.ready = true
 }
 
 // Describe implements the prometheus.Collector interface
 func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
+	if !c.ready {
+		c.logger.Debug("Describe called before monitor is ready")
+		return
+	}
 
 	for _, desc := range c.nodeJoulesDescriptors {
 		ch <- desc
@@ -92,10 +95,21 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
+func (c *PowerCollector) isReady() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.ready
+}
+
 // Collect implements the prometheus.Collector interface
 func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
+	if !c.isReady() {
+		c.logger.Debug("Collect called before monitor is ready")
+		return
+	}
+
 	c.logger.Info("Collecting unified power data")
-	snapshot, err := c.pm.Snapshot()
+	snapshot, err := c.pm.Snapshot() // snapshot is thread-safe
 	if err != nil {
 		c.logger.Error("Failed to collect power data", "error", err)
 		return
@@ -106,8 +120,9 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 
 // collectNodeMetrics collects node-level power metrics
 func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *monitor.Node) {
-	c.mutex.RLock()
+	c.mutex.RLock() // locking nodeJoulesDescriptors
 	defer c.mutex.RUnlock()
+
 	for zone, energy := range node.Zones {
 		zoneName := SanitizeMetricName(zone.Name())
 		// ensure both joules and watts descriptors exist

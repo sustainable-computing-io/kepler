@@ -47,8 +47,7 @@ type PowerMonitor struct {
 	computeGroup singleflight.Group
 	maxStaleness time.Duration
 
-	zonesMu sync.RWMutex
-	zones   []string // cache of all zones read
+	zones []string // cache of all zones read
 
 	snapshotMu sync.RWMutex
 	snapshot   *Snapshot
@@ -122,8 +121,6 @@ func (pm *PowerMonitor) DataChannel() <-chan struct{} {
 }
 
 func (pm *PowerMonitor) ZoneNames() []string {
-	pm.zonesMu.RLock()
-	defer pm.zonesMu.RUnlock()
 	return pm.zones
 }
 
