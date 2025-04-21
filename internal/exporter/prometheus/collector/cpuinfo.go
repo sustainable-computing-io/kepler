@@ -54,7 +54,7 @@ func newCPUInfoCollectorWithFS(fs procFS) *cpuInfoCollector {
 	return &cpuInfoCollector{
 		fs: fs,
 		desc: prom.NewDesc(
-			prom.BuildFQName(namespace, "", "cpu_info"),
+			prom.BuildFQName(namespace, "node", "cpu_info"),
 			"CPU information from procfs",
 			[]string{"processor", "vendor_id", "model_name", "physical_id", "core_id"},
 			nil,

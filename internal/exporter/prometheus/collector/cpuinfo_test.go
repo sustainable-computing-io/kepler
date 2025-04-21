@@ -74,7 +74,7 @@ func TestNewCPUInfoCollectorWithFS(t *testing.T) {
 	assert.NotNil(t, collector)
 	assert.Equal(t, mockFS, collector.fs)
 	assert.NotNil(t, collector.desc)
-	assert.Contains(t, collector.desc.String(), "kepler_cpu_info")
+	assert.Contains(t, collector.desc.String(), "kepler_node_cpu_info")
 	assert.Contains(t, collector.desc.String(), "variableLabels: {processor,vendor_id,model_name,physical_id,core_id}")
 }
 
