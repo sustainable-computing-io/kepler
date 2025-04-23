@@ -217,6 +217,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		pm,
 		prometheus.WithLogger(logger),
 		prometheus.WithProcFSPath(cfg.Host.ProcFS),
+		prometheus.WithSysFSPath(cfg.Host.SysFS),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)

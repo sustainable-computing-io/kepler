@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
+	prom "github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/procfs"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +43,7 @@ func sampleCPUInfo() []procfs.CPUInfo {
 	}
 }
 
-func expectedLabels() map[string]string {
+func expectedCPUInfoLabels() map[string]string {
 	return map[string]string{
 		"processor":   "",
 		"vendor_id":   "",
@@ -87,7 +87,7 @@ func TestCPUInfoCollector_Describe(t *testing.T) {
 	}
 	collector := newCPUInfoCollectorWithFS(mockFS)
 
-	ch := make(chan *prometheus.Desc, 1)
+	ch := make(chan *prom.Desc, 1)
 	collector.Describe(ch)
 	close(ch)
 
@@ -104,18 +104,18 @@ func TestCPUInfoCollector_Collect_Success(t *testing.T) {
 	}
 	collector := newCPUInfoCollectorWithFS(mockFS)
 
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prom.Metric, 10)
 	collector.Collect(ch)
 	close(ch)
 
-	var metrics []prometheus.Metric
+	var metrics []prom.Metric
 	for m := range ch {
 		metrics = append(metrics, m)
 	}
 
 	assert.Len(t, metrics, 2, "expected two CPU info metrics")
 
-	el := expectedLabels()
+	el := expectedCPUInfoLabels()
 
 	for _, m := range metrics {
 		dtoMetric := &dto.Metric{}
@@ -142,11 +142,11 @@ func TestCPUInfoCollector_Collect_Error(t *testing.T) {
 	}
 	collector := newCPUInfoCollectorWithFS(mockFS)
 
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prom.Metric, 10)
 	collector.Collect(ch)
 	close(ch)
 
-	var metrics []prometheus.Metric
+	var metrics []prom.Metric
 	for m := range ch {
 		metrics = append(metrics, m)
 	}
@@ -165,7 +165,7 @@ func TestCPUInfoCollector_Collect_Concurrency(t *testing.T) {
 
 	const numGoroutines = 10
 	var wg sync.WaitGroup
-	ch := make(chan prometheus.Metric, numGoroutines*len(sampleCPUInfo()))
+	ch := make(chan prom.Metric, numGoroutines*len(sampleCPUInfo()))
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -178,7 +178,7 @@ func TestCPUInfoCollector_Collect_Concurrency(t *testing.T) {
 	wg.Wait()
 	close(ch)
 
-	var metrics []prometheus.Metric
+	var metrics []prom.Metric
 	for m := range ch {
 		metrics = append(metrics, m)
 	}

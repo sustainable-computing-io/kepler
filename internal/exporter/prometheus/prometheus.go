@@ -31,6 +31,7 @@ type Opts struct {
 	debugCollectors map[string]bool
 	collectors      map[string]prom.Collector
 	procfs          string
+	sysfs           string
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -66,6 +67,12 @@ func WithDebugCollectors(c *[]string) OptionFn {
 func WithProcFSPath(procfs string) OptionFn {
 	return func(o *Opts) {
 		o.procfs = procfs
+	}
+}
+
+func WithSysFSPath(sysfs string) OptionFn {
+	return func(o *Opts) {
+		o.sysfs = sysfs
 	}
 }
 
@@ -121,6 +128,7 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 	opts := Opts{
 		logger: slog.Default(),
 		procfs: "/proc",
+		sysfs:  "/sys",
 	}
 	for _, apply := range applyOpts {
 		apply(&opts)
@@ -134,6 +142,11 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 		return nil, err
 	}
 	collectors["cpu_info"] = cpuInfoCollector
+	energyZoneCollector, err := collector.NewEnergyZoneCollector(opts.sysfs)
+	if err != nil {
+		return nil, err
+	}
+	collectors["energy_zone"] = energyZoneCollector
 	return collectors, nil
 }
 

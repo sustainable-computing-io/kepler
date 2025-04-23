@@ -336,6 +336,7 @@ func TestExporter_CreateCollectors(t *testing.T) {
 		mockMonitor,
 		WithLogger(slog.Default()),
 		WithProcFSPath("/proc"),
+		WithSysFSPath("/sys"),
 	)
 	time.Sleep(50 * time.Millisecond)
 
@@ -343,5 +344,5 @@ func TestExporter_CreateCollectors(t *testing.T) {
 	mockMonitor.AssertExpectations(t)
 
 	assert.NoError(t, err)
-	assert.Len(t, coll, 3)
+	assert.Len(t, coll, 4)
 }
