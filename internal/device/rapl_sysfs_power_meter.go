@@ -53,7 +53,7 @@ func (r *raplPowerMeter) Name() string {
 	return "rapl"
 }
 
-func (r *raplPowerMeter) Start(ctx context.Context) error {
+func (r *raplPowerMeter) Init(ctx context.Context) error {
 	// ensure zones can be read but don't cache them
 	zones, err := r.reader.Zones()
 	if err != nil {
@@ -65,6 +65,11 @@ func (r *raplPowerMeter) Start(ctx context.Context) error {
 	// try reading the first zone and return the error
 	_, err = zones[0].Energy()
 	return err
+}
+
+func (r *raplPowerMeter) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return nil
 }
 
 func (r *raplPowerMeter) Stop() error {

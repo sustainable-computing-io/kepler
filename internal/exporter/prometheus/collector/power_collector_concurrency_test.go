@@ -33,10 +33,15 @@ func musT[T any](t T, err error) T {
 func TestPowerCollectorConcurrency(t *testing.T) {
 	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
 	collector := NewPowerCollector(fakeMonitor, newLogger())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	assert.NoError(t, fakeMonitor.Init(ctx))
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		err := fakeMonitor.Start(ctx)
+		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
 
@@ -283,10 +288,14 @@ func TestConcurrentRegistration(t *testing.T) {
 	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
 	collector := NewPowerCollector(fakeMonitor, newLogger())
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	assert.NoError(t, fakeMonitor.Init(ctx))
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		err := fakeMonitor.Start(ctx)
+		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
 
@@ -330,10 +339,14 @@ func TestFastCollectAndDescribe(t *testing.T) {
 	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
 	collector := NewPowerCollector(fakeMonitor, newLogger())
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	assert.NoError(t, fakeMonitor.Init(ctx))
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		err := fakeMonitor.Start(ctx)
+		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
 

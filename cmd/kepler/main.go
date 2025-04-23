@@ -28,41 +28,24 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format)
 	logVersionInfo(logger)
 	printConfigInfo(logger, cfg)
 
-	// create & register all services with run group
 	services, err := createServices(logger, cfg)
 	if err != nil {
 		logger.Error("failed to create services", "error", err)
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	var g run.Group
-	for _, s := range services {
-		g.Add(
-			func() error {
-				return s.Start(ctx)
-			},
-			func(err error) {
-				if err != nil {
-					logger.Warn("service terminated with error", "service", s.Name(), "error", err)
-				}
-
-				if cleanupErr := s.Stop(); cleanupErr != nil {
-					logger.Warn("service cleanup failed with error", "service", s.Name(), "error", cleanupErr)
-				}
-				cancel()
-			},
-		)
+	if err = initServices(logger, services); err != nil {
+		logger.Error("failed to initialize services", "error", err)
+		os.Exit(1)
 	}
-	g.Add(waitForInterrupt(ctx, logger, os.Interrupt))
 
-	// run all groups
 	logger.Info("Starting Kepler")
-	if err := g.Run(); err != nil {
+	if err := runServices(logger, services); err != nil {
 		logger.Error("Kepler terminated with an error", "error", err)
 		os.Exit(1)
 	}
@@ -82,8 +65,47 @@ func logVersionInfo(logger *slog.Logger) {
 	)
 }
 
-func waitForInterrupt(ctx context.Context, logger *slog.Logger, signals ...os.Signal) (func() error, func(error)) {
-	ctxInternal, cancel := context.WithCancel(ctx)
+func runServices(logger *slog.Logger, services []service.Service) error {
+	logger.Info("Running all services")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var g run.Group
+	for _, s := range services {
+		runner, ok := s.(service.Runner)
+		if !ok {
+			logger.Warn("skipping service", "service", s.Name())
+			continue
+		}
+
+		g.Add(
+			func() error {
+				logger.Info("Running service", "service", s.Name())
+				return runner.Run(ctx)
+			},
+			func(err error) {
+				if err != nil {
+					logger.Warn("service terminated with error", "service", s.Name(), "error", err)
+				}
+
+				srv, ok := s.(service.Shutdown)
+				if !ok {
+					return
+				}
+
+				logger.Warn("shutting down", "service", s.Name())
+				if shutdownErr := srv.Shutdown(); shutdownErr != nil {
+					logger.Warn("service shutdown failed with error", "service", s.Name(), "error", shutdownErr)
+				}
+			},
+		)
+	}
+	g.Add(waitForInterrupt(ctx, cancel, logger, os.Interrupt))
+
+	return g.Run()
+}
+
+func waitForInterrupt(ctx context.Context, cancel context.CancelFunc, logger *slog.Logger, signals ...os.Signal) (func() error, func(error)) {
 	return func() error {
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, signals...)
@@ -93,8 +115,6 @@ func waitForInterrupt(ctx context.Context, logger *slog.Logger, signals ...os.Si
 				return nil
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-ctxInternal.Done():
-				return ctxInternal.Err()
 			}
 		}, func(error) {
 			cancel()
@@ -145,6 +165,43 @@ Configuration
 `, cfg)
 }
 
+func initServices(logger *slog.Logger, services []service.Service) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var retErr error
+	initialized := make([]service.Service, 0, len(services))
+
+	for _, s := range services {
+		logger.Info("Initializing service", "service", s.Name())
+		srv, ok := s.(service.Initializer)
+		if !ok {
+			continue
+		}
+
+		if err := srv.Init(ctx); err != nil {
+			retErr = fmt.Errorf("failed to initialize service %s: %w", s.Name(), err)
+			break
+		}
+	}
+
+	if retErr == nil {
+		return nil
+	}
+
+	logger.Info("Shutting down initialized services")
+	for _, s := range initialized {
+		srv, ok := s.(service.Shutdown)
+		if !ok {
+			continue
+		}
+		if err := srv.Shutdown(); err != nil {
+			logger.Error("failed to shutdown service", "service", s.Name(), "error", err)
+		}
+	}
+	return retErr
+}
+
 func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service, error) {
 	logger.Debug("Creating all services")
 	pm, err := createPowerMonitor(logger, cfg)
@@ -161,6 +218,9 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		prometheus.WithLogger(logger),
 		prometheus.WithProcFSPath(cfg.Host.ProcFS),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)
+	}
 	// TODO: enable exporters based on config / flags
 	promExporter := prometheus.NewExporter(
 		pm,

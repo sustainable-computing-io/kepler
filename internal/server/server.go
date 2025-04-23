@@ -89,8 +89,8 @@ func (s *APIServer) Name() string {
 	return "api-server"
 }
 
-func (s *APIServer) Start(ctx context.Context) error {
-	s.logger.Info("Starting HTTP server", "listening-on", s.listenAddrs)
+func (s *APIServer) Init(ctx context.Context) error {
+	s.logger.Info("Initializing HTTP server", "listening-on", s.listenAddrs)
 	if len(s.listenAddrs) == 0 {
 		return fmt.Errorf("no listening address provided")
 	}
@@ -120,6 +120,11 @@ func (s *APIServer) Start(ctx context.Context) error {
 		}
 	})
 
+	return nil
+}
+
+func (s *APIServer) Run(ctx context.Context) error {
+	s.logger.Info("Running HTTP server", "listening-on", s.listenAddrs)
 	errCh := make(chan error)
 	go func() {
 		webCfg := &web.FlagConfig{
@@ -132,7 +137,7 @@ func (s *APIServer) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		s.logger.Info("shutting down HTTP server on context done")
-		return s.Stop()
+		return nil
 
 	case err := <-errCh:
 		s.logger.Error("HTTP server returned an error", "error", err)
@@ -144,7 +149,7 @@ func pointer[T any](t T) *T {
 	return &t
 }
 
-func (s *APIServer) Stop() error {
+func (s *APIServer) Shutdown() error {
 	s.logger.Info("shutting down API server on request")
 
 	// NOTE: ensure http server shuts down within 5 seconds

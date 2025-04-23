@@ -137,10 +137,8 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 	return collectors, nil
 }
 
-// Start implements Exporter.Start
-func (e *Exporter) Start(ctx context.Context) error {
-	e.logger.Info("Starting Prometheus exporter")
-
+func (e *Exporter) Init(ctx context.Context) error {
+	e.logger.Info("Initializing Prometheus exporter")
 	for c := range e.debugCollectors {
 		collector, err := collectorForName(c)
 		if err != nil {
@@ -164,22 +162,7 @@ func (e *Exporter) Start(ctx context.Context) error {
 				Registry:          e.registry,
 			},
 		))
-	if err != nil {
-		return err
-	}
-
-	e.logger.Info("Prometheus exporter started running; waiting for context to be cancelled")
-	<-ctx.Done()
-	e.logger.Info("Prometheus exporter stopped running")
-	return nil
-}
-
-// Stop implements Exporter.Stop
-func (e *Exporter) Stop() error {
-	// NOTE: This is a no-op since prometheus exporter makes uses of http server
-	// for exporting metrics
-	e.logger.Info("Stopping Prometheus exporter")
-	return nil
+	return err
 }
 
 // Name implements service.Name
