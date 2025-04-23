@@ -4,7 +4,6 @@
 package device
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -157,22 +156,6 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 
 func (m *fakeRaplMeter) Name() string {
 	return "fake-cpu-meter"
-}
-
-func (m *fakeRaplMeter) Init(ctx context.Context) error {
-	m.logger.Info("Initializing fake CPU power meter")
-	return nil
-}
-
-func (m *fakeRaplMeter) Run(ctx context.Context) error {
-	m.logger.Info("Running fake CPU power meter")
-	<-ctx.Done()
-	return nil
-}
-
-func (m *fakeRaplMeter) Stop() error {
-	m.logger.Info("Stopping fake CPU power meter")
-	return nil
 }
 
 func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {

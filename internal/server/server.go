@@ -89,7 +89,7 @@ func (s *APIServer) Name() string {
 	return "api-server"
 }
 
-func (s *APIServer) Init(ctx context.Context) error {
+func (s *APIServer) Init() error {
 	s.logger.Info("Initializing HTTP server", "listening-on", s.listenAddrs)
 	if len(s.listenAddrs) == 0 {
 		return fmt.Errorf("no listening address provided")

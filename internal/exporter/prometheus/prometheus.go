@@ -4,7 +4,6 @@
 package prometheus
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,8 +17,8 @@ import (
 )
 
 type (
-	Service = service.Service
-	Monitor = monitor.Service
+	Initializer = service.Initializer
+	Monitor     = monitor.Service
 )
 
 type APIRegistry interface {
@@ -85,7 +84,7 @@ type Exporter struct {
 	collectors      map[string]prom.Collector
 }
 
-var _ Service = (*Exporter)(nil)
+var _ Initializer = (*Exporter)(nil)
 
 // NewExporter creates a new PrometheusExporter instance
 func NewExporter(pm Monitor, s APIRegistry, applyOpts ...OptionFn) *Exporter {
@@ -137,7 +136,7 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 	return collectors, nil
 }
 
-func (e *Exporter) Init(ctx context.Context) error {
+func (e *Exporter) Init() error {
 	e.logger.Info("Initializing Prometheus exporter")
 	for c := range e.debugCollectors {
 		collector, err := collectorForName(c)

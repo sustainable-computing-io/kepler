@@ -75,13 +75,9 @@ func (pm *PowerMonitor) Name() string {
 	return "monitor"
 }
 
-func (pm *PowerMonitor) Init(ctx context.Context) error {
-	if err := pm.cpu.Init(ctx); err != nil {
-		return fmt.Errorf("failed to start cpu power meter: %w", err)
-	}
-
+func (pm *PowerMonitor) Init() error {
 	if err := pm.initZones(); err != nil {
-		return fmt.Errorf("failed to initialize zones: %w", err)
+		return fmt.Errorf("zone initialization failed: %w", err)
 	}
 	// signal now so that exporters can construct descriptors
 	pm.signalNewData()
@@ -101,11 +97,6 @@ func (pm *PowerMonitor) Run(ctx context.Context) error {
 	<-ctx.Done()
 	pm.logger.Info("Monitor has terminated.")
 	return nil
-}
-
-func (pm *PowerMonitor) Shutdown() error {
-	pm.logger.Info("shutting down monitor")
-	return pm.cpu.Stop()
 }
 
 func (pm *PowerMonitor) DataChannel() <-chan struct{} {
