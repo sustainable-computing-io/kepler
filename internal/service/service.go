@@ -9,8 +9,24 @@ import "context"
 type Service interface {
 	// Name returns the name of the service
 	Name() string
-	// Start starts the service
-	Start(ctx context.Context) error
-	// Stop stops the service
-	Stop() error
+}
+
+// Initializer is the interface that all services must implement that are to be initialized
+type Initializer interface {
+	Service
+	Init(ctx context.Context) error
+}
+
+// Runner is the interface that all services must implement that needs to run in background
+type Runner interface {
+	Service
+	// Run runs the service and is expected to block and be thread safe
+	Run(ctx context.Context) error
+}
+
+// Shutdown is the interface that all services must implement that are to be shutdown / cleaned up
+type Shutdown interface {
+	Service
+	// Shutdown shuts down the service
+	Shutdown() error
 }

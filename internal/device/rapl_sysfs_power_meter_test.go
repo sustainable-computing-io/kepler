@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/procfs/sysfs"
 	"github.com/stretchr/testify/assert"
@@ -32,13 +33,35 @@ func TestCPUPowerMeter_Name(t *testing.T) {
 	assert.Equal(t, "rapl", name, "Name() should return 'rapl'")
 }
 
-func TestCPUPowerMeter_Start(t *testing.T) {
+func TestCPUPowerMeter_Init(t *testing.T) {
 	meter, err := NewCPUPowerMeter(validSysFSPath)
 	assert.NoError(t, err, "NewCPUPowerMeter should not return an error")
 
 	ctx := context.Background()
-	err = meter.Start(ctx)
+	err = meter.Init(ctx)
 	assert.NoError(t, err, "Start() should not return an error")
+}
+
+func TestCPUPowerMeter_Run(t *testing.T) {
+	meter, err := NewCPUPowerMeter(validSysFSPath)
+	assert.NoError(t, err, "NewCPUPowerMeter should not return an error")
+
+	ctx := context.Background()
+	err = meter.Init(ctx)
+	assert.NoError(t, err, "Start() should not return an error")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	errCh := make(chan error, 1)
+	start := time.Now()
+	go func() {
+		errCh <- meter.Run(ctx)
+	}()
+
+	err = <-errCh
+	duration := time.Since(start)
+	assert.NoError(t, err, "Run() should not return an error")
+	assert.GreaterOrEqual(t, duration, 50*time.Millisecond, "Run() should run until the context is cancelled")
 }
 
 func TestCPUPowerMeter_Stop(t *testing.T) {
@@ -79,15 +102,15 @@ func TestSysFSRaplZoneInterface(t *testing.T) {
 	assert.Equal(t, 1.0, zone.MaxEnergy().Joules())
 }
 
-func TestSysFSRaplPowerMeterStart(t *testing.T) {
+func TestSysFSRaplPowerMeterInit(t *testing.T) {
 	rapl := raplPowerMeter{reader: sysfsRaplReader{fs: validSysFSFixtures(t)}}
-	err := rapl.Start(context.Background())
+	err := rapl.Init(context.Background())
 	assert.NoError(t, err)
 }
 
-func TestSysFSRaplPowerMeterStartFail(t *testing.T) {
+func TestSysFSRaplPowerMeterInitFail(t *testing.T) {
 	rapl := raplPowerMeter{reader: sysfsRaplReader{fs: invalidSysFSFixtures(t)}}
-	err := rapl.Start(context.Background())
+	err := rapl.Init(context.Background())
 	assert.Error(t, err)
 }
 
@@ -337,13 +360,13 @@ func TestCPUPowerMeter_NoZones(t *testing.T) {
 	mockReader.AssertExpectations(t)
 }
 
-// TestCPUPowerMeter_StartNoZones tests that Start returns an error when no zones are found
-func TestCPUPowerMeter_StartNoZones(t *testing.T) {
+// TestCPUPowerMeter_InitNoZones tests that Start returns an error when no zones are found
+func TestCPUPowerMeter_InitNoZones(t *testing.T) {
 	mockReader := &mockRaplReader{}
 	mockReader.On("Zones").Return([]EnergyZone{}, nil)
 
 	meter := &raplPowerMeter{reader: mockReader}
-	err := meter.Start(context.Background())
+	err := meter.Init(context.Background())
 
 	assert.Error(t, err, "Start() should return an error when no zones are found")
 	assert.Equal(t, "no RAPL zones found", err.Error(), "Start() should return a specific error message")

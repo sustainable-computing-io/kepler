@@ -11,8 +11,12 @@ type powerMeter interface {
 	// Name() returns a string identifying the power meter
 	Name() string
 
-	// Start() initialuzes and starts the power meter for reading energy or power
-	Start(ctx context.Context) error
+	// Init() initializes the power meter and makes it ready for use. This method
+	// is not required to be thread-safe
+	Init(ctx context.Context) error
+
+	// Run() power meter for reading energy or power
+	Run(ctx context.Context) error
 
 	// Stop() stops the power meter and releases any resources held
 	Stop() error

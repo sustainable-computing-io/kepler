@@ -14,7 +14,6 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -23,12 +22,17 @@ type MockMonitor struct {
 	mock.Mock
 }
 
-func (m *MockMonitor) Start(ctx context.Context) error {
+func (m *MockMonitor) Init(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
 
-func (m *MockMonitor) Stop() error {
+func (m *MockMonitor) Run(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockMonitor) Shutdown() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -125,7 +129,7 @@ func TestExporter_Name(t *testing.T) {
 	assert.Equal(t, "prometheus", exporter.Name())
 }
 
-func TestExporter_Start(t *testing.T) {
+func TestExporter_Init(t *testing.T) {
 	t.Run("starts successfully", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
 		mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
@@ -140,19 +144,8 @@ func TestExporter_Start(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
-		// Start in a goroutine because it will block until context is done
-		errCh := make(chan error)
-		go func() {
-			errCh <- exporter.Start(ctx)
-		}()
-
-		// Wait for timeout or error
-		select {
-		case err := <-errCh:
-			assert.NoError(t, err)
-		case <-time.After(200 * time.Millisecond):
-			t.Fatal("Start didn't return after context was cancelled")
-		}
+		err := exporter.Init(ctx)
+		assert.NoError(t, err)
 
 		mockRegistry.AssertExpectations(t)
 	})
@@ -170,7 +163,7 @@ func TestExporter_Start(t *testing.T) {
 
 		// Start with a context - should return the error immediately
 		ctx := context.Background()
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.Error(t, err)
 		assert.Equal(t, expectedErr, err)
@@ -191,7 +184,7 @@ func TestExporter_Start(t *testing.T) {
 
 		// Start should return an error
 		ctx := context.Background()
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown collector: unknown_collector")
@@ -221,23 +214,11 @@ func TestExporter_Start(t *testing.T) {
 			cancel()
 		}()
 
-		err := exporter.Start(ctx)
+		err := exporter.Init(ctx)
 
 		assert.NoError(t, err)
 		mockRegistry.AssertExpectations(t)
 	})
-}
-
-func TestExporter_Stop(t *testing.T) {
-	mockMonitor := &MockMonitor{}
-	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
-	mockRegistry := &MockAPIRegistry{}
-
-	exporter := NewExporter(mockMonitor, mockRegistry)
-
-	// Stop should return nil since it's a no-op in the implementation
-	err := exporter.Stop()
-	assert.NoError(t, err)
 }
 
 func TestCollectorForName(t *testing.T) {
@@ -337,33 +318,13 @@ func TestExporter_Integration(t *testing.T) {
 
 	// Set up a cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
-
-	// Start exporter in goroutine and cancel after brief period
-	errCh := make(chan error)
-	go func() {
-		errCh <- exporter.Start(ctx)
-	}()
-
-	// Allow some time for registration then cancel
-	time.Sleep(50 * time.Millisecond)
-	cancel()
-
-	// Wait for exporter to stop
-	select {
-	case err := <-errCh:
-		require.NoError(t, err)
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Exporter did not stop after context cancellation")
-	}
+	defer cancel()
+	assert.NoError(t, exporter.Init(ctx), "exporter init failed")
 
 	// Verify all mocks
 	mockRegistry.AssertExpectations(t)
 	// TODO: verify mockMonitor calls once the exporter is implemented
 	mockMonitor.AssertExpectations(t)
-
-	// Test stop method
-	err := exporter.Stop()
-	assert.NoError(t, err)
 }
 
 func TestExporter_CreateCollectors(t *testing.T) {

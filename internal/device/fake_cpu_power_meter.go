@@ -159,8 +159,14 @@ func (m *fakeRaplMeter) Name() string {
 	return "fake-cpu-meter"
 }
 
-func (m *fakeRaplMeter) Start(ctx context.Context) error {
-	m.logger.Info("Starting fake CPU power meter")
+func (m *fakeRaplMeter) Init(ctx context.Context) error {
+	m.logger.Info("Initializing fake CPU power meter")
+	return nil
+}
+
+func (m *fakeRaplMeter) Run(ctx context.Context) error {
+	m.logger.Info("Running fake CPU power meter")
+	<-ctx.Done()
 	return nil
 }
 
