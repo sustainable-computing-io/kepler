@@ -18,19 +18,6 @@ jobs:
   #     - uses: grafana/pr-labeler-action@v0.1.0
   #       with:
   #         token: ${{ secrets.GITHUB_TOKEN }}
-  # docs:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-go@v5.4.0
-  #       with:
-  #         go-version-file: go.mod
-  #
-  #     - name: make docs
-  #       shell: bash
-  #       run: |
-  #         make docs && git diff --exit-code
-
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -42,24 +29,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: make deps
-        shell: bash
-        run: make deps
-
       - name: make fmt
         shell: bash
         run: make fmt && git diff --exit-code
 
-  codecov-upload:
-    uses: ./.github/workflows/codecov-upload.yaml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  golangci:
-    permissions:
-      contents: read
-      pull-requests: read
-
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
@@ -78,6 +52,27 @@ jobs:
           args: --timeout=3m --issues-exit-code=0 ./...
           only-new-issues: true
 
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: make vet
+        shell: bash
+        run: make vet && git diff --exit-code
+
+  codecov-upload:
+    uses: ./.github/workflows/codecov-upload.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   pre-commit:
     runs-on: ubuntu-latest
     steps:
@@ -91,7 +86,7 @@ jobs:
         uses: pre-commit/action@v3.0.1
 
   build-images:
-    needs: [fmt, golangci, codecov-upload]
+    needs: [fmt, lint, vet, codecov-upload]
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
