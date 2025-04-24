@@ -33,18 +33,22 @@ type (
 	}
 
 	Config struct {
-		Log  Log  `yaml:"log"`
-		Host Host `yaml:"host"`
-		Dev  Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
+		Log         Log  `yaml:"log"`
+		Host        Host `yaml:"host"`
+		Dev         Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
+		EnablePprof bool `yaml:"enable-pprof"`
 	}
 )
 
 const (
 	// Flags
-	LogLevelFlag   = "log.level"
-	LogFormatFlag  = "log.format"
+	LogLevelFlag  = "log.level"
+	LogFormatFlag = "log.format"
+
 	HostSysFSFlag  = "host.sysfs"
 	HostProcFSFlag = "host.procfs"
+
+	EnablePprofFlag = "enable.pprof"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -123,6 +127,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	logFormat := app.Flag(LogFormatFlag, "Logging format: text or json").Default("text").Enum("text", "json")
 	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
 	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
+	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -139,6 +144,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[HostProcFSFlag] {
 			cfg.Host.ProcFS = *hostProcFS
+		}
+
+		if flagsSet[EnablePprofFlag] {
+			cfg.EnablePprof = *enablePprof
 		}
 
 		cfg.sanitize()
