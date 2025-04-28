@@ -7,20 +7,17 @@ import (
 	"errors"
 )
 
-func (pm *PowerMonitor) calculateNodePower(snapshot *Snapshot) error {
-	// Get previous measurements for calculating watts
-	pm.snapshotMu.RLock()
-	prevReadTime := pm.snapshot.Node.Timestamp
-	prevZones := pm.snapshot.Node.Zones
-	pm.snapshotMu.RUnlock()
-
-	if prevReadTime.IsZero() {
+func (pm *PowerMonitor) calculateNodePower(node *Node, prevNode *Node) error {
+	if prevNode == nil || prevNode.Timestamp.IsZero() {
 		// No previous data, nothing to do
-		return pm.firstNodeRead(snapshot)
+		return pm.firstNodeRead(node)
 	}
+	// Get previous measurements for calculating watts
+	prevReadTime := prevNode.Timestamp
+	prevZones := prevNode.Zones
 
 	now := pm.clock.Now()
-	snapshot.Node.Timestamp = now
+	node.Timestamp = now
 
 	// get zones first, before locking for read
 	zones, err := pm.cpu.Zones()
@@ -49,7 +46,7 @@ func (pm *PowerMonitor) calculateNodePower(snapshot *Snapshot) error {
 			power = Power(float64(deltaEnergy) / float64(timeDiff))
 		}
 
-		snapshot.Node.Zones[zone] = Usage{
+		node.Zones[zone] = Usage{
 			Absolute: absEnergy,
 			Delta:    deltaEnergy,
 			Power:    power,
@@ -74,8 +71,8 @@ func calculateEnergyDelta(current, previous, maxJoules Energy) Energy {
 }
 
 // firstNodeRead reads the energy for the first time
-func (pm *PowerMonitor) firstNodeRead(snapshot *Snapshot) error {
-	snapshot.Node.Timestamp = pm.clock.Now()
+func (pm *PowerMonitor) firstNodeRead(node *Node) error {
+	node.Timestamp = pm.clock.Now()
 
 	zones, err := pm.cpu.Zones()
 	if err != nil {
@@ -91,7 +88,7 @@ func (pm *PowerMonitor) firstNodeRead(snapshot *Snapshot) error {
 			continue
 		}
 
-		snapshot.Node.Zones[zone] = Usage{
+		node.Zones[zone] = Usage{
 			Absolute: energy,
 		}
 	}
