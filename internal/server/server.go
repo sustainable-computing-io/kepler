@@ -159,6 +159,7 @@ func (s *APIServer) Shutdown() error {
 }
 
 func (s *APIServer) Register(endpoint, summary, description string, handler http.Handler) error {
+	s.logger.Debug("Endpoint Registered", "endpoint", endpoint)
 	s.mux.Handle(endpoint, handler)
 	s.endpointDescription += fmt.Sprintf("<li> <a href=\"%s\"> %s </a> %s </li>\n", endpoint, summary, description)
 	return nil

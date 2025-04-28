@@ -229,11 +229,18 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		prometheus.WithCollectors(collectors),
 	)
 
-	return []service.Service{
+	services := []service.Service{
 		promExporter,
 		apiServer,
 		pm,
-	}, nil
+	}
+
+	if cfg.EnablePprof {
+		pprof := server.NewPprof(apiServer)
+		services = append(services, pprof)
+	}
+
+	return services, nil
 }
 
 func createPowerMonitor(logger *slog.Logger, cfg *config.Config) (*monitor.PowerMonitor, error) {
