@@ -24,6 +24,11 @@ type (
 		ProcFS string `yaml:"procfs"`
 	}
 
+	// Rapl configuration
+	Rapl struct {
+		Zones []string `yaml:"zones"`
+	}
+
 	// Development mode settings; disabled by default
 	Dev struct {
 		FakeCpuMeter struct {
@@ -37,6 +42,7 @@ type (
 		Host        Host `yaml:"host"`
 		Dev         Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
 		EnablePprof bool `yaml:"enable-pprof"`
+		Rapl        Rapl `yaml:"rapl"`
 	}
 )
 
@@ -63,6 +69,9 @@ func DefaultConfig() *Config {
 		Host: Host{
 			SysFS:  "/sys",
 			ProcFS: "/proc",
+		},
+		Rapl: Rapl{
+			Zones: []string{},
 		},
 	}
 
@@ -128,6 +137,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
 	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
 	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -160,6 +170,10 @@ func (c *Config) sanitize() {
 	c.Log.Format = strings.TrimSpace(c.Log.Format)
 	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
 	c.Host.ProcFS = strings.TrimSpace(c.Host.ProcFS)
+
+	for i := range c.Rapl.Zones {
+		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
+	}
 }
 
 // Validate checks for configuration errors
@@ -243,6 +257,7 @@ func (c *Config) manualString() string {
 		{LogFormatFlag, c.Log.Format},
 		{HostSysFSFlag, c.Host.SysFS},
 		{HostProcFSFlag, c.Host.ProcFS},
+		{"rapl.zones", strings.Join(c.Rapl.Zones, ", ")},
 	}
 	sb := strings.Builder{}
 

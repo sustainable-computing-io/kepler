@@ -6,6 +6,9 @@ host:
   sysfs: /sys # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
 
+rapl:
+  zones: [] # zones to be enabled, empty enables all default zones
+
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
   fake-cpu-meter:
