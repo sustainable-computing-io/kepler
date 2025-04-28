@@ -34,7 +34,7 @@ jobs:
           IMAGE_OUTPUT_PATH: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
       # save kepler image
       - name: save Kepler image as artifact
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: keplerlibbpf
           path: ${{env.OUTPUT_DIR}}${{env.FILE_NAME}}
@@ -102,7 +102,7 @@ jobs:
 
       - name: Save artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: artifacts
           path: ${{env.ARTIFACT_DIR}}
