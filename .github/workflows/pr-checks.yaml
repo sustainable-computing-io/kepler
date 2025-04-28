@@ -5,20 +5,26 @@ on: # yamllint disable-line rule:truthy
     branches: [reboot]
 
 jobs:
-  # label-pr:
-  #   permissions:
-  #     contents: read
-  #     issues: read
-  #     pull-requests: write
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: checkout source
-  #       uses: actions/checkout@v4
-  #
-  #     - uses: grafana/pr-labeler-action@v0.1.0
-  #       with:
-  #         token: ${{ secrets.GITHUB_TOKEN }}
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: filter changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changes:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
   fmt:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
@@ -34,6 +40,8 @@ jobs:
         run: make fmt && git diff --exit-code
 
   lint:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
@@ -53,6 +61,8 @@ jobs:
           only-new-issues: true
 
   vet:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
@@ -69,6 +79,8 @@ jobs:
         run: make vet && git diff --exit-code
 
   codecov-upload:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
     uses: ./.github/workflows/codecov-upload.yaml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -86,7 +98,6 @@ jobs:
         uses: pre-commit/action@v3.0.1
 
   build-images:
-    needs: [fmt, lint, vet, codecov-upload]
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
