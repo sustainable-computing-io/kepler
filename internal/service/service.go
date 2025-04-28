@@ -14,7 +14,7 @@ type Service interface {
 // Initializer is the interface that all services must implement that are to be initialized
 type Initializer interface {
 	Service
-	Init(ctx context.Context) error
+	Init() error
 }
 
 // Runner is the interface that all services must implement that needs to run in background
@@ -24,8 +24,8 @@ type Runner interface {
 	Run(ctx context.Context) error
 }
 
-// Shutdown is the interface that all services must implement that are to be shutdown / cleaned up
-type Shutdown interface {
+// Shutdowner is the interface that all services must implement that are to be shutdown / cleaned up
+type Shutdowner interface {
 	Service
 	// Shutdown shuts down the service
 	Shutdown() error

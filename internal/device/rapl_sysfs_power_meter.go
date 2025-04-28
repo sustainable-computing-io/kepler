@@ -4,7 +4,6 @@
 package device
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -32,7 +31,7 @@ func WithSysFSReader(r sysfsReader) OptionFn {
 }
 
 // NewCPUPowerMeter creates a new CPU power meter
-func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (CPUPowerMeter, error) {
+func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, error) {
 	fs, err := sysfs.NewFS(sysfsPath)
 	if err != nil {
 		return nil, err
@@ -53,7 +52,7 @@ func (r *raplPowerMeter) Name() string {
 	return "rapl"
 }
 
-func (r *raplPowerMeter) Init(ctx context.Context) error {
+func (r *raplPowerMeter) Init() error {
 	// ensure zones can be read but don't cache them
 	zones, err := r.reader.Zones()
 	if err != nil {
@@ -65,15 +64,6 @@ func (r *raplPowerMeter) Init(ctx context.Context) error {
 	// try reading the first zone and return the error
 	_, err = zones[0].Energy()
 	return err
-}
-
-func (r *raplPowerMeter) Run(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
-}
-
-func (r *raplPowerMeter) Stop() error {
-	return nil
 }
 
 func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {

@@ -4,7 +4,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 	"net/http/pprof"
 
@@ -15,8 +14,10 @@ type pp struct {
 	api APIService
 }
 
-var _ service.Service = (*pp)(nil)
-var _ service.Initializer = (*pp)(nil)
+var (
+	_ service.Service     = (*pp)(nil)
+	_ service.Initializer = (*pp)(nil)
+)
 
 func NewPprof(api APIService) *pp {
 	return &pp{
@@ -28,7 +29,7 @@ func (p *pp) Name() string {
 	return "pprof"
 }
 
-func (p *pp) Init(ctx context.Context) error {
+func (p *pp) Init() error {
 	return p.api.Register("/debug/pprof/", "pprof", "Profiling Data", handlers())
 }
 

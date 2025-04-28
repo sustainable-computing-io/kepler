@@ -22,8 +22,8 @@ type MockMonitor struct {
 	mock.Mock
 }
 
-func (m *MockMonitor) Init(ctx context.Context) error {
-	args := m.Called(ctx)
+func (m *MockMonitor) Init() error {
+	args := m.Called()
 	return args.Error(0)
 }
 
@@ -139,12 +139,7 @@ func TestExporter_Init(t *testing.T) {
 		mockRegistry.On("Register", "/metrics", "Metrics", "Prometheus metrics", mock.Anything).Return(nil)
 
 		exporter := NewExporter(mockMonitor, mockRegistry)
-
-		// Create context with timeout to ensure the test doesn't hang
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-
-		err := exporter.Init(ctx)
+		err := exporter.Init()
 		assert.NoError(t, err)
 
 		mockRegistry.AssertExpectations(t)
@@ -161,9 +156,8 @@ func TestExporter_Init(t *testing.T) {
 
 		exporter := NewExporter(mockMonitor, mockRegistry)
 
-		// Start with a context - should return the error immediately
-		ctx := context.Background()
-		err := exporter.Init(ctx)
+		// Init should return the error immediately
+		err := exporter.Init()
 
 		assert.Error(t, err)
 		assert.Equal(t, expectedErr, err)
@@ -182,9 +176,8 @@ func TestExporter_Init(t *testing.T) {
 			WithDebugCollectors(&[]string{"unknown_collector"}),
 		)
 
-		// Start should return an error
-		ctx := context.Background()
-		err := exporter.Init(ctx)
+		// Init should return an error
+		err := exporter.Init()
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown collector: unknown_collector")
@@ -205,17 +198,7 @@ func TestExporter_Init(t *testing.T) {
 			WithDebugCollectors(&[]string{"go", "process"}),
 		)
 
-		// Create context with immediate cancellation
-		ctx, cancel := context.WithCancel(context.Background())
-
-		// Start in goroutine and cancel immediately
-		go func() {
-			time.Sleep(10 * time.Millisecond)
-			cancel()
-		}()
-
-		err := exporter.Init(ctx)
-
+		err := exporter.Init()
 		assert.NoError(t, err)
 		mockRegistry.AssertExpectations(t)
 	})
@@ -316,10 +299,7 @@ func TestExporter_Integration(t *testing.T) {
 		WithCollectors(map[string]prom.Collector{"dummy": dummyCollector}),
 	)
 
-	// Set up a cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	assert.NoError(t, exporter.Init(ctx), "exporter init failed")
+	assert.NoError(t, exporter.Init(), "exporter init failed")
 
 	// Verify all mocks
 	mockRegistry.AssertExpectations(t)

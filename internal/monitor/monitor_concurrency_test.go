@@ -4,7 +4,6 @@
 package monitor
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"runtime"
@@ -32,10 +31,7 @@ func TestSnapshotThreadSafety(t *testing.T) {
 		WithMaxStaleness(200*time.Millisecond),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err = monitor.Init(ctx)
+	err = monitor.Init()
 	require.NoError(t, err)
 
 	numGoroutines := runtime.NumCPU() * 2
@@ -84,7 +80,6 @@ func TestFreshSnapshotCaching(t *testing.T) {
 	}).Return(Energy(100_000), nil)
 
 	energyZones := []device.EnergyZone{pkg}
-	mockMeter.On("Init", mock.Anything).Return(nil)
 	mockMeter.On("Zones").Return(energyZones, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
@@ -96,10 +91,7 @@ func TestFreshSnapshotCaching(t *testing.T) {
 		WithLogger(slog.Default()),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// first call to snapshot  should result in a new computation
@@ -147,10 +139,7 @@ func TestStaleSnapshotRefreshing(t *testing.T) {
 		WithMaxStaleness(100*time.Millisecond),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err = monitor.Init(ctx)
+	err = monitor.Init()
 	require.NoError(t, err)
 
 	snapshot1, err := monitor.Snapshot()
@@ -196,7 +185,6 @@ func TestSingleflightSnapshot(t *testing.T) {
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
 
 	energyZones := []device.EnergyZone{pkg}
-	mockMeter.On("Init", mock.Anything).Return(nil)
 	mockMeter.On("Zones").Return(energyZones, nil)
 
 	// Create a fake clock to control time
@@ -209,11 +197,8 @@ func TestSingleflightSnapshot(t *testing.T) {
 		WithMaxStaleness(50*time.Millisecond),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// Initialize the monitor
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// Get initial snapshot
@@ -280,7 +265,6 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 	pkg.On("Energy").Return(Energy(100_000), nil).Once()
 	pkg.On("Energy").Return(Energy(0), assert.AnError).Once()
 
-	mockMeter.On("Init", mock.Anything).Return(nil)
 	mockMeter.On("Zones").Return([]device.EnergyZone{pkg}, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
@@ -295,9 +279,7 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 		WithMaxStaleness(100*time.Millisecond),
 	)
 
-	// Init
-	ctx := context.Background()
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// first call should succeed
@@ -362,8 +344,7 @@ func TestSnapshot_ConcurrentAfterError(t *testing.T) {
 	)
 
 	// Initialize
-	ctx := context.Background()
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// First call should succeed and create a snapshot

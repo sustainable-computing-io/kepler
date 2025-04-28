@@ -4,14 +4,12 @@
 package server
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"net/http/pprof"
 )
 
 // MockAPIService is an implementation of the APIService interface for testing.
@@ -54,7 +52,7 @@ func TestPprofInit_Success(t *testing.T) {
 	// Set up mock expectation
 	api.On("Register", "/debug/pprof/", "pprof", "Profiling Data", mock.AnythingOfType("*http.ServeMux")).Return(nil)
 
-	err := p.Init(context.Background())
+	err := p.Init()
 	assert.NoError(t, err, "Init should not return an error when registration succeeds")
 	api.AssertExpectations(t)
 }
@@ -68,7 +66,7 @@ func TestPprofInit_Failure(t *testing.T) {
 	expectedErr := assert.AnError
 	api.On("Register", "/debug/pprof/", "pprof", "Profiling Data", mock.AnythingOfType("*http.ServeMux")).Return(expectedErr)
 
-	err := p.Init(context.Background())
+	err := p.Init()
 	assert.Error(t, err, "Init should return an error when registration fails")
 	assert.Equal(t, expectedErr, err, "Init should return the expected error")
 	api.AssertExpectations(t)
@@ -82,14 +80,13 @@ func TestPprofHandlers(t *testing.T) {
 
 	// Test cases for each pprof endpoint
 	tests := []struct {
-		path        string
-		handlerFunc http.HandlerFunc
+		path string
 	}{
-		{"/debug/pprof/", pprof.Index},
-		{"/debug/pprof/cmdline", pprof.Cmdline},
-		{"/debug/pprof/profile", pprof.Profile},
-		{"/debug/pprof/symbol", pprof.Symbol},
-		{"/debug/pprof/trace", pprof.Trace},
+		{"/debug/pprof/"},
+		{"/debug/pprof/cmdline"},
+		{"/debug/pprof/profile?seconds=1"},
+		{"/debug/pprof/symbol"},
+		{"/debug/pprof/trace"},
 	}
 
 	for _, tt := range tests {

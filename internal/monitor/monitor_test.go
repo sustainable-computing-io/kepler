@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 )
@@ -69,7 +68,6 @@ func TestPowerMonitor_Init(t *testing.T) {
 	}
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
 	mockPowerMeter.On("Name").Return("mock-cpu")
-	mockPowerMeter.On("Init", mock.Anything).Return(nil)
 
 	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
 	require.NoError(t, err)
@@ -93,30 +91,16 @@ func TestPowerMonitor_Init(t *testing.T) {
 
 	for _, powerMeter := range powerMeters {
 		t.Run(powerMeter.Name(), func(t *testing.T) {
-			// Create a context with a short timeout, shared by the Init methods
-			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-			defer cancel()
-
 			monitor := NewPowerMonitor(
 				powerMeter,
 				WithLogger(slog.Default()),
 			)
 
-			err := monitor.Init(ctx)
+			err := monitor.Init()
 			assert.NoError(t, err)
 			assert.Equal(t, monitor.ZoneNames(), zoneNamesFromMeter(powerMeter))
 		})
 	}
-	mockPowerMeter.AssertExpectations(t)
-}
-
-func TestPowerMonitor_Shutdown(t *testing.T) {
-	mockPowerMeter := &MockCPUPowerMeter{}
-	mockPowerMeter.On("Stop").Return(nil)
-
-	monitor := NewPowerMonitor(mockPowerMeter)
-	err := monitor.Shutdown()
-	assert.NoError(t, err)
 	mockPowerMeter.AssertExpectations(t)
 }
 
@@ -169,17 +153,13 @@ func TestPowerMonitor_InitZones(t *testing.T) {
 	require.NoError(t, err, "failed to create fake power meter")
 	monitor := NewPowerMonitor(fakePowerMeter)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	err = monitor.Init(ctx)
+	err = monitor.Init()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, monitor.zonesNames)
 }
 
 func TestPowerMonitor_Init_Success(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
-
-	mockMeter.On("Init", mock.Anything).Return(nil)
 
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
@@ -192,10 +172,7 @@ func TestPowerMonitor_Init_Success(t *testing.T) {
 	}))
 	monitor := NewPowerMonitor(mockMeter, WithLogger(logger))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	err := monitor.Init(ctx)
-
+	err := monitor.Init()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"package", "core"}, monitor.ZoneNames())
 
@@ -216,15 +193,13 @@ func TestPowerMonitor_Init_CPUInitFailure(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 
 	cpuInitError := errors.New("cpu init failed")
-	mockMeter.On("Init", mock.Anything).Return(cpuInitError)
+	mockMeter.On("Zones").Return([]EnergyZone{}, cpuInitError)
 
 	monitor := NewPowerMonitor(mockMeter)
 
-	ctx := context.Background()
-	err := monitor.Init(ctx)
-
+	err := monitor.Init()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "failed to start cpu power meter")
+	assert.ErrorContains(t, err, "zone initialization failed")
 	assert.ErrorIs(t, errors.Unwrap(err), cpuInitError)
 
 	assert.Empty(t, monitor.ZoneNames())
@@ -238,24 +213,20 @@ func TestPowerMonitor_Init_CPUInitFailure(t *testing.T) {
 	}
 
 	mockMeter.AssertExpectations(t)
-	mockMeter.AssertNotCalled(t, "Zones")
 }
 
 func TestPowerMonitor_Init_ZonesFailure(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
-
-	mockMeter.On("Init", mock.Anything).Return(nil)
 
 	zonesError := errors.New("failed to retrieve zones")
 	mockMeter.On("Zones").Return([]EnergyZone{}, zonesError)
 
 	monitor := NewPowerMonitor(mockMeter)
 
-	ctx := context.Background()
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "failed to initialize zones")
+	assert.ErrorContains(t, err, "zone initialization failed")
 	assert.ErrorIs(t, errors.Unwrap(err), zonesError)
 
 	// Zones should not be initialized
@@ -278,6 +249,7 @@ func TestPowerMonitor_Run(t *testing.T) {
 	monitor := NewPowerMonitor(mockMeter)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Start Run in a go routine since it  should blocks until context cancellation
 	runComplete := make(chan struct{})
@@ -321,21 +293,16 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 
-	mockMeter.On("Init", mock.Anything).Return(nil)
-
 	zone := &MockEnergyZone{}
 	zone.On("Name").Return("test-zone")
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
 
-	mockMeter.On("Stop").Return(nil)
-
 	monitor := NewPowerMonitor(mockMeter)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	err := monitor.Init(ctx)
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// Start Run in goroutine
+	ctx, cancel := context.WithCancel(context.Background())
 	runComplete := make(chan struct{})
 	go func() {
 		err := monitor.Run(ctx)
@@ -356,10 +323,6 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Run didn't exit after context cancellation")
 	}
-
-	// shutdown
-	err = monitor.Shutdown()
-	assert.NoError(t, err)
 
 	mockMeter.AssertExpectations(t)
 	zone.AssertExpectations(t)

@@ -96,9 +96,7 @@ func TestNewAPIServer(t *testing.T) {
 func TestAPIServer_Init(t *testing.T) {
 	server := NewAPIServer()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	err := server.Init(ctx)
+	err := server.Init()
 	assert.NoError(t, err)
 }
 
@@ -171,11 +169,7 @@ func TestAPIServer_Register(t *testing.T) {
 
 func TestAPIServer_InitWithNoListenAddr(t *testing.T) {
 	server := NewAPIServer(WithListenAddress([]string{}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
-	err := server.Init(ctx)
+	err := server.Init()
 	assert.Error(t, err, "Init should fail with no listen address")
 	assert.Contains(t, err.Error(), "no listening address provided")
 }
@@ -288,9 +282,7 @@ func TestAPIServer_RootEndpoint(t *testing.T) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	server := NewAPIServer(WithListenAddress([]string{addr}))
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-	assert.NoError(t, server.Init(ctx))
+	assert.NoError(t, server.Init())
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -302,6 +294,8 @@ func TestAPIServer_RootEndpoint(t *testing.T) {
 	// ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 
 	errCh := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
 	go func() {
 		errCh <- server.Run(ctx)
 	}()
