@@ -17,7 +17,7 @@
 | Qi Feng Huo           | IBM        | huoqifeng      | <huoqif@cn.ibm.com>              |
 | Ken Lu                | Intel      | kenplusplus    | <ken.lu@intel.com>               |
 | Marcelo Amaral        | IBM        | marceloamaral  | <marcelo.amaral1@ibm.com>        |
-| Niki Manoledaki       | Weaveworks | nikimanoledaki | <niki@weave.works>               |
+| Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>               |
 | Brad McCoy            | Basiq      | bradmccoydev   | <bradmccoydev@gmail.com>         |
 | Sunyanan Choochotkaew | IBM        | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> |
 | Ruomeng Hao           | Intel      | ruomengh       | <ruomengh@intel.com>             |
