@@ -5,6 +5,7 @@ package device
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/prometheus/procfs/sysfs"
@@ -14,6 +15,8 @@ import (
 type raplPowerMeter struct {
 	reader      sysfsReader
 	cachedZones []EnergyZone
+	logger      *slog.Logger
+	zoneFilter  []string
 }
 
 type OptionFn func(*raplPowerMeter)
@@ -30,6 +33,21 @@ func WithSysFSReader(r sysfsReader) OptionFn {
 	}
 }
 
+// WithRaplLogger sets the logger for raplPowerMeter
+func WithRaplLogger(logger *slog.Logger) OptionFn {
+	return func(pm *raplPowerMeter) {
+		pm.logger = logger.With("service", "rapl")
+	}
+}
+
+// WithZoneFilter sets zone names to include for monitoring
+// If empty, all zones are included
+func WithZoneFilter(zones []string) OptionFn {
+	return func(pm *raplPowerMeter) {
+		pm.zoneFilter = zones
+	}
+}
+
 // NewCPUPowerMeter creates a new CPU power meter
 func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, error) {
 	fs, err := sysfs.NewFS(sysfsPath)
@@ -38,7 +56,9 @@ func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, erro
 	}
 
 	ret := &raplPowerMeter{
-		reader: sysfsRaplReader{fs: fs},
+		reader:     sysfsRaplReader{fs: fs},
+		logger:     slog.Default().With("service", "rapl"),
+		zoneFilter: []string{},
 	}
 
 	for _, opt := range opts {
@@ -66,6 +86,35 @@ func (r *raplPowerMeter) Init() error {
 	return err
 }
 
+func (r *raplPowerMeter) needsFiltering() bool {
+	return len(r.zoneFilter) != 0
+}
+
+// filterZones applies the configured zone filter
+// If the filter is empty, all zones are returned
+func (r *raplPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
+	if !r.needsFiltering() {
+		return zones
+	}
+
+	wanted := make(map[string]bool, len(r.zoneFilter))
+	for _, name := range r.zoneFilter {
+		wanted[strings.ToLower(name)] = true
+	}
+	var included, excluded []string
+	filtered := make([]EnergyZone, 0, len(zones))
+	for _, zone := range zones {
+		if wanted[strings.ToLower(zone.Name())] {
+			filtered = append(filtered, zone)
+			included = append(included, zone.Name())
+		} else {
+			excluded = append(excluded, zone.Name())
+		}
+	}
+	r.logger.Debug("Filtered RAPL zones", "included", included, "excluded", excluded)
+	return filtered
+}
+
 func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 	// Return cached zones if already initialized
 	if len(r.cachedZones) != 0 {
@@ -79,6 +128,12 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 		return nil, fmt.Errorf("no RAPL zones found")
 	}
 
+	zones = r.filterZones(zones)
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("no RAPL zones found after filtering")
+	}
+
+	// filter out non-standard zones
 	stdZoneMap := map[string]EnergyZone{}
 	for _, zone := range zones {
 		// key -> zone-name + index

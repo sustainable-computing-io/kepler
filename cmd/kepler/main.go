@@ -163,5 +163,14 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 	if fake := cfg.Dev.FakeCpuMeter; fake.Enabled {
 		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
 	}
-	return device.NewCPUPowerMeter(cfg.Host.SysFS)
+
+	if len(cfg.Rapl.Zones) > 0 {
+		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
+	}
+
+	return device.NewCPUPowerMeter(
+		cfg.Host.SysFS,
+		device.WithRaplLogger(logger),
+		device.WithZoneFilter(cfg.Rapl.Zones),
+	)
 }
