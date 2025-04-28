@@ -4,6 +4,7 @@
 package collector
 
 import (
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -30,6 +31,8 @@ type PowerCollector struct {
 	ready                 bool
 	nodeJoulesDescriptors map[string]*prometheus.Desc
 	nodeWattsDescriptors  map[string]*prometheus.Desc
+
+	energyZoneDescriptor *prometheus.Desc
 }
 
 // NewPowerCollector creates a collector that provides consistent metrics
@@ -75,6 +78,12 @@ func (c *PowerCollector) updateDescriptors() {
 			)
 		}
 	}
+	c.energyZoneDescriptor = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, nodeRAPL, "energy_zone"),
+		"Energy Zones from RAPL",
+		[]string{"name", "index", "path"},
+		nil,
+	)
 	c.ready = true
 }
 
@@ -93,6 +102,7 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	for _, desc := range c.nodeWattsDescriptors {
 		ch <- desc
 	}
+	ch <- c.energyZoneDescriptor
 }
 
 func (c *PowerCollector) isReady() bool {
@@ -148,6 +158,15 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 			wattsDesc,
 			prometheus.GaugeValue,
 			energy.Power.Watts(),
+			path,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.energyZoneDescriptor,
+			prometheus.GaugeValue,
+			1,
+			zoneName,
+			fmt.Sprintf("%d", zone.Index()),
 			path,
 		)
 	}

@@ -135,23 +135,19 @@ func TestPowerCollector(t *testing.T) {
 			"kepler_node_package_watts",
 			"kepler_node_dram_joules_total",
 			"kepler_node_dram_watts",
+			"kepler_node_energy_zone",
 		}
 
-		actualMetricNames := map[string]bool{}
-		for _, metric := range metrics {
-			actualMetricNames[metric.GetName()] = true
-		}
-
-		// Check that all expected metrics exist
-		for _, name := range expectedMetricNames {
-			assert.Contains(t, actualMetricNames, name)
-		}
+		assert.ElementsMatch(t, expectedMetricNames, metricNames(metrics))
 	})
 
 	t.Run("Node Metrics Values", func(t *testing.T) {
 		// Get metrics from registry
 		metrics, err := registry.Gather()
 		assert.NoError(t, err)
+
+		zoneNames := []string{}
+		zonePaths := []string{}
 
 		// Check node joules metrics
 		for _, metric := range metrics {
@@ -184,6 +180,23 @@ func TestPowerCollector(t *testing.T) {
 				}
 			}
 		}
+
+		// check node energy zone metrics
+		for _, metric := range metrics {
+			if strings.HasPrefix(metric.GetName(), "kepler_node_") && strings.HasSuffix(metric.GetName(), "energy_zone") {
+				for _, m := range metric.GetMetric() {
+					value := m.GetGauge().GetValue()
+					assert.Equal(t, 1.0, value, "Expected 2 energy zones")
+					zoneNames = append(zoneNames, valueOfLabel(m, "name"))
+					zonePaths = append(zonePaths, valueOfLabel(m, "path"))
+				}
+			}
+		}
+		assert.ElementsMatch(t, zoneNames, []string{"package", "dram"})
+		assert.ElementsMatch(t, zonePaths, []string{
+			"/sys/class/powercap/intel-rapl/intel-rapl:0",
+			"/sys/class/powercap/intel-rapl/intel-rapl:0:1",
+		})
 	})
 
 	// Verify mock expectations
@@ -198,4 +211,17 @@ func valueOfLabel(metric *dto.Metric, name string) string {
 		}
 	}
 	return ""
+}
+
+func metricNames(metrics []*dto.MetricFamily) []string {
+	if metrics == nil || len(metrics) == 0 {
+		return []string{}
+	}
+	names := []string{}
+	for _, metric := range metrics {
+		if metric != nil {
+			names = append(names, metric.GetName())
+		}
+	}
+	return names
 }
