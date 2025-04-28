@@ -412,3 +412,14 @@ func TestEnablePprof(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateWithSkip(t *testing.T) {
+	// Create a config with invalid host paths
+	cfg := DefaultConfig()
+	cfg.Host.SysFS = "/path/invalid"
+	cfg.Host.ProcFS = "/path/invalid"
+
+	// Validate with skipping host validation
+	err := cfg.Validate(SkipHostValidation)
+	assert.NoError(t, err, "Should pass when SkipHostValidation is provided")
+}
