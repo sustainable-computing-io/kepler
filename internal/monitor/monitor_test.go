@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	test_clock "k8s.io/utils/clock/testing"
 )
 
 func TestNewPowerMonitor(t *testing.T) {
@@ -350,4 +351,253 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 
 	mockMeter.AssertExpectations(t)
 	zone.AssertExpectations(t)
+}
+
+// TestMonitorRefreshSnapshot tests the PowerMonitor.refreshSnapshot
+func TestMonitorRefreshSnapshot(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	pkg := device.NewMockRaplZone(
+		"package-0",
+		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+
+	core := device.NewMockRaplZone(
+		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+
+	testZones := []EnergyZone{pkg, core}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	t.Run("Basic", func(t *testing.T) {
+		startTime := time.Date(2025, 4, 29, 11, 20, 0, 0, time.UTC)
+		mockClock := test_clock.NewFakeClock(startTime)
+
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+
+		// Create a custom PowerMonitor with the mock readers
+		pm := NewPowerMonitor(
+			mockCPUPowerMeter,
+			WithLogger(logger),
+			WithClock(mockClock))
+		assert.NotNil(t, pm)
+
+		// First collection should store the initial values
+		t.Run("First Collection", func(t *testing.T) {
+			pkg.Inc(20 * Joule)
+			core.Inc(10 * Joule)
+
+			err := pm.refreshSnapshot()
+			assert.NoError(t, err)
+
+			// Verify mock expectations
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Check that both zones have data
+			current := pm.snapshot.Load()
+			assert.Contains(t, current.Node.Zones, pkg)
+			assert.Contains(t, current.Node.Zones, core)
+
+			// Check package zone values
+			pkgZone := current.Node.Zones[pkg]
+			// should equal what package zone returns
+			raplPkgEnergy, _ := pkg.Energy()
+			assert.Equal(t, raplPkgEnergy.MicroJoules(), pkgZone.Absolute.MicroJoules())
+			assert.Equal(t, Energy(0), pkgZone.Delta) // First reading has 0 diff
+			assert.Equal(t, Power(0), pkgZone.Power)  // Should be 0 for first reading
+
+			// Check core zone values
+			coreZone := current.Node.Zones[core]
+			raplCoreEnergy, _ := core.Energy()
+			assert.Equal(t, raplCoreEnergy.MicroJoules(), coreZone.Absolute.MicroJoules())
+			assert.Equal(t, Energy(0), coreZone.Delta)
+			assert.Equal(t, Power(0), coreZone.Power)
+		})
+
+		// Clear existing mocks set up updated values
+
+		t.Run("Second Collection", func(t *testing.T) {
+			// Advance clock by 1 second
+			mockClock.Step(1 * time.Second)
+
+			mockCPUPowerMeter.ExpectedCalls = nil
+
+			pkg.Inc(50 * Joule)  // 20 -> 25
+			core.Inc(25 * Joule) // 10 -> 12.5
+			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+			// Collect node power data again
+
+			err := pm.refreshSnapshot()
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Check package zone values for second reading
+			current := pm.snapshot.Load()
+			pkgZone := current.Node.Zones[pkg]
+			raplPkgEnergy, _ := pkg.Energy()
+			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)     // No difference in Absolute counter
+			assert.InDelta(t, 50, pkgZone.Delta.Joules(), 0.001) // Should see 50 joules difference
+			assert.InDelta(t, 50, pkgZone.Power.Watts(), 0.001)  // 50 joules / 1 second = 50 watts
+
+			coreZone := current.Node.Zones[core]
+			raplCoreEnergy, _ := core.Energy()
+			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)    // No difference in Absolute counter
+			assert.InDelta(t, 25, coreZone.Delta.Joules(), 0.001) // Should see 25 joules difference
+			assert.InDelta(t, 25, coreZone.Power.Watts(), 0.001)  // 25 joules / 1 second = 25 watts
+
+			pm.snapshot.Store(current)
+		})
+
+		t.Run("After 3s", func(t *testing.T) {
+			mockClock.Step(3 * time.Second)
+
+			mockCPUPowerMeter.ExpectedCalls = nil
+
+			pkg.Inc(3 * 25 * Joule)
+			core.Inc(3 * 15 * Joule)
+			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+			// Collect node power data again
+			err := pm.refreshSnapshot()
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Check package zone values for second reading
+			current := pm.snapshot.Load()
+			pkgZone := current.Node.Zones[pkg]
+			raplPkgEnergy, _ := pkg.Energy()
+			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
+			assert.InDelta(t, 75, pkgZone.Delta.Joules(), 0.001)
+			assert.InDelta(t, 25, pkgZone.Power.Watts(), 0.001)
+
+			coreZone := current.Node.Zones[core]
+			raplCoreEnergy, _ := core.Energy()
+			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
+			assert.InDelta(t, 45, coreZone.Delta.Joules(), 0.001)
+			assert.InDelta(t, 15, coreZone.Power.Watts(), 0.001)
+
+			pm.snapshot.Store(current)
+		})
+
+		t.Run("Counter Wrap Around", func(t *testing.T) {
+			pkgE, _ := pkg.Energy()
+			assert.Equal(t, uint64(145_000_000), pkgE.MicroJoules())
+			assert.Equal(t, float64(145), pkgE.Joules())
+
+			coreE, _ := core.Energy()
+			assert.Equal(t, uint64(80_000_000), coreE.MicroJoules())
+			assert.Equal(t, float64(80), coreE.Joules())
+
+			mockClock.Step(10 * time.Second)
+
+			mockCPUPowerMeter.ExpectedCalls = nil
+
+			pkg.Inc(10 * 8 * Joule)  // 145 + 80 -> 225 (wraps at 200) -> 25
+			core.Inc(10 * 3 * Joule) // 80 + 40 -> 120 (wraps at 100) -> 15
+			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+			// Collect node power data again
+			err := pm.refreshSnapshot()
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Check package zone values for second reading
+			current := pm.snapshot.Load()
+			pkgZone := current.Node.Zones[pkg]
+			raplPkgEnergy, _ := pkg.Energy()
+			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
+
+			assert.InDelta(t, 80, pkgZone.Delta.Joules(), 0.001)
+			assert.InDelta(t, 8, pkgZone.Power.Watts(), 0.001)
+
+			coreZone := current.Node.Zones[core]
+			raplCoreEnergy, _ := core.Energy()
+			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
+			assert.InDelta(t, 30, coreZone.Delta.Joules(), 0.001)
+			assert.InDelta(t, 3, coreZone.Power.Watts(), 0.001)
+
+			pm.snapshot.Store(current)
+		})
+	})
+}
+
+func TestRefreshSnapshotError(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	// Create a mock clock with a fixed start time
+	startTime := time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC)
+	mockClock := test_clock.NewFakeClock(startTime)
+
+	// Create PowerMonitor with the mock
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+	)
+	t.Run("Zone Listing Error", func(t *testing.T) {
+		mockCPUPowerMeter.On("Zones").Return([]EnergyZone(nil), assert.AnError)
+		err := pm.refreshSnapshot()
+		assert.Error(t, err, "zone read errors must be propagated")
+		snapshot := pm.snapshot.Load()
+		assert.Empty(t, snapshot)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Fix first read", func(t *testing.T) {
+		mockCPUPowerMeter.ExpectedCalls = nil
+		pkg := device.NewMockRaplZone(
+			"package-0",
+			0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+
+		core := device.NewMockRaplZone(
+			"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+
+		testZones := []EnergyZone{pkg, core}
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+		mockClock.Step(10 * time.Second)
+
+		err := pm.refreshSnapshot()
+		assert.NoError(t, err)
+		snapshot := pm.snapshot.Load()
+		assert.Equal(t, mockClock.Now(), snapshot.Timestamp)
+		assert.Contains(t, snapshot.Node.Zones, pkg)
+		assert.Contains(t, snapshot.Node.Zones, core)
+
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Error on computePower", func(t *testing.T) {
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return([]EnergyZone(nil), assert.AnError)
+		mockClock.Step(30 * time.Second)
+		err := pm.refreshSnapshot()
+		assert.Error(t, err, "zone read errors must be propagated")
+		snapshot := pm.snapshot.Load()
+		assert.NotEqual(t, mockClock.Now(), snapshot.Timestamp)
+	})
+
+	t.Run("Fix computePower", func(t *testing.T) {
+		mockCPUPowerMeter.ExpectedCalls = nil
+		pkg := device.NewMockRaplZone(
+			"package-0",
+			0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+
+		core := device.NewMockRaplZone(
+			"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+
+		testZones := []EnergyZone{pkg, core}
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+		mockClock.Step(30 * time.Second)
+
+		err := pm.refreshSnapshot()
+		assert.NoError(t, err)
+		snapshot := pm.snapshot.Load()
+		assert.Equal(t, mockClock.Now(), snapshot.Timestamp)
+		assert.Contains(t, snapshot.Node.Zones, pkg)
+		assert.Contains(t, snapshot.Node.Zones, core)
+	})
 }

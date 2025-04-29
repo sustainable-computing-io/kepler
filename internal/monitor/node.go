@@ -7,17 +7,13 @@ import (
 	"errors"
 )
 
-func (pm *PowerMonitor) calculateNodePower(node *Node, prevNode *Node) error {
-	if prevNode == nil || prevNode.Timestamp.IsZero() {
-		// No previous data, nothing to do
-		return pm.firstNodeRead(node)
-	}
+func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 	// Get previous measurements for calculating watts
 	prevReadTime := prevNode.Timestamp
 	prevZones := prevNode.Zones
 
 	now := pm.clock.Now()
-	node.Timestamp = now
+	newNode.Timestamp = now
 
 	// get zones first, before locking for read
 	zones, err := pm.cpu.Zones()
@@ -46,7 +42,7 @@ func (pm *PowerMonitor) calculateNodePower(node *Node, prevNode *Node) error {
 			power = Power(float64(deltaEnergy) / float64(timeDiff))
 		}
 
-		node.Zones[zone] = Usage{
+		newNode.Zones[zone] = Usage{
 			Absolute: absEnergy,
 			Delta:    deltaEnergy,
 			Power:    power,

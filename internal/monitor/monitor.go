@@ -245,27 +245,51 @@ func (pm *PowerMonitor) isFresh() bool {
 	return age <= pm.maxStaleness
 }
 
-// refreshSnapshot create a new snapshot of the power consumption of various levels( currently only node)
+// refreshSnapshot creates a new snapshot of the power consumption
+// It handles both initial and subsequent collections assuming previous Snapshot
+// is nil only on first call.
 func (pm *PowerMonitor) refreshSnapshot() error {
 	started := pm.clock.Now()
-	defer func() { pm.logger.Info("Computed power", "duration", pm.clock.Since(started)) }()
-
-	prevSnapshot := pm.snapshot.Load()
-	// ensure snapshot is not nil from here on
-	if prevSnapshot == nil {
-		prevSnapshot = NewSnapshot()
-	}
+	defer func() {
+		pm.logger.Info("Computed power", "duration", pm.clock.Since(started))
+	}()
 
 	newSnapshot := NewSnapshot()
-	if err := pm.calculateNodePower(newSnapshot.Node, prevSnapshot.Node); err != nil {
-		return fmt.Errorf("failed to calculate node power %w", err)
+	prevSnapshot := pm.snapshot.Load()
+
+	if prevSnapshot == nil {
+		// Handle initial collection explicitly
+		if err := pm.firstReading(newSnapshot); err != nil {
+			return err
+		}
+	} else {
+		if err := pm.calculatePower(prevSnapshot, newSnapshot); err != nil {
+			return err
+		}
 	}
 
-	// update snapshot
+	// Update snapshot with current timestamp
 	newSnapshot.Timestamp = pm.clock.Now()
 	pm.snapshot.Store(newSnapshot)
-
 	pm.signalNewData()
 
+	return nil
+}
+
+const (
+	nodePowerError = "failed to calculate node power: %w"
+)
+
+func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
+	if err := pm.firstNodeRead(newSnapshot.Node); err != nil {
+		return fmt.Errorf(nodePowerError, err)
+	}
+	return nil
+}
+
+func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
+	if err := pm.calculateNodePower(prev.Node, newSnapshot.Node); err != nil {
+		return fmt.Errorf(nodePowerError, err)
+	}
 	return nil
 }
