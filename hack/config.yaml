@@ -9,6 +9,8 @@ host:
 rapl:
   zones: [] # zones to be enabled, empty enables all default zones
 
+enable-pprof: true # Enable pprof debug endpoints
+
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
   fake-cpu-meter:
