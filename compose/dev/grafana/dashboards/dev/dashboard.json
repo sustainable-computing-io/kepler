@@ -1496,7 +1496,7 @@
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "metrics(kepler_node.*_watts)",
+        "definition": "label_values(kepler_node_energy_zone,name)",
         "description": "RAPL energy monitoring zones (package, core, dram, etc.)",
         "hide": 0,
         "includeAll": false,
@@ -1505,12 +1505,12 @@
         "name": "zones",
         "options": [],
         "query": {
-          "qryType": 2,
-          "query": "metrics(kepler_node_.*_watts)",
+          "qryType": 1,
+          "query": "label_values(kepler_node_energy_zone,name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "kepler_node_([a-z]+)_watts",
+        "regex": "",
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
