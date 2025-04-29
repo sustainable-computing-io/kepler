@@ -235,7 +235,7 @@ func (r *RatioPowerModel) Train() error {
 	return nil
 }
 
-// IsEnabled returns true as Ratio Power model is always active
+// IsEnabled returns if ratio power model is active or not
 func (r *RatioPowerModel) IsEnabled() bool {
 	return true
 }

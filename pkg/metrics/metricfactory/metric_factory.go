@@ -17,6 +17,7 @@ limitations under the License.
 package metricfactory
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,6 +33,7 @@ import (
 
 func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.Desc) {
 	descriptions = make(map[string]*prometheus.Desc)
+	allComponents := fmt.Sprintf("%s%s%s%s", config.CORE, config.DRAM, config.UNCORE, config.PKG)
 	for _, name := range consts.EnergyMetricNames {
 		// set the default source to trained power model
 		source := modeltypes.TrainedPowerModelSource
@@ -39,13 +41,17 @@ func EnergyMetricsPromDesc(context string) (descriptions map[string]*prometheus.
 			if gpu := acc.GetActiveAcceleratorByType(config.GPU); gpu != nil {
 				source = gpu.Device().Name()
 			}
-		} else if strings.Contains(name, config.PLATFORM) && platform.IsSystemCollectionSupported() {
+		} else if platform.IsSystemCollectionSupported() && strings.Contains(name, config.PLATFORM) {
 			source = platform.GetSourceName()
-		} else if components.IsSystemCollectionSupported() {
+		} else if components.IsSystemCollectionSupported() && strings.Contains(allComponents, name) {
 			// TODO: need to update condition when we have more type of energy metric such as network, disk.
 			source = components.GetSourceName()
+		} else if strings.Contains(name, config.OTHER) {
+			source = ""
 		}
-		descriptions[name] = energyMetricsPromDesc(context, name, source)
+		if !config.DisablePowerModels() || source != modeltypes.TrainedPowerModelSource {
+			descriptions[name] = energyMetricsPromDesc(context, name, source)
+		}
 	}
 	return descriptions
 }
