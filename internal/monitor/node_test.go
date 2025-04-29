@@ -60,11 +60,10 @@ func TestNodePowerCollection(t *testing.T) {
 			core.Inc(10 * Joule)
 
 			// Create PowerData instance
-			prev := NewSnapshot()
 			current := NewSnapshot()
 
 			// Collect node power data
-			err := pm.calculateNodePower(current.Node, prev.Node)
+			err := pm.firstNodeRead(current.Node)
 			assert.NoError(t, err)
 
 			// Verify mock expectations
@@ -108,7 +107,7 @@ func TestNodePowerCollection(t *testing.T) {
 
 			prev := pm.snapshot.Load()
 			current := NewSnapshot()
-			err := pm.calculateNodePower(current.Node, prev.Node)
+			err := pm.calculateNodePower(prev.Node, current.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
@@ -142,7 +141,7 @@ func TestNodePowerCollection(t *testing.T) {
 			// Collect node power data again
 			prev := pm.snapshot.Load()
 			current := NewSnapshot()
-			err := pm.calculateNodePower(current.Node, prev.Node)
+			err := pm.calculateNodePower(prev.Node, current.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
@@ -183,7 +182,7 @@ func TestNodePowerCollection(t *testing.T) {
 			// Collect node power data again
 			prev := pm.snapshot.Load()
 			current := NewSnapshot()
-			err := pm.calculateNodePower(current.Node, prev.Node)
+			err := pm.calculateNodePower(prev.Node, current.Node)
 			assert.NoError(t, err)
 
 			mockCPUPowerMeter.AssertExpectations(t)
@@ -236,9 +235,12 @@ func TestNodeErrorHandling(t *testing.T) {
 
 	t.Run("Zone Listing Error", func(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return([]EnergyZone(nil), assert.AnError)
-		prev := NewSnapshot()
 		current := NewSnapshot()
-		err := pm.calculateNodePower(current.Node, prev.Node)
+		err := pm.firstNodeRead(current.Node)
+		assert.Error(t, err, "zone read errors must be propagated")
+
+		prev := NewSnapshot()
+		err = pm.calculateNodePower(prev.Node, current.Node)
 		assert.Error(t, err, "zone read errors must be propagated")
 
 		mockCPUPowerMeter.AssertExpectations(t)
@@ -250,11 +252,13 @@ func TestNodeErrorHandling(t *testing.T) {
 		pkg.OnEnergy(0, assert.AnError)
 		core.OnEnergy(10, nil)
 
-		prev := NewSnapshot()
 		current := NewSnapshot()
-		err := pm.calculateNodePower(current.Node, prev.Node)
+		err := pm.firstNodeRead(current.Node)
 		assert.Error(t, err, "pkg read error must be propagated")
 
+		prev := NewSnapshot()
+		err = pm.calculateNodePower(prev.Node, current.Node)
+		assert.Error(t, err, "pkg read error must be propagated")
 		mockCPUPowerMeter.AssertExpectations(t)
 
 		// Should have zone info for both
