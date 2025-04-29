@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 )
@@ -246,10 +247,19 @@ func TestPowerMonitor_Init_ZonesFailure(t *testing.T) {
 
 func TestPowerMonitor_Run(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
+	// Set up pkg mock
+	pkg := &MockEnergyZone{}
+	pkg.On("Name").Return("package")
+
+	pkg.On("Energy").Return(Energy(100*Joule), nil)
+
+	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	monitor := NewPowerMonitor(mockMeter)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	err := monitor.Init()
+	require.NoError(t, err)
 
 	// Start Run in a go routine since it  should blocks until context cancellation
 	runComplete := make(chan struct{})
@@ -271,17 +281,30 @@ func TestPowerMonitor_Run(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Run didn't exit after context cancellation")
 	}
+
+	// Verify mocks
+	mockMeter.AssertExpectations(t)
+	pkg.AssertExpectations(t)
 }
 
 func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
+	// Set up pkg mock
+	pkg := &MockEnergyZone{}
+	pkg.On("Name").Return("package")
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+
+	pkg.On("Energy").Return(Energy(100*Joule), nil)
+
+	mockMeter.On("Init", mock.Anything).Return(nil).Once()
+	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	monitor := NewPowerMonitor(mockMeter)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	startTime := time.Now()
-	err := monitor.Run(ctx)
+	err := monitor.Run(ctx) // will block until context times out
 	duration := time.Since(startTime)
 
 	assert.NoError(t, err)
@@ -295,6 +318,7 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 
 	zone := &MockEnergyZone{}
 	zone.On("Name").Return("test-zone")
+	zone.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
 
 	monitor := NewPowerMonitor(mockMeter)

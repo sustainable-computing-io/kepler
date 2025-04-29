@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"runtime"
@@ -69,7 +70,7 @@ func TestSnapshotThreadSafety(t *testing.T) {
 // TestFreshSnapshotCaching tests that fresh snapshots are cached and not recomputed.
 func TestFreshSnapshotCaching(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
-	pkg := new(MockEnergyZone)
+	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
 
@@ -171,9 +172,9 @@ func TestStaleSnapshotRefreshing(t *testing.T) {
 // TestSingleflightSnapshot tests that concurrent requests for stale data
 // result in only one computation.
 func TestSingleflightSnapshot(t *testing.T) {
-	mockMeter := new(MockCPUPowerMeter)
+	mockMeter := &MockCPUPowerMeter{}
 	// only needs Name and Energy & Max for computation
-	pkg := new(MockEnergyZone)
+	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 
 	var energyCallCount atomic.Int32
@@ -182,6 +183,7 @@ func TestSingleflightSnapshot(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 		energyCallCount.Add(1)
 	}).Return(Energy(100_000), nil)
+
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
 
 	energyZones := []device.EnergyZone{pkg}
@@ -404,4 +406,168 @@ func TestSnapshot_ConcurrentAfterError(t *testing.T) {
 	// Verify new data was used (timestamp should be different)
 	assert.NotEqual(t, s1.Timestamp, lastSnapshot.Timestamp,
 		"New snapshot should have a different timestamp")
+}
+
+func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
+	t.Run("snapshots while collection should not cause race conditions", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+
+		// Set up pkg mock
+		pkg := &MockEnergyZone{}
+		pkg.On("Name").Return("package")
+		pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+
+		// Energy reads will return increasing values with artificial delay
+		var energyVal atomic.Uint64
+		energyVal.Store(1000)
+
+		var computationCount atomic.Int32
+		pkg.On("Energy").Run(func(args mock.Arguments) {
+			computationCount.Add(1)
+			// Add small delay to simulate slow I/O and increase chance of concurrent access
+			time.Sleep(8 * time.Millisecond)
+			// Increment by 10 each time
+			energyVal.Add(10)
+		}).Return(Energy(energyVal.Load()), nil).Maybe()
+
+		mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		monitor := NewPowerMonitor(
+			mockMeter,
+			WithInterval(50*time.Millisecond),
+			WithClock(fakeClock),
+			WithMaxStaleness(30*time.Millisecond), // Short staleness to force recalculation
+		)
+
+		// Initialize monitor
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// run in background
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go monitor.Run(ctx)
+
+		// wait for monitor to startt
+		time.Sleep(10 * time.Millisecond)
+
+		// request snapshots concurrently and  advance time
+		var wg sync.WaitGroup
+		numGoroutines := runtime.NumCPU() * 3
+		const numIterations = 5
+
+		// Track any errors
+		var encounteredErr atomic.Bool
+
+		for i := range numGoroutines {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+
+				for j := range numIterations {
+
+					// Each goroutine requests a snapshot
+					snapshot, err := monitor.Snapshot()
+					if err != nil {
+						t.Logf("Goroutine %d iteration %d: Error getting snapshot: %v", id, j, err)
+						encounteredErr.Store(true)
+						continue
+					}
+
+					// Verify snapshot is valid
+					if snapshot == nil {
+						t.Logf("Goroutine %d iteration %d: Got nil snapshot", id, j)
+						encounteredErr.Store(true)
+						continue
+					}
+
+					// Verify snapshot has zone data
+					if _, ok := snapshot.Node.Zones[pkg]; !ok {
+						t.Logf("Goroutine %d iteration %d: Missing zone data", id, j)
+						encounteredErr.Store(true)
+					}
+
+					// sleep a bit to increase chance of concurrent access
+					time.Sleep(time.Duration(id) * time.Millisecond)
+				}
+			}(i)
+		}
+
+		// keep clock ticking while snapshots are requested
+		go func() {
+			for range numIterations {
+				fakeClock.Step(50 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
+			}
+		}()
+
+		wg.Wait()
+
+		// verify no errors were encountered
+		assert.False(t, encounteredErr.Load(), "Some goroutines encountered errors")
+
+		mockMeter.AssertExpectations(t)
+		pkg.AssertExpectations(t)
+	})
+
+	t.Run("Snapshot handles stale data with concurrent requests", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+
+		pkg := &MockEnergyZone{}
+		pkg.On("Name").Return("package")
+
+		// Track the number of collections by tracking energy reads
+		var computeCount atomic.Int32
+		pkg.On("Energy").Run(func(args mock.Arguments) {
+			// Add delay to increase chance of concurrent access
+			time.Sleep(10 * time.Millisecond)
+			computeCount.Add(1)
+		}).Return(Energy(100*Joule), nil).Maybe()
+
+		mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		monitor := NewPowerMonitor(
+			mockMeter,
+			WithClock(fakeClock),
+			WithMaxStaleness(50*time.Millisecond),
+		)
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// Init should not collect
+		assert.Equal(t, int32(0), computeCount.Load())
+
+		// Launch multiple concurrent requests for the stale snapshot
+		var wg sync.WaitGroup
+		numGoroutines := runtime.NumCPU() * 3
+
+		for range numGoroutines {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				snapshot, err := monitor.Snapshot()
+				assert.NoError(t, err)
+				assert.NotNil(t, snapshot)
+
+				// Verify snapshot has zone data
+				assert.Contains(t, snapshot.Node.Zones, pkg)
+			}()
+		}
+
+		wg.Wait()
+
+		// Despite having may concurrent requests for a stale snapshot,
+		// we should have computed power only once due to singleflight
+		assert.Equal(t, int32(1), computeCount.Load(),
+			"Computation should happen exactly once despite concurrent requests")
+
+		mockMeter.AssertExpectations(t)
+		pkg.AssertExpectations(t)
+	})
 }
