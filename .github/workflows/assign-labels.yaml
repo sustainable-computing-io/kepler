@@ -1,0 +1,54 @@
+name: Assign Labels
+
+on:
+  pull_request_target:
+    branches: [reboot]
+
+jobs:
+  assign-labels:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    name: Assign labels in Pull Request
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Execute assign labels
+        uses: mauroalderete/action-assign-labels@v1
+        with:
+          pull-request-number: ${{ github.event.pull_request.number }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          conventional-commits: |
+            conventional-commits:
+              - type: 'fix'
+                nouns: ['fix']
+                labels: ['fix']
+              - type: 'feat'
+                nouns: ['feat']
+                labels: ['feat']
+              - type: 'docs'
+                nouns: ['docs']
+                labels: ['docs']
+              - type: 'chore'
+                nouns: ['chore']
+                labels: ['chore']
+              - type: 'test'
+                nouns: ['test']
+                labels: ['test']
+              - type: 'refactor'
+                nouns: ['refactor']
+                labels: ['refactor']
+              - type: 'ci'
+                nouns: ['ci']
+                labels: ['ci']
+              - type: 'perf'
+                nouns: ['perf']
+                labels: ['perf']
+              - type: 'revert'
+                nouns: ['revert']
+                labels: ['revert']
+          maintain-labels-not-matched: false
+          apply-changes: true
