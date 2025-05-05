@@ -40,13 +40,25 @@ jobs:
     steps:
       - name: Check Directory Permissions
         run: |
-          echo "pwd is $(pwd)"
-          echo "HOME is $HOME"
-          ls -al $HOME
-          mkdir -p "$HOME/.cache"
-          ls -ld "$HOME/.cache"
-          ls -ld "$HOME/.cache/go-build"
-          whoami
+          echo "---"
+          echo "whoami gives \"$(whoami)\"" || true
+          echo "---"
+          echo "user is \"$USER\"" || true
+          echo "---"
+          echo "id is \"$(id)\"" || true
+          echo "---"
+          echo "pwd is \"$(pwd)\"" || true
+          echo "---"
+          echo "HOME is \"$HOME\"" || true
+          echo "---"
+          ls -al $HOME || true
+          echo "---"
+          mkdir -p "$HOME/.cache" || true
+          echo "---"
+          ls -ld "$HOME/.cache" || true
+          echo "---"
+          ls -ld "$HOME/.cache/go-build" || true
+          echo "---"
         shell: bash      
 
       - name: Checkout repository
