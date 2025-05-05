@@ -36,6 +36,9 @@ type (
 			Zones   []string `yaml:"zones"`
 		} `yaml:"fake-cpu-meter"`
 	}
+	Web struct {
+		Config string `yaml:"configFile"`
+	}
 
 	Config struct {
 		Log         Log  `yaml:"log"`
@@ -43,6 +46,7 @@ type (
 		Dev         Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
 		EnablePprof bool `yaml:"enable-pprof"`
 		Rapl        Rapl `yaml:"rapl"`
+		Web         Web  `yaml:"web"`
 	}
 )
 
@@ -61,6 +65,8 @@ const (
 	HostProcFSFlag = "host.procfs"
 
 	EnablePprofFlag = "enable.pprof"
+
+	WebConfigFlag = "web.config-file"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -143,6 +149,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
 	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
 	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
+	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -166,6 +173,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.EnablePprof = *enablePprof
 		}
 
+		if flagsSet[WebConfigFlag] {
+			cfg.Web.Config = *webConfig
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
@@ -176,6 +187,7 @@ func (c *Config) sanitize() {
 	c.Log.Format = strings.TrimSpace(c.Log.Format)
 	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
 	c.Host.ProcFS = strings.TrimSpace(c.Host.ProcFS)
+	c.Web.Config = strings.TrimSpace(c.Web.Config)
 
 	for i := range c.Rapl.Zones {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
@@ -223,6 +235,13 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
+	{
+		if c.Web.Config != "" {
+			if err := canReadFile(c.Web.Config); err != nil {
+				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
+			}
+		}
+	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %s", strings.Join(errs, ", "))
@@ -243,6 +262,25 @@ func canReadDir(path string) error {
 	}()
 
 	_, err = f.ReadDir(1)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func canReadFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		// ignored on purpose
+		_ = f.Close()
+	}()
+	buf := make([]byte, 8)
+	_, err = f.Read(buf)
 	if err != nil {
 		return err
 	}

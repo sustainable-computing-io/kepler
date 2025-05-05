@@ -4,6 +4,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -259,6 +260,14 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			},
 		},
 		error: "invalid sysfs path",
+	}, {
+		name: "unreadable web config",
+		config: &Config{
+			Web: Web{
+				Config: "/from/unreadable/path/web.yaml",
+			},
+		},
+		error: "invalid web config file",
 	}}
 
 	// test yaml marshall
@@ -350,6 +359,13 @@ func TestConfigString(t *testing.T) {
 				ProcFS: "/proc/fake",
 			},
 		},
+	}, {
+		name: "custom web.config",
+		config: &Config{
+			Web: Web{
+				Config: "/fake/web.config.yml",
+			},
+		},
 	}}
 
 	// test yaml marshall
@@ -411,6 +427,51 @@ func TestEnablePprof(t *testing.T) {
 			assert.Equal(t, cfg.EnablePprof, tc.enabled, "unexpected flag value")
 		})
 	}
+}
+
+func TestWebConfig(t *testing.T) {
+
+	t.Run("no web config", func(t *testing.T) {
+		app := kingpin.New("test", "Test application")
+		updateConfig := RegisterFlags(app)
+		_, parseErr := app.Parse([]string{"--log.level=debug"})
+		assert.NoError(t, parseErr, "unexpected flag parsing error")
+		cfg := DefaultConfig()
+		err := updateConfig(cfg)
+		assert.NoError(t, err, "unexpected config update error")
+		assert.Equal(t, cfg.Web.Config, "", "unexpected web.config-file configured")
+	})
+	t.Run("invalid web config", func(t *testing.T) {
+		app := kingpin.New("test", "Test application")
+		updateConfig := RegisterFlags(app)
+		_, parseErr := app.Parse([]string{"--web.config-file=/fake/web.yml"})
+		assert.NoError(t, parseErr, "unexpected flag parsing error")
+		cfg := DefaultConfig()
+		err := updateConfig(cfg)
+		assert.Error(t, err, "expected config update error")
+	})
+	t.Run("valid web config", func(t *testing.T) {
+		tempWebConfig, err := os.CreateTemp("", "temp_*web.yml")
+		assert.NoError(t, err, "cannot create temp file")
+		defer os.Remove(tempWebConfig.Name())
+		webConfig := fmt.Sprintf(`
+tls_server_config:
+  cert_file: cert.pem
+  key_file: key.pem
+`)
+		_, err = tempWebConfig.Write([]byte(webConfig))
+		assert.NoError(t, err, "cannot write to temp web config")
+
+		app := kingpin.New("test", "Test application")
+		updateConfig := RegisterFlags(app)
+		flagStr := fmt.Sprintf("--web.config-file=%s", tempWebConfig.Name())
+		_, parseErr := app.Parse([]string{flagStr})
+		assert.NoError(t, parseErr, "unexpected flag parsing error")
+		cfg := DefaultConfig()
+		err = updateConfig(cfg)
+		assert.NoError(t, err, "expected config update error")
+		assert.Equal(t, cfg.Web.Config, tempWebConfig.Name(), "unexpected config update")
+	})
 }
 
 func TestValidateWithSkip(t *testing.T) {

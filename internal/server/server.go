@@ -30,6 +30,7 @@ type APIServer struct {
 	server              *http.Server
 	mux                 *http.ServeMux
 	endpointDescription string
+	webCfgPath          string
 }
 
 var _ APIService = (*APIServer)(nil)
@@ -37,6 +38,7 @@ var _ APIService = (*APIServer)(nil)
 type Opts struct {
 	logger      *slog.Logger
 	listenAddrs []string
+	webCfgPath  string
 }
 
 // OptionFn is a function sets one more more options in Opts struct
@@ -56,11 +58,18 @@ func WithListenAddress(addr []string) OptionFn {
 	}
 }
 
+func WithWebConfig(path string) OptionFn {
+	return func(o *Opts) {
+		o.webCfgPath = path
+	}
+}
+
 // DefaultOpts returns the default options
 func DefaultOpts() Opts {
 	return Opts{
 		logger:      slog.Default(),
 		listenAddrs: []string{":28282"}, // Default HTTP Port
+		webCfgPath:  "",                 // Not present by default
 	}
 }
 
@@ -80,6 +89,7 @@ func NewAPIServer(applyOpts ...OptionFn) *APIServer {
 		listenAddrs: opts.listenAddrs,
 		mux:         mux,
 		server:      server,
+		webCfgPath:  opts.webCfgPath,
 	}
 
 	return apiServer
@@ -129,7 +139,7 @@ func (s *APIServer) Run(ctx context.Context) error {
 	go func() {
 		webCfg := &web.FlagConfig{
 			WebListenAddresses: &s.listenAddrs,
-			WebConfigFile:      pointer(""), // TODO: support passing config file
+			WebConfigFile:      &s.webCfgPath,
 		}
 		errCh <- web.ListenAndServe(s.server, webCfg, s.logger)
 	}()
@@ -143,10 +153,6 @@ func (s *APIServer) Run(ctx context.Context) error {
 		s.logger.Error("HTTP server returned an error", "error", err)
 		return err
 	}
-}
-
-func pointer[T any](t T) *T {
-	return &t
 }
 
 func (s *APIServer) Shutdown() error {
