@@ -1,0 +1,136 @@
+name: profiling with pprof
+
+on:
+  push:
+    branches: [vp-pprof]
+
+permissions:
+  pull-requests: write
+  contents: write
+  repository-projects: write
+  packages: write
+
+jobs:
+  create-runner:
+    name: Create Runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: metal-runner-action
+        uses: sustainable-computing-io/metal-runner-action@main
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
+          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
+          metro: da
+          plan: c3.small.x86
+          os: ubuntu_22_04
+          organization: sustainable-computing-io
+
+  run-profile:
+    needs: create-runner
+    runs-on: self-hosted
+    outputs:
+      runner-name: ${{ runner.name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prerequisites
+        run: |
+          sudo ssh-keygen -t rsa -b 4096 -f /root/.ssh/ansible_rsa -N ''
+          sudo cat ~/.ssh/ansible_rsa.pub >> ~/.ssh/authorized_keys
+          sudo echo "StrictHostKeyChecking no" >> ~/.ssh/config
+          sudo echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCrMUcsN9rhYacFimRyOrqPUdYH4SZASH6wqK/cRsKccNcj/nP4TtxaacB5J3/Rmy61f6IzZWIqoU+KyKLCJk+2/JAMRSbjAhnIiKgbWfhL9Fsqs4XosSAGC8+F3hdPZ1SD3rdu66dbk0odKX3bhzAtyOguMvp65eJc19x/5XLrmmucZI6WLg5SvHlIVCG3qunvTkO+OoJwPKEg9AD6Tazca2qGKJtONNy370SfXyIjs6EeNvZlszXd0AS5oH/xg0Ok5Ru2I0G3gR0GESo3wg75RMLWC9bA3LI7ymaO3oMcOYvxldZln/ngSsQ6k0P+Rq3fPdPMPqtb5T8gQVYdDLGxZvk1VIRh4R69zDUbOyeWQU/49K+7pDi/GOfjjRpzskE6nluCAY58iUz1CNgTg8bVrMn8pId8sf//7J/kNIs+5zt1uicjDObSuYZpbq5qR0+4stSi3NZWYBbvll8Es8wa+lDqdH0dR/00ELqjTbmuxf1p1rJhsnrvV6acW/+7jEc= vibhuprashar@vprashar-mac" >> ~/.ssh/authorized_keys
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          until [[ -f /tmp/unsleep ]]; do sleep 10; done
+          sudo apt-get install -y graphviz curl perl
+          go install github.com/google/pprof@latest
+          curl -o flamegraph.pl https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl
+          chmod +x flamegraph.pl
+          sudo mv flamegraph.pl /usr/local/bin/
+
+      - name: Build kepler
+        shell: bash
+        run: |
+          make build || { echo "Build failed"; exit 1; }
+          ls -l ./bin/
+
+      - name: Run kepler
+        run: |
+          echo $GITHUB_WORKSPACE
+          echo "Starting kepler...."
+          nohup sudo -E $GITHUB_WORKSPACE/bin/kepler --log.level=debug --enable.pprof --host.sysfs=/host-sys --host.procfs=/host-proc &
+          KEPLER_PID=$!
+          echo "kepler pid $KEPLER_PID"
+          sleep 5
+
+      - name: start profiling
+        run: |
+          curl http://localhost:28282/debug/pprof/ -o pprof_index.html || echo "Failed to access pprof endpoint"
+          sudo -E $(go env GOPATH)/bin/pprof -output run-profile.pprof http://localhost:28282/debug/pprof/profile?seconds=30
+
+      - name: Curl Power metrics
+        run: |
+          curl http://localhost:28282/metrics > prometheus-metrics.txt
+          echo "killing kepler pid: $KEPLER_PID"
+          sudo kill $KEPLER_PID
+
+      - name: Generate CPU profile HTML report
+        run: |
+          $(go env GOPATH)/bin/pprof -http=:28282 -output run-profile.html ./bin/kepler run-profile.pprof
+
+      - name: Generate flamegraph
+        run: |
+          $(go env GOPATH)/bin/pprof -raw -output run-profile.txt ./bin/kepler run-profile.pprof
+          perl /usr/local/bin/flamegraph.pl run-profile.txt > flamegraph.svg
+
+      - name: Upload CPU profile HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-profile-report
+          path: run-profile.html
+
+      - name: Upload flamegraph
+        uses: actions/upload-artifact@v4
+        with:
+          name: flamegraph
+          path: flamegraph.svg
+
+      - name: Upload Prometheus metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: prometheus-metrics
+          path: prometheus-metrics.txt
+
+      # - name: Comment on PR with results
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const commentBody = `CPU Profile and Flamegraph generation completed!
+      #       - [Download CPU Profile HTML Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/run-profile-report)
+      #       - [Download Flamegraph SVG](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/flamegraph)
+      #       - [Download Prometheus Metrics](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/prometheus-metrics)`;
+      #
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: commentBody
+      #       });
+
+  cleanup:
+    name: cleanup
+    runs-on: ubuntu-latest
+    needs: run-profile
+
+    steps:
+      - name: delete runner
+        uses: sustainable-computing-io/metal-sweeper-action@main
+        with:
+          authToken: ${{ secrets.EQUINIX_API_TOKEN }}
+          projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
+          runnerName: ${{ needs.run-profile.outputs.runner-name }}
