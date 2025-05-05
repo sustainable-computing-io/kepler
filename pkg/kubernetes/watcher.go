@@ -65,7 +65,7 @@ type ObjListWatcher struct {
 	k8sCli              *kubernetes.Clientset
 	ResourceKind        string
 	informer            cache.SharedIndexInformer
-	workqueue           workqueue.RateLimitingInterface
+	workqueue           workqueue.TypedRateLimitingInterface[interface{}]
 	stopChannel         chan struct{}
 	bpfSupportedMetrics bpf.SupportedMetrics
 
@@ -104,7 +104,7 @@ func NewObjListWatcher(bpfSupportedMetrics bpf.SupportedMetrics) (*ObjListWatche
 		k8sCli:              newK8sClient(),
 		ResourceKind:        podResourceType,
 		bpfSupportedMetrics: bpfSupportedMetrics,
-		workqueue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		workqueue:           workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[interface{}]()),
 	}
 	if w.k8sCli == nil || !config.IsAPIServerEnabled() {
 		return w, nil
@@ -163,6 +163,7 @@ func (w *ObjListWatcher) processNextItem() bool {
 
 	err := w.handleEvent(key.(string))
 	w.handleErr(err, key)
+
 	return true
 }
 
