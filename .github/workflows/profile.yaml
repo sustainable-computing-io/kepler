@@ -38,6 +38,17 @@ jobs:
       runner-name: ${{ runner.name }}
 
     steps:
+      - name: Check Directory Permissions
+        run: |
+          echo "pwd is $(pwd)"
+          echo "HOME is $HOME"
+          ls -al $HOME
+          mkdir -p "$HOME/.cache"
+          ls -ld "$HOME/.cache"
+          ls -ld "$HOME/.cache/go-build"
+          whoami
+        shell: bash      
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
