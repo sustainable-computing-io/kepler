@@ -9,24 +9,27 @@ on:
 #     types: [created]
 
 permissions:
-  contents: read
   pull-requests: write
+  contents: write
+  repository-projects: write
+  packages: write  
 
 jobs:
   create-runner:
-    # if: github.event.issue.pull_request && contains(github.event.comment.body, '/run-profile')
-    name: Create Runner
+    # if: github.event.issue.pull_request && github.event.comment.body == '/test-acpi'
+    name: Create self-hosted runner
     runs-on: ubuntu-latest
     steps:
       - name: metal-runner-action
-        uses: rootfs/metal-runner-action@main
+        uses: sustainable-computing-io/metal-runner-action@main
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
           metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
           metro: da
           plan: c3.small.x86
-          os: rhel_9  
+          os: ubuntu_20_04
+          organization: sustainable-computing-io  
 
   run-profile:
     needs: create-runner
@@ -124,14 +127,14 @@ jobs:
             });
 
   cleanup:
-    name: cleanup
+    name: Cleanup
+    needs: [run-profile]
     runs-on: ubuntu-latest
-    needs: run-profile
-
     steps:
       - name: delete runner
-        uses: rootfs/metal-delete-action@main
+        if: ${{ always() }}
+        uses: sustainable-computing-io/metal-sweeper-action@main
         with:
           authToken: ${{ secrets.EQUINIX_API_TOKEN }}
           projectID: ${{ secrets.EQUINIX_PROJECT_ID }}
-          runnerName: ${{ needs.Install.outputs.runner-name }}
+          runnerName: ${{ needs.test-mock-acpi.outputs.runner-name }}
