@@ -30,7 +30,7 @@ jobs:
 
   run-profile:
     needs: create-runner
-    runs-on: self-hosted
+    runs-on: sustainable-computing-io/kepler
     outputs:
       runner-name: ${{ runner.name }}
 
