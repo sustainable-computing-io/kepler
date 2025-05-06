@@ -59,7 +59,7 @@ jobs:
           echo "---"
           ls -ld "$HOME/.cache/go-build" || true
           echo "---"
-        shell: bash      
+        shell: bash -leo
 
       - name: Checkout repository
         uses: actions/checkout@v4
