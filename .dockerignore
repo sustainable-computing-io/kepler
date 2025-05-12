@@ -1,0 +1,17 @@
+# Ignore test binary
+*.test
+
+# Ignore coverage file
+*.out
+
+# Ignore env file
+.env
+
+# Ignore bin directory
+bin/
+
+# Ignore tmp directory
+tmp
+
+# Ignore coverage file
+coverage.*
