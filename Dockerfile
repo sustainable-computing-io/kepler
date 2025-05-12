@@ -5,10 +5,10 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN make build
+RUN make build PRODUCTION=1
 
 FROM registry.access.redhat.com/ubi9:latest
 
-COPY --from=builder /workspace/bin/kepler /usr/bin/kepler
+COPY --from=builder /workspace/bin/kepler-release /usr/bin/kepler
 
 ENTRYPOINT ["/usr/bin/kepler"]

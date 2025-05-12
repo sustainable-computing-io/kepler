@@ -16,6 +16,13 @@ GOARCH=$(shell go env GOARCH)
 
 # Project parameters
 BINARY_NAME=kepler
+
+PRODUCTION ?= 0
+ifeq ($(PRODUCTION), 1)
+	# add -release suffix to binary name
+	BINARY_NAME:=$(BINARY_NAME)-release
+endif
+
 BINARY_DIR=bin
 MAIN_GO_PATH=./cmd/kepler
 VERSION=$(shell git describe --tags --always --dirty | sed 's/-reboot//' || echo "dev")
@@ -29,7 +36,6 @@ LD_VERSION_FLAGS=\
 	-X github.com/sustainable-computing-io/kepler/internal/version.gitBranch=$(GIT_BRANCH) \
 	-X github.com/sustainable-computing-io/kepler/internal/version.gitCommit=$(GIT_COMMIT)
 
-PRODUCTION ?= 0
 ifeq ($(PRODUCTION), 1)
 	# strip debug symbols from production builds (to reduce binary size)
 	LD_STRIP_DEBUG_SYMBOLS=-s -w
