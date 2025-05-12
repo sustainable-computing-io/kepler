@@ -23,12 +23,21 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
 
-LDFLAGS=-ldflags "\
+LD_VERSION_FLAGS=\
 	-X github.com/sustainable-computing-io/kepler/internal/version.version=$(VERSION) \
 	-X github.com/sustainable-computing-io/kepler/internal/version.buildTime=$(BUILD_TIME) \
 	-X github.com/sustainable-computing-io/kepler/internal/version.gitBranch=$(GIT_BRANCH) \
-	-X github.com/sustainable-computing-io/kepler/internal/version.gitCommit=$(GIT_COMMIT) \
-"
+	-X github.com/sustainable-computing-io/kepler/internal/version.gitCommit=$(GIT_COMMIT)
+
+PRODUCTION ?= 0
+ifeq ($(PRODUCTION), 1)
+	# strip debug symbols from production builds (to reduce binary size)
+	LD_STRIP_DEBUG_SYMBOLS=-s -w
+endif
+
+LDFLAGS=-ldflags "$(LD_STRIP_DEBUG_SYMBOLS) $(LD_VERSION_FLAGS)"
+
+BUILD_DEBUG_ARGS ?=
 
 # Docker parameters
 IMG_BASE ?= quay.io/sustainable_computing_io
@@ -40,16 +49,24 @@ TEST_PKGS:= $(shell go list ./... | grep -v cmd)
 COVER_PROFILE=coverage.out
 COVER_HTML=coverage.html
 
+
 all: clean fmt lint vet build test
 
 # Build the application
 build:
 	mkdir -p $(BINARY_DIR)
-	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_GO_PATH)
+	CGO_ENABLED=0 $(GOBUILD) $(BUILD_ARGS) \
+		$(LDFLAGS) \
+		-o $(BINARY_DIR)/$(BINARY_NAME) \
+		$(MAIN_GO_PATH)
 
 build-debug:
 	mkdir -p $(BINARY_DIR)
-	$(GOBUILD) -race $(LDFLAGS) -o $(BINARY_DIR)/$(BINARY_NAME) $(MAIN_GO_PATH)
+	$(GOBUILD) $(BUILD_ARGS) \
+		-race \
+		$(LDFLAGS) \
+		-o $(BINARY_DIR)/$(BINARY_NAME)-debug \
+		$(MAIN_GO_PATH)
 
 # Clean build artifacts
 clean:
