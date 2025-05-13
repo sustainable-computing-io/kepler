@@ -33,12 +33,13 @@
   "ul-style": {
     "style": "dash"
   },
-  "no-duplicate-header" : {
+  "no-duplicate-header": {
     "allow_different_nesting": true
   },
-  "MD033" : false,
+  "MD033": false,
   "MD041": false,
   "MD045": false,
+  "MD059": false,
   "MD025": {
     "front_matter_title": ""
   }
