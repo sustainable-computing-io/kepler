@@ -1,0 +1,39 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: power-monitor-exporter
+    app.kubernetes.io/part-of: power-monitor
+    openshift.io/user-monitoring: true
+  name: power-monitor
+  namespace: power-monitor
+spec:
+  endpoints:
+    - interval: 15s
+      port: https
+      relabelings:
+        - action: replace
+          regex: (.*)
+          replacement: $1
+          sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: instance
+      scheme: https
+      authorization:
+        type: Bearer
+        credentials:
+          name: prometheus-user-workload-token
+          key: token
+      tlsConfig:
+        ca:
+          configMap:
+            name: power-monitor-serving-certs-ca-bundle
+            key: service-ca.crt
+        serverName: power-monitor.power-monitor.svc
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: power-monitor-exporter
+      app.kubernetes.io/part-of: power-monitor

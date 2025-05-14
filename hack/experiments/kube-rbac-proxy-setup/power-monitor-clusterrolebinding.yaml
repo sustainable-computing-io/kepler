@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: power-monitor-exporter
+    app.kubernetes.io/part-of: power-monitor
+  name: power-monitor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: power-monitor
+subjects:
+  - kind: ServiceAccount
+    name: power-monitor
+    namespace: power-monitor

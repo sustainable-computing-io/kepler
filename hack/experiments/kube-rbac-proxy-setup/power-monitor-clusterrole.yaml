@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: power-monitor-exporter
+    app.kubernetes.io/part-of: power-monitor
+  name: power-monitor
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/metrics
+      - nodes/proxy
+      - nodes/stats
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups: [authentication.k8s.io]
+    resources:
+      - tokenreviews
+    verbs: [create]
+  - apiGroups: [authorization.k8s.io]
+    resources:
+      - subjectaccessreviews
+    verbs: [create]
