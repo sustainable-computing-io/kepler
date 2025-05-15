@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"k8s.io/utils/clock"
 )
 
@@ -16,6 +17,7 @@ type Opts struct {
 	interval     time.Duration
 	clock        clock.WithTicker
 	maxStaleness time.Duration
+	resources    resource.Informer
 }
 
 // NewConfig returns a new Config with defaults set
@@ -23,9 +25,10 @@ func DefaultOpts() Opts {
 	return Opts{
 		logger:       slog.Default(),
 		sysfsPath:    "/sys",
-		interval:     0 * time.Second, // no collection
+		interval:     5 * time.Second,
 		clock:        clock.RealClock{},
 		maxStaleness: 500 * time.Millisecond,
+		resources:    nil,
 	}
 }
 
@@ -57,5 +60,12 @@ func WithClock(c clock.WithTicker) OptionFn {
 func WithMaxStaleness(d time.Duration) OptionFn {
 	return func(o *Opts) {
 		o.maxStaleness = d
+	}
+}
+
+// WithResourceInformer sets the resource informer for the PowerMonitor
+func WithResourceInformer(r resource.Informer) OptionFn {
+	return func(o *Opts) {
+		o.resources = r
 	}
 }

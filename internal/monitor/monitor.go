@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"golang.org/x/sync/singleflight"
 	"k8s.io/utils/clock"
@@ -42,6 +43,7 @@ type PowerMonitor struct {
 	interval     time.Duration
 	clock        clock.WithTicker
 	maxStaleness time.Duration
+	resources    resource.Informer
 
 	// signals when a snapshot has been updated
 	dataCh chan struct{}
@@ -72,6 +74,7 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 		cpu:              meter,
 		clock:            opts.clock,
 		interval:         opts.interval,
+		resources:        opts.resources,
 		dataCh:           make(chan struct{}, 1),
 		maxStaleness:     opts.maxStaleness,
 		collectionCtx:    ctx,
@@ -277,19 +280,56 @@ func (pm *PowerMonitor) refreshSnapshot() error {
 }
 
 const (
-	nodePowerError = "failed to calculate node power: %w"
+	nodePowerError      = "failed to calculate node power: %w"
+	processPowerError   = "failed to calculate process power: %w"
+	containerPowerError = "failed to calculate container power: %w"
 )
 
 func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
+	// First read for node
 	if err := pm.firstNodeRead(newSnapshot.Node); err != nil {
 		return fmt.Errorf(nodePowerError, err)
 	}
+
+	if err := pm.resources.Refresh(); err != nil {
+		pm.logger.Error("snapshot rebuild failed to refresh resources", "error", err)
+		return err
+	}
+
+	// First read for processes
+	if err := pm.firstProcessRead(newSnapshot); err != nil {
+		return fmt.Errorf(processPowerError, err)
+	}
+
+	// First read for containers
+	if err := pm.firstContainerRead(newSnapshot); err != nil {
+		return fmt.Errorf(containerPowerError, err)
+	}
+
 	return nil
 }
 
 func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
+	// Calculate node power
 	if err := pm.calculateNodePower(prev.Node, newSnapshot.Node); err != nil {
 		return fmt.Errorf(nodePowerError, err)
 	}
+
+	if err := pm.resources.Refresh(); err != nil {
+		pm.logger.Error("snapshot rebuild failed to refresh resources", "error", err)
+		return err
+	}
+
+	// Calculate process power
+	if err := pm.calculateProcessPower(prev, newSnapshot); err != nil {
+		return fmt.Errorf(processPowerError, err)
+	}
+
+	// Calculate container power
+	// TODO: implement this based on sum of process power running in containers
+	if err := pm.calculateContainerPower(prev, newSnapshot); err != nil {
+		return fmt.Errorf(containerPowerError, err)
+	}
+
 	return nil
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"github.com/sustainable-computing-io/kepler/internal/version"
@@ -119,9 +120,20 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
 
+	resouceInformer, err := resource.NewInformer(
+		resource.WithLogger(logger),
+		resource.WithProcFSPath(cfg.Host.ProcFS),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource informer: %w", err)
+	}
+
 	pm := monitor.NewPowerMonitor(
 		cpuPowerMeter,
 		monitor.WithLogger(logger),
+		monitor.WithResourceInformer(resouceInformer),
+		monitor.WithInterval(cfg.Monitor.Interval),
+		monitor.WithMaxStaleness(cfg.Monitor.Staleness),
 	)
 
 	apiServer := server.NewAPIServer(
