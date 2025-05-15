@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"gopkg.in/yaml.v3"
@@ -40,13 +41,19 @@ type (
 		Config string `yaml:"configFile"`
 	}
 
+	Monitor struct {
+		Interval  time.Duration `yaml:"interval"`  // Interval for monitoring resources
+		Staleness time.Duration `yaml:"staleness"` // Time after which calculated values are considered stale
+	}
+
 	Config struct {
-		Log         Log  `yaml:"log"`
-		Host        Host `yaml:"host"`
-		Dev         Dev  `yaml:"dev"` // WARN: do not expose dev settings as flags
-		EnablePprof bool `yaml:"enable-pprof"`
-		Rapl        Rapl `yaml:"rapl"`
-		Web         Web  `yaml:"web"`
+		Log         Log     `yaml:"log"`
+		Host        Host    `yaml:"host"`
+		Monitor     Monitor `yaml:"monitor"`
+		Rapl        Rapl    `yaml:"rapl"`
+		Web         Web     `yaml:"web"`
+		EnablePprof bool    `yaml:"enable-pprof"`
+		Dev         Dev     `yaml:"dev"` // WARN: do not expose dev settings as flags
 	}
 )
 
@@ -63,6 +70,8 @@ const (
 
 	HostSysFSFlag  = "host.sysfs"
 	HostProcFSFlag = "host.procfs"
+
+	MonitorIntervalFlag = "monitor.interval"
 
 	EnablePprofFlag = "enable.pprof"
 
@@ -84,6 +93,10 @@ func DefaultConfig() *Config {
 		},
 		Rapl: Rapl{
 			Zones: []string{},
+		},
+		Monitor: Monitor{
+			Interval:  5 * time.Second,
+			Staleness: 500 * time.Millisecond,
 		},
 	}
 
@@ -146,8 +159,14 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	// Logging
 	logLevel := app.Flag(LogLevelFlag, "Logging level: debug, info, warn, error").Default("info").Enum("debug", "info", "warn", "error")
 	logFormat := app.Flag(LogFormatFlag, "Logging format: text or json").Default("text").Enum("text", "json")
+	// host
 	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
 	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
+
+	// monitor
+	monitorInterval := app.Flag(MonitorIntervalFlag,
+		"Interval for monitoring resources (processes, container, vm, etc...); 0 to disable").Default("5s").Duration()
+
 	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
 
@@ -167,6 +186,11 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[HostProcFSFlag] {
 			cfg.Host.ProcFS = *hostProcFS
+		}
+
+		// monitor settings
+		if flagsSet[MonitorIntervalFlag] {
+			cfg.Monitor.Interval = *monitorInterval
 		}
 
 		if flagsSet[EnablePprofFlag] {
@@ -235,11 +259,19 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
-	{
+	{ // Web config file
 		if c.Web.Config != "" {
 			if err := canReadFile(c.Web.Config); err != nil {
 				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
 			}
+		}
+	}
+	{ // Monitor
+		if c.Monitor.Interval < 0 {
+			errs = append(errs, fmt.Sprintf("invalid monitor interval: %s can't be negative", c.Monitor.Interval))
+		}
+		if c.Monitor.Staleness < 0 {
+			errs = append(errs, fmt.Sprintf("invalid monitor staleness: %s can't be negative", c.Monitor.Staleness))
 		}
 	}
 
@@ -307,6 +339,8 @@ func (c *Config) manualString() string {
 		{LogFormatFlag, c.Log.Format},
 		{HostSysFSFlag, c.Host.SysFS},
 		{HostProcFSFlag, c.Host.ProcFS},
+		{MonitorIntervalFlag, c.Monitor.Interval.String()},
+		{"monitor.staleness", c.Monitor.Staleness.String()},
 		{"rapl.zones", strings.Join(c.Rapl.Zones, ", ")},
 	}
 	sb := strings.Builder{}

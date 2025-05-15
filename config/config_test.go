@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
@@ -50,6 +51,9 @@ func TestLoadEmptyFromYAML(t *testing.T) {
 	defaultCfg := DefaultConfig()
 	assert.Equal(t, defaultCfg.Log.Level, cfg.Log.Level)
 	assert.Equal(t, defaultCfg.Log.Format, cfg.Log.Format)
+
+	assert.Equal(t, defaultCfg.Monitor.Interval, cfg.Monitor.Interval)
+	assert.Equal(t, defaultCfg.Monitor.Staleness, cfg.Monitor.Staleness)
 }
 
 func TestLoadInvalidConfigFromYAML(t *testing.T) {
@@ -483,4 +487,91 @@ func TestValidateWithSkip(t *testing.T) {
 	// Validate with skipping host validation
 	err := cfg.Validate(SkipHostValidation)
 	assert.NoError(t, err, "Should pass when SkipHostValidation is provided")
+}
+
+func TestMonitorConfig(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Monitor should be enabled by default
+	assert.True(t, cfg.Monitor.Interval > 0, "Monitor should be enabled by default")
+	assert.True(t, cfg.Monitor.Staleness > 0, "staleness should be set to a positive value")
+
+	t.Run("interval", func(t *testing.T) {
+		cfg := DefaultConfig()
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.Interval = -10
+		assert.ErrorContains(t, cfg.Validate(), "invalid configuration: invalid monitor interval")
+
+		cfg.Monitor.Interval = 0
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.Interval = 100
+		assert.NoError(t, cfg.Validate())
+	})
+
+	t.Run("staleness", func(t *testing.T) {
+		cfg := DefaultConfig()
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.Staleness = -10
+		assert.ErrorContains(t, cfg.Validate(), "invalid configuration: invalid monitor staleness")
+
+		cfg.Monitor.Staleness = 0
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.Staleness = 100
+		assert.NoError(t, cfg.Validate())
+	})
+}
+
+func TestMonitorConfigFlags(t *testing.T) {
+	type expect struct {
+		interval   time.Duration
+		staleness  time.Duration
+		parseError error
+		cfgErr     error
+	}
+	tt := []struct {
+		name     string
+		args     []string
+		expected expect
+	}{{
+		name:     "default",
+		args:     []string{},
+		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, parseError: nil},
+	}, {
+		name:     "invalid-interval flag",
+		args:     []string{"--monitor.interval=-10Fs"},
+		expected: expect{parseError: fmt.Errorf("time: unknown unit")},
+	}, {
+		name:     "invalid-interval",
+		args:     []string{"--monitor.interval=-10s"},
+		expected: expect{cfgErr: fmt.Errorf("invalid configuration: invalid monitor interval")},
+	}}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			app := kingpin.New("test", "Test application")
+			updateConfig := RegisterFlags(app)
+
+			_, parseErr := app.Parse(tc.args)
+			if tc.expected.parseError != nil {
+				assert.ErrorContains(t, parseErr, tc.expected.parseError.Error(), "args: %v", tc.args)
+				return
+			}
+			assert.NoError(t, parseErr, "unexpected config update error")
+
+			cfg := DefaultConfig()
+			err := updateConfig(cfg)
+			if tc.expected.cfgErr != nil {
+				assert.ErrorContains(t, err, tc.expected.cfgErr.Error())
+				return
+			}
+
+			assert.NoError(t, err, "unexpected config update error")
+			assert.Equal(t, cfg.Monitor.Interval, tc.expected.interval)
+			assert.Equal(t, cfg.Monitor.Staleness, tc.expected.staleness)
+		})
+	}
 }
