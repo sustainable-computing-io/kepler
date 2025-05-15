@@ -11,6 +11,9 @@ rapl:
 
 enable-pprof: true # Enable pprof debug endpoints
 
+web:
+  configFile: "" # Path to TLS server config file
+
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
   fake-cpu-meter:
