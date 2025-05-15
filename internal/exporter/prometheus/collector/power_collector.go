@@ -7,18 +7,21 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
 const (
-	nodeRAPL = "node"
+	nodeRAPL      = "node"
+	processRAPL   = "process"
+	containerRAPL = "container"
 )
 
 type PowerDataProvider = monitor.PowerDataProvider
 
-// PowerCollector combines Node, Process, and CPU collectors to ensure data consistency
+// PowerCollector combines Node, Process, and Container collectors to ensure data consistency
 // by fetching all data in a single atomic operation during collection
 type PowerCollector struct {
 	pm     PowerDataProvider
@@ -32,7 +35,16 @@ type PowerCollector struct {
 	nodeJoulesDescriptors map[string]*prometheus.Desc
 	nodeWattsDescriptors  map[string]*prometheus.Desc
 
-	energyZoneDescriptor *prometheus.Desc
+	// Process power metrics
+	processJoulesDescriptors  map[string]*prometheus.Desc
+	processWattsDescriptors   map[string]*prometheus.Desc
+	processCPUTimeDescriptors *prometheus.Desc
+
+	// Container power metrics
+	containerJoulesDescriptors map[string]*prometheus.Desc
+	containerWattsDescriptors  map[string]*prometheus.Desc
+
+	nodeEnergyZoneDescriptor *prometheus.Desc
 }
 
 // NewPowerCollector creates a collector that provides consistent metrics
@@ -44,7 +56,14 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 
 		nodeJoulesDescriptors: make(map[string]*prometheus.Desc),
 		nodeWattsDescriptors:  make(map[string]*prometheus.Desc),
+
+		processJoulesDescriptors: make(map[string]*prometheus.Desc),
+		processWattsDescriptors:  make(map[string]*prometheus.Desc),
+
+		containerJoulesDescriptors: make(map[string]*prometheus.Desc),
+		containerWattsDescriptors:  make(map[string]*prometheus.Desc),
 	}
+
 	go c.updateDescriptors()
 	return c
 }
@@ -77,13 +96,60 @@ func (c *PowerCollector) updateDescriptors() {
 				nil,
 			)
 		}
+
+		// process metric descriptors
+		if _, exists := c.processJoulesDescriptors[zoneName]; !exists {
+			c.processJoulesDescriptors[zoneName] = prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, processRAPL, zoneName+"_joules_total"),
+				"Energy consumption in joules for RAPL zone "+zoneName+" by process",
+				[]string{"pid", "comm", "exe", "container_id"},
+				nil,
+			)
+		}
+
+		if _, exists := c.processWattsDescriptors[zoneName]; !exists {
+			c.processWattsDescriptors[zoneName] = prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, processRAPL, zoneName+"_watts"),
+				"Power consumption in watts for RAPL zone "+zoneName+" by process",
+				[]string{"pid", "comm", "exe", "container_id"},
+				nil,
+			)
+		}
+
+		// container metric descriptors
+		if _, exists := c.containerJoulesDescriptors[zoneName]; !exists {
+			c.containerJoulesDescriptors[zoneName] = prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, containerRAPL, zoneName+"_joules_total"),
+				"Energy consumption in joules for RAPL zone "+zoneName+" by container",
+				[]string{"id", "name", "runtime"},
+				nil,
+			)
+		}
+
+		if _, exists := c.containerWattsDescriptors[zoneName]; !exists {
+			c.containerWattsDescriptors[zoneName] = prometheus.NewDesc(
+				prometheus.BuildFQName(namespace, containerRAPL, zoneName+"_watts"),
+				"Power consumption in watts for RAPL zone "+zoneName+" by container",
+				[]string{"id", "name", "runtime"},
+				nil,
+			)
+		}
 	}
-	c.energyZoneDescriptor = prometheus.NewDesc(
+
+	c.nodeEnergyZoneDescriptor = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, nodeRAPL, "energy_zone"),
 		"Energy Zones from RAPL",
 		[]string{"name", "index", "path"},
 		nil,
 	)
+
+	c.processCPUTimeDescriptors = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, processRAPL, "cpu_seconds_total"),
+		"Total user and system CPU time in seconds",
+		[]string{"pid", "comm", "exe", "container_id"},
+		nil,
+	)
+
 	c.ready = true
 }
 
@@ -96,13 +162,31 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 		return
 	}
 
+	// node
+	ch <- c.nodeEnergyZoneDescriptor
 	for _, desc := range c.nodeJoulesDescriptors {
 		ch <- desc
 	}
 	for _, desc := range c.nodeWattsDescriptors {
 		ch <- desc
 	}
-	ch <- c.energyZoneDescriptor
+
+	// process
+	ch <- c.processCPUTimeDescriptors
+	for _, desc := range c.processJoulesDescriptors {
+		ch <- desc
+	}
+	for _, desc := range c.processWattsDescriptors {
+		ch <- desc
+	}
+
+	// containers
+	for _, desc := range c.containerJoulesDescriptors {
+		ch <- desc
+	}
+	for _, desc := range c.containerWattsDescriptors {
+		ch <- desc
+	}
 }
 
 func (c *PowerCollector) isReady() bool {
@@ -118,7 +202,12 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
+	started := time.Now()
 	c.logger.Info("Collecting unified power data")
+	defer func() {
+		c.logger.Info("Collected unified power data", "duration", time.Since(started))
+	}()
+
 	snapshot, err := c.pm.Snapshot() // snapshot is thread-safe
 	if err != nil {
 		c.logger.Error("Failed to collect power data", "error", err)
@@ -126,6 +215,8 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	c.collectNodeMetrics(ch, snapshot.Node)
+	c.collectProcessMetrics(ch, snapshot.Processes)
+	c.collectContainerMetrics(ch, snapshot.Containers)
 }
 
 // collectNodeMetrics collects node-level power metrics
@@ -162,12 +253,101 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 		)
 
 		ch <- prometheus.MustNewConstMetric(
-			c.energyZoneDescriptor,
+			c.nodeEnergyZoneDescriptor,
 			prometheus.GaugeValue,
 			1,
 			zoneName,
 			fmt.Sprintf("%d", zone.Index()),
 			path,
 		)
+	}
+}
+
+// collectProcessMetrics collects process-level power metrics
+func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, processes monitor.Processes) {
+	if len(processes) == 0 {
+		c.logger.Debug("No processes to export metrics for")
+		return
+	}
+
+	// No need to lock, already done by the calling function
+	for pid, proc := range processes {
+		pidStr := fmt.Sprintf("%d", pid)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.processCPUTimeDescriptors,
+			prometheus.CounterValue,
+			proc.CPUTotalTime,
+			pidStr, proc.Comm, proc.Exe, proc.ContainerID,
+		)
+
+		for zone, usage := range proc.Zones {
+			zoneName := SanitizeMetricName(zone.Name())
+
+			// Skip if descriptor doesn't exist
+			joulesDesc, exists := c.processJoulesDescriptors[zoneName]
+			if !exists {
+				continue
+			}
+
+			wattsDesc, exists := c.processWattsDescriptors[zoneName]
+			if !exists {
+				continue
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				joulesDesc,
+				prometheus.CounterValue,
+				usage.Absolute.Joules(),
+				pidStr, proc.Comm, proc.Exe, proc.ContainerID,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				wattsDesc,
+				prometheus.GaugeValue,
+				usage.Power.Watts(),
+				pidStr, proc.Comm, proc.Exe, proc.ContainerID,
+			)
+		}
+	}
+}
+
+// collectContainerMetrics collects container-level power metrics
+func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, containers monitor.Containers) {
+	if len(containers) == 0 {
+		c.logger.Debug("No containers to export metrics for")
+		return
+	}
+
+	// No need to lock, already done by the calling function
+	for id, container := range containers {
+		for zone, usage := range container.Zones {
+			zoneName := SanitizeMetricName(zone.Name())
+
+			// Skip if descriptor doesn't exist
+			joulesDesc, exists := c.containerJoulesDescriptors[zoneName]
+			if !exists {
+				continue
+			}
+
+			wattsDesc, exists := c.containerWattsDescriptors[zoneName]
+			if !exists {
+				continue
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				joulesDesc,
+				prometheus.CounterValue,
+				usage.Absolute.Joules(),
+				id, container.Name, string(container.Runtime),
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				wattsDesc,
+				prometheus.GaugeValue,
+				usage.Power.Watts(),
+				id, container.Name, string(container.Runtime),
+			)
+		}
 	}
 }

@@ -31,7 +31,15 @@ func musT[T any](t T, err error) T {
 // TestPowerCollectorConcurrency tests the thread safety of PowerCollector
 // when multiple goroutines call its methods concurrently.
 func TestPowerCollectorConcurrency(t *testing.T) {
-	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
+	procs, containers := monitor.CreateTestResources()
+	ri := &monitor.MockResourceInformer{}
+	ri.On("Refresh").Return(nil)
+	ri.On("Processes").Return(procs)
+	ri.On("Containers").Return(containers)
+	fakeMonitor := monitor.NewPowerMonitor(
+		musT(device.NewFakeCPUMeter(nil)),
+		monitor.WithResourceInformer(ri),
+	)
 	collector := NewPowerCollector(fakeMonitor, newLogger())
 
 	assert.NoError(t, fakeMonitor.Init())
@@ -283,7 +291,17 @@ func TestUpdateDuringCollection(t *testing.T) {
 func TestConcurrentRegistration(t *testing.T) {
 	const numRegistries = 5
 
-	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
+	procs, containers := monitor.CreateTestResources()
+	ri := &monitor.MockResourceInformer{}
+	ri.On("Refresh").Return(nil)
+	ri.On("Processes").Return(procs)
+	ri.On("Containers").Return(containers)
+
+	fakeMonitor := monitor.NewPowerMonitor(
+		musT(device.NewFakeCPUMeter(nil)),
+		monitor.WithResourceInformer(ri),
+	)
+
 	collector := NewPowerCollector(fakeMonitor, newLogger())
 	assert.NoError(t, fakeMonitor.Init())
 
@@ -331,7 +349,15 @@ func TestConcurrentRegistration(t *testing.T) {
 
 // TestFastCollectAndDescribe tests extremely rapid consecutive calls
 func TestFastCollectAndDescribe(t *testing.T) {
-	fakeMonitor := monitor.NewPowerMonitor(musT(device.NewFakeCPUMeter(nil)))
+	procs, containers := monitor.CreateTestResources()
+	ri := &monitor.MockResourceInformer{}
+	ri.On("Refresh").Return(nil)
+	ri.On("Processes").Return(procs)
+	ri.On("Containers").Return(containers)
+	fakeMonitor := monitor.NewPowerMonitor(
+		musT(device.NewFakeCPUMeter(nil)),
+		monitor.WithResourceInformer(ri),
+	)
 	collector := NewPowerCollector(fakeMonitor, newLogger())
 
 	assert.NoError(t, fakeMonitor.Init())

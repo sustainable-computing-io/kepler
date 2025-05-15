@@ -214,7 +214,7 @@ func valueOfLabel(metric *dto.Metric, name string) string {
 }
 
 func metricNames(metrics []*dto.MetricFamily) []string {
-	if metrics == nil || len(metrics) == 0 {
+	if len(metrics) == 0 {
 		return []string{}
 	}
 	names := []string{}
