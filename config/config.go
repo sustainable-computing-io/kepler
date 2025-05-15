@@ -46,14 +46,19 @@ type (
 		Staleness time.Duration `yaml:"staleness"` // Time after which calculated values are considered stale
 	}
 
+	Exporter struct {
+		Stdout bool `yaml:"stdout"`
+	}
+
 	Config struct {
-		Log         Log     `yaml:"log"`
-		Host        Host    `yaml:"host"`
-		Monitor     Monitor `yaml:"monitor"`
-		Rapl        Rapl    `yaml:"rapl"`
-		Web         Web     `yaml:"web"`
-		EnablePprof bool    `yaml:"enable-pprof"`
-		Dev         Dev     `yaml:"dev"` // WARN: do not expose dev settings as flags
+		Log         Log      `yaml:"log"`
+		Host        Host     `yaml:"host"`
+		Monitor     Monitor  `yaml:"monitor"`
+		Rapl        Rapl     `yaml:"rapl"`
+		Exporter    Exporter `yaml:"exporter"`
+		Web         Web      `yaml:"web"`
+		EnablePprof bool     `yaml:"enable-pprof"`
+		Dev         Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
 	}
 )
 
@@ -76,6 +81,8 @@ const (
 	EnablePprofFlag = "enable.pprof"
 
 	WebConfigFlag = "web.config-file"
+
+	ExporterStdout = "exporter.stdout"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -169,6 +176,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
+	stdoutExporter := app.Flag(ExporterStdout, "Enable stdout exporter").Default("false").Bool()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -199,6 +207,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[WebConfigFlag] {
 			cfg.Web.Config = *webConfig
+		}
+
+		if flagsSet[ExporterStdout] {
+			cfg.Exporter.Stdout = *stdoutExporter
 		}
 
 		cfg.sanitize()
