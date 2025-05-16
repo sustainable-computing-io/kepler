@@ -42,7 +42,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 			power = Power(float64(deltaEnergy) / float64(timeDiff))
 		}
 
-		newNode.Zones[zone] = Usage{
+		newNode.Zones[zone] = &Usage{
 			Absolute: absEnergy,
 			Delta:    deltaEnergy,
 			Power:    power,
@@ -84,7 +84,7 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 			continue
 		}
 
-		node.Zones[zone] = Usage{
+		node.Zones[zone] = &Usage{
 			Absolute: energy,
 		}
 	}

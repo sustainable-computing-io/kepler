@@ -26,10 +26,17 @@ func TestCollectionLoop(t *testing.T) {
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
+	procs, containers := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.On("Refresh").Return(nil)
+	resourceInformer.On("Processes").Return(procs).Once()
+	resourceInformer.On("Containers").Return(containers).Once()
+
 	monitor := NewPowerMonitor(
 		mockMeter,
 		WithClock(fakeClock),
 		WithInterval(0),
+		WithResourceInformer(resourceInformer),
 	)
 
 	err := monitor.Init()
@@ -70,9 +77,16 @@ func TestPeriodicCollection(t *testing.T) {
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.On("Refresh").Return(nil)
+	procs, containers := CreateTestResources()
+	resourceInformer.On("Processes").Return(procs)
+	resourceInformer.On("Containers").Return(containers)
+
 	collectionInterval := 50 * time.Millisecond
 	monitor := NewPowerMonitor(
 		mockMeter,
+		WithResourceInformer(resourceInformer),
 		WithClock(fakeClock),
 		WithInterval(collectionInterval),
 		WithMaxStaleness(collectionInterval/4),
@@ -127,9 +141,16 @@ func TestCollectionCancellation(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 
+	resourceInformer := &MockResourceInformer{}
+	procs, containers := CreateTestResources()
+	resourceInformer.On("Refresh").Return(nil)
+	resourceInformer.On("Processes").Return(procs, nil)
+	resourceInformer.On("Containers").Return(containers, nil)
+
 	interval := 10 * time.Millisecond
 	monitor := NewPowerMonitor(
 		mockMeter,
+		WithResourceInformer(resourceInformer),
 		WithInterval(interval),
 		WithMaxStaleness(interval/4),
 	)
@@ -199,10 +220,17 @@ func TestScheduleNextCollection(t *testing.T) {
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
+	procs, containers := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.On("Refresh").Return(nil)
+	resourceInformer.On("Processes").Return(procs, nil)
+	resourceInformer.On("Containers").Return(containers, nil)
+
 	collectionInterval := 50 * time.Millisecond
 	monitor := NewPowerMonitor(
 		mockMeter,
 		WithClock(fakeClock),
+		WithResourceInformer(resourceInformer),
 		WithInterval(collectionInterval),
 		WithMaxStaleness(collectionInterval/4),
 	)
@@ -245,6 +273,11 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
+	procs, containers := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.On("Refresh").Return(nil)
+	resourceInformer.On("Processes").Return(procs, nil)
+	resourceInformer.On("Containers").Return(containers, nil)
 
 	interval := 20 * time.Millisecond
 	monitor := NewPowerMonitor(
@@ -252,6 +285,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 		WithClock(fakeClock),
 		WithInterval(interval),
 		WithMaxStaleness(1*time.Millisecond),
+		WithResourceInformer(resourceInformer),
 	)
 
 	dataCh := monitor.DataChannel()
@@ -291,6 +325,11 @@ func TestCollectionErrorHandling(t *testing.T) {
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
+	procs, containers := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.On("Refresh").Return(nil)
+	resourceInformer.On("Processes").Return(procs, nil)
+	resourceInformer.On("Containers").Return(containers, nil)
 
 	interval := 20 * time.Millisecond
 	monitor := NewPowerMonitor(
@@ -298,6 +337,7 @@ func TestCollectionErrorHandling(t *testing.T) {
 		WithClock(fakeClock),
 		WithInterval(interval),
 		WithMaxStaleness(1*time.Millisecond),
+		WithResourceInformer(resourceInformer),
 	)
 
 	err := monitor.Init()

@@ -19,11 +19,6 @@ type (
 	MockRaplZone = device.MockRaplZone
 )
 
-var (
-	Joule = device.Joule
-	Watt  = device.Watt
-)
-
 // TestNodePowerCollection tests the PowerMonitor.collectNodePower method
 func TestNodePowerCollection(t *testing.T) {
 	// Create a logger that writes to nowhere for testing
