@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "A comprehensive dashboard visualizing energy consumption metrics from Kepler Reboot, Node Exporter, and Kepler, with detailed comparisons between measurement sources for system-wide and per-process energy monitoring.",
+  "description": "Energy monitoring dashboard comparing Kepler Reboot, Node Exporter, and Kepler metrics for system-wide, process-level, and container-level energy consumption analysis.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -42,7 +42,7 @@
       },
       "description": "Overall dashboard explanation and information about the metrics being collected",
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 24,
         "x": 0,
         "y": 1
@@ -54,7 +54,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## 🔋 Energy Monitoring Dashboard\n\nThis dashboard provides a comprehensive comparison of energy consumption metrics from multiple sources:\n\n| Source | Description |\n|--------|-------------|\n| **🚀 Kepler Reboot** | Next generation of Kepler energy monitoring with enhanced precision |\n| **🔥 Node Exporter** | Prometheus node exporter metrics for hardware-level monitoring |\n| **⚡ Kepler** | Kubernetes-based energy monitoring for containerized environments |\n\nUse the variables at the top to select the RAPL zone, job, and process to monitor. The dashboard provides:\n- System-wide energy consumption metrics\n- Per-process energy attribution\n- Comparison between different monitoring solutions\n- Measurement deltas to evaluate accuracy",
+        "content": "## 🔋 Energy Monitoring Dashboard\n\nThis dashboard provides comparative metrics from multiple energy monitoring solutions:\n\n| Source | Description |\n|--------|-------------|\n| **🚀 Kepler Reboot** | Next generation energy monitoring with enhanced precision |\n| **🔥 Node Exporter** | Hardware-level monitoring via Prometheus node exporter |\n| **⚡ Kepler** | Kubernetes-based energy monitoring for containerized workloads |\n\nUse the dashboard variables to select:\n- RAPL zone (package, core, dram)\n- Monitoring job\n- Process to analyze",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -108,7 +108,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 10
       },
       "id": 164,
       "options": {
@@ -197,7 +197,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 15
+        "y": 14
       },
       "id": 161,
       "options": {
@@ -293,7 +293,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 15
+        "y": 14
       },
       "id": 162,
       "options": {
@@ -385,7 +385,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 15
+        "y": 14
       },
       "id": 163,
       "options": {
@@ -448,7 +448,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 18
       },
       "id": 156,
       "panels": [],
@@ -496,7 +496,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 19
       },
       "id": 155,
       "options": {
@@ -660,7 +660,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 23
       },
       "id": 99,
       "options": {
@@ -790,7 +790,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 23
       },
       "id": 151,
       "options": {
@@ -891,7 +891,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 31
       },
       "id": 153,
       "options": {
@@ -961,7 +961,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 41
       },
       "id": 102,
       "panels": [],
@@ -973,12 +973,12 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Comparing process-level monitoring with selected PID: ${pid} (${process})",
+      "description": "Process-level energy monitoring with selected PID: ${pid} (${process})",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 42
       },
       "id": 157,
       "options": {
@@ -987,7 +987,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## 📊 Process Energy Monitoring\n\nThis section compares process-level energy metrics between Kepler Reboot and Kepler. **Select a process** using the variable selector at the top of the dashboard.\n\nThe comparison shows:\n- Direct process measurements from both monitoring systems\n- Delta between node-level and process-level measurements (attribution gap)",
+        "content": "## 📊 Process Energy Monitoring\n\nComparing process-level metrics between Kepler Reboot and Kepler for the selected process.\n\nKey metrics shown:\n- Attribution gap between node and process measurements\n- Direct power consumption comparisons between monitoring systems\n- Joules and Watts measurements from different sources",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -998,7 +998,144 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between node-level and process-level energy measurements.",
+      "description": "Energy difference between node-level and process-level measurements",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "from": -1e-10,
+                "result": {
+                  "index": 0,
+                  "text": "0 W"
+                },
+                "to": 1e-10
+              },
+              "type": "range"
+            },
+            {
+              "options": {
+                "from": -0.001,
+                "result": {
+                  "index": 1,
+                  "text": "0 W"
+                },
+                "to": 0.001
+              },
+              "type": "range"
+            },
+            {
+              "options": {
+                "from": -0.1,
+                "result": {
+                  "index": 2,
+                  "text": "0 W"
+                },
+                "to": 0.9
+              },
+              "type": "range"
+            }
+          ],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 165,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(kepler_node_${zones}_watts{job=\"${job}\"}) \n  - \n  sum(kepler_process_${zones}_watts{job=\"${job}\"})\n)",
+          "instant": false,
+          "legendFormat": "Kepler Reboot Attribution Gap - Watts",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))\n  - \n  sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\"}[20s]))\n)",
+          "instant": false,
+          "legendFormat": "Kepler Reboot Attribution Gap - Joules",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))\n  - \n  sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))\n)",
+          "instant": false,
+          "legendFormat": "Kepler Attribution Gap",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Process Energy Attribution Gap",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Difference between node-level and process-level energy over time",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1047,20 +1184,32 @@
                 "value": null
               },
               {
+                "color": "dark-green",
+                "value": -0.5
+              },
+              {
                 "color": "super-light-green",
+                "value": -0.25
+              },
+              {
+                "color": "green",
+                "value": -0.1
+              },
+              {
+                "color": "light-green",
                 "value": 0
               },
               {
-                "color": "semi-dark-yellow",
+                "color": "#EAB839",
+                "value": 0.1
+              },
+              {
+                "color": "semi-dark-red",
                 "value": 0.5
               },
               {
-                "color": "orange",
-                "value": 1
-              },
-              {
                 "color": "dark-red",
-                "value": 2
+                "value": 1
               }
             ]
           },
@@ -1069,10 +1218,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 52
       },
       "id": 131,
       "options": {
@@ -1101,11 +1250,24 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(k2_node_rapl_${zones}_joules_total{job=\"${job}\"}[20s])) - on() sum(rate(k2_process_rapl_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])) - on() sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\"}[20s]))",
           "instant": false,
-          "legendFormat": "k2 attribution gap",
+          "legendFormat": "Kepler Reboot - Node-Process Gap (Joules)",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(kepler_node_${zones}_watts{job=\"${job}\"}) - on() sum(kepler_process_${zones}_watts{job=\"${job}\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Reboot - Node-Process Gap (Watts)",
+          "range": true,
+          "refId": "B"
         },
         {
           "datasource": {
@@ -1116,9 +1278,9 @@
           "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "kepler attribution gap",
+          "legendFormat": "Kepler - Node-Process Gap",
           "range": true,
-          "refId": "B"
+          "refId": "C"
         }
       ],
       "title": "Node-Process Energy Attribution Gap",
@@ -1129,11 +1291,12 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Direct comparison of process energy measurements between Kepler Reboot and Kepler for the selected process (PID: ${pid}).",
+      "description": "Energy consumption comparison for selected process (${process})",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "palette-classic",
+            "seriesBy": "last"
           },
           "custom": {
             "axisBorderShow": false,
@@ -1175,6 +1338,34 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "dark-green",
+                "value": -0.5
+              },
+              {
+                "color": "super-light-green",
+                "value": -0.25
+              },
+              {
+                "color": "light-green",
+                "value": -0.1
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.1
+              },
+              {
+                "color": "light-red",
+                "value": 0.5
+              },
+              {
+                "color": "dark-red",
+                "value": 1
               }
             ]
           },
@@ -1183,10 +1374,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 56
+        "y": 61
       },
       "id": 100,
       "options": {
@@ -1215,9 +1406,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_process_${zones}_joules_total{pid=\"$pid\"}[20s]))",
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{pid=\"$pid\",job=\"kepler-latest\"}[20s]))",
           "instant": false,
-          "legendFormat": "Kepler - ${zones}",
+          "legendFormat": "Kepler - ${pid} (Joules)",
           "range": true,
           "refId": "A"
         },
@@ -1227,15 +1418,41 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(k2_process_rapl_${zones}_joules_total{pid=\"$pid\",job=\"$job\"}[20s]))",
+          "expr": "kepler_process_${zones}_watts{pid=\"$pid\",job=\"$job\"}",
           "hide": false,
           "instant": false,
-          "legendFormat": "k2 - ${zones}",
+          "legendFormat": "Kepler Reboot - ${pid} (Watts)",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{pid=\"$pid\",job=\"$job\"}[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Reboot - ${pid} (Joules)",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "scaph_process_power_consumption_microwatts{pid=\"$pid\"} / 10^6",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Scaphandre - ${pid} (Watts)",
+          "range": true,
+          "refId": "D"
         }
       ],
-      "title": "Process Energy Comparison - PID: ${pid} (${process})",
+      "title": "Process Energy Comparison - ${process}",
       "type": "timeseries"
     },
     {
@@ -1244,7 +1461,303 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 64
+        "y": 71
+      },
+      "id": 166,
+      "panels": [],
+      "title": "🐳 Container-Level Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Container-level energy monitoring metrics",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "id": 167,
+      "options": {
+        "code": {
+          "language": "markdown",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## 📊 Container Energy Monitoring\n\nThis section shows container-level energy metrics from Kepler Reboot and Kepler.\n\nMetrics shown:\n- Energy attribution gap between process and container measurements\n- Power consumption comparisons across monitoring systems\n- Container power attribution accuracy",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.4.2",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Energy difference between process-level and container-level measurements",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 78
+      },
+      "id": 168,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(kepler_process_${zones}_watts{job=\"${job}\",container_id!=\"\"}) \n  - \n  sum(kepler_container_${zones}_watts{job=\"${job}\"})\n)",
+          "instant": false,
+          "legendFormat": "Kepler Reboot Attribution Gap - Watts",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\",container_id!=\"\"}[20s]))\n  - \n  sum(rate(kepler_container_${zones}_joules_total{job=\"${job}\"}[20s]))\n)",
+          "instant": false,
+          "legendFormat": "Kepler Reboot Attribution Gap - Joules",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))\n  - \n  sum(rate(kepler_container_${zones}_joules_total{job=\"kepler-latest\"}[20s]))\n)",
+          "instant": false,
+          "legendFormat": "Kepler Attribution Gap",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Container Energy Attribution Gap",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PDE6745920139CE56"
+      },
+      "description": "Difference between process-level and container-level energy over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds",
+            "seriesBy": "max"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Watts Delta",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "semi-dark-green",
+                "value": -0.5
+              },
+              {
+                "color": "super-light-green",
+                "value": -0.25
+              },
+              {
+                "color": "light-green",
+                "value": -0.1
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "#EAB839",
+                "value": 0.1
+              },
+              {
+                "color": "light-red",
+                "value": 0.5
+              },
+              {
+                "color": "dark-red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 82
+      },
+      "id": 169,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\",container_id!=\"\"}[20s])) - on() sum(rate(kepler_container_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "instant": false,
+          "legendFormat": "Kepler Reboot - Process-Container Gap (Joules)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(kepler_process_${zones}_watts{job=\"${job}\",container_id!=\"\"}) - on() sum(kepler_container_${zones}_watts{job=\"${job}\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Reboot - Process-Container Gap (Watts)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_container_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler - Process-Container Gap",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Process-Container Energy Attribution Gap",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 91
       },
       "id": 158,
       "panels": [],
@@ -1256,7 +1769,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Percentage of energy measured at node level that is not attributed to specific processes. Lower values indicate more complete process-level energy attribution.",
+      "description": "Percentage of energy measured at node level that is not attributed to specific processes",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1294,7 +1807,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 65
+        "y": 92
       },
       "id": 159,
       "options": {
@@ -1326,12 +1839,12 @@
           "editorMode": "code",
           "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\"}[20s]))) / sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))",
           "instant": false,
-          "legendFormat": "Kepler Reboot attribution gap (%)",
+          "legendFormat": "Process Attribution Gap",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Kepler Reboot - Energy Attribution Gap",
+      "title": "Kepler Reboot - Process Energy Attribution Gap (%)",
       "type": "gauge"
     },
     {
@@ -1339,7 +1852,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Percentage of energy measured at node level that is not attributed to specific processes. Lower values indicate more complete process-level energy attribution.",
+      "description": "Percentage of energy measured at node level that is not attributed to specific processes",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1377,7 +1890,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 65
+        "y": 92
       },
       "id": 160,
       "options": {
@@ -1409,12 +1922,12 @@
           "editorMode": "code",
           "expr": "100 * (sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))) / sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "instant": false,
-          "legendFormat": "kepler attribution gap (%)",
+          "legendFormat": "Process Attribution Gap",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Kepler - Energy Attribution Gap",
+      "title": "Kepler - Process Energy Attribution Gap (%)",
       "type": "gauge"
     }
   ],
