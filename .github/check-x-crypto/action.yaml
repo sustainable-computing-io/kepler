@@ -1,0 +1,26 @@
+name: Check golang.org/x/crypto Dependencies
+description: Checks if PR and code base contains dependencies on golang.org/x/crypto
+inputs:
+  base_ref:
+    description: Base branch
+    required: true
+  head_sha:
+    description: Head commit SHA
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5.4.0
+      with:
+        go-version-file: go.mod
+
+    - name: Analyze crypto dependencies
+      shell: bash
+      run: ./hack/reports/print-xcrypto-report.sh --base-ref ${{ inputs.base_ref }} --head-sha ${{ inputs.head_sha }}
