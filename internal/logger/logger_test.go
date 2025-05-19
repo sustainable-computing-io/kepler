@@ -72,18 +72,18 @@ func TestSetupLogger(t *testing.T) {
 				return
 			}
 
-			// Logger writes to stdout, so, redirect stdout to a buffer and
+			// Logger writes to stderr, so, redirect stderr to a buffer and
 			// restore it at the end
-			stdoutOrig := os.Stdout
+			stderrOrig := os.Stderr
 			r, w, _ := os.Pipe()
-			os.Stdout = w
+			os.Stderr = w
 
 			logger := New(tt.logLevel, tt.format)
 			logger.Info("test message", "key", "value")
 
 			// Restore stdout
 			w.Close()
-			os.Stdout = stdoutOrig
+			os.Stderr = stderrOrig
 
 			// read stdout to string
 			var outBuffer bytes.Buffer

@@ -32,7 +32,7 @@ func (e Energy) Joules() float64 {
 }
 
 func (e Energy) String() string {
-	return fmt.Sprintf("%fJ", e.Joules())
+	return fmt.Sprintf("%.2fJ", e.Joules())
 }
 
 // Power represents power usage as an float64 MicroWatts.
@@ -59,5 +59,5 @@ func (p Power) Watts() float64 {
 }
 
 func (p Power) String() string {
-	return fmt.Sprintf("%fW", p.Watts())
+	return fmt.Sprintf("%.2fW", p.Watts())
 }

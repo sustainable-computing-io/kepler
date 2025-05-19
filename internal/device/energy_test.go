@@ -81,9 +81,9 @@ func TestEnergy_String(t *testing.T) {
 		energy Energy
 		want   string
 	}{
-		{"Zero", 0, "0.000000J"},
-		{"Regular", 1_250_000, "1.250000J"},
-		{"MaxUint64", Energy(math.MaxUint64), fmt.Sprintf("%fJ", float64(math.MaxUint64)/1_000_000)},
+		{"Zero", 0, "0.00J"},
+		{"Regular", 1_250_000, "1.25J"},
+		{"MaxUint64", Energy(math.MaxUint64), fmt.Sprintf("%.2fJ", float64(math.MaxUint64)/1_000_000)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -185,10 +185,10 @@ func TestPower_String(t *testing.T) {
 		power Power
 		want  string
 	}{
-		{"Zero", 0, "0.000000W"},
-		{"Regular", 1_250_000, "1.250000W"},
-		{"Watt", 1.25 * Watt, "1.250000W"},
-		{"MaxFloat64", Power(math.MaxFloat64), fmt.Sprintf("%fW", float64(math.MaxFloat64)/1_000_000)},
+		{"Zero", 0, "0.00W"},
+		{"Regular", 1_250_000, "1.25W"},
+		{"Watt", 1.25 * Watt, "1.25W"},
+		{"MaxFloat64", Power(math.MaxFloat64), fmt.Sprintf("%.2fW", float64(math.MaxFloat64)/1_000_000)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

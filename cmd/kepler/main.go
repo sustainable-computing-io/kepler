@@ -14,6 +14,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
@@ -166,6 +167,10 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if cfg.EnablePprof {
 		pprof := server.NewPprof(apiServer)
 		services = append(services, pprof)
+	}
+	if cfg.Exporter.Stdout {
+		stdout := stdout.NewExporter(pm, stdout.WithLogger(logger))
+		services = append(services, stdout)
 	}
 
 	return services, nil
