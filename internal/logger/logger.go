@@ -19,13 +19,13 @@ func New(level, format string) *slog.Logger {
 func handlerForFormat(format string, logLevel slog.Level) slog.Handler {
 	switch format {
 	case "json":
-		return slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		return slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     logLevel,
 			AddSource: true,
 		})
 
 	case "text":
-		return slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		return slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 			Level:     logLevel,
 			AddSource: true,
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
