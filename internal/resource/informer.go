@@ -226,49 +226,68 @@ func (ri *resourceInformer) Containers() *Containers {
 func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
 	pid := proc.PID()
 
-	cached, exists := ri.procCache[pid]
-	if !exists {
-		var err error
-		cached, err = newProcess(proc)
-		if err != nil {
-			return nil, err
-		}
-
-		ri.procCache[pid] = cached
+	if cached, exists := ri.procCache[pid]; exists {
+		err := populateProcessFields(cached, proc)
+		return cached, err
 	}
 
-	cpuTotalTime, err := proc.CPUTime()
+	newProc, err := newProcess(proc)
 	if err != nil {
 		return nil, err
 	}
 
-	cached.CPUTimeDelta = cpuTotalTime - cached.CPUTotalTime
-	cached.CPUTotalTime = cpuTotalTime
+	ri.procCache[pid] = newProc
+	return newProc, nil
+}
 
-	return cached, nil
+func populateProcessFields(p *Process, proc procInfo) error {
+	cpuTotalTime, err := proc.CPUTime()
+	if err != nil {
+		return err
+	}
+
+	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
+	p.CPUTotalTime = cpuTotalTime
+
+	// ignore process updates with no or close to 0 CPU time
+	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 {
+		return nil
+	}
+
+	comm, err := proc.Comm()
+	if err != nil {
+		return fmt.Errorf("failed to get process comm: %w", err)
+	}
+	p.Comm = comm
+
+	exe, err := proc.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get process executable: %w", err)
+	}
+	p.Exe = exe
+
+	if p.Container == nil {
+		// don't recompute if container is already set
+		container, err := containerInfoFromProc(proc)
+		if err != nil {
+			return fmt.Errorf("failed to detect container: %w", err)
+		}
+
+		p.Container = container
+	}
+
+	return nil
 }
 
 // newProcess creates a new Process with static information filled in
 func newProcess(proc procInfo) (*Process, error) {
-	comm, err := proc.Comm()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get process comm: %w", err)
+	p := &Process{
+		PID: proc.PID(),
 	}
 
-	exe, err := proc.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get process executable: %w", err)
+	if err := populateProcessFields(p, proc); err != nil {
+		return nil, err
 	}
 
-	container, err := containerInfoFromProc(proc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect container: %w", err)
-	}
-
-	return &Process{
-		PID:       proc.PID(),
-		Comm:      comm,
-		Exe:       exe,
-		Container: container,
-	}, nil
+	return p, nil
 }
