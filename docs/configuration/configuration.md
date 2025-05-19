@@ -22,6 +22,8 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--log.format` | Output format for logs | `text` | `text`, `json` |
 | `--host.sysfs` | Path to sysfs filesystem | `/sys` | Any valid directory path |
 | `--host.procfs` | Path to procfs filesystem | `/proc` | Any valid directory path |
+| `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
+| `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
 | `--enable.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
 
 ### 💡 Examples
@@ -48,6 +50,10 @@ log:
   level: debug  # debug, info, warn, error (default: info)
   format: text  # text or json (default: text)
 
+monitor:
+  interval: 5s      # Monitor refresh interval (default: 5s)
+  staleness: 1000ms # Duration after which data is considered stale (default: 1000ms)
+
 host:
   sysfs: /sys   # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
@@ -56,6 +62,9 @@ rapl:
   zones: []     # RAPL zones to be enabled, empty enables all default zones
 
 enable-pprof: true  # Enable pprof debug endpoints
+
+web:
+  configFile: "" # Path to TLS server config file
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -84,6 +93,18 @@ log:
   - `text`: Human-readable format
   - `json`: JSON format, suitable for log processing systems
 
+### 📊 Monitor Configuration
+
+```yaml
+monitor:
+  interval: 5s
+  staleness: 1000ms
+```
+
+- **interval**: The monitor's refresh interval. All processes with a lifetime less than this interval will be ignored. Setting to 0s disables monitor refreshes.
+
+- **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
+
 ### 🗄️ Host Configuration
 
 ```yaml
@@ -108,6 +129,24 @@ Example with specific zones:
 ```yaml
 rapl:
   zones: ["package", "core", "uncore"]
+```
+
+### 🌐 Web Configuration
+
+```yaml
+web:
+  configFile: ""  # Path to TLS server config file
+```
+
+This setting specifies the path to a TLS server configuration file for securing Kepler's web endpoints.
+
+Example TLS server configuration file content:
+
+```yaml
+# TLS server configuration
+tls_server_config:
+  cert_file: /path/to/cert.pem  # Path to the certificate file
+  key_file: /path/to/key.pem    # Path to the key file
 ```
 
 ### 🐞 Debug Configuration
