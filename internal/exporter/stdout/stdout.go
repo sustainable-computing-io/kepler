@@ -33,9 +33,11 @@ type Exporter struct {
 	interval time.Duration
 }
 
-var _ Initializer = (*Exporter)(nil)
-var _ Runner = (*Exporter)(nil)
-var _ Shutdowner = (*Exporter)(nil)
+var (
+	_ Initializer = (*Exporter)(nil)
+	_ Runner      = (*Exporter)(nil)
+	_ Shutdowner  = (*Exporter)(nil)
+)
 
 type Opts struct {
 	logger   *slog.Logger
@@ -96,7 +98,6 @@ func (e *Exporter) Init() error {
 }
 
 func (e *Exporter) Run(ctx context.Context) error {
-
 	for {
 		select {
 		case now := <-e.ticker.C:

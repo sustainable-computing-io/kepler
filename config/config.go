@@ -46,19 +46,39 @@ type (
 		Staleness time.Duration `yaml:"staleness"` // Time after which calculated values are considered stale
 	}
 
+	// Exporter configuration
+	StdoutExporter struct {
+		Enabled bool `yaml:"enabled"`
+	}
+
+	PrometheusExporter struct {
+		Enabled         bool     `yaml:"enabled"`
+		DebugCollectors []string `yaml:"debugCollectors"`
+	}
+
 	Exporter struct {
-		Stdout bool `yaml:"stdout"`
+		Stdout     StdoutExporter     `yaml:"stdout"`
+		Prometheus PrometheusExporter `yaml:"prometheus"`
+	}
+
+	// Debug configuration
+	PprofDebug struct {
+		Enabled bool `yaml:"enabled"`
+	}
+
+	Debug struct {
+		Pprof PprofDebug `yaml:"pprof"`
 	}
 
 	Config struct {
-		Log         Log      `yaml:"log"`
-		Host        Host     `yaml:"host"`
-		Monitor     Monitor  `yaml:"monitor"`
-		Rapl        Rapl     `yaml:"rapl"`
-		Exporter    Exporter `yaml:"exporter"`
-		Web         Web      `yaml:"web"`
-		EnablePprof bool     `yaml:"enable-pprof"`
-		Dev         Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
+		Log      Log      `yaml:"log"`
+		Host     Host     `yaml:"host"`
+		Monitor  Monitor  `yaml:"monitor"`
+		Rapl     Rapl     `yaml:"rapl"`
+		Exporter Exporter `yaml:"exporter"`
+		Web      Web      `yaml:"web"`
+		Debug    Debug    `yaml:"debug"`
+		Dev      Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
 	}
 )
 
@@ -77,12 +97,21 @@ const (
 	HostProcFSFlag = "host.procfs"
 
 	MonitorIntervalFlag = "monitor.interval"
+	MonitorStaleness    = "monitor.staleness" // not a flag
 
-	EnablePprofFlag = "enable.pprof"
+	// RAPL
+	RaplZones = "rapl.zones" // not a flag
+
+	pprofEnabledFlag = "debug.pprof"
 
 	WebConfigFlag = "web.config-file"
 
-	ExporterStdout = "exporter.stdout"
+	// Exporters
+	ExporterStdoutEnabledFlag = "exporter.stdout"
+
+	ExporterPrometheusEnabledFlag = "exporter.prometheus"
+	// NOTE: not a flag
+	ExporterPrometheusDebugCollectors = "exporter.prometheus.debug-collectors"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -104,6 +133,20 @@ func DefaultConfig() *Config {
 		Monitor: Monitor{
 			Interval:  5 * time.Second,
 			Staleness: 500 * time.Millisecond,
+		},
+		Exporter: Exporter{
+			Stdout: StdoutExporter{
+				Enabled: false,
+			},
+			Prometheus: PrometheusExporter{
+				Enabled:         true,
+				DebugCollectors: []string{"go"},
+			},
+		},
+		Debug: Debug{
+			Pprof: PprofDebug{
+				Enabled: false,
+			},
 		},
 	}
 
@@ -174,9 +217,13 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	monitorInterval := app.Flag(MonitorIntervalFlag,
 		"Interval for monitoring resources (processes, container, vm, etc...); 0 to disable").Default("5s").Duration()
 
-	enablePprof := app.Flag(EnablePprofFlag, "Enable pprof").Default("false").Bool()
+	enablePprof := app.Flag(pprofEnabledFlag, "Enable pprof debug endpoints").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
-	stdoutExporter := app.Flag(ExporterStdout, "Enable stdout exporter").Default("false").Bool()
+
+	// exporters
+	stdoutExporterEnabled := app.Flag(ExporterStdoutEnabledFlag, "Enable stdout exporter").Default("false").Bool()
+
+	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -201,16 +248,20 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Monitor.Interval = *monitorInterval
 		}
 
-		if flagsSet[EnablePprofFlag] {
-			cfg.EnablePprof = *enablePprof
+		if flagsSet[pprofEnabledFlag] {
+			cfg.Debug.Pprof.Enabled = *enablePprof
 		}
 
 		if flagsSet[WebConfigFlag] {
 			cfg.Web.Config = *webConfig
 		}
 
-		if flagsSet[ExporterStdout] {
-			cfg.Exporter.Stdout = *stdoutExporter
+		if flagsSet[ExporterStdoutEnabledFlag] {
+			cfg.Exporter.Stdout.Enabled = *stdoutExporterEnabled
+		}
+
+		if flagsSet[ExporterPrometheusEnabledFlag] {
+			cfg.Exporter.Prometheus.Enabled = *prometheusExporterEnabled
 		}
 
 		cfg.sanitize()
@@ -227,6 +278,10 @@ func (c *Config) sanitize() {
 
 	for i := range c.Rapl.Zones {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
+	}
+
+	for i := range c.Exporter.Prometheus.DebugCollectors {
+		c.Exporter.Prometheus.DebugCollectors[i] = strings.TrimSpace(c.Exporter.Prometheus.DebugCollectors[i])
 	}
 }
 
@@ -352,8 +407,12 @@ func (c *Config) manualString() string {
 		{HostSysFSFlag, c.Host.SysFS},
 		{HostProcFSFlag, c.Host.ProcFS},
 		{MonitorIntervalFlag, c.Monitor.Interval.String()},
-		{"monitor.staleness", c.Monitor.Staleness.String()},
-		{"rapl.zones", strings.Join(c.Rapl.Zones, ", ")},
+		{MonitorStaleness, c.Monitor.Staleness.String()},
+		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
+		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
+		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},
+		{ExporterPrometheusDebugCollectors, strings.Join(c.Exporter.Prometheus.DebugCollectors, ", ")},
+		{pprofEnabledFlag, fmt.Sprintf("%v", c.Debug.Pprof.Enabled)},
 	}
 	sb := strings.Builder{}
 

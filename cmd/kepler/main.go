@@ -32,7 +32,7 @@ func main() {
 
 	// Configure logger - use stderr if stdout exporter is enabled to prevent output interleaving
 	logOut := os.Stdout
-	if cfg.Exporter.Stdout {
+	if cfg.Exporter.Stdout.Enabled {
 		logOut = os.Stderr
 	}
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
@@ -147,6 +147,39 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		server.WithLogger(logger),
 	)
 
+	services := []service.Service{
+		cpuPowerMeter,
+		apiServer,
+		pm,
+	}
+
+	// Add Prometheus exporter if enabled
+	if cfg.Exporter.Prometheus.Enabled {
+		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
+		}
+		services = append(services, promExporter)
+	}
+
+	// Add pprof if enabled
+	if cfg.Debug.Pprof.Enabled {
+		pprof := server.NewPprof(apiServer)
+		services = append(services, pprof)
+	}
+
+	// Add stdout exporter if enabled
+	if cfg.Exporter.Stdout.Enabled {
+		stdoutExporter := stdout.NewExporter(pm, stdout.WithLogger(logger))
+		services = append(services, stdoutExporter)
+	}
+
+	return services, nil
+}
+
+func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer *server.APIServer, pm *monitor.PowerMonitor) (*prometheus.Exporter, error) {
+	logger.Debug("Creating Prometheus exporter")
+
 	collectors, err := prometheus.CreateCollectors(
 		pm,
 		prometheus.WithLogger(logger),
@@ -155,31 +188,18 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)
 	}
-	// TODO: enable exporters based on config / flags
+
+	debugCollectors := cfg.Exporter.Prometheus.DebugCollectors
+
 	promExporter := prometheus.NewExporter(
 		pm,
 		apiServer,
 		prometheus.WithLogger(logger),
 		prometheus.WithCollectors(collectors),
+		prometheus.WithDebugCollectors(debugCollectors),
 	)
 
-	services := []service.Service{
-		cpuPowerMeter,
-		promExporter,
-		apiServer,
-		pm,
-	}
-
-	if cfg.EnablePprof {
-		pprof := server.NewPprof(apiServer)
-		services = append(services, pprof)
-	}
-	if cfg.Exporter.Stdout {
-		stdout := stdout.NewExporter(pm, stdout.WithLogger(logger))
-		services = append(services, stdout)
-	}
-
-	return services, nil
+	return promExporter, nil
 }
 
 func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
