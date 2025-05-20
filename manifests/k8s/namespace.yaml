@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kepler
+  labels:
+    app.kubernetes.io/name: kepler
+    app.kubernetes.io/part-of: kepler

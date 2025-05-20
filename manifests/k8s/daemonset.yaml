@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler
+  namespace: kepler
+  labels:
+    app.kubernetes.io/name: kepler
+    app.kubernetes.io/part-of: kepler
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kepler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kepler
+        app.kubernetes.io/part-of: kepler
+    spec:
+      serviceAccountName: kepler
+      hostPID: true
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: kepler
+          image: <KEPLER_IMAGE>
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - /usr/bin/kepler
+          args:
+            - --config.file=/etc/kepler/kepler-config.yaml
+          ports:
+            - name: http
+              containerPort: 28282
+              protocol: TCP
+          volumeMounts:
+            - name: sysfs
+              mountPath: /host/sys
+              readOnly: true
+            - name: procfs
+              mountPath: /host/proc
+              readOnly: true
+            - name: cfm
+              mountPath: /etc/kepler
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 60
+      volumes:
+        - name: sysfs
+          hostPath:
+            path: /sys
+        - name: procfs
+          hostPath:
+            path: /proc
+        - name: cfm
+          configMap:
+            name: kepler
