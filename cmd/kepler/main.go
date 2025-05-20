@@ -30,7 +30,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := logger.New(cfg.Log.Level, cfg.Log.Format)
+	// Configure logger - use stderr if stdout exporter is enabled to prevent output interleaving
+	logOut := os.Stdout
+	if cfg.Exporter.Stdout {
+		logOut = os.Stderr
+	}
+	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
+
 	logVersionInfo(logger)
 	printConfigInfo(logger, cfg)
 
@@ -78,7 +84,7 @@ func parseArgsAndConfig() (*config.Config, error) {
 	updateConfig := config.RegisterFlags(app)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	logger := logger.New("info", "text")
+	logger := logger.New("info", "text", os.Stdout)
 	cfg := config.DefaultConfig()
 	if *configFile != "" {
 		logger.Info("Loading configuration file", "path", *configFile)
