@@ -141,6 +141,11 @@ func TestContainerIDFromPathWithCgroup(t *testing.T) {
 		path: "0::/system.slice/kepler.service/libpod-payload-8e363eb2287da4ccc9f52ffc5de11252ac5fe707e3ddb917a3c0bdf9bb64165b",
 
 		expected: expect{id: "8e363eb2287da4ccc9f52ffc5de11252ac5fe707e3ddb917a3c0bdf9bb64165b", runtime: PodmanRuntime},
+	}, {
+		name: "kind containerd",
+		path: "0::/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod3cae2e45_052c_4b11_80d3_4d7b2d2d3464.slice/cri-containerd-2b180104511194aab36fd295d3e217439f3ddb5bc88277f37b4952abee85c40e.scope",
+
+		expected: expect{id: "2b180104511194aab36fd295d3e217439f3ddb5bc88277f37b4952abee85c40e", runtime: ContainerDRuntime},
 	}}
 
 	for _, test := range tests {

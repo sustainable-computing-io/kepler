@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	dockerPattern        = regexp.MustCompile(`/docker[-/]([0-9a-f]{64})`)
-	containerdPattern    = regexp.MustCompile(`/containerd[-/]([0-9a-f]{64})`)
-	criContainerdPattern = regexp.MustCompile(`:cri-containerd:([0-9a-f]{64})`)
+	dockerPattern     = regexp.MustCompile(`/docker[-/]([0-9a-f]{64})`)
+	containerdPattern = regexp.MustCompile(`/containerd[-/]([0-9a-f]{64})`)
+
+	criContainerdPattern = regexp.MustCompile(`[:/]cri-containerd[-:]([0-9a-f]{64})`)
 	crioPattern          = regexp.MustCompile(`/crio-([0-9a-f]{64})`)
 
 	libpodPattern        = regexp.MustCompile(`libpod-([0-9a-f]{64}).*`)
