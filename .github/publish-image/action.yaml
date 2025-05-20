@@ -41,7 +41,7 @@ runs:
 
     - name: make deps
       shell: bash
-      run: make deps
+      run: make deps && git diff --exit-code
 
     - name: Build Image
       shell: bash
