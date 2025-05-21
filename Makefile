@@ -47,6 +47,19 @@ ifeq ($(shell ldconfig -p | grep -q libhlml.so && echo exists),exists)
     GPU_TAGS := habana
 endif
 
+# Use PRODUCTION to enable/disable stripping binaries for the kepler exporter
+# 	and validator. That reduces the size of the binaries and removes debug symbols.
+# Expected values for this flag are:
+#	0 - Unstripped binaries including debug symbols (default);
+#	1 - Stripped binaries.
+# More about stripped binaries and debug symbols can be found at the RedHat's developer portal here:
+#	* https://developers.redhat.com/articles/2024/04/03/how-add-debug-support-go-stripped-binaries
+#
+PRODUCTION ?= 0
+ifeq ($(PRODUCTION),1)
+  LDFLAGS+= -s -w
+endif
+
 # set GOENV
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
