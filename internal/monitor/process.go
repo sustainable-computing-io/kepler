@@ -63,22 +63,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 	processMap := make(Processes, len(running))
 
 	for pid, proc := range running {
-		var process *Process
-		if prevProc, exists := prev.Processes[pid]; exists {
-			process = prevProc.Clone()
-			process.CPUTotalTime = proc.CPUTotalTime
-		} else {
-			process = newProcess(proc, zones)
-		}
+		process := newProcess(proc, zones)
 
 		// For each zone in the node, calculate process's share
 		for zone, usage := range zones {
 			if usage.Power == 0 || usage.Delta == 0 || nodeCPUTimeDelta == 0 {
-				process.Zones[zone] = &Usage{
-					Absolute: Energy(0),
-					Delta:    Energy(0),
-					Power:    Power(0),
-				}
 				continue
 			}
 
