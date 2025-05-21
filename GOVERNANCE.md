@@ -18,7 +18,7 @@ Responsibilities include:
 - Actively engage in the technical committee meetings.
 
 The current list of technical committee members is published and updated in
-[Contributors.md](Contributors.md).
+[MAINTAINERS.md](./MAINTAINERS.md).
 
 ### Becoming a Technical Committee Member
 
