@@ -100,11 +100,15 @@ func TestNewExporter(t *testing.T) {
 	}
 }
 
-type dummyWriteCloser struct {
+type dummyTarget struct {
 	io.Writer
 }
 
-func (dwc *dummyWriteCloser) Close() error {
+func (dwc *dummyTarget) Fd() uintptr {
+	return 0
+}
+
+func (dwc *dummyTarget) Close() error {
 	return nil
 }
 
@@ -112,7 +116,7 @@ func TestExporter_InitRunShotdown(t *testing.T) {
 	t.Run("starts successfully", func(t *testing.T) {
 		mockMonitor := &MockMonitor{}
 		mockMonitor.On("Snapshot").Return(&monitor.Snapshot{Node: getTestNodeData()}, nil)
-		out := &dummyWriteCloser{&bytes.Buffer{}}
+		out := &dummyTarget{&bytes.Buffer{}}
 		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(1*time.Second))
 		err := exporter.Init()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

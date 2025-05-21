@@ -12,6 +12,7 @@ require (
 	github.com/prometheus/procfs v0.15.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.10.0
+	golang.org/x/term v0.28.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 )

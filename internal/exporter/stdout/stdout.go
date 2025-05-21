@@ -5,6 +5,7 @@ package stdout
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
+	"golang.org/x/term"
 )
 
 type (
@@ -28,7 +30,7 @@ type (
 type Exporter struct {
 	logger   *slog.Logger
 	monitor  Monitor
-	out      io.WriteCloser
+	out      Target
 	ticker   time.Ticker
 	interval time.Duration
 }
@@ -39,9 +41,14 @@ var (
 	_ Shutdowner  = (*Exporter)(nil)
 )
 
+type Target interface {
+	io.WriteCloser
+	Fd() uintptr
+}
+
 type Opts struct {
 	logger   *slog.Logger
-	out      io.WriteCloser
+	out      Target
 	interval time.Duration
 }
 
@@ -64,7 +71,7 @@ func WithLogger(logger *slog.Logger) OptionFn {
 	}
 }
 
-func WithOutput(out io.WriteCloser) OptionFn {
+func WithOutput(out Target) OptionFn {
 	return func(o *Opts) {
 		o.out = out
 	}
@@ -93,6 +100,14 @@ func NewExporter(pm Monitor, applyOpts ...OptionFn) *Exporter {
 }
 
 func (e *Exporter) Init() error {
+	// since e.out uses os.Stdout by default,
+	// ensure that stderr is redirected
+
+	if term.IsTerminal(int(e.out.Fd())) &&
+		term.IsTerminal(int(os.Stderr.Fd())) {
+		return fmt.Errorf("stdout and stderr are both terminal streams; redirect stderr to a file")
+	}
+
 	e.ticker = *time.NewTicker(e.interval)
 	return nil
 }
