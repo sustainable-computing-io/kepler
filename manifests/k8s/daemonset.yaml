@@ -34,7 +34,7 @@ spec:
           command:
             - /usr/bin/kepler
           args:
-            - --config.file=/etc/kepler/kepler-config.yaml
+            - --config.file=/etc/kepler/config.yaml
           ports:
             - name: http
               containerPort: 28282
