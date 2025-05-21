@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: kepler
     app.kubernetes.io/part-of: kepler
 data:
-  kepler-config.yaml: |
+  config.yaml: |
     log:
       level: debug
       format: text
