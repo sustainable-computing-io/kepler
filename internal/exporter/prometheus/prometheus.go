@@ -54,9 +54,13 @@ func WithLogger(logger *slog.Logger) OptionFn {
 }
 
 // WithDebugCollectors sets the debug collectors
-func WithDebugCollectors(c *[]string) OptionFn {
+func WithDebugCollectors(c []string) OptionFn {
 	return func(o *Opts) {
-		for _, name := range *c {
+		// Reset existing collectors
+		o.debugCollectors = make(map[string]bool)
+
+		// Add each collector from the list
+		for _, name := range c {
 			o.debugCollectors[name] = true
 		}
 	}

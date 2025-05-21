@@ -27,7 +27,19 @@ host:
 rapl:
   zones: [] # zones to be enabled, empty enables all default zones
 
-enable-pprof: true # Enable pprof debug endpoints
+exporter:
+  stdout: # stdout exporter related config
+    enabled: false # disabled by default
+
+  prometheus: # prometheus exporter related config
+    enabled: true
+    debugCollectors:
+      - go
+      - process
+
+debug: # debug related config
+  pprof: # pprof related config
+    enabled: true
 
 web:
   configFile: "" # Path to TLS server config file

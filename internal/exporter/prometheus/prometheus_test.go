@@ -88,14 +88,14 @@ func TestNewExporter(t *testing.T) {
 	}, {
 		name: "with debug collectors",
 		opts: []OptionFn{
-			WithDebugCollectors(&[]string{"go", "process"}),
+			WithDebugCollectors([]string{"go", "process"}),
 		},
 		expectService: "prometheus",
 	}, {
 		name: "with multiple options",
 		opts: []OptionFn{
 			WithLogger(slog.Default().With("test", "custom")),
-			WithDebugCollectors(&[]string{"process"}),
+			WithDebugCollectors([]string{"process"}),
 		},
 		expectService: "prometheus",
 	}}
@@ -173,7 +173,7 @@ func TestExporter_Init(t *testing.T) {
 		exporter := NewExporter(
 			mockMonitor,
 			mockRegistry,
-			WithDebugCollectors(&[]string{"unknown_collector"}),
+			WithDebugCollectors([]string{"unknown_collector"}),
 		)
 
 		// Init should return an error
@@ -195,7 +195,7 @@ func TestExporter_Init(t *testing.T) {
 		exporter := NewExporter(
 			mockMonitor,
 			mockRegistry,
-			WithDebugCollectors(&[]string{"go", "process"}),
+			WithDebugCollectors([]string{"go", "process"}),
 		)
 
 		err := exporter.Init()
@@ -264,14 +264,15 @@ func TestWithOptions(t *testing.T) {
 	})
 
 	t.Run("WithDebugCollectors", func(t *testing.T) {
-		collectors := []string{"process", "custom"}
 		opts := DefaultOpts()
+		assert.True(t, opts.debugCollectors["go"]) // From default
 
-		WithDebugCollectors(&collectors)(&opts)
+		collectors := []string{"process", "custom"}
+		WithDebugCollectors(collectors)(&opts)
 
-		assert.True(t, opts.debugCollectors["go"])      // From default
-		assert.True(t, opts.debugCollectors["process"]) // Added
-		assert.True(t, opts.debugCollectors["custom"])  // Added
+		assert.False(t, opts.debugCollectors["go"]) // should override default
+		assert.True(t, opts.debugCollectors["process"])
+		assert.True(t, opts.debugCollectors["custom"])
 	})
 }
 
@@ -295,7 +296,7 @@ func TestExporter_Integration(t *testing.T) {
 	exporter := NewExporter(
 		mockMonitor,
 		mockRegistry,
-		WithDebugCollectors(&[]string{"go", "process"}),
+		WithDebugCollectors([]string{"go", "process"}),
 		WithCollectors(map[string]prom.Collector{"dummy": dummyCollector}),
 	)
 
