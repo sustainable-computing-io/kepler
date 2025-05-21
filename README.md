@@ -60,6 +60,30 @@ docker-compose up -d
 - **Prometheus**: <http://localhost:29090>
 - **Grafana**: <http://localhost:23000> (default credentials: admin/admin)
 
+### 3️⃣ Running on Kubernetes 🐳
+
+Deploy Kepler to your Kubernetes cluster:
+
+```bash
+# Set up a local development cluster with Kind
+make cluster-up
+
+# Deploy Kepler to the cluster
+make deploy
+```
+
+**Custom Image Deployment:**
+
+You can build, push, and deploy Kepler using your own image:
+
+```bash
+# Build and push image to your registry
+make image push IMG_BASE=<your registry> VERSION=<your version>
+
+# Deploy Kepler using the custom image
+make deploy IMG_BASE=<your registry> VERSION=<your version>
+```
+
 ## 📖 Documentation
 
 For more detailed documentation, please visit the [official Kepler documentation](https://sustainable-computing.io/kepler/).

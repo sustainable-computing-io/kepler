@@ -120,6 +120,47 @@ push:
 run:
 	$(BINARY_DIR)/$(BINARY_NAME)
 
+# K8s Development env
+CLUSTER_PROVIDER ?= kind
+LOCAL_DEV_CLUSTER_VERSION ?= main
+GRAFANA_ENABLE ?= false
+PROMETHEUS_ENABLE ?= false
+KIND_WORKER_NODES ?=2
+
+.PHONY: cluster-up
+cluster-up: ## setup a cluster for local development
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
+	PROMETHEUS_ENABLE=$(PROMETHEUS_ENABLE) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	./hack/cluster.sh up
+
+.PHONY: cluster-restart
+cluster-restart: ## restart the local development cluster
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
+	PROMETHEUS_ENABLE=$(PROMETHEUS_ENABLE) \
+	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
+	./hack/cluster.sh restart
+
+.PHONY: cluster-down
+cluster-down: ## delete the local development cluster
+	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
+	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
+	./hack/cluster.sh down
+
+.PHONY: deploy
+deploy: ## Deploy Kepler to the K8s cluster
+	kubectl kustomize manifests/k8s | \
+	sed -e "s|<KEPLER_IMAGE>|$(KEPLER_IMAGE)|g" | \
+	kubectl apply --server-side --force-conflicts -f -
+
+.PHONY: undeploy
+undeploy: ## Undeploy Kepler from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	kubectl delete -k manifests/k8s --ignore-not-found=true
+
 # docker_tag accepts an image:tag and a list of additional tags comma-separated
 # it tags the image with the additional tags
 # E.g. given foo:bar, a,b,c, it will tag foo:bar as foo:a, foo:b, foo:c

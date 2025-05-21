@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler
+  namespace: kepler
+  labels:
+    app.kubernetes.io/name: kepler
+    app.kubernetes.io/part-of: kepler
+data:
+  kepler-config.yaml: |
+    log:
+      level: debug
+      format: text
+    host:
+      sysfs: /host/sys
+      procfs: /host/proc
+    monitor:
+      interval: 5s
+      staleness: 500ms
+    rapl:
+      zones: []
+    enable-pprof: false
+    exporter:
+        stdout: false
+    web:
+        configFile: ""
+    dev:
+        fake-cpu-meter:
+            enabled: false
+            zones: []
