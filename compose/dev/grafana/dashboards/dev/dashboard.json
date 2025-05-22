@@ -574,7 +574,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between Node exporter and Kepler Reboot energy measurements in joules. Values close to zero indicate good alignment between the metrics.",
+      "description": "Difference between Node exporter and Kepler Reboot energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -585,7 +585,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": true,
             "axisColorMode": "text",
-            "axisLabel": "Joules Delta",
+            "axisLabel": "Watts Delta",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
@@ -610,7 +610,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "dashed"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -623,38 +623,75 @@
                 "value": null
               },
               {
-                "color": "dark-green",
+                "color": "semi-dark-red",
+                "value": -999999999
+              },
+              {
+                "color": "semi-dark-red",
+                "value": -1
+              },
+              {
+                "color": "dark-orange",
                 "value": -0.5
               },
               {
-                "color": "super-light-green",
+                "color": "dark-yellow",
                 "value": -0.25
               },
               {
-                "color": "green",
+                "color": "semi-dark-green",
                 "value": -0.1
               },
               {
-                "color": "light-green",
+                "color": "super-light-green",
                 "value": 0
               },
               {
-                "color": "semi-dark-yellow",
+                "color": "semi-dark-green",
                 "value": 0.1
+              },
+              {
+                "color": "dark-yellow",
+                "value": 0.25
               },
               {
                 "color": "dark-orange",
                 "value": 0.5
               },
               {
-                "color": "dark-red",
+                "color": "semi-dark-red",
                 "value": 1
               }
             ]
           },
           "unit": "watt"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "Δ package J/s"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -662,7 +699,7 @@
         "x": 0,
         "y": 23
       },
-      "id": 99,
+      "id": 172,
       "options": {
         "legend": {
           "calcs": [
@@ -689,14 +726,14 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
           "instant": false,
-          "legendFormat": "Delta (${zones})",
+          "legendFormat": "Δ ${zones} J/s",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Exporter vs Kepler Reboot Measurement Delta (Joules)",
+      "title": "Node Exporter vs Kepler Reboot (Δ J/s)",
       "type": "timeseries"
     },
     {
@@ -740,7 +777,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "dashed"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -753,31 +790,43 @@
                 "value": null
               },
               {
-                "color": "dark-green",
+                "color": "semi-dark-red",
+                "value": -9999
+              },
+              {
+                "color": "semi-dark-red",
+                "value": -1
+              },
+              {
+                "color": "dark-orange",
                 "value": -0.5
               },
               {
-                "color": "super-light-green",
+                "color": "dark-yellow",
                 "value": -0.25
               },
               {
-                "color": "green",
+                "color": "semi-dark-green",
                 "value": -0.1
               },
               {
-                "color": "light-green",
+                "color": "super-light-green",
                 "value": 0
               },
               {
-                "color": "semi-dark-yellow",
+                "color": "semi-dark-green",
                 "value": 0.1
+              },
+              {
+                "color": "dark-yellow",
+                "value": 0.25
               },
               {
                 "color": "dark-orange",
                 "value": 0.5
               },
               {
-                "color": "dark-red",
+                "color": "semi-dark-red",
                 "value": 1
               }
             ]
@@ -819,9 +868,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- on() sum(kepler_node_${zones}_watts)\n",
+          "expr": "sum(rate(node_rapl_${zones}_joules_total[20s])) \n- sum(kepler_node_${zones}_watts{job=\"${job}\"})\n",
           "instant": false,
-          "legendFormat": "Delta (${zones})",
+          "legendFormat": "Δ ${zones} J/s - W",
           "range": true,
           "refId": "A"
         }
@@ -947,12 +996,12 @@
           "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler (${zones})",
+          "legendFormat": "Kepler - OLD (${zones})",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Node Energy Measurement Comparison",
+      "title": "Node Energy Comparison (J/s)",
       "type": "timeseries"
     },
     {
@@ -1007,12 +1056,12 @@
           "mappings": [
             {
               "options": {
-                "from": -1e-10,
+                "from": -1E-10,
                 "result": {
                   "index": 0,
                   "text": "0 W"
                 },
-                "to": 1e-10
+                "to": 1E-10
               },
               "type": "range"
             },
@@ -1171,7 +1220,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "dashed"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -1184,27 +1233,39 @@
                 "value": null
               },
               {
-                "color": "dark-green",
-                "value": -0.5
-              },
-              {
-                "color": "super-light-green",
-                "value": -0.25
-              },
-              {
-                "color": "green",
-                "value": -0.1
-              },
-              {
-                "color": "light-green",
-                "value": 0
+                "color": "dark-red",
+                "value": -9999
               },
               {
                 "color": "#EAB839",
+                "value": -1
+              },
+              {
+                "color": "dark-orange",
+                "value": -0.5
+              },
+              {
+                "color": "dark-yellow",
+                "value": -0.25
+              },
+              {
+                "color": "dark-green",
+                "value": -0.1
+              },
+              {
+                "color": "super-light-green",
+                "value": 0
+              },
+              {
+                "color": "dark-green",
                 "value": 0.1
               },
               {
-                "color": "semi-dark-red",
+                "color": "dark-yellow",
+                "value": 0.25
+              },
+              {
+                "color": "dark-orange",
                 "value": 0.5
               },
               {
@@ -1215,7 +1276,23 @@
           },
           "unit": "watt"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler Reboot - Node-Process Gap (W)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -1252,7 +1329,7 @@
           "exemplar": false,
           "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"${job}\"}[20s])) - on() sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\"}[20s]))",
           "instant": false,
-          "legendFormat": "Kepler Reboot - Node-Process Gap (Joules)",
+          "legendFormat": "Kepler Reboot: Node - Process (J/s)",
           "range": true,
           "refId": "A"
         },
@@ -1265,7 +1342,7 @@
           "expr": "sum(kepler_node_${zones}_watts{job=\"${job}\"}) - on() sum(kepler_process_${zones}_watts{job=\"${job}\"})",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot - Node-Process Gap (Watts)",
+          "legendFormat": "Kepler Reboot: Node - Process (W)",
           "range": true,
           "refId": "B"
         },
@@ -1278,12 +1355,12 @@
           "expr": "sum(rate(kepler_node_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler - Node-Process Gap",
+          "legendFormat": "Kepler OLD: Node - Process (J/s)",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Node-Process Energy Attribution Gap",
+      "title": "Node - Process Energy Attribution Gap",
       "type": "timeseries"
     },
     {
@@ -1371,7 +1448,68 @@
           },
           "unit": "watt"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler Reboot - 2113657 (Watts)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler Reboot - 2113657 (Joules)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler - 2113657 (Joules)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler OLD - 2113657 (Joules)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 10,
@@ -1408,7 +1546,7 @@
           "exemplar": false,
           "expr": "sum(rate(kepler_process_${zones}_joules_total{pid=\"$pid\",job=\"kepler-latest\"}[20s]))",
           "instant": false,
-          "legendFormat": "Kepler - ${pid} (Joules)",
+          "legendFormat": "Kepler OLD - ${pid} (Joules)",
           "range": true,
           "refId": "A"
         },
@@ -1636,7 +1774,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "dashed"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -1649,31 +1787,43 @@
                 "value": null
               },
               {
-                "color": "semi-dark-green",
+                "color": "semi-dark-red",
+                "value": -999999
+              },
+              {
+                "color": "semi-dark-red",
+                "value": -1
+              },
+              {
+                "color": "semi-dark-orange",
                 "value": -0.5
               },
               {
-                "color": "super-light-green",
+                "color": "semi-dark-yellow",
                 "value": -0.25
               },
               {
-                "color": "light-green",
+                "color": "semi-dark-green",
                 "value": -0.1
               },
               {
-                "color": "green",
+                "color": "super-light-green",
                 "value": 0
               },
               {
-                "color": "#EAB839",
+                "color": "semi-dark-green",
                 "value": 0.1
               },
               {
-                "color": "light-red",
+                "color": "semi-dark-yellow",
+                "value": 0.25
+              },
+              {
+                "color": "semi-dark-orange",
                 "value": 0.5
               },
               {
-                "color": "dark-red",
+                "color": "semi-dark-red",
                 "value": 1
               }
             ]
@@ -1715,9 +1865,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\",container_id!=\"\"}[20s])) - on() sum(rate(kepler_container_${zones}_joules_total{job=\"${job}\"}[20s]))",
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"${job}\",container_id!=\"\"}[20s])) \n- \nsum(rate(kepler_container_${zones}_joules_total{job=\"${job}\"}[20s]))\n",
           "instant": false,
-          "legendFormat": "Kepler Reboot - Process-Container Gap (Joules)",
+          "legendFormat": "Kepler Reboot:  Process - Container (J/s)",
           "range": true,
           "refId": "A"
         },
@@ -1727,10 +1877,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(kepler_process_${zones}_watts{job=\"${job}\",container_id!=\"\"}) - on() sum(kepler_container_${zones}_watts{job=\"${job}\"})",
+          "expr": "sum(kepler_process_${zones}_watts{job=\"${job}\",container_id!=\"\"}) \n- \nsum(kepler_container_${zones}_watts{job=\"${job}\"})",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot - Process-Container Gap (Watts)",
+          "legendFormat": "Kepler Reboot: Process - Container (W)",
           "range": true,
           "refId": "B"
         },
@@ -1740,10 +1890,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_container_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_process_${zones}_joules_total{job=\"kepler-latest\"}[20s]))\n-\nsum(rate(kepler_container_${zones}_joules_total{job=\"kepler-latest\"}[20s]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler - Process-Container Gap",
+          "legendFormat": "Kepler OLD:  Process - Container (J/s)",
           "range": true,
           "refId": "C"
         }
@@ -1775,27 +1925,28 @@
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 2,
           "mappings": [],
-          "max": 100,
+          "max": 15,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "super-light-green",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 30
+                "color": "semi-dark-yellow",
+                "value": 3
               },
               {
-                "color": "orange",
-                "value": 50
+                "color": "semi-dark-orange",
+                "value": 5
               },
               {
-                "color": "red",
-                "value": 70
+                "color": "semi-dark-red",
+                "value": 10
               }
             ]
           },
@@ -1804,7 +1955,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 0,
         "y": 92
@@ -1859,26 +2010,26 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "max": 100,
+          "max": 15,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "super-light-green",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 30
+                "value": 3
               },
               {
                 "color": "orange",
-                "value": 50
+                "value": 5
               },
               {
                 "color": "red",
-                "value": 70
+                "value": 10
               }
             ]
           },
@@ -1887,7 +2038,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
         "y": 92
@@ -1933,12 +2084,7 @@
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": [
-    "energy",
-    "monitoring",
-    "kepler",
-    "performance"
-  ],
+  "tags": [],
   "templating": {
     "list": [
       {
@@ -2048,7 +2194,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {
@@ -2067,7 +2213,7 @@
   },
   "timezone": "browser",
   "title": "Kepler Energy Monitoring Dashboard",
-  "uid": "behh30oymoi68f",
-  "version": 4,
+  "uid": "eemi4cqnkc0zkc",
+  "version": 11,
   "weekStart": ""
 }
