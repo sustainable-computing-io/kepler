@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wrong-krp-curl
+spec:
+  template:
+    metadata:
+      name: wrong-krp-curl
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: krp-curl
+          image: quay.io/brancz/krp-curl:v0.0.2
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              curl -v -s --cacert /var/run/secrets/ca/service-ca.crt -H
+              "Authorization: Bearer `cat /service-account/token`"
+              https://power-monitor.power-monitor.svc:8443/metrics
+          volumeMounts:
+            - name: token-vol
+              mountPath: /service-account
+              readOnly: true
+            - name: ca-bundle
+              mountPath: /var/run/secrets/ca
+              readOnly: true
+      volumes:
+        - name: ca-bundle
+          configMap:
+            name: test-wrong-job-serving-certs-ca-bundle
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt
+        - name: token-vol
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: power-monitor.power-monitor.svc
+                  expirationSeconds: 3600
+                  path: token
+  backoffLimit: 4

@@ -1,0 +1,20 @@
+apiVersion: v1
+data:
+  kepler-config.yaml: |
+    log:
+        level: debug
+        format: text
+    dev:
+        fake-cpu-meter:
+            enabled: true
+    host:
+        sysfs: /host/sys
+        procfs: /host/proc
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: power-monitor-exporter
+    app.kubernetes.io/part-of: power-monitor
+  name: power-monitor
+  namespace: power-monitor

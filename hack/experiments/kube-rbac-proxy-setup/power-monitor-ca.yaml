@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: power-monitor
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  name: power-monitor-serving-certs-ca-bundle
+data: {}
