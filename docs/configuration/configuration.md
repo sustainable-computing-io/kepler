@@ -24,7 +24,9 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--host.procfs` | Path to procfs filesystem | `/proc` | Any valid directory path |
 | `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
 | `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
-| `--enable.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
+| `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
+| `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
+| `--exporter.prometheus` | Enable Prometheus exporter | `true` | `true`, `false` |
 
 ### 💡 Examples
 
@@ -37,6 +39,9 @@ kepler --host.procfs=/custom/proc --log.format=json
 
 # Load configuration from file
 kepler --config.file=/path/to/config.yaml
+
+# Enable stdout exporter and disable Prometheus exporter
+kepler --exporter.stdout=true --exporter.prometheus=false
 ```
 
 ## 🗂️ Configuration File
@@ -61,7 +66,18 @@ host:
 rapl:
   zones: []     # RAPL zones to be enabled, empty enables all default zones
 
-enable-pprof: true  # Enable pprof debug endpoints
+exporter:
+  stdout:       # stdout exporter related config
+    enabled: false # disabled by default
+  prometheus:   # prometheus exporter related config
+    enabled: true
+    debugCollectors:
+      - go
+      - process
+
+debug:          # debug related config
+  pprof:        # pprof related config
+    enabled: true
 
 web:
   configFile: "" # Path to TLS server config file
@@ -131,6 +147,37 @@ rapl:
   zones: ["package", "core", "uncore"]
 ```
 
+### 📦 Exporter Configuration
+
+```yaml
+exporter:
+  stdout:       # stdout exporter related config
+    enabled: false # disabled by default
+  prometheus:   # prometheus exporter related config
+    enabled: true
+    debugCollectors:
+      - go
+      - process
+```
+
+- **stdout**: Configuration for the stdout exporter
+  - `enabled`: Enable or disable the stdout exporter (default: false)
+
+- **prometheus**: Configuration for the Prometheus exporter
+  - `enabled`: Enable or disable the Prometheus exporter (default: true)
+  - `debugCollectors`: List of debug collectors to enable (available: "go", "process")
+
+### 🐞 Debug Configuration
+
+```yaml
+debug:
+  pprof:
+    enabled: true
+```
+
+- **pprof**: Configuration for pprof debugging
+  - `enabled`: When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler (default: true)
+
 ### 🌐 Web Configuration
 
 ```yaml
@@ -148,14 +195,6 @@ tls_server_config:
   cert_file: /path/to/cert.pem  # Path to the certificate file
   key_file: /path/to/key.pem    # Path to the key file
 ```
-
-### 🐞 Debug Configuration
-
-```yaml
-enable-pprof: true  # Enable pprof endpoints
-```
-
-When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler.
 
 ### 🧑‍🔬 Development Configuration
 
