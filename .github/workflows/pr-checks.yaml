@@ -39,6 +39,37 @@ jobs:
         shell: bash
         run: make fmt && git diff --exit-code
 
+  check-x-crypto-deps:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Search for x/crypto dependencies
+        uses: ./.github/check-x-crypto
+        with:
+          base_ref: ${{ github.event.pull_request.base.ref }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+
+      - name: Append run info to x/crypto report
+        run: |
+          echo "" >> /tmp/check-xcrypto-report.txt
+          echo "_(execution **${{ github.run_id }}**)_" >> /tmp/check-xcrypto-report.txt
+
+      - name: Comment x/crypto dependencies to PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: /tmp/check-xcrypto-report.txt
+          comment-tag: xcrypto-check
+
   lint:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
