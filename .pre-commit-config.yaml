@@ -46,3 +46,19 @@ repos:
       - id: reuse-lint-file
         types: [file]
         files: \.go$
+
+  - repo: https://github.com/pecigonzalo/pre-commit-shfmt
+    rev: v2.2.0
+    hooks:
+      - id: shell-fmt-go
+        types: [file]
+        files: \.sh$
+        args:
+          - -w
+          - -l
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: [-x]
