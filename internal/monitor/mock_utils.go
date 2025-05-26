@@ -66,6 +66,18 @@ type MockResourceInformer struct {
 	mock.Mock
 }
 
+func (m *MockResourceInformer) SetupTestResources(tr *TestResource) {
+	if tr.Processes != nil {
+		m.On("Processes").Return(tr.Processes, nil)
+	}
+	if tr.Containers != nil {
+		m.On("Containers").Return(tr.Containers, nil)
+	}
+	if tr.VirtualMachines != nil {
+		m.On("VirtualMachines").Return(tr.VirtualMachines, nil)
+	}
+}
+
 func (m *MockResourceInformer) Name() string {
 	args := m.Called()
 	return args.String(0)
@@ -89,6 +101,11 @@ func (m *MockResourceInformer) Processes() *resource.Processes {
 func (m *MockResourceInformer) Containers() *resource.Containers {
 	args := m.Called()
 	return args.Get(0).(*resource.Containers)
+}
+
+func (m *MockResourceInformer) VirtualMachines() *resource.VirtualMachines {
+	args := m.Called()
+	return args.Get(0).(*resource.VirtualMachines)
 }
 
 var _ resource.Informer = (*MockResourceInformer)(nil)
@@ -120,20 +137,38 @@ func createNodeSnapshot(zones []EnergyZone, timestamp time.Time) *Node {
 	return node
 }
 
+type TestResource struct {
+	Processes       *resource.Processes
+	Containers      *resource.Containers
+	VirtualMachines *resource.VirtualMachines
+}
+
 // CreateTestResources creates test processes with container associations
-func CreateTestResources() (*resource.Processes, *resource.Containers) {
+func CreateTestResources() *TestResource {
+	//  VMs
+	vm1 := &resource.VirtualMachine{
+		ID:         "vm-1",
+		Name:       "test-vm-1",
+		Hypervisor: resource.KVMHypervisor,
+	}
+
+	vm2 := &resource.VirtualMachine{
+		ID:         "vm-2",
+		Name:       "test-vm-2",
+		Hypervisor: resource.KVMHypervisor,
+	}
+
+	// Create containers
 	container1 := &resource.Container{
 		ID:      "container-1",
 		Name:    "test-container-1",
 		Runtime: resource.DockerRuntime,
-		// has proc 123 and 1231 running
 	}
 
 	container2 := &resource.Container{
 		ID:      "container-2",
 		Name:    "test-container-2",
 		Runtime: resource.PodmanRuntime,
-		// has proc 456 running
 	}
 
 	processes := &resource.Processes{
@@ -144,39 +179,62 @@ func CreateTestResources() (*resource.Processes, *resource.Containers) {
 				Comm:         "process1",
 				Exe:          "/usr/bin/process1",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 30.0, // 30% of total CPU time
+				CPUTimeDelta: 30.0, // 30% of total CPU time | cum: 30
 				Container:    container1,
+				Type:         resource.ContainerProcess,
 			},
 			1231: {
 				PID:          1231,
 				Comm:         "process4",
 				Exe:          "/usr/bin/process4",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 10.0, // 10% of total CPU time
+				CPUTimeDelta: 10.0, // 10% | cum: 40
 				Container:    container1,
+				Type:         resource.ContainerProcess,
 			},
 			456: {
 				PID:          456,
 				Comm:         "process2",
 				Exe:          "/usr/bin/process2",
 				CPUTotalTime: 200.0,
-				CPUTimeDelta: 40.0, // 40% of total CPU time
+				CPUTimeDelta: 20.0, // 20% | cum: 60
 				Container:    container2,
+				Type:         resource.ContainerProcess,
 			},
 			789: {
 				PID:          789,
 				Comm:         "process3",
 				Exe:          "/usr/bin/process3",
 				CPUTotalTime: 500.0,
-				CPUTimeDelta: 20.0, // 20% of total CPU time
-				Container:    nil,  // Not in a container
+				CPUTimeDelta: 15.0, // 15% | cum: 75
+				Type:         resource.RegularProcess,
+			},
+			// VM processes
+			1001: {
+				PID:            1001,
+				Comm:           "qemu-vm1",
+				Exe:            "/usr/bin/qemu-system-x86_64",
+				CPUTotalTime:   300.0,
+				CPUTimeDelta:   20.0, // 20% | cum: 95
+				VirtualMachine: vm1,
+				Type:           resource.VMProcess,
+			},
+			1002: {
+				PID:            1002,
+				Comm:           "qemu-vm2",
+				Exe:            "/usr/bin/qemu-system-x86_64",
+				CPUTotalTime:   200.0,
+				CPUTimeDelta:   5.0, // 5%  | cum: 100
+				VirtualMachine: vm2,
+				Type:           resource.VMProcess,
 			},
 		},
 		Terminated: map[int]*resource.Process{},
 	}
-	// replicate what resource.Refresh() does
-	container1.CPUTimeDelta = processes.Running[123].CPUTimeDelta + processes.Running[1231].CPUTimeDelta
-	container2.CPUTimeDelta = processes.Running[456].CPUTimeDelta
+
+	// Calculate container CPU times from their processes
+	container1.CPUTimeDelta = processes.Running[123].CPUTimeDelta + processes.Running[1231].CPUTimeDelta // 40%
+	container2.CPUTimeDelta = processes.Running[456].CPUTimeDelta                                        // 20%
 
 	container1.CPUTotalTime = processes.Running[123].CPUTotalTime + processes.Running[1231].CPUTotalTime
 	container2.CPUTotalTime = processes.Running[456].CPUTotalTime
@@ -190,7 +248,23 @@ func CreateTestResources() (*resource.Processes, *resource.Containers) {
 		Terminated: map[string]*resource.Container{},
 	}
 
-	return processes, containers
+	// Calculate VM CPU times from their processes
+	vm1.CPUTimeDelta = processes.Running[1001].CPUTimeDelta // 20%
+	vm2.CPUTimeDelta = processes.Running[1002].CPUTimeDelta // 5%
+
+	vm1.CPUTotalTime = processes.Running[1001].CPUTotalTime
+	vm2.CPUTotalTime = processes.Running[1002].CPUTotalTime
+
+	virtualMachines := &resource.VirtualMachines{
+		NodeCPUTimeDelta: 100.0,
+		Running: map[string]*resource.VirtualMachine{
+			vm1.ID: vm1,
+			vm2.ID: vm2,
+		},
+		Terminated: map[string]*resource.VirtualMachine{},
+	}
+
+	return &TestResource{processes, containers, virtualMachines}
 }
 
 // // CreateTestContainers creates test containers with CPU time deltas
