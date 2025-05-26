@@ -7,6 +7,7 @@
 package ghw
 
 import (
+	"github.com/jaypipes/ghw/pkg/accelerator"
 	"github.com/jaypipes/ghw/pkg/baseboard"
 	"github.com/jaypipes/ghw/pkg/bios"
 	"github.com/jaypipes/ghw/pkg/block"
@@ -154,8 +155,12 @@ var (
 type Architecture = topology.Architecture
 
 const (
-	ARCHITECTURE_SMP  = topology.ARCHITECTURE_SMP
-	ARCHITECTURE_NUMA = topology.ARCHITECTURE_NUMA
+	ArchitectureSMP = topology.ArchitectureSMP
+	// DEPRECATED: Please use ArchitectureSMP
+	ARCHITECTURE_SMP = topology.ArchitectureSMP
+	ArchitectureNUMA = topology.ArchitectureNUMA
+	// DEPRECATED: Please use ArchitectureNUMA
+	ARCHITECTURE_NUMA = topology.ArchitectureNUMA
 )
 
 type PCIInfo = pci.Info
@@ -178,4 +183,11 @@ type GraphicsCard = gpu.GraphicsCard
 
 var (
 	GPU = gpu.New
+)
+
+type AcceleratorInfo = accelerator.Info
+type AcceleratorDevice = accelerator.AcceleratorDevice
+
+var (
+	Accelerator = accelerator.New
 )
