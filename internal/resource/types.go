@@ -33,6 +33,8 @@ type Container struct {
 	Name    string
 	Runtime ContainerRuntime
 
+	Pod *Pod
+
 	// Resource usage tracking
 	CPUTotalTime float64 // total cpu time used by the container so far
 	CPUTimeDelta float64 // cpu time used by the container since last refresh
@@ -101,4 +103,14 @@ func (vm *VirtualMachine) Clone() *VirtualMachine {
 		Name:       vm.Name,
 		Hypervisor: vm.Hypervisor,
 	}
+}
+
+type Pod struct {
+	ID        string
+	Name      string
+	Namespace string
+
+	// Resource usage tracking
+	CPUTotalTime float64 // total cpu time used by the VM so far
+	CPUTimeDelta float64 // cpu time used by the VM since last refresh
 }

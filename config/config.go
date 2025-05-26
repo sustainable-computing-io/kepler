@@ -70,6 +70,10 @@ type (
 		Pprof PprofDebug `yaml:"pprof"`
 	}
 
+	Kubernetes struct {
+		ConfigFile string
+	}
+
 	Config struct {
 		Log      Log      `yaml:"log"`
 		Host     Host     `yaml:"host"`
@@ -79,6 +83,9 @@ type (
 		Web      Web      `yaml:"web"`
 		Debug    Debug    `yaml:"debug"`
 		Dev      Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
+
+		// k8s flags
+		K8s Kubernetes `yaml:"k8s"`
 	}
 )
 

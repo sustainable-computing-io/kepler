@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"k8s.io/utils/clock"
 )
@@ -34,6 +35,12 @@ type VirtualMachines struct {
 	Terminated       map[string]*VirtualMachine
 }
 
+type Pods struct {
+	NodeCPUTimeDelta float64
+	Running          map[string]*Pod
+	Terminated       map[string]*Pod
+}
+
 // Informer provides the interface for accessing process and container information
 type Informer interface {
 	service.Initializer
@@ -45,6 +52,9 @@ type Informer interface {
 	Containers() *Containers
 	// VirtualMachines returns the current running and terminated VMs
 	VirtualMachines() *VirtualMachines
+
+	// Pods returns the current running and terminated pods
+	Pods() *Pods
 }
 
 // resourceInformer is the default implementation of the resource tracking service
@@ -64,6 +74,11 @@ type resourceInformer struct {
 	// VM tracking
 	vmCache map[string]*VirtualMachine
 	vms     *VirtualMachines
+
+	// pod
+	podInformer pod.Informer
+	podCache    map[string]*Pod
+	pods        *Pods
 
 	lastScanTime time.Time // Time of the last full scan
 }
@@ -110,6 +125,13 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 		vms: &VirtualMachines{
 			Running:    make(map[string]*VirtualMachine),
 			Terminated: make(map[string]*VirtualMachine),
+		},
+
+		podInformer: opt.podInformer,
+		podCache:    make(map[string]*Pod),
+		pods: &Pods{
+			Running:    make(map[string]*Pod),
+			Terminated: make(map[string]*Pod),
 		},
 	}, nil
 }
@@ -162,12 +184,29 @@ func (ri *resourceInformer) Refresh() error {
 			// in the subsequent iteration, the CPUTimeDelta should be incremented by process's CPUTimeDelta
 			resetCPUTime := !seen
 			containersRunning[c.ID] = ri.updateContainerCache(proc, resetCPUTime)
+
 		} else if vm := proc.VirtualMachine; vm != nil {
 			_, seen := vmsRunning[vm.ID]
 			resetCPUTime := !seen
 			vmsRunning[vm.ID] = ri.updateVMCache(proc, resetCPUTime)
 		}
 
+	}
+
+	// Update container -> pod mapping
+	for _, container := range containersRunning {
+		if container.Pod != nil {
+			continue
+		}
+		pod, err := ri.podInformer.PodInfo(container.ID)
+		if err != nil {
+			ri.logger.Debug("Failed to get pod for container", "container", container.ID, "error", err)
+		}
+		container.Pod = &Pod{
+			ID:        pod.ID,
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		}
 	}
 
 	// Find terminated processes
@@ -237,6 +276,10 @@ func (ri *resourceInformer) Processes() *Processes {
 
 func (ri *resourceInformer) Containers() *Containers {
 	return ri.containers
+}
+
+func (ri *resourceInformer) Pods() *Pods {
+	return nil
 }
 
 func (ri *resourceInformer) VirtualMachines() *VirtualMachines {
