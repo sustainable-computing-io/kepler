@@ -52,12 +52,15 @@ type Process struct {
 	Comm string
 	Exe  string
 
+	Type resource.ProcessType
+
 	CPUTotalTime float64 // CPU time in seconds
 
 	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
 
-	ContainerID string
+	ContainerID      string // empty if not a container
+	VirtualMachineID string // empty if not a virtual machine
 }
 
 func (p *Process) Clone() *Process {
@@ -65,11 +68,13 @@ func (p *Process) Clone() *Process {
 		PID:  p.PID,
 		Comm: p.Comm,
 		Exe:  p.Exe,
+		Type: p.Type,
 
 		CPUTotalTime: p.CPUTotalTime,
 		Zones:        make(ZoneUsageMap, len(p.Zones)),
 
-		ContainerID: p.ContainerID,
+		ContainerID:      p.ContainerID,
+		VirtualMachineID: p.VirtualMachineID,
 	}
 	maps.Copy(ret.Zones, p.Zones)
 	return ret
@@ -103,9 +108,38 @@ func (c *Container) Clone() *Container {
 	return ret
 }
 
+type Hypervisor = resource.Hypervisor
+
+// Container represents the power consumption of a container
+type VirtualMachine struct {
+	ID   string // VM ID
+	Name string // VM name
+
+	Hypervisor Hypervisor
+
+	CPUTotalTime float64 // CPU time in seconds
+
+	// Replace single Usage with ZoneUsageMap
+	Zones ZoneUsageMap
+}
+
+func (vm *VirtualMachine) Clone() *VirtualMachine {
+	ret := &VirtualMachine{
+		ID:           vm.ID,
+		Name:         vm.Name,
+		Hypervisor:   vm.Hypervisor,
+		CPUTotalTime: vm.CPUTotalTime,
+
+		Zones: make(ZoneUsageMap, len(vm.Zones)),
+	}
+	maps.Copy(ret.Zones, vm.Zones)
+	return ret
+}
+
 type (
-	Processes  = map[int]*Process
-	Containers = map[string]*Container
+	Processes       = map[int]*Process
+	Containers      = map[string]*Container
+	VirtualMachines = map[string]*VirtualMachine
 )
 
 // Snapshot encapsulates power monitoring data
@@ -113,8 +147,9 @@ type Snapshot struct {
 	Timestamp time.Time // Timestamp of the snapshot
 	Node      *Node     // Node power data
 
-	Processes  Processes  // Process power data, keyed by PID
-	Containers Containers // Container power data, keyed by container ID
+	Processes       Processes       // Process power data, keyed by PID
+	Containers      Containers      // Container power data, keyed by container ID
+	VirtualMachines VirtualMachines // VM power data, keyed by container ID
 }
 
 // NewSnapshot creates a new Snapshot instance
@@ -124,17 +159,19 @@ func NewSnapshot() *Snapshot {
 		Node: &Node{
 			Zones: make(ZoneUsageMap),
 		},
-		Processes:  make(map[int]*Process),
-		Containers: make(map[string]*Container),
+		Processes:       make(Processes),
+		Containers:      make(Containers),
+		VirtualMachines: make(VirtualMachines),
 	}
 }
 
 func (s *Snapshot) Clone() *Snapshot {
 	clone := &Snapshot{
-		Timestamp:  s.Timestamp,
-		Node:       s.Node.Clone(),
-		Processes:  make(map[int]*Process, len(s.Processes)),
-		Containers: make(map[string]*Container, len(s.Containers)),
+		Timestamp:       s.Timestamp,
+		Node:            s.Node.Clone(),
+		Processes:       make(Processes, len(s.Processes)),
+		Containers:      make(Containers, len(s.Containers)),
+		VirtualMachines: make(VirtualMachines, len(s.VirtualMachines)),
 	}
 
 	// Deep copy the processes map
@@ -144,6 +181,10 @@ func (s *Snapshot) Clone() *Snapshot {
 
 	for id, src := range s.Containers {
 		clone.Containers[id] = src.Clone()
+	}
+
+	for id, src := range s.VirtualMachines {
+		clone.VirtualMachines[id] = src.Clone()
 	}
 
 	return clone

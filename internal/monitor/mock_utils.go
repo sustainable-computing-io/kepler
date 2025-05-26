@@ -91,6 +91,11 @@ func (m *MockResourceInformer) Containers() *resource.Containers {
 	return args.Get(0).(*resource.Containers)
 }
 
+func (m *MockResourceInformer) VirtualMachines() *resource.VirtualMachines {
+	args := m.Called()
+	return args.Get(0).(*resource.VirtualMachines)
+}
+
 var _ resource.Informer = (*MockResourceInformer)(nil)
 
 // Helper functions for creating test data
