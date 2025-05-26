@@ -75,6 +75,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("PID").Return(12345)
 		mockProc.On("Comm").Return("test-process", nil)
 		mockProc.On("Executable").Return("/usr/bin/test", nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/test", "this", "out"}, nil).Maybe()
 		mockProc.On("Cgroups").Return([]cGroup{}, errors.New("cgroups error"))
 		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
@@ -91,6 +92,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("PID").Return(12345)
 		mockProc.On("Comm").Return("container-process", nil)
 		mockProc.On("Executable").Return("/usr/bin/container", nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/container"}, nil)
 		mockProc.On("CPUTime").Return(float64(10.5), nil)
 
 		ctrID := "316de3e24617ffce955b712c990dd057e7088fc9720e578cb18d874aac72deb0"
@@ -121,7 +123,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc.On("Executable").Return("/usr/bin/test", nil)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/test.service"}}, nil)
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
-		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
+		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil)
 		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
 		// AllProcs calls
@@ -258,6 +260,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc.On("PID").Return(2001)
 		mockProc.On("Comm").Return("container-proc", nil)
 		mockProc.On("Executable").Return("/bin/container-app", nil)
+		mockProc.On("CmdLine").Return([]string{"/bin/container-app", "-with", "args"}, nil)
 		mockProc.On("Environ").Return([]string{
 			"CONTAINER_NAME=test-container",
 		}, nil)
@@ -328,6 +331,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc.On("PID").Return(3001)
 		mockProc.On("Comm").Return("container-app", nil)
 		mockProc.On("Executable").Return("/bin/container-app", nil)
+		mockProc.On("CmdLine").Return([]string{"/bin/container-app", "-with", "args"}, nil)
 		cntrID, cgroupPath := mockContainerIDAndPath(PodmanRuntime)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: cgroupPath}}, nil)
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
@@ -462,7 +466,7 @@ func TestProcFSReader(t *testing.T) {
 	// Test AllProcs
 	procs, err := informer.AllProcs()
 	require.NoError(t, err)
-	assert.Len(t, procs, 5)
+	assert.Len(t, procs, 6) // 1 regular, 4 containers, 1 vm
 }
 
 // Test for the procfs fixture to ensure the test fixture directory is available
@@ -476,7 +480,7 @@ func TestProcFSReaderWithInformer(t *testing.T) {
 	assert.NoError(t, err)
 
 	processes := informer.Processes()
-	assert.Len(t, processes.Running, 5)
+	assert.Len(t, processes.Running, 6)
 	assert.Len(t, processes.Terminated, 0)
 
 	containers := informer.Containers()
@@ -493,20 +497,31 @@ func TestProcFSReaderWithInformer(t *testing.T) {
 	assert.Contains(t, runtimes, DockerRuntime)
 
 	// go through all procs and count processes
-	// by controller-runtime
+	// by controller-runtime, and Hypervisor
 
 	containerProcs := map[ContainerRuntime]int{}
-
+	vmProcs := map[Hypervisor]int{}
 	for _, p := range processes.Running {
-		rt := UnknownRuntime
 		if p.Container != nil {
-			rt = p.Container.Runtime
+			containerProcs[p.Container.Runtime]++
 		}
-		containerProcs[rt]++
+
+		if vm := p.VirtualMachine; vm != nil {
+			vmProcs[vm.Hypervisor]++
+		}
+
 	}
+	assert.Equal(t, 0, containerProcs[UnknownRuntime])
 	assert.Equal(t, 1, containerProcs[DockerRuntime])
-	assert.Equal(t, 1, containerProcs[UnknownRuntime])
 	assert.Equal(t, 3, containerProcs[PodmanRuntime])
+	assert.Equal(t, 1, vmProcs[KVMHypervisor])
+
+	vms := informer.VirtualMachines()
+	assert.Len(t, vms.Running, 1)
+	assert.Len(t, vms.Terminated, 0)
+	vmID := "df12672f-fedb-4f6f-9d51-0166868835fb"
+	assert.Contains(t, vms.Running, vmID)
+	assert.Equal(t, vms.Running[vmID].Hypervisor, KVMHypervisor)
 }
 
 func TestProcessUpdateAfterRefresh(t *testing.T) {
@@ -521,7 +536,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
 	mockProc.On("CPUTime").Return(float64(5.0), nil).Once()
 	mockProc.On("Environ").Return([]string{}, nil).Maybe()
-	mockProc.On("CmdLine").Return([]string{"/bin/process-initial"}, nil).Maybe()
+	mockProc.On("CmdLine").Return([]string{"/bin/process-initial"}, nil).Once()
 
 	// For Init
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
@@ -550,8 +565,9 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 
 	// Second refresh - process has changed comm and executable, with significant CPU time
 	mockProc.On("Comm").Return("process-updated", nil).Once()
-	mockProc.On("Executable").Return("/bin/process-updated", nil).Once()
+	mockProc.On("CmdLine").Return([]string{"/bin/process-updated"}, nil).Once()
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
+	mockProc.On("Executable").Return("/bin/process-updated", nil).Once()
 	mockProc.On("CPUTime").Return(float64(7.0), nil).Once() // 2.0 delta
 
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
