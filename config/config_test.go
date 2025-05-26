@@ -699,3 +699,287 @@ debug:
 	// Verify debug config
 	assert.True(t, cfg.Debug.Pprof.Enabled, "pprof should be enabled")
 }
+
+func TestConfigMerge(t *testing.T) {
+	tt := []struct {
+		name          string
+		defaultCfg    *Config
+		additionalCfg *Config
+		expectedCfg   *Config
+	}{
+		{
+			name: "merge with empty additional config",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			additionalCfg: &Config{},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+		},
+		{
+			name: "merge with additional config",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			additionalCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "json",
+				},
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "json",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+		},
+		{
+			name: "merge with partial additional config",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			additionalCfg: &Config{
+				Log: Log{
+					Level: "debug",
+				},
+				Host: Host{
+					SysFS: "/custom/sys",
+				},
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/custom/sys",
+					ProcFS: "/proc",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.defaultCfg.merge(tc.additionalCfg)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedCfg.Log.Level, tc.defaultCfg.Log.Level)
+			assert.Equal(t, tc.expectedCfg.Log.Format, tc.defaultCfg.Log.Format)
+			assert.Equal(t, tc.expectedCfg.Host.SysFS, tc.defaultCfg.Host.SysFS)
+			assert.Equal(t, tc.expectedCfg.Host.ProcFS, tc.defaultCfg.Host.ProcFS)
+		})
+	}
+}
+
+func TestMergeAdditionalConfigs(t *testing.T) {
+	tt := []struct {
+		name        string
+		defaultCfg  *Config
+		additional  []string
+		expectedCfg *Config
+		hasError    bool
+	}{
+		{
+			name: "merge empty additional configs",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+			},
+			additional: []string{},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "merge one valid config",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+			},
+			additional: []string{`
+log:
+  level: debug
+`},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "merge multiple valid configs",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			additional: []string{
+				`log:
+  level: debug`,
+				`host:
+  sysfs: /custom/sys`,
+				`log:
+  format: json`,
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "json",
+				},
+				Host: Host{
+					SysFS:  "/custom/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "merge with one invalid config",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+			},
+			additional: []string{
+				`log:
+  level: debug`,
+				`{[invalid]yaml}`,
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "debug",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: true,
+		},
+		{
+			name: "merge with empty string",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+			},
+			additional: []string{
+				"",
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: false,
+		},
+		{
+			name: "merge with whitespace-only string",
+			defaultCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+			},
+			additional: []string{
+				"   \t\n   ",
+			},
+			expectedCfg: &Config{
+				Log: Log{
+					Level:  "info",
+					Format: "text",
+				},
+				Host: Host{
+					SysFS:  "/sys",
+					ProcFS: "/proc",
+				},
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			defaultCfg := DefaultConfig()
+			err := MergeAdditionalConfigs(defaultCfg, tc.additional...)
+
+			if tc.hasError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "failed to merge additional config")
+				return
+			}
+
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.expectedCfg.Log.Level, defaultCfg.Log.Level)
+			assert.Equal(t, tc.expectedCfg.Log.Format, defaultCfg.Log.Format)
+			assert.Equal(t, tc.expectedCfg.Host.SysFS, defaultCfg.Host.SysFS)
+			assert.Equal(t, tc.expectedCfg.Host.ProcFS, defaultCfg.Host.ProcFS)
+		})
+	}
+}
