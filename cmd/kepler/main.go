@@ -32,7 +32,7 @@ func main() {
 
 	// Configure logger - use stderr if stdout exporter is enabled to prevent output interleaving
 	logOut := os.Stdout
-	if cfg.Exporter.Stdout.Enabled {
+	if *cfg.Exporter.Stdout.Enabled {
 		logOut = os.Stderr
 	}
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
@@ -154,7 +154,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	}
 
 	// Add Prometheus exporter if enabled
-	if cfg.Exporter.Prometheus.Enabled {
+	if *cfg.Exporter.Prometheus.Enabled {
 		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
@@ -163,13 +163,13 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	}
 
 	// Add pprof if enabled
-	if cfg.Debug.Pprof.Enabled {
+	if *cfg.Debug.Pprof.Enabled {
 		pprof := server.NewPprof(apiServer)
 		services = append(services, pprof)
 	}
 
 	// Add stdout exporter if enabled
-	if cfg.Exporter.Stdout.Enabled {
+	if *cfg.Exporter.Stdout.Enabled {
 		stdoutExporter := stdout.NewExporter(pm, stdout.WithLogger(logger))
 		services = append(services, stdoutExporter)
 	}
@@ -203,7 +203,7 @@ func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer
 }
 
 func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
-	if fake := cfg.Dev.FakeCpuMeter; fake.Enabled {
+	if fake := cfg.Dev.FakeCpuMeter; *fake.Enabled {
 		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
 	}
 
