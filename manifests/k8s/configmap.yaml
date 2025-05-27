@@ -19,12 +19,19 @@ data:
       staleness: 500ms
     rapl:
       zones: []
-    enable-pprof: false
     exporter:
-        stdout: false
+      stdout:
+        enabled: false
+      prometheus:
+        enabled: true
+        debugCollectors:
+          - go
     web:
-        configFile: ""
+      configFile: ""
+    debug:
+      pprof:
+        enabled: false
     dev:
-        fake-cpu-meter:
-            enabled: false
-            zones: []
+      fake-cpu-meter:
+        enabled: false
+        zones: []
