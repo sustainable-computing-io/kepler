@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/imdario/mergo"
 	"gopkg.in/yaml.v3"
 )
 
@@ -424,4 +425,33 @@ func (c *Config) manualString() string {
 	}
 
 	return sb.String()
+}
+
+func (c *Config) merge(additional *Config) error {
+	return mergo.Merge(c, additional, mergo.WithOverride)
+}
+
+// mergeYAML merges a YAML string into the existing config
+func (c *Config) mergeYAML(yamlStr string) error {
+	if strings.TrimSpace(yamlStr) == "" {
+		return nil
+	}
+
+	additional := &Config{}
+	if err := yaml.Unmarshal([]byte(yamlStr), additional); err != nil {
+		return fmt.Errorf("failed to parse YAML config: %w", err)
+	}
+
+	return c.merge(additional)
+}
+
+// MergeAdditionalConfigs merges additional YAML configurations into a default config
+func MergeAdditionalConfigs(defaultConfig *Config, additionalConfigs ...string) error {
+	for _, cfg := range additionalConfigs {
+		if err := defaultConfig.mergeYAML(cfg); err != nil {
+			return fmt.Errorf("failed to merge additional config: %w", err)
+		}
+	}
+
+	return nil
 }
