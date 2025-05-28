@@ -5,6 +5,9 @@ changelog:
       - github-actions[bot]
       - dependabot[bot]
   categories:
+    - title: 💥 Breaking Changes
+      labels:
+        - breaking-change
     - title: 🚀 Features
       labels:
         - feat

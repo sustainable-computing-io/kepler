@@ -50,5 +50,8 @@ jobs:
               - type: 'revert'
                 nouns: ['revert']
                 labels: ['revert']
+              - type: 'breaking'
+                nouns: ['!']
+                labels: ['breaking-change']
           maintain-labels-not-matched: false
           apply-changes: true
