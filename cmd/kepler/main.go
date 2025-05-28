@@ -149,6 +149,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	services := []service.Service{
 		cpuPowerMeter,
+		resouceInformer,
 		apiServer,
 		pm,
 	}
