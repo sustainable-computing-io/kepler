@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -108,8 +109,6 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
-	mockMonitor.On("ZoneNames").Return([]string{"package", "dram"})
-
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
 	nodePkgPower := 12 * device.Watt
@@ -162,34 +161,16 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				assert.NoError(t, err, "Gather should not return an error")
 				assert.NotEmpty(t, metrics, "Metrics should not be empty")
 
-				// Verify the metrics
-				foundPackageJoules := false
-				foundDramJoules := false
-				foundPackageWatts := false
-				foundDramWatts := false
-
 				for _, mf := range metrics {
 					switch mf.GetName() {
-					case "kepler_node_package_joules_total":
-						foundPackageJoules = true
-						assertMetricValue(t, mf, "package", packageZone.Path(), nodePkgAbs.Joules())
-					case "kepler_node_dram_joules_total":
-						foundDramJoules = true
-						assertMetricValue(t, mf, "dram", dramZone.Path(), nodeDramAbs.Joules())
-					case "kepler_node_package_watts":
-						foundPackageWatts = true
-						assertMetricValue(t, mf, "package", packageZone.Path(), nodePkgPower.Watts())
-					case "kepler_node_dram_watts":
-						foundDramWatts = true
-						assertMetricValue(t, mf, "dram", dramZone.Path(), nodeDramPower.Watts())
+					case "kepler_node_cpu_joules_total":
+						assertMetricValue(t, mf, "package", nodePkgAbs.Joules())
+						assertMetricValue(t, mf, "dram", nodeDramAbs.Joules())
+					case "kepler_node_cpu_watts":
+						assertMetricValue(t, mf, "package", nodePkgPower.Watts())
+						assertMetricValue(t, mf, "dram", nodeDramPower.Watts())
 					}
 				}
-
-				// Ensure all metrics were found
-				assert.True(t, foundPackageJoules, "package_joules_total metric not found")
-				assert.True(t, foundDramJoules, "dram_joules_total metric not found")
-				assert.True(t, foundPackageWatts, "package_watts metric not found")
-				assert.True(t, foundDramWatts, "dram_watts metric not found")
 			}()
 		}
 
@@ -208,7 +189,6 @@ func TestUpdateDuringCollection(t *testing.T) {
 	allowCollectCh := make(chan struct{})
 
 	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	mockMonitor.On("ZoneNames").Return([]string{"package"})
 
 	mockMonitor.On("Snapshot").Run(func(args mock.Arguments) {
 		// NOTE: this waits for allow collect to close
@@ -417,22 +397,30 @@ func TestFastCollectAndDescribe(t *testing.T) {
 }
 
 // Helper function to assert metric values
-func assertMetricValue(t *testing.T, mf *dto.MetricFamily, zoneName, zonePath string, expected float64) {
+func assertMetricValue(t *testing.T, mf *dto.MetricFamily, zoneName string, expected float64) {
+	t.Helper()
+
+	metricName := mf.GetName()
 	for _, m := range mf.Metric {
 		for _, label := range m.Label {
-			if label.GetName() == "path" && label.GetValue() == zonePath {
-				var value float64
-				if mf.GetName() == "kepler_node_"+zoneName+"_joules_total" {
-					value = m.Counter.GetValue()
-				} else if mf.GetName() == "kepler_node_"+zoneName+"_watts" {
-					value = m.Gauge.GetValue()
-				}
-				assert.Equal(t, expected, value, "Unexpected value for %s, path %s", mf.GetName(), zonePath)
-				return
+			k := label.GetName()
+			v := label.GetValue()
+			if k != "zone" || v != zoneName {
+				continue
 			}
+
+			var value float64
+			if strings.HasSuffix(metricName, "_joules_total") {
+				value = m.Counter.GetValue()
+			} else if strings.HasSuffix(metricName, "_watts") {
+				value = m.Gauge.GetValue()
+			}
+			assert.Equal(t, expected, value, "Unexpected value for %s zone: %s", metricName, zoneName)
+			return
 		}
 	}
-	t.Errorf("Metric for zone %s with path %s not found", zoneName, zonePath)
+
+	t.Errorf("Metric for zone %s not found", zoneName)
 }
 
 func callDescribe(c prometheus.Collector, wg *sync.WaitGroup) {

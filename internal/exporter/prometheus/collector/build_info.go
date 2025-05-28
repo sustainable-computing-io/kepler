@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	namespace      = "kepler"
+	keplerNS       = "kepler"
 	buildSubsystem = "build"
 )
 
@@ -21,7 +21,7 @@ type BuildInfoCollector struct {
 func NewKeplerBuildInfoCollector() *BuildInfoCollector {
 	buildInfo := prom.NewGaugeVec(
 		prom.GaugeOpts{
-			Namespace: namespace,
+			Namespace: keplerNS,
 			Subsystem: buildSubsystem,
 			Name:      "info",
 			Help:      "A metric with a constant '1' value labeled with version information",
