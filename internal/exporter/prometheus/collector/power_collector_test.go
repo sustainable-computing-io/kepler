@@ -76,7 +76,6 @@ func TestPowerCollector(t *testing.T) {
 	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	// Mock zone names
-	mockMonitor.On("ZoneNames").Return([]string{"package", "dram"})
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
@@ -131,11 +130,8 @@ func TestPowerCollector(t *testing.T) {
 
 		// Check that metrics exist in registry
 		expectedMetricNames := []string{
-			"kepler_node_package_joules_total",
-			"kepler_node_package_watts",
-			"kepler_node_dram_joules_total",
-			"kepler_node_dram_watts",
-			"kepler_node_energy_zone",
+			"kepler_node_cpu_joules_total",
+			"kepler_node_cpu_watts",
 		}
 
 		assert.ElementsMatch(t, expectedMetricNames, metricNames(metrics))
@@ -151,10 +147,13 @@ func TestPowerCollector(t *testing.T) {
 
 		// Check node joules metrics
 		for _, metric := range metrics {
-			if strings.HasPrefix(metric.GetName(), "kepler_node_") && strings.HasSuffix(metric.GetName(), "_joules_total") {
+			if metric.GetName() == "kepler_node_cpu_joules_total" {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetCounter().GetValue()
+
+					zoneNames = append(zoneNames, valueOfLabel(m, "zone"))
+					zonePaths = append(zonePaths, path)
 
 					if path == packageZone.Path() {
 						assert.Equal(t, nodePkgAbs.Joules(), value, "Unexpected package joules")
@@ -181,17 +180,6 @@ func TestPowerCollector(t *testing.T) {
 			}
 		}
 
-		// check node energy zone metrics
-		for _, metric := range metrics {
-			if strings.HasPrefix(metric.GetName(), "kepler_node_") && strings.HasSuffix(metric.GetName(), "energy_zone") {
-				for _, m := range metric.GetMetric() {
-					value := m.GetGauge().GetValue()
-					assert.Equal(t, 1.0, value, "Expected 2 energy zones")
-					zoneNames = append(zoneNames, valueOfLabel(m, "name"))
-					zonePaths = append(zonePaths, valueOfLabel(m, "path"))
-				}
-			}
-		}
 		assert.ElementsMatch(t, zoneNames, []string{"package", "dram"})
 		assert.ElementsMatch(t, zonePaths, []string{
 			"/sys/class/powercap/intel-rapl/intel-rapl:0",
