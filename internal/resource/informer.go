@@ -254,7 +254,7 @@ func (ri *resourceInformer) VirtualMachines() *VirtualMachines {
 func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 	vm := proc.VirtualMachine
 	if vm == nil {
-		panic(fmt.Sprintf("process %d  of type %s has is nil virtual machine", proc.PID, proc.Type))
+		panic(fmt.Sprintf("process %d of type %s (%s)  has is nil virtual machine", proc.PID, proc.Type, proc.Comm))
 	}
 
 	cached, exists := ri.vmCache[vm.ID]
@@ -352,7 +352,6 @@ func populateProcessFields(p *Process, proc procInfo) error {
 	return nil
 }
 
-// Buffered channels prevent goroutine blocking
 type ProcessTypeInfo struct {
 	Type      ProcessType
 	Container *Container
@@ -367,6 +366,7 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 		err       error
 	}
 
+	// Using buffered channels to prevent goroutine from blocking
 	containerCh := make(chan result, 1)
 	vmCh := make(chan result, 1)
 
