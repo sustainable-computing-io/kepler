@@ -130,6 +130,11 @@ func (ri *resourceInformer) Refresh() error {
 		// start by updating the process
 		proc, err := ri.updateProcessCache(p)
 		if err != nil {
+			if os.IsNotExist(err) {
+				ri.logger.Debug("Process not found", "pid", pid)
+				continue
+			}
+
 			ri.logger.Debug("Failed to get process info", "pid", pid, "error", err)
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
@@ -229,7 +234,7 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	if cached, exists := ri.procCache[pid]; exists {
 		err := populateProcessFields(cached, proc)
-		return cached, ignoreDoesNotExistError(err)
+		return cached, err
 	}
 
 	newProc, err := newProcess(proc)
@@ -239,14 +244,6 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	ri.procCache[pid] = newProc
 	return newProc, nil
-}
-
-func ignoreDoesNotExistError(err error) error {
-	if os.IsNotExist(err) {
-		return nil
-	}
-
-	return err
 }
 
 func populateProcessFields(p *Process, proc procInfo) error {
@@ -295,7 +292,7 @@ func newProcess(proc procInfo) (*Process, error) {
 	}
 
 	if err := populateProcessFields(p, proc); err != nil {
-		return nil, ignoreDoesNotExistError(err)
+		return nil, err
 	}
 
 	return p, nil
