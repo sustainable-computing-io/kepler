@@ -180,7 +180,7 @@ func TestPowerCollector(t *testing.T) {
 			}
 		}
 
-		assert.ElementsMatch(t, zoneNames, []string{"package", "dram"})
+		assert.ElementsMatch(t, zoneNames, []string{"package-0", "dram-0"})
 		assert.ElementsMatch(t, zonePaths, []string{
 			"/sys/class/powercap/intel-rapl/intel-rapl:0",
 			"/sys/class/powercap/intel-rapl/intel-rapl:0:1",
