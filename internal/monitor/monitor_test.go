@@ -20,11 +20,10 @@ import (
 )
 
 func TestNewPowerMonitor(t *testing.T) {
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	tt := []struct {
 		name string
@@ -148,11 +147,10 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 	mockPowerMeter.On("Init").Return(nil)
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	monitor := NewPowerMonitor(mockPowerMeter, WithResourceInformer(resourceInformer))
 
@@ -270,11 +268,10 @@ func TestPowerMonitor_Run(t *testing.T) {
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
 
@@ -321,11 +318,10 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 	mockMeter.On("Init", mock.Anything).Return(nil).Once()
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
 
@@ -350,11 +346,10 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	zone.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
 
@@ -403,11 +398,10 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
 	mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	t.Run("Basic", func(t *testing.T) {
 		startTime := time.Date(2025, 4, 29, 11, 20, 0, 0, time.UTC)
@@ -575,11 +569,10 @@ func TestRefreshSnapshotError(t *testing.T) {
 	startTime := time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC)
 	mockClock := test_clock.NewFakeClock(startTime)
 
-	procs, containers := CreateTestResources()
+	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetupTestResources(tr)
 	resourceInformer.On("Refresh").Return(nil)
-	resourceInformer.On("Processes").Return(procs, nil)
-	resourceInformer.On("Containers").Return(containers, nil)
 
 	// Create PowerMonitor with the mock
 	pm := NewPowerMonitor(

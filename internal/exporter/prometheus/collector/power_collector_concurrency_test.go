@@ -32,11 +32,10 @@ func musT[T any](t T, err error) T {
 // TestPowerCollectorConcurrency tests the thread safety of PowerCollector
 // when multiple goroutines call its methods concurrently.
 func TestPowerCollectorConcurrency(t *testing.T) {
-	procs, containers := monitor.CreateTestResources()
+	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
+	ri.SetupTestResources(tr)
 	ri.On("Refresh").Return(nil)
-	ri.On("Processes").Return(procs)
-	ri.On("Containers").Return(containers)
 	fakeMonitor := monitor.NewPowerMonitor(
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
@@ -106,7 +105,8 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 func TestPowerCollectorWithRegistry(t *testing.T) {
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	package0Zone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	package1Zone := device.NewMockRaplZone("package", 1, "/sys/class/powercap/intel-rapl/intel-rapl:1", 1000)
 	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
@@ -120,7 +120,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 	// Create test node Snapshot
 	testNodeData := monitor.Node{
 		Zones: monitor.ZoneUsageMap{
-			packageZone: {
+			package0Zone: {
 				Absolute: nodePkgAbs,
 				Delta:    nodePkgDelta,
 				Power:    nodePkgPower,
@@ -129,6 +129,11 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				Absolute: nodeDramAbs,
 				Delta:    nodeDramDelta,
 				Power:    nodeDramPower,
+			},
+			package1Zone: {
+				Absolute: nodePkgAbs,
+				Delta:    nodePkgDelta,
+				Power:    nodePkgPower,
 			},
 		},
 	}
@@ -159,13 +164,15 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				defer wg.Done()
 				metrics, err := registry.Gather()
 				assert.NoError(t, err, "Gather should not return an error")
-				assert.NotEmpty(t, metrics, "Metrics should not be empty")
+				assert.Len(t, metrics, 2, "Expected 2 node metric families")
 
 				for _, mf := range metrics {
 					switch mf.GetName() {
 					case "kepler_node_cpu_joules_total":
 						assertMetricValue(t, mf, "package-0", nodePkgAbs.Joules())
+						assertMetricValue(t, mf, "package-1", nodePkgAbs.Joules())
 						assertMetricValue(t, mf, "dram-0", nodeDramAbs.Joules())
+
 					case "kepler_node_cpu_watts":
 						assertMetricValue(t, mf, "package-0", nodePkgPower.Watts())
 						assertMetricValue(t, mf, "dram-0", nodeDramPower.Watts())
@@ -271,11 +278,10 @@ func TestUpdateDuringCollection(t *testing.T) {
 func TestConcurrentRegistration(t *testing.T) {
 	const numRegistries = 5
 
-	procs, containers := monitor.CreateTestResources()
+	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
+	ri.SetupTestResources(tr)
 	ri.On("Refresh").Return(nil)
-	ri.On("Processes").Return(procs)
-	ri.On("Containers").Return(containers)
 
 	fakeMonitor := monitor.NewPowerMonitor(
 		musT(device.NewFakeCPUMeter(nil)),
@@ -329,11 +335,11 @@ func TestConcurrentRegistration(t *testing.T) {
 
 // TestFastCollectAndDescribe tests extremely rapid consecutive calls
 func TestFastCollectAndDescribe(t *testing.T) {
-	procs, containers := monitor.CreateTestResources()
+	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
+	ri.SetupTestResources(tr)
 	ri.On("Refresh").Return(nil)
-	ri.On("Processes").Return(procs)
-	ri.On("Containers").Return(containers)
+
 	fakeMonitor := monitor.NewPowerMonitor(
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),

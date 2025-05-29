@@ -27,6 +27,7 @@ func newProcess(proc *resource.Process, zones ZoneUsageMap) *Process {
 		PID:          proc.PID,
 		Comm:         proc.Comm,
 		Exe:          proc.Exe,
+		Type:         proc.Type,
 		CPUTotalTime: proc.CPUTotalTime,
 		Zones:        make(ZoneUsageMap, len(zones)),
 	}
@@ -43,6 +44,11 @@ func newProcess(proc *resource.Process, zones ZoneUsageMap) *Process {
 	// Add the container ID if available
 	if proc.Container != nil {
 		process.ContainerID = proc.Container.ID
+	}
+
+	// Add the container ID if available
+	if proc.VirtualMachine != nil {
+		process.VirtualMachineID = proc.VirtualMachine.ID
 	}
 	return process
 }

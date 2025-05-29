@@ -283,6 +283,7 @@ const (
 	nodePowerError      = "failed to calculate node power: %w"
 	processPowerError   = "failed to calculate process power: %w"
 	containerPowerError = "failed to calculate container power: %w"
+	vmPowerError        = "failed to calculate vm power: %w"
 )
 
 func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
@@ -306,6 +307,10 @@ func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
 		return fmt.Errorf(containerPowerError, err)
 	}
 
+	if err := pm.firstVMRead(newSnapshot); err != nil {
+		return fmt.Errorf(vmPowerError, err)
+	}
+
 	return nil
 }
 
@@ -326,9 +331,13 @@ func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
 	}
 
 	// Calculate container power
-	// TODO: implement this based on sum of process power running in containers
 	if err := pm.calculateContainerPower(prev, newSnapshot); err != nil {
 		return fmt.Errorf(containerPowerError, err)
+	}
+
+	// Calculate VM power
+	if err := pm.calculateVMPower(prev, newSnapshot); err != nil {
+		return fmt.Errorf(vmPowerError, err)
 	}
 
 	return nil

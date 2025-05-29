@@ -40,7 +40,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 	t.Run("firstProcessRead", func(t *testing.T) {
 		// Setup mock to return test processes
-		procs, _ := CreateTestResources()
+		procs := CreateTestResources().Processes
 		resourceInformer.On("Processes").Return(procs).Once()
 
 		snapshot := NewSnapshot()
@@ -109,14 +109,14 @@ func TestProcessPowerCalculation(t *testing.T) {
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
 
 		// Setup mock to return updated processes
-		procs, _ := CreateTestResources()
+		procs := CreateTestResources().Processes
 		resourceInformer.On("Processes").Return(procs).Once()
 
 		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
 		// Verify all processes are present
-		assert.Len(t, newSnapshot.Processes, 4)
+		assert.Len(t, newSnapshot.Processes, len(procs.Running))
 
 		// Check process 123 power calculations
 		inputProc123 := procs.Running[123]
@@ -144,11 +144,11 @@ func TestProcessPowerCalculation(t *testing.T) {
 		proc456 := newSnapshot.Processes[456]
 		for _, zone := range zones {
 			usage := proc456.Zones[zone]
-			// CPU ratio = 40.0 / 100.0 = 0.5 (50%)
-			expectedPower := Power(0.4 * 50_000_000) // 25W
+			// CPU ratio = 20.0 / 100.0 = 0.5 (20%)
+			expectedPower := Power(0.2 * 50_000_000) // 25W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := Energy(0.4 * 50_000_000) // 25J
+			expectedDelta := Energy(0.2 * 50_000_000) // 25J
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 			// New process, so absolute = delta
 			assert.Equal(t, usage.Delta, usage.Absolute)
@@ -158,8 +158,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 		proc789 := newSnapshot.Processes[789]
 		for _, zone := range zones {
 			usage := proc789.Zones[zone]
-			// CPU ratio = 20.0 / 100.0 = 0.2 (20%)
-			expectedPower := Power(0.2 * 50_000_000) // 10W
+			// CPU ratio = 15.0 / 100.0 = 0.15 (15%)
+			expectedPower := Power(0.15 * 50_000_000) // 10W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 		}
 
@@ -184,7 +184,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 			}
 		}
 
-		procs, _ := CreateTestResources()
+		procs := CreateTestResources().Processes
 		resourceInformer.On("Processes").Return(procs).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)

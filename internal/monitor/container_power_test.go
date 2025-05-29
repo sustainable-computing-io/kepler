@@ -39,7 +39,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("firstContainerRead", func(t *testing.T) {
-		_, containers := CreateTestResources()
+		containers := CreateTestResources().Containers
 		resourceInformer.On("Containers").Return(containers).Once()
 
 		snapshot := NewSnapshot()
@@ -101,7 +101,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
 
 		// Setup mock to return updated processes
-		procs, containers := CreateTestResources()
+		tr := CreateTestResources()
+		procs, containers := tr.Processes, tr.Containers
 		resourceInformer.On("Containers").Return(containers).Once()
 
 		err = monitor.calculateContainerPower(prevSnapshot, newSnapshot)
@@ -137,10 +138,10 @@ func TestContainerPowerCalculation(t *testing.T) {
 		for _, zone := range zones {
 			usage := ctnr2.Zones[zone]
 			// CPU ratio = 40.0 / 100.0 = 0.4 (40%)
-			expectedPower := 0.4 * 50 * Watt // 20W
+			expectedPower := 0.2 * 50 * Watt // 20W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := Energy(0.4 * 50 * Joule) // 25J
+			expectedDelta := Energy(0.2 * 50 * Joule) // 25J
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 			// New process, so absolute = delta
 			assert.Equal(t, usage.Delta, usage.Absolute)
@@ -166,7 +167,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 			}
 		}
 
-		_, containers := CreateTestResources()
+		containers := CreateTestResources().Containers
 		resourceInformer.On("Containers").Return(containers).Once()
 
 		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)

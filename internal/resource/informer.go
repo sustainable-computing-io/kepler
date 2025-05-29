@@ -28,6 +28,13 @@ type Containers struct {
 	Terminated       map[string]*Container
 }
 
+// VirtualMachines represents sets of running and terminated VMs
+type VirtualMachines struct {
+	NodeCPUTimeDelta float64
+	Running          map[string]*VirtualMachine
+	Terminated       map[string]*VirtualMachine
+}
+
 // Informer provides the interface for accessing process and container information
 type Informer interface {
 	service.Initializer
@@ -37,6 +44,8 @@ type Informer interface {
 	Processes() *Processes
 	// Containers returns the current running and terminated containers
 	Containers() *Containers
+	// VirtualMachines returns the current running and terminated VMs
+	VirtualMachines() *VirtualMachines
 }
 
 // resourceInformer is the default implementation of the resource tracking service
@@ -52,6 +61,10 @@ type resourceInformer struct {
 	// Container tracking
 	containerCache map[string]*Container
 	containers     *Containers
+
+	// VM tracking
+	vmCache map[string]*VirtualMachine
+	vms     *VirtualMachines
 
 	lastScanTime time.Time // Time of the last full scan
 }
@@ -82,16 +95,22 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 		fs:     opt.procReader,
 		clock:  opt.clock,
 
-		procCache:      make(map[int]*Process),
-		containerCache: make(map[string]*Container),
-
+		procCache: make(map[int]*Process),
 		processes: &Processes{
 			Running:    make(map[int]*Process),
 			Terminated: make(map[int]*Process),
 		},
+
+		containerCache: make(map[string]*Container),
 		containers: &Containers{
 			Running:    make(map[string]*Container),
 			Terminated: make(map[string]*Container),
+		},
+
+		vmCache: make(map[string]*VirtualMachine),
+		vms: &VirtualMachines{
+			Running:    make(map[string]*VirtualMachine),
+			Terminated: make(map[string]*VirtualMachine),
 		},
 	}, nil
 }
@@ -122,6 +141,7 @@ func (ri *resourceInformer) Refresh() error {
 	// construct current running processes and containers
 	procsRunning := make(map[int]*Process, len(procs))
 	containersRunning := make(map[string]*Container)
+	vmsRunning := make(map[string]*VirtualMachine)
 
 	// Refresh process cache and update running processes
 	var refreshErrs error
@@ -141,14 +161,20 @@ func (ri *resourceInformer) Refresh() error {
 		}
 		procsRunning[pid] = proc
 
-		if c := proc.Container; c != nil {
-			//  Containers: group processes by container
+		switch proc.Type {
+		case ContainerProcess:
+			c := proc.Container
 			_, seen := containersRunning[c.ID]
 			// reset CPU Time of the container if it is getting added to the running list for the first time
 			// in the subsequent iteration, the CPUTimeDelta should be incremented by process's CPUTimeDelta
 			resetCPUTime := !seen
 			containersRunning[c.ID] = ri.updateContainerCache(proc, resetCPUTime)
+
+		case VMProcess:
+			vm := proc.VirtualMachine
+			vmsRunning[vm.ID] = ri.updateVMCache(proc)
 		}
+
 	}
 
 	// Find terminated processes
@@ -162,6 +188,10 @@ func (ri *resourceInformer) Refresh() error {
 		procsTerminated[pid] = proc
 		delete(ri.procCache, pid)
 	}
+	// Update tracking structures
+	ri.processes.NodeCPUTimeDelta = nodeCPUDelta
+	ri.processes.Running = procsRunning
+	ri.processes.Terminated = procsTerminated
 
 	// Find terminated containers
 	totalContainerDelta := float64(0)
@@ -174,15 +204,23 @@ func (ri *resourceInformer) Refresh() error {
 		containersTerminated[id] = container
 		delete(ri.containerCache, id)
 	}
-
-	// Update tracking structures
-	ri.processes.NodeCPUTimeDelta = nodeCPUDelta
-	ri.processes.Running = procsRunning
-	ri.processes.Terminated = procsTerminated
-
 	ri.containers.NodeCPUTimeDelta = nodeCPUDelta
 	ri.containers.Running = containersRunning
 	ri.containers.Terminated = containersTerminated
+
+	// Find terminated VMs
+	vmsTerminated := make(map[string]*VirtualMachine)
+	for id, vm := range ri.vmCache {
+		if _, isRunning := vmsRunning[id]; isRunning {
+			continue
+		}
+		vmsTerminated[id] = vm
+		delete(ri.vmCache, id)
+	}
+
+	ri.vms.NodeCPUTimeDelta = nodeCPUDelta
+	ri.vms.Running = vmsRunning
+	ri.vms.Terminated = vmsTerminated
 
 	now := ri.clock.Now()
 	ri.lastScanTime = now
@@ -193,9 +231,60 @@ func (ri *resourceInformer) Refresh() error {
 		"process.terminated", len(procsTerminated),
 		"container.running", len(containersRunning),
 		"container.terminated", len(containersTerminated),
+		"vm.running", len(vmsRunning),
+		"vm.terminated", len(vmsTerminated),
 		"duration", duration)
 
 	return refreshErrs
+}
+
+func (ri *resourceInformer) Processes() *Processes {
+	return ri.processes
+}
+
+func (ri *resourceInformer) Containers() *Containers {
+	return ri.containers
+}
+
+func (ri *resourceInformer) VirtualMachines() *VirtualMachines {
+	return ri.vms
+}
+
+// Add VM cache update method
+func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
+	vm := proc.VirtualMachine
+	if vm == nil {
+		panic(fmt.Sprintf("process %d  of type %s has is nil virtual machine", proc.PID, proc.Type))
+	}
+
+	cached, exists := ri.vmCache[vm.ID]
+	if !exists {
+		cached = vm.Clone()
+		ri.vmCache[vm.ID] = cached
+	}
+
+	cached.CPUTimeDelta = proc.CPUTimeDelta
+	cached.CPUTotalTime = proc.CPUTotalTime
+
+	return cached
+}
+
+// updateProcessCache updates the process cache with the latest information and returns the updated process
+func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
+	pid := proc.PID()
+
+	if cached, exists := ri.procCache[pid]; exists {
+		err := populateProcessFields(cached, proc)
+		return cached, err
+	}
+
+	newProc, err := newProcess(proc)
+	if err != nil {
+		return nil, err
+	}
+
+	ri.procCache[pid] = newProc
+	return newProc, nil
 }
 
 func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime bool) *Container {
@@ -220,32 +309,7 @@ func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime boo
 	return cached
 }
 
-func (ri *resourceInformer) Processes() *Processes {
-	return ri.processes
-}
-
-func (ri *resourceInformer) Containers() *Containers {
-	return ri.containers
-}
-
-// updateProcessCache updates the process cache with the latest information and returns the updated process
-func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
-	pid := proc.PID()
-
-	if cached, exists := ri.procCache[pid]; exists {
-		err := populateProcessFields(cached, proc)
-		return cached, err
-	}
-
-	newProc, err := newProcess(proc)
-	if err != nil {
-		return nil, err
-	}
-
-	ri.procCache[pid] = newProc
-	return newProc, nil
-}
-
+// Update populateProcessFields to handle process types
 func populateProcessFields(p *Process, proc procInfo) error {
 	cpuTotalTime, err := proc.CPUTime()
 	if err != nil {
@@ -255,7 +319,7 @@ func populateProcessFields(p *Process, proc procInfo) error {
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
 	p.CPUTotalTime = cpuTotalTime
 
-	// ignore process updates with no or close to 0 CPU time
+	// ignore already processed processes with close to 0 CPU time usage
 	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 {
 		return nil
 	}
@@ -264,6 +328,7 @@ func populateProcessFields(p *Process, proc procInfo) error {
 	if err != nil {
 		return fmt.Errorf("failed to get process comm: %w", err)
 	}
+	commChanged := comm != p.Comm
 	p.Comm = comm
 
 	exe, err := proc.Executable()
@@ -272,17 +337,68 @@ func populateProcessFields(p *Process, proc procInfo) error {
 	}
 	p.Exe = exe
 
-	if p.Container == nil {
-		// don't recompute if container is already set
-		container, err := containerInfoFromProc(proc)
+	// Determine process type and associated container/VM only if not already set
+	if p.Type == UnknownProcess || commChanged {
+		info, err := computeTypeInfoFromProc(proc)
 		if err != nil {
-			return fmt.Errorf("failed to detect container: %w", err)
+			return fmt.Errorf("failed to detect process type: %w", err)
 		}
 
-		p.Container = container
+		p.Type = info.Type
+		p.Container = info.Container
+		p.VirtualMachine = info.VM
 	}
 
 	return nil
+}
+
+// Buffered channels prevent goroutine blocking
+type ProcessTypeInfo struct {
+	Type      ProcessType
+	Container *Container
+	VM        *VirtualMachine
+}
+
+func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
+	// detect process type in parallel
+	type result struct {
+		container *Container
+		vm        *VirtualMachine
+		err       error
+	}
+
+	containerCh := make(chan result, 1)
+	vmCh := make(chan result, 1)
+
+	go func() {
+		defer close(containerCh)
+		container, err := containerInfoFromProc(proc)
+		containerCh <- result{container: container, err: err}
+	}()
+
+	go func() {
+		defer close(vmCh)
+		vm, err := vmInfoFromProc(proc)
+		vmCh <- result{vm: vm, err: err}
+	}()
+
+	// Wait for both to complete
+	ctnrResult := <-containerCh
+	vmResult := <-vmCh
+
+	switch {
+	case ctnrResult.err == nil && ctnrResult.container != nil:
+		return &ProcessTypeInfo{Type: ContainerProcess, Container: ctnrResult.container}, nil
+
+	case vmResult.err == nil && vmResult.vm != nil:
+		return &ProcessTypeInfo{Type: VMProcess, VM: vmResult.vm}, nil
+
+	case ctnrResult.err == nil && vmResult.err == nil:
+		return &ProcessTypeInfo{Type: RegularProcess}, errors.Join(ctnrResult.err, vmResult.err)
+
+	default:
+		return nil, errors.Join(ctnrResult.err, vmResult.err)
+	}
 }
 
 // newProcess creates a new Process with static information filled in

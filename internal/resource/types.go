@@ -3,13 +3,24 @@
 
 package resource
 
+type ProcessType string
+
+const (
+	UnknownProcess   ProcessType = ""
+	RegularProcess   ProcessType = "regular"
+	ContainerProcess ProcessType = "container"
+	VMProcess        ProcessType = "vm"
+)
+
 type Process struct {
 	// static
 	PID  int
 	Comm string
 	Exe  string
+	Type ProcessType
 
-	Container *Container
+	Container      *Container
+	VirtualMachine *VirtualMachine
 
 	// Dynamic
 	CPUTotalTime float64 // total cpu time used by the process
@@ -51,4 +62,41 @@ func (c *Container) Clone() *Container {
 	}
 
 	return clone
+}
+
+// VirtualMachine represents metadata about a virtual machine
+type VirtualMachine struct {
+	ID         string
+	Name       string
+	Hypervisor Hypervisor
+
+	// Resource usage tracking
+	CPUTotalTime float64 // total cpu time used by the VM so far
+	CPUTimeDelta float64 // cpu time used by the VM since last refresh
+}
+
+type Hypervisor string
+
+const (
+	UnknownHypervisor Hypervisor = "unknown"
+
+	KVMHypervisor Hypervisor = "kvm"
+
+	// TODO: add patterns for these hypervisors
+	VirtualBoxHypervisor Hypervisor = "virtualbox"
+	VMwareHypervisor     Hypervisor = "vmware"
+	XenHypervisor        Hypervisor = "xen"
+)
+
+// Clone creates a deep copy of a VirtualMachine
+func (vm *VirtualMachine) Clone() *VirtualMachine {
+	if vm == nil {
+		return nil
+	}
+
+	return &VirtualMachine{
+		ID:         vm.ID,
+		Name:       vm.Name,
+		Hypervisor: vm.Hypervisor,
+	}
 }

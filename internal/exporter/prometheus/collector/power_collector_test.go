@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
 // MockPowerMonitor mocks the PowerMonitor for testing
@@ -101,10 +102,60 @@ func TestPowerCollector(t *testing.T) {
 		},
 	}
 
+	testProcesses := monitor.Processes{
+		123: {
+			PID:          123,
+			Comm:         "test-process",
+			Exe:          "/usr/bin/123",
+			Type:         resource.RegularProcess,
+			CPUTotalTime: 100,
+			Zones: monitor.ZoneUsageMap{
+				packageZone: {
+					Absolute: 100 * device.Joule,
+					Delta:    10 * device.Joule,
+					Power:    5 * device.Watt,
+				},
+			},
+		},
+	}
+
+	testContainers := monitor.Containers{
+		"abcd-efgh": {
+			ID:      "abcd-efgh",
+			Name:    "test-container",
+			Runtime: resource.PodmanRuntime,
+			Zones: monitor.ZoneUsageMap{
+				packageZone: {
+					Absolute: 100 * device.Joule,
+					Delta:    10 * device.Joule,
+					Power:    5 * device.Watt,
+				},
+			},
+		},
+	}
+
+	testVMs := monitor.VirtualMachines{
+		"abcd-efgh": {
+			ID:         "abcd-efgh",
+			Name:       "test-vm",
+			Hypervisor: resource.KVMHypervisor,
+			Zones: monitor.ZoneUsageMap{
+				packageZone: {
+					Absolute: 100 * device.Joule,
+					Delta:    10 * device.Joule,
+					Power:    5 * device.Watt,
+				},
+			},
+		},
+	}
+
 	// Create test Snapshot
 	testData := &monitor.Snapshot{
-		Timestamp: time.Now(),
-		Node:      &testNodeData,
+		Timestamp:       time.Now(),
+		Node:            &testNodeData,
+		Processes:       testProcesses,
+		Containers:      testContainers,
+		VirtualMachines: testVMs,
 	}
 
 	// Mock Snapshot method
@@ -132,6 +183,16 @@ func TestPowerCollector(t *testing.T) {
 		expectedMetricNames := []string{
 			"kepler_node_cpu_joules_total",
 			"kepler_node_cpu_watts",
+
+			"kepler_process_cpu_joules_total",
+			"kepler_process_cpu_watts",
+			"kepler_process_cpu_seconds_total",
+
+			"kepler_container_cpu_joules_total",
+			"kepler_container_cpu_watts",
+
+			"kepler_vm_cpu_joules_total",
+			"kepler_vm_cpu_watts",
 		}
 
 		assert.ElementsMatch(t, expectedMetricNames, metricNames(metrics))
