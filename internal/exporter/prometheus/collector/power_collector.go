@@ -148,21 +148,21 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 	defer c.mutex.RUnlock()
 
 	for zone, energy := range node.Zones {
-		name := zone.Name()
 		path := zone.Path()
+		zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUJoulesDescriptor,
 			prometheus.CounterValue,
 			energy.Absolute.Joules(),
-			name, path,
+			zoneName, path,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUWattsDescriptor,
 			prometheus.GaugeValue,
 			energy.Power.Watts(),
-			name, path,
+			zoneName, path,
 		)
 	}
 }
@@ -186,7 +186,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, proc
 		)
 
 		for zone, usage := range proc.Zones {
-			zoneName := zone.Name()
+			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 			ch <- prometheus.MustNewConstMetric(
 				c.processCPUJoulesDescriptor,
 				prometheus.CounterValue,
@@ -214,7 +214,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 	// No need to lock, already done by the calling function
 	for id, container := range containers {
 		for zone, usage := range container.Zones {
-			zoneName := zone.Name()
+			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 
 			ch <- prometheus.MustNewConstMetric(
 				c.containerCPUJoulesDescriptor,

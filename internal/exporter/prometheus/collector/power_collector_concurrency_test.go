@@ -164,11 +164,11 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				for _, mf := range metrics {
 					switch mf.GetName() {
 					case "kepler_node_cpu_joules_total":
-						assertMetricValue(t, mf, "package", nodePkgAbs.Joules())
-						assertMetricValue(t, mf, "dram", nodeDramAbs.Joules())
+						assertMetricValue(t, mf, "package-0", nodePkgAbs.Joules())
+						assertMetricValue(t, mf, "dram-0", nodeDramAbs.Joules())
 					case "kepler_node_cpu_watts":
-						assertMetricValue(t, mf, "package", nodePkgPower.Watts())
-						assertMetricValue(t, mf, "dram", nodeDramPower.Watts())
+						assertMetricValue(t, mf, "package-0", nodePkgPower.Watts())
+						assertMetricValue(t, mf, "dram-0", nodeDramPower.Watts())
 					}
 				}
 			}()
