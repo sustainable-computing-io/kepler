@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -129,6 +130,11 @@ func (ri *resourceInformer) Refresh() error {
 		// start by updating the process
 		proc, err := ri.updateProcessCache(p)
 		if err != nil {
+			if os.IsNotExist(err) {
+				ri.logger.Debug("Process not found", "pid", pid)
+				continue
+			}
+
 			ri.logger.Debug("Failed to get process info", "pid", pid, "error", err)
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
