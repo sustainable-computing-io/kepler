@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -228,7 +229,7 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	if cached, exists := ri.procCache[pid]; exists {
 		err := populateProcessFields(cached, proc)
-		return cached, err
+		return cached, ignoreDoesNotExistError(err)
 	}
 
 	newProc, err := newProcess(proc)
@@ -238,6 +239,14 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	ri.procCache[pid] = newProc
 	return newProc, nil
+}
+
+func ignoreDoesNotExistError(err error) error {
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	return err
 }
 
 func populateProcessFields(p *Process, proc procInfo) error {
@@ -286,7 +295,7 @@ func newProcess(proc procInfo) (*Process, error) {
 	}
 
 	if err := populateProcessFields(p, proc); err != nil {
-		return nil, err
+		return nil, ignoreDoesNotExistError(err)
 	}
 
 	return p, nil
