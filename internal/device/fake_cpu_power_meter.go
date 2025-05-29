@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"math/rand"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -16,13 +18,29 @@ import (
 type Zone = string
 
 const (
-	ZonePackage Zone = "package"
-	ZoneCore    Zone = "core"
-	ZoneDRAM    Zone = "dram"
-	ZoneUncore  Zone = "uncore"
+	// Two package machine with 4 cores each
+	ZonePackage0  Zone = "package-0"
+	ZonePkg0Core0 Zone = "core-0"
+	ZonePkg0Core1 Zone = "core-1"
+	ZonePkg0Core2 Zone = "core-2"
+	ZonePkg0Core3 Zone = "core-3"
+
+	ZonePackage1  Zone = "package-1"
+	ZonePkg1Core0 Zone = "core-0"
+	ZonePkg1Core1 Zone = "core-1"
+	ZonePkg1Core2 Zone = "core-2"
+	ZonePkg1Core3 Zone = "core-3"
+
+	ZoneDRAM   Zone = "dram"
+	ZoneUncore Zone = "uncore"
 )
 
-var defaultFakeZones = []Zone{ZonePackage, ZoneCore, ZoneDRAM}
+var defaultFakeZones = []Zone{
+	ZonePackage0, ZonePkg0Core0, ZonePkg0Core1, ZonePkg0Core2, ZonePkg0Core3,
+	ZonePackage1, ZonePkg1Core0, ZonePkg1Core1, ZonePkg1Core2, ZonePkg1Core3,
+	ZoneDRAM,
+	ZoneUncore,
+}
 
 const defaultRaplPath = "/sys/class/powercap/intel-rapl"
 
@@ -128,18 +146,34 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 	}
 
 	zoneIncrementFactor := map[Zone]int{
-		ZonePackage: 12,
-		ZoneCore:    8,
-		ZoneDRAM:    5,
-		ZoneUncore:  2,
+		ZonePackage0:  12,
+		ZonePkg0Core0: 8,
+		ZonePkg0Core1: 8,
+		ZonePkg0Core2: 8,
+		ZonePkg0Core3: 8,
+
+		ZonePackage1: 12,
+
+		ZoneDRAM:   5,
+		ZoneUncore: 2,
 	}
 
 	meter.zones = make([]EnergyZone, 0, len(zones))
 
-	for i, zoneName := range zones {
+	for _, zoneName := range zones {
+		name, indexStr, found := strings.Cut(zoneName, "-")
+		if !found {
+			indexStr = "0"
+		}
+
+		index, err := strconv.Atoi(indexStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid zone name: %s", zoneName)
+		}
+
 		meter.zones = append(meter.zones, &fakeEnergyZone{
-			name:         zoneName,
-			index:        i,
+			name:         name,
+			index:        index,
 			path:         filepath.Join(defaultRaplPath, fmt.Sprintf("energy_%s", zoneName)),
 			maxEnergy:    1000000,
 			increment:    Energy(100 + zoneIncrementFactor[zoneName]),
