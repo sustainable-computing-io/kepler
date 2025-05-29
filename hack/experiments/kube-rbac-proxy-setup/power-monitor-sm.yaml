@@ -5,7 +5,6 @@ metadata:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: power-monitor-exporter
     app.kubernetes.io/part-of: power-monitor
-    openshift.io/user-monitoring: true
   name: power-monitor
   namespace: power-monitor
 spec:
