@@ -113,6 +113,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	// Update the snapshot
 	newSnapshot.Processes = processMap
+	pm.logger.Debug("snapshot updated for process", "process", len(newSnapshot.Processes))
 
 	return nil
 }

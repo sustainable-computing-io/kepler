@@ -81,6 +81,9 @@ func (m *MockResourceInformer) SetExpectations(t *testing.T, tr *TestResource) {
 	if tr.VirtualMachines != nil {
 		m.On("VirtualMachines").Return(tr.VirtualMachines, nil)
 	}
+	if tr.Pods != nil {
+		m.On("Pods").Return(tr.Pods, nil)
+	}
 	t.Cleanup(func() {
 		m.ExpectedCalls = nil
 	})
@@ -119,6 +122,11 @@ func (m *MockResourceInformer) Containers() *resource.Containers {
 func (m *MockResourceInformer) VirtualMachines() *resource.VirtualMachines {
 	args := m.Called()
 	return args.Get(0).(*resource.VirtualMachines)
+}
+
+func (m *MockResourceInformer) Pods() *resource.Pods {
+	args := m.Called()
+	return args.Get(0).(*resource.Pods)
 }
 
 var _ resource.Informer = (*MockResourceInformer)(nil)
@@ -161,6 +169,7 @@ type TestResource struct {
 	Processes       *resource.Processes
 	Containers      *resource.Containers
 	VirtualMachines *resource.VirtualMachines
+	Pods            *resource.Pods
 }
 
 type resourceOpts struct {
@@ -178,6 +187,7 @@ const (
 	testProcesses
 	testContainers
 	testVMs
+	testPods
 )
 
 func createOnly(rs ...testResourceType) resOptFn {
@@ -187,6 +197,7 @@ func createOnly(rs ...testResourceType) resOptFn {
 			testProcesses:  true,
 			testContainers: true,
 			testVMs:        true,
+			testPods:       true,
 		}
 
 		for _, r := range rs {
@@ -237,11 +248,18 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 		Hypervisor: resource.KVMHypervisor,
 	}
 
+	pod1 := &resource.Pod{
+		ID:        "pod-id-1",
+		Name:      "pod-name-1",
+		Namespace: "namespace=1",
+	}
+
 	// Create containers
 	container1 := &resource.Container{
 		ID:      "container-1",
 		Name:    "test-container-1",
 		Runtime: resource.DockerRuntime,
+		Pod:     pod1,
 	}
 
 	container2 := &resource.Container{
@@ -339,7 +357,14 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 		},
 		Terminated: map[string]*resource.VirtualMachine{},
 	}
+	pod1.CPUTimeDelta = container1.CPUTimeDelta
 
+	pods := &resource.Pods{
+		Running: map[string]*resource.Pod{
+			pod1.ID: pod1,
+		},
+		Terminated: map[string]*resource.Pod{},
+	}
 	if opt.omit[testNode] {
 		node = nil
 	}
@@ -353,6 +378,9 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 	if opt.omit[testVMs] {
 		vms = nil
 	}
+	if opt.omit[testPods] {
+		pods = nil
+	}
 
-	return &TestResource{node, processes, containers, vms}
+	return &TestResource{node, processes, containers, vms, pods}
 }

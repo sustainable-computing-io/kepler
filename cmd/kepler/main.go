@@ -15,6 +15,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
@@ -126,10 +127,21 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
+	var services []service.Service
 
-	resouceInformer, err := resource.NewInformer(
+	var podInformer pod.Informer
+	if *cfg.Kube.Enabled {
+		podInformer = pod.NewInformer(
+			pod.WithLogger(logger),
+			pod.WithKubeConfig(cfg.Kube.Config),
+			pod.WithNodeName(cfg.Kube.Node),
+		)
+		services = append(services, podInformer)
+	}
+	resourceInformer, err := resource.NewInformer(
 		resource.WithLogger(logger),
 		resource.WithProcFSPath(cfg.Host.ProcFS),
+		resource.WithPodInformer(podInformer),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource informer: %w", err)
@@ -138,7 +150,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	pm := monitor.NewPowerMonitor(
 		cpuPowerMeter,
 		monitor.WithLogger(logger),
-		monitor.WithResourceInformer(resouceInformer),
+		monitor.WithResourceInformer(resourceInformer),
 		monitor.WithInterval(cfg.Monitor.Interval),
 		monitor.WithMaxStaleness(cfg.Monitor.Staleness),
 	)
@@ -147,12 +159,12 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		server.WithLogger(logger),
 	)
 
-	services := []service.Service{
+	services = append(services,
+		resourceInformer,
 		cpuPowerMeter,
-		resouceInformer,
 		apiServer,
 		pm,
-	}
+	)
 
 	// Add Prometheus exporter if enabled
 	if *cfg.Exporter.Prometheus.Enabled {
