@@ -3,8 +3,8 @@ module github.com/sustainable-computing-io/kepler
 go 1.22
 
 require (
+	dario.cat/mergo v1.0.2
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/imdario/mergo v0.3.6
 	github.com/oklog/run v1.1.0
 	github.com/olekukonko/tablewriter v1.0.5
 	github.com/prometheus/client_golang v1.22.0

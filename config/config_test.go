@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/utils/ptr"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -105,11 +106,11 @@ debug:
 	assert.NoError(t, err)
 
 	// Verify that command line arguments take precedence
-	assert.True(t, cfg.Exporter.Stdout.Enabled, "stdout exporter should be enabled from flag")
-	assert.False(t, cfg.Exporter.Prometheus.Enabled, "prometheus exporter should remain disabled from yaml")
+	assert.True(t, *cfg.Exporter.Stdout.Enabled, "stdout exporter should be enabled from flag")
+	assert.False(t, *cfg.Exporter.Prometheus.Enabled, "prometheus exporter should remain disabled from yaml")
 	assert.ElementsMatch(t, []string{"go"}, cfg.Exporter.Prometheus.DebugCollectors,
 		"debug collectors should be overridden by flag")
-	assert.True(t, cfg.Debug.Pprof.Enabled, "pprof should be enabled from flag")
+	assert.True(t, *cfg.Debug.Pprof.Enabled, "pprof should be enabled from flag")
 }
 
 func TestPartialConfig(t *testing.T) {
@@ -444,7 +445,7 @@ func TestEnablePprof(t *testing.T) {
 			cfg := DefaultConfig()
 			err := updateConfig(cfg)
 			assert.NoError(t, err, "unexpected config update error")
-			assert.Equal(t, cfg.Debug.Pprof.Enabled, tc.enabled, "unexpected flag value")
+			assert.Equal(t, *cfg.Debug.Pprof.Enabled, tc.enabled, "unexpected flag value")
 		})
 	}
 }
@@ -521,7 +522,7 @@ func TestStdoutExporter(t *testing.T) {
 			cfg := DefaultConfig()
 			err := updateConfig(cfg)
 			assert.NoError(t, err, "unexpected config update error")
-			assert.Equal(t, cfg.Exporter.Stdout.Enabled, tc.enabled, "unexpected flag value")
+			assert.Equal(t, *cfg.Exporter.Stdout.Enabled, tc.enabled, "unexpected flag value")
 		})
 	}
 }
@@ -554,7 +555,7 @@ func TestPrometheusExporter(t *testing.T) {
 			cfg := DefaultConfig()
 			err := updateConfig(cfg)
 			assert.NoError(t, err, "unexpected config update error")
-			assert.Equal(t, cfg.Exporter.Prometheus.Enabled, tc.enabled, "unexpected flag value")
+			assert.Equal(t, *cfg.Exporter.Prometheus.Enabled, tc.enabled, "unexpected flag value")
 		})
 	}
 }
@@ -661,12 +662,12 @@ func TestConfigDefault(t *testing.T) {
 	cfg := DefaultConfig()
 
 	// Check default exporter config
-	assert.False(t, cfg.Exporter.Stdout.Enabled, "stdout exporter should be disabled by default")
-	assert.True(t, cfg.Exporter.Prometheus.Enabled, "prometheus exporter should be enabled by default")
+	assert.False(t, *cfg.Exporter.Stdout.Enabled, "stdout exporter should be disabled by default")
+	assert.True(t, *cfg.Exporter.Prometheus.Enabled, "prometheus exporter should be enabled by default")
 	assert.Equal(t, []string{"go"}, cfg.Exporter.Prometheus.DebugCollectors, "default debug collectors should be set")
 
 	// Check default debug config
-	assert.False(t, cfg.Debug.Pprof.Enabled, "pprof should be disabled by default")
+	assert.False(t, *cfg.Debug.Pprof.Enabled, "pprof should be disabled by default")
 }
 
 func TestConifgLoadFromYaml(t *testing.T) {
@@ -691,295 +692,96 @@ debug:
 	assert.NoError(t, err)
 
 	// Verify exporter config
-	assert.True(t, cfg.Exporter.Stdout.Enabled, "stdout exporter should be enabled")
-	assert.True(t, cfg.Exporter.Prometheus.Enabled, "prometheus exporter should be enabled")
+	assert.True(t, *cfg.Exporter.Stdout.Enabled, "stdout exporter should be enabled")
+	assert.True(t, *cfg.Exporter.Prometheus.Enabled, "prometheus exporter should be enabled")
 	assert.ElementsMatch(t, []string{"go", "process"}, cfg.Exporter.Prometheus.DebugCollectors,
 		"debug collectors should match")
 
 	// Verify debug config
-	assert.True(t, cfg.Debug.Pprof.Enabled, "pprof should be enabled")
+	assert.True(t, *cfg.Debug.Pprof.Enabled, "pprof should be enabled")
 }
 
-func TestConfigMerge(t *testing.T) {
-	tt := []struct {
-		name          string
-		defaultCfg    *Config
-		additionalCfg *Config
-		expectedCfg   *Config
-	}{
-		{
-			name: "merge with empty additional config",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			additionalCfg: &Config{},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-		},
-		{
-			name: "merge with additional config",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			additionalCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "json",
-				},
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "json",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-		},
-		{
-			name: "merge with partial additional config",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			additionalCfg: &Config{
-				Log: Log{
-					Level: "debug",
-				},
-				Host: Host{
-					SysFS: "/custom/sys",
-				},
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/custom/sys",
-					ProcFS: "/proc",
-				},
-			},
-		},
-	}
+func TestBuilder(t *testing.T) {
+	t.Run("Build", func(t *testing.T) {
+		// Test Build should return default config
+		b := &Builder{}
+		got, err := b.Build()
+		assert.NoError(t, err)
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			err := tc.defaultCfg.merge(tc.additionalCfg)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedCfg.Log.Level, tc.defaultCfg.Log.Level)
-			assert.Equal(t, tc.expectedCfg.Log.Format, tc.defaultCfg.Log.Format)
-			assert.Equal(t, tc.expectedCfg.Host.SysFS, tc.defaultCfg.Host.SysFS)
-			assert.Equal(t, tc.expectedCfg.Host.ProcFS, tc.defaultCfg.Host.ProcFS)
-		})
-	}
-}
+		exp := DefaultConfig()
+		assert.Equal(t, exp.String(), got.String())
+	})
 
-func TestMergeAdditionalConfigs(t *testing.T) {
-	tt := []struct {
-		name        string
-		defaultCfg  *Config
-		additional  []string
-		expectedCfg *Config
-		hasError    bool
-	}{
-		{
-			name: "merge empty additional configs",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-			},
-			additional: []string{},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: false,
-		},
-		{
-			name: "merge one valid config",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-			},
-			additional: []string{`
+	t.Run("Use", func(t *testing.T) {
+		b := &Builder{}
+		exp := DefaultConfig()
+		exp.Log.Level = "warn"
+
+		got, err := b.Use(exp).Build()
+		assert.NoError(t, err)
+		assert.Equal(t, exp.String(), got.String())
+	})
+
+	t.Run("MergeWithInvalidYAML", func(t *testing.T) {
+		b := &Builder{}
+		cfg, err := b.Merge().
+			Merge(`invalid yaml: [invalid`).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse YAML")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("MultipleMerges", func(t *testing.T) {
+		b := &Builder{}
+		cfg, err := b.
+			Merge(`
 log:
   level: debug
-`},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: false,
-		},
-		{
-			name: "merge multiple valid configs",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			additional: []string{
-				`log:
-  level: debug`,
-				`host:
-  sysfs: /custom/sys`,
-				`log:
-  format: json`,
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "json",
-				},
-				Host: Host{
-					SysFS:  "/custom/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: false,
-		},
-		{
-			name: "merge with one invalid config",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-			},
-			additional: []string{
-				`log:
-  level: debug`,
-				`{[invalid]yaml}`,
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "debug",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: true,
-		},
-		{
-			name: "merge with empty string",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-			},
-			additional: []string{
-				"",
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: false,
-		},
-		{
-			name: "merge with whitespace-only string",
-			defaultCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-			},
-			additional: []string{
-				"   \t\n   ",
-			},
-			expectedCfg: &Config{
-				Log: Log{
-					Level:  "info",
-					Format: "text",
-				},
-				Host: Host{
-					SysFS:  "/sys",
-					ProcFS: "/proc",
-				},
-			},
-			hasError: false,
-		},
-	}
+`,
+				`
+monitor:
+  interval: 3h
+`,
+				`
+log:
+  level: info
+`).
+			Build()
+		assert.NoError(t, err)
+		exp := DefaultConfig()
+		exp.Log.Level = "info"
+		exp.Monitor.Interval = 3 * time.Hour
+		assert.Equal(t, exp.String(), cfg.String())
+	})
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			defaultCfg := DefaultConfig()
-			err := MergeAdditionalConfigs(defaultCfg, tc.additional...)
+	t.Run("MergeNested", func(t *testing.T) {
+		b := &Builder{}
+		cfg, err := b.
+			Merge(`
+exporter:
+  prometheus:
+    enabled: false
+`).
+			Build()
+		assert.NoError(t, err)
+		exp := DefaultConfig()
+		exp.Exporter.Prometheus.Enabled = ptr.To(false)
+		assert.Equal(t, exp.String(), cfg.String())
+	})
 
-			if tc.hasError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "failed to merge additional config")
-				return
-			}
-
-			assert.NoError(t, err)
-
-			assert.Equal(t, tc.expectedCfg.Log.Level, defaultCfg.Log.Level)
-			assert.Equal(t, tc.expectedCfg.Log.Format, defaultCfg.Log.Format)
-			assert.Equal(t, tc.expectedCfg.Host.SysFS, defaultCfg.Host.SysFS)
-			assert.Equal(t, tc.expectedCfg.Host.ProcFS, defaultCfg.Host.ProcFS)
-		})
-	}
+	t.Run("MergeArrays", func(t *testing.T) {
+		b := &Builder{}
+		cfg, err := b.
+			Merge(`
+exporter:
+  prometheus:
+    debugCollectors: ["go", "process"]
+`).
+			Build()
+		assert.NoError(t, err)
+		exp := DefaultConfig()
+		exp.Exporter.Prometheus.DebugCollectors = []string{"go", "process"}
+		assert.Equal(t, exp.String(), cfg.String())
+	})
 }
