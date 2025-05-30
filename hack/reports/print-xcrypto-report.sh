@@ -25,8 +25,9 @@ print_help() {
 }
 
 generate_dependency_report() {
-	git worktree add "$tmp_base_ref" "$BASE_REF"
-	git worktree add "$tmp_head_sha" "$HEAD_SHA"
+	git archive "$BASE_REF" | tar -x -C "$tmp_base_ref"
+	git archive "$HEAD_SHA" | tar -x -C "$tmp_head_sha"
+
 	echo "$tmp_base_ref"
 	(
 		cd "$tmp_base_ref"
@@ -119,8 +120,6 @@ parse_args() {
 }
 
 cleanup() {
-	git worktree remove --force "$tmp_base_ref" 2>/dev/null || true
-	git worktree remove --force "$tmp_head_sha" 2>/dev/null || true
 	rm -rf "$tmp_base_ref" "$tmp_head_sha"
 }
 
