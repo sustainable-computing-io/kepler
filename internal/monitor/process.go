@@ -46,7 +46,7 @@ func newProcess(proc *resource.Process, zones ZoneUsageMap) *Process {
 		process.ContainerID = proc.Container.ID
 	}
 
-	// Add the container ID if available
+	// Add the VM ID if available
 	if proc.VirtualMachine != nil {
 		process.VirtualMachineID = proc.VirtualMachine.ID
 	}

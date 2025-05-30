@@ -51,7 +51,6 @@ func (pm *PowerMonitor) firstVMRead(snapshot *Snapshot) error {
 func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 	vms := pm.resources.VirtualMachines()
 
-	// Skip if no containers
 	if len(vms.Running) == 0 {
 		pm.logger.Debug("No running VM found, skipping power calculation")
 		return nil
@@ -66,23 +65,20 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 	vmMap := make(VirtualMachines, len(vms.Running))
 
 	// For each VM, calculate power for each zone separately
-	for id, c := range vms.Running {
-		// Create VM power entry with empty zones map
-		vm := &VirtualMachine{
+	for id, vm := range vms.Running {
+		newVM := &VirtualMachine{
 			ID:           id,
-			Name:         c.Name,
-			Hypervisor:   c.Hypervisor,
-			CPUTotalTime: c.CPUTotalTime,
+			Name:         vm.Name,
+			Hypervisor:   vm.Hypervisor,
+			CPUTotalTime: vm.CPUTotalTime,
 			Zones:        make(ZoneUsageMap),
 		}
-
-		// Calculate CPU time ratio for this VM
 
 		// For each zone in the node, calculate VM's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || vms.NodeCPUTimeDelta == 0 {
-				vm.Zones[zone] = &Usage{
+				newVM.Zones[zone] = &Usage{
 					Power:    Power(0),
 					Delta:    Energy(0),
 					Absolute: Energy(0),
@@ -90,9 +86,9 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 				continue
 			}
 
-			cpuTimeRatio := c.CPUTimeDelta / vms.NodeCPUTimeDelta
 			// Calculate VM's share of this zone's power and energy
-			vm.Zones[zone] = &Usage{
+			cpuTimeRatio := vm.CPUTimeDelta / vms.NodeCPUTimeDelta
+			newVM.Zones[zone] = &Usage{
 				Power: Power(cpuTimeRatio * nodeZoneUsage.Power.MicroWatts()),
 				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.Delta)),
 			}
@@ -100,18 +96,18 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 			// If we have previous data for this VM and zone, add to absolute energy
 			if prev, exists := prev.VirtualMachines[id]; exists {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					vm.Zones[zone].Absolute = prevUsage.Absolute + vm.Zones[zone].Delta
+					newVM.Zones[zone].Absolute = prevUsage.Absolute + newVM.Zones[zone].Delta
 				} else {
 					// TODO: unlikely; so add telemetry for this
-					vm.Zones[zone].Absolute = vm.Zones[zone].Delta
+					newVM.Zones[zone].Absolute = newVM.Zones[zone].Delta
 				}
 			} else {
 				// New VM, starts with delta
-				vm.Zones[zone].Absolute = vm.Zones[zone].Delta
+				newVM.Zones[zone].Absolute = newVM.Zones[zone].Delta
 			}
 		}
 
-		vmMap[id] = vm
+		vmMap[id] = newVM
 	}
 
 	newSnapshot.VirtualMachines = vmMap

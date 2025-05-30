@@ -56,7 +56,6 @@ type Process struct {
 
 	CPUTotalTime float64 // CPU time in seconds
 
-	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
 
 	ContainerID      string // empty if not a container
@@ -91,7 +90,6 @@ type Container struct {
 
 	CPUTotalTime float64 // CPU time in seconds
 
-	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
 }
 
@@ -110,7 +108,7 @@ func (c *Container) Clone() *Container {
 
 type Hypervisor = resource.Hypervisor
 
-// Container represents the power consumption of a container
+// VirtualMachine represents the power consumption of a VM
 type VirtualMachine struct {
 	ID   string // VM ID
 	Name string // VM name
@@ -119,7 +117,6 @@ type VirtualMachine struct {
 
 	CPUTotalTime float64 // CPU time in seconds
 
-	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
 }
 
