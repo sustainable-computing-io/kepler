@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"k8s.io/utils/clock"
 )
@@ -37,7 +38,14 @@ type VirtualMachines struct {
 	Terminated map[string]*VirtualMachine
 }
 
-// Informer provides the interface for accessing process and container information
+type Pods struct {
+	NodeCPUTimeDelta float64
+	Running          map[string]*Pod
+	Terminated       map[string]*Pod
+	ContainersNoPod  []string
+}
+
+// Informer provides the interface for accessing process, container, virtual machine, and pod information
 type Informer interface {
 	service.Initializer
 	// Refresh updates the internal state
@@ -49,8 +57,12 @@ type Informer interface {
 	Processes() *Processes
 	// Containers returns the current running and terminated containers
 	Containers() *Containers
+
 	// VirtualMachines returns the current running and terminated VMs
 	VirtualMachines() *VirtualMachines
+
+	// Pods returns the current running and terminated pods
+	Pods() *Pods
 }
 
 // resourceInformer is the default implementation of the resource tracking service
@@ -72,6 +84,11 @@ type resourceInformer struct {
 	// VM tracking
 	vmCache map[string]*VirtualMachine
 	vms     *VirtualMachines
+
+	// pod tracking
+	podInformer pod.Informer
+	podCache    map[string]*Pod
+	pods        *Pods
 
 	lastScanTime time.Time // Time of the last full scan
 }
@@ -121,6 +138,13 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 			Running:    make(map[string]*VirtualMachine),
 			Terminated: make(map[string]*VirtualMachine),
 		},
+
+		podInformer: opt.podInformer,
+		podCache:    make(map[string]*Pod),
+		pods: &Pods{
+			Running:    make(map[string]*Pod),
+			Terminated: make(map[string]*Pod),
+		},
 	}, nil
 }
 
@@ -151,6 +175,7 @@ func (ri *resourceInformer) Refresh() error {
 	procsRunning := make(map[int]*Process, len(procs))
 	containersRunning := make(map[string]*Container)
 	vmsRunning := make(map[string]*VirtualMachine)
+	podsRunning := make(map[string]*Pod)
 
 	// Refresh process cache and update running processes
 	var refreshErrs error
@@ -185,7 +210,33 @@ func (ri *resourceInformer) Refresh() error {
 		}
 
 	}
-	// Node
+
+	containersNoPod := []string{}
+	if ri.podInformer != nil {
+		for _, container := range containersRunning {
+			podInfo, err := ri.podInformer.PodInfo(container.ID)
+			if err != nil {
+				if errors.Is(err, pod.ErrNotFound) {
+					containersNoPod = append(containersNoPod, container.ID)
+				} else {
+					ri.logger.Debug("Failed to get pod for container", "container", container.ID, "error", err)
+					refreshErrs = errors.Join(refreshErrs, err)
+				}
+				continue
+			}
+			pod := &Pod{
+				ID:        podInfo.ID,
+				Name:      podInfo.Name,
+				Namespace: podInfo.Namespace,
+			}
+			container.Pod = pod
+			_, seen := podsRunning[pod.ID]
+			// reset CPU Time of the pod if it is getting added to the running list for the first time
+			// in the subsequent iteration, the CPUTimeDelta should be incremented by container's CPUTimeDelta
+			resetCPUTime := !seen
+			podsRunning[pod.ID] = ri.updatePodCache(container, resetCPUTime)
+		}
+	}
 
 	// Find terminated processes
 	procCPUDeltaTotal := float64(0)
@@ -199,6 +250,7 @@ func (ri *resourceInformer) Refresh() error {
 		delete(ri.procCache, pid)
 	}
 
+	// Node
 	usage, err := ri.fs.CPUUsageRatio()
 	if err != nil {
 		return fmt.Errorf("failed to get procfs usage: %w", err)
@@ -221,6 +273,7 @@ func (ri *resourceInformer) Refresh() error {
 		containersTerminated[id] = container
 		delete(ri.containerCache, id)
 	}
+
 	ri.containers.Running = containersRunning
 	ri.containers.Terminated = containersTerminated
 
@@ -237,6 +290,23 @@ func (ri *resourceInformer) Refresh() error {
 	ri.vms.Running = vmsRunning
 	ri.vms.Terminated = vmsTerminated
 
+	// Find terminated pods
+	totalPodsDelta := float64(0)
+	podsTerminated := make(map[string]*Pod)
+	for id, pod := range ri.podCache {
+		if _, isRunning := podsRunning[id]; isRunning {
+			totalPodsDelta += pod.CPUTimeDelta
+			continue
+		}
+		podsTerminated[id] = pod
+		delete(ri.podCache, id)
+	}
+
+	ri.pods.NodeCPUTimeDelta = nodeCPUDelta
+	ri.pods.Running = podsRunning
+	ri.pods.Terminated = podsTerminated
+	ri.pods.ContainersNoPod = containersNoPod
+
 	now := ri.clock.Now()
 	ri.lastScanTime = now
 	duration := now.Sub(started)
@@ -248,6 +318,9 @@ func (ri *resourceInformer) Refresh() error {
 		"container.terminated", len(containersTerminated),
 		"vm.running", len(vmsRunning),
 		"vm.terminated", len(vmsTerminated),
+		"pod.running", len(podsRunning),
+		"pod.terminated", len(podsTerminated),
+		"container.no-pod", len(containersNoPod),
 		"duration", duration)
 
 	return refreshErrs
@@ -267,6 +340,10 @@ func (ri *resourceInformer) Containers() *Containers {
 
 func (ri *resourceInformer) VirtualMachines() *VirtualMachines {
 	return ri.vms
+}
+
+func (ri *resourceInformer) Pods() *Pods {
+	return ri.pods
 }
 
 // Add VM cache update method
@@ -328,7 +405,27 @@ func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime boo
 	return cached
 }
 
-// Update populateProcessFields to handle process types
+func (ri *resourceInformer) updatePodCache(container *Container, resetCPUTime bool) *Pod {
+	p := container.Pod
+	if p == nil {
+		return nil
+	}
+	cached, exists := ri.podCache[p.ID]
+	if !exists {
+		cached = p.Clone()
+		ri.podCache[p.ID] = cached
+	}
+
+	if resetCPUTime {
+		cached.CPUTimeDelta = 0
+	}
+
+	cached.CPUTimeDelta += container.CPUTimeDelta
+	cached.CPUTotalTime += container.CPUTotalTime
+
+	return cached
+}
+
 func populateProcessFields(p *Process, proc procInfo) error {
 	cpuTotalTime, err := proc.CPUTime()
 	if err != nil {

@@ -118,6 +118,7 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 
 	// Update the snapshot
 	newSnapshot.Containers = containerMap
+	pm.logger.Debug("snapshot updated for containers", "containers", len(newSnapshot.Containers))
 
 	return nil
 }

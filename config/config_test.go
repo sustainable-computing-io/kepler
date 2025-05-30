@@ -291,6 +291,31 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			},
 		},
 		error: "invalid web config file",
+	}, {
+		name: "unreadable kubeconfig",
+		config: &Config{
+			Kube: Kube{
+				Config:  "/non/existent/file",
+				Enabled: ptr.To(true),
+			},
+		},
+		error: "unreadable kubeconfig",
+	}, {
+		name: "kube not enabled, kubeconfig supplied",
+		config: &Config{
+			Kube: Kube{
+				Config: "/some/existing/file",
+			},
+		},
+		error: "kube.config supplied but kube.enable set to false",
+	}, {
+		name: "kube not enabled, nodeName supplied",
+		config: &Config{
+			Kube: Kube{
+				Node: "dummyNode",
+			},
+		},
+		error: "kube.node-name supplied but kube.enable set to false",
 	}}
 
 	// test yaml marshall
