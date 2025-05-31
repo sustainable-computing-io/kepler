@@ -11,14 +11,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5.4.0
-      with:
-        go-version-file: go.mod
-
     - name: Analyze crypto dependencies
       shell: bash
       run: ./hack/reports/print-xcrypto-report.sh --base-ref ${{ inputs.base_ref }} --head-sha ${{ inputs.head_sha }}
