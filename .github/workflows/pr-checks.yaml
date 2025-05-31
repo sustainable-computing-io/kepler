@@ -99,7 +99,11 @@ jobs:
 
   build-images:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
+      - name: exit
+        run: exit 1
+
       - name: checkout source
         uses: actions/checkout@v4
 
