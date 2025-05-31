@@ -24,7 +24,6 @@ import (
 )
 
 func main() {
-	// parse args and config and exit with error if there is an error
 	cfg, err := parseArgsAndConfig()
 	if err != nil {
 		os.Exit(1)
