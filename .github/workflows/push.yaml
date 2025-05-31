@@ -5,10 +5,8 @@ on: # yamllint disable-line rule:truthy
     branches: [reboot]
 
 jobs:
-  codecov-upload:
-    uses: ./.github/workflows/codecov-upload.yaml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  test-and-codecov:
+    uses: ./.github/workflows/test-and-codecov.yaml
 
   publish:
     needs: [codecov-upload]

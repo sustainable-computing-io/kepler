@@ -78,12 +78,10 @@ jobs:
         shell: bash
         run: make vet && git diff --exit-code
 
-  codecov-upload:
+  test-and-codecov:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
-    uses: ./.github/workflows/codecov-upload.yaml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    uses: ./.github/workflows/test-and-codecov.yaml
 
   pre-commit:
     runs-on: ubuntu-latest
