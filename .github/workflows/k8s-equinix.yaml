@@ -21,7 +21,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-
       - name: Create Equinix runner
         uses: ./.github/create-equinix-runner
         with:
