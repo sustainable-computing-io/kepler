@@ -1,0 +1,45 @@
+name: Test and Upload Coverage
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests and generate coverage
+        shell: bash
+        run: make test
+
+      - name: Upload coverage report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out # The file name of the coverage report should be same as what make target uses
+
+  coverage-upload:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download coverage report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5.4.0
+        with:
+          fail_ci_if_error: true
+          files: ./coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
