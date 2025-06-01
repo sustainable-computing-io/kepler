@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -78,17 +79,65 @@ func containerInfoFromProc(proc procInfo) (*Container, error) {
 	return c, nil
 }
 
-// containerInfoFromCgroupPaths looks for container IDs in cgroup paths
+// matchResult stores information about a successful regex match.
+type matchResult struct {
+	Runtime  ContainerRuntime
+	ID       string
+	StartIdx int // The starting index of the match in the original string
+	MatchLen int // The length of the overall matched string
+}
+
+// containerInfoFromCgroupPaths iterates through cgroup paths, finds all possible matches,
+// and selects the "deepest" match (i.e., the one that starts latest in the string).
 func containerInfoFromCgroupPaths(paths []string) (ContainerRuntime, string) {
+	var bestMatch *matchResult
+
 	for _, path := range paths {
+		var currentPathMatches []matchResult
+
+		// Find all matches for the current path
 		for pattern, runtime := range containerPatterns {
-			if matches := pattern.FindStringSubmatch(path); len(matches) > 1 {
-				return runtime, matches[1]
+			// FindAllStringSubmatchIndex returns all successive matches of the expression,
+			// returning the start and end indices of the match and its subexpressions.
+			matches := pattern.FindAllStringSubmatchIndex(path, -1)
+			if len(matches) > 0 {
+				for _, match := range matches {
+					// match[0] is start index of overall match, match[1] is end index of overall match
+					// match[2] is start index of first capturing group, match[3] is end index of first capturing group
+					if len(match) >= 4 { // Ensure there's a capturing group
+						id := path[match[2]:match[3]]
+						currentPathMatches = append(currentPathMatches, matchResult{
+							Runtime:  runtime,
+							ID:       id,
+							StartIdx: match[0],
+							MatchLen: match[1] - match[0],
+						})
+					}
+				}
+			}
+		}
+
+		// If multiple matches are found for the current path, pick the "deepest" one.
+		// "Deepest" is defined as the match with the highest starting index.
+		if len(currentPathMatches) > 0 {
+			sort.Slice(currentPathMatches, func(i, j int) bool {
+				// Sort by StartIdx in descending order to get the deepest match first.
+				return currentPathMatches[i].StartIdx > currentPathMatches[j].StartIdx
+			})
+
+			// The first element after sorting will be the deepest match for this path.
+			// Compare it with the overall bestMatch found so far across all paths.
+			if bestMatch == nil || currentPathMatches[0].StartIdx > bestMatch.StartIdx {
+				bestMatch = &currentPathMatches[0]
 			}
 		}
 	}
 
-	return UnknownRuntime, ""
+	if bestMatch != nil {
+		return bestMatch.Runtime, bestMatch.ID
+	}
+
+	return UnknownRuntime, "" // No match found
 }
 
 // containerNameFromEnv extracts container metadata from environment variables
