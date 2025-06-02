@@ -13,6 +13,8 @@ jobs:
         kube_provider: [kind]
     env:
       CTR_CMD: docker
+      PROMETHEUS_ENABLE: false
+      GRAFANA_ENABLE: false
     steps:
       - uses: actions/checkout@v4
       - name: local cluster set up

@@ -43,7 +43,7 @@ jobs:
           metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
           metro: da
           plan: c3.small.x86
-          os: ubuntu_20_04
+          os: ubuntu_22_04
           organization: sustainable-computing-io
 
   test-mock-acpi:
