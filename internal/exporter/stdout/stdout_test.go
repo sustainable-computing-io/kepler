@@ -116,11 +116,13 @@ func TestExporter_InitRunShotdown(t *testing.T) {
 		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(1*time.Second))
 		err := exporter.Init()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		go exporter.Run(ctx)
+		go func() {
+			_ = exporter.Run(ctx)
+		}()
 		assert.NoError(t, err)
 		time.Sleep(2 * time.Second)
 		cancel()
-		exporter.Shutdown()
+		assert.NoError(t, exporter.Shutdown())
 		mockMonitor.AssertExpectations(t)
 	})
 }

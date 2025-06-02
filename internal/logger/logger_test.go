@@ -82,7 +82,7 @@ func TestSetupLogger(t *testing.T) {
 			logger.Info("test message", "key", "value")
 
 			// Restore stdout
-			w.Close()
+			assert.NoError(t, w.Close())
 			os.Stderr = stderrOrig
 
 			// read stdout to string

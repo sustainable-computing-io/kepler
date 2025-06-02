@@ -137,18 +137,17 @@ func writeNode(out io.Writer, node *monitor.Node) {
 		cfg.Row.Formatting.Alignment = tw.AlignRight
 	})
 	table.Header([]string{"Zone", "Delta(W)", "Power(W)", "Absolute(J)"})
-	table.Bulk(rows)
+	_ = table.Bulk(rows)
 	// removed because testcase gets a trailing whitespace which fails CI
 	// table.Caption(tw.Caption{
 	// 	Text: "Kepler Node Power",
 	// 	Spot: tw.SpotTopLeft,
 	// })
-	table.Render()
+	_ = table.Render()
 }
 
 func (e *Exporter) Shutdown() error {
-	e.out.Close()
-	return nil
+	return e.out.Close()
 }
 
 // Name implements service.Name

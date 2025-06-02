@@ -163,7 +163,9 @@ log:
 `
 	tmpfile, err := os.CreateTemp("", "config-*.yaml")
 	assert.NoError(t, err)
-	defer os.Remove(tmpfile.Name())
+	defer func() {
+		_ = os.Remove(tmpfile.Name())
+	}()
 
 	_, err = tmpfile.Write([]byte(yamlData))
 	assert.NoError(t, err)
@@ -473,7 +475,6 @@ func TestWebConfig(t *testing.T) {
 	t.Run("valid web config", func(t *testing.T) {
 		tempWebConfig, err := os.CreateTemp("", "temp_*web.yml")
 		assert.NoError(t, err, "cannot create temp file")
-		defer os.Remove(tempWebConfig.Name())
 		webConfig := `
 tls_server_config:
   cert_file: cert.pem
@@ -491,6 +492,7 @@ tls_server_config:
 		err = updateConfig(cfg)
 		assert.NoError(t, err, "expected config update error")
 		assert.Equal(t, cfg.Web.Config, tempWebConfig.Name(), "unexpected config update")
+		_ = os.Remove(tempWebConfig.Name())
 	})
 }
 
