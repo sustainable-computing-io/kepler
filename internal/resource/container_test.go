@@ -64,6 +64,12 @@ func TestContainerInfoFromCgroups(t *testing.T) {
 			"/docker-ce82d94d69e1fbbc7feeb66930c69e9b96d9f151f594773e5d0e342741d15437",
 		},
 		expected: expect{id: "ce82d94d69e1fbbc7feeb66930c69e9b96d9f151f594773e5d0e342741d15437", runtime: DockerRuntime},
+	}, {
+		name: "Nested containers in same cgroup path (in kind cluster)",
+		cgroups: []string{
+			"0::/system.slice/docker-fd9d0ea06257a9780827cbc7fd92e3812a54fca26d63e191b73610d5d48b9cbd.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-podeab5a334_93fe_48a8_b139_9e8079c1f163.slice/cri-containerd-99f3a16ea25b7724cb56a4f0c0df1113ad9474fbf5545bead97fd5c7f61c13f4.scope",
+		},
+		expected: expect{id: "99f3a16ea25b7724cb56a4f0c0df1113ad9474fbf5545bead97fd5c7f61c13f4", runtime: ContainerDRuntime},
 	}}
 
 	for _, tc := range tt {
