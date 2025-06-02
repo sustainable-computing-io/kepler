@@ -1,6 +1,8 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.22
+go 1.23
+
+toolchain go1.23.3
 
 require (
 	dario.cat/mergo v1.0.2
