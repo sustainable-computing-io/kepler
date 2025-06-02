@@ -1,8 +1,9 @@
 name: Check x/crypto
 
 on:
-  pull_request_target:
-    branches: [reboot]
+  workflow_dispatch:
+  # pull_request_target:
+  #   branches: [reboot]
 
 jobs:
   check-x-crypto-deps:
