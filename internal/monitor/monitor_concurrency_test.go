@@ -488,7 +488,9 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 		// run in background
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		go monitor.Run(ctx)
+		go func() {
+			_ = monitor.Run(ctx)
+		}()
 
 		// wait for monitor to startt
 		time.Sleep(10 * time.Millisecond)

@@ -182,9 +182,17 @@ func FromFile(filePath string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
-	defer file.Close()
+	var errRet error
+	defer func() {
+		err = file.Close()
+		if err != nil && errRet == nil {
+			errRet = err
+		}
+	}()
 
-	return Load(file)
+	cfg, errRet := Load(file)
+
+	return cfg, errRet
 }
 
 type ConfigUpdaterFn func(*Config) error
