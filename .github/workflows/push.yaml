@@ -7,9 +7,10 @@ on: # yamllint disable-line rule:truthy
 jobs:
   test-and-codecov:
     uses: ./.github/workflows/test-and-codecov.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish:
-    needs: [codecov-upload]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source

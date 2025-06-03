@@ -2,6 +2,10 @@ name: Test and Upload Coverage
 
 on:
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        description: Codecov token
+        required: true
 
 jobs:
   test:

@@ -82,6 +82,8 @@ jobs:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
     uses: ./.github/workflows/test-and-codecov.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   pre-commit:
     runs-on: ubuntu-latest
