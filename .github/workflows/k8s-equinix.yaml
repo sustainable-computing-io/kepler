@@ -141,6 +141,12 @@ jobs:
 
           for metric in kepler_process_cpu_watts \
             kepler_node_cpu_info \
+            kepler_node_cpu_watts \
+            kepler_node_cpu_joules_total \
+            kepler_node_cpu_active_joules_total \
+            kepler_node_cpu_idle_joules_total \
+            kepler_node_cpu_active_watts \
+            kepler_node_cpu_idle_watts \
             kepler_process_cpu_joules_total \
             kepler_container_cpu_joules_total \
             kepler_container_cpu_watts; do
