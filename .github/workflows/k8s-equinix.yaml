@@ -1,7 +1,7 @@
 name: Build and Deploy K8s on Equinix
 
 on: #yamllint disable-line rule:truthy
-  pull_request:
+  pull_request_target:
     branches: [reboot]
   # In order to trigger this workflow on comment, GH accepts the workflow to be available in the default branch only.
   # issue_comment:
@@ -20,7 +20,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.issue.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Create Equinix runner
         uses: ./.github/create-equinix-runner
@@ -83,7 +83,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.issue.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Go
@@ -179,7 +179,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.issue.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Clean Equinix runner
         uses: ./.github/clean-equinix-runner
