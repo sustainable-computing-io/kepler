@@ -34,7 +34,7 @@ func musT[T any](t T, err error) T {
 func TestPowerCollectorConcurrency(t *testing.T) {
 	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
-	ri.SetupTestResources(tr)
+	ri.SetExpectations(t, tr)
 	ri.On("Refresh").Return(nil)
 	fakeMonitor := monitor.NewPowerMonitor(
 		musT(device.NewFakeCPUMeter(nil)),
@@ -119,21 +119,35 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 
 	// Create test node Snapshot
 	testNodeData := monitor.Node{
-		Zones: monitor.ZoneUsageMap{
-			package0Zone: {
-				Absolute: nodePkgAbs,
-				Delta:    nodePkgDelta,
-				Power:    nodePkgPower,
+		Timestamp:  time.Now(),
+		UsageRatio: 0.5,
+		Zones: monitor.NodeZoneUsageMap{
+			package0Zone: &monitor.NodeUsage{
+				Absolute:     nodePkgAbs,
+				Delta:        nodePkgDelta,
+				ActiveEnergy: nodePkgDelta / 2,
+				IdleEnergy:   nodePkgDelta / 2,
+				Power:        nodePkgPower,
+				ActivePower:  nodePkgPower / 2,
+				IdlePower:    nodePkgPower / 2,
 			},
-			dramZone: {
-				Absolute: nodeDramAbs,
-				Delta:    nodeDramDelta,
-				Power:    nodeDramPower,
+			dramZone: &monitor.NodeUsage{
+				Absolute:     nodeDramAbs,
+				Delta:        nodeDramDelta,
+				ActiveEnergy: nodeDramDelta / 2,
+				IdleEnergy:   nodeDramDelta / 2,
+				Power:        nodeDramPower,
+				ActivePower:  nodeDramPower / 2,
+				IdlePower:    nodeDramPower / 2,
 			},
-			package1Zone: {
-				Absolute: nodePkgAbs,
-				Delta:    nodePkgDelta,
-				Power:    nodePkgPower,
+			package1Zone: &monitor.NodeUsage{
+				Absolute:     nodePkgAbs,
+				Delta:        nodePkgDelta,
+				ActiveEnergy: nodePkgDelta / 2,
+				IdleEnergy:   nodePkgDelta / 2,
+				Power:        nodePkgPower,
+				ActivePower:  nodePkgPower / 2,
+				IdlePower:    nodePkgPower / 2,
 			},
 		},
 	}
@@ -164,18 +178,45 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				defer wg.Done()
 				metrics, err := registry.Gather()
 				assert.NoError(t, err, "Gather should not return an error")
-				assert.Len(t, metrics, 2, "Expected 2 node metric families")
+				assert.Len(t, metrics, 7, "Expected 7 node metric families") // Updated from 5 to 7 (added separate active/idle metrics)
 
 				for _, mf := range metrics {
 					switch mf.GetName() {
 					case "kepler_node_cpu_joules_total":
-						assertMetricValue(t, mf, "package-0", nodePkgAbs.Joules())
-						assertMetricValue(t, mf, "package-1", nodePkgAbs.Joules())
-						assertMetricValue(t, mf, "dram-0", nodeDramAbs.Joules())
+						// Main joules metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", nodePkgAbs.Joules())
+						assertMainMetricValue(t, mf, "package-1", nodePkgAbs.Joules())
+						assertMainMetricValue(t, mf, "dram-0", nodeDramAbs.Joules())
 
 					case "kepler_node_cpu_watts":
-						assertMetricValue(t, mf, "package-0", nodePkgPower.Watts())
-						assertMetricValue(t, mf, "dram-0", nodeDramPower.Watts())
+						// Main watts metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", nodePkgPower.Watts())
+						assertMainMetricValue(t, mf, "dram-0", nodeDramPower.Watts())
+
+					case "kepler_node_cpu_active_watts":
+						// Active watts metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", (nodePkgPower / 2).Watts())
+						assertMainMetricValue(t, mf, "dram-0", (nodeDramPower / 2).Watts())
+
+					case "kepler_node_cpu_idle_watts":
+						// Idle watts metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", (nodePkgPower / 2).Watts())
+						assertMainMetricValue(t, mf, "dram-0", (nodeDramPower / 2).Watts())
+
+					case "kepler_node_cpu_active_joules_total":
+						// Active joules metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", (nodePkgDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "dram-0", (nodeDramDelta / 2).Joules())
+
+					case "kepler_node_cpu_idle_joules_total":
+						// Idle joules metric - no mode label
+						assertMainMetricValue(t, mf, "package-0", (nodePkgDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "dram-0", (nodeDramDelta / 2).Joules())
+
+					case "kepler_node_cpu_usage_ratio":
+						// Usage ratio metric
+						assert.Len(t, mf.GetMetric(), 1, "Expected single usage ratio metric")
+						assert.Equal(t, 0.5, mf.GetMetric()[0].GetGauge().GetValue())
 					}
 				}
 			}()
@@ -207,11 +248,17 @@ func TestUpdateDuringCollection(t *testing.T) {
 		&monitor.Snapshot{
 			Timestamp: time.Now(),
 			Node: &monitor.Node{
-				Zones: monitor.ZoneUsageMap{
-					packageZone: {
-						Absolute: 100 * device.Joule,
-						Delta:    10 * device.Joule,
-						Power:    5 * device.Watt,
+				Timestamp:  time.Now(),
+				UsageRatio: 0.5,
+				Zones: monitor.NodeZoneUsageMap{
+					packageZone: &monitor.NodeUsage{
+						Absolute:     100 * device.Joule,
+						Delta:        10 * device.Joule,
+						ActiveEnergy: 5 * device.Joule,
+						IdleEnergy:   5 * device.Joule,
+						Power:        5 * device.Watt,
+						ActivePower:  2.5 * device.Watt,
+						IdlePower:    2.5 * device.Watt,
 					},
 				},
 			},
@@ -280,7 +327,7 @@ func TestConcurrentRegistration(t *testing.T) {
 
 	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
-	ri.SetupTestResources(tr)
+	ri.SetExpectations(t, tr)
 	ri.On("Refresh").Return(nil)
 
 	fakeMonitor := monitor.NewPowerMonitor(
@@ -337,7 +384,7 @@ func TestConcurrentRegistration(t *testing.T) {
 func TestFastCollectAndDescribe(t *testing.T) {
 	tr := monitor.CreateTestResources()
 	ri := &monitor.MockResourceInformer{}
-	ri.SetupTestResources(tr)
+	ri.SetExpectations(t, tr)
 	ri.On("Refresh").Return(nil)
 
 	fakeMonitor := monitor.NewPowerMonitor(
@@ -402,31 +449,37 @@ func TestFastCollectAndDescribe(t *testing.T) {
 	})
 }
 
-// Helper function to assert metric values
-func assertMetricValue(t *testing.T, mf *dto.MetricFamily, zoneName string, expected float64) {
+// Helper function to assert main metric values (without mode label)
+func assertMainMetricValue(t *testing.T, mf *dto.MetricFamily, zoneName string, expected float64) {
 	t.Helper()
 
 	metricName := mf.GetName()
 	for _, m := range mf.Metric {
-		for _, label := range m.Label {
-			k := label.GetName()
-			v := label.GetValue()
-			if k != "zone" || v != zoneName {
-				continue
-			}
+		zoneMatch := false
 
-			var value float64
-			if strings.HasSuffix(metricName, "_joules_total") {
-				value = m.Counter.GetValue()
-			} else if strings.HasSuffix(metricName, "_watts") {
-				value = m.Gauge.GetValue()
+		// Check for zone label only (no mode label expected)
+		for _, label := range m.Label {
+			if label.GetName() == "zone" && label.GetValue() == zoneName {
+				zoneMatch = true
+				break
 			}
-			assert.Equal(t, expected, value, "Unexpected value for %s zone: %s", metricName, zoneName)
-			return
 		}
+
+		if !zoneMatch {
+			continue
+		}
+
+		var value float64
+		if strings.HasSuffix(metricName, "_joules_total") {
+			value = m.Counter.GetValue()
+		} else if strings.HasSuffix(metricName, "_watts") {
+			value = m.Gauge.GetValue()
+		}
+		assert.Equal(t, expected, value, "Unexpected value for %s zone: %s", metricName, zoneName)
+		return
 	}
 
-	t.Errorf("Metric for zone %s not found", zoneName)
+	t.Errorf("Main metric for zone %s not found", zoneName)
 }
 
 func callDescribe(c prometheus.Collector, wg *sync.WaitGroup) {

@@ -14,25 +14,27 @@ import (
 	"k8s.io/utils/clock"
 )
 
+type Node struct {
+	CPUTimeDelta  float64
+	CPUUsageRatio float64
+}
+
 // Processes represents sets of running and terminated processes
 type Processes struct {
-	NodeCPUTimeDelta float64
-	Running          map[int]*Process
-	Terminated       map[int]*Process
+	Running    map[int]*Process
+	Terminated map[int]*Process
 }
 
 // Containers represents sets of running and terminated containers
 type Containers struct {
-	NodeCPUTimeDelta float64
-	Running          map[string]*Container
-	Terminated       map[string]*Container
+	Running    map[string]*Container
+	Terminated map[string]*Container
 }
 
 // VirtualMachines represents sets of running and terminated VMs
 type VirtualMachines struct {
-	NodeCPUTimeDelta float64
-	Running          map[string]*VirtualMachine
-	Terminated       map[string]*VirtualMachine
+	Running    map[string]*VirtualMachine
+	Terminated map[string]*VirtualMachine
 }
 
 // Informer provides the interface for accessing process and container information
@@ -40,6 +42,9 @@ type Informer interface {
 	service.Initializer
 	// Refresh updates the internal state
 	Refresh() error
+
+	Node() *Node
+
 	// Processes returns the current running and terminated processes
 	Processes() *Processes
 	// Containers returns the current running and terminated containers
@@ -53,6 +58,8 @@ type resourceInformer struct {
 	logger *slog.Logger
 	fs     allProcReader
 	clock  clock.Clock
+
+	node *Node
 
 	// Process tracking
 	procCache map[int]*Process
@@ -94,6 +101,8 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 		logger: opt.logger.With("service", "resource-informer"),
 		fs:     opt.procReader,
 		clock:  opt.clock,
+
+		node: &Node{},
 
 		procCache: make(map[int]*Process),
 		processes: &Processes{
@@ -176,6 +185,7 @@ func (ri *resourceInformer) Refresh() error {
 		}
 
 	}
+	// Node
 
 	// Find terminated processes
 	nodeCPUDelta := float64(0)
@@ -188,8 +198,15 @@ func (ri *resourceInformer) Refresh() error {
 		procsTerminated[pid] = proc
 		delete(ri.procCache, pid)
 	}
+
+	usage, err := ri.fs.CPUUsageRatio()
+	if err != nil {
+		return fmt.Errorf("failed to get procfs usage: %w", err)
+	}
+	ri.node.CPUTimeDelta = nodeCPUDelta
+	ri.node.CPUUsageRatio = usage
+
 	// Update tracking structures
-	ri.processes.NodeCPUTimeDelta = nodeCPUDelta
 	ri.processes.Running = procsRunning
 	ri.processes.Terminated = procsTerminated
 
@@ -204,7 +221,6 @@ func (ri *resourceInformer) Refresh() error {
 		containersTerminated[id] = container
 		delete(ri.containerCache, id)
 	}
-	ri.containers.NodeCPUTimeDelta = nodeCPUDelta
 	ri.containers.Running = containersRunning
 	ri.containers.Terminated = containersTerminated
 
@@ -218,7 +234,6 @@ func (ri *resourceInformer) Refresh() error {
 		delete(ri.vmCache, id)
 	}
 
-	ri.vms.NodeCPUTimeDelta = nodeCPUDelta
 	ri.vms.Running = vmsRunning
 	ri.vms.Terminated = vmsTerminated
 
@@ -236,6 +251,10 @@ func (ri *resourceInformer) Refresh() error {
 		"duration", duration)
 
 	return refreshErrs
+}
+
+func (ri *resourceInformer) Node() *Node {
+	return ri.node
 }
 
 func (ri *resourceInformer) Processes() *Processes {

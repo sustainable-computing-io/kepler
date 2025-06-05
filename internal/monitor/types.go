@@ -22,6 +22,22 @@ const (
 	Watt  = device.Watt
 )
 
+// NodeUsage contains energy consumption data
+type NodeUsage struct {
+	Absolute Energy // Cumulative joules counter
+	Delta    Energy // Difference since last measurement
+
+	// Split of Delta Energy between used and idle
+	ActiveEnergy Energy // Energy used by the process running
+	IdleEnergy   Energy // Energy allocated to node idling
+
+	// Split of power between used and idle
+	Power Power // Current power in watts
+
+	ActivePower Power // portion of the total power that is being used by the process
+	IdlePower   Power // portion of the total power that allocated to node idling
+}
+
 // Usage contains energy consumption data
 type Usage struct {
 	Absolute Energy // Cumulative joules counter
@@ -29,18 +45,26 @@ type Usage struct {
 	Power    Power  // Current power in watts
 }
 
-// ZoneUsageMap maps zones to energy data
+// ZoneUsageMap maps energy zones to basic usage data (absolute energy, delta, and power).
+// Used by processes, containers, and VMs which only track their attributed energy consumption.
 type ZoneUsageMap map[EnergyZone]*Usage
 
+// NodeZoneUsageMap maps energy zones to node-specific usage data that includes idle/used breakdown.
+// Used exclusively by Node to track total energy consumption with attribution between active workloads
+// and idle system overhead, enabling proper power attribution calculations.
+type NodeZoneUsageMap map[EnergyZone]*NodeUsage
+
 type Node struct {
-	Timestamp time.Time    // Timestamp of the last measurement
-	Zones     ZoneUsageMap // Map of zones to usage
+	Timestamp  time.Time        // Timestamp of the last measurement
+	UsageRatio float64          // ratio of usage
+	Zones      NodeZoneUsageMap // Map of zones to usage
 }
 
 func (n *Node) Clone() *Node {
 	ret := &Node{
-		Timestamp: n.Timestamp,
-		Zones:     make(ZoneUsageMap, len(n.Zones)),
+		Timestamp:  n.Timestamp,
+		UsageRatio: n.UsageRatio,
+		Zones:      make(NodeZoneUsageMap, len(n.Zones)),
 	}
 	maps.Copy(ret.Zones, n.Zones)
 	return ret
@@ -154,7 +178,7 @@ func NewSnapshot() *Snapshot {
 	return &Snapshot{
 		// Timestamp: time.Time{}, // Zero value to indicate unset
 		Node: &Node{
-			Zones: make(ZoneUsageMap),
+			Zones: make(NodeZoneUsageMap),
 		},
 		Processes:       make(Processes),
 		Containers:      make(Containers),

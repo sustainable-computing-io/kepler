@@ -22,7 +22,7 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 	return nil
 }
 
-func newProcess(proc *resource.Process, zones ZoneUsageMap) *Process {
+func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 	process := &Process{
 		PID:          proc.PID,
 		Comm:         proc.Comm,
@@ -63,7 +63,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 	}
 
 	zones := newSnapshot.Node.Zones
-	nodeCPUTimeDelta := procs.NodeCPUTimeDelta
+	nodeCPUTimeDelta := pm.resources.Node().CPUTimeDelta
+	pm.logger.Debug("Calculating Process power",
+		"node.cpu.time", nodeCPUTimeDelta,
+		"running", len(running),
+	)
 
 	// Initialize process map
 	processMap := make(Processes, len(running))
@@ -72,8 +76,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		process := newProcess(proc, zones)
 
 		// For each zone in the node, calculate process's share
-		for zone, usage := range zones {
-			if usage.Power == 0 || usage.Delta == 0 || nodeCPUTimeDelta == 0 {
+		for zone, nodeZoneUsage := range zones {
+			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || nodeCPUTimeDelta == 0 {
 				continue
 			}
 
@@ -85,20 +89,18 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// 2 ->  P1_t2   150   P1_t2 - P1_T1 = 50
 			//
 			//
-			cpuRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
+			cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
 
 			// Calculate process's share of this zone's power and energy
-
-			energyDelta := Energy(cpuRatio * float64(usage.Delta))
 			process.Zones[zone] = &Usage{
-				Power: Power(cpuRatio * usage.Power.MicroWatts()),
-				Delta: energyDelta,
+				Power: Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.ActiveEnergy)),
 			}
 
 			// If we have previous data for this process and zone, add to absolute energy
 			if prev, exists := prev.Processes[pid]; exists {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					process.Zones[zone].Absolute = prevUsage.Absolute + energyDelta
+					process.Zones[zone].Absolute = prevUsage.Absolute + process.Zones[zone].Delta
 				} else {
 					// TODO: unlikely; so add telemetry for this
 					process.Zones[zone].Absolute = process.Zones[zone].Delta

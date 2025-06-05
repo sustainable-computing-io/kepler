@@ -60,6 +60,11 @@ func (m *MockProcReader) AllProcs() ([]procInfo, error) {
 	return args.Get(0).([]procInfo), args.Error(1)
 }
 
+func (m *MockProcReader) CPUUsageRatio() (float64, error) {
+	args := m.Called()
+	return args.Get(0).(float64), args.Error(1)
+}
+
 func mockContainerIDAndPath(rt ContainerRuntime) (string, string) {
 	containerPaths := map[ContainerRuntime]string{
 		DockerRuntime:     "/docker/<id>",

@@ -90,11 +90,54 @@ func WrapProc(proc procfs.Proc) procInfo {
 type allProcReader interface {
 	// AllProcs returns a list of all running processes
 	AllProcs() ([]procInfo, error)
+
+	// CPUUsageRatio returns the CPU usage ratio
+	CPUUsageRatio() (float64, error)
 }
 
 // procFSReader is the default implementation of ProcReader using procfs
 type procFSReader struct {
-	fs procfs.FS
+	fs       procfs.FS
+	prevStat procfs.CPUStat
+}
+
+// CPUUsageRatio returns the CPU usage ratio as
+// active over total, where active = total - idle
+// and total = user + nice + system + idle + iowait + irq + softirq + steal
+func (r *procFSReader) CPUUsageRatio() (float64, error) {
+	current, err := r.fs.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	prev := r.prevStat
+	r.prevStat = current.CPUTotal
+
+	// first time, so return 0 usage ratio
+	if prev == (procfs.CPUStat{}) {
+		return 0, nil
+	}
+
+	curr := current.CPUTotal
+
+	// find delta for all components
+	dUser := curr.User - prev.User
+	dNice := curr.Nice - prev.Nice
+	dSystem := curr.System - prev.System
+	dIdle := curr.Idle - prev.Idle
+	dIowait := curr.Iowait - prev.Iowait
+	dIRQ := curr.IRQ - prev.IRQ
+	dSoftIRQ := curr.SoftIRQ - prev.SoftIRQ
+	dSteal := curr.Steal - prev.Steal
+
+	total := dUser + dNice + dSystem + dIdle + dIowait + dIRQ + dSoftIRQ + dSteal
+	if total == 0 {
+		return 0, nil
+	}
+
+	active := total - (dIdle + dIowait)
+	ratio := active / total
+	return ratio, nil
 }
 
 // AllProcs returns a list of all running processes
@@ -112,7 +155,7 @@ func (r *procFSReader) AllProcs() ([]procInfo, error) {
 }
 
 // NewProcFSReader creates a new ProcReader that reads from the specified procfs path
-func NewProcFSReader(procfsPath string) (allProcReader, error) {
+func NewProcFSReader(procfsPath string) (*procFSReader, error) {
 	fs, err := procfs.NewFS(procfsPath)
 	if err != nil {
 		return nil, err

@@ -58,8 +58,11 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		return nil
 	}
 
+	node := pm.resources.Node()
+	nodeCPUTimeDelta := node.CPUTimeDelta
+
 	pm.logger.Debug("Calculating container power",
-		"node-cputime", containers.NodeCPUTimeDelta,
+		"node.cpu.time", nodeCPUTimeDelta,
 		"running", len(containers.Running),
 	)
 
@@ -82,7 +85,7 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		// For each zone in the node, calculate container's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || containers.NodeCPUTimeDelta == 0 {
+			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || nodeCPUTimeDelta == 0 {
 				container.Zones[zone] = &Usage{
 					Power:    Power(0),
 					Delta:    Energy(0),
@@ -91,11 +94,11 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 				continue
 			}
 
-			cpuTimeRatio := c.CPUTimeDelta / containers.NodeCPUTimeDelta
+			cpuTimeRatio := c.CPUTimeDelta / nodeCPUTimeDelta
 			// Calculate container's share of this zone's power and energy
 			container.Zones[zone] = &Usage{
-				Power: Power(cpuTimeRatio * nodeZoneUsage.Power.MicroWatts()),
-				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.Delta)),
+				Power: Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.ActiveEnergy)),
 			}
 
 			// If we have previous data for this container and zone, add to absolute energy

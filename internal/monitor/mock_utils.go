@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
@@ -66,7 +67,11 @@ type MockResourceInformer struct {
 	mock.Mock
 }
 
-func (m *MockResourceInformer) SetupTestResources(tr *TestResource) {
+func (m *MockResourceInformer) SetExpectations(t *testing.T, tr *TestResource) {
+	t.Helper()
+	if tr.Node != nil {
+		m.On("Node").Return(tr.Node, nil)
+	}
 	if tr.Processes != nil {
 		m.On("Processes").Return(tr.Processes, nil)
 	}
@@ -76,6 +81,9 @@ func (m *MockResourceInformer) SetupTestResources(tr *TestResource) {
 	if tr.VirtualMachines != nil {
 		m.On("VirtualMachines").Return(tr.VirtualMachines, nil)
 	}
+	t.Cleanup(func() {
+		m.ExpectedCalls = nil
+	})
 }
 
 func (m *MockResourceInformer) Name() string {
@@ -91,6 +99,11 @@ func (m *MockResourceInformer) Init() error {
 func (m *MockResourceInformer) Refresh() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockResourceInformer) Node() *resource.Node {
+	args := m.Called()
+	return args.Get(0).(*resource.Node)
 }
 
 func (m *MockResourceInformer) Processes() *resource.Processes {
@@ -120,17 +133,23 @@ func CreateTestZones() []EnergyZone {
 }
 
 // createNodeSnapshot creates a node snapshot with realistic power values
-func createNodeSnapshot(zones []EnergyZone, timestamp time.Time) *Node {
+func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio float64) *Node {
 	node := &Node{
-		Timestamp: timestamp,
-		Zones:     make(ZoneUsageMap),
+		Timestamp:  timestamp,
+		UsageRatio: usageRatio,
+		Zones:      make(NodeZoneUsageMap),
 	}
 
 	for _, zone := range zones {
-		node.Zones[zone] = &Usage{
-			Absolute: 100 * Joule,
-			Delta:    50 * Joule,
-			Power:    50 * Watt,
+		node.Zones[zone] = &NodeUsage{
+			Absolute:     200 * Joule,
+			Delta:        100 * Joule,
+			ActiveEnergy: Energy(usageRatio * float64(100*Joule)),
+			IdleEnergy:   Energy((1 - usageRatio) * float64(100*Joule)),
+
+			Power:       50 * Watt,
+			ActivePower: Power(usageRatio * float64(50*Watt)),
+			IdlePower:   Power((1 - usageRatio) * float64(50*Watt)),
 		}
 	}
 
@@ -138,13 +157,73 @@ func createNodeSnapshot(zones []EnergyZone, timestamp time.Time) *Node {
 }
 
 type TestResource struct {
+	Node            *resource.Node
 	Processes       *resource.Processes
 	Containers      *resource.Containers
 	VirtualMachines *resource.VirtualMachines
 }
 
+type resourceOpts struct {
+	nodeCpuUsage     float64
+	nodeCpuTimeDelta float64
+	omit             map[testResourceType]bool
+}
+
+type resOptFn func(*resourceOpts)
+
+type testResourceType int
+
+const (
+	testNode testResourceType = iota
+	testProcesses
+	testContainers
+	testVMs
+)
+
+func createOnly(rs ...testResourceType) resOptFn {
+	return func(opts *resourceOpts) {
+		opts.omit = map[testResourceType]bool{
+			testNode:       true,
+			testProcesses:  true,
+			testContainers: true,
+			testVMs:        true,
+		}
+
+		for _, r := range rs {
+			opts.omit[r] = false
+		}
+	}
+}
+
+func withNodeCpuUsage(usage float64) resOptFn {
+	return func(opts *resourceOpts) {
+		opts.nodeCpuUsage = usage
+	}
+}
+
+func withNodeCpuTimeDelta(delta float64) resOptFn {
+	return func(opts *resourceOpts) {
+		opts.nodeCpuTimeDelta = delta
+	}
+}
+
 // CreateTestResources creates test processes with container associations
-func CreateTestResources() *TestResource {
+func CreateTestResources(opts ...resOptFn) *TestResource {
+	opt := resourceOpts{
+		nodeCpuUsage:     0.5,
+		nodeCpuTimeDelta: 200.0,
+		omit:             map[testResourceType]bool{},
+	}
+
+	for _, apply := range opts {
+		apply(&opt)
+	}
+
+	node := &resource.Node{
+		CPUUsageRatio: opt.nodeCpuUsage,
+		CPUTimeDelta:  opt.nodeCpuTimeDelta,
+	}
+
 	//  VMs
 	vm1 := &resource.VirtualMachine{
 		ID:         "vm-1",
@@ -172,14 +251,13 @@ func CreateTestResources() *TestResource {
 	}
 
 	processes := &resource.Processes{
-		NodeCPUTimeDelta: 100.0, // Total node CPU time delta
 		Running: map[int]*resource.Process{
 			123: {
 				PID:          123,
 				Comm:         "process1",
 				Exe:          "/usr/bin/process1",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 30.0, // 30% of total CPU time | cum: 30
+				CPUTimeDelta: 0.3 * node.CPUTimeDelta, // 30% of total CPU time | cum: 30
 				Container:    container1,
 				Type:         resource.ContainerProcess,
 			},
@@ -188,7 +266,7 @@ func CreateTestResources() *TestResource {
 				Comm:         "process4",
 				Exe:          "/usr/bin/process4",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 10.0, // 10% | cum: 40
+				CPUTimeDelta: 0.1 * node.CPUTimeDelta, // 10% | cum: 40
 				Container:    container1,
 				Type:         resource.ContainerProcess,
 			},
@@ -197,7 +275,7 @@ func CreateTestResources() *TestResource {
 				Comm:         "process2",
 				Exe:          "/usr/bin/process2",
 				CPUTotalTime: 200.0,
-				CPUTimeDelta: 20.0, // 20% | cum: 60
+				CPUTimeDelta: 0.20 * node.CPUTimeDelta, // 20% | cum: 60
 				Container:    container2,
 				Type:         resource.ContainerProcess,
 			},
@@ -206,7 +284,7 @@ func CreateTestResources() *TestResource {
 				Comm:         "process3",
 				Exe:          "/usr/bin/process3",
 				CPUTotalTime: 500.0,
-				CPUTimeDelta: 15.0, // 15% | cum: 75
+				CPUTimeDelta: 0.15 * node.CPUTimeDelta, // 15% | cum: 75
 				Type:         resource.RegularProcess,
 			},
 			// VM processes
@@ -215,7 +293,7 @@ func CreateTestResources() *TestResource {
 				Comm:           "qemu-vm1",
 				Exe:            "/usr/bin/qemu-system-x86_64",
 				CPUTotalTime:   300.0,
-				CPUTimeDelta:   20.0, // 20% | cum: 95
+				CPUTimeDelta:   0.20 * node.CPUTimeDelta, // 20% | cum: 95
 				VirtualMachine: vm1,
 				Type:           resource.VMProcess,
 			},
@@ -224,7 +302,7 @@ func CreateTestResources() *TestResource {
 				Comm:           "qemu-vm2",
 				Exe:            "/usr/bin/qemu-system-x86_64",
 				CPUTotalTime:   200.0,
-				CPUTimeDelta:   5.0, // 5%  | cum: 100
+				CPUTimeDelta:   0.05 * node.CPUTimeDelta, // 5%  | cum: 100
 				VirtualMachine: vm2,
 				Type:           resource.VMProcess,
 			},
@@ -240,7 +318,6 @@ func CreateTestResources() *TestResource {
 	container2.CPUTotalTime = processes.Running[456].CPUTotalTime
 
 	containers := &resource.Containers{
-		NodeCPUTimeDelta: 100.0,
 		Running: map[string]*resource.Container{
 			container1.ID: container1,
 			container2.ID: container2,
@@ -255,8 +332,7 @@ func CreateTestResources() *TestResource {
 	vm1.CPUTotalTime = processes.Running[1001].CPUTotalTime
 	vm2.CPUTotalTime = processes.Running[1002].CPUTotalTime
 
-	virtualMachines := &resource.VirtualMachines{
-		NodeCPUTimeDelta: 100.0,
+	vms := &resource.VirtualMachines{
 		Running: map[string]*resource.VirtualMachine{
 			vm1.ID: vm1,
 			vm2.ID: vm2,
@@ -264,29 +340,19 @@ func CreateTestResources() *TestResource {
 		Terminated: map[string]*resource.VirtualMachine{},
 	}
 
-	return &TestResource{processes, containers, virtualMachines}
-}
+	if opt.omit[testNode] {
+		node = nil
+	}
+	if opt.omit[testProcesses] {
+		processes = nil
+	}
 
-// // CreateTestContainers creates test containers with CPU time deltas
-// func CreateTestContainers() *resource.Containers {
-// 	return &resource.Containers{
-// 		NodeCPUTimeDelta: 80.0, // Container processes only (30+50)
-// 		Running: map[string]*resource.Container{
-// 			"container-1": {
-// 				ID:           "container-1",
-// 				Name:         "test-container-1",
-// 				Runtime:      resource.DockerRuntime,
-// 				CPUTotalTime: 15.0,
-// 				CPUTimeDelta: 30.0,
-// 			},
-// 			"container-2": {
-// 				ID:           "container-2",
-// 				Name:         "test-container-2",
-// 				Runtime:      resource.PodmanRuntime,
-// 				CPUTotalTime: 25.0,
-// 				CPUTimeDelta: 50.0,
-// 			},
-// 		},
-// 		Terminated: map[string]*resource.Container{},
-// 	}
-// }
+	if opt.omit[testContainers] {
+		containers = nil
+	}
+	if opt.omit[testVMs] {
+		vms = nil
+	}
+
+	return &TestResource{node, processes, containers, vms}
+}

@@ -25,14 +25,14 @@ func TestProcessPowerCalculation(t *testing.T) {
 	mockMeter.On("Zones").Return(zones, nil)
 
 	// Create mock resource informer
-	resourceInformer := &MockResourceInformer{}
+	resInformer := &MockResourceInformer{}
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
 		logger:    logger,
 		cpu:       mockMeter,
 		clock:     fakeClock,
-		resources: resourceInformer,
+		resources: resInformer,
 	}
 
 	err := monitor.initZones()
@@ -40,8 +40,9 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 	t.Run("firstProcessRead", func(t *testing.T) {
 		// Setup mock to return test processes
-		procs := CreateTestResources().Processes
-		resourceInformer.On("Processes").Return(procs).Once()
+		tr := CreateTestResources(createOnly(testProcesses))
+		procs := tr.Processes
+		resInformer.On("Processes").Return(procs).Once()
 
 		snapshot := NewSnapshot()
 		err := monitor.firstNodeRead(snapshot.Node)
@@ -77,13 +78,13 @@ func TestProcessPowerCalculation(t *testing.T) {
 		proc789 := snapshot.Processes[789]
 		assert.Equal(t, "", proc789.ContainerID)
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateProcessPower", func(t *testing.T) {
 		// Setup previous snapshot with process data
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add existing process data to previous snapshot
 		prevSnapshot.Processes[123] = &Process{
@@ -106,11 +107,13 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 		// Create new snapshot with updated node data
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
 
 		// Setup mock to return updated processes
-		procs := CreateTestResources().Processes
-		resourceInformer.On("Processes").Return(procs).Once()
+		tr := CreateTestResources(createOnly(testNode, testProcesses))
+		procs := tr.Processes
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
 
 		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
@@ -127,10 +130,12 @@ func TestProcessPowerCalculation(t *testing.T) {
 			usage := proc123.Zones[zone]
 
 			// CPU ratio = 30.0 / 100.0 = 0.3 (30%)
-			// Expected power = 0.3 * 50W = 15W
-			expectedPower := 0.3 * 50 * Watt // 15W in microwatts
+			// ActivePower = 50W * 0.5 = 25W (node usage ratio is 0.5)
+			// Expected power = 0.3 * 25W = 7.5W
+			expectedPower := 0.3 * 25 * Watt // 7.5W in microwatts
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
+			// ActiveEnergy = 100J * 0.5 = 50J (node usage ratio is 0.5)
 			// Expected delta = 0.3 * 50J = 15J
 			expectedDelta := 0.3 * 50 * Joule // 15J in microjoules
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
@@ -144,11 +149,13 @@ func TestProcessPowerCalculation(t *testing.T) {
 		proc456 := newSnapshot.Processes[456]
 		for _, zone := range zones {
 			usage := proc456.Zones[zone]
-			// CPU ratio = 20.0 / 100.0 = 0.5 (20%)
-			expectedPower := Power(0.2 * 50_000_000) // 25W
+			// CPU ratio = 20.0 / 100.0 = 0.2 (20%)
+			// ActivePower = 50W * 0.5 = 25W, so 0.2 * 25W = 5W
+			expectedPower := Power(0.2 * 25_000_000) // 5W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := Energy(0.2 * 50_000_000) // 25J
+			// ActiveEnergy = 100J * 0.5 = 50J, so 0.2 * 50J = 10J
+			expectedDelta := Energy(0.2 * 50_000_000) // 10J
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 			// New process, so absolute = delta
 			assert.Equal(t, usage.Delta, usage.Absolute)
@@ -159,11 +166,12 @@ func TestProcessPowerCalculation(t *testing.T) {
 		for _, zone := range zones {
 			usage := proc789.Zones[zone]
 			// CPU ratio = 15.0 / 100.0 = 0.15 (15%)
-			expectedPower := Power(0.15 * 50_000_000) // 10W
+			// ActivePower = 50W * 0.5 = 25W, so 0.15 * 25W = 3.75W
+			expectedPower := Power(0.15 * 25_000_000) // 3.75W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 		}
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateProcessPower with zero node power", func(t *testing.T) {
@@ -171,21 +179,28 @@ func TestProcessPowerCalculation(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = &Node{
-			Timestamp: fakeClock.Now(),
-			Zones:     make(ZoneUsageMap),
+			Timestamp:  fakeClock.Now(),
+			UsageRatio: 0.5,
+			Zones:      make(NodeZoneUsageMap),
 		}
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &Usage{
-				Absolute: Energy(100_000_000),
-				Delta:    Energy(50_000_000),
-				Power:    Power(0), // Zero power
+			newSnapshot.Node.Zones[zone] = &NodeUsage{
+				Absolute:     Energy(100_000_000),
+				Delta:        Energy(50_000_000),
+				ActiveEnergy: Energy(0),
+				IdleEnergy:   Energy(0),
+				Power:        Power(0), // Zero power
+				ActivePower:  Power(0),
+				IdlePower:    Power(0),
 			}
 		}
 
-		procs := CreateTestResources().Processes
-		resourceInformer.On("Processes").Return(procs).Once()
+		tr := CreateTestResources(createOnly(testNode, testProcesses))
+		procs := tr.Processes
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
@@ -200,39 +215,40 @@ func TestProcessPowerCalculation(t *testing.T) {
 			}
 		}
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateProcessPower with no processes", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Return empty processes
 		emptyProcesses := &resource.Processes{
-			NodeCPUTimeDelta: 0.0,
-			Running:          map[int]*resource.Process{},
-			Terminated:       map[int]*resource.Process{},
+			Running:    map[int]*resource.Process{},
+			Terminated: map[int]*resource.Process{},
 		}
-		resourceInformer.On("Processes").Return(emptyProcesses).Once()
+		tr := CreateTestResources(createOnly(testNode))
+		node := tr.Node
+		resInformer.On("Node").Return(node, nil).Maybe()
+		resInformer.On("Processes").Return(emptyProcesses).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
 		assert.Empty(t, newSnapshot.Processes)
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("zero CPU time delta", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Process with zero CPU time delta - this can happen when CPU time hasn't changed
 		// or when NodeCPUTimeDelta is zero (no processes used CPU - theoretically possible)
 		procs := &resource.Processes{
-			NodeCPUTimeDelta: 0.0, // Zero total CPU time delta
 			Running: map[int]*resource.Process{
 				123: {
 					PID:          123,
@@ -246,7 +262,9 @@ func TestProcessPowerCalculation(t *testing.T) {
 			Terminated: map[int]*resource.Process{},
 		}
 
-		resourceInformer.On("Processes").Return(procs).Once()
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
@@ -263,13 +281,13 @@ func TestProcessPowerCalculation(t *testing.T) {
 			assert.Equal(t, 0*Joule, usage.Absolute)
 		}
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("process missing in previous snapshot", func(t *testing.T) {
 		// Create snapshots where previous doesn't have zone data for a process
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add process without zone data for one zone
 		prevSnapshot.Processes[123] = &Process{
@@ -285,11 +303,10 @@ func TestProcessPowerCalculation(t *testing.T) {
 		}
 
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
 
 		// Create process with all zones
 		testProcesses := &resource.Processes{
-			NodeCPUTimeDelta: 100.0,
 			Running: map[int]*resource.Process{
 				123: {
 					PID:          123,
@@ -303,7 +320,9 @@ func TestProcessPowerCalculation(t *testing.T) {
 			Terminated: map[int]*resource.Process{},
 		}
 
-		resourceInformer.On("Processes").Return(testProcesses).Once()
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(testProcesses).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
@@ -320,7 +339,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 		usage1 := proc.Zones[zones[1]]
 		assert.Equal(t, usage1.Absolute, usage1.Delta)
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	mockMeter.AssertExpectations(t)
@@ -354,11 +373,8 @@ func TestProcessPowerConsistency(t *testing.T) {
 		// Test that sum of process powers equals node power
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
-
 		// Create processes with varying CPU usage
 		testProcesses := &resource.Processes{
-			NodeCPUTimeDelta: 100.0,
 			Running: map[int]*resource.Process{
 				1: {PID: 1, Comm: "proc1", Exe: "/bin/proc1", CPUTimeDelta: 25.0},
 				2: {PID: 2, Comm: "proc2", Exe: "/bin/proc2", CPUTimeDelta: 35.0},
@@ -367,6 +383,10 @@ func TestProcessPowerConsistency(t *testing.T) {
 			Terminated: map[int]*resource.Process{},
 		}
 
+		// Create node with 100% CPU usage and matching CPU time delta (25+35+40=100)
+		tr := CreateTestResources(createOnly(testNode), withNodeCpuUsage(1.0), withNodeCpuTimeDelta(100.0))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		mockResourceInformer.On("Processes").Return(testProcesses).Once()
 
 		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
@@ -374,15 +394,15 @@ func TestProcessPowerConsistency(t *testing.T) {
 
 		// Verify power conservation for each zone
 		for _, zone := range zones {
-			nodePower := newSnapshot.Node.Zones[zone].Power.MicroWatts()
 			totalProcessPower := float64(0)
 
 			for _, proc := range newSnapshot.Processes {
 				totalProcessPower += proc.Zones[zone].Power.MicroWatts()
 			}
 
-			// Total process power should equal node power (with small tolerance for floating point)
-			assert.InDelta(t, nodePower, totalProcessPower, 1.0,
+			// Total process power should equal node ActivePower (with small tolerance for floating point)
+			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower.MicroWatts()
+			assert.InDelta(t, nodeActivePower, totalProcessPower, 1.0,
 				"Power conservation failed for zone %s", zone.Name())
 		}
 

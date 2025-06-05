@@ -56,8 +56,9 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		return nil
 	}
 
+	nodeCPUTimeDelta := pm.resources.Node().CPUTimeDelta
 	pm.logger.Debug("Calculating VM power",
-		"node-cputime", vms.NodeCPUTimeDelta,
+		"node.cpu.time", nodeCPUTimeDelta,
 		"running", len(vms.Running),
 	)
 
@@ -77,7 +78,7 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		// For each zone in the node, calculate VM's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || vms.NodeCPUTimeDelta == 0 {
+			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || nodeCPUTimeDelta == 0 {
 				newVM.Zones[zone] = &Usage{
 					Power:    Power(0),
 					Delta:    Energy(0),
@@ -87,10 +88,10 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 			}
 
 			// Calculate VM's share of this zone's power and energy
-			cpuTimeRatio := vm.CPUTimeDelta / vms.NodeCPUTimeDelta
+			cpuTimeRatio := vm.CPUTimeDelta / nodeCPUTimeDelta
 			newVM.Zones[zone] = &Usage{
-				Power: Power(cpuTimeRatio * nodeZoneUsage.Power.MicroWatts()),
-				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.Delta)),
+				Power: Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.ActiveEnergy)),
 			}
 
 			// If we have previous data for this VM and zone, add to absolute energy
