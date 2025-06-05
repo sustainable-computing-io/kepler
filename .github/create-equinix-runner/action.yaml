@@ -1,0 +1,34 @@
+name: Create Equinix Runner
+description: Creates a new Equinix runner for a given OS
+inputs:
+  os_name:
+    description: Name of the OS to be requested for the runner
+    required: true
+  github_token:
+    description: GitHub token
+    required: true
+  metal_auth_token:
+    description: Equinix API token
+    required: true
+  metal_project_id:
+    description: Equinix project ID
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create runner
+      # Using custom equinix metal runner action instead of official one,
+      # as the official action does not support passing organization name parameter.
+      # This is necessary for workflows triggered by events like `issue_comment`, where
+      # the `github.organization` context is not available.
+      # See: https://github.com/sustainable-computing-io/metal-runner-action/pull/1
+      uses: sustainable-computing-io/metal-runner-action@main
+      with:
+        github_token: ${{ inputs.github_token }}
+        metal_auth_token: ${{ inputs.metal_auth_token }}
+        metal_project_id: ${{ inputs.metal_project_id }}
+        metro: da
+        plan: c3.small.x86
+        os: ${{ inputs.os_name }}
+        organization: sustainable-computing-io

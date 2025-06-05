@@ -1,0 +1,24 @@
+name: Clean Equinix Runner
+description: Deletes a given Equinix runner
+inputs:
+  runner_name:
+    description: Name of the runner to be deleted
+    required: true
+  project_id:
+    description: Project ID of the Equinix project
+    required: true
+  api_token:
+    description: API token of the Equinix project
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Delete runner
+      # Using custom equinix metal sweeper action instead of official one,
+      # as the official action does not support deleting a specific runner.
+      # See: https://github.com/sustainable-computing-io/metal-sweeper-action/pull/1
+      uses: sustainable-computing-io/metal-sweeper-action@main
+      with:
+        authToken: ${{ inputs.api_token }}
+        projectID: ${{ inputs.project_id }}
+        runnerName: ${{ inputs.runner_name }}
