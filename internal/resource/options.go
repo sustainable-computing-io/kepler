@@ -7,15 +7,17 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	"k8s.io/utils/clock"
 )
 
 // Options contains all the configuration for the ResourceTracker
 type Options struct {
-	logger     *slog.Logger
-	clock      clock.Clock
-	procFSPath string
-	procReader allProcReader
+	logger      *slog.Logger
+	clock       clock.Clock
+	procFSPath  string
+	procReader  allProcReader
+	podInformer pod.Informer
 }
 
 // OptionFn is a function that configures the Options
@@ -32,6 +34,13 @@ func WithProcFSPath(path string) OptionFn {
 func WithProcReader(r allProcReader) OptionFn {
 	return func(o *Options) {
 		o.procReader = r
+	}
+}
+
+// WithPodInformer sets the pod informer
+func WithPodInformer(pi pod.Informer) OptionFn {
+	return func(o *Options) {
+		o.podInformer = pi
 	}
 }
 

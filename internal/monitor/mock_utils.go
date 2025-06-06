@@ -76,6 +76,9 @@ func (m *MockResourceInformer) SetupTestResources(tr *TestResource) {
 	if tr.VirtualMachines != nil {
 		m.On("VirtualMachines").Return(tr.VirtualMachines, nil)
 	}
+	if tr.Pods != nil {
+		m.On("Pods").Return(tr.Pods, nil)
+	}
 }
 
 func (m *MockResourceInformer) Name() string {
@@ -106,6 +109,11 @@ func (m *MockResourceInformer) Containers() *resource.Containers {
 func (m *MockResourceInformer) VirtualMachines() *resource.VirtualMachines {
 	args := m.Called()
 	return args.Get(0).(*resource.VirtualMachines)
+}
+
+func (m *MockResourceInformer) Pods() *resource.Pods {
+	args := m.Called()
+	return args.Get(0).(*resource.Pods)
 }
 
 var _ resource.Informer = (*MockResourceInformer)(nil)
@@ -141,6 +149,7 @@ type TestResource struct {
 	Processes       *resource.Processes
 	Containers      *resource.Containers
 	VirtualMachines *resource.VirtualMachines
+	Pods            *resource.Pods
 }
 
 // CreateTestResources creates test processes with container associations
@@ -158,11 +167,18 @@ func CreateTestResources() *TestResource {
 		Hypervisor: resource.KVMHypervisor,
 	}
 
+	pod1 := &resource.Pod{
+		ID:        "pod-id-1",
+		Name:      "pod-name-1",
+		Namespace: "namespace=1",
+	}
+
 	// Create containers
 	container1 := &resource.Container{
 		ID:      "container-1",
 		Name:    "test-container-1",
 		Runtime: resource.DockerRuntime,
+		Pod:     pod1,
 	}
 
 	container2 := &resource.Container{
@@ -263,8 +279,17 @@ func CreateTestResources() *TestResource {
 		},
 		Terminated: map[string]*resource.VirtualMachine{},
 	}
+	pod1.CPUTimeDelta = container1.CPUTimeDelta
 
-	return &TestResource{processes, containers, virtualMachines}
+	pods := &resource.Pods{
+		NodeCPUTimeDelta: 100.0,
+		Running: map[string]*resource.Pod{
+			pod1.ID: pod1,
+		},
+		Terminated: map[string]*resource.Pod{},
+	}
+
+	return &TestResource{processes, containers, virtualMachines, pods}
 }
 
 // // CreateTestContainers creates test containers with CPU time deltas
