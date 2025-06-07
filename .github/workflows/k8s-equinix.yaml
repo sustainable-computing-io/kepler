@@ -12,7 +12,26 @@ permissions:
   contents: write
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: filter changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changes:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
   create-runner:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
     # TODO: Uncomment once we enable workflow on issue_comment
     # if: github.event.issue.pull_request && contains(github.event.comment.body, '/test-equinix')
     runs-on: ubuntu-latest
