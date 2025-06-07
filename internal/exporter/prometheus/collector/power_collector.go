@@ -29,6 +29,15 @@ type PowerCollector struct {
 	nodeCPUJoulesDescriptor *prometheus.Desc
 	nodeCPUWattsDescriptor  *prometheus.Desc
 
+	// Node power attribution as active and idle
+	nodeCPUActiveWattsDesc  *prometheus.Desc
+	nodeCPUActiveJoulesDesc *prometheus.Desc
+
+	nodeCPUIdleWattsDesc  *prometheus.Desc
+	nodeCPUIdleJoulesDesc *prometheus.Desc
+
+	nodeCPUUsageRatioDescriptor *prometheus.Desc
+
 	// Process power metrics
 	processCPUJoulesDescriptor *prometheus.Desc
 	processCPUWattsDescriptor  *prometheus.Desc
@@ -57,6 +66,20 @@ func wattsDesc(level, device string, labels []string) *prometheus.Desc {
 		labels, nil)
 }
 
+func deviceStateJoulesDesc(level, device, state string, labels []string) *prometheus.Desc {
+	return prometheus.NewDesc(
+		prometheus.BuildFQName(keplerNS, level, fmt.Sprintf("%s_%s_joules_total", device, state)),
+		fmt.Sprintf("Energy consumption of %s in %s state at %s level in joules", device, state, level),
+		labels, nil)
+}
+
+func deviceStateWattsDesc(level, device, state string, labels []string) *prometheus.Desc {
+	return prometheus.NewDesc(
+		prometheus.BuildFQName(keplerNS, level, fmt.Sprintf("%s_%s_watts", device, state)),
+		fmt.Sprintf("Power consumption of %s in %s state at %s level in watts", device, state, level),
+		labels, nil)
+}
+
 func timeDesc(level, device string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, device+"_seconds_total"),
@@ -75,10 +98,22 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 	)
 
 	c := &PowerCollector{
-		pm:                      monitor,
-		logger:                  logger.With("collector", "power"),
+		pm:     monitor,
+		logger: logger.With("collector", "power"),
+
 		nodeCPUJoulesDescriptor: joulesDesc("node", "cpu", []string{zone, "path"}),
 		nodeCPUWattsDescriptor:  wattsDesc("node", "cpu", []string{zone, "path"}),
+
+		nodeCPUActiveJoulesDesc: deviceStateJoulesDesc("node", "cpu", "active", []string{zone, "path"}),
+		nodeCPUIdleJoulesDesc:   deviceStateJoulesDesc("node", "cpu", "idle", []string{zone, "path"}),
+
+		nodeCPUActiveWattsDesc: deviceStateWattsDesc("node", "cpu", "active", []string{zone, "path"}),
+		nodeCPUIdleWattsDesc:   deviceStateWattsDesc("node", "cpu", "idle", []string{zone, "path"}),
+
+		nodeCPUUsageRatioDescriptor: prometheus.NewDesc(
+			prometheus.BuildFQName(keplerNS, "node", "cpu_usage_ratio"),
+			"CPU usage ratio of a node (value between 0.0 and 1.0)",
+			nil, nil),
 
 		processCPUJoulesDescriptor: joulesDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
 		processCPUWattsDescriptor:  wattsDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
@@ -108,6 +143,13 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	// node
 	ch <- c.nodeCPUJoulesDescriptor
 	ch <- c.nodeCPUWattsDescriptor
+	ch <- c.nodeCPUUsageRatioDescriptor
+	// node cpu active
+	ch <- c.nodeCPUActiveJoulesDesc
+	ch <- c.nodeCPUActiveWattsDesc
+	// node cpu idle
+	ch <- c.nodeCPUIdleJoulesDesc
+	ch <- c.nodeCPUIdleWattsDesc
 
 	// process
 	ch <- c.processCPUJoulesDescriptor
@@ -160,10 +202,16 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 	c.mutex.RLock() // locking nodeJoulesDescriptors
 	defer c.mutex.RUnlock()
 
+	ch <- prometheus.MustNewConstMetric(
+		c.nodeCPUUsageRatioDescriptor,
+		prometheus.GaugeValue,
+		node.UsageRatio,
+	)
 	for zone, energy := range node.Zones {
 		path := zone.Path()
 		zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 
+		// joules
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUJoulesDescriptor,
 			prometheus.CounterValue,
@@ -172,11 +220,39 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 		)
 
 		ch <- prometheus.MustNewConstMetric(
+			c.nodeCPUActiveJoulesDesc,
+			prometheus.CounterValue,
+			energy.ActiveEnergy.Joules(),
+			zoneName, path,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.nodeCPUIdleJoulesDesc,
+			prometheus.CounterValue,
+			energy.IdleEnergy.Joules(),
+			zoneName, path,
+		)
+
+		// watts
+		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUWattsDescriptor,
 			prometheus.GaugeValue,
 			energy.Power.Watts(),
 			zoneName, path,
 		)
+		ch <- prometheus.MustNewConstMetric(
+			c.nodeCPUActiveWattsDesc,
+			prometheus.GaugeValue,
+			energy.ActivePower.Watts(),
+			zoneName, path,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			c.nodeCPUIdleWattsDesc,
+			prometheus.GaugeValue,
+			energy.IdlePower.Watts(),
+			zoneName, path,
+		)
+
 	}
 }
 

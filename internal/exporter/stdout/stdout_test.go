@@ -165,13 +165,13 @@ func getTestNodeData() *monitor.Node {
 
 	// Create test node Snapshot
 	return &monitor.Node{
-		Zones: monitor.ZoneUsageMap{
-			packageZone: {
+		Zones: monitor.NodeZoneUsageMap{
+			packageZone: &monitor.NodeUsage{
 				Absolute: nodePkgAbs,
 				Delta:    nodePkgDelta,
 				Power:    nodePkgPower,
 			},
-			dramZone: {
+			dramZone: &monitor.NodeUsage{
 				Absolute: nodeDramAbs,
 				Delta:    nodeDramDelta,
 				Power:    nodeDramPower,

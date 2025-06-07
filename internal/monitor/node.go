@@ -21,8 +21,18 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 		return err
 	}
 
+	nodeCPUTimeDelta := pm.resources.Node().CPUTimeDelta
+	nodeCPUUsageRatio := pm.resources.Node().CPUUsageRatio
+	newNode.UsageRatio = nodeCPUUsageRatio
+
+	pm.logger.Debug("Calculating Node power",
+		"node.cpu.time", nodeCPUTimeDelta,
+		"node.cpu.usage", nodeCPUUsageRatio,
+	)
+
 	// NOTE: energy is in MicroJoules and Power is in MicroWatts
 	timeDiff := now.Sub(prevReadTime).Seconds()
+	// Get the current energy
 
 	var retErr error
 	for _, zone := range zones {
@@ -34,18 +44,30 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 		}
 
 		// Calculate watts and joules diff if we have previous data for the zone
-		var deltaEnergy Energy
-		var power Power
+		var deltaEnergy, usedEnergy, idleEnergy Energy
+		var power, usedPower, idlePower Power
 
 		if prevZone, ok := prevZones[zone]; ok {
 			deltaEnergy = calculateEnergyDelta(absEnergy, prevZone.Absolute, zone.MaxEnergy())
-			power = Power(float64(deltaEnergy) / float64(timeDiff))
+			usedEnergy = Energy(float64(deltaEnergy) * nodeCPUUsageRatio)
+			idleEnergy = deltaEnergy - usedEnergy
+
+			powerF64 := float64(deltaEnergy) / float64(timeDiff)
+			power = Power(powerF64)
+			usedPower = Power(powerF64 * nodeCPUUsageRatio)
+			idlePower = power - usedPower
 		}
 
-		newNode.Zones[zone] = &Usage{
+		newNode.Zones[zone] = &NodeUsage{
 			Absolute: absEnergy,
-			Delta:    deltaEnergy,
-			Power:    power,
+
+			Delta:        deltaEnergy,
+			ActiveEnergy: usedEnergy,
+			IdleEnergy:   idleEnergy,
+
+			Power:       power,
+			ActivePower: usedPower,
+			IdlePower:   idlePower,
 		}
 	}
 
@@ -84,7 +106,7 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 			continue
 		}
 
-		node.Zones[zone] = &Usage{
+		node.Zones[zone] = &NodeUsage{
 			Absolute: energy,
 		}
 	}

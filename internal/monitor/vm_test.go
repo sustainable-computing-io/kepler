@@ -76,7 +76,7 @@ func TestVMPowerCalculation(t *testing.T) {
 	t.Run("calculateVMPower", func(t *testing.T) {
 		// Setup previous snapshot with VM data
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add existing VM data to previous snapshot
 		prevSnapshot.VirtualMachines["vm-1"] = &VirtualMachine{
@@ -98,10 +98,12 @@ func TestVMPowerCalculation(t *testing.T) {
 
 		// Create new snapshot with updated node data
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
 
 		// Setup mock to return updated VMs
 		vms := CreateTestVMs()
+		tr := CreateTestResources()
+		resourceInformer.On("Node").Return(tr.Node, nil).Once()
 		resourceInformer.On("VirtualMachines").Return(vms).Once()
 
 		err = monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -118,16 +120,19 @@ func TestVMPowerCalculation(t *testing.T) {
 		for _, zone := range zones {
 			usage := vm1.Zones[zone]
 
-			// CPU ratio = 60.0 / 100.0 = 0.6 (60%)
-			// Expected power = 0.6 * 50W = 30W
-			expectedPower := 0.6 * 50 * Watt // 30W in microwatts
+			// CPU ratio = 60.0 / 200.0 = 0.3 (30% of node CPU)
+			// VM power = cpuTimeRatio * nodeZoneUsage.ActivePower
+			// Expected power = 0.3 * 25W = 7.5W
+			expectedPower := 0.3 * 25 * Watt // 7.5W in microwatts
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := 0.6 * 50 * Joule // 30J in microjoules
+			// VM delta = cpuTimeRatio * nodeZoneUsage.UsedEnergy
+			// Expected delta = 0.3 * 50J = 15J (using used energy)
+			expectedDelta := 0.3 * 50 * Joule // 15J in microjoules
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 
-			// Absolute should be previous + delta = 30J + 30J = 60J
-			expectedAbsolute := 60 * Joule
+			// Absolute should be previous + delta = 30J + 15J = 45J
+			expectedAbsolute := 45 * Joule
 			assert.InDelta(t, expectedAbsolute.MicroJoules(), usage.Absolute.MicroJoules(), 0.01)
 		}
 
@@ -135,11 +140,13 @@ func TestVMPowerCalculation(t *testing.T) {
 		vm2 := newSnapshot.VirtualMachines["vm-2"]
 		for _, zone := range zones {
 			usage := vm2.Zones[zone]
-			// CPU ratio = 40.0 / 100.0 = 0.4 (40%)
-			expectedPower := 0.4 * 50 * Watt // 20W
+			// CPU ratio = 40.0 / 200.0 = 0.2 (20% of node CPU)
+			// Expected power = 0.2 * 25W = 5W
+			expectedPower := 0.2 * 25 * Watt // 5W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := Energy(0.4 * 50 * Joule) // 20J
+			// Expected delta = 0.2 * 50J = 10J (using used energy)
+			expectedDelta := Energy(0.2 * 50 * Joule) // 10J
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 			// New VM, so absolute = delta
 			assert.Equal(t, usage.Delta, usage.Absolute)
@@ -153,20 +160,34 @@ func TestVMPowerCalculation(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = &Node{
-			Timestamp: fakeClock.Now(),
-			Zones:     make(ZoneUsageMap),
+			Timestamp:  fakeClock.Now(),
+			UsageRatio: 0.5,
+			Zones:      make(NodeZoneUsageMap),
 		}
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &Usage{
-				Absolute: Energy(100_000_000),
-				Delta:    Energy(50_000_000),
-				Power:    Power(0), // Zero power
+			newSnapshot.Node.Zones[zone] = &NodeUsage{
+				Absolute:     Energy(100_000_000),
+				Delta:        Energy(50_000_000),
+				ActiveEnergy: Energy(0),
+				IdleEnergy:   Energy(0),
+				Power:        Power(0), // Zero power
+				ActivePower:  Power(0),
+				IdlePower:    Power(0),
 			}
 		}
 
 		vms := CreateTestVMs()
+		tr := CreateTestResources()
+		node := tr.Node
+		if node == nil {
+			node = &resource.Node{
+				CPUUsageRatio: 0.5,
+				CPUTimeDelta:  200.0,
+			}
+		}
+		resourceInformer.On("Node").Return(node, nil).Once()
 		resourceInformer.On("VirtualMachines").Return(vms).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -188,13 +209,12 @@ func TestVMPowerCalculation(t *testing.T) {
 	t.Run("calculateVMPower without VMs", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Return empty VMs
 		emptyVMs := &resource.VirtualMachines{
-			NodeCPUTimeDelta: 0.0,
-			Running:          map[string]*resource.VirtualMachine{},
-			Terminated:       map[string]*resource.VirtualMachine{},
+			Running:    map[string]*resource.VirtualMachine{},
+			Terminated: map[string]*resource.VirtualMachine{},
 		}
 		resourceInformer.On("VirtualMachines").Return(emptyVMs).Once()
 
@@ -209,11 +229,10 @@ func TestVMPowerCalculation(t *testing.T) {
 	t.Run("calculateVMPower with zero CPU time delta", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// VM with zero CPU time delta - this can happen when CPU time hasn't changed
 		vms := &resource.VirtualMachines{
-			NodeCPUTimeDelta: 0.0, // Zero total CPU time delta
 			Running: map[string]*resource.VirtualMachine{
 				"vm-zero": {
 					ID:           "vm-zero",
@@ -226,6 +245,8 @@ func TestVMPowerCalculation(t *testing.T) {
 			Terminated: map[string]*resource.VirtualMachine{},
 		}
 
+		tr := CreateTestResources()
+		resourceInformer.On("Node").Return(tr.Node, nil).Once()
 		resourceInformer.On("VirtualMachines").Return(vms).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -249,7 +270,7 @@ func TestVMPowerCalculation(t *testing.T) {
 	t.Run("VM missing in previous snapshot", func(t *testing.T) {
 		// Create snapshots where previous doesn't have zone data for a VM
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add VM without zone data for one zone
 		prevSnapshot.VirtualMachines["vm-1"] = &VirtualMachine{
@@ -265,11 +286,10 @@ func TestVMPowerCalculation(t *testing.T) {
 		}
 
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
 
 		// Create VM with all zones
 		testVMs := &resource.VirtualMachines{
-			NodeCPUTimeDelta: 100.0,
 			Running: map[string]*resource.VirtualMachine{
 				"vm-1": {
 					ID:           "vm-1",
@@ -282,6 +302,8 @@ func TestVMPowerCalculation(t *testing.T) {
 			Terminated: map[string]*resource.VirtualMachine{},
 		}
 
+		tr := CreateTestResources()
+		resourceInformer.On("Node").Return(tr.Node, nil).Once()
 		resourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -332,11 +354,10 @@ func TestVMPowerConsistency(t *testing.T) {
 		// Test that sum of VM powers equals node power when VMs consume all CPU
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Create VMs with varying CPU usage that consumes all node CPU
 		testVMs := &resource.VirtualMachines{
-			NodeCPUTimeDelta: 100.0, // Total node CPU time delta
 			Running: map[string]*resource.VirtualMachine{
 				"vm1": {ID: "vm1", Name: "vm1", Hypervisor: resource.KVMHypervisor, CPUTimeDelta: 25.0},
 				"vm2": {ID: "vm2", Name: "vm2", Hypervisor: resource.KVMHypervisor, CPUTimeDelta: 35.0},
@@ -345,6 +366,8 @@ func TestVMPowerConsistency(t *testing.T) {
 			Terminated: map[string]*resource.VirtualMachine{},
 		}
 
+		tr := CreateTestResources()
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Once()
 		mockResourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -352,15 +375,17 @@ func TestVMPowerConsistency(t *testing.T) {
 
 		// Verify power conservation for each zone
 		for _, zone := range zones {
-			nodePower := newSnapshot.Node.Zones[zone].Power.MicroWatts()
 			totalVMPower := float64(0)
 
 			for _, vm := range newSnapshot.VirtualMachines {
 				totalVMPower += vm.Zones[zone].Power.MicroWatts()
 			}
 
-			// Total VM power should equal node power (with small tolerance for floating point)
-			assert.InDelta(t, nodePower, totalVMPower, 1.0,
+			// VMs have total CPU delta of 100.0 out of node's 200.0 (50%)
+			// So total VM power should be 50% of node ActivePower
+			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower.MicroWatts()
+			expectedTotalVMPower := nodeActivePower * 0.5 // 50% of used power
+			assert.InDelta(t, expectedTotalVMPower, totalVMPower, 1.0,
 				"Power conservation failed for zone %s", zone.Name())
 		}
 
@@ -371,11 +396,10 @@ func TestVMPowerConsistency(t *testing.T) {
 		// Test power distribution when VMs only consume part of the node CPU
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// VMs consume only 60% of node CPU (remaining 40% could be host processes)
 		testVMs := &resource.VirtualMachines{
-			NodeCPUTimeDelta: 100.0, // Total node CPU including host processes
 			Running: map[string]*resource.VirtualMachine{
 				"vm1": {ID: "vm1", Name: "vm1", Hypervisor: resource.KVMHypervisor, CPUTimeDelta: 20.0}, // 20%
 				"vm2": {ID: "vm2", Name: "vm2", Hypervisor: resource.KVMHypervisor, CPUTimeDelta: 40.0}, // 40%
@@ -383,6 +407,8 @@ func TestVMPowerConsistency(t *testing.T) {
 			Terminated: map[string]*resource.VirtualMachine{},
 		}
 
+		tr := CreateTestResources()
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Once()
 		mockResourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -390,26 +416,25 @@ func TestVMPowerConsistency(t *testing.T) {
 
 		// Verify VM power ratios are correct
 		for _, zone := range zones {
-			nodePower := newSnapshot.Node.Zones[zone].Power.MicroWatts()
-
 			vm1Power := newSnapshot.VirtualMachines["vm1"].Zones[zone].Power.MicroWatts()
 			vm2Power := newSnapshot.VirtualMachines["vm2"].Zones[zone].Power.MicroWatts()
 
-			// VM1 should consume 20% of node power
-			expectedVM1Power := 0.20 * nodePower
+			// VM1 has 20.0 CPU delta out of 200.0 total node CPU delta = 10% of node usage
+			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower.MicroWatts()
+			expectedVM1Power := 0.10 * nodeActivePower // 10% of used power
 			assert.InDelta(t, expectedVM1Power, vm1Power, 1.0,
-				"VM1 power should be 20%% of node power for zone %s", zone.Name())
+				"VM1 power should be 10%% of node used power for zone %s", zone.Name())
 
-			// VM2 should consume 40% of node power
-			expectedVM2Power := 0.40 * nodePower
+			// VM2 has 40.0 CPU delta out of 200.0 total node CPU delta = 20% of node usage
+			expectedVM2Power := 0.20 * nodeActivePower // 20% of used power
 			assert.InDelta(t, expectedVM2Power, vm2Power, 1.0,
-				"VM2 power should be 40%% of node power for zone %s", zone.Name())
+				"VM2 power should be 20%% of node used power for zone %s", zone.Name())
 
-			// Total VM power should be 60% of node power
+			// Total VM power should be 30% of node used power (10% + 20%)
 			totalVMPower := vm1Power + vm2Power
-			expectedTotalVMPower := 0.60 * nodePower
+			expectedTotalVMPower := 0.30 * nodeActivePower // 30% of used power
 			assert.InDelta(t, expectedTotalVMPower, totalVMPower, 1.0,
-				"Total VM power should be 60%% of node power for zone %s", zone.Name())
+				"Total VM power should be 30%% of node used power for zone %s", zone.Name())
 		}
 
 		mockResourceInformer.AssertExpectations(t)
@@ -421,7 +446,6 @@ func TestVMPowerConsistency(t *testing.T) {
 // CreateTestVMs creates test VMs with CPU time deltas for testing
 func CreateTestVMs() *resource.VirtualMachines {
 	return &resource.VirtualMachines{
-		NodeCPUTimeDelta: 100.0, // Total node CPU time delta
 		Running: map[string]*resource.VirtualMachine{
 			"vm-1": {
 				ID:           "vm-1",

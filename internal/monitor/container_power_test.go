@@ -25,22 +25,24 @@ func TestContainerPowerCalculation(t *testing.T) {
 	mockMeter.On("Zones").Return(zones, nil)
 
 	// Create mock resource informer
-	resourceInformer := &MockResourceInformer{}
+	resInformer := &MockResourceInformer{}
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
 		logger:    logger,
 		cpu:       mockMeter,
 		clock:     fakeClock,
-		resources: resourceInformer,
+		resources: resInformer,
 	}
 
 	err := monitor.initZones()
 	require.NoError(t, err)
 
 	t.Run("firstContainerRead", func(t *testing.T) {
-		containers := CreateTestResources().Containers
-		resourceInformer.On("Containers").Return(containers).Once()
+		tr := CreateTestResources(createOnly(testContainers))
+		require.NotNil(t, tr.Containers)
+
+		resInformer.SetExpectations(t, tr)
 
 		snapshot := NewSnapshot()
 		err := monitor.firstNodeRead(snapshot.Node)
@@ -50,6 +52,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify processes were initialized
+		containers := tr.Containers
 		assert.Len(t, snapshot.Containers, len(containers.Running))
 		assert.Contains(t, snapshot.Containers, "container-1")
 		assert.Contains(t, snapshot.Containers, "container-2")
@@ -70,13 +73,13 @@ func TestContainerPowerCalculation(t *testing.T) {
 			assert.Equal(t, Power(0), usage.Power)
 		}
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateContainerPower", func(t *testing.T) {
 		// Setup previous snapshot with process data
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add existing process data to previous snapshot
 		prevSnapshot.Containers["container-1"] = &Container{
@@ -98,12 +101,14 @@ func TestContainerPowerCalculation(t *testing.T) {
 
 		// Create new snapshot with updated node data
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second))
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
 
 		// Setup mock to return updated processes
 		tr := CreateTestResources()
+		require.NotNil(t, tr.Node)
 		procs, containers := tr.Processes, tr.Containers
-		resourceInformer.On("Containers").Return(containers).Once()
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Containers").Return(containers)
 
 		err = monitor.calculateContainerPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
@@ -121,11 +126,13 @@ func TestContainerPowerCalculation(t *testing.T) {
 			usage := ctnr1.Zones[zone]
 
 			// CPU ratio = 40.0 / 100.0 = 0.4 (40%)
-			// Expected power = 0.4 * 50W = 20W
-			expectedPower := 0.4 * 50 * Watt // 20W in microwatts
+			// ActivePower = 50W * 0.5 = 25W (node usage ratio is 0.5)
+			// Expected power = 0.4 * 25W = 10W
+			expectedPower := 0.4 * 25 * Watt // 10W in microwatts
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := 0.4 * 50 * Joule // 20J in microjoules
+			// Delta should use used energy (since container.go:101 uses nodeZoneUsage.ActiveEnergy)
+			expectedDelta := 0.4 * 50 * Joule // 20J in microjoules (0.4 * ActiveEnergy)
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 
 			// Absolute should be previous + delta = 25J + 20J = 45J
@@ -137,16 +144,19 @@ func TestContainerPowerCalculation(t *testing.T) {
 		ctnr2 := newSnapshot.Containers["container-2"]
 		for _, zone := range zones {
 			usage := ctnr2.Zones[zone]
-			// CPU ratio = 40.0 / 100.0 = 0.4 (40%)
-			expectedPower := 0.2 * 50 * Watt // 20W
+			// CPU ratio = 20.0 / 100.0 = 0.2 (20%)
+			// ActivePower = 50W * 0.5 = 25W, so 0.2 * 25W = 5W
+			expectedPower := 0.2 * 25 * Watt // 5W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			expectedDelta := Energy(0.2 * 50 * Joule) // 25J
+			// Delta uses used energy: 0.2 * 50J = 10J
+			expectedDelta := Energy(0.2 * 50 * Joule) // 10J
 			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
 			// New process, so absolute = delta
 			assert.Equal(t, usage.Delta, usage.Absolute)
 		}
-		resourceInformer.AssertExpectations(t)
+
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateContainerPower with zero node power", func(t *testing.T) {
@@ -154,26 +164,31 @@ func TestContainerPowerCalculation(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = &Node{
-			Timestamp: fakeClock.Now(),
-			Zones:     make(ZoneUsageMap),
+			Timestamp:  fakeClock.Now(),
+			UsageRatio: 0.5, // ratio of usage
+			Zones:      make(NodeZoneUsageMap),
 		}
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &Usage{
-				Absolute: Energy(100_000_000),
-				Delta:    Energy(50_000_000),
-				Power:    Power(0), // Zero power
+			newSnapshot.Node.Zones[zone] = &NodeUsage{
+				Absolute:     Energy(100_000_000),
+				Delta:        Energy(50_000_000),
+				ActiveEnergy: Energy(0),
+				IdleEnergy:   Energy(0),
+				Power:        Power(0), // Zero power
+				ActivePower:  Power(0),
+				IdlePower:    Power(0),
 			}
 		}
 
-		containers := CreateTestResources().Containers
-		resourceInformer.On("Containers").Return(containers).Once()
+		tr := CreateTestResources(createOnly(testNode, testContainers))
+		resInformer.SetExpectations(t, tr)
 
 		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
-		// All processes should have zero power
+		// All containers should have zero power
 		for _, proc := range newSnapshot.Containers {
 			for _, zone := range zones {
 				usage := proc.Zones[zone]
@@ -183,28 +198,27 @@ func TestContainerPowerCalculation(t *testing.T) {
 			}
 		}
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 
 	t.Run("calculateContainerPower without containers", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Return empty processes
 		emptyContaineres := &resource.Containers{
-			NodeCPUTimeDelta: 0.0,
-			Running:          map[string]*resource.Container{},
-			Terminated:       map[string]*resource.Container{},
+			Running:    map[string]*resource.Container{},
+			Terminated: map[string]*resource.Container{},
 		}
-		resourceInformer.On("Containers").Return(emptyContaineres).Once()
+		resInformer.On("Containers").Return(emptyContaineres).Once()
 
 		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
 		assert.Empty(t, newSnapshot.Containers)
 
-		resourceInformer.AssertExpectations(t)
+		resInformer.AssertExpectations(t)
 	})
 	mockMeter.AssertExpectations(t)
 }
@@ -237,19 +251,21 @@ func TestContainerPowerConsistency(t *testing.T) {
 		// no processes are running outside of containers
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now())
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
-		// Create processes with varying CPU usage
+		// Create containers with varying CPU usage that adds up to node's CPU usage
+		// Node has CPUTimeDelta: 200.0, so containers should sum to 100.0 (50% of 200.0 = node usage ratio * node delta)
 		testContaineres := &resource.Containers{
-			NodeCPUTimeDelta: 100.0,
 			Running: map[string]*resource.Container{
-				"c1": {ID: "c1", Name: "container-1", Runtime: resource.PodmanRuntime, CPUTimeDelta: 25.0},
+				"c1": {ID: "c1", Name: "container-1", Runtime: resource.PodmanRuntime, CPUTimeDelta: 30.0},
 				"c2": {ID: "c2", Name: "container-2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 35.0},
-				"c3": {ID: "c3", Name: "container-3", Runtime: resource.PodmanRuntime, CPUTimeDelta: 40.0},
+				"c3": {ID: "c3", Name: "container-3", Runtime: resource.PodmanRuntime, CPUTimeDelta: 35.0},
 			},
 			Terminated: map[string]*resource.Container{},
 		}
 
+		tr := CreateTestResources()
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Once()
 		mockResourceInformer.On("Containers").Return(testContaineres).Once()
 
 		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
@@ -257,15 +273,17 @@ func TestContainerPowerConsistency(t *testing.T) {
 
 		// Verify power conservation for each zone
 		for _, zone := range zones {
-			nodePower := newSnapshot.Node.Zones[zone].Power.MicroWatts()
 			totalContainerPower := float64(0)
 
 			for _, proc := range newSnapshot.Containers {
 				totalContainerPower += proc.Zones[zone].Power.MicroWatts()
 			}
 
-			// Total process power should equal node power (with small tolerance for floating point)
-			assert.InDelta(t, nodePower, totalContainerPower, 1.0,
+			// Containers have total CPU delta of 100.0 out of node's 200.0 (50%)
+			// So total container power should be 50% of node ActivePower
+			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower.MicroWatts()
+			expectedContainerPower := nodeActivePower * 0.5 // 50% of used power
+			assert.InDelta(t, expectedContainerPower, totalContainerPower, 1.0,
 				"Power conservation failed for zone %s", zone.Name())
 		}
 

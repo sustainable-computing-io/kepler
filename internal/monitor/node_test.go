@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/resource"
 
 	test_clock "k8s.io/utils/clock/testing"
 )
@@ -42,11 +43,20 @@ func TestNodePowerCollection(t *testing.T) {
 
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
 
+		// Create mock resource informer
+		mockResourceInformer := &MockResourceInformer{}
+		mockNode := &resource.Node{
+			CPUUsageRatio: 0.5,
+			CPUTimeDelta:  100.0,
+		}
+		mockResourceInformer.On("Node").Return(mockNode)
+
 		// Create a custom PowerMonitor with the mock readers
 		pm := NewPowerMonitor(
 			mockCPUPowerMeter,
 			WithLogger(logger),
-			WithClock(mockClock))
+			WithClock(mockClock),
+			WithResourceInformer(mockResourceInformer))
 		assert.NotNil(t, pm)
 
 		// First collection should store the initial values
@@ -198,6 +208,8 @@ func TestNodePowerCollection(t *testing.T) {
 
 			pm.snapshot.Store(current)
 		})
+
+		mockResourceInformer.AssertExpectations(t)
 	})
 }
 
@@ -221,11 +233,20 @@ func TestNodeErrorHandling(t *testing.T) {
 	startTime := time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC)
 	mockClock := test_clock.NewFakeClock(startTime)
 
+	// Create mock resource informer
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio: 0.5,
+		CPUTimeDelta:  100.0,
+	}
+	mockResourceInformer.On("Node").Return(mockNode)
+
 	// Create PowerMonitor with the mock
 	pm := NewPowerMonitor(
 		mockCPUPowerMeter,
 		WithLogger(logger),
 		WithClock(mockClock),
+		WithResourceInformer(mockResourceInformer),
 	)
 
 	t.Run("Zone Listing Error", func(t *testing.T) {
@@ -260,6 +281,8 @@ func TestNodeErrorHandling(t *testing.T) {
 		assert.NotContains(t, current.Node.Zones, pkg)
 		assert.Contains(t, current.Node.Zones, core)
 	})
+
+	mockResourceInformer.AssertExpectations(t)
 }
 
 // TestCalculateEnergyDelta tests the CalculateEnergyDelta function directly

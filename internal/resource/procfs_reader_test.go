@@ -144,6 +144,7 @@ func TestResourceInformer(t *testing.T) {
 
 		// First refresh
 		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once() // first
+		mockProcFS.On("CPUUsageRatio").Return(float64(0.25), nil).Once()
 		err = informer.Refresh()
 		require.NoError(t, err)
 
@@ -157,6 +158,12 @@ func TestResourceInformer(t *testing.T) {
 		assert.Equal(t, float64(10.5), processes.Running[12345].CPUTotalTime)
 		assert.Equal(t, float64(10.5), processes.Running[12345].CPUTimeDelta) // First time, delta equals total
 
+		// Check Node information
+		node := informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.25), node.CPUUsageRatio)
+		assert.Equal(t, float64(10.5), node.CPUTimeDelta)
+
 		// Check containers (none in this test)
 		containers := informer.Containers()
 		require.NotNil(t, containers)
@@ -166,6 +173,7 @@ func TestResourceInformer(t *testing.T) {
 		// For second Refresh - same process with increased CPU time
 		mockProc.On("CPUTime").Return(float64(15.0), nil).Once()
 		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+		mockProcFS.On("CPUUsageRatio").Return(float64(0.35), nil).Once()
 
 		err = informer.Refresh()
 		require.NoError(t, err)
@@ -174,7 +182,12 @@ func TestResourceInformer(t *testing.T) {
 		processes = informer.Processes()
 		assert.Equal(t, float64(15.0), processes.Running[12345].CPUTotalTime)
 		assert.Equal(t, float64(4.5), processes.Running[12345].CPUTimeDelta) // 15.0 - 10.5 = 4.5
-		assert.Equal(t, float64(4.5), processes.NodeCPUTimeDelta)            // Total delta
+
+		// Check updated Node information
+		node = informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.35), node.CPUUsageRatio)
+		assert.Equal(t, float64(4.5), node.CPUTimeDelta)
 
 		mockProcFS.AssertExpectations(t)
 		mockProc.AssertExpectations(t)
@@ -208,6 +221,7 @@ func TestResourceInformer(t *testing.T) {
 
 		// For first Refresh
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc1, mockProc2}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.1), nil).Once()
 
 		informer, err := NewInformer(
 			WithProcReader(mockInformer),
@@ -226,9 +240,16 @@ func TestResourceInformer(t *testing.T) {
 		assert.Len(t, processes.Running, 2)
 		assert.Len(t, processes.Terminated, 0)
 
+		// Check Node information
+		node := informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.1), node.CPUUsageRatio)
+		assert.Equal(t, float64(15.0), node.CPUTimeDelta) // 5.0 + 10.0 = 15.0
+
 		// Second refresh - process 2 is gone
 		mockProc1.On("CPUTime").Return(float64(7.5), nil)
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.15), nil).Once()
 
 		// Second refresh
 		err = informer.Refresh()
@@ -244,7 +265,12 @@ func TestResourceInformer(t *testing.T) {
 
 		// Check CPU time delta
 		assert.Equal(t, float64(2.5), processes.Running[1001].CPUTimeDelta) // 7.5 - 5.0 = 2.5
-		assert.Equal(t, float64(2.5), processes.NodeCPUTimeDelta)           // Should match the only running process's delta
+
+		// Check updated Node information
+		node = informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.15), node.CPUUsageRatio)
+		assert.Equal(t, float64(2.5), node.CPUTimeDelta) // Only running process delta
 
 		mockInformer.AssertExpectations(t)
 		mockProc1.AssertExpectations(t)
@@ -278,6 +304,7 @@ func TestResourceInformer(t *testing.T) {
 
 		// Initialize
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.3), nil).Once()
 		err = informer.Init()
 		require.NoError(t, err)
 
@@ -285,6 +312,12 @@ func TestResourceInformer(t *testing.T) {
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 		err = informer.Refresh()
 		require.NoError(t, err)
+
+		// Check Node information
+		node := informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.3), node.CPUUsageRatio)
+		assert.Equal(t, float64(3.0), node.CPUTimeDelta)
 
 		// Verify process is tracked
 		processes := informer.Processes()
@@ -302,11 +335,11 @@ func TestResourceInformer(t *testing.T) {
 		assert.Equal(t, "test-container", c.Name)
 		assert.Equal(t, PodmanRuntime, c.Runtime)
 		assert.Equal(t, float64(3.0), c.CPUTimeDelta)
-		assert.Equal(t, float64(3.0), containers.NodeCPUTimeDelta)
 
 		// For second Refresh - increased CPU time
 		mockProc.On("CPUTime").Return(float64(5.0), nil).Once()
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.45), nil).Once()
 
 		// Second refresh
 		err = informer.Refresh()
@@ -316,7 +349,12 @@ func TestResourceInformer(t *testing.T) {
 		containers = informer.Containers()
 		assert.Equal(t, float64(5.0), containers.Running[ctnrID].CPUTotalTime)
 		assert.Equal(t, float64(2.0), containers.Running[ctnrID].CPUTimeDelta)
-		assert.Equal(t, float64(2.0), processes.NodeCPUTimeDelta) // Delta should be 2.0
+
+		// Check updated Node information
+		node = informer.Node()
+		require.NotNil(t, node)
+		assert.Equal(t, float64(0.45), node.CPUUsageRatio)
+		assert.Equal(t, float64(2.0), node.CPUTimeDelta)
 
 		mockInformer.AssertExpectations(t)
 		mockProc.AssertExpectations(t)
@@ -342,6 +380,7 @@ func TestResourceInformer(t *testing.T) {
 
 		// For first Refresh
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.0), nil).Once()
 
 		informer, err := NewInformer(
 			WithProcReader(mockInformer),
@@ -364,6 +403,7 @@ func TestResourceInformer(t *testing.T) {
 
 		// Second refresh - container process is gone
 		mockInformer.On("AllProcs").Return([]procInfo{}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.3), nil).Once()
 
 		// Move clock forward
 		fakeClock.Step(1000 * 1000 * 1000) // 1 second
@@ -477,7 +517,9 @@ func TestProcFSReaderWithInformer(t *testing.T) {
 
 	// Test AllProcs
 	err = informer.Refresh()
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
+	assert.Equal(t, informer.Node().CPUUsageRatio, 0.0)
 
 	processes := informer.Processes()
 	assert.Len(t, processes.Running, 6)
@@ -528,13 +570,17 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	mockInformer := &MockProcReader{}
 	fakeClock := testclock.NewFakeClock(time.Now())
 
+	const (
+		procCPUTime = 5.0
+	)
+
 	// Initial process state
 	mockProc := &MockProcInfo{}
 	mockProc.On("PID").Return(1001)
 	mockProc.On("Comm").Return("process-initial", nil).Once()
 	mockProc.On("Executable").Return("/bin/process-initial", nil).Once()
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
-	mockProc.On("CPUTime").Return(float64(5.0), nil).Once()
+	mockProc.On("CPUTime").Return(procCPUTime, nil).Once()
 	mockProc.On("Environ").Return([]string{}, nil).Maybe()
 	mockProc.On("CmdLine").Return([]string{"/bin/process-initial"}, nil).Once()
 
@@ -543,6 +589,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 
 	// For first Refresh
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockInformer.On("CPUUsageRatio").Return(float64(0.0), nil).Once()
 
 	informer, err := NewInformer(
 		WithProcReader(mockInformer),
@@ -558,6 +605,10 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify initial state
+	node := informer.Node()
+	assert.Equal(t, float64(0.0), node.CPUUsageRatio)
+	assert.Equal(t, procCPUTime, node.CPUTimeDelta)
+
 	processes := informer.Processes()
 	assert.Equal(t, "process-initial", processes.Running[1001].Comm)
 	assert.Equal(t, "/bin/process-initial", processes.Running[1001].Exe)
@@ -571,6 +622,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	mockProc.On("CPUTime").Return(float64(7.0), nil).Once() // 2.0 delta
 
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockInformer.On("CPUUsageRatio").Return(0.3, nil).Once()
 
 	// Second refresh
 	err = informer.Refresh()
@@ -586,7 +638,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	// Third refresh - process changes again but with negligible CPU time delta
 	mockProc.On("CPUTime").Return(float64(7.0000000000001), nil).Once() // Very small delta (1e-13)
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
-
+	mockInformer.On("CPUUsageRatio").Return(0.3, nil).Once()
 	// Third refresh
 	err = informer.Refresh()
 	require.NoError(t, err)
@@ -605,7 +657,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 }
 
 func TestZeroCPUTimeProcess(t *testing.T) {
-	mockInformer := &MockProcReader{}
+	mockProcFS := &MockProcReader{}
 	fakeClock := testclock.NewFakeClock(time.Now())
 
 	// Initial creation of process (new process)
@@ -619,13 +671,14 @@ func TestZeroCPUTimeProcess(t *testing.T) {
 	mockProc.On("CmdLine").Return([]string{"/bin/zero-cpu-process"}, nil).Maybe()
 
 	// For Init
-	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 
 	// For first Refresh
-	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockProcFS.On("CPUUsageRatio").Return(float64(0.0), nil).Once()
 
 	informer, err := NewInformer(
-		WithProcReader(mockInformer),
+		WithProcReader(mockProcFS),
 		WithClock(fakeClock),
 	)
 	require.NoError(t, err)
@@ -647,8 +700,8 @@ func TestZeroCPUTimeProcess(t *testing.T) {
 	// Second refresh - process with close to 0 CPU delta and should not update process fields
 	mockProc.On("CPUTime").Return(float64(1e-14), nil).Once() // Still zero
 
-	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
-
+	mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+	mockProcFS.On("CPUUsageRatio").Return(float64(0.5), nil).Once()
 	// Second refresh
 	err = informer.Refresh()
 	require.NoError(t, err)
@@ -662,6 +715,61 @@ func TestZeroCPUTimeProcess(t *testing.T) {
 	assert.Equal(t, float64(1e-14), processes.Running[1001].CPUTotalTime)
 	assert.Equal(t, float64(1e-14), processes.Running[1001].CPUTimeDelta)
 
-	mockInformer.AssertExpectations(t)
+	mockProcFS.AssertExpectations(t)
 	mockProc.AssertExpectations(t)
+}
+
+func TestProcFSReaderCPUUsageRatio(t *testing.T) {
+	t.Run("First call returns zero usage", func(t *testing.T) {
+		// Create a mock reader with no previous stats
+		reader, err := NewProcFSReader("./testdata/procfs")
+		require.NoError(t, err)
+
+		ratio, err := reader.CPUUsageRatio()
+		require.NoError(t, err)
+		assert.Equal(t, float64(0), ratio, "First call should return 0 usage ratio")
+
+		// magic numbers copied from testdata/procfs/stat
+		// cpu  8608833 7605 4179891 1295036209 426072 15697167 1285624 0 5327346 0
+		assert.Equal(t, 86088.33, reader.prevStat.User, "should read user time from procfs")
+		assert.Equal(t, 41798.91, reader.prevStat.System, "should read system time from procfs")
+		assert.Equal(t, 12950362.09, reader.prevStat.Idle, "should read idle time from procfs")
+	})
+
+	t.Run("Second call calculates correct ratio", func(t *testing.T) {
+		reader, err := NewProcFSReader("./testdata/procfs")
+		require.NoError(t, err)
+
+		ratio, err := reader.CPUUsageRatio()
+		require.NoError(t, err)
+		assert.Equal(t, float64(0), ratio, "First call should return 0 usage ratio")
+		// magic numbers copied from testdata/procfs/stat
+		// cpu  8608833 7605 4179891 1295036209 426072 15697167 1285624 0 5327346 0
+		assert.Equal(t, 86088.33, reader.prevStat.User, "should read user time from procfs")
+		assert.Equal(t, 41798.91, reader.prevStat.System, "should read system time from procfs")
+		assert.Equal(t, 12950362.09, reader.prevStat.Idle, "should read idle time from procfs")
+
+		read := reader.prevStat
+		reader.prevStat = procfs.CPUStat{
+			User:    read.User - 500,
+			Nice:    read.Nice - 100,
+			System:  read.System - 300,
+			Idle:    read.Idle - 650,
+			Iowait:  read.Iowait - 50,
+			IRQ:     read.IRQ - 25,
+			SoftIRQ: read.SoftIRQ - 75,
+			Steal:   read.Steal - 50,
+		}
+
+		// total = 500 + 100 + 300 + 650 + 50 + 25 + 75 + 50 = 1750
+		// active = total - idle (idle + iowait) = 1750 - 700 = 1050
+		// ratio = active / total = 1050/1750 = 0.6
+
+		ratio, err = reader.CPUUsageRatio()
+		assert.NoError(t, err, "should not error on second call")
+		assert.InDelta(t, 0.6, ratio, 0.0001, "Second call should calculate correct ratio")
+		assert.Equal(t, 86088.33, reader.prevStat.User, "should read user time from procfs")
+		assert.Equal(t, 41798.91, reader.prevStat.System, "should read system time from procfs")
+		assert.Equal(t, 12950362.09, reader.prevStat.Idle, "should read idle time from procfs")
+	})
 }

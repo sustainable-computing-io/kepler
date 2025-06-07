@@ -28,7 +28,7 @@ func TestCollectionLoop(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -80,7 +80,7 @@ func TestPeriodicCollection(t *testing.T) {
 	resourceInformer.On("Refresh").Return(nil)
 
 	tr := CreateTestResources()
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 
 	collectionInterval := 50 * time.Millisecond
 	monitor := NewPowerMonitor(
@@ -143,7 +143,7 @@ func TestCollectionCancellation(t *testing.T) {
 	resourceInformer := &MockResourceInformer{}
 
 	tr := CreateTestResources()
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	interval := 10 * time.Millisecond
@@ -221,7 +221,7 @@ func TestScheduleNextCollection(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 
 	resourceInformer.On("Refresh").Return(nil)
 
@@ -274,7 +274,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	interval := 20 * time.Millisecond
@@ -325,7 +325,7 @@ func TestCollectionErrorHandling(t *testing.T) {
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	interval := 20 * time.Millisecond

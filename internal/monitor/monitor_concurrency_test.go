@@ -27,7 +27,7 @@ func TestSnapshotThreadSafety(t *testing.T) {
 	require.NoError(t, err)
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -91,7 +91,7 @@ func TestFreshSnapshotCaching(t *testing.T) {
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -146,7 +146,7 @@ func TestStaleSnapshotRefreshing(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -210,7 +210,7 @@ func TestSingleflightSnapshot(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	// Set up the monitor with a short staleness threshold
@@ -298,7 +298,7 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -368,7 +368,7 @@ func TestSnapshot_ConcurrentAfterError(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(
@@ -470,7 +470,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 
 		tr := CreateTestResources()
 		resourceInformer := &MockResourceInformer{}
-		resourceInformer.SetupTestResources(tr)
+		resourceInformer.SetExpectations(t, tr)
 		resourceInformer.On("Refresh").Return(nil)
 
 		monitor := NewPowerMonitor(
@@ -574,7 +574,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 
 		tr := CreateTestResources()
 		resourceInformer := &MockResourceInformer{}
-		resourceInformer.SetupTestResources(tr)
+		resourceInformer.SetExpectations(t, tr)
 		resourceInformer.On("Refresh").Return(nil)
 
 		monitor := NewPowerMonitor(

@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -76,8 +75,6 @@ func TestPowerCollector(t *testing.T) {
 	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
-	// Mock zone names
-
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
 	nodePkgPower := 12 * device.Watt
@@ -88,16 +85,26 @@ func TestPowerCollector(t *testing.T) {
 
 	// Create test node Snapshot
 	testNodeData := monitor.Node{
-		Zones: monitor.ZoneUsageMap{
-			packageZone: {
-				Absolute: nodePkgAbs,
-				Delta:    nodePkgDelta,
-				Power:    nodePkgPower,
+		Timestamp:  time.Now(),
+		UsageRatio: 0.5,
+		Zones: monitor.NodeZoneUsageMap{
+			packageZone: &monitor.NodeUsage{
+				Absolute:     nodePkgAbs,
+				Delta:        nodePkgDelta,
+				ActiveEnergy: nodePkgDelta / 2, // 50% of delta is used
+				IdleEnergy:   nodePkgDelta / 2, // 50% of delta is idle
+				Power:        nodePkgPower,
+				ActivePower:  nodePkgPower / 2, // 50% of power is used
+				IdlePower:    nodePkgPower / 2, // 50% of power is idle
 			},
-			dramZone: {
-				Absolute: nodeDramAbs,
-				Delta:    nodeDramDelta,
-				Power:    nodeDramPower,
+			dramZone: &monitor.NodeUsage{
+				Absolute:     nodeDramAbs,
+				Delta:        nodeDramDelta,
+				ActiveEnergy: nodeDramDelta / 2, // 50% of delta is used
+				IdleEnergy:   nodeDramDelta / 2, // 50% of delta is idle
+				Power:        nodeDramPower,
+				ActivePower:  nodeDramPower / 2, // 50% of power is used
+				IdlePower:    nodeDramPower / 2, // 50% of power is idle
 			},
 		},
 	}
@@ -183,6 +190,11 @@ func TestPowerCollector(t *testing.T) {
 		expectedMetricNames := []string{
 			"kepler_node_cpu_joules_total",
 			"kepler_node_cpu_watts",
+			"kepler_node_cpu_usage_ratio",
+			"kepler_node_cpu_active_joules_total",
+			"kepler_node_cpu_idle_joules_total",
+			"kepler_node_cpu_active_watts",
+			"kepler_node_cpu_idle_watts",
 
 			"kepler_process_cpu_joules_total",
 			"kepler_process_cpu_watts",
@@ -203,19 +215,21 @@ func TestPowerCollector(t *testing.T) {
 		metrics, err := registry.Gather()
 		assert.NoError(t, err)
 
-		zoneNames := []string{}
-		zonePaths := []string{}
+		seenZoneNames := make(map[string]bool)
+		seenZonePaths := make(map[string]bool)
 
-		// Check node joules metrics
+		// Check main node joules metrics
 		for _, metric := range metrics {
 			if metric.GetName() == "kepler_node_cpu_joules_total" {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetCounter().GetValue()
+					zone := valueOfLabel(m, "zone")
 
-					zoneNames = append(zoneNames, valueOfLabel(m, "zone"))
-					zonePaths = append(zonePaths, path)
+					seenZoneNames[zone] = true
+					seenZonePaths[path] = true
 
+					// Check absolute values
 					if path == packageZone.Path() {
 						assert.Equal(t, nodePkgAbs.Joules(), value, "Unexpected package joules")
 					} else if path == dramZone.Path() {
@@ -225,20 +239,56 @@ func TestPowerCollector(t *testing.T) {
 			}
 		}
 
-		// Check node watts metrics
 		for _, metric := range metrics {
-			if strings.HasPrefix(metric.GetName(), "kepler_node_") && strings.HasSuffix(metric.GetName(), "_watts") {
+			if metric.GetName() == "kepler_node_cpu_watts" {
+				for _, m := range metric.GetMetric() {
+					path := valueOfLabel(m, "path")
+					value := m.GetGauge().GetValue()
+
+					// Check total power values
+					if path == packageZone.Path() {
+						assert.Equal(t, nodePkgPower.Watts(), value, "Expected package watts")
+					} else if path == dramZone.Path() {
+						assert.Equal(t, nodeDramPower.Watts(), value, "Expected dram watts")
+					}
+				}
+			}
+		}
+
+		// Check active/idle attribution metrics (separate metrics, no mode label)
+		for _, metric := range metrics {
+			if metric.GetName() == "kepler_node_cpu_active_watts" {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetGauge().GetValue()
 
 					if path == packageZone.Path() {
-						assert.Equal(t, nodePkgPower.Watts(), value, "Expected zone1 watts to be 50.0")
-					} else if path == dramZone.Path() {
-						assert.Equal(t, nodeDramPower.Watts(), value, "Expected zone2 watts to be 10.0")
+						expectedValue := (nodePkgPower / 2).Watts() // 50% active
+						assert.Equal(t, expectedValue, value, "Expected package active watts")
 					}
 				}
 			}
+			if metric.GetName() == "kepler_node_cpu_idle_watts" {
+				for _, m := range metric.GetMetric() {
+					path := valueOfLabel(m, "path")
+					value := m.GetGauge().GetValue()
+
+					if path == packageZone.Path() {
+						expectedValue := (nodePkgPower / 2).Watts() // 50% idle
+						assert.Equal(t, expectedValue, value, "Expected package idle watts")
+					}
+				}
+			}
+		}
+
+		// Convert maps to slices for assertion
+		zoneNames := make([]string, 0, len(seenZoneNames))
+		for name := range seenZoneNames {
+			zoneNames = append(zoneNames, name)
+		}
+		zonePaths := make([]string, 0, len(seenZonePaths))
+		for path := range seenZonePaths {
+			zonePaths = append(zonePaths, path)
 		}
 
 		assert.ElementsMatch(t, zoneNames, []string{"package-0", "dram-0"})

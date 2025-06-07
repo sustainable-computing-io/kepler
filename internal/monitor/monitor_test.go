@@ -22,7 +22,7 @@ import (
 func TestNewPowerMonitor(t *testing.T) {
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	tt := []struct {
@@ -149,7 +149,7 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(mockPowerMeter, WithResourceInformer(resourceInformer))
@@ -270,7 +270,7 @@ func TestPowerMonitor_Run(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
@@ -320,7 +320,7 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
@@ -348,7 +348,7 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
@@ -400,7 +400,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	t.Run("Basic", func(t *testing.T) {
@@ -571,7 +571,7 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
-	resourceInformer.SetupTestResources(tr)
+	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
 
 	// Create PowerMonitor with the mock
