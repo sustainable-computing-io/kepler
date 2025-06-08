@@ -1,4 +1,4 @@
-.PHONY: all build build-debug clean test coverage lint vet fmt deps image push run
+.PHONY: all build build-debug clean test coverage lint vet fmt deps image push run deploy undeploy cluster-restart cluster-down cluster-up gen-metrics-docs
 
 # Go parameters
 GOCMD=go
@@ -88,6 +88,11 @@ test:
 coverage: test
 	$(GOCMD) tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
 
+# Generate metrics documentation
+gen-metrics-docs:
+	$(GOCMD) run ./hack/gen-metric-docs/main.go --output metrics.md
+	mv metrics.md docs/metrics/
+
 # Run linting
 lint:
 	$(GOLINT) run ./...
@@ -127,7 +132,6 @@ GRAFANA_ENABLE ?= false
 PROMETHEUS_ENABLE ?= true
 KIND_WORKER_NODES ?=2
 
-.PHONY: cluster-up
 cluster-up: ## setup a cluster for local development
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
@@ -136,7 +140,6 @@ cluster-up: ## setup a cluster for local development
 	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh up
 
-.PHONY: cluster-restart
 cluster-restart: ## restart the local development cluster
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
@@ -145,19 +148,16 @@ cluster-restart: ## restart the local development cluster
 	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh restart
 
-.PHONY: cluster-down
 cluster-down: ## delete the local development cluster
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	./hack/cluster.sh down
 
-.PHONY: deploy
 deploy: ## Deploy Kepler to the K8s cluster
 	kubectl kustomize manifests/k8s | \
 	sed -e "s|<KEPLER_IMAGE>|$(KEPLER_IMAGE)|g" | \
 	kubectl apply --server-side --force-conflicts -f -
 
-.PHONY: undeploy
 undeploy: ## Undeploy Kepler from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	kubectl delete -k manifests/k8s --ignore-not-found=true
 
