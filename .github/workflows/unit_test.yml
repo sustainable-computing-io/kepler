@@ -37,7 +37,7 @@ jobs:
         run: |
           make VERBOSE=1 test
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.4.3
         with:
           fail_ci_if_error: false # because codecov updates occasionally fail
           files: ./coverage.out
