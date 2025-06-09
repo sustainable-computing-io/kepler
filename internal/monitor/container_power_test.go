@@ -39,7 +39,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("firstContainerRead", func(t *testing.T) {
-		tr := CreateTestResources(createOnly(testContainers))
+		tr := CreateTestResources(createOnly(testContainers, testNode))
 		require.NotNil(t, tr.Containers)
 
 		resInformer.SetExpectations(t, tr)
@@ -68,8 +68,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 		assert.Len(t, cntr1.Zones, 2)
 		for _, zone := range zones {
 			usage := cntr1.Zones[zone]
-			assert.Equal(t, Energy(0), usage.Absolute)
-			assert.Equal(t, Energy(0), usage.Delta)
+			assert.Equal(t, Energy(0), usage.EnergyTotal)
 			assert.Equal(t, Power(0), usage.Power)
 		}
 
@@ -93,9 +92,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 		// Initialize zones for previous process
 		for _, zone := range zones {
 			prevSnapshot.Containers["container-1"].Zones[zone] = &Usage{
-				Absolute: 25 * Joule,
-				Delta:    Energy(0),
-				Power:    Power(0),
+				EnergyTotal: 25 * Joule,
+				Power:       Power(0),
 			}
 		}
 
@@ -131,13 +129,9 @@ func TestContainerPowerCalculation(t *testing.T) {
 			expectedPower := 0.4 * 25 * Watt // 10W in microwatts
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			// Delta should use used energy (since container.go:101 uses nodeZoneUsage.ActiveEnergy)
-			expectedDelta := 0.4 * 50 * Joule // 20J in microjoules (0.4 * ActiveEnergy)
-			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
-
 			// Absolute should be previous + delta = 25J + 20J = 45J
 			expectedAbsolute := 45 * Joule
-			assert.InDelta(t, expectedAbsolute.MicroJoules(), usage.Absolute.MicroJoules(), 0.01)
+			assert.InDelta(t, expectedAbsolute.MicroJoules(), usage.EnergyTotal.MicroJoules(), 0.01)
 		}
 
 		// Check process 456 (new process)
@@ -148,12 +142,6 @@ func TestContainerPowerCalculation(t *testing.T) {
 			// ActivePower = 50W * 0.5 = 25W, so 0.2 * 25W = 5W
 			expectedPower := 0.2 * 25 * Watt // 5W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
-
-			// Delta uses used energy: 0.2 * 50J = 10J
-			expectedDelta := Energy(0.2 * 50 * Joule) // 10J
-			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
-			// New process, so absolute = delta
-			assert.Equal(t, usage.Delta, usage.Absolute)
 		}
 
 		resInformer.AssertExpectations(t)
@@ -172,13 +160,13 @@ func TestContainerPowerCalculation(t *testing.T) {
 		// Set zero power for all zones
 		for _, zone := range zones {
 			newSnapshot.Node.Zones[zone] = &NodeUsage{
-				Absolute:     Energy(100_000_000),
-				Delta:        Energy(50_000_000),
-				ActiveEnergy: Energy(0),
-				IdleEnergy:   Energy(0),
-				Power:        Power(0), // Zero power
-				ActivePower:  Power(0),
-				IdlePower:    Power(0),
+				EnergyTotal:       Energy(100_000_000),
+				activeEnergy:      Energy(0),
+				ActiveEnergyTotal: Energy(0),
+				IdleEnergyTotal:   Energy(0),
+				Power:             Power(0), // Zero power
+				ActivePower:       Power(0),
+				IdlePower:         Power(0),
 			}
 		}
 
@@ -193,8 +181,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 			for _, zone := range zones {
 				usage := proc.Zones[zone]
 				assert.Equal(t, Power(0), usage.Power)
-				assert.Equal(t, Energy(0), usage.Delta)
-				assert.Equal(t, Energy(0), usage.Absolute)
+				assert.Equal(t, Energy(0), usage.EnergyTotal)
 			}
 		}
 

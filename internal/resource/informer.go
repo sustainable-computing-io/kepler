@@ -15,8 +15,8 @@ import (
 )
 
 type Node struct {
-	CPUTimeDelta  float64
-	CPUUsageRatio float64
+	ProcessTotalCPUTimeDelta float64 // sum of all process CPU time deltas
+	CPUUsageRatio            float64
 }
 
 // Processes represents sets of running and terminated processes
@@ -188,11 +188,11 @@ func (ri *resourceInformer) Refresh() error {
 	// Node
 
 	// Find terminated processes
-	nodeCPUDelta := float64(0)
+	procCPUDeltaTotal := float64(0)
 	procsTerminated := make(map[int]*Process)
 	for pid, proc := range ri.procCache {
 		if _, isRunning := procsRunning[pid]; isRunning {
-			nodeCPUDelta += proc.CPUTimeDelta
+			procCPUDeltaTotal += proc.CPUTimeDelta
 			continue
 		}
 		procsTerminated[pid] = proc
@@ -203,7 +203,7 @@ func (ri *resourceInformer) Refresh() error {
 	if err != nil {
 		return fmt.Errorf("failed to get procfs usage: %w", err)
 	}
-	ri.node.CPUTimeDelta = nodeCPUDelta
+	ri.node.ProcessTotalCPUTimeDelta = procCPUDeltaTotal
 	ri.node.CPUUsageRatio = usage
 
 	// Update tracking structures

@@ -102,7 +102,7 @@ type procFSReader struct {
 }
 
 // CPUUsageRatio returns the CPU usage ratio as
-// active over total, where active = total - idle
+// active over total, where active = total - (idle + iowait)
 // and total = user + nice + system + idle + iowait + irq + softirq + steal
 func (r *procFSReader) CPUUsageRatio() (float64, error) {
 	current, err := r.fs.Stat()

@@ -215,21 +215,21 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUJoulesDescriptor,
 			prometheus.CounterValue,
-			energy.Absolute.Joules(),
+			energy.EnergyTotal.Joules(),
 			zoneName, path,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUActiveJoulesDesc,
 			prometheus.CounterValue,
-			energy.ActiveEnergy.Joules(),
+			energy.ActiveEnergyTotal.Joules(),
 			zoneName, path,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.nodeCPUIdleJoulesDesc,
 			prometheus.CounterValue,
-			energy.IdleEnergy.Joules(),
+			energy.IdleEnergyTotal.Joules(),
 			zoneName, path,
 		)
 
@@ -280,7 +280,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, proc
 			ch <- prometheus.MustNewConstMetric(
 				c.processCPUJoulesDescriptor,
 				prometheus.CounterValue,
-				usage.Absolute.Joules(),
+				usage.EnergyTotal.Joules(),
 				pidStr, proc.Comm, proc.Exe, string(proc.Type),
 				proc.ContainerID, proc.VirtualMachineID,
 				zoneName,
@@ -313,7 +313,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 			ch <- prometheus.MustNewConstMetric(
 				c.containerCPUJoulesDescriptor,
 				prometheus.CounterValue,
-				usage.Absolute.Joules(),
+				usage.EnergyTotal.Joules(),
 				id, container.Name, string(container.Runtime),
 				zoneName,
 			)
@@ -342,7 +342,7 @@ func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, vms monit
 			ch <- prometheus.MustNewConstMetric(
 				c.vmCPUJoulesDescriptor,
 				prometheus.CounterValue,
-				usage.Absolute.Joules(),
+				usage.EnergyTotal.Joules(),
 				id, vm.Name, string(vm.Hypervisor),
 				zoneName,
 			)

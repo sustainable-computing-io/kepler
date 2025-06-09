@@ -142,10 +142,10 @@ func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio floa
 
 	for _, zone := range zones {
 		node.Zones[zone] = &NodeUsage{
-			Absolute:     200 * Joule,
-			Delta:        100 * Joule,
-			ActiveEnergy: Energy(usageRatio * float64(100*Joule)),
-			IdleEnergy:   Energy((1 - usageRatio) * float64(100*Joule)),
+			EnergyTotal:       200 * Joule,
+			activeEnergy:      Energy(usageRatio * float64(100*Joule)),
+			ActiveEnergyTotal: Energy(usageRatio * float64(100*Joule)),
+			IdleEnergyTotal:   Energy((1 - usageRatio) * float64(100*Joule)),
 
 			Power:       50 * Watt,
 			ActivePower: Power(usageRatio * float64(50*Watt)),
@@ -220,8 +220,8 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 	}
 
 	node := &resource.Node{
-		CPUUsageRatio: opt.nodeCpuUsage,
-		CPUTimeDelta:  opt.nodeCpuTimeDelta,
+		CPUUsageRatio:            opt.nodeCpuUsage,
+		ProcessTotalCPUTimeDelta: opt.nodeCpuTimeDelta,
 	}
 
 	//  VMs
@@ -257,7 +257,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:         "process1",
 				Exe:          "/usr/bin/process1",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 0.3 * node.CPUTimeDelta, // 30% of total CPU time | cum: 30
+				CPUTimeDelta: 0.3 * node.ProcessTotalCPUTimeDelta, // 30% of total CPU time | cum: 30
 				Container:    container1,
 				Type:         resource.ContainerProcess,
 			},
@@ -266,7 +266,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:         "process4",
 				Exe:          "/usr/bin/process4",
 				CPUTotalTime: 100.0,
-				CPUTimeDelta: 0.1 * node.CPUTimeDelta, // 10% | cum: 40
+				CPUTimeDelta: 0.1 * node.ProcessTotalCPUTimeDelta, // 10% | cum: 40
 				Container:    container1,
 				Type:         resource.ContainerProcess,
 			},
@@ -275,7 +275,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:         "process2",
 				Exe:          "/usr/bin/process2",
 				CPUTotalTime: 200.0,
-				CPUTimeDelta: 0.20 * node.CPUTimeDelta, // 20% | cum: 60
+				CPUTimeDelta: 0.20 * node.ProcessTotalCPUTimeDelta, // 20% | cum: 60
 				Container:    container2,
 				Type:         resource.ContainerProcess,
 			},
@@ -284,7 +284,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:         "process3",
 				Exe:          "/usr/bin/process3",
 				CPUTotalTime: 500.0,
-				CPUTimeDelta: 0.15 * node.CPUTimeDelta, // 15% | cum: 75
+				CPUTimeDelta: 0.15 * node.ProcessTotalCPUTimeDelta, // 15% | cum: 75
 				Type:         resource.RegularProcess,
 			},
 			// VM processes
@@ -293,7 +293,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:           "qemu-vm1",
 				Exe:            "/usr/bin/qemu-system-x86_64",
 				CPUTotalTime:   300.0,
-				CPUTimeDelta:   0.20 * node.CPUTimeDelta, // 20% | cum: 95
+				CPUTimeDelta:   0.20 * node.ProcessTotalCPUTimeDelta, // 20% | cum: 95
 				VirtualMachine: vm1,
 				Type:           resource.VMProcess,
 			},
@@ -302,7 +302,7 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 				Comm:           "qemu-vm2",
 				Exe:            "/usr/bin/qemu-system-x86_64",
 				CPUTotalTime:   200.0,
-				CPUTimeDelta:   0.05 * node.CPUTimeDelta, // 5%  | cum: 100
+				CPUTimeDelta:   0.05 * node.ProcessTotalCPUTimeDelta, // 5%  | cum: 100
 				VirtualMachine: vm2,
 				Type:           resource.VMProcess,
 			},

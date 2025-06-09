@@ -35,9 +35,8 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 	// Initialize each zone with zero values
 	for zone := range zones {
 		process.Zones[zone] = &Usage{
-			Absolute: Energy(0),
-			Delta:    Energy(0),
-			Power:    Power(0),
+			EnergyTotal: Energy(0),
+			Power:       Power(0),
 		}
 	}
 
@@ -63,7 +62,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 	}
 
 	zones := newSnapshot.Node.Zones
-	nodeCPUTimeDelta := pm.resources.Node().CPUTimeDelta
+	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 	pm.logger.Debug("Calculating Process power",
 		"node.cpu.time", nodeCPUTimeDelta,
 		"running", len(running),
@@ -77,7 +76,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || nodeCPUTimeDelta == 0 {
+			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
 				continue
 			}
 
@@ -91,23 +90,21 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			//
 			cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
 
-			// Calculate process's share of this zone's power and energy
-			process.Zones[zone] = &Usage{
-				Power: Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.ActiveEnergy)),
-			}
+			// Calculate energy  for this interval
+			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// If we have previous data for this process and zone, add to absolute energy
+			// Calculate absolute energy based on previous data
+			absoluteEnergy := activeEnergy
 			if prev, exists := prev.Processes[pid]; exists {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					process.Zones[zone].Absolute = prevUsage.Absolute + process.Zones[zone].Delta
-				} else {
-					// TODO: unlikely; so add telemetry for this
-					process.Zones[zone].Absolute = process.Zones[zone].Delta
+					absoluteEnergy += prevUsage.EnergyTotal
 				}
-			} else {
-				// New process, starts with delta
-				process.Zones[zone].Absolute = process.Zones[zone].Delta
+			}
+
+			// Calculate process's share of this zone's power and energy
+			process.Zones[zone] = &Usage{
+				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+				EnergyTotal: absoluteEnergy,
 			}
 		}
 
