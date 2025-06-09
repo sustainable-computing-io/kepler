@@ -16,7 +16,10 @@ UIDGID := $(shell stat -c '%u:%g' ${REPODIR})
 # Prefer podman if installed, otherwise use docker.
 # Note: Setting the var at runtime will always override.
 CONTAINER_ENGINE ?= $(if $(shell command -v podman), podman, docker)
-CONTAINER_RUN_ARGS ?= $(if $(filter ${CONTAINER_ENGINE}, podman), --log-driver=none, --user "${UIDGID}")
+CONTAINER_RUN_ARGS ?= $(if $(filter ${CONTAINER_ENGINE}, podman), \
+		--log-driver=none \
+		-v "$(shell go env GOCACHE)":/root/.cache/go-build \
+		-v "$(shell go env GOMODCACHE)":/go/pkg/mod, --user "${UIDGID}")
 
 IMAGE := $(shell cat ${REPODIR}/testdata/docker/IMAGE)
 VERSION := $(shell cat ${REPODIR}/testdata/docker/VERSION)
@@ -39,16 +42,18 @@ TARGETS := \
 	testdata/subprog_reloc \
 	testdata/fwd_decl \
 	testdata/kconfig \
-	testdata/kconfig_config \
+	testdata/ksym \
 	testdata/kfunc \
 	testdata/invalid-kfunc \
 	testdata/kfunc-kmod \
 	testdata/constants \
 	testdata/errors \
+	testdata/variables \
 	btf/testdata/relocs \
 	btf/testdata/relocs_read \
 	btf/testdata/relocs_read_tgt \
 	btf/testdata/relocs_enum \
+	btf/testdata/tags \
 	cmd/bpf2go/testdata/minimal
 
 .PHONY: all clean container-all container-shell generate
@@ -57,7 +62,7 @@ TARGETS := \
 
 # Build all ELF binaries using a containerized LLVM toolchain.
 container-all:
-	+${CONTAINER_ENGINE} run --rm -t ${CONTAINER_RUN_ARGS} \
+	+${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}":/ebpf -w /ebpf --env MAKEFLAGS \
 		--env HOME="/tmp" \
 		--env BPF2GO_CC="$(CLANG)" \
@@ -68,7 +73,7 @@ container-all:
 # (debug) Drop the user into a shell inside the container as root.
 # Set BPF2GO_ envs to make 'make generate' just work.
 container-shell:
-	${CONTAINER_ENGINE} run --rm -ti \
+	${CONTAINER_ENGINE} run --rm -ti ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}":/ebpf -w /ebpf \
 		--env BPF2GO_CC="$(CLANG)" \
 		--env BPF2GO_FLAGS="-fdebug-prefix-map=/ebpf=. $(CFLAGS)" \
