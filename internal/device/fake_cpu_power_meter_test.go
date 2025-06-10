@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -45,7 +46,7 @@ func TestFakeEnergyZone_Basics(t *testing.T) {
 		index:        42,
 		path:         "/fake/path/energy_test-zone",
 		maxEnergy:    500000,
-		increment:    100,
+		baseWatts:    10.0,
 		randomFactor: 0.5,
 	}
 
@@ -56,29 +57,45 @@ func TestFakeEnergyZone_Basics(t *testing.T) {
 }
 
 func TestFakeEnergyZone_Energy(t *testing.T) {
+	// Create a fake CPU reader for consistent testing
+	fakeCPU := &fakeCPUReader{
+		baseUsage:    0.5, // 50% CPU usage
+		randomFactor: 0,   // No randomness for predictable tests
+	}
+
 	zone := &fakeEnergyZone{
 		name:         "test-zone",
 		energy:       0,
-		maxEnergy:    1000,
-		increment:    100,
-		randomFactor: 0, // No randomness
+		maxEnergy:    1000000, // Large enough to avoid wrap-around in test
+		baseWatts:    10.0,    // 10 watts base power
+		randomFactor: 0,       // No randomness
+		cpuReader:    fakeCPU,
 	}
 
-	// First read should return the increment
+	// First read should initialize timestamp and return 0
 	e1, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(100), e1)
+	assert.Equal(t, Energy(0), e1)
 
-	// Second read should return double the increment
+	// Sleep briefly to ensure time passes
+	time.Sleep(10 * time.Millisecond)
+
+	// Second read should return energy based on time elapsed and CPU usage
 	e2, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(200), e2)
+	assert.Greater(t, e2, Energy(0), "Energy should increase over time")
 
-	// Test wrap-around at maxEnergy
-	zone.energy = 950
+	// Third read after more time should show further increase
+	time.Sleep(10 * time.Millisecond)
 	e3, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(50), e3) // Wrapped around: 950 + 100 = 1050, but 1050 % 1000 = 50
+	assert.Greater(t, e3, e2, "Energy should continue to increase")
+
+	// Test wrap-around at maxEnergy
+	zone.energy = zone.maxEnergy - 100
+	e4, err := zone.Energy()
+	assert.NoError(t, err)
+	assert.Less(t, e4, zone.maxEnergy, "Energy should wrap around at maxEnergy")
 }
 
 func TestWithFakeZones(t *testing.T) {
@@ -181,30 +198,56 @@ func TestMultipleOptions(t *testing.T) {
 
 // TestEnergyRandomness tests that the energy value changes with random component
 func TestEnergyRandomness(t *testing.T) {
+	// Create a fake CPU reader for consistent testing
+	fakeCPU := &fakeCPUReader{
+		baseUsage:    0.5, // 50% CPU usage
+		randomFactor: 0.3, // Some randomness in CPU usage
+	}
+
 	zone := &fakeEnergyZone{
 		name:         "test-zone",
 		energy:       0,
-		maxEnergy:    10000,
-		increment:    100,
-		randomFactor: 1.0, // Full randomness
+		maxEnergy:    10000000, // Large enough to avoid wrap-around
+		baseWatts:    10.0,     // 10 watts base power
+		randomFactor: 0.3,      // 30% randomness
+		cpuReader:    fakeCPU,
 	}
 
-	// Read energy multiple times
+	// Initialize with first read
+	_, err := zone.Energy()
+	assert.NoError(t, err)
+
+	// Read energy multiple times with small delays
 	var readings []Energy
 	for range 10 {
+		time.Sleep(1 * time.Millisecond) // Small delay to ensure time passes
 		e, err := zone.Energy()
 		assert.NoError(t, err)
 		readings = append(readings, e)
 	}
 
-	// with randomness, it's unlikely all readings follow exact increment
-	exactIncrement := true
+	// With randomness, energy increments shouldn't be exactly the same
+	// Check that we have some variation in the differences
+	var diffs []Energy
 	for i := 1; i < len(readings); i++ {
-		if readings[i]-readings[i-1] != zone.increment {
-			exactIncrement = false
-			break
+		diffs = append(diffs, readings[i]-readings[i-1])
+	}
+
+	// At least some differences should be different (due to randomness)
+	allSame := true
+	if len(diffs) > 1 {
+		firstDiff := diffs[0]
+		for _, diff := range diffs[1:] {
+			if diff != firstDiff {
+				allSame = false
+				break
+			}
 		}
 	}
 
-	assert.False(t, exactIncrement, "Expected randomness in energy readings")
+	// Note: Due to randomness, this test might occasionally pass even with randomness
+	// but over multiple runs it should show variation
+	if len(diffs) > 3 {
+		assert.False(t, allSame, "Expected some variation in energy increments due to randomness")
+	}
 }
