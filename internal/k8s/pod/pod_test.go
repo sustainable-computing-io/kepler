@@ -136,6 +136,11 @@ func TestInit(t *testing.T) {
 		err := pi.Init()
 		assert.ErrorContains(t, err, "controller-runtime could not create manager")
 	})
+	t.Run("empty nodeName", func(t *testing.T) {
+		pi := NewInformer()
+		err := pi.Init()
+		assert.ErrorContains(t, err, "node name is empty")
+	})
 }
 
 func TestPodInfo(t *testing.T) {
