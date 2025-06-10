@@ -29,9 +29,8 @@ func (pm *PowerMonitor) firstVMRead(snapshot *Snapshot) error {
 		// Initialize each zone with zero values
 		for _, zone := range zones {
 			newVM.Zones[zone] = &Usage{
-				Absolute: Energy(0),
-				Delta:    Energy(0),
-				Power:    Power(0),
+				EnergyTotal: Energy(0),
+				Power:       Power(0),
 			}
 		}
 
@@ -56,7 +55,7 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		return nil
 	}
 
-	nodeCPUTimeDelta := pm.resources.Node().CPUTimeDelta
+	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 	pm.logger.Debug("Calculating VM power",
 		"node.cpu.time", nodeCPUTimeDelta,
 		"running", len(vms.Running),
@@ -78,33 +77,31 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		// For each zone in the node, calculate VM's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || nodeCPUTimeDelta == 0 {
+			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
 				newVM.Zones[zone] = &Usage{
-					Power:    Power(0),
-					Delta:    Energy(0),
-					Absolute: Energy(0),
+					Power:       Power(0),
+					EnergyTotal: Energy(0),
 				}
 				continue
 			}
 
 			// Calculate VM's share of this zone's power and energy
 			cpuTimeRatio := vm.CPUTimeDelta / nodeCPUTimeDelta
-			newVM.Zones[zone] = &Usage{
-				Power: Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.ActiveEnergy)),
-			}
 
-			// If we have previous data for this VM and zone, add to absolute energy
+			// Calculate energy delta for this interval
+			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
+
+			// Calculate absolute energy based on previous data
+			absoluteEnergy := activeEnergy
 			if prev, exists := prev.VirtualMachines[id]; exists {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					newVM.Zones[zone].Absolute = prevUsage.Absolute + newVM.Zones[zone].Delta
-				} else {
-					// TODO: unlikely; so add telemetry for this
-					newVM.Zones[zone].Absolute = newVM.Zones[zone].Delta
+					absoluteEnergy += prevUsage.EnergyTotal
 				}
-			} else {
-				// New VM, starts with delta
-				newVM.Zones[zone].Absolute = newVM.Zones[zone].Delta
+			}
+
+			newVM.Zones[zone] = &Usage{
+				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+				EnergyTotal: absoluteEnergy,
 			}
 		}
 

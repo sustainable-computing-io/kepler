@@ -124,9 +124,8 @@ func writeNode(out io.Writer, node *monitor.Node) {
 	for zone, usage := range node.Zones {
 		rows = append(rows, []string{
 			zone.Name(),
-			usage.Delta.String(),
 			usage.Power.String(),
-			usage.Absolute.String(),
+			usage.EnergyTotal.String(),
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
@@ -136,7 +135,7 @@ func writeNode(out io.Writer, node *monitor.Node) {
 	table.Configure(func(cfg *tablewriter.Config) {
 		cfg.Row.Formatting.Alignment = tw.AlignRight
 	})
-	table.Header([]string{"Zone", "Delta(W)", "Power(W)", "Absolute(J)"})
+	table.Header([]string{"Zone", "Power(W)", "Absolute(J)"})
 	_ = table.Bulk(rows)
 	// removed because testcase gets a trailing whitespace which fails CI
 	// table.Caption(tw.Caption{

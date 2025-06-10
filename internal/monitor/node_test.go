@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 
@@ -46,8 +47,8 @@ func TestNodePowerCollection(t *testing.T) {
 		// Create mock resource informer
 		mockResourceInformer := &MockResourceInformer{}
 		mockNode := &resource.Node{
-			CPUUsageRatio: 0.5,
-			CPUTimeDelta:  100.0,
+			CPUUsageRatio:            0.5,
+			ProcessTotalCPUTimeDelta: 100.0,
 		}
 		mockResourceInformer.On("Node").Return(mockNode)
 
@@ -82,15 +83,13 @@ func TestNodePowerCollection(t *testing.T) {
 			pkgZone := current.Node.Zones[pkg]
 			// should equal what package zone returns
 			raplPkgEnergy, _ := pkg.Energy()
-			assert.Equal(t, raplPkgEnergy.MicroJoules(), pkgZone.Absolute.MicroJoules())
-			assert.Equal(t, Energy(0), pkgZone.Delta) // First reading has 0 diff
-			assert.Equal(t, Power(0), pkgZone.Power)  // Should be 0 for first reading
+			assert.Equal(t, raplPkgEnergy.MicroJoules(), pkgZone.EnergyTotal.MicroJoules())
+			assert.Equal(t, Power(0), pkgZone.Power) // Should be 0 for first reading
 
 			// Check core zone values
 			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
-			assert.Equal(t, raplCoreEnergy.MicroJoules(), coreZone.Absolute.MicroJoules())
-			assert.Equal(t, Energy(0), coreZone.Delta)
+			assert.Equal(t, raplCoreEnergy.MicroJoules(), coreZone.EnergyTotal.MicroJoules())
 			assert.Equal(t, Power(0), coreZone.Power)
 
 			pm.snapshot.Store(current)
@@ -120,14 +119,12 @@ func TestNodePowerCollection(t *testing.T) {
 			// Check package zone values for second reading
 			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
-			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)     // No difference in Absolute counter
-			assert.InDelta(t, 50, pkgZone.Delta.Joules(), 0.001) // Should see 50 joules difference
-			assert.InDelta(t, 50, pkgZone.Power.Watts(), 0.001)  // 50 joules / 1 second = 50 watts
+			assert.Equal(t, raplPkgEnergy, pkgZone.EnergyTotal) // No difference in Absolute counter
+			assert.InDelta(t, 50, pkgZone.Power.Watts(), 0.001) // 50 joules / 1 second = 50 watts
 
 			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
-			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)    // No difference in Absolute counter
-			assert.InDelta(t, 25, coreZone.Delta.Joules(), 0.001) // Should see 25 joules difference
+			assert.Equal(t, raplCoreEnergy, coreZone.EnergyTotal) // No difference in Absolute counter
 			assert.InDelta(t, 25, coreZone.Power.Watts(), 0.001)  // 25 joules / 1 second = 25 watts
 
 			pm.snapshot.Store(current)
@@ -154,14 +151,12 @@ func TestNodePowerCollection(t *testing.T) {
 			// Check package zone values for second reading
 			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
-			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
-			assert.InDelta(t, 75, pkgZone.Delta.Joules(), 0.001)
+			assert.Equal(t, raplPkgEnergy, pkgZone.EnergyTotal)
 			assert.InDelta(t, 25, pkgZone.Power.Watts(), 0.001)
 
 			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
-			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
-			assert.InDelta(t, 45, coreZone.Delta.Joules(), 0.001)
+			assert.Equal(t, raplCoreEnergy, coreZone.EnergyTotal)
 			assert.InDelta(t, 15, coreZone.Power.Watts(), 0.001)
 
 			pm.snapshot.Store(current)
@@ -195,15 +190,13 @@ func TestNodePowerCollection(t *testing.T) {
 			// Check package zone values for second reading
 			pkgZone := current.Node.Zones[pkg]
 			raplPkgEnergy, _ := pkg.Energy()
-			assert.Equal(t, raplPkgEnergy, pkgZone.Absolute)
+			assert.Equal(t, raplPkgEnergy, pkgZone.EnergyTotal)
 
-			assert.InDelta(t, 80, pkgZone.Delta.Joules(), 0.001)
 			assert.InDelta(t, 8, pkgZone.Power.Watts(), 0.001)
 
 			coreZone := current.Node.Zones[core]
 			raplCoreEnergy, _ := core.Energy()
-			assert.Equal(t, raplCoreEnergy, coreZone.Absolute)
-			assert.InDelta(t, 30, coreZone.Delta.Joules(), 0.001)
+			assert.Equal(t, raplCoreEnergy, coreZone.EnergyTotal)
 			assert.InDelta(t, 3, coreZone.Power.Watts(), 0.001)
 
 			pm.snapshot.Store(current)
@@ -236,8 +229,8 @@ func TestNodeErrorHandling(t *testing.T) {
 	// Create mock resource informer
 	mockResourceInformer := &MockResourceInformer{}
 	mockNode := &resource.Node{
-		CPUUsageRatio: 0.5,
-		CPUTimeDelta:  100.0,
+		CPUUsageRatio:            0.5,
+		ProcessTotalCPUTimeDelta: 100.0,
 	}
 	mockResourceInformer.On("Node").Return(mockNode)
 
@@ -349,4 +342,323 @@ func TestCalculateEnergyDelta(t *testing.T) {
 			assert.Equal(t, tc.expected, result, "Diff should match expected value")
 		})
 	}
+}
+
+// TestNodeActiveEnergyCounterBehavior verifies that ActiveEnergy and IdleEnergy represent interval-based energy attribution,
+// correctly splitting the delta energy between active and idle portions rather than acting as cumulative counters
+func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	pkg := device.NewMockRaplZone(
+		"package-0",
+		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+
+	testZones := []EnergyZone{pkg}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	startTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	mockClock := test_clock.NewFakeClock(startTime)
+
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio:            0.4, // 40% CPU usage
+		ProcessTotalCPUTimeDelta: 80.0,
+	}
+	mockResourceInformer.On("Node").Return(mockNode)
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(mockResourceInformer))
+
+	t.Run("Initial measurement", func(t *testing.T) {
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		pkg.Inc(100 * Joule) // Start at 100J
+
+		snapshot := NewSnapshot()
+		err := pm.firstNodeRead(snapshot.Node)
+		assert.NoError(t, err)
+
+		pkgZone := snapshot.Node.Zones[pkg]
+		// firstNodeRead now calculates initial values based on absolute energy and CPU usage ratio
+		expectedActive := Energy(float64(100*Joule) * 0.4) // 40J (40% CPU usage)
+		expectedIdle := Energy(100*Joule) - expectedActive // 60J
+
+		assert.Equal(t, expectedActive, pkgZone.activeEnergy, "First reading activeEnergy should be portion of absolute energy")
+		assert.Equal(t, expectedActive, pkgZone.ActiveEnergyTotal, "First reading ActiveEnergyTotal should equal activeEnergy")
+		assert.Equal(t, expectedIdle, pkgZone.IdleEnergyTotal, "First reading IdleEnergyTotal should be remaining portion")
+
+		pm.snapshot.Store(snapshot)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Second measurement - verify interval-based attribution", func(t *testing.T) {
+		mockClock.Step(2 * time.Second)
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+
+		pkg.Inc(50 * Joule) // Total: 150J, Delta: 50J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+
+		// ActiveEnergy and IdleEnergy should represent the portion of delta energy for this interval
+		deltaEnergy := Energy(50 * Joule)
+		expectedActiveEnergy := Energy(float64(deltaEnergy) * mockNode.CPUUsageRatio) // 50J * 0.4 = 20J
+		expectedIdleEnergy := deltaEnergy - expectedActiveEnergy                      // 50J - 20J = 30J
+
+		assert.Equal(t, expectedActiveEnergy, pkgZone.activeEnergy,
+			"activeEnergy should be 20J (40% of 50J delta energy)")
+
+		// ActiveEnergyTotal should accumulate: previous (40J from firstNodeRead) + current interval (20J)
+		expectedActiveTotal := Energy(40*Joule) + expectedActiveEnergy // 40J + 20J = 60J
+		expectedIdleTotal := Energy(60*Joule) + expectedIdleEnergy     // 60J + 30J = 90J
+
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal,
+			"ActiveEnergyTotal should accumulate from previous + current")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal,
+			"IdleEnergyTotal should accumulate from previous + current")
+		// Total energy attribution should equal delta energy
+		expectedTotal := expectedActiveEnergy + expectedIdleEnergy
+		assert.Equal(t, deltaEnergy, expectedTotal,
+			"ActiveEnergy + IdleEnergy should equal delta energy for this interval")
+
+		pm.snapshot.Store(current)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Third measurement - verify values reset per interval", func(t *testing.T) {
+		mockClock.Step(3 * time.Second)
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+
+		pkg.Inc(60 * Joule) // Total: 210J, Delta: 60J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+
+		// ActiveEnergy and IdleEnergy should represent only this interval's attribution
+		deltaEnergy := Energy(60 * Joule)
+		expectedActiveEnergy := Energy(float64(deltaEnergy) * mockNode.CPUUsageRatio) // 60J * 0.4 = 24J
+		expectedIdleEnergy := deltaEnergy - expectedActiveEnergy                      // 60J - 24J = 36J
+
+		assert.Equal(t, expectedActiveEnergy, pkgZone.activeEnergy,
+			"activeEnergy should be 24J (not cumulative from previous measurement)")
+		// Validate cumulative totals: previous values + current interval
+		prevPkgZone := prev.Node.Zones[pkg]
+		expectedActiveTotal := prevPkgZone.ActiveEnergyTotal + expectedActiveEnergy
+		expectedIdleTotal := prevPkgZone.IdleEnergyTotal + expectedIdleEnergy
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal,
+			"ActiveEnergyTotal should accumulate previous total + current activeEnergy")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal,
+			"IdleEnergyTotal should accumulate previous total + current idle energy")
+		// Total energy attribution should equal delta energy
+		expectedTotal := expectedActiveEnergy + expectedIdleEnergy
+		assert.Equal(t, deltaEnergy, expectedTotal,
+			"ActiveEnergy + IdleEnergy should equal delta energy for this interval")
+
+		pm.snapshot.Store(current)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Fourth measurement - verify dynamic attribution with CPU usage change", func(t *testing.T) {
+		// Change CPU usage ratio to test attribution logic
+		mockNode.CPUUsageRatio = 0.8 // 80% CPU usage
+
+		mockClock.Step(1 * time.Second)
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+
+		pkg.Inc(40 * Joule) // Total: 250J, Delta: 40J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+
+		// ActiveEnergy and IdleEnergy should reflect new CPU usage ratio for this interval
+		deltaEnergy := Energy(40 * Joule)
+		expectedActiveEnergy := Energy(float64(deltaEnergy) * mockNode.CPUUsageRatio) // 40J * 0.8 = 32J
+		expectedIdleEnergy := deltaEnergy - expectedActiveEnergy                      // 40J - 32J = 8J
+
+		assert.Equal(t, expectedActiveEnergy, pkgZone.activeEnergy,
+			"activeEnergy should be 32J (80% of 40J delta with new CPU usage)")
+		// Validate cumulative totals: previous values + current interval
+		prevPkgZone := prev.Node.Zones[pkg]
+		expectedActiveTotal := prevPkgZone.ActiveEnergyTotal + expectedActiveEnergy
+		expectedIdleTotal := prevPkgZone.IdleEnergyTotal + expectedIdleEnergy
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal,
+			"ActiveEnergyTotal should accumulate previous total + current activeEnergy")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal,
+			"IdleEnergyTotal should accumulate previous total + current idle energy")
+
+		// Verify the relationship holds: totals should be greater than current interval
+		assert.Greater(t, pkgZone.ActiveEnergyTotal.MicroJoules(), expectedActiveEnergy.MicroJoules(),
+			"ActiveEnergyTotal should be greater than current interval activeEnergy")
+		assert.Greater(t, pkgZone.IdleEnergyTotal.MicroJoules(), expectedIdleEnergy.MicroJoules(),
+			"IdleEnergyTotal should be greater than current interval idle energy")
+
+		// Total energy attribution should equal delta energy
+		expectedTotal := expectedActiveEnergy + expectedIdleEnergy
+		assert.Equal(t, deltaEnergy, expectedTotal,
+			"ActiveEnergy + IdleEnergy should equal delta energy for this interval")
+
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	mockResourceInformer.AssertExpectations(t)
+}
+
+func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
+	// Test to explicitly verify that ActiveEnergyTotal and IdleEnergyTotal correctly accumulate
+	// over multiple measurements, and that activeEnergy represents only the current interval
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	pkg := device.NewMockRaplZone(
+		"package-0",
+		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+	testZones := []EnergyZone{pkg}
+	mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio:            0.6, // 60% CPU usage
+		ProcessTotalCPUTimeDelta: 100.0,
+	}
+	mockResourceInformer.On("Node").Return(mockNode, nil)
+
+	mockClock := test_clock.NewFakeClock(time.Now())
+
+	pm := &PowerMonitor{
+		logger:    logger,
+		cpu:       mockCPUPowerMeter,
+		clock:     mockClock,
+		resources: mockResourceInformer,
+	}
+
+	err := pm.initZones()
+	require.NoError(t, err)
+
+	t.Run("measurement 1 - initial", func(t *testing.T) {
+		pkg.Inc(100 * Joule) // Initial value
+
+		snapshot := NewSnapshot()
+		err := pm.firstNodeRead(snapshot.Node)
+		assert.NoError(t, err)
+
+		pkgZone := snapshot.Node.Zones[pkg]
+		// firstNodeRead now calculates initial values based on absolute energy and CPU usage ratio
+		expectedActive := Energy(float64(100*Joule) * 0.6) // 60J (60% CPU usage)
+		expectedIdle := Energy(100*Joule) - expectedActive // 40J
+
+		assert.Equal(t, expectedActive, pkgZone.activeEnergy, "Initial activeEnergy should be portion of absolute energy")
+		assert.Equal(t, expectedActive, pkgZone.ActiveEnergyTotal, "Initial ActiveEnergyTotal should equal activeEnergy")
+		assert.Equal(t, expectedIdle, pkgZone.IdleEnergyTotal, "Initial IdleEnergyTotal should be remaining portion")
+
+		pm.snapshot.Store(snapshot)
+	})
+
+	t.Run("measurement 2", func(t *testing.T) {
+		pkg.Inc(50 * Joule) // Total: 150J, Delta: 50J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+		deltaEnergy := Energy(50 * Joule)
+		expectedActive := Energy(float64(deltaEnergy) * 0.6) // 30J
+		expectedIdle := deltaEnergy - expectedActive         // 20J
+
+		assert.Equal(t, expectedActive, pkgZone.activeEnergy, "activeEnergy should be interval-based")
+
+		// ActiveEnergyTotal should accumulate: previous (60J from firstNodeRead) + current interval (30J)
+		expectedActiveTotal := Energy(60*Joule) + expectedActive // 60J + 30J = 90J
+		expectedIdleTotal := Energy(40*Joule) + expectedIdle     // 40J + 20J = 60J
+
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal, "ActiveEnergyTotal should accumulate from previous + current")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal, "IdleEnergyTotal should accumulate from previous + current")
+
+		pm.snapshot.Store(current)
+	})
+
+	t.Run("measurement 3", func(t *testing.T) {
+		pkg.Inc(40 * Joule) // Total: 190J, Delta: 40J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+		deltaEnergy := Energy(40 * Joule)
+		expectedActive := Energy(float64(deltaEnergy) * 0.6) // 24J
+		expectedIdle := deltaEnergy - expectedActive         // 16J
+
+		// Validate interval values (should not be cumulative)
+		assert.Equal(t, expectedActive, pkgZone.activeEnergy, "activeEnergy should be interval-based (not cumulative)")
+
+		// Validate cumulative totals
+		// Previous: 90J active + 60J idle (from measurement 2)
+		// Current interval: 24J active + 16J idle
+		expectedActiveTotal := Energy(90*Joule) + expectedActive // 90J + 24J = 114J
+		expectedIdleTotal := Energy(60*Joule) + expectedIdle     // 60J + 16J = 76J
+
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal, "ActiveEnergyTotal should accumulate")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal, "IdleEnergyTotal should accumulate")
+
+		pm.snapshot.Store(current)
+	})
+
+	t.Run("measurement 4", func(t *testing.T) {
+		pkg.Inc(30 * Joule) // Total: 220J, Delta: 30J
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		pkgZone := current.Node.Zones[pkg]
+		deltaEnergy := Energy(30 * Joule)
+		expectedActive := Energy(float64(deltaEnergy) * 0.6) // 18J
+		expectedIdle := deltaEnergy - expectedActive         // 12J
+
+		// Validate interval values
+		assert.Equal(t, expectedActive, pkgZone.activeEnergy, "activeEnergy should be interval-based")
+
+		// Validate cumulative totals
+		// Previous: 114J active + 76J idle (from measurement 3)
+		// Current interval: 18J active + 12J idle
+		expectedActiveTotal := Energy(114*Joule) + expectedActive // 114J + 18J = 132J
+		expectedIdleTotal := Energy(76*Joule) + expectedIdle      // 76J + 12J = 88J
+
+		assert.Equal(t, expectedActiveTotal, pkgZone.ActiveEnergyTotal, "ActiveEnergyTotal should accumulate")
+		assert.Equal(t, expectedIdleTotal, pkgZone.IdleEnergyTotal, "IdleEnergyTotal should accumulate")
+
+		// Final validation: verify total accumulated energy equals initial + sum of all interval deltas
+		initialEnergy := Energy(100 * Joule)                                    // Initial energy from firstNodeRead: 100J
+		totalIntervalDeltas := Energy(50*Joule + 40*Joule + 30*Joule)           // Sum of interval deltas: 120J
+		totalAccumulated := pkgZone.ActiveEnergyTotal + pkgZone.IdleEnergyTotal // 132J + 88J = 220J
+		expectedTotal := initialEnergy + totalIntervalDeltas                    // 100J + 120J = 220J
+		assert.Equal(t, expectedTotal, totalAccumulated, "Total accumulated energy should equal initial + sum of interval deltas")
+
+		pm.snapshot.Store(current)
+	})
+
+	mockCPUPowerMeter.AssertExpectations(t)
+	mockResourceInformer.AssertExpectations(t)
 }

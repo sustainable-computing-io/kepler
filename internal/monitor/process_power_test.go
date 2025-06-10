@@ -40,9 +40,9 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 	t.Run("firstProcessRead", func(t *testing.T) {
 		// Setup mock to return test processes
-		tr := CreateTestResources(createOnly(testProcesses))
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
 		procs := tr.Processes
-		resInformer.On("Processes").Return(procs).Once()
+		resInformer.SetExpectations(t, tr)
 
 		snapshot := NewSnapshot()
 		err := monitor.firstNodeRead(snapshot.Node)
@@ -69,8 +69,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 		assert.Len(t, proc123.Zones, 2)
 		for _, zone := range zones {
 			usage := proc123.Zones[zone]
-			assert.Equal(t, Energy(0), usage.Absolute)
-			assert.Equal(t, Energy(0), usage.Delta)
+			assert.Equal(t, Energy(0), usage.EnergyTotal)
 			assert.Equal(t, Power(0), usage.Power)
 		}
 
@@ -99,9 +98,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 		// Initialize zones for previous process
 		for _, zone := range zones {
 			prevSnapshot.Processes[123].Zones[zone] = &Usage{
-				Absolute: 25 * Joule,
-				Delta:    Energy(0),
-				Power:    Power(0),
+				EnergyTotal: 25 * Joule,
+				Power:       Power(0),
 			}
 		}
 
@@ -135,14 +133,9 @@ func TestProcessPowerCalculation(t *testing.T) {
 			expectedPower := 0.3 * 25 * Watt // 7.5W in microwatts
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
 
-			// ActiveEnergy = 100J * 0.5 = 50J (node usage ratio is 0.5)
-			// Expected delta = 0.3 * 50J = 15J
-			expectedDelta := 0.3 * 50 * Joule // 15J in microjoules
-			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
-
 			// Absolute should be previous + delta = 25J + 15J = 40J
 			expectedAbsolute := 40 * Joule
-			assert.InDelta(t, expectedAbsolute.MicroJoules(), usage.Absolute.MicroJoules(), 0.01)
+			assert.InDelta(t, expectedAbsolute.MicroJoules(), usage.EnergyTotal.MicroJoules(), 0.01)
 		}
 
 		// Check process 456 (new process)
@@ -153,12 +146,6 @@ func TestProcessPowerCalculation(t *testing.T) {
 			// ActivePower = 50W * 0.5 = 25W, so 0.2 * 25W = 5W
 			expectedPower := Power(0.2 * 25_000_000) // 5W
 			assert.InDelta(t, expectedPower.MicroWatts(), usage.Power.MicroWatts(), 0.01)
-
-			// ActiveEnergy = 100J * 0.5 = 50J, so 0.2 * 50J = 10J
-			expectedDelta := Energy(0.2 * 50_000_000) // 10J
-			assert.InDelta(t, expectedDelta.MicroJoules(), usage.Delta.MicroJoules(), 0.01)
-			// New process, so absolute = delta
-			assert.Equal(t, usage.Delta, usage.Absolute)
 		}
 
 		// Check process 789 (not in container)
@@ -187,13 +174,13 @@ func TestProcessPowerCalculation(t *testing.T) {
 		// Set zero power for all zones
 		for _, zone := range zones {
 			newSnapshot.Node.Zones[zone] = &NodeUsage{
-				Absolute:     Energy(100_000_000),
-				Delta:        Energy(50_000_000),
-				ActiveEnergy: Energy(0),
-				IdleEnergy:   Energy(0),
-				Power:        Power(0), // Zero power
-				ActivePower:  Power(0),
-				IdlePower:    Power(0),
+				EnergyTotal:       Energy(100_000_000),
+				activeEnergy:      Energy(0),
+				ActiveEnergyTotal: Energy(0),
+				IdleEnergyTotal:   Energy(0),
+				Power:             Power(0), // Zero power
+				ActivePower:       Power(0),
+				IdlePower:         Power(0),
 			}
 		}
 
@@ -210,8 +197,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 			for _, zone := range zones {
 				usage := proc.Zones[zone]
 				assert.Equal(t, Power(0), usage.Power)
-				assert.Equal(t, Energy(0), usage.Delta)
-				assert.Equal(t, Energy(0), usage.Absolute)
+				assert.Equal(t, Energy(0), usage.EnergyTotal)
 			}
 		}
 
@@ -277,17 +263,17 @@ func TestProcessPowerCalculation(t *testing.T) {
 		for _, zone := range zones {
 			usage := proc.Zones[zone]
 			assert.Equal(t, 0*Watt, usage.Power)
-			assert.Equal(t, 0*Joule, usage.Delta)
-			assert.Equal(t, 0*Joule, usage.Absolute)
+			assert.Equal(t, 0*Joule, usage.EnergyTotal)
 		}
 
 		resInformer.AssertExpectations(t)
 	})
 
-	t.Run("process missing in previous snapshot", func(t *testing.T) {
+	t.Run("new zone missing in previous snapshot", func(t *testing.T) {
 		// Create snapshots where previous doesn't have zone data for a process
 		prevSnapshot := NewSnapshot()
-		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		now := fakeClock.Now()
+		prevSnapshot.Node = createNodeSnapshot(zones, now, 0.5)
 
 		// Add process without zone data for one zone
 		prevSnapshot.Processes[123] = &Process{
@@ -297,13 +283,12 @@ func TestProcessPowerCalculation(t *testing.T) {
 		}
 		// Only add data for the first zone, missing the second
 		prevSnapshot.Processes[123].Zones[zones[0]] = &Usage{
-			Absolute: Energy(10_000_000),
-			Delta:    Energy(0),
-			Power:    Power(0),
+			EnergyTotal: 10 * Joule,
+			Power:       5 * Watt,
 		}
 
 		newSnapshot := NewSnapshot()
-		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+		newSnapshot.Node = createNodeSnapshot(zones, now.Add(time.Second), 0.6)
 
 		// Create process with all zones
 		testProcesses := &resource.Processes{
@@ -312,7 +297,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 					PID:          123,
 					Comm:         "test-proc",
 					Exe:          "/usr/bin/test-proc",
-					CPUTotalTime: 15.0,
+					CPUTotalTime: 185.0,
 					CPUTimeDelta: 50.0,
 					Container:    nil,
 				},
@@ -333,11 +318,22 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 		// First zone should have accumulated absolute value
 		usage0 := proc.Zones[zones[0]]
-		assert.Greater(t, usage0.Absolute.MicroJoules(), usage0.Delta.MicroJoules())
 
 		// Second zone should have absolute = delta (new zone)
 		usage1 := proc.Zones[zones[1]]
-		assert.Equal(t, usage1.Absolute, usage1.Delta)
+
+		nodeZones := newSnapshot.Node.Zones
+		assert.Equal(t, 60.0, nodeZones[zones[0]].activeEnergy.Joules())
+		assert.Equal(t, 60.0, nodeZones[zones[1]].activeEnergy.Joules())
+
+		assert.Equal(t, 30.0, nodeZones[zones[0]].ActivePower.Watts())
+		assert.Equal(t, 30.0, nodeZones[zones[1]].ActivePower.Watts())
+
+		assert.Equal(t, 25.0, usage0.EnergyTotal.Joules()) // 10J + 15J
+		assert.Equal(t, 15.0, usage1.EnergyTotal.Joules()) // 0J + 15J
+
+		assert.Equal(t, 7.5, usage0.Power.Watts()) // 5W + 7.5W
+		assert.Equal(t, 7.5, usage1.Power.Watts()) // 0W + 7.5W
 
 		resInformer.AssertExpectations(t)
 	})

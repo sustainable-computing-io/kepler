@@ -133,12 +133,12 @@ func Test_print(t *testing.T) {
 	assert.NoError(t, err, "unexpected time parse error")
 	write(&buf, now, getTestNodeSnapshot())
 	expected := `
-┌─────────┬─────────────┬─────────────┬────────────────┐
-│  ZONE   │ DELTA ( W ) │ POWER ( W ) │ ABSOLUTE ( J ) │
-├─────────┼─────────────┼─────────────┼────────────────┤
-│    dram │     234.00J │       2.00W │       2340.00J │
-│ package │     123.00J │      12.00W │      12300.00J │
-└─────────┴─────────────┴─────────────┴────────────────┘
+┌─────────┬─────────────┬────────────────┐
+│  ZONE   │ POWER ( W ) │ ABSOLUTE ( J ) │
+├─────────┼─────────────┼────────────────┤
+│    dram │       2.00W │       2340.00J │
+│ package │      12.00W │      12300.00J │
+└─────────┴─────────────┴────────────────┘
 `
 	expected = strings.TrimLeft(expected, "\n")
 	assert.Equal(t, expected, buf.String())
@@ -156,25 +156,21 @@ func getTestNodeData() *monitor.Node {
 	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
-	nodePkgDelta := 123 * device.Joule
 	nodePkgPower := 12 * device.Watt
 
 	nodeDramAbs := 2340 * device.Joule
-	nodeDramDelta := 234 * device.Joule
 	nodeDramPower := 2 * device.Watt
 
 	// Create test node Snapshot
 	return &monitor.Node{
 		Zones: monitor.NodeZoneUsageMap{
 			packageZone: &monitor.NodeUsage{
-				Absolute: nodePkgAbs,
-				Delta:    nodePkgDelta,
-				Power:    nodePkgPower,
+				EnergyTotal: nodePkgAbs,
+				Power:       nodePkgPower,
 			},
 			dramZone: &monitor.NodeUsage{
-				Absolute: nodeDramAbs,
-				Delta:    nodeDramDelta,
-				Power:    nodeDramPower,
+				EnergyTotal: nodeDramAbs,
+				Power:       nodeDramPower,
 			},
 		},
 	}

@@ -89,22 +89,20 @@ func TestPowerCollector(t *testing.T) {
 		UsageRatio: 0.5,
 		Zones: monitor.NodeZoneUsageMap{
 			packageZone: &monitor.NodeUsage{
-				Absolute:     nodePkgAbs,
-				Delta:        nodePkgDelta,
-				ActiveEnergy: nodePkgDelta / 2, // 50% of delta is used
-				IdleEnergy:   nodePkgDelta / 2, // 50% of delta is idle
-				Power:        nodePkgPower,
-				ActivePower:  nodePkgPower / 2, // 50% of power is used
-				IdlePower:    nodePkgPower / 2, // 50% of power is idle
+				EnergyTotal:       nodePkgAbs,
+				ActiveEnergyTotal: nodePkgDelta / 2, // 50% of delta is used
+				IdleEnergyTotal:   nodePkgDelta / 2, // 50% of delta is idle
+				Power:             nodePkgPower,
+				ActivePower:       nodePkgPower / 2, // 50% of power is used
+				IdlePower:         nodePkgPower / 2, // 50% of power is idle
 			},
 			dramZone: &monitor.NodeUsage{
-				Absolute:     nodeDramAbs,
-				Delta:        nodeDramDelta,
-				ActiveEnergy: nodeDramDelta / 2, // 50% of delta is used
-				IdleEnergy:   nodeDramDelta / 2, // 50% of delta is idle
-				Power:        nodeDramPower,
-				ActivePower:  nodeDramPower / 2, // 50% of power is used
-				IdlePower:    nodeDramPower / 2, // 50% of power is idle
+				EnergyTotal:       nodeDramAbs,
+				ActiveEnergyTotal: nodeDramDelta / 2, // 50% of delta is used
+				IdleEnergyTotal:   nodeDramDelta / 2, // 50% of delta is idle
+				Power:             nodeDramPower,
+				ActivePower:       nodeDramPower / 2, // 50% of power is used
+				IdlePower:         nodeDramPower / 2, // 50% of power is idle
 			},
 		},
 	}
@@ -118,9 +116,8 @@ func TestPowerCollector(t *testing.T) {
 			CPUTotalTime: 100,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
-					Absolute: 100 * device.Joule,
-					Delta:    10 * device.Joule,
-					Power:    5 * device.Watt,
+					EnergyTotal: 100 * device.Joule,
+					Power:       5 * device.Watt,
 				},
 			},
 		},
@@ -133,9 +130,8 @@ func TestPowerCollector(t *testing.T) {
 			Runtime: resource.PodmanRuntime,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
-					Absolute: 100 * device.Joule,
-					Delta:    10 * device.Joule,
-					Power:    5 * device.Watt,
+					EnergyTotal: 100 * device.Joule,
+					Power:       5 * device.Watt,
 				},
 			},
 		},
@@ -148,9 +144,8 @@ func TestPowerCollector(t *testing.T) {
 			Hypervisor: resource.KVMHypervisor,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
-					Absolute: 100 * device.Joule,
-					Delta:    10 * device.Joule,
-					Power:    5 * device.Watt,
+					EnergyTotal: 100 * device.Joule,
+					Power:       5 * device.Watt,
 				},
 			},
 		},

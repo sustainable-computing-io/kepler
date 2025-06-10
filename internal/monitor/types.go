@@ -22,30 +22,30 @@ const (
 	Watt  = device.Watt
 )
 
-// NodeUsage contains energy consumption data
+// NodeUsage contains energy consumption data of a node. This is different to Usage in that it has idle/active split
 type NodeUsage struct {
-	Absolute Energy // Cumulative joules counter
-	Delta    Energy // Difference since last measurement
+	EnergyTotal Energy // Cumulative joules counter
+	Power       Power  // Current power in watts
 
-	// Split of Delta Energy between used and idle
-	ActiveEnergy Energy // Energy used by the process running
-	IdleEnergy   Energy // Energy allocated to node idling
+	// Split of Delta Energy between Active and Idle
+	ActiveEnergyTotal Energy // Cumulative energy counter for active workloads
+	ActivePower       Power  // portion of the total power that is being used by the workload
 
-	// Split of power between used and idle
-	Power Power // Current power in watts
+	IdleEnergyTotal Energy // Cumulative energy counter for idle workloads
+	IdlePower       Power  // portion of the total power that allocated to node idling
 
-	ActivePower Power // portion of the total power that is being used by the process
-	IdlePower   Power // portion of the total power that allocated to node idling
+	// NOTE: activeEnergy is an internal variable that is used to calculate workload's energy
+	activeEnergy Energy // Energy used by the workload running
 }
 
-// Usage contains energy consumption data
+// Usage contains energy consumption data of workloads (Process, Container, VM)
+// This is different to NodeUsage in that it does not have idle/active split
 type Usage struct {
-	Absolute Energy // Cumulative joules counter
-	Delta    Energy // Difference since last measurement
-	Power    Power  // Current power in watts
+	EnergyTotal Energy // Cumulative joules counter
+	Power       Power  // Current power in watts
 }
 
-// ZoneUsageMap maps energy zones to basic usage data (absolute energy, delta, and power).
+// ZoneUsageMap maps energy zones to basic usage data (absolute energy and power).
 // Used by processes, containers, and VMs which only track their attributed energy consumption.
 type ZoneUsageMap map[EnergyZone]*Usage
 

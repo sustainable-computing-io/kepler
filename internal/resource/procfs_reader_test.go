@@ -162,7 +162,7 @@ func TestResourceInformer(t *testing.T) {
 		node := informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.25), node.CPUUsageRatio)
-		assert.Equal(t, float64(10.5), node.CPUTimeDelta)
+		assert.Equal(t, float64(10.5), node.ProcessTotalCPUTimeDelta)
 
 		// Check containers (none in this test)
 		containers := informer.Containers()
@@ -187,7 +187,7 @@ func TestResourceInformer(t *testing.T) {
 		node = informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.35), node.CPUUsageRatio)
-		assert.Equal(t, float64(4.5), node.CPUTimeDelta)
+		assert.Equal(t, float64(4.5), node.ProcessTotalCPUTimeDelta)
 
 		mockProcFS.AssertExpectations(t)
 		mockProc.AssertExpectations(t)
@@ -244,7 +244,7 @@ func TestResourceInformer(t *testing.T) {
 		node := informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.1), node.CPUUsageRatio)
-		assert.Equal(t, float64(15.0), node.CPUTimeDelta) // 5.0 + 10.0 = 15.0
+		assert.Equal(t, float64(15.0), node.ProcessTotalCPUTimeDelta) // 5.0 + 10.0 = 15.0
 
 		// Second refresh - process 2 is gone
 		mockProc1.On("CPUTime").Return(float64(7.5), nil)
@@ -270,7 +270,7 @@ func TestResourceInformer(t *testing.T) {
 		node = informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.15), node.CPUUsageRatio)
-		assert.Equal(t, float64(2.5), node.CPUTimeDelta) // Only running process delta
+		assert.Equal(t, float64(2.5), node.ProcessTotalCPUTimeDelta) // Only running process delta
 
 		mockInformer.AssertExpectations(t)
 		mockProc1.AssertExpectations(t)
@@ -317,7 +317,7 @@ func TestResourceInformer(t *testing.T) {
 		node := informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.3), node.CPUUsageRatio)
-		assert.Equal(t, float64(3.0), node.CPUTimeDelta)
+		assert.Equal(t, float64(3.0), node.ProcessTotalCPUTimeDelta)
 
 		// Verify process is tracked
 		processes := informer.Processes()
@@ -354,7 +354,7 @@ func TestResourceInformer(t *testing.T) {
 		node = informer.Node()
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.45), node.CPUUsageRatio)
-		assert.Equal(t, float64(2.0), node.CPUTimeDelta)
+		assert.Equal(t, float64(2.0), node.ProcessTotalCPUTimeDelta)
 
 		mockInformer.AssertExpectations(t)
 		mockProc.AssertExpectations(t)
@@ -607,7 +607,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	// Verify initial state
 	node := informer.Node()
 	assert.Equal(t, float64(0.0), node.CPUUsageRatio)
-	assert.Equal(t, procCPUTime, node.CPUTimeDelta)
+	assert.Equal(t, procCPUTime, node.ProcessTotalCPUTimeDelta)
 
 	processes := informer.Processes()
 	assert.Equal(t, "process-initial", processes.Running[1001].Comm)
