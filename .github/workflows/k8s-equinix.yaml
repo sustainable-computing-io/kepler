@@ -50,7 +50,8 @@ jobs:
           os_name: ubuntu_22_04
 
   build-and-deploy:
-    needs: create-runner
+    needs: [check-changes, create-runner]
+    if: needs.check-changes.outputs.changes == 'true'
     runs-on: self-hosted
     env:
       GOCACHE: /home/ghrunner/.cache/go-build
@@ -197,9 +198,9 @@ jobs:
           echo "::endgroup::"
 
   cleanup-runner:
-    needs: build-and-deploy
+    needs: [check-changes, build-and-deploy]
     runs-on: ubuntu-latest
-    if: always() # Run even if the previous job fails
+    if: always() && needs.check-changes.outputs.changes == 'true' # Run even if the previous job fails
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
