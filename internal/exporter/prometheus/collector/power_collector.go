@@ -384,7 +384,7 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, pods mon
 			ch <- prometheus.MustNewConstMetric(
 				c.podCPUJoulesDescriptor,
 				prometheus.CounterValue,
-				usage.Absolute.Joules(),
+				usage.EnergyTotal.Joules(),
 				id, pod.Name, pod.Namespace,
 				zoneName,
 			)

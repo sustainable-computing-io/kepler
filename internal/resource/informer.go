@@ -39,10 +39,9 @@ type VirtualMachines struct {
 }
 
 type Pods struct {
-	NodeCPUTimeDelta float64
-	Running          map[string]*Pod
-	Terminated       map[string]*Pod
-	ContainersNoPod  []string
+	Running         map[string]*Pod
+	Terminated      map[string]*Pod
+	ContainersNoPod []string
 }
 
 // Informer provides the interface for accessing process, container, virtual machine, and pod information
@@ -302,7 +301,6 @@ func (ri *resourceInformer) Refresh() error {
 		delete(ri.podCache, id)
 	}
 
-	ri.pods.NodeCPUTimeDelta = nodeCPUDelta
 	ri.pods.Running = podsRunning
 	ri.pods.Terminated = podsTerminated
 	ri.pods.ContainersNoPod = containersNoPod

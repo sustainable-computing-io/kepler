@@ -29,9 +29,8 @@ func (pm *PowerMonitor) firstPodRead(snapshot *Snapshot) error {
 		// Initialize each zone with zero values
 		for _, zone := range zones {
 			pod.Zones[zone] = &Usage{
-				Absolute: Energy(0),
-				Delta:    Energy(0),
-				Power:    Power(0),
+				EnergyTotal: Energy(0),
+				Power:       Power(0),
 			}
 		}
 
@@ -58,8 +57,10 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		return nil
 	}
 
+	node := pm.resources.Node()
+	nodeCPUTimeDelta := node.ProcessTotalCPUTimeDelta
 	pm.logger.Debug("Calculating pod power",
-		"node-cputime", pods.NodeCPUTimeDelta,
+		"node-cputime", nodeCPUTimeDelta,
 		"running", len(pods.Running),
 	)
 
@@ -82,33 +83,28 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		// For each zone in the node, calculate pod's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.Delta == 0 || pods.NodeCPUTimeDelta == 0 {
+			if nodeZoneUsage.Power == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
 				pod.Zones[zone] = &Usage{
-					Power:    Power(0),
-					Delta:    Energy(0),
-					Absolute: Energy(0),
+					Power:       Power(0),
+					EnergyTotal: Energy(0),
 				}
 				continue
 			}
 
-			cpuTimeRatio := p.CPUTimeDelta / pods.NodeCPUTimeDelta
+			cpuTimeRatio := p.CPUTimeDelta / nodeCPUTimeDelta
 			// Calculate pod's share of this zone's power and energy
-			pod.Zones[zone] = &Usage{
-				Power: Power(cpuTimeRatio * nodeZoneUsage.Power.MicroWatts()),
-				Delta: Energy(cpuTimeRatio * float64(nodeZoneUsage.Delta)),
-			}
+			activeEnergy := Energy(float64(nodeZoneUsage.activeEnergy) * cpuTimeRatio)
 
+			absoluteEnergy := activeEnergy
 			// If we have previous data for this pod and zone, add to absolute energy
 			if prev, exists := prev.Pods[id]; exists {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					pod.Zones[zone].Absolute = prevUsage.Absolute + pod.Zones[zone].Delta
-				} else {
-					// TODO: unlikely; so add telemetry for this
-					pod.Zones[zone].Absolute = pod.Zones[zone].Delta
+					absoluteEnergy += prevUsage.EnergyTotal
 				}
-			} else {
-				// New pod, starts with delta
-				pod.Zones[zone].Absolute = pod.Zones[zone].Delta
+			}
+			pod.Zones[zone] = &Usage{
+				EnergyTotal: absoluteEnergy,
+				Power:       Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower)),
 			}
 		}
 

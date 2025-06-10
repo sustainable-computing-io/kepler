@@ -360,7 +360,6 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 	pod1.CPUTimeDelta = container1.CPUTimeDelta
 
 	pods := &resource.Pods{
-		NodeCPUTimeDelta: 100.0,
 		Running: map[string]*resource.Pod{
 			pod1.ID: pod1,
 		},
