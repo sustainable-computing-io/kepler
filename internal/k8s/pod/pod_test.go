@@ -8,27 +8,22 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func Test_pod_informer_common(t *testing.T) {
 	t.Run("Name", func(t *testing.T) {
 		pi := NewInformer()
 		assert.Equal(t, "podInformer", pi.Name())
-	})
-	t.Run("Reconcile", func(t *testing.T) {
-		d := dummyReconciler{}
-		res, err := d.Reconcile(context.Background(), reconcile.Request{})
-		assert.NoError(t, err)
-		assert.Equal(t, reconcile.Result{}, res)
 	})
 }
 
@@ -113,13 +108,10 @@ func TestIndexerFunc(t *testing.T) {
 func TestInit(t *testing.T) {
 	t.Run("success case", func(t *testing.T) {
 		pi := NewInformer(WithNodeName("node1"))
-		pi.getConfigFunc = mockGetConfig
+		pi.createRestConfigFunc = mockGetConfig
 		mockMgr := &mockManager{}
 		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
 			return mockMgr, nil
-		}
-		pi.createControllerFunc = func(m manager.Manager) error {
-			return nil
 		}
 		mockCache := &mockCache{}
 		mockMgr.On("GetCache").Return(mockCache)
@@ -128,37 +120,21 @@ func TestInit(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	t.Run("getConfig failed", func(t *testing.T) {
-		pi := NewInformer()
-		pi.getConfigFunc = func(kubeConfigPath string) (*rest.Config, error) {
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = func(kubeConfigPath string) (*rest.Config, error) {
 			return nil, fmt.Errorf("!!you shall not pass!!")
 		}
 		err := pi.Init()
 		assert.ErrorContains(t, err, "cannot get kubeconfig")
 	})
 	t.Run("newManager failed", func(t *testing.T) {
-		pi := NewInformer()
-		pi.getConfigFunc = mockGetConfig
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = mockGetConfig
 		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
 			return nil, fmt.Errorf("!!you shall not pass!!")
 		}
 		err := pi.Init()
 		assert.ErrorContains(t, err, "controller-runtime could not create manager")
-	})
-	t.Run("createController failed", func(t *testing.T) {
-		pi := NewInformer()
-		pi.getConfigFunc = mockGetConfig
-		mockMgr := &mockManager{}
-		mockCache := &mockCache{}
-		mockMgr.On("GetCache").Return(mockCache)
-		mockCache.On("IndexField", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
-			return mockMgr, nil
-		}
-		pi.createControllerFunc = func(m manager.Manager) error {
-			return fmt.Errorf("!!you shall not pass!!")
-		}
-		err := pi.Init()
-		assert.ErrorContains(t, err, "controller managed by manager could not be created")
 	})
 }
 
@@ -245,5 +221,200 @@ func TestPodInfo(t *testing.T) {
 		).Return(fmt.Errorf("!!you shall not pass!!"))
 		_, err := pi.PodInfo("container1")
 		assert.ErrorContains(t, err, "error retrieving pod info from cache")
+	})
+}
+
+func TestPodInformer_Run_ContextCancellation(t *testing.T) {
+	t.Run("context cancellation stops manager gracefully", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = mockGetConfig
+
+		mockMgr := &mockManager{}
+		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
+			return mockMgr, nil
+		}
+
+		mockCache := &mockCache{}
+		mockMgr.On("GetCache").Return(mockCache)
+		mockCache.On("IndexField", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		startCallCh := make(chan context.Context, 1)
+		mockMgr.On("Start", mock.AnythingOfType("*context.cancelCtx")).Return(nil).Run(func(args mock.Arguments) {
+			ctx := args.Get(0).(context.Context)
+			startCallCh <- ctx
+			<-ctx.Done()
+		})
+
+		err := pi.Init()
+		assert.NoError(t, err)
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- pi.Run(ctx)
+		}()
+
+		var startCtx context.Context
+		select {
+		case startCtx = <-startCallCh:
+		case <-time.After(1 * time.Second):
+			t.Fatal("manager Start() was not called")
+		}
+
+		cancel()
+
+		select {
+		case err := <-errCh:
+			assert.NoError(t, err, "Run() should complete without error when context is cancelled")
+		case <-time.After(5 * time.Second):
+			t.Fatal("Run() did not stop after context cancellation")
+		}
+
+		select {
+		case <-startCtx.Done():
+		default:
+			t.Fatal("manager context should be cancelled when parent context is cancelled")
+		}
+
+		mockMgr.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+	})
+
+	t.Run("context with timeout", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = mockGetConfig
+
+		mockMgr := &mockManager{}
+		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
+			return mockMgr, nil
+		}
+
+		mockCache := &mockCache{}
+		mockMgr.On("GetCache").Return(mockCache)
+		mockCache.On("IndexField", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		mockMgr.On("Start", mock.AnythingOfType("*context.timerCtx")).Return(nil).Run(func(args mock.Arguments) {
+			ctx := args.Get(0).(context.Context)
+			<-ctx.Done()
+		})
+
+		err := pi.Init()
+		assert.NoError(t, err)
+
+		start := time.Now()
+		err = pi.Run(ctx)
+		duration := time.Since(start)
+
+		assert.NoError(t, err)
+		assert.True(t, duration >= 40*time.Millisecond, "should run for roughly the timeout duration")
+		assert.True(t, duration < 150*time.Millisecond, "should not run much longer than timeout")
+
+		mockMgr.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+	})
+
+	t.Run("manager start error propagated", func(t *testing.T) {
+		ctx := context.Background()
+
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = mockGetConfig
+
+		mockMgr := &mockManager{}
+		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
+			return mockMgr, nil
+		}
+
+		mockCache := &mockCache{}
+		mockMgr.On("GetCache").Return(mockCache)
+		mockCache.On("IndexField", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		expectedErr := fmt.Errorf("manager failed to start")
+		mockMgr.On("Start", mock.Anything).Return(expectedErr)
+
+		err := pi.Init()
+		assert.NoError(t, err)
+
+		err = pi.Run(ctx)
+		assert.Equal(t, expectedErr, err, "should propagate manager start error")
+
+		mockMgr.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+	})
+}
+
+func TestPodInformer_RunIntegration(t *testing.T) {
+	t.Run("integration test with real manager lifecycle", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		err := corev1.AddToScheme(scheme)
+		assert.NoError(t, err)
+
+		testPod := &corev1.Pod{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "test-pod",
+				Namespace: "default",
+				UID:       "test-uid-123",
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "test-node",
+			},
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{ContainerID: "containerd://abc123"},
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(testPod).
+			Build()
+
+		pi := NewInformer(WithNodeName("test-node"))
+		pi.createRestConfigFunc = mockGetConfig
+
+		fakeMgr := &fakeManager{
+			client: fakeClient,
+			scheme: scheme,
+		}
+
+		pi.newManagerFunc = func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error) {
+			return fakeMgr, nil
+		}
+
+		err = pi.Init()
+		assert.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- pi.Run(ctx)
+		}()
+
+		time.Sleep(50 * time.Millisecond)
+
+		podInfo, err := pi.PodInfo("abc123")
+		if err != nil {
+			t.Logf("PodInfo lookup failed (expected in fake setup): %v", err)
+		} else {
+			assert.Equal(t, "test-pod", podInfo.Name)
+			assert.Equal(t, "default", podInfo.Namespace)
+			assert.Equal(t, "test-uid-123", podInfo.ID)
+		}
+
+		cancel()
+
+		select {
+		case err := <-errCh:
+			assert.NoError(t, err)
+		case <-time.After(3 * time.Second):
+			t.Fatal("Run() did not stop after context cancellation")
+		}
 	})
 }

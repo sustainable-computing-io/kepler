@@ -612,3 +612,71 @@ func (_m *mockCache) WaitForCacheSync(ctx context.Context) bool {
 
 	return r0
 }
+
+type fakeManager struct {
+	client client.Client
+	scheme *runtime.Scheme
+	ctx    context.Context
+}
+
+func (f *fakeManager) Start(ctx context.Context) error {
+	f.ctx = ctx
+	<-ctx.Done()
+	return nil
+}
+
+func (f *fakeManager) GetCache() cache.Cache {
+	return &fakeCache{client: f.client}
+}
+
+func (f *fakeManager) GetClient() client.Client                                { return f.client }
+func (f *fakeManager) GetScheme() *runtime.Scheme                              { return f.scheme }
+func (f *fakeManager) Add(manager.Runnable) error                              { return nil }
+func (f *fakeManager) AddHealthzCheck(string, healthz.Checker) error           { return nil }
+func (f *fakeManager) AddReadyzCheck(string, healthz.Checker) error            { return nil }
+func (f *fakeManager) AddMetricsServerExtraHandler(string, http.Handler) error { return nil }
+func (f *fakeManager) Elected() <-chan struct{}                                { return nil }
+func (f *fakeManager) GetAPIReader() client.Reader                             { return f.client }
+func (f *fakeManager) GetConfig() *rest.Config                                 { return &rest.Config{} }
+func (f *fakeManager) GetControllerOptions() config.Controller                 { return config.Controller{} }
+func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder         { return nil }
+func (f *fakeManager) GetFieldIndexer() client.FieldIndexer                    { return &fakeIndexer{f.client} }
+func (f *fakeManager) GetHTTPClient() *http.Client                             { return nil }
+func (f *fakeManager) GetLogger() logr.Logger                                  { return logr.Discard() }
+func (f *fakeManager) GetRESTMapper() meta.RESTMapper                          { return nil }
+func (f *fakeManager) GetWebhookServer() webhook.Server                        { return nil }
+
+type fakeCache struct {
+	client client.Client
+}
+
+func (f *fakeCache) Get(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error {
+	return f.client.Get(ctx, key, obj, opts...)
+}
+
+func (f *fakeCache) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return f.client.List(ctx, list, opts...)
+}
+
+func (f *fakeCache) GetInformer(context.Context, client.Object, ...cache.InformerGetOption) (cache.Informer, error) {
+	return nil, nil
+}
+
+func (f *fakeCache) GetInformerForKind(context.Context, schema.GroupVersionKind, ...cache.InformerGetOption) (cache.Informer, error) {
+	return nil, nil
+}
+
+func (f *fakeCache) Start(context.Context) error           { return nil }
+func (f *fakeCache) WaitForCacheSync(context.Context) bool { return true }
+func (f *fakeCache) IndexField(context.Context, client.Object, string, client.IndexerFunc) error {
+	return nil
+}
+func (f *fakeCache) RemoveInformer(context.Context, client.Object) error { return nil }
+
+type fakeIndexer struct {
+	client client.Client
+}
+
+func (f *fakeIndexer) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
+	return nil
+}

@@ -22,25 +22,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var (
-	ErrNotFound = errors.New("no pod found for container")
-)
+var ErrNotFound = errors.New("no pod found for container")
 
 const (
-	KubeconfigFlagName = "kubeconfig"
-	IndexContainerID   = "containerID"
+	indexContainerID = "containerID"
 )
 
 type (
 	Informer interface {
-		service.Service
 		service.Initializer
 		service.Runner
-		service.Shutdowner
+
 		PodInfo(containerID string) (*PodInfo, error)
 	}
 
@@ -58,16 +52,11 @@ type podInformer struct {
 	kubeConfigPath string
 	nodeName       string
 
-	cfg           *rest.Config
-	manager       manager.Manager
-	mgrCtx        context.Context
-	mgrCancelFunc context.CancelFunc
+	cfg     *rest.Config
+	manager manager.Manager
 
-	scheme *k8sruntime.Scheme
-
-	getConfigFunc        func(kubeConfigPath string) (*rest.Config, error)
+	createRestConfigFunc func(kubeConfigPath string) (*rest.Config, error)
 	newManagerFunc       func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error)
-	createControllerFunc func(manager.Manager) error
 }
 
 type (
@@ -122,36 +111,33 @@ func NewInformer(opts ...OptFn) *podInformer {
 		kubeEnabled:          opt.kubeEnabled,
 		kubeConfigPath:       opt.kubeConfigPath,
 		nodeName:             opt.nodeName,
-		scheme:               k8sruntime.NewScheme(),
-		getConfigFunc:        getConfig,
+		createRestConfigFunc: getConfig,
 		newManagerFunc:       ctrl.NewManager,
-		createControllerFunc: createController,
 	}
 }
 
 func (pi *podInformer) Init() error {
-	var err error
-	err = corev1.AddToScheme(pi.scheme)
+	if pi.nodeName == "" {
+		return fmt.Errorf("node name is empty")
+	}
+
+	scheme := k8sruntime.NewScheme()
+	err := corev1.AddToScheme(scheme)
 	if err != nil {
 		return fmt.Errorf("controller-runtime could not add scheme: %w", err)
 	}
 
-	cfg, err := pi.getConfigFunc(pi.kubeConfigPath)
+	cfg, err := pi.createRestConfigFunc(pi.kubeConfigPath)
 	if err != nil {
 		return fmt.Errorf("cannot get kubeconfig: %w", err)
 	}
 	pi.cfg = cfg
 
-	mgr, err := pi.setupManager()
+	mgr, err := pi.setupManager(scheme)
 	if err != nil {
 		return fmt.Errorf("controller-runtime could not create manager: %w", err)
 	}
 	pi.manager = mgr
-
-	err = pi.createControllerFunc(pi.manager)
-	if err != nil {
-		return fmt.Errorf("controller managed by manager could not be created: %w", err)
-	}
 
 	opts := zap.Options{
 		Development: true, // enables DebugLevel by default
@@ -164,32 +150,30 @@ func (pi *podInformer) Init() error {
 	return nil
 }
 
-func (pi *podInformer) setupManager() (ctrl.Manager, error) {
-
+func (pi *podInformer) setupManager(scheme *k8sruntime.Scheme) (ctrl.Manager, error) {
 	cacheOp := cache.Options{}
-	if pi.nodeName != "" {
-		cacheOp.ByObject = map[client.Object]cache.ByObject{
-			&corev1.Pod{}: {
-				Field: fields.SelectorFromSet(fields.Set{
-					"spec.nodeName": pi.nodeName,
-				}),
-			},
-		}
+	cacheOp.ByObject = map[client.Object]cache.ByObject{
+		&corev1.Pod{}: {
+			Field: fields.SelectorFromSet(fields.Set{
+				"spec.nodeName": pi.nodeName,
+			}),
+		},
 	}
 
 	mgr, err := pi.newManagerFunc(pi.cfg, ctrl.Options{
-		Scheme: pi.scheme,
+		Scheme: scheme,
 		Cache:  cacheOp,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("controller-runtime could not create manager: %w", err)
 	}
+
 	pi.logger.Debug("setupManager with cache")
 	// Add an index on containerID
 	err = mgr.GetCache().IndexField(
 		context.Background(),
 		&corev1.Pod{},    // cache object
-		IndexContainerID, // index Name
+		indexContainerID, // index Name
 		pi.indexerFunc,   // keys
 	)
 	if err != nil {
@@ -222,10 +206,8 @@ func (pi *podInformer) indexerFunc(obj client.Object) []string {
 	}
 	pi.logger.Debug(
 		"containers for pod",
-		"pod",
-		pod.Name,
-		"containers",
-		strings.Join(containerIDs, ","),
+		"pod", pod.Name,
+		"containers", strings.Join(containerIDs, ","),
 	)
 	return containerIDs
 }
@@ -237,10 +219,7 @@ func extractContainerID(str string) string {
 
 func (pi *podInformer) Run(ctx context.Context) error {
 	pi.logger.Info("Starting pod informer")
-	mgrCtx, cancel := context.WithCancel(context.Background())
-	pi.mgrCtx = mgrCtx
-	pi.mgrCancelFunc = cancel
-	return pi.manager.Start(mgrCtx)
+	return pi.manager.Start(ctx)
 }
 
 // PodInfo retrieves pod details given a containerID
@@ -250,7 +229,7 @@ func (pi *podInformer) PodInfo(containerID string) (*PodInfo, error) {
 	err := pi.manager.GetCache().List(
 		context.Background(),
 		&pods,
-		client.MatchingFields{IndexContainerID: containerID},
+		client.MatchingFields{indexContainerID: containerID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving pod info from cache: %w", err)
@@ -279,25 +258,4 @@ func getConfig(kubeConfigPath string) (*rest.Config, error) {
 
 func (i *podInformer) Name() string {
 	return "podInformer"
-}
-
-func (pi *podInformer) Shutdown() error {
-	pi.logger.Info("stopping pod informer manager")
-	pi.mgrCancelFunc()
-	return nil
-}
-
-type dummyReconciler struct{}
-
-func (pi *dummyReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	return reconcile.Result{}, nil
-}
-
-func createController(mgr manager.Manager) error {
-	d := &dummyReconciler{}
-	_, err := ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Pod{}).
-		WithEventFilter(predicate.ResourceVersionChangedPredicate{}).
-		Build(d)
-	return err
 }
