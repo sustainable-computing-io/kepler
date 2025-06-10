@@ -1,5 +1,3 @@
-.PHONY: all build build-debug clean test coverage lint vet fmt deps image push run deploy undeploy cluster-restart cluster-down cluster-up gen-metrics-docs
-
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
@@ -59,6 +57,7 @@ COVER_HTML=coverage.html
 all: clean fmt lint vet build test
 
 # Build the application
+.PHONY: build
 build:
 	mkdir -p $(BINARY_DIR)
 	CGO_ENABLED=0 $(GOBUILD) $(BUILD_ARGS) \
@@ -66,6 +65,7 @@ build:
 		-o $(BINARY_DIR)/$(BINARY_NAME) \
 		$(MAIN_GO_PATH)
 
+.PHONY: build-debug
 build-debug:
 	mkdir -p $(BINARY_DIR)
 	$(GOBUILD) $(BUILD_ARGS) \
@@ -75,42 +75,51 @@ build-debug:
 		$(MAIN_GO_PATH)
 
 # Clean build artifacts
+.PHONY: clean
 clean:
 	$(GOCLEAN)
 	rm -rf $(BINARY_DIR)
 	rm -f $(COVER_PROFILE) $(COVER_HTML)
 
 # Run tests with coverage
+.PHONY: test
 test:
 	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 
 # Generate coverage report
+.PHONY: coverage
 coverage: test
 	$(GOCMD) tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
 
 # Generate metrics documentation
+.PHONY: gen-metrics-docs
 gen-metrics-docs:
 	$(GOCMD) run ./hack/gen-metric-docs/main.go --output metrics.md
 	mv metrics.md docs/metrics/
 
 # Run linting
+.PHONY: lint
 lint:
 	$(GOLINT) run ./...
 
 # Run go vet
+.PHONY: vet
 vet:
 	$(GOVET) ./...
 
 # Format code
+.PHONY: fmt
 fmt:
 	$(GOFMT) ./...
 
 # Tidy and verify dependencies
+.PHONY: deps
 deps:
 	$(GOMOD) tidy
 	$(GOMOD) verify
 
 # Build Docker image
+.PHONY: image
 image:
 	docker build -t \
 		$(KEPLER_IMAGE) \
@@ -118,10 +127,12 @@ image:
 	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Push Docker image
+.PHONY: push
 push:
 	$(call docker_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Run the application
+.PHONY: run
 run:
 	$(BINARY_DIR)/$(BINARY_NAME)
 
@@ -132,7 +143,9 @@ GRAFANA_ENABLE ?= false
 PROMETHEUS_ENABLE ?= true
 KIND_WORKER_NODES ?=2
 
-cluster-up: ## setup a cluster for local development
+# setup a cluster for local development
+.PHONY: cluster-up
+cluster-up:
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
@@ -140,7 +153,9 @@ cluster-up: ## setup a cluster for local development
 	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh up
 
-cluster-restart: ## restart the local development cluster
+# restart the local development cluster
+.PHONY: cluster-restart
+cluster-restart:
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
@@ -148,17 +163,23 @@ cluster-restart: ## restart the local development cluster
 	KIND_WORKER_NODES=$(KIND_WORKER_NODES) \
 	./hack/cluster.sh restart
 
-cluster-down: ## delete the local development cluster
+# delete the local development cluster
+.PHONY: cluster-down
+cluster-down:
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	./hack/cluster.sh down
 
-deploy: ## Deploy Kepler to the K8s cluster
+# Deploy Kepler to the K8s cluster
+.PHONY: deploy
+deploy:
 	kubectl kustomize manifests/k8s | \
 	sed -e "s|<KEPLER_IMAGE>|$(KEPLER_IMAGE)|g" | \
 	kubectl apply --server-side --force-conflicts -f -
 
-undeploy: ## Undeploy Kepler from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+# Undeploy Kepler from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+.PHONY: undeploy
+undeploy:
 	kubectl delete -k manifests/k8s --ignore-not-found=true
 
 # docker_tag accepts an image:tag and a list of additional tags comma-separated
