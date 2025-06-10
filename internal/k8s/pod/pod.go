@@ -185,7 +185,8 @@ func (pi *podInformer) setupManager(scheme *k8sruntime.Scheme) (ctrl.Manager, er
 func (pi *podInformer) indexerFunc(obj client.Object) []string {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
-		return []string{"invalidContainerID"}
+		pi.logger.Debug("invalid object type", "type", obj.GetObjectKind().GroupVersionKind().String())
+		return nil
 	}
 	var containerIDs []string
 	// TODO: check for status.State.Running != nil ?
