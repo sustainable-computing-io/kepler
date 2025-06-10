@@ -4,6 +4,7 @@
 package device
 
 import (
+	"context"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -20,6 +21,7 @@ func TestNewFakeCPUMeter(t *testing.T) {
 
 	fakeRapl := meter.(*fakeRaplMeter)
 	assert.Equal(t, defaultRaplPath, fakeRapl.devicePath)
+	assert.Equal(t, 100*time.Millisecond, fakeRapl.tickerInterval)
 
 	zones, err := meter.Zones()
 	assert.NoError(t, err)
@@ -33,10 +35,14 @@ func TestNewFakeCPUMeter(t *testing.T) {
 	for _, name := range defaultFakeZones {
 		assert.Contains(t, zoneNames, name)
 	}
+
+	// Clean up
+	fakeRapl.Stop()
 }
 
 func TestFakeRaplMeter_Name(t *testing.T) {
 	meter, _ := NewFakeCPUMeter(nil)
+	defer meter.(*fakeRaplMeter).Stop()
 	assert.Equal(t, "fake-cpu-meter", meter.Name())
 }
 
@@ -63,45 +69,56 @@ func TestFakeEnergyZone_Energy(t *testing.T) {
 		randomFactor: 0,   // No randomness for predictable tests
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	zone := &fakeEnergyZone{
 		name:         "test-zone",
-		energy:       0,
-		maxEnergy:    1000000, // Large enough to avoid wrap-around in test
-		baseWatts:    10.0,    // 10 watts base power
-		randomFactor: 0,       // No randomness
+		maxEnergy:    1000000000000, // Very large to avoid wrap-around in test
+		baseWatts:    10.0,          // 10 watts base power
+		randomFactor: 0,             // No randomness
 		cpuReader:    fakeCPU,
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 
-	// First read should initialize timestamp and return 0
+	// Start ticker with fast interval for testing
+	zone.startTicker(10 * time.Millisecond)
+	defer zone.stop()
+
+	// First read should return 0 (initial value)
 	e1, err := zone.Energy()
 	assert.NoError(t, err)
 	assert.Equal(t, Energy(0), e1)
 
-	// Sleep briefly to ensure time passes
-	time.Sleep(10 * time.Millisecond)
+	// Wait for ticker to update energy values
+	time.Sleep(50 * time.Millisecond)
 
-	// Second read should return energy based on time elapsed and CPU usage
+	// Second read should return energy based on ticker updates
 	e2, err := zone.Energy()
 	assert.NoError(t, err)
 	assert.Greater(t, e2, Energy(0), "Energy should increase over time")
 
 	// Third read after more time should show further increase
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	e3, err := zone.Energy()
 	assert.NoError(t, err)
 	assert.Greater(t, e3, e2, "Energy should continue to increase")
 
-	// Test wrap-around at maxEnergy
-	zone.energy = zone.maxEnergy - 100
+	// Test atomic energy value wrapping by setting high initial value
+	zone.precomputedEnergy.Store(uint64(zone.maxEnergy - 100))
+	time.Sleep(50 * time.Millisecond)
 	e4, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Less(t, e4, zone.maxEnergy, "Energy should wrap around at maxEnergy")
+	// Energy should have wrapped around, so it should be less than the previous high value
+	assert.Less(t, e4, Energy(zone.maxEnergy-100), "Energy should wrap around at maxEnergy")
 }
 
 func TestWithFakeZones(t *testing.T) {
 	customZones := []string{"package", "custom-zone"}
 	meter, err := NewFakeCPUMeter(customZones)
 	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
 
 	zones, err := meter.Zones()
 	assert.NoError(t, err)
@@ -116,10 +133,11 @@ func TestWithFakeZones(t *testing.T) {
 	}
 
 	// empty zones should fallback to defaults
-	meter, err = NewFakeCPUMeter(nil)
+	meter2, err := NewFakeCPUMeter(nil)
 	assert.NoError(t, err)
+	defer meter2.(*fakeRaplMeter).Stop()
 
-	zones, err = meter.Zones()
+	zones, err = meter2.Zones()
 	assert.NoError(t, err)
 	assert.Equal(t, len(defaultFakeZones), len(zones))
 }
@@ -128,6 +146,7 @@ func TestWithFakePath(t *testing.T) {
 	customPath := "/custom/rapl/path"
 	meter, err := NewFakeCPUMeter(nil, WithFakePath(customPath))
 	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
 
 	fakeRapl := meter.(*fakeRaplMeter)
 	assert.Equal(t, customPath, fakeRapl.devicePath)
@@ -145,6 +164,7 @@ func TestWithFakeMaxEnergy(t *testing.T) {
 	customMax := Energy(999999)
 	meter, err := NewFakeCPUMeter(nil, WithFakeMaxEnergy(customMax))
 	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
 
 	zones, err := meter.Zones()
 	assert.NoError(t, err)
@@ -161,27 +181,42 @@ func TestWithFakeLogger(t *testing.T) {
 	logger := slog.Default().With("test", "logger")
 	meter, err := NewFakeCPUMeter(nil, WithFakeLogger(logger))
 	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
 
 	fakeRapl := meter.(*fakeRaplMeter)
 	assert.NotNil(t, fakeRapl.logger)
+}
+
+func TestWithTickerInterval(t *testing.T) {
+	customInterval := 50 * time.Millisecond
+	meter, err := NewFakeCPUMeter(nil, WithTickerInterval(customInterval))
+	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
+
+	fakeRapl := meter.(*fakeRaplMeter)
+	assert.Equal(t, customInterval, fakeRapl.tickerInterval)
 }
 
 func TestMultipleOptions(t *testing.T) {
 	customPath := "/custom/rapl/path"
 	customMax := Energy(888888)
 	customZones := []string{"custom1", "custom2"}
+	customInterval := 25 * time.Millisecond
 	logger := slog.Default().With("test", "logger")
 
 	meter, err := NewFakeCPUMeter(
 		customZones,
 		WithFakePath(customPath),
 		WithFakeMaxEnergy(customMax),
+		WithTickerInterval(customInterval),
 		WithFakeLogger(logger),
 	)
 	assert.NoError(t, err)
+	defer meter.(*fakeRaplMeter).Stop()
 
 	fakeRapl := meter.(*fakeRaplMeter)
 	assert.Equal(t, customPath, fakeRapl.devicePath)
+	assert.Equal(t, customInterval, fakeRapl.tickerInterval)
 	assert.NotNil(t, fakeRapl.logger)
 
 	zones, err := meter.Zones()
@@ -204,30 +239,37 @@ func TestEnergyRandomness(t *testing.T) {
 		randomFactor: 0.3, // Some randomness in CPU usage
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	zone := &fakeEnergyZone{
 		name:         "test-zone",
-		energy:       0,
 		maxEnergy:    10000000, // Large enough to avoid wrap-around
 		baseWatts:    10.0,     // 10 watts base power
 		randomFactor: 0.3,      // 30% randomness
 		cpuReader:    fakeCPU,
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 
-	// Initialize with first read
-	_, err := zone.Energy()
-	assert.NoError(t, err)
+	// Start ticker with fast interval for testing
+	zone.startTicker(5 * time.Millisecond)
+	defer zone.stop()
+
+	// Wait for initial ticker updates
+	time.Sleep(10 * time.Millisecond)
 
 	// Read energy multiple times with small delays
 	var readings []Energy
 	for range 10 {
-		time.Sleep(1 * time.Millisecond) // Small delay to ensure time passes
+		time.Sleep(10 * time.Millisecond) // Wait for ticker updates
 		e, err := zone.Energy()
 		assert.NoError(t, err)
 		readings = append(readings, e)
 	}
 
-	// With randomness, energy increments shouldn't be exactly the same
-	// Check that we have some variation in the differences
+	// With randomness, energy values should show variation
+	// Check that we have some variation in the values
 	var diffs []Energy
 	for i := 1; i < len(readings); i++ {
 		diffs = append(diffs, readings[i]-readings[i-1])

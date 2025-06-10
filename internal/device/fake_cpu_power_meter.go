@@ -4,11 +4,13 @@
 package device
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/procfs"
@@ -111,15 +113,22 @@ type fakeEnergyZone struct {
 	name      string
 	index     int
 	path      string
-	energy    Energy
 	maxEnergy Energy
-	mu        sync.Mutex
+
+	// Thread-safe precomputed energy value
+	precomputedEnergy atomic.Uint64
 
 	// For generating fake values
 	baseWatts    float64 // Base power consumption in watts
 	randomFactor float64
-	lastReadTime time.Time
-	cpuReader    cpuUsageReader
+
+	// Ticker management
+	ctx        context.Context
+	cancel     context.CancelFunc
+	ticker     *time.Ticker
+	cpuReader  cpuUsageReader
+	lastUpdate time.Time
+	mu         sync.RWMutex // Protects lastUpdate time
 }
 
 var _ EnergyZone = (*fakeEnergyZone)(nil)
@@ -139,26 +148,41 @@ func (z *fakeEnergyZone) Path() string {
 	return z.path
 }
 
-// Energy returns energy consumed by the zone.
-// Energy consumption is calculated based on:
-// 1. Time elapsed since last reading (more time = more energy)
-// 2. Current CPU usage (higher usage = higher power consumption)
-// 3. Base power consumption for the zone type
+// Energy returns the precomputed energy value
 func (z *fakeEnergyZone) Energy() (Energy, error) {
+	return Energy(z.precomputedEnergy.Load()), nil
+}
+
+// startTicker starts the background ticker that updates energy values
+func (z *fakeEnergyZone) startTicker(interval time.Duration) {
+	z.ticker = time.NewTicker(interval)
+	go z.tickerLoop()
+}
+
+// tickerLoop runs the background energy computation
+func (z *fakeEnergyZone) tickerLoop() {
+	// Initialize timestamp
 	z.mu.Lock()
-	defer z.mu.Unlock()
+	z.lastUpdate = time.Now()
+	z.mu.Unlock()
 
-	now := time.Now()
-
-	// Initialize timestamp on first call
-	if z.lastReadTime.IsZero() {
-		z.lastReadTime = now
-		return z.energy, nil
+	for {
+		select {
+		case <-z.ctx.Done():
+			return
+		case <-z.ticker.C:
+			z.updateEnergy()
+		}
 	}
+}
 
-	// Calculate time elapsed in seconds
-	duration := now.Sub(z.lastReadTime).Seconds()
-	z.lastReadTime = now
+// updateEnergy computes and updates the precomputed energy value
+func (z *fakeEnergyZone) updateEnergy() {
+	z.mu.Lock()
+	now := time.Now()
+	duration := now.Sub(z.lastUpdate).Seconds()
+	z.lastUpdate = now
+	z.mu.Unlock()
 
 	// Get current CPU usage (0.0 to 1.0)
 	cpuUsage := 0.3 // Default moderate usage
@@ -185,10 +209,24 @@ func (z *fakeEnergyZone) Energy() (Energy, error) {
 	// Convert watts to microjoules: Watts × seconds × 1,000,000
 	energyIncrement := Energy(actualWatts * duration * 1000000)
 
-	// Update cumulative energy with wrap-around
-	z.energy = (z.energy + energyIncrement) % z.maxEnergy
+	// Update cumulative energy with wrap-around using atomic operations
+	for {
+		current := z.precomputedEnergy.Load()
+		newValue := (current + uint64(energyIncrement)) % uint64(z.maxEnergy)
+		if z.precomputedEnergy.CompareAndSwap(current, newValue) {
+			break
+		}
+	}
+}
 
-	return z.energy, nil
+// stop stops the ticker and cancels the context
+func (z *fakeEnergyZone) stop() {
+	if z.cancel != nil {
+		z.cancel()
+	}
+	if z.ticker != nil {
+		z.ticker.Stop()
+	}
 }
 
 // MaxEnergy returns the maximum value of energy usage that can be read.
@@ -198,9 +236,12 @@ func (z *fakeEnergyZone) MaxEnergy() Energy {
 
 // fakeRaplMeter implements the CPUPowerMeter interface
 type fakeRaplMeter struct {
-	logger     *slog.Logger
-	zones      []EnergyZone
-	devicePath string
+	logger         *slog.Logger
+	zones          []EnergyZone
+	devicePath     string
+	tickerInterval time.Duration
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 var _ CPUPowerMeter = (*fakeRaplMeter)(nil)
@@ -231,10 +272,17 @@ func WithFakeMaxEnergy(e Energy) FakeOptFn {
 	}
 }
 
-// WithFakeMaxEnergy sets the maximum energy value before wrap-around
+// WithFakeLogger sets the logger for the fake meter
 func WithFakeLogger(l *slog.Logger) FakeOptFn {
 	return func(m *fakeRaplMeter) {
 		m.logger = l.With("meter", m.Name())
+	}
+}
+
+// WithTickerInterval sets the ticker interval for energy updates
+func WithTickerInterval(interval time.Duration) FakeOptFn {
+	return func(m *fakeRaplMeter) {
+		m.tickerInterval = interval
 	}
 }
 
@@ -271,6 +319,14 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 		}
 	}
 
+	// Set default ticker interval if not specified
+	if meter.tickerInterval == 0 {
+		meter.tickerInterval = 100 * time.Millisecond // Default 100ms
+	}
+
+	// Create context for lifecycle management
+	meter.ctx, meter.cancel = context.WithCancel(context.Background())
+
 	meter.zones = make([]EnergyZone, 0, len(zones))
 
 	for i, zoneName := range zones {
@@ -280,7 +336,10 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 			basePower = 10.0
 		}
 
-		meter.zones = append(meter.zones, &fakeEnergyZone{
+		// Create zone context derived from meter context
+		zoneCtx, zoneCancel := context.WithCancel(meter.ctx)
+
+		zone := &fakeEnergyZone{
 			name:         zoneName,
 			index:        i,
 			path:         filepath.Join(defaultRaplPath, fmt.Sprintf("energy_%s", zoneName)),
@@ -288,7 +347,14 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 			baseWatts:    basePower,
 			randomFactor: 0.2, // ±20% randomness
 			cpuReader:    cpuReader,
-		})
+			ctx:          zoneCtx,
+			cancel:       zoneCancel,
+		}
+
+		// Start the ticker for this zone
+		zone.startTicker(meter.tickerInterval)
+
+		meter.zones = append(meter.zones, zone)
 	}
 
 	for _, opt := range opts {
@@ -304,4 +370,17 @@ func (m *fakeRaplMeter) Name() string {
 
 func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {
 	return m.zones, nil
+}
+
+// Stop stops all background tickers and cleans up resources
+func (m *fakeRaplMeter) Stop() {
+	if m.cancel != nil {
+		m.cancel()
+	}
+	// Stop all zone tickers
+	for _, zone := range m.zones {
+		if fz, ok := zone.(*fakeEnergyZone); ok {
+			fz.stop()
+		}
+	}
 }
