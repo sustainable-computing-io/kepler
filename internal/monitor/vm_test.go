@@ -89,7 +89,7 @@ func TestVMPowerCalculation(t *testing.T) {
 
 		// Initialize zones for previous VM
 		for _, zone := range zones {
-			prevSnapshot.VirtualMachines["vm-1"].Zones[zone] = &Usage{
+			prevSnapshot.VirtualMachines["vm-1"].Zones[zone] = Usage{
 				EnergyTotal: 30 * Joule,
 				Power:       Power(0),
 			}
@@ -159,7 +159,7 @@ func TestVMPowerCalculation(t *testing.T) {
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &NodeUsage{
+			newSnapshot.Node.Zones[zone] = NodeUsage{
 				EnergyTotal:       Energy(100_000_000),
 				activeEnergy:      Energy(0),
 				ActiveEnergyTotal: Energy(0),
@@ -262,7 +262,7 @@ func TestVMPowerCalculation(t *testing.T) {
 			Zones: make(ZoneUsageMap),
 		}
 		// Only add data for the first zone, missing the second
-		prevSnapshot.VirtualMachines["vm-1"].Zones[zones[0]] = &Usage{
+		prevSnapshot.VirtualMachines["vm-1"].Zones[zones[0]] = Usage{
 			EnergyTotal: 15 * Joule,
 			Power:       3 * Watt,
 		}

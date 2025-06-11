@@ -47,12 +47,12 @@ type Usage struct {
 
 // ZoneUsageMap maps energy zones to basic usage data (absolute energy and power).
 // Used by processes, containers, and VMs which only track their attributed energy consumption.
-type ZoneUsageMap map[EnergyZone]*Usage
+type ZoneUsageMap map[EnergyZone]Usage
 
 // NodeZoneUsageMap maps energy zones to node-specific usage data that includes idle/used breakdown.
 // Used exclusively by Node to track total energy consumption with attribution between active workloads
 // and idle system overhead, enabling proper power attribution calculations.
-type NodeZoneUsageMap map[EnergyZone]*NodeUsage
+type NodeZoneUsageMap map[EnergyZone]NodeUsage
 
 type Node struct {
 	Timestamp  time.Time        // Timestamp of the last measurement
@@ -61,13 +61,13 @@ type Node struct {
 }
 
 func (n *Node) Clone() *Node {
-	ret := &Node{
-		Timestamp:  n.Timestamp,
-		UsageRatio: n.UsageRatio,
-		Zones:      make(NodeZoneUsageMap, len(n.Zones)),
+	if n == nil {
+		return nil
 	}
+	ret := *n
+	ret.Zones = make(NodeZoneUsageMap, len(n.Zones))
 	maps.Copy(ret.Zones, n.Zones)
-	return ret
+	return &ret
 }
 
 // Process represents the power consumption of a process
@@ -87,20 +87,14 @@ type Process struct {
 }
 
 func (p *Process) Clone() *Process {
-	ret := &Process{
-		PID:  p.PID,
-		Comm: p.Comm,
-		Exe:  p.Exe,
-		Type: p.Type,
-
-		CPUTotalTime: p.CPUTotalTime,
-		Zones:        make(ZoneUsageMap, len(p.Zones)),
-
-		ContainerID:      p.ContainerID,
-		VirtualMachineID: p.VirtualMachineID,
+	if p == nil {
+		return nil
 	}
+
+	ret := *p
+	ret.Zones = make(ZoneUsageMap, len(p.Zones))
 	maps.Copy(ret.Zones, p.Zones)
-	return ret
+	return &ret
 }
 
 type ContainerRuntime = resource.ContainerRuntime
@@ -115,19 +109,20 @@ type Container struct {
 	CPUTotalTime float64 // CPU time in seconds
 
 	Zones ZoneUsageMap
+
+	// pod id is empty if the container is not a pod
+	PodID string
 }
 
 func (c *Container) Clone() *Container {
-	ret := &Container{
-		ID:           c.ID,
-		Name:         c.Name,
-		Runtime:      c.Runtime,
-		CPUTotalTime: c.CPUTotalTime,
-
-		Zones: make(ZoneUsageMap, len(c.Zones)),
+	if c == nil {
+		return nil
 	}
+
+	ret := *c
+	ret.Zones = make(ZoneUsageMap, len(c.Zones))
 	maps.Copy(ret.Zones, c.Zones)
-	return ret
+	return &ret
 }
 
 type Hypervisor = resource.Hypervisor
@@ -145,16 +140,14 @@ type VirtualMachine struct {
 }
 
 func (vm *VirtualMachine) Clone() *VirtualMachine {
-	ret := &VirtualMachine{
-		ID:           vm.ID,
-		Name:         vm.Name,
-		Hypervisor:   vm.Hypervisor,
-		CPUTotalTime: vm.CPUTotalTime,
-
-		Zones: make(ZoneUsageMap, len(vm.Zones)),
+	if vm == nil {
+		return nil
 	}
+
+	ret := *vm
+	ret.Zones = make(ZoneUsageMap, len(vm.Zones))
 	maps.Copy(ret.Zones, vm.Zones)
-	return ret
+	return &ret
 }
 
 type Pod struct {
@@ -169,15 +162,14 @@ type Pod struct {
 }
 
 func (p *Pod) Clone() *Pod {
-	ret := &Pod{
-		ID:           p.ID,
-		Name:         p.Name,
-		Namespace:    p.Namespace,
-		CPUTotalTime: p.CPUTotalTime,
-		Zones:        make(ZoneUsageMap, len(p.Zones)),
+	if p == nil {
+		return nil
 	}
+
+	ret := *p
+	ret.Zones = make(ZoneUsageMap, len(p.Zones))
 	maps.Copy(ret.Zones, p.Zones)
-	return ret
+	return &ret
 }
 
 type (

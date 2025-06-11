@@ -122,7 +122,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 		Timestamp:  time.Now(),
 		UsageRatio: 0.5,
 		Zones: monitor.NodeZoneUsageMap{
-			package0Zone: &monitor.NodeUsage{
+			package0Zone: monitor.NodeUsage{
 				EnergyTotal:       nodePkgAbs,
 				ActiveEnergyTotal: nodePkgDelta / 2,
 				IdleEnergyTotal:   nodePkgDelta / 2,
@@ -130,7 +130,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				ActivePower:       nodePkgPower / 2,
 				IdlePower:         nodePkgPower / 2,
 			},
-			dramZone: &monitor.NodeUsage{
+			dramZone: monitor.NodeUsage{
 				EnergyTotal:       nodeDramAbs,
 				ActiveEnergyTotal: nodeDramDelta / 2,
 				IdleEnergyTotal:   nodeDramDelta / 2,
@@ -138,7 +138,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 				ActivePower:       nodeDramPower / 2,
 				IdlePower:         nodeDramPower / 2,
 			},
-			package1Zone: &monitor.NodeUsage{
+			package1Zone: monitor.NodeUsage{
 				EnergyTotal:       nodePkgAbs,
 				ActiveEnergyTotal: nodePkgDelta / 2,
 				IdleEnergyTotal:   nodePkgDelta / 2,
@@ -248,7 +248,7 @@ func TestUpdateDuringCollection(t *testing.T) {
 				Timestamp:  time.Now(),
 				UsageRatio: 0.5,
 				Zones: monitor.NodeZoneUsageMap{
-					packageZone: &monitor.NodeUsage{
+					packageZone: monitor.NodeUsage{
 						EnergyTotal:       100 * device.Joule,
 						ActiveEnergyTotal: 5 * device.Joule,
 						IdleEnergyTotal:   5 * device.Joule,

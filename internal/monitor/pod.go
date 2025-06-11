@@ -28,7 +28,7 @@ func (pm *PowerMonitor) firstPodRead(snapshot *Snapshot) error {
 
 		// Initialize each zone with zero values
 		for _, zone := range zones {
-			pod.Zones[zone] = &Usage{
+			pod.Zones[zone] = Usage{
 				EnergyTotal: Energy(0),
 				Power:       Power(0),
 			}
@@ -85,7 +85,7 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.Power == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				pod.Zones[zone] = &Usage{
+				pod.Zones[zone] = Usage{
 					Power:       Power(0),
 					EnergyTotal: Energy(0),
 				}
@@ -103,7 +103,7 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 					absoluteEnergy += prevUsage.EnergyTotal
 				}
 			}
-			pod.Zones[zone] = &Usage{
+			pod.Zones[zone] = Usage{
 				EnergyTotal: absoluteEnergy,
 				Power:       Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower)),
 			}

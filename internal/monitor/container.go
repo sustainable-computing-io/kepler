@@ -28,7 +28,7 @@ func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
 
 		// Initialize each zone with zero values
 		for _, zone := range zones {
-			container.Zones[zone] = &Usage{
+			container.Zones[zone] = Usage{
 				EnergyTotal: Energy(0),
 				Power:       Power(0),
 			}
@@ -85,7 +85,7 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				container.Zones[zone] = &Usage{
+				container.Zones[zone] = Usage{
 					Power:       Power(0),
 					EnergyTotal: Energy(0),
 				}
@@ -107,7 +107,7 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			}
 
 			// Calculate container's share of this zone's power and energy
-			container.Zones[zone] = &Usage{
+			container.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
 				EnergyTotal: absoluteEnergy,
 			}

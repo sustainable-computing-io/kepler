@@ -67,7 +67,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 			idlePower = power - activePower
 		}
 
-		newNode.Zones[zone] = &NodeUsage{
+		newNode.Zones[zone] = NodeUsage{
 			EnergyTotal: absEnergy,
 
 			activeEnergy:      activeEnergy,
@@ -118,7 +118,7 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 		activeEnergy := Energy(float64(energy) * nodeCPUUsageRatio)
 		idleEnergy := energy - activeEnergy
 
-		node.Zones[zone] = &NodeUsage{
+		node.Zones[zone] = NodeUsage{
 			EnergyTotal:       energy,
 			ActiveEnergyTotal: activeEnergy,
 			IdleEnergyTotal:   idleEnergy,
