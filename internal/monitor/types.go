@@ -115,6 +115,9 @@ type Container struct {
 	CPUTotalTime float64 // CPU time in seconds
 
 	Zones ZoneUsageMap
+
+	// pod id is empty if the container is not a pod
+	PodID string
 }
 
 func (c *Container) Clone() *Container {
@@ -123,6 +126,7 @@ func (c *Container) Clone() *Container {
 		Name:         c.Name,
 		Runtime:      c.Runtime,
 		CPUTotalTime: c.CPUTotalTime,
+		PodID:        c.PodID,
 
 		Zones: make(ZoneUsageMap, len(c.Zones)),
 	}

@@ -3,6 +3,11 @@
 
 package monitor
 
+import (
+	"github.com/sustainable-computing-io/kepler/internal/resource"
+	"k8s.io/utils/ptr"
+)
+
 // firstContainerRead initializes container power data for the first time
 func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
 	// Get the available zones to initialize each container with the same zones
@@ -24,6 +29,7 @@ func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
 			Runtime:      ctnr.Runtime,
 			CPUTotalTime: ctnr.CPUTotalTime,
 			Zones:        make(ZoneUsageMap, len(zones)),
+			PodID:        ptr.Deref(ctnr.Pod, resource.Pod{}).ID,
 		}
 
 		// Initialize each zone with zero values

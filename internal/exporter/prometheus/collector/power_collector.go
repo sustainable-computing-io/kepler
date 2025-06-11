@@ -124,8 +124,8 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 		processCPUWattsDescriptor:  wattsDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
 		processCPUTimeDescriptor:   timeDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID}),
 
-		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone}),
-		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone}),
+		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
+		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
 
 		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
 		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
@@ -319,15 +319,15 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 	}
 
 	// No need to lock, already done by the calling function
-	for id, container := range containers {
-		for zone, usage := range container.Zones {
+	for id, cntr := range containers {
+		for zone, usage := range cntr.Zones {
 			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 
 			ch <- prometheus.MustNewConstMetric(
 				c.containerCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				id, container.Name, string(container.Runtime),
+				id, cntr.Name, string(cntr.Runtime), cntr.PodID,
 				zoneName,
 			)
 
@@ -335,7 +335,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 				c.containerCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				id, container.Name, string(container.Runtime), zoneName,
+				id, cntr.Name, string(cntr.Runtime), zoneName, cntr.PodID,
 			)
 		}
 	}
