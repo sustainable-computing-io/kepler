@@ -113,3 +113,12 @@ jobs:
         uses: ./.github/publish-image
         with:
           registry: localhost:5001
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build and Deploy Kepler on K8s
+        uses: ./.github/k8s

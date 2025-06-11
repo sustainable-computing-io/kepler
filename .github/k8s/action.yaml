@@ -1,0 +1,147 @@
+name: Build and Deploy on K8s
+description: Builds and deploys Kepler to a Kubernetes cluster on VM
+
+runs:
+  using: composite
+  steps:
+    - name: Install Docker
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+        sudo usermod -aG docker $USER
+
+    - name: Verify Docker installation
+      shell: bash
+      run: |
+        docker ps
+        docker --version
+
+    - name: Install Kind
+      shell: bash
+      run: |
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+        chmod +x ./kind
+        sudo mv ./kind /usr/local/bin/kind
+
+    - name: Verify Kind installation
+      shell: bash
+      run: |
+        kind version
+
+    - name: Install Kubectl
+      shell: bash
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
+
+    - name: Verify Kubectl installation
+      shell: bash
+      run: |
+        kubectl version --client
+
+    - name: Checkout source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Go
+      uses: actions/setup-go@v5.4.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    - name: Build image
+      shell: bash
+      run: |
+        make image
+      env:
+        IMG_BASE: localhost:5001
+        VERSION: dev
+
+    - name: Setup Kind cluster
+      shell: bash
+      run: |
+        make cluster-up
+
+    - name: Push image
+      shell: bash
+      run: |
+        make push
+      env:
+        IMG_BASE: localhost:5001
+        VERSION: dev
+
+    - name: Enable fake cpu meter
+      shell: bash
+      run: |
+        sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' manifests/k8s/configmap.yaml
+
+    - name: Deploy Kepler
+      shell: bash
+      run: |
+        make deploy
+      env:
+        IMG_BASE: localhost:5001
+        VERSION: dev
+
+    - name: Verify Kepler deployment
+      shell: bash
+      run: |
+        kubectl rollout status daemonset/kepler -n kepler --timeout=5m
+
+    # TODO: Move this once we add validator tool to the repo
+    - name: Validate metric endpoint
+      id: validate
+      shell: bash
+      run: |
+        kubectl port-forward service/kepler 28282:28282 -n kepler &
+        sleep 20 # sleep for 20 seconds to give the service time to start
+
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:28282/metrics)
+        [[ $HTTP_STATUS -ne 200 ]] && echo "HTTP status code is not 200" && exit 1
+
+        curl -s -o /tmp/metrics.txt http://localhost:28282/metrics
+
+        for metric in kepler_process_cpu_watts \
+          kepler_node_cpu_info \
+          kepler_node_cpu_watts \
+          kepler_node_cpu_joules_total \
+          kepler_node_cpu_active_joules_total \
+          kepler_node_cpu_idle_joules_total \
+          kepler_node_cpu_active_watts \
+          kepler_node_cpu_idle_watts \
+          kepler_process_cpu_joules_total \
+          kepler_container_cpu_joules_total \
+          kepler_container_cpu_watts; do
+          echo "Checking metric: $metric"
+          if ! grep -q "$metric" /tmp/metrics.txt; then
+            echo "Metric $metric not found"
+            exit 1
+          fi
+        done
+
+    - name: Run must gather
+      if: failure()
+      shell: bash
+      run: |
+        echo "::group::Get pods in kepler namespace"
+        kubectl get pods -n kepler || true
+        echo "::endgroup::"
+
+        echo "::group::Get pods in monitoring namespace"
+        kubectl get pods -n monitoring || true
+        echo "::endgroup::"
+
+        echo "::group::Get logs for kepler daemonset"
+        kubectl logs daemonset/kepler -n kepler || true
+        echo "::endgroup::"
+
+        echo "::group::Fetch metrics from localhost:28282"
+        curl -s http://localhost:28282/metrics || true
+        echo "::endgroup::"
