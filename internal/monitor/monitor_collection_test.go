@@ -30,6 +30,7 @@ func TestCollectionLoop(t *testing.T) {
 	resourceInformer := &MockResourceInformer{}
 	resourceInformer.SetExpectations(t, tr)
 	resourceInformer.On("Refresh").Return(nil)
+	// resourceInformer.On("Pods").Return(nil)
 
 	monitor := NewPowerMonitor(
 		mockMeter,
