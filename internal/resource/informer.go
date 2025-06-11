@@ -219,7 +219,7 @@ func (ri *resourceInformer) Refresh() error {
 					containersNoPod = append(containersNoPod, container.ID)
 				} else {
 					ri.logger.Debug("Failed to get pod for container", "container", container.ID, "error", err)
-					refreshErrs = errors.Join(refreshErrs, err)
+					refreshErrs = errors.Join(refreshErrs, fmt.Errorf("failed to get pod for container: %w", err))
 				}
 				continue
 			}
@@ -290,11 +290,9 @@ func (ri *resourceInformer) Refresh() error {
 	ri.vms.Terminated = vmsTerminated
 
 	// Find terminated pods
-	totalPodsDelta := float64(0)
 	podsTerminated := make(map[string]*Pod)
 	for id, pod := range ri.podCache {
 		if _, isRunning := podsRunning[id]; isRunning {
-			totalPodsDelta += pod.CPUTimeDelta
 			continue
 		}
 		podsTerminated[id] = pod

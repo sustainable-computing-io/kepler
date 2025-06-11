@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -296,4 +297,23 @@ func TestPodInformer_RunIntegration(t *testing.T) {
 			t.Fatal("Run() did not stop after context cancellation")
 		}
 	})
+}
+
+func TestSlogLevelToZapLevel(t *testing.T) {
+	tests := []struct {
+		input    slog.Level
+		expected zapcore.Level
+	}{
+		{slog.LevelDebug, zapcore.DebugLevel},
+		{slog.LevelInfo, zapcore.InfoLevel},
+		{slog.LevelWarn, zapcore.WarnLevel},
+		{slog.LevelError, zapcore.ErrorLevel},
+		{slog.Level(-10), zapcore.DebugLevel},
+		{slog.Level(10), zapcore.ErrorLevel},
+	}
+
+	for _, tc := range tests {
+		result := slogLevelToZapLevel(tc.input)
+		assert.Equal(t, tc.expected, result, "Conversion failed for slog level: %v", tc.input)
+	}
 }

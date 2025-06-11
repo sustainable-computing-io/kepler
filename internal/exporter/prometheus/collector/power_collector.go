@@ -95,7 +95,7 @@ func timeDesc(level, device string, labels []string) *prometheus.Desc {
 // by fetching all data in a single snapshot during collection
 func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCollector {
 	const (
-		// these labels should rename the same across all descriptors to ease querying
+		// these labels should remain the same across all descriptors to ease querying
 		zone   = "zone"
 		cntrID = "container_id"
 		vmID   = "vm_id"
@@ -124,8 +124,8 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 		processCPUWattsDescriptor:  wattsDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
 		processCPUTimeDescriptor:   timeDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID}),
 
-		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone}),
-		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone}),
+		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
+		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
 
 		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
 		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
@@ -329,13 +329,16 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 				usage.EnergyTotal.Joules(),
 				id, container.Name, string(container.Runtime),
 				zoneName,
+				container.PodID,
 			)
 
 			ch <- prometheus.MustNewConstMetric(
 				c.containerCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				id, container.Name, string(container.Runtime), zoneName,
+				id, container.Name, string(container.Runtime),
+				zoneName,
+				container.PodID,
 			)
 		}
 	}

@@ -4,10 +4,12 @@
 package resource
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 )
 
 // MockProcInfo is a mock implementation of procInfo for testing
@@ -84,4 +86,31 @@ func mockContainerIDAndPath(rt ContainerRuntime) (string, string) {
 	}
 	id := string(rand64)
 	return id, strings.ReplaceAll(containerPaths[rt], "<id>", id)
+}
+
+type mockPodInformer struct {
+	mock.Mock
+}
+
+func (m *mockPodInformer) Init() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *mockPodInformer) Run(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *mockPodInformer) PodInfo(containerID string) (*pod.PodInfo, error) {
+	args := m.Called(containerID)
+	if podInfo, ok := args.Get(0).(*pod.PodInfo); ok {
+		return podInfo, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *mockPodInformer) Name() string {
+	args := m.Called()
+	return args.String(0)
 }
