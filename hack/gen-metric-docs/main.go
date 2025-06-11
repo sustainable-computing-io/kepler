@@ -135,6 +135,7 @@ func generateMarkdown(metrics []MetricInfo) string {
 	containerMetrics := []MetricInfo{}
 	processMetrics := []MetricInfo{}
 	vmMetrics := []MetricInfo{}
+	podMetrics := []MetricInfo{}
 	otherMetrics := []MetricInfo{}
 
 	for _, metric := range metrics {
@@ -147,6 +148,8 @@ func generateMarkdown(metrics []MetricInfo) string {
 			processMetrics = append(processMetrics, metric)
 		case strings.HasPrefix(metric.Name, "kepler_vm_"):
 			vmMetrics = append(vmMetrics, metric)
+		case strings.HasPrefix(metric.Name, "kepler_pod_"):
+			podMetrics = append(podMetrics, metric)
 		default:
 			otherMetrics = append(otherMetrics, metric)
 		}
@@ -171,6 +174,11 @@ func generateMarkdown(metrics []MetricInfo) string {
 		md.WriteString("### Virtual Machine Metrics\n\n")
 		md.WriteString("These metrics provide energy and power information for virtual machines.\n\n")
 		writeMetricsSection(&md, vmMetrics)
+	}
+	if len(podMetrics) > 0 {
+		md.WriteString("### Pod Metrics\n\n")
+		md.WriteString("These metrics provide energy and power information for pods.\n\n")
+		writeMetricsSection(&md, podMetrics)
 	}
 	if len(otherMetrics) > 0 {
 		md.WriteString("### Other Metrics\n\n")

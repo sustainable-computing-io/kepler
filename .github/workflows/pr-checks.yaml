@@ -78,6 +78,22 @@ jobs:
         shell: bash
         run: make vet && git diff --exit-code
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: make gen-metrics-docs
+        shell: bash
+        run: make gen-metrics-docs && git diff --exit-code
+
   test-and-codecov:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
