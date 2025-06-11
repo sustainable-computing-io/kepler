@@ -301,21 +301,13 @@ func TestInvalidConfigurationValues(t *testing.T) {
 		},
 		error: "unreadable kubeconfig",
 	}, {
-		name: "kube not enabled, kubeconfig supplied",
+		name: "kube enabled, nodeName not supplied",
 		config: &Config{
 			Kube: Kube{
-				Config: "/some/existing/file",
+				Enabled: ptr.To(true),
 			},
 		},
-		error: "kube.config supplied but kube.enable set to false",
-	}, {
-		name: "kube not enabled, nodeName supplied",
-		config: &Config{
-			Kube: Kube{
-				Node: "dummyNode",
-			},
-		},
-		error: "kube.node-name supplied but kube.enable set to false",
+		error: "kube.node-name not supplied but kube.enable set to true",
 	}}
 
 	// test yaml marshall

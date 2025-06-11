@@ -386,15 +386,14 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		}
 	}
 	{ // Kubernetes
-		if c.Kube.Config != "" && !ptr.Deref(c.Kube.Enabled, false) {
-			errs = append(errs, fmt.Sprintf("%s supplied but %s set to false", KubeConfigFlag, KubernetesFlag))
-		}
-		if c.Kube.Node != "" && !ptr.Deref(c.Kube.Enabled, false) {
-			errs = append(errs, fmt.Sprintf("%s supplied but %s set to false", KubeNodeNameFlag, KubernetesFlag))
-		}
-		if ptr.Deref(c.Kube.Enabled, false) && c.Kube.Config != "" {
-			if err := canReadFile(c.Kube.Config); err != nil {
-				errs = append(errs, fmt.Sprintf("unreadable kubeconfig: %s", c.Kube.Config))
+		if ptr.Deref(c.Kube.Enabled, false) {
+			if c.Kube.Config != "" {
+				if err := canReadFile(c.Kube.Config); err != nil {
+					errs = append(errs, fmt.Sprintf("unreadable kubeconfig: %s", c.Kube.Config))
+				}
+			}
+			if c.Kube.Node == "" {
+				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", KubeNodeNameFlag, KubernetesFlag))
 			}
 		}
 	}

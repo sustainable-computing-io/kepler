@@ -320,7 +320,7 @@ func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
 
 	// First read for pods
 	if err := pm.firstPodRead(newSnapshot); err != nil {
-		return fmt.Errorf(containerPowerError, err)
+		return fmt.Errorf(podPowerError, err)
 	}
 
 	return nil

@@ -11,9 +11,15 @@ import (
 	"strings"
 )
 
+var logLevel slog.Level
+
 func New(level, format string, w io.Writer) *slog.Logger {
-	logLevel := parseLogLevel(level)
+	logLevel = parseLogLevel(level)
 	return slog.New(handlerForFormat(format, logLevel, w))
+}
+
+func LogLevel() slog.Level {
+	return logLevel
 }
 
 func handlerForFormat(format string, logLevel slog.Level, w io.Writer) slog.Handler {

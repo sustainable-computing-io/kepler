@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -131,11 +132,7 @@ func (pi *podInformer) Init() error {
 	}
 	pi.manager = mgr
 
-	opts := zap.Options{
-		Development: true, // enables DebugLevel by default
-		Level:       zapcore.DebugLevel,
-	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)).WithCallDepth(0))
+	pi.setControllerRuntimeLogLevel()
 
 	pi.logger.Info("pod informer initialized")
 
@@ -251,4 +248,28 @@ func getConfig(kubeConfigPath string) (*rest.Config, error) {
 
 func (i *podInformer) Name() string {
 	return "podInformer"
+}
+
+func (pi *podInformer) setControllerRuntimeLogLevel() {
+	level := logger.LogLevel()
+	opts := zap.Options{
+		Level: slogLevelToZapLevel(level),
+	}
+	if level == slog.LevelDebug {
+		opts.Development = true
+	}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)).WithCallDepth(0))
+}
+
+func slogLevelToZapLevel(level slog.Level) zapcore.Level {
+	switch {
+	case level <= slog.LevelDebug:
+		return zapcore.DebugLevel
+	case level <= slog.LevelInfo:
+		return zapcore.InfoLevel
+	case level <= slog.LevelWarn:
+		return zapcore.WarnLevel
+	default:
+		return zapcore.ErrorLevel
+	}
 }

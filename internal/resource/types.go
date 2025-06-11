@@ -109,8 +109,8 @@ type Pod struct {
 	Namespace string
 
 	// Resource usage tracking
-	CPUTotalTime float64 // total cpu time used by the VM so far
-	CPUTimeDelta float64 // cpu time used by the VM since last refresh
+	CPUTotalTime float64 // total cpu time used by the Pod so far
+	CPUTimeDelta float64 // cpu time used by the Pod since last refresh
 }
 
 func (p *Pod) Clone() *Pod {

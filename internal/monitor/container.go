@@ -25,6 +25,9 @@ func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
 			CPUTotalTime: ctnr.CPUTotalTime,
 			Zones:        make(ZoneUsageMap, len(zones)),
 		}
+		if ctnr.Pod != nil {
+			container.PodID = ctnr.Pod.ID
+		}
 
 		// Initialize each zone with zero values
 		for _, zone := range zones {
@@ -77,6 +80,9 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			Runtime:      c.Runtime,
 			CPUTotalTime: c.CPUTotalTime,
 			Zones:        make(ZoneUsageMap),
+		}
+		if c.Pod != nil {
+			container.PodID = c.Pod.ID
 		}
 
 		// Calculate CPU time ratio for this container

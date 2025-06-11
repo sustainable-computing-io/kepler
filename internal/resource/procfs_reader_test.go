@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/procfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	testclock "k8s.io/utils/clock/testing"
 )
 
@@ -455,6 +456,129 @@ func TestResourceInformer(t *testing.T) {
 		assert.ErrorContains(t, err, "failed to get processes")
 
 		mockInformer.AssertExpectations(t)
+	})
+}
+
+func TestRefresh_PodInformer(t *testing.T) {
+	t.Run("Uses podInformer successfully", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("PID").Return(123)
+		mockProc.On("Comm").Return("test-process", nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/test", "--arg1"}, nil).Once()
+		mockProc.On("Executable").Return("/usr/bin/test", nil)
+		containerID := "container123"
+		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
+		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Twice()
+		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
+
+		mockPodInformer := new(mockPodInformer)
+		mockPodInformer.On("PodInfo", containerID).Return(
+			&pod.PodInfo{
+				ID:        "pod123",
+				Name:      "mypod",
+				Namespace: "default",
+			}, nil,
+		)
+
+		informer, err := NewInformer(WithProcReader(mockProcFS), WithPodInformer(mockPodInformer))
+		require.NoError(t, err)
+		err = informer.Init()
+		require.NoError(t, err)
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		pods := informer.Pods()
+		assert.Len(t, pods.Running, 1)
+		assert.Equal(t, "mypod", pods.Running["pod123"].Name)
+
+		mockPodInformer.AssertExpectations(t)
+		mockProcFS.AssertExpectations(t)
+		mockProc.AssertExpectations(t)
+	})
+	t.Run("podInformer returns ErrNoPod", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("PID").Return(456)
+		mockProc.On("Comm").Return("container-process", nil)
+		mockProc.On("Executable").Return("/usr/bin/container-exec", nil)
+		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/container-exec"}, nil).Once()
+
+		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
+		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Twice()
+		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
+
+		mockPodInformer := new(mockPodInformer)
+		mockPodInformer.On("PodInfo", containerID).Return(nil, pod.ErrNoPod)
+
+		informer, err := NewInformer(
+			WithProcReader(mockProcFS),
+			WithPodInformer(mockPodInformer),
+		)
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		pods := informer.Pods()
+		assert.Empty(t, pods.Running)
+		assert.Contains(t, pods.ContainersNoPod, containerID)
+
+		mockPodInformer.AssertExpectations(t)
+		mockProcFS.AssertExpectations(t)
+		mockProc.AssertExpectations(t)
+	})
+	t.Run("podInformer returns a general error", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("PID").Return(789)
+		mockProc.On("Comm").Return("container-process", nil)
+		mockProc.On("Executable").Return("/usr/bin/container-exec", nil)
+		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/container-exec"}, nil).Once()
+
+		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
+		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Twice()
+		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
+
+		podError := errors.New("general error")
+		mockPodInformer := new(mockPodInformer)
+		mockPodInformer.On("PodInfo", containerID).Return(nil, podError)
+
+		informer, err := NewInformer(
+			WithProcReader(mockProcFS),
+			WithPodInformer(mockPodInformer),
+		)
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		require.ErrorContains(t, err, "failed to get pod for container")
+
+		// even if podInformer has general errors, informer should continue gracefully
+		pods := informer.Pods()
+		assert.Empty(t, pods.Running)
+		assert.NotContains(t, pods.ContainersNoPod, containerID, "Container should not be added to ContainersNoPod on general errors")
+
+		mockPodInformer.AssertExpectations(t)
+		mockProcFS.AssertExpectations(t)
+		mockProc.AssertExpectations(t)
 	})
 }
 
