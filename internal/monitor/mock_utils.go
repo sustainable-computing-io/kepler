@@ -149,7 +149,7 @@ func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio floa
 	}
 
 	for _, zone := range zones {
-		node.Zones[zone] = &NodeUsage{
+		node.Zones[zone] = NodeUsage{
 			EnergyTotal:       200 * Joule,
 			activeEnergy:      Energy(usageRatio * float64(100*Joule)),
 			ActiveEnergyTotal: Energy(usageRatio * float64(100*Joule)),

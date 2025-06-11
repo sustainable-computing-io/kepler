@@ -88,7 +88,7 @@ func TestPowerCollector(t *testing.T) {
 		Timestamp:  time.Now(),
 		UsageRatio: 0.5,
 		Zones: monitor.NodeZoneUsageMap{
-			packageZone: &monitor.NodeUsage{
+			packageZone: monitor.NodeUsage{
 				EnergyTotal:       nodePkgAbs,
 				ActiveEnergyTotal: nodePkgDelta / 2, // 50% of delta is used
 				IdleEnergyTotal:   nodePkgDelta / 2, // 50% of delta is idle
@@ -96,7 +96,7 @@ func TestPowerCollector(t *testing.T) {
 				ActivePower:       nodePkgPower / 2, // 50% of power is used
 				IdlePower:         nodePkgPower / 2, // 50% of power is idle
 			},
-			dramZone: &monitor.NodeUsage{
+			dramZone: monitor.NodeUsage{
 				EnergyTotal:       nodeDramAbs,
 				ActiveEnergyTotal: nodeDramDelta / 2, // 50% of delta is used
 				IdleEnergyTotal:   nodeDramDelta / 2, // 50% of delta is idle

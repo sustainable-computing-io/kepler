@@ -91,7 +91,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 
 		// Initialize zones for previous process
 		for _, zone := range zones {
-			prevSnapshot.Containers["container-1"].Zones[zone] = &Usage{
+			prevSnapshot.Containers["container-1"].Zones[zone] = Usage{
 				EnergyTotal: 25 * Joule,
 				Power:       Power(0),
 			}
@@ -159,7 +159,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &NodeUsage{
+			newSnapshot.Node.Zones[zone] = NodeUsage{
 				EnergyTotal:       Energy(100_000_000),
 				activeEnergy:      Energy(0),
 				ActiveEnergyTotal: Energy(0),

@@ -97,7 +97,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 		// Initialize zones for previous process
 		for _, zone := range zones {
-			prevSnapshot.Processes[123].Zones[zone] = &Usage{
+			prevSnapshot.Processes[123].Zones[zone] = Usage{
 				EnergyTotal: 25 * Joule,
 				Power:       Power(0),
 			}
@@ -173,7 +173,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 		// Set zero power for all zones
 		for _, zone := range zones {
-			newSnapshot.Node.Zones[zone] = &NodeUsage{
+			newSnapshot.Node.Zones[zone] = NodeUsage{
 				EnergyTotal:       Energy(100_000_000),
 				activeEnergy:      Energy(0),
 				ActiveEnergyTotal: Energy(0),
@@ -282,7 +282,7 @@ func TestProcessPowerCalculation(t *testing.T) {
 			Zones: make(ZoneUsageMap),
 		}
 		// Only add data for the first zone, missing the second
-		prevSnapshot.Processes[123].Zones[zones[0]] = &Usage{
+		prevSnapshot.Processes[123].Zones[zones[0]] = Usage{
 			EnergyTotal: 10 * Joule,
 			Power:       5 * Watt,
 		}

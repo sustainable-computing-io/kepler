@@ -34,7 +34,7 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 
 	// Initialize each zone with zero values
 	for zone := range zones {
-		process.Zones[zone] = &Usage{
+		process.Zones[zone] = Usage{
 			EnergyTotal: Energy(0),
 			Power:       Power(0),
 		}
@@ -102,7 +102,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			}
 
 			// Calculate process's share of this zone's power and energy
-			process.Zones[zone] = &Usage{
+			process.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
 				EnergyTotal: absoluteEnergy,
 			}

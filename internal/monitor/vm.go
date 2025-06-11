@@ -28,7 +28,7 @@ func (pm *PowerMonitor) firstVMRead(snapshot *Snapshot) error {
 
 		// Initialize each zone with zero values
 		for _, zone := range zones {
-			newVM.Zones[zone] = &Usage{
+			newVM.Zones[zone] = Usage{
 				EnergyTotal: Energy(0),
 				Power:       Power(0),
 			}
@@ -78,7 +78,7 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				newVM.Zones[zone] = &Usage{
+				newVM.Zones[zone] = Usage{
 					Power:       Power(0),
 					EnergyTotal: Energy(0),
 				}
@@ -99,7 +99,7 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 				}
 			}
 
-			newVM.Zones[zone] = &Usage{
+			newVM.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
 				EnergyTotal: absoluteEnergy,
 			}
