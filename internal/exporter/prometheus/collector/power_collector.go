@@ -13,6 +13,8 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
+const nodeNameLabel = "node_name"
+
 type PowerDataProvider = monitor.PowerDataProvider
 
 // PowerCollector combines Node, Process, and Container collectors to ensure data consistency
@@ -56,44 +58,44 @@ type PowerCollector struct {
 	podCPUWattsDescriptor  *prometheus.Desc
 }
 
-func joulesDesc(level, device string, labels []string) *prometheus.Desc {
+func joulesDesc(level, device, nodeName string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, device+"_joules_total"),
 		fmt.Sprintf("Energy consumption of %s at %s level in joules", device, level),
-		labels, nil)
+		labels, prometheus.Labels{nodeNameLabel: nodeName})
 }
 
-func wattsDesc(level, device string, labels []string) *prometheus.Desc {
+func wattsDesc(level, device, nodeName string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, device+"_watts"),
 		fmt.Sprintf("Power consumption of %s at %s level in watts", device, level),
-		labels, nil)
+		labels, prometheus.Labels{nodeNameLabel: nodeName})
 }
 
-func deviceStateJoulesDesc(level, device, state string, labels []string) *prometheus.Desc {
+func deviceStateJoulesDesc(level, device, state, nodeName string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, fmt.Sprintf("%s_%s_joules_total", device, state)),
 		fmt.Sprintf("Energy consumption of %s in %s state at %s level in joules", device, state, level),
-		labels, nil)
+		labels, prometheus.Labels{nodeNameLabel: nodeName})
 }
 
-func deviceStateWattsDesc(level, device, state string, labels []string) *prometheus.Desc {
+func deviceStateWattsDesc(level, device, state, nodeName string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, fmt.Sprintf("%s_%s_watts", device, state)),
 		fmt.Sprintf("Power consumption of %s in %s state at %s level in watts", device, state, level),
-		labels, nil)
+		labels, prometheus.Labels{nodeNameLabel: nodeName})
 }
 
-func timeDesc(level, device string, labels []string) *prometheus.Desc {
+func timeDesc(level, device, nodeName string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(keplerNS, level, device+"_seconds_total"),
 		fmt.Sprintf("Total user and system time of %s at %s level in seconds", device, level),
-		labels, nil)
+		labels, prometheus.Labels{nodeNameLabel: nodeName})
 }
 
 // NewPowerCollector creates a collector that provides consistent metrics
 // by fetching all data in a single snapshot during collection
-func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCollector {
+func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.Logger) *PowerCollector {
 	const (
 		// these labels should remain the same across all descriptors to ease querying
 		zone   = "zone"
@@ -106,32 +108,32 @@ func NewPowerCollector(monitor PowerDataProvider, logger *slog.Logger) *PowerCol
 		pm:     monitor,
 		logger: logger.With("collector", "power"),
 
-		nodeCPUJoulesDescriptor: joulesDesc("node", "cpu", []string{zone, "path"}),
-		nodeCPUWattsDescriptor:  wattsDesc("node", "cpu", []string{zone, "path"}),
+		nodeCPUJoulesDescriptor: joulesDesc("node", "cpu", nodeName, []string{zone, "path"}),
+		nodeCPUWattsDescriptor:  wattsDesc("node", "cpu", nodeName, []string{zone, "path"}),
 
-		nodeCPUActiveJoulesDesc: deviceStateJoulesDesc("node", "cpu", "active", []string{zone, "path"}),
-		nodeCPUIdleJoulesDesc:   deviceStateJoulesDesc("node", "cpu", "idle", []string{zone, "path"}),
+		nodeCPUActiveJoulesDesc: deviceStateJoulesDesc("node", "cpu", "active", nodeName, []string{zone, "path"}),
+		nodeCPUIdleJoulesDesc:   deviceStateJoulesDesc("node", "cpu", "idle", nodeName, []string{zone, "path"}),
 
-		nodeCPUActiveWattsDesc: deviceStateWattsDesc("node", "cpu", "active", []string{zone, "path"}),
-		nodeCPUIdleWattsDesc:   deviceStateWattsDesc("node", "cpu", "idle", []string{zone, "path"}),
+		nodeCPUActiveWattsDesc: deviceStateWattsDesc("node", "cpu", "active", nodeName, []string{zone, "path"}),
+		nodeCPUIdleWattsDesc:   deviceStateWattsDesc("node", "cpu", "idle", nodeName, []string{zone, "path"}),
 
 		nodeCPUUsageRatioDescriptor: prometheus.NewDesc(
 			prometheus.BuildFQName(keplerNS, "node", "cpu_usage_ratio"),
 			"CPU usage ratio of a node (value between 0.0 and 1.0)",
-			nil, nil),
+			nil, prometheus.Labels{nodeNameLabel: nodeName}),
 
-		processCPUJoulesDescriptor: joulesDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
-		processCPUWattsDescriptor:  wattsDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
-		processCPUTimeDescriptor:   timeDesc("process", "cpu", []string{"pid", "comm", "exe", "type", cntrID, vmID}),
+		processCPUJoulesDescriptor: joulesDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
+		processCPUWattsDescriptor:  wattsDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
+		processCPUTimeDescriptor:   timeDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID}),
 
-		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
-		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", []string{cntrID, "container_name", "runtime", zone, podID}),
+		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", zone, podID}),
+		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", zone, podID}),
 
-		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
-		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", []string{vmID, "vm_name", "hypervisor", zone}),
+		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", zone}),
+		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", zone}),
 
-		podCPUJoulesDescriptor: joulesDesc("pod", "cpu", []string{podID, "pod_name", "pod_namespace", zone}),
-		podCPUWattsDescriptor:  wattsDesc("pod", "cpu", []string{podID, "pod_name", "pod_namespace", zone}),
+		podCPUJoulesDescriptor: joulesDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", zone}),
+		podCPUWattsDescriptor:  wattsDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", zone}),
 	}
 
 	go c.waitForData()

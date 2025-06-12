@@ -164,7 +164,7 @@ func TestPowerCollector(t *testing.T) {
 	mockMonitor.On("Snapshot").Return(testData, nil)
 
 	// Create collector
-	collector := NewPowerCollector(mockMonitor, logger)
+	collector := NewPowerCollector(mockMonitor, "test-node", logger)
 
 	// Trigger update to ensure descriptors are created
 	mockMonitor.TriggerUpdate()
@@ -220,9 +220,13 @@ func TestPowerCollector(t *testing.T) {
 					path := valueOfLabel(m, "path")
 					value := m.GetCounter().GetValue()
 					zone := valueOfLabel(m, "zone")
+					nodeName := valueOfLabel(m, "node_name")
 
 					seenZoneNames[zone] = true
 					seenZonePaths[path] = true
+
+					// Check that node_name constant label is present
+					assert.Equal(t, "test-node", nodeName, "Expected node_name constant label")
 
 					// Check absolute values
 					if path == packageZone.Path() {
@@ -239,6 +243,10 @@ func TestPowerCollector(t *testing.T) {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetGauge().GetValue()
+					nodeName := valueOfLabel(m, "node_name")
+
+					// Check that node_name constant label is present
+					assert.Equal(t, "test-node", nodeName, "Expected node_name constant label")
 
 					// Check total power values
 					if path == packageZone.Path() {
@@ -256,6 +264,10 @@ func TestPowerCollector(t *testing.T) {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetGauge().GetValue()
+					nodeName := valueOfLabel(m, "node_name")
+
+					// Check that node_name constant label is present
+					assert.Equal(t, "test-node", nodeName, "Expected node_name constant label")
 
 					if path == packageZone.Path() {
 						expectedValue := (nodePkgPower / 2).Watts() // 50% active
@@ -267,6 +279,10 @@ func TestPowerCollector(t *testing.T) {
 				for _, m := range metric.GetMetric() {
 					path := valueOfLabel(m, "path")
 					value := m.GetGauge().GetValue()
+					nodeName := valueOfLabel(m, "node_name")
+
+					// Check that node_name constant label is present
+					assert.Equal(t, "test-node", nodeName, "Expected node_name constant label")
 
 					if path == packageZone.Path() {
 						expectedValue := (nodePkgPower / 2).Watts() // 50% idle
