@@ -197,6 +197,7 @@ func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer
 		pm,
 		prometheus.WithLogger(logger),
 		prometheus.WithProcFSPath(cfg.Host.ProcFS),
+		prometheus.WithNodeName(cfg.Kube.Node),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)
@@ -210,7 +211,6 @@ func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer
 		prometheus.WithLogger(logger),
 		prometheus.WithCollectors(collectors),
 		prometheus.WithDebugCollectors(debugCollectors),
-		prometheus.WithNodeName(cfg.Kube.Node),
 	)
 
 	return promExporter, nil
