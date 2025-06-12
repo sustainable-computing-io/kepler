@@ -175,13 +175,20 @@ func (pm *PowerMonitor) scheduleNextCollection() {
 	go func() {
 		select {
 		case <-timer:
+			// Check if context is cancelled before doing any work to avoid a race condition
+			// where the context is cancelled after the timer has expired
+			if err := pm.collectionCtx.Err(); err != nil {
+				pm.logger.Info("Collection loop terminated; context canceled", "reason", err)
+				return
+			}
+
 			if err := pm.synchronizedPowerRefresh(); err != nil {
 				pm.logger.Error("Failed to collect power data", "error", err)
 			}
 			pm.scheduleNextCollection()
 
 		case <-pm.collectionCtx.Done():
-			pm.logger.Info("Collection loop terminated")
+			pm.logger.Info("Collection loop terminated", "reason", pm.collectionCtx.Err())
 			return
 		}
 	}()
