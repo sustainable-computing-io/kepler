@@ -40,7 +40,7 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
-	collector := NewPowerCollector(fakeMonitor, newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
 
 	assert.NoError(t, fakeMonitor.Init())
 
@@ -155,7 +155,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 	}
 	mockMonitor.On("Snapshot").Return(snapshot, nil)
 
-	collector := NewPowerCollector(mockMonitor, newLogger())
+	collector := NewPowerCollector(mockMonitor, "test-node", newLogger())
 	mockMonitor.TriggerUpdate()
 	time.Sleep(10 * time.Millisecond)
 
@@ -261,7 +261,7 @@ func TestUpdateDuringCollection(t *testing.T) {
 			},
 		}, nil)
 
-	collector := NewPowerCollector(mockMonitor, newLogger())
+	collector := NewPowerCollector(mockMonitor, "test-node", newLogger())
 	mockMonitor.TriggerUpdate() // collector should now start building descriptors
 	time.Sleep(10 * time.Millisecond)
 
@@ -332,7 +332,7 @@ func TestConcurrentRegistration(t *testing.T) {
 		monitor.WithResourceInformer(ri),
 	)
 
-	collector := NewPowerCollector(fakeMonitor, newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
 	assert.NoError(t, fakeMonitor.Init())
 
 	go func() {
@@ -388,7 +388,7 @@ func TestFastCollectAndDescribe(t *testing.T) {
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
-	collector := NewPowerCollector(fakeMonitor, newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
 
 	assert.NoError(t, fakeMonitor.Init())
 

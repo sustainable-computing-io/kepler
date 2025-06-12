@@ -210,6 +210,7 @@ func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer
 		prometheus.WithLogger(logger),
 		prometheus.WithCollectors(collectors),
 		prometheus.WithDebugCollectors(debugCollectors),
+		prometheus.WithNodeName(cfg.Kube.Node),
 	)
 
 	return promExporter, nil

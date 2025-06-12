@@ -24,6 +24,8 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_active_watts
 
@@ -32,6 +34,8 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_idle_joules_total
 
@@ -40,6 +44,8 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_idle_watts
 
@@ -48,6 +54,8 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_info
 
@@ -67,11 +75,15 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_usage_ratio
 
 - **Type**: GAUGE
 - **Description**: CPU usage ratio of a node (value between 0.0 and 1.0)
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_watts
 
@@ -80,6 +92,8 @@ These metrics provide energy and power information at the node level.
 - **Labels**:
   - `zone`
   - `path`
+- **Constant Labels**:
+  - `node_name`
 
 ### Container Metrics
 
@@ -95,6 +109,8 @@ These metrics provide energy and power information for containers.
   - `runtime`
   - `zone`
   - `pod_id`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_container_cpu_watts
 
@@ -106,6 +122,8 @@ These metrics provide energy and power information for containers.
   - `runtime`
   - `zone`
   - `pod_id`
+- **Constant Labels**:
+  - `node_name`
 
 ### Process Metrics
 
@@ -123,6 +141,8 @@ These metrics provide energy and power information for individual processes.
   - `container_id`
   - `vm_id`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_process_cpu_seconds_total
 
@@ -135,6 +155,8 @@ These metrics provide energy and power information for individual processes.
   - `type`
   - `container_id`
   - `vm_id`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_process_cpu_watts
 
@@ -148,6 +170,8 @@ These metrics provide energy and power information for individual processes.
   - `container_id`
   - `vm_id`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 ### Virtual Machine Metrics
 
@@ -162,6 +186,8 @@ These metrics provide energy and power information for virtual machines.
   - `vm_name`
   - `hypervisor`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_vm_cpu_watts
 
@@ -172,6 +198,8 @@ These metrics provide energy and power information for virtual machines.
   - `vm_name`
   - `hypervisor`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 ### Pod Metrics
 
@@ -186,6 +214,8 @@ These metrics provide energy and power information for pods.
   - `pod_name`
   - `pod_namespace`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_pod_cpu_watts
 
@@ -196,6 +226,8 @@ These metrics provide energy and power information for pods.
   - `pod_name`
   - `pod_namespace`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
 
 ### Other Metrics
 

@@ -25,6 +25,7 @@ type MetricInfo struct {
 	Type        string
 	Description string
 	Labels      []string
+	ConstLabels map[string]string
 }
 
 // MockMonitor implements the minimal interface needed by collectors
@@ -70,6 +71,7 @@ func extractMetricsInfo(collector prometheus.Collector) ([]MetricInfo, error) {
 	fqNameRegex := regexp.MustCompile(`fqName: "([^"]+)"`)
 	helpRegex := regexp.MustCompile(`help: "([^"]+)"`)
 	variableLabelsRegex := regexp.MustCompile(`variableLabels: \{([^}]*)\}`)
+	constLabelsRegex := regexp.MustCompile(`constLabels: \{([^}]*)\}`)
 
 	for desc := range ch {
 		descStr := desc.String()
@@ -99,6 +101,20 @@ func extractMetricsInfo(collector prometheus.Collector) ([]MetricInfo, error) {
 			}
 		}
 
+		constLabels := make(map[string]string)
+		constLabelsMatch := constLabelsRegex.FindStringSubmatch(descStr)
+		if len(constLabelsMatch) >= 2 && constLabelsMatch[1] != "" {
+			constLabelsStr := constLabelsMatch[1]
+			// Parse const labels which are in format: labelName="labelValue"
+			labelPairRegex := regexp.MustCompile(`(\w+)="([^"]*)"`)
+			matches := labelPairRegex.FindAllStringSubmatch(constLabelsStr, -1)
+			for _, match := range matches {
+				if len(match) >= 3 {
+					constLabels[match[1]] = match[2]
+				}
+			}
+		}
+
 		metricType := "GAUGE"
 		if strings.HasSuffix(name, "_total") {
 			metricType = "COUNTER"
@@ -109,6 +125,7 @@ func extractMetricsInfo(collector prometheus.Collector) ([]MetricInfo, error) {
 			Type:        metricType,
 			Description: help,
 			Labels:      labels,
+			ConstLabels: constLabels,
 		})
 	}
 
@@ -203,6 +220,18 @@ func writeMetricsSection(md *strings.Builder, metrics []MetricInfo) {
 				fmt.Fprintf(md, "  - `%s`\n", label)
 			}
 		}
+		if len(metric.ConstLabels) > 0 {
+			md.WriteString("- **Constant Labels**:\n")
+			// Sort constant labels for consistent output
+			var keys []string
+			for key := range metric.ConstLabels {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				fmt.Fprintf(md, "  - `%s`\n", key)
+			}
+		}
 		md.WriteString("\n")
 	}
 }
@@ -231,7 +260,7 @@ func main() {
 	fmt.Println("Creating collectors...")
 	// Create a logger for the collectors
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	powerCollector := collector.NewPowerCollector(mockMonitor, logger)
+	powerCollector := collector.NewPowerCollector(mockMonitor, "test-node", logger)
 	fmt.Println("Created power collector")
 	buildInfoCollector := collector.NewKeplerBuildInfoCollector()
 	fmt.Println("Created build info collector")

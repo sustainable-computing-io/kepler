@@ -52,18 +52,37 @@ func TestExtractMetricsInfo(t *testing.T) {
 					Type:        "COUNTER",
 					Description: "Test counter metric",
 					Labels:      []string{"label1", "label2"},
+					ConstLabels: map[string]string{},
 				},
 				{
 					Name:        "test_gauge",
 					Type:        "GAUGE",
 					Description: "Test gauge metric",
 					Labels:      []string{"label3"},
+					ConstLabels: map[string]string{},
 				},
 				{
 					Name:        "test_no_labels",
 					Type:        "GAUGE",
 					Description: "Test metric without labels",
 					Labels:      nil,
+					ConstLabels: map[string]string{},
+				},
+			},
+		},
+		{
+			name: "MetricsWithConstLabels",
+			descs: []*prometheus.Desc{
+				prometheus.NewDesc("test_const_labels", "Test metric with constant labels", []string{"var_label"}, prometheus.Labels{"node_name": "test-node", "region": "us-west-1"}),
+			},
+			expectedMetricsLen: 1,
+			expectedMetrics: []MetricInfo{
+				{
+					Name:        "test_const_labels",
+					Type:        "GAUGE",
+					Description: "Test metric with constant labels",
+					Labels:      []string{"var_label"},
+					ConstLabels: map[string]string{"node_name": "test-node", "region": "us-west-1"},
 				},
 			},
 		},
@@ -119,6 +138,29 @@ func TestGenerateMarkdown(t *testing.T) {
 				"#### kepler_node_cpu_joules_total",
 				"- `zone`",
 				"- `path`",
+			},
+		},
+		{
+			name: "MetricsWithConstLabels",
+			metrics: []MetricInfo{
+				{
+					Name:        "kepler_node_cpu_watts",
+					Type:        "GAUGE",
+					Description: "Power consumption of cpu at node level in watts",
+					Labels:      []string{"zone", "path"},
+					ConstLabels: map[string]string{"node_name": "test-node"},
+				},
+			},
+			expectedMarkdown: []string{
+				"### Node Metrics",
+				"#### kepler_node_cpu_watts",
+				"- **Type**: GAUGE",
+				"- **Description**: Power consumption of cpu at node level in watts",
+				"- **Labels**:",
+				"- `zone`",
+				"- `path`",
+				"- **Constant Labels**:",
+				"- `node_name`",
 			},
 		},
 		{
@@ -251,6 +293,33 @@ func TestWriteMetricsSection(t *testing.T) {
 				"- **Description**: Power consumption of cpu at node level in watts",
 				"- `zone`",
 				"- `path`",
+			},
+		},
+		{
+			name: "MetricWithConstLabels",
+			metrics: []MetricInfo{
+				{
+					Name:        "kepler_node_cpu_watts",
+					Type:        "GAUGE",
+					Description: "Power consumption of cpu at node level in watts",
+					Labels:      []string{"zone", "path"},
+					ConstLabels: map[string]string{"node_name": "test-node", "region": "us-west-1"},
+				},
+			},
+			expectedMarkdown: []string{
+				"#### kepler_node_cpu_watts",
+				"- **Type**: GAUGE",
+				"- **Description**: Power consumption of cpu at node level in watts",
+				"- **Labels**:",
+				"- `zone`",
+				"- `path`",
+				"- **Constant Labels**:",
+				"- `node_name`",
+				"- `region`",
+			},
+			notExpectedMarkdown: []string{
+				"- `node_name=test-node`",
+				"- `region=us-west-1`",
 			},
 		},
 		{
