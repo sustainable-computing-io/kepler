@@ -35,6 +35,8 @@ spec:
             - /usr/bin/kepler
           args:
             - --config.file=/etc/kepler/config.yaml
+            - --kube.enable
+            - --kube.node-name=$(NODE_NAME)
           ports:
             - name: http
               containerPort: 28282
@@ -54,6 +56,12 @@ spec:
               port: http
             initialDelaySeconds: 10
             periodSeconds: 60
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
       volumes:
         - name: sysfs
           hostPath:
