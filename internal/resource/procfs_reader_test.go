@@ -466,7 +466,6 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProc.On("Comm").Return("test-process", nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/test", "--arg1"}, nil).Once()
 		mockProc.On("Executable").Return("/usr/bin/test", nil)
-		containerID := "container123"
 		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
 		mockProc.On("CPUTime").Return(10.0, nil).Once()
