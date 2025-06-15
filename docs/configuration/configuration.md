@@ -27,6 +27,9 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
 | `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
 | `--exporter.prometheus` | Enable Prometheus exporter | `true` | `true`, `false` |
+| `--kube.enable` | Monitor kubernetes | `false` | `true`, `false` |
+| `--kube.config` | Path to a kubeconfig file | `""` | Any valid file path |
+| `--kube.node-name` | Name of kubernetes node on which kepler is running | `""` | Any valid node name |
 
 ### 💡 Examples
 
@@ -42,6 +45,9 @@ kepler --config.file=/path/to/config.yaml
 
 # Enable stdout exporter and disable Prometheus exporter
 kepler --exporter.stdout=true --exporter.prometheus=false
+
+# Enable Kubernetes monitoring with specific kubeconfig and node name
+kepler --kube.enable=true --kube.config=/path/to/kubeconfig --kube.node-name=my-node
 ```
 
 ## 🗂️ Configuration File
@@ -81,6 +87,11 @@ debug:          # debug related config
 
 web:
   configFile: "" # Path to TLS server config file
+
+kube:           # kubernetes related config
+  enabled: false    # Enable kubernetes monitoring (default: false)
+  config: ""        # Path to kubeconfig file (optional if running in-cluster)
+  nodeName: ""      # Name of the kubernetes node (required when enabled)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -195,6 +206,28 @@ tls_server_config:
   cert_file: /path/to/cert.pem  # Path to the certificate file
   key_file: /path/to/key.pem    # Path to the key file
 ```
+
+### 🐳 Kubernetes Configuration
+
+```yaml
+kube:
+  enabled: false    # Enable kubernetes monitoring
+  config: ""        # Path to kubeconfig file
+  nodeName: ""      # Name of the kubernetes node
+```
+
+- **enabled**: Enable or disable Kubernetes monitoring (default: false)
+  - When enabled, Kepler will monitor Kubernetes resources and expose pod level information
+
+- **config**: Path to a kubeconfig file (optional)
+  - Required when running Kepler outside of a Kubernetes cluster
+  - When running inside a cluster, Kepler can use the in-cluster configuration
+  - Must be a valid and readable kubeconfig file
+
+- **nodeName**: Name of the Kubernetes node on which Kepler is running (required when enabled)
+  - This helps Kepler identify which node it's monitoring
+  - Must match the actual node name in the Kubernetes cluster
+  - Required when `enabled` is set to `true`
 
 ### 🧑‍🔬 Development Configuration
 
