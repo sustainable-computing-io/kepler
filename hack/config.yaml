@@ -44,6 +44,12 @@ debug: # debug related config
 web:
   configFile: "" # Path to TLS server config file
 
+kube: # kubernetes related config
+  enabled: false # enable kubernetes monitoring (default: false)
+  config: "" # path to kubeconfig file (optional if running in-cluster)
+  nodeName: "" # name of the kubernetes node (required when enabled)
+
+
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
   fake-cpu-meter:
