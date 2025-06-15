@@ -64,6 +64,22 @@ func (m *MockPowerMonitor) TriggerUpdate() {
 	}
 }
 
+func assertMetricLabelValues(t *testing.T, registry *prometheus.Registry, metricName string, expectedLabels map[string]string) {
+	metrics, err := registry.Gather()
+	assert.NoError(t, err)
+
+	for _, metric := range metrics {
+		if metric.GetName() == metricName {
+			for _, m := range metric.GetMetric() {
+				for labelName, expectedValue := range expectedLabels {
+					actualValue := valueOfLabel(m, labelName)
+					assert.Equal(t, expectedValue, actualValue, "%s should have %s label with value %s", metricName, labelName, expectedValue)
+				}
+			}
+		}
+	}
+}
+
 func TestPowerCollector(t *testing.T) {
 	// Create a logger that writes to stderr for testing
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -327,83 +343,27 @@ func TestPowerCollector(t *testing.T) {
 	})
 
 	t.Run("Process Metrics Node Name Label", func(t *testing.T) {
-		metrics, err := registry.Gather()
-		assert.NoError(t, err)
-
-		for _, metric := range metrics {
-			if metric.GetName() == "kepler_process_cpu_joules_total" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Process metrics should have node_name label")
-				}
-			}
-			if metric.GetName() == "kepler_process_cpu_watts" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Process metrics should have node_name label")
-				}
-			}
-		}
+		expectedLabels := map[string]string{"node_name": "test-node"}
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts", expectedLabels)
 	})
 
 	t.Run("Container Metrics Node Name Label", func(t *testing.T) {
-		metrics, err := registry.Gather()
-		assert.NoError(t, err)
-
-		for _, metric := range metrics {
-			if metric.GetName() == "kepler_container_cpu_joules_total" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Container metrics should have node_name label")
-				}
-			}
-			if metric.GetName() == "kepler_container_cpu_watts" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Container metrics should have node_name label")
-				}
-			}
-		}
+		expectedLabels := map[string]string{"node_name": "test-node"}
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels)
 	})
 
 	t.Run("VM Metrics Node Name Label", func(t *testing.T) {
-		metrics, err := registry.Gather()
-		assert.NoError(t, err)
-
-		for _, metric := range metrics {
-			if metric.GetName() == "kepler_vm_cpu_joules_total" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "VM metrics should have node_name label")
-				}
-			}
-			if metric.GetName() == "kepler_vm_cpu_watts" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "VM metrics should have node_name label")
-				}
-			}
-		}
+		expectedLabels := map[string]string{"node_name": "test-node"}
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts", expectedLabels)
 	})
 
 	t.Run("Pod Metrics Node Name Label", func(t *testing.T) {
-		metrics, err := registry.Gather()
-		assert.NoError(t, err)
-
-		for _, metric := range metrics {
-			if metric.GetName() == "kepler_pod_cpu_joules_total" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Pod metrics should have node_name label")
-				}
-			}
-			if metric.GetName() == "kepler_pod_cpu_watts" {
-				for _, m := range metric.GetMetric() {
-					nodeName := valueOfLabel(m, "node_name")
-					assert.Equal(t, "test-node", nodeName, "Pod metrics should have node_name label")
-				}
-			}
-		}
+		expectedLabels := map[string]string{"node_name": "test-node"}
+		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels)
 	})
 
 	// Verify mock expectations
