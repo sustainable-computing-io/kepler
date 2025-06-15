@@ -118,7 +118,9 @@ runs:
           kepler_node_cpu_idle_watts \
           kepler_process_cpu_joules_total \
           kepler_container_cpu_joules_total \
-          kepler_container_cpu_watts; do
+          kepler_container_cpu_watts \
+          kepler_pod_cpu_joules_total \
+          kepler_pod_cpu_watts; do
           echo "Checking metric: $metric"
           if ! grep -q "$metric" /tmp/metrics.txt; then
             echo "Metric $metric not found"
