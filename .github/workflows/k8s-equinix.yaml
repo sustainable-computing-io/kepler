@@ -26,6 +26,7 @@ jobs:
         with:
           filters: |
             changes:
+              - '.github/workflows/k8s-equinix.yaml'
               - 'cmd/**/*.go'
               - 'internal/**/*.go'
               - 'config/**/*.go'
