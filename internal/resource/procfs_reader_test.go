@@ -476,12 +476,12 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
 
 		mockPodInformer := new(mockPodInformer)
-		mockPodInformer.On("PodInfo", containerID).Return(
+		mockPodInformer.On("LookupByContainerID", containerID).Return(
 			&pod.PodInfo{
 				ID:        "pod123",
 				Name:      "mypod",
 				Namespace: "default",
-			}, nil,
+			}, "my-container", nil,
 		)
 
 		informer, err := NewInformer(WithProcReader(mockProcFS), WithPodInformer(mockPodInformer))
@@ -516,7 +516,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
 
 		mockPodInformer := new(mockPodInformer)
-		mockPodInformer.On("PodInfo", containerID).Return(nil, pod.ErrNoPod)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, "", pod.ErrNoPod)
 
 		informer, err := NewInformer(
 			WithProcReader(mockProcFS),
@@ -556,7 +556,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 
 		podError := errors.New("general error")
 		mockPodInformer := new(mockPodInformer)
-		mockPodInformer.On("PodInfo", containerID).Return(nil, podError)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, "", podError)
 
 		informer, err := NewInformer(
 			WithProcReader(mockProcFS),
@@ -574,6 +574,133 @@ func TestRefresh_PodInformer(t *testing.T) {
 		pods := informer.Pods()
 		assert.Empty(t, pods.Running)
 		assert.NotContains(t, pods.ContainersNoPod, containerID, "Container should not be added to ContainersNoPod on general errors")
+
+		mockPodInformer.AssertExpectations(t)
+		mockProcFS.AssertExpectations(t)
+		mockProc.AssertExpectations(t)
+	})
+}
+
+func TestLookupByContainerID_UpdatesContainerName(t *testing.T) {
+	t.Run("Container name from podInfo updates container cache", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("PID").Return(5001)
+		mockProc.On("Comm").Return("app-container", nil)
+		mockProc.On("Executable").Return("/app/server", nil)
+		mockProc.On("CPUTime").Return(15.0, nil).Once()
+		mockProc.On("Environ").Return([]string{}, nil) // No CONTAINER_NAME in env
+		mockProc.On("CmdLine").Return([]string{"/app/server", "--port=8080"}, nil)
+
+		// Create container with Docker runtime
+		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
+		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Twice()
+		mockProcFS.On("CPUUsageRatio").Return(0.4, nil).Once()
+
+		// Mock pod informer that returns container name from pod info
+		mockPodInformer := new(mockPodInformer)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(
+			&pod.PodInfo{
+				ID:        "pod-12345",
+				Name:      "test-app-pod",
+				Namespace: "production",
+			}, "app-container-from-pod", nil, // Container name comes from pod status
+		)
+
+		informer, err := NewInformer(
+			WithProcReader(mockProcFS),
+			WithPodInformer(mockPodInformer),
+		)
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		// Verify container name is updated from podInfo, not from environment
+		containers := informer.Containers()
+		require.Len(t, containers.Running, 1)
+		container := containers.Running[containerID]
+		require.NotNil(t, container)
+
+		// Container name should come from pod info, not environment
+		assert.Equal(t, "app-container-from-pod", container.Name,
+			"Container name should be set from podInfo.LookupByContainerID")
+		assert.Equal(t, containerID, container.ID)
+		assert.Equal(t, DockerRuntime, container.Runtime)
+
+		// Verify pod information is also set
+		pods := informer.Pods()
+		require.Len(t, pods.Running, 1)
+		podInstance := pods.Running["pod-12345"]
+		require.NotNil(t, podInstance)
+		assert.Equal(t, "test-app-pod", podInstance.Name)
+		assert.Equal(t, "production", podInstance.Namespace)
+
+		// Verify the container has reference to the pod
+		assert.NotNil(t, container.Pod)
+		assert.Equal(t, "pod-12345", container.Pod.ID)
+		assert.Equal(t, "test-app-pod", container.Pod.Name)
+		assert.Equal(t, "production", container.Pod.Namespace)
+
+		mockPodInformer.AssertExpectations(t)
+		mockProcFS.AssertExpectations(t)
+		mockProc.AssertExpectations(t)
+	})
+
+	t.Run("Container name prioritizes podInfo over environment", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("PID").Return(5002)
+		mockProc.On("Comm").Return("web-app", nil)
+		mockProc.On("Executable").Return("/usr/bin/nginx", nil)
+		mockProc.On("CPUTime").Return(8.5, nil).Once()
+		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=nginx-from-env"}, nil)
+		mockProc.On("CmdLine").Return([]string{"/usr/bin/nginx", "-g", "daemon off;"}, nil)
+
+		containerID, cgPath := mockContainerIDAndPath(ContainerDRuntime)
+		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Twice()
+		mockProcFS.On("CPUUsageRatio").Return(0.2, nil).Once()
+
+		// Pod informer returns different name than environment
+		mockPodInformer := new(mockPodInformer)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(
+			&pod.PodInfo{
+				ID:        "web-pod-67890",
+				Name:      "web-server",
+				Namespace: "default",
+			}, "nginx-from-pod", nil, // Different from environment name
+		)
+
+		informer, err := NewInformer(
+			WithProcReader(mockProcFS),
+			WithPodInformer(mockPodInformer),
+		)
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		// Verify container name comes from podInfo, not environment
+		containers := informer.Containers()
+		require.Len(t, containers.Running, 1)
+		container := containers.Running[containerID]
+		require.NotNil(t, container)
+
+		// Should use pod name, not environment name
+		assert.Equal(t, "nginx-from-pod", container.Name,
+			"Container name should prioritize podInfo over environment variables")
+		assert.NotEqual(t, "nginx-from-env", container.Name,
+			"Should not use environment container name when podInfo is available")
 
 		mockPodInformer.AssertExpectations(t)
 		mockProcFS.AssertExpectations(t)
