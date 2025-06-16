@@ -182,7 +182,7 @@ jobs:
           done
 
       - name: Run must gather
-        if: failure()
+        if: always()
         shell: bash
         run: |
           echo "::group::Get pods in kepler namespace"

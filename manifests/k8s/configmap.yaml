@@ -31,6 +31,10 @@ data:
     debug:
       pprof:
         enabled: false
+    kube:
+      enabled: false
+      config: ""
+      nodeName: ""
     dev:
       fake-cpu-meter:
         enabled: false
