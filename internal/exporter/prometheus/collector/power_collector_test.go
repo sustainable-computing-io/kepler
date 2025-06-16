@@ -342,26 +342,51 @@ func TestPowerCollector(t *testing.T) {
 		})
 	})
 
-	t.Run("Process Metrics Node Name Label", func(t *testing.T) {
-		expectedLabels := map[string]string{"node_name": "test-node"}
+	t.Run("Process Metrics Labels", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name": "test-node",
+			"pid":       "123",
+			"comm":      "test-process",
+			"exe":       "/usr/bin/123",
+			"type":      "regular",
+			"zone":      "package-0",
+		}
 		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total", expectedLabels)
 		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts", expectedLabels)
 	})
 
-	t.Run("Container Metrics Node Name Label", func(t *testing.T) {
-		expectedLabels := map[string]string{"node_name": "test-node"}
+	t.Run("Container Metrics Labels", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":      "test-node",
+			"container_id":   "abcd-efgh",
+			"container_name": "test-container",
+			"runtime":        "podman",
+			"zone":           "package-0",
+		}
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels)
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels)
 	})
 
-	t.Run("VM Metrics Node Name Label", func(t *testing.T) {
-		expectedLabels := map[string]string{"node_name": "test-node"}
+	t.Run("VM Metrics Labels", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":  "test-node",
+			"vm_id":      "abcd-efgh",
+			"vm_name":    "test-vm",
+			"hypervisor": "kvm",
+			"zone":       "package-0",
+		}
 		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total", expectedLabels)
 		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts", expectedLabels)
 	})
 
-	t.Run("Pod Metrics Node Name Label", func(t *testing.T) {
-		expectedLabels := map[string]string{"node_name": "test-node"}
+	t.Run("Pod Metrics Labels", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":     "test-node",
+			"pod_id":        "test-pod",
+			"pod_name":      "test-pod",
+			"pod_namespace": "default",
+			"zone":          "package-0",
+		}
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels)
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels)
 	})
