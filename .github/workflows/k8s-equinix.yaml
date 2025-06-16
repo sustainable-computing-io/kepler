@@ -26,6 +26,7 @@ jobs:
         with:
           filters: |
             changes:
+              - '.github/workflows/k8s-equinix.yaml'
               - 'cmd/**/*.go'
               - 'internal/**/*.go'
               - 'config/**/*.go'
@@ -182,7 +183,7 @@ jobs:
           done
 
       - name: Run must gather
-        if: failure()
+        if: always()
         shell: bash
         run: |
           echo "::group::Get pods in kepler namespace"
