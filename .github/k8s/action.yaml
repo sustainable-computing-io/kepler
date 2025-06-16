@@ -129,7 +129,6 @@ runs:
         done
 
     - name: Run must gather
-      if: failure()
       shell: bash
       run: |
         echo "::group::Get pods in kepler namespace"
