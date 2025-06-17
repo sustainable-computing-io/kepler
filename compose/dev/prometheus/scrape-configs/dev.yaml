@@ -3,9 +3,9 @@ scrape_configs:
     static_configs:
       - targets: [kepler-dev:28282]
 
-  - job_name: kepler-latest
+  - job_name: kepler-old
     static_configs:
-      - targets: [kepler-latest:8888]
+      - targets: [kepler-old:8888]
 
   - job_name: host
     static_configs:
