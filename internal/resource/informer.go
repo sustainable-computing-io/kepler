@@ -213,7 +213,7 @@ func (ri *resourceInformer) Refresh() error {
 	containersNoPod := []string{}
 	if ri.podInformer != nil {
 		for _, container := range containersRunning {
-			podInfo, err := ri.podInformer.PodInfo(container.ID)
+			podInfo, containerName, err := ri.podInformer.LookupByContainerID(container.ID)
 			if err != nil {
 				if errors.Is(err, pod.ErrNoPod) {
 					containersNoPod = append(containersNoPod, container.ID)
@@ -229,6 +229,7 @@ func (ri *resourceInformer) Refresh() error {
 				Namespace: podInfo.Namespace,
 			}
 			container.Pod = pod
+			container.Name = containerName
 			_, seen := podsRunning[pod.ID]
 			// reset CPU Time of the pod if it is getting added to the running list for the first time
 			// in the subsequent iteration, the CPUTimeDelta should be incremented by container's CPUTimeDelta

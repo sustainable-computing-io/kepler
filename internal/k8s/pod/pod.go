@@ -37,7 +37,7 @@ type (
 	Informer interface {
 		service.Initializer
 		service.Runner
-		PodInfo(containerID string) (*PodInfo, error)
+		LookupByContainerID(containerID string) (*PodInfo, string, error)
 	}
 
 	PodInfo struct {
@@ -212,8 +212,8 @@ func (pi *podInformer) Run(ctx context.Context) error {
 	return pi.manager.Start(ctx)
 }
 
-// PodInfo retrieves pod details given a containerID
-func (pi *podInformer) PodInfo(containerID string) (*PodInfo, error) {
+// LookupByContainerID retrieves pod details and container name given a containerID
+func (pi *podInformer) LookupByContainerID(containerID string) (*PodInfo, string, error) {
 	var pods corev1.PodList
 
 	err := pi.manager.GetCache().List(
@@ -222,24 +222,25 @@ func (pi *podInformer) PodInfo(containerID string) (*PodInfo, error) {
 		client.MatchingFields{indexContainerID: containerID},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving pod info from cache: %w", err)
+		return nil, "", fmt.Errorf("error retrieving pod info from cache: %w", err)
 	}
 
 	if len(pods.Items) == 0 {
-		return nil, ErrNoPod
+		return nil, "", ErrNoPod
 	}
 
 	if len(pods.Items) > 1 {
-		return nil, fmt.Errorf("multiple pods found for containerID: %s", containerID)
+		return nil, "", fmt.Errorf("multiple pods found for containerID: %s", containerID)
 	}
 
 	pod := pods.Items[0]
-	pi.logger.Debug("pod found for container", "container", containerID, "pod", pod.Name)
+	containerName := pi.findContainerName(&pod, containerID)
+	pi.logger.Debug("pod found for container", "container", containerID, "pod", pod.Name, "containerName", containerName)
 	return &PodInfo{
 		ID:        string(pod.UID),
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
-	}, nil
+	}, containerName, nil
 }
 
 func getConfig(kubeConfigPath string) (*rest.Config, error) {
@@ -272,4 +273,27 @@ func slogLevelToZapLevel(level slog.Level) zapcore.Level {
 	default:
 		return zapcore.ErrorLevel
 	}
+}
+
+// findContainerName finds the container name for a given containerID in the pod
+func (pi *podInformer) findContainerName(pod *corev1.Pod, containerID string) string {
+	// Check regular containers
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.ContainerID != "" && extractContainerID(status.ContainerID) == containerID {
+			return status.Name
+		}
+	}
+	// Check ephemeral containers
+	for _, status := range pod.Status.EphemeralContainerStatuses {
+		if status.ContainerID != "" && extractContainerID(status.ContainerID) == containerID {
+			return status.Name
+		}
+	}
+	// Check init containers
+	for _, status := range pod.Status.InitContainerStatuses {
+		if status.ContainerID != "" && extractContainerID(status.ContainerID) == containerID {
+			return status.Name
+		}
+	}
+	return ""
 }

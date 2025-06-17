@@ -154,7 +154,7 @@ func TestPodInfo(t *testing.T) {
 			mock.Anything,
 			mock.Anything,
 		).Return(nil)
-		_, err := pi.PodInfo("container1")
+		_, _, err := pi.LookupByContainerID("container1")
 		assert.ErrorIs(t, err, ErrNoPod, "unexpected error returned")
 	})
 	t.Run("exactly one pod found", func(t *testing.T) {
@@ -179,11 +179,12 @@ func TestPodInfo(t *testing.T) {
 			pods := args.Get(1).(*corev1.PodList)
 			pods.Items = []corev1.Pod{pod1}
 		})
-		retPod, err := pi.PodInfo("container1")
+		retPod, containerName, err := pi.LookupByContainerID("container1")
 		assert.NoError(t, err)
 		assert.Equal(t, string(pod1.UID), retPod.ID, "unexpected pod id")
 		assert.Equal(t, pod1.Name, retPod.Name, "unexpected pod name")
 		assert.Equal(t, pod1.Namespace, retPod.Namespace, "unexpected pod namespace")
+		assert.Equal(t, "", containerName, "expected empty container name")
 	})
 	t.Run("more than one pod found", func(t *testing.T) {
 		pi := NewInformer()
@@ -207,7 +208,7 @@ func TestPodInfo(t *testing.T) {
 			pods := args.Get(1).(*corev1.PodList)
 			pods.Items = []corev1.Pod{pod1, pod1}
 		})
-		_, err := pi.PodInfo("container1")
+		_, _, err := pi.LookupByContainerID("container1")
 		assert.ErrorContains(t, err, "multiple pods found for containerID")
 	})
 	t.Run("cache error", func(t *testing.T) {
@@ -222,7 +223,7 @@ func TestPodInfo(t *testing.T) {
 			mock.Anything,
 			mock.Anything,
 		).Return(fmt.Errorf("!!you shall not pass!!"))
-		_, err := pi.PodInfo("container1")
+		_, _, err := pi.LookupByContainerID("container1")
 		assert.ErrorContains(t, err, "error retrieving pod info from cache")
 	})
 }
@@ -244,7 +245,7 @@ func TestPodInformer_RunIntegration(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				ContainerStatuses: []corev1.ContainerStatus{
-					{ContainerID: "containerd://abc123"},
+					{Name: "test-container", ContainerID: "containerd://abc123"},
 				},
 			},
 		}
@@ -279,13 +280,14 @@ func TestPodInformer_RunIntegration(t *testing.T) {
 
 		time.Sleep(50 * time.Millisecond)
 
-		podInfo, err := pi.PodInfo("abc123")
+		podInfo, containerName, err := pi.LookupByContainerID("abc123")
 		if err != nil {
-			t.Logf("PodInfo lookup failed (expected in fake setup): %v", err)
+			t.Logf("LookupByContainerID lookup failed (expected in fake setup): %v", err)
 		} else {
 			assert.Equal(t, "test-pod", podInfo.Name)
 			assert.Equal(t, "default", podInfo.Namespace)
 			assert.Equal(t, "test-uid-123", podInfo.ID)
+			assert.Equal(t, "test-container", containerName)
 		}
 
 		cancel()
@@ -296,6 +298,112 @@ func TestPodInformer_RunIntegration(t *testing.T) {
 		case <-time.After(3 * time.Second):
 			t.Fatal("Run() did not stop after context cancellation")
 		}
+	})
+}
+
+func TestFindContainerName(t *testing.T) {
+	pi := NewInformer()
+
+	t.Run("find container in regular containers", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: "app-container", ContainerID: "containerd://abc123"},
+					{Name: "sidecar-container", ContainerID: "containerd://def456"},
+				},
+			},
+		}
+		containerName := pi.findContainerName(pod, "abc123")
+		assert.Equal(t, "app-container", containerName)
+
+		containerName = pi.findContainerName(pod, "def456")
+		assert.Equal(t, "sidecar-container", containerName)
+	})
+
+	t.Run("find container in ephemeral containers", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				EphemeralContainerStatuses: []corev1.ContainerStatus{
+					{Name: "debug-container", ContainerID: "cri-o://ephemeral123"},
+				},
+			},
+		}
+		containerName := pi.findContainerName(pod, "ephemeral123")
+		assert.Equal(t, "debug-container", containerName)
+	})
+
+	t.Run("find container in init containers", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				InitContainerStatuses: []corev1.ContainerStatus{
+					{Name: "init-container", ContainerID: "containerd://init123"},
+				},
+			},
+		}
+		containerName := pi.findContainerName(pod, "init123")
+		assert.Equal(t, "init-container", containerName)
+	})
+
+	t.Run("container not found returns empty string", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: "app-container", ContainerID: "containerd://abc123"},
+				},
+			},
+		}
+		containerName := pi.findContainerName(pod, "nonexistent")
+		assert.Equal(t, "", containerName)
+	})
+
+	t.Run("empty container ID in status", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: "app-container", ContainerID: ""},
+					{Name: "running-container", ContainerID: "containerd://running123"},
+				},
+			},
+		}
+		containerName := pi.findContainerName(pod, "running123")
+		assert.Equal(t, "running-container", containerName)
+	})
+
+	t.Run("mixed container types", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				InitContainerStatuses: []corev1.ContainerStatus{
+					{Name: "init-container", ContainerID: "containerd://init123"},
+				},
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: "app-container", ContainerID: "containerd://app123"},
+				},
+				EphemeralContainerStatuses: []corev1.ContainerStatus{
+					{Name: "debug-container", ContainerID: "cri-o://debug123"},
+				},
+			},
+		}
+
+		// Test finding in each type
+		assert.Equal(t, "init-container", pi.findContainerName(pod, "init123"))
+		assert.Equal(t, "app-container", pi.findContainerName(pod, "app123"))
+		assert.Equal(t, "debug-container", pi.findContainerName(pod, "debug123"))
+	})
+
+	t.Run("different container runtime prefixes", func(t *testing.T) {
+		pod := &corev1.Pod{
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: "containerd-container", ContainerID: "containerd://containerd123"},
+					{Name: "crio-container", ContainerID: "cri-o://crio123"},
+					{Name: "docker-container", ContainerID: "docker://docker123"},
+				},
+			},
+		}
+
+		assert.Equal(t, "containerd-container", pi.findContainerName(pod, "containerd123"))
+		assert.Equal(t, "crio-container", pi.findContainerName(pod, "crio123"))
+		assert.Equal(t, "docker-container", pi.findContainerName(pod, "docker123"))
 	})
 }
 
