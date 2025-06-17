@@ -157,6 +157,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	apiServer := server.NewAPIServer(
 		server.WithLogger(logger),
+		server.WithWebConfig(cfg.Web.Config),
 	)
 
 	services = append(services,
