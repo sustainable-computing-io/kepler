@@ -106,12 +106,23 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v3
 
-      - name: Setup Pre-Commit
-        uses: pre-commit/action@v3.0.1
+      - name: Setup Pre-commit
+        run: pip install pre-commit
+
+      - name: Run Pre-commit
+        run: pre-commit run --all-files
+
+      - name: Run Commitlint
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "$COMMIT_MSG" > .git/COMMIT_EDITMSG
+          pre-commit run commitlint --hook-stage commit-msg --commit-msg-file .git/COMMIT_EDITMSG
 
   build-images:
     runs-on: ubuntu-latest
