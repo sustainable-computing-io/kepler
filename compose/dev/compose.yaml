@@ -35,7 +35,7 @@ services:
     # cap_add:
     #   - ALL
 
-  kepler-latest:
+  kepler-old:
     image: quay.io/sustainable_computing_io/kepler:latest
     privileged: true
     pid: host

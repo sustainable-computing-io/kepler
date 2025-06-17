@@ -559,7 +559,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
           "instant": false,
           "legendFormat": "Kepler - OLD (${zone})",
           "range": true,
@@ -994,7 +994,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Kepler - OLD (${zone})",
@@ -1170,7 +1170,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n  - \n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n)",
+          "expr": "abs(\n  sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n  - \n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)",
           "instant": false,
           "legendFormat": "Kepler Attribution Gap",
           "range": true,
@@ -1353,7 +1353,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s])) \n- \nsum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s])) \n- \nsum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Kepler OLD: Node - Process (J/s)",
@@ -1545,7 +1545,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{pid=\"$pid\",job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{pid=\"$pid\",job=\"kepler-old\"}[20s]))",
           "instant": false,
           "legendFormat": "Kepler OLD - ${pid} (Joules)",
           "range": true,
@@ -1724,7 +1724,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n  - \n  sum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n)",
+          "expr": "abs(\n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n  - \n  sum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)",
           "instant": false,
           "legendFormat": "Kepler Attribution Gap",
           "range": true,
@@ -1891,7 +1891,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n-\nsum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n-\nsum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Kepler OLD:  Process - Container (J/s)",
@@ -2072,7 +2072,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "100 * (\n    sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s])) - sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))\n)  / \nsum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-latest\"}[20s]))",
+          "expr": "100 * (\n    sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s])) - sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)  / \nsum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
           "instant": false,
           "legendFormat": "Process Attribution Gap",
           "range": true,
