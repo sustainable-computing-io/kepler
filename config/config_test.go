@@ -22,6 +22,7 @@ func TestDefaultConfig(t *testing.T) {
 	// Assert default values are set correctly
 	assert.Equal(t, "info", cfg.Log.Level)
 	assert.Equal(t, "text", cfg.Log.Format)
+	assert.Equal(t, "", cfg.Web.Config)
 }
 
 func TestLoadFromYAML(t *testing.T) {
