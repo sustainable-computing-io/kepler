@@ -1,6 +1,7 @@
 module github.com/sustainable-computing-io/kepler
 
 go 1.22
+toolchain go1.22.8
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
