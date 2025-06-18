@@ -154,8 +154,10 @@ func TestPodInfo(t *testing.T) {
 			mock.Anything,
 			mock.Anything,
 		).Return(nil)
-		_, _, err := pi.LookupByContainerID("container1")
-		assert.ErrorIs(t, err, ErrNoPod, "unexpected error returned")
+		containerInfo, found, err := pi.LookupByContainerID("container1")
+		assert.NoError(t, err)
+		assert.False(t, found, "expected container not to be found")
+		assert.Nil(t, containerInfo, "expected nil container info")
 	})
 	t.Run("exactly one pod found", func(t *testing.T) {
 		pi := NewInformer()
@@ -179,12 +181,14 @@ func TestPodInfo(t *testing.T) {
 			pods := args.Get(1).(*corev1.PodList)
 			pods.Items = []corev1.Pod{pod1}
 		})
-		retPod, containerName, err := pi.LookupByContainerID("container1")
+		containerInfo, found, err := pi.LookupByContainerID("container1")
 		assert.NoError(t, err)
-		assert.Equal(t, string(pod1.UID), retPod.ID, "unexpected pod id")
-		assert.Equal(t, pod1.Name, retPod.Name, "unexpected pod name")
-		assert.Equal(t, pod1.Namespace, retPod.Namespace, "unexpected pod namespace")
-		assert.Equal(t, "", containerName, "expected empty container name")
+		assert.True(t, found, "expected container to be found")
+		assert.NotNil(t, containerInfo, "expected non-nil container info")
+		assert.Equal(t, string(pod1.UID), containerInfo.PodID, "unexpected pod id")
+		assert.Equal(t, pod1.Name, containerInfo.PodName, "unexpected pod name")
+		assert.Equal(t, pod1.Namespace, containerInfo.Namespace, "unexpected pod namespace")
+		assert.Equal(t, "", containerInfo.ContainerName, "expected empty container name")
 	})
 	t.Run("more than one pod found", func(t *testing.T) {
 		pi := NewInformer()
@@ -208,7 +212,8 @@ func TestPodInfo(t *testing.T) {
 			pods := args.Get(1).(*corev1.PodList)
 			pods.Items = []corev1.Pod{pod1, pod1}
 		})
-		_, _, err := pi.LookupByContainerID("container1")
+		_, found, err := pi.LookupByContainerID("container1")
+		assert.False(t, found, "expected container not to be found due to multiple pods")
 		assert.ErrorContains(t, err, "multiple pods found for containerID")
 	})
 	t.Run("cache error", func(t *testing.T) {
@@ -223,7 +228,8 @@ func TestPodInfo(t *testing.T) {
 			mock.Anything,
 			mock.Anything,
 		).Return(fmt.Errorf("!!you shall not pass!!"))
-		_, _, err := pi.LookupByContainerID("container1")
+		_, found, err := pi.LookupByContainerID("container1")
+		assert.False(t, found, "expected container not to be found due to cache error")
 		assert.ErrorContains(t, err, "error retrieving pod info from cache")
 	})
 }
@@ -280,14 +286,14 @@ func TestPodInformer_RunIntegration(t *testing.T) {
 
 		time.Sleep(50 * time.Millisecond)
 
-		podInfo, containerName, err := pi.LookupByContainerID("abc123")
+		containerInfo, found, err := pi.LookupByContainerID("abc123")
 		if err != nil {
 			t.Logf("LookupByContainerID lookup failed (expected in fake setup): %v", err)
-		} else {
-			assert.Equal(t, "test-pod", podInfo.Name)
-			assert.Equal(t, "default", podInfo.Namespace)
-			assert.Equal(t, "test-uid-123", podInfo.ID)
-			assert.Equal(t, "test-container", containerName)
+		} else if found {
+			assert.Equal(t, "test-pod", containerInfo.PodName)
+			assert.Equal(t, "default", containerInfo.Namespace)
+			assert.Equal(t, "test-uid-123", containerInfo.PodID)
+			assert.Equal(t, "test-container", containerInfo.ContainerName)
 		}
 
 		cancel()

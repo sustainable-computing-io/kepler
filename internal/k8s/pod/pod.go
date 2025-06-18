@@ -5,7 +5,6 @@ package pod
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -25,10 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var (
-	ErrNoPod = errors.New("no pod found for container")
-)
-
 const (
 	indexContainerID = "containerID"
 )
@@ -37,30 +32,29 @@ type (
 	Informer interface {
 		service.Initializer
 		service.Runner
-		LookupByContainerID(containerID string) (*PodInfo, string, error)
+		LookupByContainerID(containerID string) (*ContainerInfo, bool, error)
 	}
 
-	PodInfo struct {
-		ID        string
-		Name      string
-		Namespace string
+	ContainerInfo struct {
+		PodID         string
+		PodName       string
+		Namespace     string
+		ContainerName string
 	}
-)
 
-type podInformer struct {
-	logger *slog.Logger
+	podInformer struct {
+		logger *slog.Logger
 
-	kubeConfigPath string
-	nodeName       string
+		kubeConfigPath string
+		nodeName       string
 
-	cfg     *rest.Config
-	manager manager.Manager
+		cfg     *rest.Config
+		manager manager.Manager
 
-	createRestConfigFunc func(kubeConfigPath string) (*rest.Config, error)
-	newManagerFunc       func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error)
-}
+		createRestConfigFunc func(kubeConfigPath string) (*rest.Config, error)
+		newManagerFunc       func(config *rest.Config, options ctrl.Options) (ctrl.Manager, error)
+	}
 
-type (
 	Option struct {
 		logger         *slog.Logger
 		kubeConfigPath string
@@ -140,7 +134,6 @@ func (pi *podInformer) Init() error {
 }
 
 func (pi *podInformer) setupManager(scheme *k8sruntime.Scheme) (ctrl.Manager, error) {
-
 	cacheOp := cache.Options{}
 	cacheOp.ByObject = map[client.Object]cache.ByObject{
 		&corev1.Pod{}: {
@@ -213,7 +206,7 @@ func (pi *podInformer) Run(ctx context.Context) error {
 }
 
 // LookupByContainerID retrieves pod details and container name given a containerID
-func (pi *podInformer) LookupByContainerID(containerID string) (*PodInfo, string, error) {
+func (pi *podInformer) LookupByContainerID(containerID string) (*ContainerInfo, bool, error) {
 	var pods corev1.PodList
 
 	err := pi.manager.GetCache().List(
@@ -222,25 +215,27 @@ func (pi *podInformer) LookupByContainerID(containerID string) (*PodInfo, string
 		client.MatchingFields{indexContainerID: containerID},
 	)
 	if err != nil {
-		return nil, "", fmt.Errorf("error retrieving pod info from cache: %w", err)
+		return nil, false, fmt.Errorf("error retrieving pod info from cache: %w", err)
 	}
 
-	if len(pods.Items) == 0 {
-		return nil, "", ErrNoPod
-	}
+	switch count := len(pods.Items); {
+	case count == 0:
+		return nil, false, nil
+	case count > 1:
+		return nil, false, fmt.Errorf("multiple pods found for containerID: %s", containerID)
 
-	if len(pods.Items) > 1 {
-		return nil, "", fmt.Errorf("multiple pods found for containerID: %s", containerID)
-	}
+	default: // case x == 1:
+		pod := pods.Items[0]
+		containerName := pi.findContainerName(&pod, containerID)
+		pi.logger.Debug("pod found for container", "container", containerID, "pod", pod.Name, "containerName", containerName)
 
-	pod := pods.Items[0]
-	containerName := pi.findContainerName(&pod, containerID)
-	pi.logger.Debug("pod found for container", "container", containerID, "pod", pod.Name, "containerName", containerName)
-	return &PodInfo{
-		ID:        string(pod.UID),
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-	}, containerName, nil
+		return &ContainerInfo{
+			PodID:         string(pod.UID),
+			PodName:       pod.Name,
+			Namespace:     pod.Namespace,
+			ContainerName: containerName,
+		}, true, nil
+	}
 }
 
 func getConfig(kubeConfigPath string) (*rest.Config, error) {

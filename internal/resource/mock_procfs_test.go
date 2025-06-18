@@ -102,12 +102,12 @@ func (m *mockPodInformer) Run(ctx context.Context) error {
 	return args.Error(0)
 }
 
-func (m *mockPodInformer) LookupByContainerID(containerID string) (*pod.PodInfo, string, error) {
+func (m *mockPodInformer) LookupByContainerID(containerID string) (*pod.ContainerInfo, bool, error) {
 	args := m.Called(containerID)
-	if podInfo, ok := args.Get(0).(*pod.PodInfo); ok {
-		return podInfo, args.String(1), args.Error(2)
+	if podInfo, ok := args.Get(0).(*pod.ContainerInfo); ok {
+		return podInfo, args.Bool(1), args.Error(2)
 	}
-	return nil, args.String(1), args.Error(2)
+	return nil, args.Bool(1), args.Error(2)
 }
 
 func (m *mockPodInformer) Name() string {
