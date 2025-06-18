@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
 )
@@ -22,7 +23,10 @@ func TestDefaultConfig(t *testing.T) {
 	// Assert default values are set correctly
 	assert.Equal(t, "info", cfg.Log.Level)
 	assert.Equal(t, "text", cfg.Log.Format)
-	assert.Equal(t, "", cfg.Web.Config)
+	addrs := *cfg.Web.Config.WebListenAddresses
+	addr := addrs[0]
+	assert.Equal(t, DefaultPort, addr)
+	assert.Equal(t, "", *cfg.Web.Config.WebConfigFile)
 }
 
 func TestLoadFromYAML(t *testing.T) {
@@ -216,6 +220,7 @@ func TestReadError(t *testing.T) {
 func TestInvalidConfigurationValues(t *testing.T) {
 	// Test validation of configuration values (command line and YAML)
 	// Create a kingpin app and register flags
+	unreadableWebConfig := "/from/unreadable/path/web.yaml"
 	tt := []struct {
 		name   string
 		config *Config
@@ -288,7 +293,9 @@ func TestInvalidConfigurationValues(t *testing.T) {
 		name: "unreadable web config",
 		config: &Config{
 			Web: Web{
-				Config: "/from/unreadable/path/web.yaml",
+				Config: &web.FlagConfig{
+					WebConfigFile: &unreadableWebConfig,
+				},
 			},
 		},
 		error: "invalid web config file",
@@ -367,6 +374,7 @@ func TestConfigValidation(t *testing.T) {
 }
 
 func TestConfigString(t *testing.T) {
+	fackWebConfig := "/fake/web.config.yml"
 	tt := []struct {
 		name   string
 		config *Config
@@ -404,7 +412,9 @@ func TestConfigString(t *testing.T) {
 		name: "custom web.config",
 		config: &Config{
 			Web: Web{
-				Config: "/fake/web.config.yml",
+				Config: &web.FlagConfig{
+					WebConfigFile: &fackWebConfig,
+				},
 			},
 		},
 	}}
@@ -479,12 +489,12 @@ func TestWebConfig(t *testing.T) {
 		cfg := DefaultConfig()
 		err := updateConfig(cfg)
 		assert.NoError(t, err, "unexpected config update error")
-		assert.Equal(t, cfg.Web.Config, "", "unexpected web.config-file configured")
+		assert.Equal(t, *cfg.Web.Config.WebConfigFile, "", "unexpected web.config-file configured")
 	})
 	t.Run("invalid web config", func(t *testing.T) {
 		app := kingpin.New("test", "Test application")
 		updateConfig := RegisterFlags(app)
-		_, parseErr := app.Parse([]string{"--web.config-file=/fake/web.yml"})
+		_, parseErr := app.Parse([]string{"--web.config.file=/fake/web.yml"})
 		assert.NoError(t, parseErr, "unexpected flag parsing error")
 		cfg := DefaultConfig()
 		err := updateConfig(cfg)
@@ -503,13 +513,13 @@ tls_server_config:
 
 		app := kingpin.New("test", "Test application")
 		updateConfig := RegisterFlags(app)
-		flagStr := fmt.Sprintf("--web.config-file=%s", tempWebConfig.Name())
+		flagStr := fmt.Sprintf("--web.config.file=%s", tempWebConfig.Name())
 		_, parseErr := app.Parse([]string{flagStr})
 		assert.NoError(t, parseErr, "unexpected flag parsing error")
 		cfg := DefaultConfig()
 		err = updateConfig(cfg)
 		assert.NoError(t, err, "expected config update error")
-		assert.Equal(t, cfg.Web.Config, tempWebConfig.Name(), "unexpected config update")
+		assert.Equal(t, *cfg.Web.Config.WebConfigFile, tempWebConfig.Name(), "unexpected config update")
 		_ = os.Remove(tempWebConfig.Name())
 	})
 }
