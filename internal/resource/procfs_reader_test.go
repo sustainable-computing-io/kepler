@@ -477,11 +477,12 @@ func TestRefresh_PodInformer(t *testing.T) {
 
 		mockPodInformer := new(mockPodInformer)
 		mockPodInformer.On("LookupByContainerID", containerID).Return(
-			&pod.PodInfo{
-				ID:        "pod123",
-				Name:      "mypod",
-				Namespace: "default",
-			}, "my-container", nil,
+			&pod.ContainerInfo{
+				PodID:         "pod123",
+				PodName:       "mypod",
+				Namespace:     "default",
+				ContainerName: "my-container",
+			}, true, nil,
 		)
 
 		informer, err := NewInformer(WithProcReader(mockProcFS), WithPodInformer(mockPodInformer))
@@ -516,7 +517,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProcFS.On("CPUUsageRatio").Return(0.5, nil).Once()
 
 		mockPodInformer := new(mockPodInformer)
-		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, "", pod.ErrNoPod)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, false, nil)
 
 		informer, err := NewInformer(
 			WithProcReader(mockProcFS),
@@ -556,7 +557,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 
 		podError := errors.New("general error")
 		mockPodInformer := new(mockPodInformer)
-		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, "", podError)
+		mockPodInformer.On("LookupByContainerID", containerID).Return(nil, false, podError)
 
 		informer, err := NewInformer(
 			WithProcReader(mockProcFS),
@@ -602,11 +603,12 @@ func TestLookupByContainerID_UpdatesContainerName(t *testing.T) {
 		// Mock pod informer that returns container name from pod info
 		mockPodInformer := new(mockPodInformer)
 		mockPodInformer.On("LookupByContainerID", containerID).Return(
-			&pod.PodInfo{
-				ID:        "pod-12345",
-				Name:      "test-app-pod",
-				Namespace: "production",
-			}, "app-container-from-pod", nil, // Container name comes from pod status
+			&pod.ContainerInfo{
+				PodID:         "pod-12345",
+				PodName:       "test-app-pod",
+				Namespace:     "production",
+				ContainerName: "app-container-from-pod", // Container name comes from pod status
+			}, true, nil,
 		)
 
 		informer, err := NewInformer(
@@ -671,11 +673,12 @@ func TestLookupByContainerID_UpdatesContainerName(t *testing.T) {
 		// Pod informer returns different name than environment
 		mockPodInformer := new(mockPodInformer)
 		mockPodInformer.On("LookupByContainerID", containerID).Return(
-			&pod.PodInfo{
-				ID:        "web-pod-67890",
-				Name:      "web-server",
-				Namespace: "default",
-			}, "nginx-from-pod", nil, // Different from environment name
+			&pod.ContainerInfo{
+				PodID:         "web-pod-67890",
+				PodName:       "web-server",
+				Namespace:     "default",
+				ContainerName: "nginx-from-pod", // Different from environment name
+			}, true, nil,
 		)
 
 		informer, err := NewInformer(
