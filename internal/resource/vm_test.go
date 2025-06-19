@@ -357,3 +357,55 @@ func TestVMClone(t *testing.T) {
 		assert.Nil(t, nilClone, "Cloning nil VM should return nil")
 	})
 }
+
+func TestExtractVMID(t *testing.T) {
+	tests := []struct {
+		name       string
+		cmdline    []string
+		hypervisor Hypervisor
+		expected   string
+	}{{
+		name:       "no UUID or name returns empty",
+		cmdline:    []string{"/usr/bin/qemu-system-x86_64", "-m", "1024"},
+		hypervisor: KVMHypervisor,
+		expected:   "",
+	}, {
+		name:       "unknown hypervisor returns empty",
+		cmdline:    []string{"/usr/bin/qemu-system-x86_64", "-m", "1024"},
+		hypervisor: UnknownHypervisor,
+		expected:   "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			id := extractVMID(tc.cmdline, tc.hypervisor)
+			assert.Equal(t, tc.expected, id)
+		})
+	}
+}
+
+func TestVMNameFromCmdLine(t *testing.T) {
+	tests := []struct {
+		name       string
+		cmdline    []string
+		hypervisor Hypervisor
+		expected   string
+	}{{
+		name:       "empty cmdline returns empty",
+		cmdline:    []string{},
+		hypervisor: KVMHypervisor,
+		expected:   "",
+	}, {
+		name:       "non-KVM hypervisor returns empty",
+		cmdline:    []string{"/usr/bin/qemu-system-x86_64", "-name", "test"},
+		hypervisor: UnknownHypervisor,
+		expected:   "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			name := vmNameFromCmdLine(tc.cmdline, tc.hypervisor)
+			assert.Equal(t, tc.expected, name)
+		})
+	}
+}

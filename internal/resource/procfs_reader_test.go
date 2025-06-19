@@ -6,6 +6,7 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -305,12 +306,12 @@ func TestResourceInformer(t *testing.T) {
 
 		// Initialize
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
-		mockInformer.On("CPUUsageRatio").Return(float64(0.3), nil).Once()
 		err = informer.Init()
 		require.NoError(t, err)
 
 		// First refresh
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.3), nil).Once()
 		err = informer.Refresh()
 		require.NoError(t, err)
 
@@ -437,8 +438,9 @@ func TestResourceInformer(t *testing.T) {
 		// For Init
 		mockInformer.On("AllProcs").Return([]procInfo{}, nil).Once()
 
-		// For Refresh - return error
+		// For Refresh - return error from AllProcs but still need CPUUsageRatio for refreshNode
 		mockInformer.On("AllProcs").Return([]procInfo{}, errors.New("procfs error")).Once()
+		mockInformer.On("CPUUsageRatio").Return(0.5, nil).Once()
 
 		informer, err := NewInformer(
 			WithProcReader(mockInformer),
@@ -1025,4 +1027,240 @@ func TestProcFSReaderCPUUsageRatio(t *testing.T) {
 		assert.Equal(t, 41798.91, reader.prevStat.System, "should read system time from procfs")
 		assert.Equal(t, 12950362.09, reader.prevStat.Idle, "should read idle time from procfs")
 	})
+}
+
+func TestResourceInformerCreation(t *testing.T) {
+	t.Run("Name method returns service name", func(t *testing.T) {
+		mockProcFS := &MockProcReader{}
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		assert.Equal(t, "resource-informer", informer.Name())
+	})
+
+	t.Run("NewInformer with nil procReader", func(t *testing.T) {
+		_, err := NewInformer()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no procfs reader specified")
+	})
+
+	t.Run("NewInformer with procFSPath creates reader", func(t *testing.T) {
+		_, err := NewInformer(WithProcFSPath("/proc"))
+		assert.NoError(t, err)
+	})
+
+	t.Run("NewInformer with invalid procFSPath", func(t *testing.T) {
+		_, err := NewInformer(WithProcFSPath("/invalid/path"))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create procfs reader")
+	})
+
+	t.Run("WithLogger option function", func(t *testing.T) {
+		logger := slog.Default()
+		mockProcFS := &MockProcReader{}
+
+		informer, err := NewInformer(
+			WithProcReader(mockProcFS),
+			WithLogger(logger),
+		)
+		require.NoError(t, err)
+		assert.NotNil(t, informer)
+	})
+}
+
+func TestResourceInformer_InitRefreshErr(t *testing.T) {
+	t.Run("Init with failing procfs access", func(t *testing.T) {
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo(nil), errors.New("procfs access denied"))
+
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		err = informer.Init()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to access procfs")
+
+		mockProcFS.AssertExpectations(t)
+	})
+
+	t.Run("refreshNode with CPUUsageRatio error", func(t *testing.T) {
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{}, nil).Twice() // Once for Init, once for Refresh
+		mockProcFS.On("CPUUsageRatio").Return(0.0, errors.New("cpu stat error"))
+
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get procfs usage")
+
+		mockProcFS.AssertExpectations(t)
+	})
+
+	t.Run("updateVMCache with nil VM panic", func(t *testing.T) {
+		mockProcFS := &MockProcReader{}
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		proc := &Process{
+			PID:            123,
+			Type:           VMProcess,
+			VirtualMachine: nil, // This should cause panic
+		}
+
+		assert.Panics(t, func() {
+			informer.updateVMCache(proc)
+		})
+	})
+}
+
+func TestNewProcFSReaderErrors(t *testing.T) {
+	t.Run("NewProcFSReader with invalid path", func(t *testing.T) {
+		_, err := NewProcFSReader("/invalid/nonexistent/path")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "could not read")
+	})
+
+	t.Run("NewProcFSReader with valid path", func(t *testing.T) {
+		reader, err := NewProcFSReader("/proc")
+		assert.NoError(t, err)
+		assert.NotNil(t, reader)
+	})
+}
+
+func TestProcWrapperErrors(t *testing.T) {
+	t.Run("Cgroups with read error", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+
+		// Mock Cgroups to return error
+		mockProc.On("Cgroups").Return([]cGroup(nil), errors.New("cgroup read error"))
+
+		cgroups, err := mockProc.Cgroups()
+		assert.Error(t, err)
+		assert.Nil(t, cgroups)
+		assert.Contains(t, err.Error(), "cgroup read error")
+
+		mockProc.AssertExpectations(t)
+	})
+
+	t.Run("CPUTime with read error", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+
+		// Mock CPUTime to return error
+		mockProc.On("CPUTime").Return(float64(0), errors.New("stat read error"))
+
+		cpuTime, err := mockProc.CPUTime()
+		assert.Error(t, err)
+		assert.Equal(t, float64(0), cpuTime)
+		assert.Contains(t, err.Error(), "stat read error")
+
+		mockProc.AssertExpectations(t)
+	})
+}
+
+func TestRefreshConcurrency(t *testing.T) {
+	// container for pod dependency testing
+	mockProc1 := &MockProcInfo{}
+	mockProc1.On("PID").Return(2001)
+	mockProc1.On("Comm").Return("container-proc", nil)
+	mockProc1.On("Executable").Return("/bin/container-app", nil)
+	mockProc1.On("CmdLine").Return([]string{"/bin/container-app"}, nil)
+	mockProc1.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
+	ctnrID, cgPath := mockContainerIDAndPath(PodmanRuntime)
+	mockProc1.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
+	mockProc1.On("CPUTime").Return(float64(3.0), nil)
+
+	// VM process
+	mockProc2 := &MockProcInfo{}
+	mockProc2.On("PID").Return(3001)
+	mockProc2.On("Comm").Return("qemu-system-x86_64", nil)
+	mockProc2.On("Executable").Return("/usr/bin/qemu-system-x86_64", nil)
+	mockProc2.On("CmdLine").Return([]string{
+		"/usr/bin/qemu-system-x86_64",
+		"-uuid", "550e8400-e29b-41d4-a716-446655440000",
+		"-name", "test-vm",
+	}, nil)
+	mockProc2.On("Environ").Return([]string{}, nil).Maybe()
+	mockProc2.On("Cgroups").Return([]cGroup{{Path: "/system.slice/libvirt.service"}}, nil)
+	mockProc2.On("CPUTime").Return(float64(2.0), nil)
+
+	// Regular process
+	mockProc3 := &MockProcInfo{}
+	mockProc3.On("PID").Return(1001)
+	mockProc3.On("Comm").Return("regular-proc", nil)
+	mockProc3.On("Executable").Return("/bin/regular", nil)
+	mockProc3.On("Cgroups").Return([]cGroup{{Path: "/system.slice/regular.service"}}, nil)
+	mockProc3.On("CPUTime").Return(float64(1.0), nil)
+	mockProc3.On("Environ").Return([]string{}, nil).Maybe()
+	mockProc3.On("CmdLine").Return([]string{"/bin/regular"}, nil).Maybe()
+
+	mockInformer := &MockProcReader{}
+	mockInformer.On("AllProcs").Return([]procInfo{}, nil).Once()
+	mockInformer.On("AllProcs").Return([]procInfo{mockProc1, mockProc2, mockProc3}, nil).Once()
+	mockInformer.On("CPUUsageRatio").Return(float64(0.1), nil).Once()
+
+	// Mock pod informer to test pod dependency on containers
+	mockPodInformer := new(mockPodInformer)
+	mockPodInformer.On("LookupByContainerID", ctnrID).Return(
+		&pod.ContainerInfo{
+			PodID:         "pod123",
+			PodName:       "mypod",
+			Namespace:     "default",
+			ContainerName: "my-container",
+		}, true, nil,
+	)
+
+	informer, err := NewInformer(
+		WithProcReader(mockInformer),
+		WithPodInformer(mockPodInformer),
+	)
+	require.NoError(t, err)
+
+	err = informer.Init()
+	require.NoError(t, err)
+
+	// Single Refresh call should work without races
+	// Goroutine 1: containers → pods (sequential within goroutine)
+	// Goroutine 2: VMs (independent)
+	// Goroutine 3: node (independent)
+	err = informer.Refresh()
+	require.NoError(t, err)
+
+	// Verify all workload types are processed correctly
+	processes := informer.Processes()
+	containers := informer.Containers()
+	vms := informer.VirtualMachines()
+	pods := informer.Pods()
+	node := informer.Node()
+
+	// Should have 3 processes (1 regular, 1 container, 1 VM)
+	assert.Len(t, processes.Running, 3, "Expected 3 running processes")
+
+	// Should have 1 container
+	assert.Len(t, containers.Running, 1, "Expected 1 running container")
+	assert.Contains(t, containers.Running, ctnrID, "Expected container to be present")
+
+	// Should have 1 VM
+	assert.Len(t, vms.Running, 1, "Expected 1 running VM")
+	assert.Contains(t, vms.Running, "550e8400-e29b-41d4-a716-446655440000", "Expected VM to be present")
+
+	// Should have 1 pod (depends on container from stage 1)
+	assert.Len(t, pods.Running, 1, "Expected 1 running pod")
+	assert.Contains(t, pods.Running, "pod123", "Expected pod to be present")
+
+	// Node should have aggregated CPU data from all processes
+	assert.NotNil(t, node, "Node should not be nil")
+	assert.Equal(t, float64(0.1), node.CPUUsageRatio, "CPU usage ratio should be set")
+	expectedTotalCPU := float64(6.0) // 3.0 + 2.0 + 1.0
+	assert.Equal(t, expectedTotalCPU, node.ProcessTotalCPUTimeDelta, "Total CPU delta should be sum of all processes")
+
+	mockInformer.AssertExpectations(t)
+	mockPodInformer.AssertExpectations(t)
+	mockProc1.AssertExpectations(t)
+	mockProc2.AssertExpectations(t)
+	mockProc3.AssertExpectations(t)
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -162,19 +163,19 @@ func (ri *resourceInformer) Init() error {
 	return nil
 }
 
-func (ri *resourceInformer) Refresh() error {
-	started := ri.clock.Now()
-
+// refreshProcesses refreshes the process cache and returns the procs for containers and VMs
+func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	procs, err := ri.fs.AllProcs()
 	if err != nil {
-		return fmt.Errorf("failed to get processes: %w", err)
+		return nil, nil, fmt.Errorf("failed to get processes: %w", err)
 	}
 
-	// construct current running processes and containers
+	// construct current running processes
 	procsRunning := make(map[int]*Process, len(procs))
-	containersRunning := make(map[string]*Container)
-	vmsRunning := make(map[string]*VirtualMachine)
-	podsRunning := make(map[string]*Pod)
+
+	// collect categorized processes during iteration
+	containerProcs := make([]*Process, 0)
+	vmProcs := make([]*Process, 0)
 
 	// Refresh process cache and update running processes
 	var refreshErrs error
@@ -194,133 +195,215 @@ func (ri *resourceInformer) Refresh() error {
 		}
 		procsRunning[pid] = proc
 
+		// categorize processes during iteration
 		switch proc.Type {
 		case ContainerProcess:
-			c := proc.Container
-			_, seen := containersRunning[c.ID]
-			// reset CPU Time of the container if it is getting added to the running list for the first time
-			// in the subsequent iteration, the CPUTimeDelta should be incremented by process's CPUTimeDelta
-			resetCPUTime := !seen
-			containersRunning[c.ID] = ri.updateContainerCache(proc, resetCPUTime)
-
+			containerProcs = append(containerProcs, proc)
 		case VMProcess:
-			vm := proc.VirtualMachine
-			vmsRunning[vm.ID] = ri.updateVMCache(proc)
-		}
-
-	}
-
-	containersNoPod := []string{}
-	if ri.podInformer != nil {
-		for _, container := range containersRunning {
-			cntrInfo, found, err := ri.podInformer.LookupByContainerID(container.ID)
-			if err != nil {
-				ri.logger.Debug("Failed to get pod for container", "container", container.ID, "error", err)
-				refreshErrs = errors.Join(refreshErrs, fmt.Errorf("failed to get pod for container: %w", err))
-				continue
-			}
-
-			if !found {
-				containersNoPod = append(containersNoPod, container.ID)
-				continue
-			}
-
-			pod := &Pod{
-				ID:        cntrInfo.PodID,
-				Name:      cntrInfo.PodName,
-				Namespace: cntrInfo.Namespace,
-			}
-			container.Pod = pod
-			container.Name = cntrInfo.ContainerName
-
-			_, seen := podsRunning[pod.ID]
-			// reset CPU Time of the pod if it is getting added to the running list for the first time
-			// in the subsequent iteration, the CPUTimeDelta should be incremented by container's CPUTimeDelta
-			resetCPUTime := !seen
-			podsRunning[pod.ID] = ri.updatePodCache(container, resetCPUTime)
+			vmProcs = append(vmProcs, proc)
 		}
 	}
 
 	// Find terminated processes
-	procCPUDeltaTotal := float64(0)
 	procsTerminated := make(map[int]*Process)
 	for pid, proc := range ri.procCache {
-		if _, isRunning := procsRunning[pid]; isRunning {
-			procCPUDeltaTotal += proc.CPUTimeDelta
-			continue
+		if _, isRunning := procsRunning[pid]; !isRunning {
+			procsTerminated[pid] = proc
+			delete(ri.procCache, pid)
 		}
-		procsTerminated[pid] = proc
-		delete(ri.procCache, pid)
 	}
-
-	// Node
-	usage, err := ri.fs.CPUUsageRatio()
-	if err != nil {
-		return fmt.Errorf("failed to get procfs usage: %w", err)
-	}
-	ri.node.ProcessTotalCPUTimeDelta = procCPUDeltaTotal
-	ri.node.CPUUsageRatio = usage
 
 	// Update tracking structures
 	ri.processes.Running = procsRunning
 	ri.processes.Terminated = procsTerminated
 
+	return containerProcs, vmProcs, refreshErrs
+}
+
+func (ri *resourceInformer) refreshContainers(containerProcs []*Process) error {
+	containersRunning := make(map[string]*Container)
+
+	// Build running containers from pre-categorized container processes
+	for _, proc := range containerProcs {
+		c := proc.Container
+		_, seen := containersRunning[c.ID]
+		// reset CPU Time of the container if it is getting added to the running list for the first time
+		// in the subsequent iteration, the CPUTimeDelta should be incremented by process's CPUTimeDelta
+		resetCPUTime := !seen
+		containersRunning[c.ID] = ri.updateContainerCache(proc, resetCPUTime)
+	}
+
 	// Find terminated containers
-	totalContainerDelta := float64(0)
 	containersTerminated := make(map[string]*Container)
 	for id, container := range ri.containerCache {
-		if _, isRunning := containersRunning[id]; isRunning {
-			totalContainerDelta += container.CPUTimeDelta
-			continue
+		if _, isRunning := containersRunning[id]; !isRunning {
+			containersTerminated[id] = container
+			delete(ri.containerCache, id)
 		}
-		containersTerminated[id] = container
-		delete(ri.containerCache, id)
 	}
 
 	ri.containers.Running = containersRunning
 	ri.containers.Terminated = containersTerminated
 
+	return nil
+}
+
+func (ri *resourceInformer) refreshVMs(vmProcs []*Process) error {
+	vmsRunning := make(map[string]*VirtualMachine)
+
+	// Build running VMs from pre-categorized VM processes
+	for _, proc := range vmProcs {
+		vm := proc.VirtualMachine
+		vmsRunning[vm.ID] = ri.updateVMCache(proc)
+	}
+
 	// Find terminated VMs
 	vmsTerminated := make(map[string]*VirtualMachine)
 	for id, vm := range ri.vmCache {
-		if _, isRunning := vmsRunning[id]; isRunning {
-			continue
+		if _, isRunning := vmsRunning[id]; !isRunning {
+			vmsTerminated[id] = vm
+			delete(ri.vmCache, id)
 		}
-		vmsTerminated[id] = vm
-		delete(ri.vmCache, id)
 	}
 
 	ri.vms.Running = vmsRunning
 	ri.vms.Terminated = vmsTerminated
 
+	return nil
+}
+
+func (ri *resourceInformer) refreshPods() error {
+	if ri.podInformer == nil {
+		return nil
+	}
+
+	podsRunning := make(map[string]*Pod)
+	containersNoPod := []string{}
+	var refreshErrs error
+
+	for _, container := range ri.containers.Running {
+		cntrInfo, found, err := ri.podInformer.LookupByContainerID(container.ID)
+		if err != nil {
+			ri.logger.Debug("Failed to get pod for container", "container", container.ID, "error", err)
+			refreshErrs = errors.Join(refreshErrs, fmt.Errorf("failed to get pod for container: %w", err))
+			continue
+		}
+
+		if !found {
+			containersNoPod = append(containersNoPod, container.ID)
+			continue
+		}
+
+		pod := &Pod{
+			ID:        cntrInfo.PodID,
+			Name:      cntrInfo.PodName,
+			Namespace: cntrInfo.Namespace,
+		}
+		container.Pod = pod
+		container.Name = cntrInfo.ContainerName
+
+		_, seen := podsRunning[pod.ID]
+		// reset CPU Time of the pod if it is getting added to the running list for the first time
+		// in the subsequent iteration, the CPUTimeDelta should be incremented by container's CPUTimeDelta
+		resetCPUTime := !seen
+		podsRunning[pod.ID] = ri.updatePodCache(container, resetCPUTime)
+	}
+
 	// Find terminated pods
 	podsTerminated := make(map[string]*Pod)
 	for id, pod := range ri.podCache {
-		if _, isRunning := podsRunning[id]; isRunning {
-			continue
+		if _, isRunning := podsRunning[id]; !isRunning {
+			podsTerminated[id] = pod
+			delete(ri.podCache, id)
 		}
-		podsTerminated[id] = pod
-		delete(ri.podCache, id)
 	}
 
 	ri.pods.Running = podsRunning
 	ri.pods.Terminated = podsTerminated
 	ri.pods.ContainersNoPod = containersNoPod
 
+	return refreshErrs
+}
+
+func (ri *resourceInformer) refreshNode() error {
+	// Calculate total CPU delta from all running processes
+	procCPUDeltaTotal := float64(0)
+	for _, proc := range ri.processes.Running {
+		procCPUDeltaTotal += proc.CPUTimeDelta
+	}
+
+	// Get current CPU usage ratio
+	usage, err := ri.fs.CPUUsageRatio()
+	if err != nil {
+		return fmt.Errorf("failed to get procfs usage: %w", err)
+	}
+
+	ri.node.ProcessTotalCPUTimeDelta = procCPUDeltaTotal
+	ri.node.CPUUsageRatio = usage
+
+	return nil
+}
+
+// Refresh updates the internal state by scanning processes, containers, VMs, and pods.
+// This method is NOT thread-safe and should not be called concurrently.
+func (ri *resourceInformer) Refresh() error {
+	started := ri.clock.Now()
+
+	// Refresh workloads in dependency order:
+	// processes -> {
+	//   -> containers -> pod
+	//   -> VMs
+	//   -> node
+	// }
+	var refreshErrs error
+
+	containerProcs, vmProcs, err := ri.refreshProcesses()
+	if err != nil {
+		refreshErrs = errors.Join(refreshErrs, err)
+	}
+
+	// refresh containers and VMs in parallel
+	// Note: No locking needed on ri fields since refreshContainers() and refreshVMs()
+	// operate on completely disjoint data structures (containers vs VMs)
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	var cntrErrs, podErrs, vmErrs, nodeErrs error
+	go func() {
+		defer wg.Done()
+		cntrErrs = ri.refreshContainers(containerProcs)
+		podErrs = ri.refreshPods()
+	}()
+
+	go func() {
+		defer wg.Done()
+		vmErrs = ri.refreshVMs(vmProcs)
+	}()
+
+	go func() {
+		defer wg.Done()
+		nodeErrs = ri.refreshNode()
+	}()
+
+	wg.Wait()
+
+	refreshErrs = errors.Join(refreshErrs, cntrErrs, podErrs, vmErrs, nodeErrs)
+
+	// Update timing
 	now := ri.clock.Now()
 	ri.lastScanTime = now
 	duration := now.Sub(started)
 
 	ri.logger.Debug("Resource information collected",
-		"process.running", len(procsRunning),
-		"process.terminated", len(procsTerminated),
-		"container.running", len(containersRunning),
-		"container.terminated", len(containersTerminated),
-		"vm.running", len(vmsRunning),
-		"vm.terminated", len(vmsTerminated),
-		"pod.running", len(podsRunning),
-		"pod.terminated", len(podsTerminated),
-		"container.no-pod", len(containersNoPod),
+		"process.running", len(ri.processes.Running),
+		"process.terminated", len(ri.processes.Terminated),
+		"container.running", len(ri.containers.Running),
+		"container.terminated", len(ri.containers.Terminated),
+		"vm.running", len(ri.vms.Running),
+		"vm.terminated", len(ri.vms.Terminated),
+		"pod.running", len(ri.pods.Running),
+		"pod.terminated", len(ri.pods.Terminated),
+		"container.no-pod", len(ri.pods.ContainersNoPod),
 		"duration", duration)
 
 	return refreshErrs
