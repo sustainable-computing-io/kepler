@@ -3,7 +3,7 @@ name: Release
 on: #yamllint disable-line rule:truthy
   push:
     tags:
-      - v[0-9]+.[0-9]+.[0-9]+-reboot
+      - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
   release:
@@ -51,17 +51,16 @@ jobs:
         id: version
         run: |
           TAG_NAME=${{ github.ref_name }}
-          VERSION=$(echo "$TAG_NAME" | sed 's/-reboot//')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: release-${{ steps.version.outputs.version }} (reboot)
+          name: release-${{ steps.version.outputs.version }}
           generate_release_notes: true
           draft: false
-          make_latest: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
