@@ -15,7 +15,6 @@ services:
       # NOTE: Use 28282 for host
       - 28283:28282
     privileged: true
-    # pid: host
     volumes:
       - type: bind
         source: /proc
@@ -25,22 +24,33 @@ services:
         source: /sys
         target: /host/sys
         read_only: true
+      - type: bind
+        source: ./kepler-dev/etc/kepler/
+        target: /etc/kepler
+        read_only: true
+
+      # NOTE: place kubeconfig here
+      # e.g. cp $KUBECONFIG ./shared/kube/kubeconfig
+      # for kind cluster, rename host in kubeconfig to kind-control-plane:6443
+      - type: bind
+        source: ./shared/kube
+        target: /host/kube
+        read_only: true
+
     command:
-      - --log.level=debug
-      - --host.procfs=/host/proc
-      - --host.sysfs=/host/sys
+      - --config.file=/etc/kepler/config.yaml
 
     networks:
-      - kepler-network
-    # cap_add:
-    #   - ALL
+      - kepler-dev
+      # - kind  # NOTE: uncomment to use kind
 
   kepler-old:
     image: quay.io/sustainable_computing_io/kepler:latest
     privileged: true
     pid: host
     networks:
-      - kepler-network
+      - kepler-old
+      # - kind  # NOTE: uncomment to use kind
     cap_add:
       - ALL
     ports:
@@ -54,8 +64,12 @@ services:
         source: /sys
         target: /host/sys
       - type: bind
-        source: ./kepler/etc/kepler
+        source: ./kepler-old/etc/kepler
         target: /etc/kepler
+      - type: bind
+        source: ./shared/kube
+        target: /host/kube
+        read_only: true
 
     entrypoint: [/usr/bin/bash, -c]
     command:
@@ -72,7 +86,8 @@ services:
           -address "0.0.0.0:8888" \
           -disable-power-meter=$$DISABLE_POWER_METER \
           -v "8" \
-          -enable-gpu=false
+          -enable-gpu=false \
+        # -kubeconfig=/host/kube/kubeconfig
 
     environment:
       - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
@@ -130,6 +145,10 @@ services:
       - node-exporter-network
 
 networks:
-  kepler-network:
+  kepler-old:
+  kepler-dev:
   scaph-network:
   node-exporter-network:
+  # NOTE: uncomment to use kind
+  # kind:
+  #   external: true
