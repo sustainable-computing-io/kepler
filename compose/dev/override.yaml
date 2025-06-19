@@ -15,8 +15,9 @@ services:
         target: /etc/prometheus/scrape-configs/dev.yaml
 
     networks:
+      - kepler-old
+      - kepler-dev
       - scaph-network
-      - kepler-network
       - node-exporter-network
     extra_hosts:
       - host.docker.internal:host-gateway
