@@ -4,6 +4,8 @@
 package monitor
 
 import (
+	"maps"
+
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -11,8 +13,29 @@ import (
 func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 	running := pm.resources.Processes().Running
 	processes := make(Processes, len(running))
+
+	zones := snapshot.Node.Zones
+	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
+
 	for pid, proc := range running {
-		processes[pid] = newProcess(proc, snapshot.Node.Zones)
+		process := newProcess(proc, zones)
+
+		// Calculate initial energy based on CPU ratio * nodeActiveEnergy
+		for zone, nodeZoneUsage := range zones {
+			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				continue
+			}
+
+			cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
+			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
+
+			process.Zones[zone] = Usage{
+				Power:       Power(0), // No power in first read - no delta time to calculate rate
+				EnergyTotal: activeEnergy,
+			}
+		}
+
+		processes[pid] = process
 	}
 	snapshot.Processes = processes
 
@@ -56,10 +79,6 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error {
 	procs := pm.resources.Processes()
 	running := procs.Running
-	if len(running) == 0 {
-		pm.logger.Debug("No running processes found, skipping process power calculation")
-		return nil
-	}
 
 	zones := newSnapshot.Node.Zones
 	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
@@ -70,6 +89,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	// Initialize process map
 	processMap := make(Processes, len(running))
+
+	if len(running) == 0 {
+		// this is odd!
+		pm.logger.Warn("No running processes found, skipping running process power calculation")
+	}
 
 	for pid, proc := range running {
 		process := newProcess(proc, zones)
@@ -111,9 +135,36 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		processMap[pid] = process
 	}
 
-	// Update the snapshot
+	// Update the snapshot of running processes
 	newSnapshot.Processes = processMap
-	pm.logger.Debug("snapshot updated for process", "process", len(newSnapshot.Processes))
+
+	// Copy existing terminated processes from previous snapshot if not exported
+	if !pm.exported.Load() {
+		// NOTE: no need to deep clone since already terminated processes won't be updated
+		maps.Copy(newSnapshot.TerminatedProcesses, prev.TerminatedProcesses)
+	}
+
+	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
+	for pid := range procs.Terminated {
+		prevProcess, exists := prev.Processes[pid]
+		if !exists {
+			continue
+		}
+
+		// Only include terminated processes that have consumed energy
+		if prevProcess.Zones.HasZeroEnergy() {
+			pm.logger.Debug("Filtering out terminated process with zero energy", "pid", pid)
+			continue
+		}
+		pm.logger.Debug("Including terminated process with non-zero energy", "pid", pid)
+
+		terminatedProcess := prevProcess.Clone()
+		newSnapshot.TerminatedProcesses[pid] = terminatedProcess
+	}
+
+	pm.logger.Debug("snapshot updated for process",
+		"running", len(newSnapshot.Processes),
+		"terminated", len(newSnapshot.TerminatedProcesses))
 
 	return nil
 }

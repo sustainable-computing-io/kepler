@@ -122,8 +122,8 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 			"CPU usage ratio of a node (value between 0.0 and 1.0)",
 			nil, prometheus.Labels{nodeNameLabel: nodeName}),
 
-		processCPUJoulesDescriptor: joulesDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
-		processCPUWattsDescriptor:  wattsDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID, zone}),
+		processCPUJoulesDescriptor: joulesDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", "state", cntrID, vmID, zone}),
+		processCPUWattsDescriptor:  wattsDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", "state", cntrID, vmID, zone}),
 		processCPUTimeDescriptor:   timeDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID}),
 
 		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", zone, podID}),
@@ -206,7 +206,9 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	c.collectNodeMetrics(ch, snapshot.Node)
-	c.collectProcessMetrics(ch, snapshot.Processes)
+	c.collectProcessMetrics(ch, "running", snapshot.Processes)
+	c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses)
+
 	c.collectContainerMetrics(ch, snapshot.Containers)
 	c.collectVMMetrics(ch, snapshot.VirtualMachines)
 	c.collectPodMetrics(ch, snapshot.Pods)
@@ -272,9 +274,9 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 }
 
 // collectProcessMetrics collects process-level power metrics
-func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, processes monitor.Processes) {
+func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, state string, processes monitor.Processes) {
 	if len(processes) == 0 {
-		c.logger.Debug("No processes to export metrics for")
+		c.logger.Debug("No processes to export metrics", "state", state)
 		return
 	}
 
@@ -296,7 +298,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, proc
 				c.processCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				pidStr, proc.Comm, proc.Exe, string(proc.Type),
+				pidStr, proc.Comm, proc.Exe, string(proc.Type), state,
 				proc.ContainerID, proc.VirtualMachineID,
 				zoneName,
 			)
@@ -305,7 +307,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, proc
 				c.processCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				pidStr, proc.Comm, proc.Exe, string(proc.Type),
+				pidStr, proc.Comm, proc.Exe, string(proc.Type), state,
 				proc.ContainerID, proc.VirtualMachineID,
 				zoneName,
 			)

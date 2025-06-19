@@ -51,6 +51,15 @@ type PowerMonitor struct {
 	computeGroup singleflight.Group
 	snapshot     atomic.Pointer[Snapshot]
 
+	// exported tracks if the current snapshot has been exported (through Snapshot).
+	// This flag is used to clear the terminated processes from the snapshot in
+	// the next collection cycle
+	//
+	// NOTE: This is kept outside the Snapshot struct to avoid data races
+	// since Snapshots are immutable once created but need to track their export
+	// state atomically across goroutines.
+	exported atomic.Bool
+
 	zonesNames []string // cache of all zones
 
 	// For managing the collection loop
@@ -140,6 +149,11 @@ func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
 	if snapshot == nil {
 		return nil, fmt.Errorf("failed to get snapshot")
 	}
+
+	// mark snapshot as exported so that the terminated processes are cleared
+	// in the next collection
+	pm.exported.Store(true)
+
 	return snapshot.Clone(), nil
 }
 
@@ -277,6 +291,9 @@ func (pm *PowerMonitor) refreshSnapshot() error {
 			return err
 		}
 	}
+
+	// Reset exported to keep track of terminated processes until Snapshot is exported
+	pm.exported.Store(false)
 
 	// Update snapshot with current timestamp
 	newSnapshot.Timestamp = pm.clock.Now()
