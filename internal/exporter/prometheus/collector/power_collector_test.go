@@ -5,8 +5,10 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,20 +66,108 @@ func (m *MockPowerMonitor) TriggerUpdate() {
 	}
 }
 
-func assertMetricLabelValues(t *testing.T, registry *prometheus.Registry, metricName string, expectedLabels map[string]string) {
+// assertMetricLabelValues finds a specific metric by matching all provided labels and checks its value
+func assertMetricLabelValues(t *testing.T, registry *prometheus.Registry, metricName string, matchLabels map[string]string, expectedValue float64) {
+	t.Helper()
 	metrics, err := registry.Gather()
 	assert.NoError(t, err)
 
-	for _, metric := range metrics {
-		if metric.GetName() == metricName {
-			for _, m := range metric.GetMetric() {
-				for labelName, expectedValue := range expectedLabels {
-					actualValue := valueOfLabel(m, labelName)
-					assert.Equal(t, expectedValue, actualValue, "%s should have %s label with value %s", metricName, labelName, expectedValue)
+	var availableMetrics []string
+	var labelMismatches []string
+
+	for _, mf := range metrics {
+		if mf.GetName() != metricName {
+			continue
+		}
+
+		for _, metric := range mf.GetMetric() {
+			// Check if all provided labels match before proceeding
+			allLabelsMatch := true
+			var mismatches []string
+
+			for labelName, expectedLabelValue := range matchLabels {
+				actualLabelValue := valueOfLabel(metric, labelName)
+				if actualLabelValue != expectedLabelValue {
+					allLabelsMatch = false
+					if actualLabelValue == "" {
+						mismatches = append(mismatches, fmt.Sprintf("%s: missing", labelName))
+					} else {
+						mismatches = append(mismatches, fmt.Sprintf("%s: expected '%s', got '%s'", labelName, expectedLabelValue, actualLabelValue))
+					}
+				}
+			}
+
+			// Track this metric for error reporting
+			metricLabels := make(map[string]string)
+			for _, label := range metric.GetLabel() {
+				metricLabels[label.GetName()] = label.GetValue()
+			}
+			availableMetrics = append(availableMetrics, fmt.Sprintf("  %v", metricLabels))
+
+			// Skip this metric if not all labels match
+			if !allLabelsMatch {
+				labelMismatches = append(labelMismatches, fmt.Sprintf("  %v -> mismatches: [%s]", metricLabels, strings.Join(mismatches, ", ")))
+				continue
+			}
+
+			// All labels match, now check the value
+			var actualValue float64
+			if metric.GetCounter() != nil {
+				actualValue = metric.GetCounter().GetValue()
+			} else if metric.GetGauge() != nil {
+				actualValue = metric.GetGauge().GetValue()
+			} else {
+				t.Errorf("Metric %s has neither Counter nor Gauge value", metricName)
+				return
+			}
+
+			assert.Equal(t, expectedValue, actualValue,
+				"Metric %s with labels %v should have value %f but got %f",
+				metricName, matchLabels, expectedValue, actualValue)
+
+			// Found the matching metric and validated value
+			return
+		}
+	}
+
+	// Build detailed error message
+	errorMsg := fmt.Sprintf("Metric %s with labels %v not found", metricName, matchLabels)
+	if len(availableMetrics) > 0 {
+		errorMsg += fmt.Sprintf("\nAvailable metrics for %s:\n%s", metricName, strings.Join(availableMetrics, "\n"))
+	}
+	if len(labelMismatches) > 0 {
+		errorMsg += fmt.Sprintf("\nLabel mismatches found:\n%s", strings.Join(labelMismatches, "\n"))
+	}
+
+	t.Error(errorMsg)
+}
+
+// assertMetricExists verifies that a metric with the given labels exists
+func assertMetricExists(t *testing.T, registry *prometheus.Registry, metricName string, matchLabels map[string]string) {
+	metrics, err := registry.Gather()
+	assert.NoError(t, err)
+
+	for _, metricFamily := range metrics {
+		if metricFamily.GetName() == metricName {
+			for _, metric := range metricFamily.GetMetric() {
+				// Check if all provided labels match
+				allLabelsMatch := true
+				for labelName, expectedLabelValue := range matchLabels {
+					actualLabelValue := valueOfLabel(metric, labelName)
+					if actualLabelValue != expectedLabelValue {
+						allLabelsMatch = false
+						break
+					}
+				}
+
+				if allLabelsMatch {
+					return // Found the metric
 				}
 			}
 		}
 	}
+
+	t.Errorf("Metric %s with labels %v not found", metricName, matchLabels)
 }
 
 func TestPowerCollector(t *testing.T) {
@@ -351,8 +441,8 @@ func TestPowerCollector(t *testing.T) {
 			"type":      "regular",
 			"zone":      "package-0",
 		}
-		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total", expectedLabels)
-		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total", expectedLabels, 100.0)
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts", expectedLabels, 5.0)
 	})
 
 	t.Run("Container Metrics Labels", func(t *testing.T) {
@@ -363,8 +453,8 @@ func TestPowerCollector(t *testing.T) {
 			"runtime":        "podman",
 			"zone":           "package-0",
 		}
-		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels)
-		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels, 100.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels, 5.0)
 	})
 
 	t.Run("VM Metrics Labels", func(t *testing.T) {
@@ -375,8 +465,8 @@ func TestPowerCollector(t *testing.T) {
 			"hypervisor": "kvm",
 			"zone":       "package-0",
 		}
-		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total", expectedLabels)
-		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total", expectedLabels, 100.0)
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts", expectedLabels, 5.0)
 	})
 
 	t.Run("Pod Metrics Labels", func(t *testing.T) {
@@ -387,8 +477,8 @@ func TestPowerCollector(t *testing.T) {
 			"pod_namespace": "default",
 			"zone":          "package-0",
 		}
-		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels)
-		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels)
+		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels, 100.0)
+		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
 	})
 
 	// Verify mock expectations
@@ -416,4 +506,179 @@ func metricNames(metrics []*dto.MetricFamily) []string {
 		}
 	}
 	return names
+}
+
+func TestTerminatedProcessExport(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockMonitor := NewMockPowerMonitor()
+
+	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+
+	testSnapshot := &monitor.Snapshot{
+		Timestamp: time.Now(),
+		Node: &monitor.Node{
+			Zones: monitor.NodeZoneUsageMap{
+				packageZone: monitor.NodeUsage{
+					EnergyTotal: 1000 * device.Joule,
+					Power:       10 * device.Watt,
+				},
+			},
+		},
+		Processes: monitor.Processes{
+			123: &monitor.Process{
+				PID:          123,
+				Comm:         "running-proc",
+				Exe:          "/usr/bin/running-proc",
+				Type:         resource.RegularProcess,
+				CPUTotalTime: 5.0,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 100 * device.Joule,
+						Power:       5 * device.Watt,
+					},
+				},
+				ContainerID:      "",
+				VirtualMachineID: "",
+			},
+		},
+		TerminatedProcesses: monitor.Processes{
+			456: &monitor.Process{
+				PID:          456,
+				Comm:         "terminated-proc",
+				Exe:          "/usr/bin/terminated-proc",
+				Type:         resource.RegularProcess,
+				CPUTotalTime: 10.0,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 200 * device.Joule,
+						Power:       20 * device.Watt,
+					},
+				},
+				ContainerID:      "",
+				VirtualMachineID: "",
+			},
+		},
+		Containers:      monitor.Containers{},
+		VirtualMachines: monitor.VirtualMachines{},
+		Pods:            monitor.Pods{},
+	}
+
+	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
+
+	collector := NewPowerCollector(mockMonitor, "test-node", logger)
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collector)
+
+	mockMonitor.TriggerUpdate()
+	time.Sleep(10 * time.Millisecond)
+
+	t.Run("Terminated Process Metrics Export", func(t *testing.T) {
+		// Test running process metrics
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"pid": "123", "state": "running"}, 100.0)
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts",
+			map[string]string{"pid": "123", "state": "running"}, 5.0)
+
+		// Test terminated process metrics
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"pid": "456", "state": "terminated"}, 200.0)
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts",
+			map[string]string{"pid": "456", "state": "terminated"}, 20.0)
+
+		// Test additional labels for running process
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"pid": "123", "comm": "running-proc", "exe": "/usr/bin/running-proc", "type": "regular"}, 100.0)
+
+		// Test additional labels for terminated process
+		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"pid": "456", "comm": "terminated-proc", "exe": "/usr/bin/terminated-proc", "type": "regular"}, 200.0)
+	})
+
+	t.Run("Process State Labels", func(t *testing.T) {
+		// Verify that the state label exists and has correct values
+		assertMetricExists(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_process_cpu_joules_total",
+			map[string]string{"state": "terminated"})
+
+		// Also verify for watts metrics
+		assertMetricExists(t, registry, "kepler_process_cpu_watts",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_process_cpu_watts",
+			map[string]string{"state": "terminated"})
+	})
+
+	mockMonitor.AssertExpectations(t)
+}
+
+func TestEnhancedErrorReporting(t *testing.T) {
+	t.Skip("This test demonstrates enhanced error reporting - skipped by default")
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockMonitor := NewMockPowerMonitor()
+
+	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+
+	testSnapshot := &monitor.Snapshot{
+		Timestamp: time.Now(),
+		Node: &monitor.Node{
+			Zones: monitor.NodeZoneUsageMap{
+				packageZone: monitor.NodeUsage{
+					EnergyTotal: 1000 * device.Joule,
+					Power:       10 * device.Watt,
+				},
+			},
+		},
+		Processes: monitor.Processes{
+			123: &monitor.Process{
+				PID:          123,
+				Comm:         "actual-proc",
+				Exe:          "/usr/bin/actual-proc",
+				Type:         resource.RegularProcess,
+				CPUTotalTime: 5.0,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 100 * device.Joule,
+						Power:       5 * device.Watt,
+					},
+				},
+				ContainerID:      "actual-container",
+				VirtualMachineID: "",
+			},
+		},
+		TerminatedProcesses: monitor.Processes{
+			456: &monitor.Process{
+				PID:          456,
+				Comm:         "terminated-proc",
+				Exe:          "/usr/bin/terminated-proc",
+				Type:         resource.RegularProcess,
+				CPUTotalTime: 10.0,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 200 * device.Joule,
+						Power:       20 * device.Watt,
+					},
+				},
+				ContainerID:      "",
+				VirtualMachineID: "",
+			},
+		},
+		Containers:      monitor.Containers{},
+		VirtualMachines: monitor.VirtualMachines{},
+		Pods:            monitor.Pods{},
+	}
+
+	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
+	collector := NewPowerCollector(mockMonitor, "test-node", logger)
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collector)
+	mockMonitor.TriggerUpdate()
+	time.Sleep(10 * time.Millisecond)
+
+	// This should fail and show detailed error reporting
+	assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total",
+		map[string]string{"pid": "999", "state": "nonexistent", "comm": "missing-proc"}, 100.0)
+
+	mockMonitor.AssertExpectations(t)
 }

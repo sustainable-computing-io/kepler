@@ -407,3 +407,328 @@ func TestProcessPowerConsistency(t *testing.T) {
 
 	mockMeter.AssertExpectations(t)
 }
+
+func TestTerminatedProcessTracking(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+
+	resInformer := &MockResourceInformer{}
+
+	monitor := &PowerMonitor{
+		logger:    logger,
+		cpu:       mockMeter,
+		clock:     fakeClock,
+		resources: resInformer,
+	}
+
+	err := monitor.initZones()
+	require.NoError(t, err)
+
+	t.Run("terminated process energy accumulation", func(t *testing.T) {
+		// Step 1: Create initial snapshot with running processes
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Create initial processes - all running
+		procs1 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				123: {PID: 123, Comm: "process1", Exe: "/usr/bin/process1", CPUTotalTime: 100.0, CPUTimeDelta: 30.0},
+				456: {PID: 456, Comm: "process2", Exe: "/usr/bin/process2", CPUTotalTime: 150.0, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[int]*resource.Process{},
+		}
+
+		tr1 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs1).Once()
+
+		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		runningProc123 := snapshot1.Processes[123]
+		require.NotNil(t, runningProc123, "Process 123 should exist in running processes")
+
+		// Store expected values for terminated process validation
+		expectedEnergyValues := make(map[string]Energy)
+		expectedPowerValues := make(map[string]Power)
+		for zone, usage := range runningProc123.Zones {
+			expectedEnergyValues[zone.Name()] = usage.EnergyTotal
+			expectedPowerValues[zone.Name()] = usage.Power
+		}
+
+		// Step 2: Create second snapshot where process 123 terminates
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		// Process 123 is now terminated, process 456 still running
+		procs2 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				456: {PID: 456, Comm: "process2", Exe: "/usr/bin/process2", CPUTotalTime: 170.0, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[int]*resource.Process{
+				123: {PID: 123, Comm: "process1", Exe: "/usr/bin/process1", CPUTotalTime: 130.0, CPUTimeDelta: 30.0},
+			},
+		}
+
+		tr2 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr2.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs2).Once()
+
+		err = monitor.calculateProcessPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		// Step 3: Validate running processes
+		assert.Len(t, snapshot2.Processes, 1)
+		assert.Contains(t, snapshot2.Processes, 456)
+		assert.NotContains(t, snapshot2.Processes, 123, "Process 123 should no longer be in running processes")
+
+		// Step 4: Validate terminated processes - CORE BUSINESS LOGIC
+		assert.Len(t, snapshot2.TerminatedProcesses, 1, "Terminated processes should be tracked")
+		assert.Contains(t, snapshot2.TerminatedProcesses, 123, "Process 123 should be in terminated processes")
+
+		terminatedProc123, exists := snapshot2.TerminatedProcesses[123]
+		require.True(t, exists, "Process 123 should exist in terminated processes")
+
+		// TEST: Energy and power values are EXACTLY preserved from when process was running
+		for _, zone := range zones {
+			terminatedUsage := terminatedProc123.Zones[zone]
+			zoneName := zone.Name()
+
+			// The terminated process should have EXACTLY the same energy as when it was last running
+			assert.Equal(t, expectedEnergyValues[zoneName], terminatedUsage.EnergyTotal,
+				"Terminated process energy should be preserved from last running state for zone %s", zoneName)
+
+			// The terminated process should have EXACTLY the same power as when it was last running
+			assert.Equal(t, expectedPowerValues[zoneName], terminatedUsage.Power,
+				"Terminated process power should be preserved from last running state for zone %s", zoneName)
+		}
+
+		// Step 5: Validate process metadata is preserved
+		assert.Equal(t, runningProc123.PID, terminatedProc123.PID)
+		assert.Equal(t, runningProc123.Comm, terminatedProc123.Comm)
+		assert.Equal(t, runningProc123.Exe, terminatedProc123.Exe)
+		assert.Equal(t, runningProc123.ContainerID, terminatedProc123.ContainerID)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated process cleanup after export", func(t *testing.T) {
+		// Reset monitor state
+		monitor.exported.Store(false)
+
+		// Create snapshot with terminated process
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Add a terminated process from a previous calculation
+		snapshot1.TerminatedProcesses[999] = &Process{
+			PID:   999,
+			Comm:  "old-terminated",
+			Zones: make(ZoneUsageMap),
+		}
+		for _, zone := range zones {
+			snapshot1.TerminatedProcesses[999].Zones[zone] = Usage{
+				EnergyTotal: 50 * Joule,
+				Power:       10 * Watt,
+			}
+		}
+
+		// Create next snapshot with no new terminated processes
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		procs := &resource.Processes{
+			Running: map[int]*resource.Process{
+				100: {PID: 100, Comm: "running", CPUTimeDelta: 10.0},
+			},
+			Terminated: map[int]*resource.Process{}, // No new terminated processes
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
+
+		// Before export terminated processes should be preserved
+		monitor.exported.Store(false)
+		err := monitor.calculateProcessPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		assert.Len(t, snapshot2.TerminatedProcesses, 1, "Terminated processes should be preserved before export")
+		assert.Contains(t, snapshot2.TerminatedProcesses, 999)
+
+		// After export, terminated processes should be cleaned up
+		monitor.exported.Store(true)
+		snapshot3 := NewSnapshot()
+		snapshot3.Node = createNodeSnapshot(zones, fakeClock.Now().Add(2*time.Second), 0.5)
+
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
+
+		err = monitor.calculateProcessPower(snapshot2, snapshot3)
+		require.NoError(t, err)
+
+		assert.Len(t, snapshot3.TerminatedProcesses, 0, "Terminated processes should be cleaned up after export")
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("multiple terminated processes accumulation", func(t *testing.T) {
+		// Reset monitor state
+		monitor.exported.Store(false)
+
+		// Create initial snapshot with multiple running processes
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		procs1 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				100: {PID: 100, Comm: "proc1", CPUTimeDelta: 10.0},
+				200: {PID: 200, Comm: "proc2", CPUTimeDelta: 20.0},
+				300: {PID: 300, Comm: "proc3", CPUTimeDelta: 30.0},
+			},
+			Terminated: map[int]*resource.Process{},
+		}
+
+		tr1 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs1).Once()
+
+		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		// Capture running process values
+		runningValues := make(map[int]map[string]Usage)
+		for pid, proc := range snapshot1.Processes {
+			runningValues[pid] = make(map[string]Usage)
+			for zone, usage := range proc.Zones {
+				runningValues[pid][zone.Name()] = usage
+			}
+		}
+
+		// Create second snapshot where processes 100 and 200 terminate
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		procs2 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				300: {PID: 300, Comm: "proc3", CPUTimeDelta: 35.0}, // Still running
+			},
+			Terminated: map[int]*resource.Process{
+				100: {PID: 100, Comm: "proc1", CPUTimeDelta: 10.0},
+				200: {PID: 200, Comm: "proc2", CPUTimeDelta: 20.0},
+			},
+		}
+
+		tr2 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr2.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs2).Once()
+
+		err = monitor.calculateProcessPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		// Validate multiple terminated processes
+		assert.Len(t, snapshot2.TerminatedProcesses, 2, "Both terminated processes should be tracked")
+		assert.Contains(t, snapshot2.TerminatedProcesses, 100)
+		assert.Contains(t, snapshot2.TerminatedProcesses, 200)
+		assert.Len(t, snapshot2.Processes, 1, "Only one process should still be running")
+		assert.Contains(t, snapshot2.Processes, 300)
+
+		// Validate each terminated process preserves exact values
+		for _, pid := range []int{100, 200} {
+			terminatedProc := snapshot2.TerminatedProcesses[pid]
+			require.NotNil(t, terminatedProc, "Terminated process %d should exist", pid)
+
+			for _, zone := range zones {
+				terminatedUsage := terminatedProc.Zones[zone]
+				expectedUsage := runningValues[pid][zone.Name()]
+
+				assert.Equal(t, expectedUsage.EnergyTotal, terminatedUsage.EnergyTotal,
+					"Process %d zone %s energy should be preserved", pid, zone.Name())
+				assert.Equal(t, expectedUsage.Power, terminatedUsage.Power,
+					"Process %d zone %s power should be preserved", pid, zone.Name())
+			}
+		}
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated process with zero energy filtering", func(t *testing.T) {
+		// NOTE: Reset monitor state
+		monitor.exported.Store(false)
+
+		// Step 1: Create initial snapshot and populate it using calculateProcessPower
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Create initial processes - all running
+		procs1 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				100: {PID: 100, Comm: "active-process", Exe: "/usr/bin/active", CPUTotalTime: 100.0, CPUTimeDelta: 30.0},
+				200: {PID: 200, Comm: "idle-process", Exe: "/usr/bin/idle", CPUTotalTime: 50.0, CPUTimeDelta: 0.0}, // Zero CPU delta = zero energy
+			},
+			Terminated: map[int]*resource.Process{},
+		}
+
+		tr1 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs1).Once()
+
+		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		// Verify initial state: process 100 has energy, process 200 has zero energy
+		require.Contains(t, snapshot1.Processes, 100)
+		require.Contains(t, snapshot1.Processes, 200)
+
+		process100 := snapshot1.Processes[100]
+		process200 := snapshot1.Processes[200]
+
+		// Process 100 should have energy due to CPU usage
+		assert.False(t, process100.Zones.HasZeroEnergy(), "Process 100 should have non-zero energy")
+
+		// Process 200 should have zero energy due to zero CPU delta
+		assert.True(t, process200.Zones.HasZeroEnergy(), "Process 200 should have zero energy")
+
+		// Step 2: Create snapshot where both processes terminate
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		// Both processes are now terminated
+		procs2 := &resource.Processes{
+			Running: map[int]*resource.Process{}, // No running processes
+			Terminated: map[int]*resource.Process{
+				100: {PID: 100, Comm: "active-process", Exe: "/usr/bin/active"},
+				200: {PID: 200, Comm: "idle-process", Exe: "/usr/bin/idle"},
+			},
+		}
+
+		tr2 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr2.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs2).Once()
+
+		err = monitor.calculateProcessPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		// TEST:  Only process with non-zero energy should be in terminated processes
+		assert.Len(t, snapshot2.TerminatedProcesses, 1, "Only process with non-zero energy should be in terminated processes")
+		assert.Contains(t, snapshot2.TerminatedProcesses, 100, "Process 100 (with energy) should be in terminated processes")
+		assert.NotContains(t, snapshot2.TerminatedProcesses, 200, "Process 200 (zero energy) should be filtered out")
+
+		// TEST: verify the included process has correct energy values
+		terminatedProc100 := snapshot2.TerminatedProcesses[100]
+		require.NotNil(t, terminatedProc100)
+
+		for _, zone := range zones {
+			usage := terminatedProc100.Zones[zone]
+			assert.Greater(t, usage.EnergyTotal.Joules(), 0.0, "Process 100 should have non-zero energy")
+		}
+
+		resInformer.AssertExpectations(t)
+	})
+
+	mockMeter.AssertExpectations(t)
+}

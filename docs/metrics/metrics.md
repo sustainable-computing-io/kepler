@@ -138,6 +138,7 @@ These metrics provide energy and power information for individual processes.
   - `comm`
   - `exe`
   - `type`
+  - `state`
   - `container_id`
   - `vm_id`
   - `zone`
@@ -167,6 +168,7 @@ These metrics provide energy and power information for individual processes.
   - `comm`
   - `exe`
   - `type`
+  - `state`
   - `container_id`
   - `vm_id`
   - `zone`
