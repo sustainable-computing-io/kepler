@@ -19,6 +19,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -40,7 +41,7 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
-	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
 
 	assert.NoError(t, fakeMonitor.Init())
 
@@ -155,7 +156,7 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 	}
 	mockMonitor.On("Snapshot").Return(snapshot, nil)
 
-	collector := NewPowerCollector(mockMonitor, "test-node", newLogger())
+	collector := NewPowerCollector(mockMonitor, "test-node", newLogger(), metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
 	mockMonitor.TriggerUpdate()
 	time.Sleep(10 * time.Millisecond)
 
@@ -261,7 +262,7 @@ func TestUpdateDuringCollection(t *testing.T) {
 			},
 		}, nil)
 
-	collector := NewPowerCollector(mockMonitor, "test-node", newLogger())
+	collector := NewPowerCollector(mockMonitor, "test-node", newLogger(), metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
 	mockMonitor.TriggerUpdate() // collector should now start building descriptors
 	time.Sleep(10 * time.Millisecond)
 
@@ -332,7 +333,7 @@ func TestConcurrentRegistration(t *testing.T) {
 		monitor.WithResourceInformer(ri),
 	)
 
-	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
 	assert.NoError(t, fakeMonitor.Init())
 
 	go func() {
@@ -388,7 +389,7 @@ func TestFastCollectAndDescribe(t *testing.T) {
 		musT(device.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
-	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger())
+	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
 
 	assert.NoError(t, fakeMonitor.Init())
 

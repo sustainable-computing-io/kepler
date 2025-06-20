@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 )
@@ -31,6 +32,7 @@ type Opts struct {
 	collectors      map[string]prom.Collector
 	procfs          string
 	nodeName        string
+	metricsLevel    metrics.Level
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -40,7 +42,8 @@ func DefaultOpts() Opts {
 		debugCollectors: map[string]bool{
 			"go": true,
 		},
-		collectors: map[string]prom.Collector{},
+		collectors:   map[string]prom.Collector{},
+		metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
 	}
 }
 
@@ -82,6 +85,12 @@ func WithCollectors(c map[string]prom.Collector) OptionFn {
 func WithNodeName(nodeName string) OptionFn {
 	return func(o *Opts) {
 		o.nodeName = nodeName
+	}
+}
+
+func WithMetricsLevel(level metrics.Level) OptionFn {
+	return func(o *Opts) {
+		o.metricsLevel = level
 	}
 }
 
@@ -129,15 +138,16 @@ func collectorForName(name string) (prom.Collector, error) {
 
 func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collector, error) {
 	opts := Opts{
-		logger: slog.Default(),
-		procfs: "/proc",
+		logger:       slog.Default(),
+		procfs:       "/proc",
+		metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
 	}
 	for _, apply := range applyOpts {
 		apply(&opts)
 	}
 	collectors := map[string]prom.Collector{
 		"build_info": collector.NewKeplerBuildInfoCollector(),
-		"power":      collector.NewPowerCollector(pm, opts.nodeName, opts.logger),
+		"power":      collector.NewPowerCollector(pm, opts.nodeName, opts.logger, opts.metricsLevel),
 	}
 	cpuInfoCollector, err := collector.NewCPUInfoCollector(opts.procfs)
 	if err != nil {

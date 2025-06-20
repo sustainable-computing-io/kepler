@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -20,8 +21,9 @@ type PowerDataProvider = monitor.PowerDataProvider
 // PowerCollector combines Node, Process, and Container collectors to ensure data consistency
 // by fetching all data in a single atomic operation during collection
 type PowerCollector struct {
-	pm     PowerDataProvider
-	logger *slog.Logger
+	pm           PowerDataProvider
+	logger       *slog.Logger
+	metricsLevel metrics.Level
 
 	// Lock to ensure thread safety during collection
 	mutex sync.RWMutex
@@ -95,7 +97,7 @@ func timeDesc(level, device, nodeName string, labels []string) *prometheus.Desc 
 
 // NewPowerCollector creates a collector that provides consistent metrics
 // by fetching all data in a single snapshot during collection
-func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.Logger) *PowerCollector {
+func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.Logger, metricsLevel metrics.Level) *PowerCollector {
 	const (
 		// these labels should remain the same across all descriptors to ease querying
 		zone   = "zone"
@@ -105,8 +107,9 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 	)
 
 	c := &PowerCollector{
-		pm:     monitor,
-		logger: logger.With("collector", "power"),
+		pm:           monitor,
+		logger:       logger.With("collector", "power"),
+		metricsLevel: metricsLevel,
 
 		nodeCPUJoulesDescriptor: joulesDesc("node", "cpu", nodeName, []string{zone, "path"}),
 		nodeCPUWattsDescriptor:  wattsDesc("node", "cpu", nodeName, []string{zone, "path"}),
@@ -151,33 +154,43 @@ func (c *PowerCollector) waitForData() {
 // Describe implements the prometheus.Collector interface
 func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	// node
-	ch <- c.nodeCPUJoulesDescriptor
-	ch <- c.nodeCPUWattsDescriptor
-	ch <- c.nodeCPUUsageRatioDescriptor
-	// node cpu active
-	ch <- c.nodeCPUActiveJoulesDesc
-	ch <- c.nodeCPUActiveWattsDesc
-	// node cpu idle
-	ch <- c.nodeCPUIdleJoulesDesc
-	ch <- c.nodeCPUIdleWattsDesc
+	if c.metricsLevel.IsNodeEnabled() {
+		ch <- c.nodeCPUJoulesDescriptor
+		ch <- c.nodeCPUWattsDescriptor
+		ch <- c.nodeCPUUsageRatioDescriptor
+		// node cpu active
+		ch <- c.nodeCPUActiveJoulesDesc
+		ch <- c.nodeCPUActiveWattsDesc
+		// node cpu idle
+		ch <- c.nodeCPUIdleJoulesDesc
+		ch <- c.nodeCPUIdleWattsDesc
+	}
 
 	// process
-	ch <- c.processCPUJoulesDescriptor
-	ch <- c.processCPUWattsDescriptor
-	ch <- c.processCPUTimeDescriptor
+	if c.metricsLevel.IsProcessEnabled() {
+		ch <- c.processCPUJoulesDescriptor
+		ch <- c.processCPUWattsDescriptor
+		ch <- c.processCPUTimeDescriptor
+	}
 
 	// container
-	ch <- c.containerCPUJoulesDescriptor
-	ch <- c.containerCPUWattsDescriptor
-	// ch <- c.containerCPUTimeDescriptor // TODO: add conntainerCPUTimeDescriptor
+	if c.metricsLevel.IsContainerEnabled() {
+		ch <- c.containerCPUJoulesDescriptor
+		ch <- c.containerCPUWattsDescriptor
+		// ch <- c.containerCPUTimeDescriptor // TODO: add conntainerCPUTimeDescriptor
+	}
 
 	// vm
-	ch <- c.vmCPUJoulesDescriptor
-	ch <- c.vmCPUWattsDescriptor
+	if c.metricsLevel.IsVMEnabled() {
+		ch <- c.vmCPUJoulesDescriptor
+		ch <- c.vmCPUWattsDescriptor
+	}
 
 	// pod
-	ch <- c.podCPUJoulesDescriptor
-	ch <- c.podCPUWattsDescriptor
+	if c.metricsLevel.IsPodEnabled() {
+		ch <- c.podCPUJoulesDescriptor
+		ch <- c.podCPUWattsDescriptor
+	}
 }
 
 func (c *PowerCollector) isReady() bool {
@@ -205,13 +218,26 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	c.collectNodeMetrics(ch, snapshot.Node)
-	c.collectProcessMetrics(ch, "running", snapshot.Processes)
-	c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses)
+	if c.metricsLevel.IsNodeEnabled() {
+		c.collectNodeMetrics(ch, snapshot.Node)
+	}
 
-	c.collectContainerMetrics(ch, snapshot.Containers)
-	c.collectVMMetrics(ch, snapshot.VirtualMachines)
-	c.collectPodMetrics(ch, snapshot.Pods)
+	if c.metricsLevel.IsProcessEnabled() {
+		c.collectProcessMetrics(ch, "running", snapshot.Processes)
+		c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses)
+	}
+
+	if c.metricsLevel.IsContainerEnabled() {
+		c.collectContainerMetrics(ch, snapshot.Containers)
+	}
+
+	if c.metricsLevel.IsVMEnabled() {
+		c.collectVMMetrics(ch, snapshot.VirtualMachines)
+	}
+
+	if c.metricsLevel.IsPodEnabled() {
+		c.collectPodMetrics(ch, snapshot.Pods)
+	}
 }
 
 // collectNodeMetrics collects node-level power metrics

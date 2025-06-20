@@ -194,11 +194,15 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer *server.APIServer, pm *monitor.PowerMonitor) (*prometheus.Exporter, error) {
 	logger.Debug("Creating Prometheus exporter")
 
+	// Use metrics level from configuration (already parsed)
+	metricsLevel := cfg.Exporter.Prometheus.MetricsLevel
+
 	collectors, err := prometheus.CreateCollectors(
 		pm,
 		prometheus.WithLogger(logger),
 		prometheus.WithProcFSPath(cfg.Host.ProcFS),
 		prometheus.WithNodeName(cfg.Kube.Node),
+		prometheus.WithMetricsLevel(metricsLevel),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)
