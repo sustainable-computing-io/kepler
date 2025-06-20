@@ -105,6 +105,12 @@ func parseArgsAndConfig() (*config.Config, error) {
 		return nil, err
 	}
 
+	// Validate config before run
+	if err := cfg.Validate(); err != nil {
+		logger.Error("Error validate command line flags", "error", err.Error())
+		return nil, err
+	}
+
 	return cfg, nil
 }
 

@@ -67,9 +67,9 @@ log:
 `
 	reader := strings.NewReader(yamlData)
 	cfg, err := Load(reader)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	err = cfg.Validate()
 	assert.Contains(t, err.Error(), "invalid configuration")
-	assert.Nil(t, cfg)
 }
 
 func TestCommandLinePrecedence(t *testing.T) {
@@ -359,7 +359,8 @@ func TestConfigValidation(t *testing.T) {
 			_, parseErr := app.Parse(tc.args)
 			assert.Error(t, parseErr, "expected test args to produce a parse error")
 			cfg := DefaultConfig()
-			err := updateConfig(cfg)
+			updateConfig(cfg)
+			err := cfg.Validate()
 			assert.Error(t, err, "invalid input should be rejected by validation")
 			assert.Contains(t, err.Error(), tc.expectedError)
 		})
