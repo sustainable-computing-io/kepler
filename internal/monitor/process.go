@@ -78,6 +78,31 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 // calculateProcessPower calculates process power for each running process
 func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error {
 	procs := pm.resources.Processes()
+
+	// Copy existing terminated processes from previous snapshot if not exported
+	if !pm.exported.Load() {
+		// NOTE: no need to deep clone since already terminated processes won't be updated
+		maps.Copy(newSnapshot.TerminatedProcesses, prev.TerminatedProcesses)
+	}
+
+	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
+	for pid := range procs.Terminated {
+		prevProcess, exists := prev.Processes[pid]
+		if !exists {
+			continue
+		}
+
+		// Only include terminated processes that have consumed energy
+		if prevProcess.Zones.HasZeroEnergy() {
+			pm.logger.Debug("Filtering out terminated process with zero energy", "pid", pid)
+			continue
+		}
+		pm.logger.Debug("Including terminated process with non-zero energy", "pid", pid)
+
+		terminatedProcess := prevProcess.Clone()
+		newSnapshot.TerminatedProcesses[pid] = terminatedProcess
+	}
+
 	running := procs.Running
 
 	zones := newSnapshot.Node.Zones
@@ -104,16 +129,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 				continue
 			}
 
-			// Calculate CPU time ratio for process by calculating the cpuUsage as
-			// the delta between 2 refreshes over the total delta for all processes on the node
-			//
-			// T -  Proc-1  Val   Delta
-			// 1 ->  P1_t1   100
-			// 2 ->  P1_t2   150   P1_t2 - P1_T1 = 50
-			//
-			//
 			cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
-
 			// Calculate energy  for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
@@ -137,30 +153,6 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	// Update the snapshot of running processes
 	newSnapshot.Processes = processMap
-
-	// Copy existing terminated processes from previous snapshot if not exported
-	if !pm.exported.Load() {
-		// NOTE: no need to deep clone since already terminated processes won't be updated
-		maps.Copy(newSnapshot.TerminatedProcesses, prev.TerminatedProcesses)
-	}
-
-	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
-	for pid := range procs.Terminated {
-		prevProcess, exists := prev.Processes[pid]
-		if !exists {
-			continue
-		}
-
-		// Only include terminated processes that have consumed energy
-		if prevProcess.Zones.HasZeroEnergy() {
-			pm.logger.Debug("Filtering out terminated process with zero energy", "pid", pid)
-			continue
-		}
-		pm.logger.Debug("Including terminated process with non-zero energy", "pid", pid)
-
-		terminatedProcess := prevProcess.Clone()
-		newSnapshot.TerminatedProcesses[pid] = terminatedProcess
-	}
 
 	pm.logger.Debug("snapshot updated for process",
 		"running", len(newSnapshot.Processes),

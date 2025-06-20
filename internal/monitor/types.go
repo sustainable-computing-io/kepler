@@ -197,9 +197,13 @@ type Snapshot struct {
 	Processes           Processes // Process power data, keyed by PID
 	TerminatedProcesses Processes // Terminated processes with accumulated energy since last snapshot
 
-	Containers      Containers      // Container power data, keyed by container ID
-	VirtualMachines VirtualMachines // VM power data, keyed by container ID
-	Pods            Pods            // Pod power data, keyed by pod ID
+	Containers           Containers // Container power data, keyed by container ID
+	TerminatedContainers Containers // Terminated containers with accumulated energy since last snapshot
+
+	VirtualMachines           VirtualMachines // VM power data, keyed by container ID
+	TerminatedVirtualMachines VirtualMachines // Terminated VMs with accumulated energy since last snapshot
+	Pods                      Pods            // Pod power data, keyed by pod ID
+	TerminatedPods            Pods            // Terminated pods with accumulated energy since last snapshot
 }
 
 // NewSnapshot creates a new Snapshot instance
@@ -209,23 +213,29 @@ func NewSnapshot() *Snapshot {
 		Node: &Node{
 			Zones: make(NodeZoneUsageMap),
 		},
-		Processes:           make(Processes),
-		Containers:          make(Containers),
-		VirtualMachines:     make(VirtualMachines),
-		Pods:                make(Pods),
-		TerminatedProcesses: make(Processes),
+		Processes:                 make(Processes),
+		TerminatedProcesses:       make(Processes),
+		Containers:                make(Containers),
+		TerminatedContainers:      make(Containers),
+		VirtualMachines:           make(VirtualMachines),
+		TerminatedVirtualMachines: make(VirtualMachines),
+		Pods:                      make(Pods),
+		TerminatedPods:            make(Pods),
 	}
 }
 
 func (s *Snapshot) Clone() *Snapshot {
 	clone := &Snapshot{
-		Timestamp:           s.Timestamp,
-		Node:                s.Node.Clone(),
-		Processes:           make(Processes, len(s.Processes)),
-		Containers:          make(Containers, len(s.Containers)),
-		VirtualMachines:     make(VirtualMachines, len(s.VirtualMachines)),
-		Pods:                make(Pods, len(s.Pods)),
-		TerminatedProcesses: make(Processes, len(s.TerminatedProcesses)),
+		Timestamp:                 s.Timestamp,
+		Node:                      s.Node.Clone(),
+		Processes:                 make(Processes, len(s.Processes)),
+		TerminatedProcesses:       make(Processes, len(s.TerminatedProcesses)),
+		Containers:                make(Containers, len(s.Containers)),
+		TerminatedContainers:      make(Containers, len(s.TerminatedContainers)),
+		VirtualMachines:           make(VirtualMachines, len(s.VirtualMachines)),
+		TerminatedVirtualMachines: make(VirtualMachines, len(s.TerminatedVirtualMachines)),
+		Pods:                      make(Pods, len(s.Pods)),
+		TerminatedPods:            make(Pods, len(s.TerminatedPods)),
 	}
 
 	// Deep copy the processes map
@@ -233,20 +243,32 @@ func (s *Snapshot) Clone() *Snapshot {
 		clone.Processes[pid] = src.Clone()
 	}
 
+	for pid, src := range s.TerminatedProcesses {
+		clone.TerminatedProcesses[pid] = src.Clone()
+	}
+
 	for id, src := range s.Containers {
 		clone.Containers[id] = src.Clone()
+	}
+
+	for id, src := range s.TerminatedContainers {
+		clone.TerminatedContainers[id] = src.Clone()
 	}
 
 	for id, src := range s.VirtualMachines {
 		clone.VirtualMachines[id] = src.Clone()
 	}
 
+	for id, src := range s.TerminatedVirtualMachines {
+		clone.TerminatedVirtualMachines[id] = src.Clone()
+	}
+
 	for id, src := range s.Pods {
 		clone.Pods[id] = src.Clone()
 	}
 
-	for pid, src := range s.TerminatedProcesses {
-		clone.TerminatedProcesses[pid] = src.Clone()
+	for id, src := range s.TerminatedPods {
+		clone.TerminatedPods[id] = src.Clone()
 	}
 
 	return clone

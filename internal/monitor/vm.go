@@ -3,52 +3,75 @@
 
 package monitor
 
+import (
+	"maps"
+
+	"github.com/sustainable-computing-io/kepler/internal/resource"
+)
+
 // firstVMRead initializes VM power data for the first time
 func (pm *PowerMonitor) firstVMRead(snapshot *Snapshot) error {
-	// Get the available zones to initialize each VM with the same zones
-	zones, err := pm.cpu.Zones()
-	if err != nil {
-		return err
-	}
-
-	// Get the current running
 	running := pm.resources.VirtualMachines().Running
 	vms := make(VirtualMachines, len(running))
 
-	// Add each container with zero energy/power for each zone
-	for id, vm := range running {
-		// Create new vm power entry
-		newVM := &VirtualMachine{
-			ID:           id,
-			Name:         vm.Name,
-			Hypervisor:   vm.Hypervisor,
-			CPUTotalTime: vm.CPUTotalTime,
-			Zones:        make(ZoneUsageMap, len(zones)),
-		}
+	zones := snapshot.Node.Zones
+	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 
-		// Initialize each zone with zero values
-		for _, zone := range zones {
-			newVM.Zones[zone] = Usage{
-				EnergyTotal: Energy(0),
-				Power:       Power(0),
+	for id, vm := range running {
+		vmInstance := newVM(vm, zones)
+
+		// Calculate initial energy based on CPU ratio * nodeActiveEnergy
+		for zone, nodeZoneUsage := range zones {
+			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				continue
+			}
+
+			cpuTimeRatio := vm.CPUTimeDelta / nodeCPUTimeDelta
+			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
+
+			vmInstance.Zones[zone] = Usage{
+				Power:       Power(0), // No power in first read - no delta time to calculate rate
+				EnergyTotal: activeEnergy,
 			}
 		}
 
-		vms[id] = newVM
+		vms[id] = vmInstance
 	}
-
-	// Store in snapshot
 	snapshot.VirtualMachines = vms
 
 	pm.logger.Debug("Initialized VM power tracking",
-		"vm", len(vms),
-		"zones_per_vm", len(zones))
+		"vms", len(vms))
 	return nil
 }
 
-// calculateVMPower calculates power for each running VM
+// calculateVMPower calculates power for each running VM and handles terminated VMs
 func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 	vms := pm.resources.VirtualMachines()
+
+	// Copy existing terminated VMs from previous snapshot if not exported
+	if !pm.exported.Load() {
+		// NOTE: no need to deep clone since already terminated VMs won't be updated
+		maps.Copy(newSnapshot.TerminatedVirtualMachines, prev.TerminatedVirtualMachines)
+	}
+
+	// Handle terminated VMs
+	pm.logger.Debug("Processing terminated VMs", "terminated", len(vms.Terminated))
+	for id := range vms.Terminated {
+		prevVM, exists := prev.VirtualMachines[id]
+		if !exists {
+			continue
+		}
+
+		// Only include terminated VMs that have consumed energy
+		if prevVM.Zones.HasZeroEnergy() {
+			pm.logger.Debug("Filtering out terminated VM with zero energy", "id", id)
+			continue
+		}
+		pm.logger.Debug("Including terminated VM with non-zero energy", "id", id)
+
+		terminatedVM := prevVM.Clone()
+		newSnapshot.TerminatedVirtualMachines[id] = terminatedVM
+	}
 
 	if len(vms.Running) == 0 {
 		pm.logger.Debug("No running VM found, skipping power calculation")
@@ -66,22 +89,12 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 
 	// For each VM, calculate power for each zone separately
 	for id, vm := range vms.Running {
-		newVM := &VirtualMachine{
-			ID:           id,
-			Name:         vm.Name,
-			Hypervisor:   vm.Hypervisor,
-			CPUTotalTime: vm.CPUTotalTime,
-			Zones:        make(ZoneUsageMap),
-		}
+		newVMInstance := newVM(vm, newSnapshot.Node.Zones)
 
 		// For each zone in the node, calculate VM's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				newVM.Zones[zone] = Usage{
-					Power:       Power(0),
-					EnergyTotal: Energy(0),
-				}
 				continue
 			}
 
@@ -99,15 +112,41 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 				}
 			}
 
-			newVM.Zones[zone] = Usage{
+			newVMInstance.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
 				EnergyTotal: absoluteEnergy,
 			}
 		}
 
-		vmMap[id] = newVM
+		vmMap[id] = newVMInstance
 	}
 
 	newSnapshot.VirtualMachines = vmMap
+
+	pm.logger.Debug("snapshot updated for VMs",
+		"running", len(newSnapshot.VirtualMachines),
+		"terminated", len(newSnapshot.TerminatedVirtualMachines))
+
 	return nil
+}
+
+// newVM creates a new VirtualMachine struct with initialized zones from resource.VirtualMachine
+func newVM(vm *resource.VirtualMachine, zones NodeZoneUsageMap) *VirtualMachine {
+	newVMInstance := &VirtualMachine{
+		ID:           vm.ID,
+		Name:         vm.Name,
+		Hypervisor:   vm.Hypervisor,
+		CPUTotalTime: vm.CPUTotalTime,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+
+	// Initialize each zone with zero values
+	for zone := range zones {
+		newVMInstance.Zones[zone] = Usage{
+			EnergyTotal: Energy(0),
+			Power:       Power(0),
+		}
+	}
+
+	return newVMInstance
 }

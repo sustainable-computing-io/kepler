@@ -3,98 +3,128 @@
 
 package monitor
 
+import (
+	"maps"
+
+	"github.com/sustainable-computing-io/kepler/internal/resource"
+)
+
 // firstContainerRead initializes container power data for the first time
 func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
-	// Get the available zones to initialize each container with the same zones
-	zones, err := pm.cpu.Zones()
-	if err != nil {
-		return err
-	}
-
-	// Get the current running
 	running := pm.resources.Containers().Running
 	containers := make(Containers, len(running))
 
-	// Add each container with zero energy/power for each zone
-	for id, ctnr := range running {
-		// Create new container power entry
-		container := &Container{
-			ID:           id,
-			Name:         ctnr.Name,
-			Runtime:      ctnr.Runtime,
-			CPUTotalTime: ctnr.CPUTotalTime,
-			Zones:        make(ZoneUsageMap, len(zones)),
-		}
-		if ctnr.Pod != nil {
-			container.PodID = ctnr.Pod.ID
-		}
+	zones := snapshot.Node.Zones
+	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 
-		// Initialize each zone with zero values
-		for _, zone := range zones {
+	for id, cntr := range running {
+		container := newContainer(cntr, zones)
+
+		// Calculate initial energy based on CPU ratio * nodeActiveEnergy
+		for zone, nodeZoneUsage := range zones {
+			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				continue
+			}
+
+			cpuTimeRatio := cntr.CPUTimeDelta / nodeCPUTimeDelta
+			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
+
 			container.Zones[zone] = Usage{
-				EnergyTotal: Energy(0),
-				Power:       Power(0),
+				Power:       Power(0), // No power in first read - no delta time to calculate rate
+				EnergyTotal: activeEnergy,
 			}
 		}
 
 		containers[id] = container
 	}
-
-	// Store in snapshot
 	snapshot.Containers = containers
 
 	pm.logger.Debug("Initialized container power tracking",
-		"containers", len(containers),
-		"zones_per_container", len(zones))
+		"containers", len(containers))
 	return nil
+}
+
+func newContainer(cntr *resource.Container, zones NodeZoneUsageMap) *Container {
+	container := &Container{
+		ID:           cntr.ID,
+		Name:         cntr.Name,
+		Runtime:      cntr.Runtime,
+		CPUTotalTime: cntr.CPUTotalTime,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+
+	// Initialize each zone with zero values
+	for zone := range zones {
+		container.Zones[zone] = Usage{
+			EnergyTotal: Energy(0),
+			Power:       Power(0),
+		}
+	}
+
+	// Add the pod ID if available
+	if cntr.Pod != nil {
+		container.PodID = cntr.Pod.ID
+	}
+
+	return container
 }
 
 // calculateContainerPower calculates container power for each running container
 func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) error {
-	// Get the current containers
-	containers := pm.resources.Containers()
+	// Get the current cntrs
+	cntrs := pm.resources.Containers()
+
+	// Copy existing terminated containers from previous snapshot if not exported
+	if !pm.exported.Load() {
+		// NOTE: no need to deep clone since already terminated containers won't be updated
+		maps.Copy(newSnapshot.TerminatedContainers, prev.TerminatedContainers)
+	}
+
+	pm.logger.Debug("Processing terminated containers", "terminated", len(cntrs.Terminated))
+	for id := range cntrs.Terminated {
+		prevContainer, exists := prev.Containers[id]
+		if !exists {
+			continue
+		}
+
+		// Only include terminated containers that have consumed energy
+		if prevContainer.Zones.HasZeroEnergy() {
+			pm.logger.Debug("Filtering out terminated container with zero energy", "id", id)
+			continue
+		}
+		pm.logger.Debug("Including terminated container with non-zero energy", "id", id)
+
+		terminatedContainer := prevContainer.Clone()
+		newSnapshot.TerminatedContainers[id] = terminatedContainer
+	}
 
 	// Skip if no containers
-	if len(containers.Running) == 0 {
+	if len(cntrs.Running) == 0 {
 		pm.logger.Debug("No running containers found, skipping container power calculation")
 		return nil
 	}
 
+	zones := newSnapshot.Node.Zones
 	node := pm.resources.Node()
 	nodeCPUTimeDelta := node.ProcessTotalCPUTimeDelta
 
 	pm.logger.Debug("Calculating container power",
 		"node.cpu.time", nodeCPUTimeDelta,
-		"running", len(containers.Running),
+		"running", len(cntrs.Running),
 	)
 
-	// Initialize container map
-	containerMap := make(map[string]*Container, len(containers.Running))
+	containerMap := make(map[string]*Container, len(cntrs.Running))
 
 	// For each container, calculate power for each zone separately
-	for id, c := range containers.Running {
-		// Create container power entry with empty zones map
-		container := &Container{
-			ID:           id,
-			Name:         c.Name,
-			Runtime:      c.Runtime,
-			CPUTotalTime: c.CPUTotalTime,
-			Zones:        make(ZoneUsageMap),
-		}
-		if c.Pod != nil {
-			container.PodID = c.Pod.ID
-		}
+	for id, c := range cntrs.Running {
+		container := newContainer(c, zones)
 
 		// Calculate CPU time ratio for this container
 
 		// For each zone in the node, calculate container's share
-		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
+		for zone, nodeZoneUsage := range zones {
 			// Skip zones with zero power to avoid division by zero
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				container.Zones[zone] = Usage{
-					Power:       Power(0),
-					EnergyTotal: Energy(0),
-				}
 				continue
 			}
 
@@ -124,7 +154,10 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 
 	// Update the snapshot
 	newSnapshot.Containers = containerMap
-	pm.logger.Debug("snapshot updated for containers", "containers", len(newSnapshot.Containers))
+
+	pm.logger.Debug("snapshot updated for containers",
+		"running", len(newSnapshot.Containers),
+		"terminated", len(newSnapshot.TerminatedContainers))
 
 	return nil
 }
