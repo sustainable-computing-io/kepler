@@ -60,14 +60,14 @@ func TestNewAPIServer(t *testing.T) {
 	}, {
 		name: "with custom listen address",
 		opts: []OptionFn{
-			WithListenAddress([]string{":8080", ":8081"}),
+			WithListen([]string{":8080", ":8081"}, ""),
 		},
 		serviceName: "api-server",
 	}, {
 		name: "with multiple options",
 		opts: []OptionFn{
 			WithLogger(slog.Default().With("test", "custom")),
-			WithListenAddress([]string{":9090"}),
+			WithListen([]string{":9090"}, ""),
 		},
 		serviceName: "api-server",
 	}}
@@ -85,11 +85,10 @@ func TestNewAPIServer(t *testing.T) {
 	// check listen address
 	{
 		server := NewAPIServer(
-			WithListenAddress([]string{":8080", ":8081"}),
+			WithListen([]string{":8080", ":8081"}, ""),
 		)
 
 		assert.NotNil(t, server)
-		assert.Equal(t, []string{":8080", ":8081"}, server.listenAddrs)
 	}
 }
 
@@ -167,13 +166,6 @@ func TestAPIServer_Register(t *testing.T) {
 	})
 }
 
-func TestAPIServer_InitWithNoListenAddr(t *testing.T) {
-	server := NewAPIServer(WithListenAddress([]string{}))
-	err := server.Init()
-	assert.Error(t, err, "Init should fail with no listen address")
-	assert.Contains(t, err.Error(), "no listening address provided")
-}
-
 func TestAPIServer_InitWithContextCancellation(t *testing.T) {
 	server := NewAPIServer()
 
@@ -247,7 +239,7 @@ func TestAPIServer_PortConflict(t *testing.T) {
 	})
 
 	// Create our API server with the same port
-	apiServer := NewAPIServer(WithListenAddress([]string{addr}))
+	apiServer := NewAPIServer(WithListen([]string{addr}, ""))
 
 	// Initing the API server on the same port should fail due to port conflict
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -281,7 +273,7 @@ func TestAPIServer_RootEndpoint(t *testing.T) {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	server := NewAPIServer(WithListenAddress([]string{addr}))
+	server := NewAPIServer(WithListen([]string{addr}, ""))
 	assert.NoError(t, server.Init())
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

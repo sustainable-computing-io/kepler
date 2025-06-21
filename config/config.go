@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/prometheus/exporter-toolkit/web"
+	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
@@ -39,7 +41,7 @@ type (
 		} `yaml:"fake-cpu-meter"`
 	}
 	Web struct {
-		Config string `yaml:"configFile"`
+		Config *web.FlagConfig
 	}
 
 	Monitor struct {
@@ -83,9 +85,9 @@ type (
 		Monitor  Monitor  `yaml:"monitor"`
 		Rapl     Rapl     `yaml:"rapl"`
 		Exporter Exporter `yaml:"exporter"`
-		Web      Web      `yaml:"web"`
-		Debug    Debug    `yaml:"debug"`
-		Dev      Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
+		Web      Web
+		Debug    Debug `yaml:"debug"`
+		Dev      Dev   `yaml:"dev"` // WARN: do not expose dev settings as flags
 
 		Kube Kube `yaml:"kube"`
 	}
@@ -99,6 +101,7 @@ const (
 )
 
 const (
+	DefaultPort = ":28282"
 	// Flags
 	LogLevelFlag  = "log.level"
 	LogFormatFlag = "log.format"
@@ -114,7 +117,7 @@ const (
 
 	pprofEnabledFlag = "debug.pprof"
 
-	WebConfigFlag = "web.config-file"
+	WebConfigFlag = "web.config.file"
 
 	// Exporters
 	ExporterStdoutEnabledFlag = "exporter.stdout"
@@ -133,6 +136,7 @@ const (
 
 // DefaultConfig returns a Config with default values
 func DefaultConfig() *Config {
+	TLSconfig := ""
 	cfg := &Config{
 		Log: Log{
 			Level:  "info",
@@ -165,6 +169,12 @@ func DefaultConfig() *Config {
 		},
 		Kube: Kube{
 			Enabled: ptr.To(false),
+		},
+		Web: Web{
+			Config: &web.FlagConfig{
+				WebListenAddresses: &[]string{DefaultPort},
+				WebConfigFile:      &TLSconfig,
+			},
 		},
 	}
 
@@ -245,7 +255,8 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		"Interval for monitoring resources (processes, container, vm, etc...); 0 to disable").Default("5s").Duration()
 
 	enablePprof := app.Flag(pprofEnabledFlag, "Enable pprof debug endpoints").Default("false").Bool()
-	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
+	//webConfig using github.com/prometheus/exporter-toolkit/web/
+	webConfig := kingpinflag.AddFlags(app, DefaultPort)
 
 	// exporters
 	stdoutExporterEnabled := app.Flag(ExporterStdoutEnabledFlag, "Enable stdout exporter").Default("false").Bool()
@@ -284,7 +295,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		if flagsSet[WebConfigFlag] {
-			cfg.Web.Config = *webConfig
+			cfg.Web.Config = webConfig
 		}
 
 		if flagsSet[ExporterStdoutEnabledFlag] {
@@ -317,7 +328,6 @@ func (c *Config) sanitize() {
 	c.Log.Format = strings.TrimSpace(c.Log.Format)
 	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
 	c.Host.ProcFS = strings.TrimSpace(c.Host.ProcFS)
-	c.Web.Config = strings.TrimSpace(c.Web.Config)
 
 	for i := range c.Rapl.Zones {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
@@ -359,7 +369,13 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			errs = append(errs, fmt.Sprintf("invalid log format: %s", c.Log.Format))
 		}
 	}
-
+	{ // Web config file
+		if c.Web.Config != nil && *c.Web.Config.WebConfigFile != "" {
+			if err := canReadFile(*c.Web.Config.WebConfigFile); err != nil {
+				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", *c.Web.Config.WebConfigFile, err.Error()))
+			}
+		}
+	}
 	{ // Validate host settings
 		if _, skip := validationSkipped[SkipHostValidation]; !skip {
 			if err := canReadDir(c.Host.SysFS); err != nil {
@@ -367,13 +383,6 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 			if err := canReadDir(c.Host.ProcFS); err != nil {
 				errs = append(errs, fmt.Sprintf("invalid procfs path: %s: %s ", c.Host.ProcFS, err.Error()))
-			}
-		}
-	}
-	{ // Web config file
-		if c.Web.Config != "" {
-			if err := canReadFile(c.Web.Config); err != nil {
-				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
 			}
 		}
 	}
