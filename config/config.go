@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
@@ -53,8 +54,9 @@ type (
 	}
 
 	PrometheusExporter struct {
-		Enabled         *bool    `yaml:"enabled"`
-		DebugCollectors []string `yaml:"debugCollectors"`
+		Enabled         *bool         `yaml:"enabled"`
+		DebugCollectors []string      `yaml:"debugCollectors"`
+		MetricsLevel    metrics.Level `yaml:"metricsLevel"`
 	}
 
 	Exporter struct {
@@ -91,6 +93,55 @@ type (
 	}
 )
 
+// MetricsLevelValue is a custom kingpin.Value that parses metrics levels directly into metrics.Level
+type MetricsLevelValue struct {
+	level *metrics.Level
+}
+
+// NewMetricsLevelValue creates a new MetricsLevelValue with the given target
+func NewMetricsLevelValue(target *metrics.Level) *MetricsLevelValue {
+	return &MetricsLevelValue{level: target}
+}
+
+// Set implements kingpin.Value interface - parses and accumulates metrics levels
+func (m *MetricsLevelValue) Set(value string) error {
+	// Parse the single value into a level
+	level, err := metrics.ParseLevel([]string{value})
+	if err != nil {
+		return err
+	}
+
+	// If this is the first value and it's not a special "all" or "none" case,
+	// initialize to none first to clear any default
+	if *m.level == metrics.MetricsLevelAll && value != "all" {
+		*m.level = metrics.MetricsLevelNone
+	}
+
+	// Handle special cases
+	if value == "all" {
+		*m.level = metrics.MetricsLevelAll
+		return nil
+	}
+	if value == "none" {
+		*m.level = metrics.MetricsLevelNone
+		return nil
+	}
+
+	// Accumulate the level using bitwise OR
+	*m.level |= level
+	return nil
+}
+
+// String implements kingpin.Value interface
+func (m *MetricsLevelValue) String() string {
+	return m.level.String()
+}
+
+// IsCumulative implements kingpin.Value interface to support multiple values
+func (m *MetricsLevelValue) IsCumulative() bool {
+	return true
+}
+
 type SkipValidation int
 
 const (
@@ -122,6 +173,7 @@ const (
 	ExporterPrometheusEnabledFlag = "exporter.prometheus"
 	// NOTE: not a flag
 	ExporterPrometheusDebugCollectors = "exporter.prometheus.debug-collectors"
+	ExporterPrometheusMetricsFlag     = "metrics"
 
 	// kubernetes flags
 	KubernetesFlag   = "kube.enable"
@@ -156,6 +208,7 @@ func DefaultConfig() *Config {
 			Prometheus: PrometheusExporter{
 				Enabled:         ptr.To(true),
 				DebugCollectors: []string{"go"},
+				MetricsLevel:    metrics.MetricsLevelAll,
 			},
 		},
 		Debug: Debug{
@@ -252,6 +305,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
 
+	var metricsLevel = metrics.MetricsLevelAll
+	app.Flag(ExporterPrometheusMetricsFlag, "Metrics levels to export (node,process,container,vm,pod,all,none)").SetValue(NewMetricsLevelValue(&metricsLevel))
+
 	kubernetes := app.Flag(KubernetesFlag, "Monitor kubernetes").Default("false").Bool()
 	kubeconfig := app.Flag(KubeConfigFlag, "Path to a kubeconfig. Only required if out-of-cluster.").ExistingFile()
 	nodeName := app.Flag(KubeNodeNameFlag, "Name of kubernetes node on which kepler is running.").String()
@@ -293,6 +349,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[ExporterPrometheusEnabledFlag] {
 			cfg.Exporter.Prometheus.Enabled = prometheusExporterEnabled
+		}
+
+		if flagsSet[ExporterPrometheusMetricsFlag] {
+			cfg.Exporter.Prometheus.MetricsLevel = metricsLevel
 		}
 
 		if flagsSet[KubernetesFlag] {
@@ -468,6 +528,7 @@ func (c *Config) manualString() string {
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},
 		{ExporterPrometheusDebugCollectors, strings.Join(c.Exporter.Prometheus.DebugCollectors, ", ")},
+		{ExporterPrometheusMetricsFlag, c.Exporter.Prometheus.MetricsLevel.String()},
 		{pprofEnabledFlag, fmt.Sprintf("%v", c.Debug.Pprof.Enabled)},
 		{KubeConfigFlag, fmt.Sprintf("%v", c.Kube.Config)},
 	}
