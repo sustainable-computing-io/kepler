@@ -12,6 +12,8 @@ GOFMT=$(GOCMD) fmt
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 
+CGO_ENABLED ?= 0
+
 # Project parameters
 BINARY_NAME=kepler
 
@@ -60,7 +62,7 @@ all: clean fmt lint vet build test
 .PHONY: build
 build:
 	mkdir -p $(BINARY_DIR)
-	CGO_ENABLED=0 $(GOBUILD) $(BUILD_ARGS) \
+	CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
 		-o $(BINARY_DIR)/$(BINARY_NAME) \
 		$(MAIN_GO_PATH)
@@ -84,7 +86,7 @@ clean:
 # Run tests with coverage
 .PHONY: test
 test:
-	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
+	CGO_ENABLED=$(CGO_ENABLED) $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 
 # Generate coverage report
 .PHONY: coverage
