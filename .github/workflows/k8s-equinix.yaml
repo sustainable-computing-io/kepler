@@ -2,7 +2,6 @@ name: Build and Deploy K8s on Equinix
 
 on: #yamllint disable-line rule:truthy
   pull_request_target:
-    branches: [reboot]
   # In order to trigger this workflow on comment, GH accepts the workflow to be available in the default branch only.
   # issue_comment:
   #   types: [created]
