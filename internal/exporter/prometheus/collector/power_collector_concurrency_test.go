@@ -105,9 +105,9 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 func TestPowerCollectorWithRegistry(t *testing.T) {
 	mockMonitor := NewMockPowerMonitor()
 
-	package0Zone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	package1Zone := device.NewMockRaplZone("package", 1, "/sys/class/powercap/intel-rapl/intel-rapl:1", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	package0Zone := device.NewMockRaplZone("package", 0, "package-0", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	package1Zone := device.NewMockRaplZone("package", 1, "package-1", "/sys/class/powercap/intel-rapl/intel-rapl:1", 1000)
+	dramZone := device.NewMockRaplZone("dram", 0, "dram-0", "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
@@ -233,7 +233,7 @@ func TestUpdateDuringCollection(t *testing.T) {
 	collectingCh := make(chan struct{})
 	allowCollectCh := make(chan struct{})
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	mockMonitor.On("Snapshot").Run(func(args mock.Arguments) {
 		// NOTE: this waits for allow collect to close

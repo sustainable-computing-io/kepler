@@ -28,11 +28,11 @@ func TestNodePowerCollection(t *testing.T) {
 
 	// Create test zones
 	pkg := device.NewMockRaplZone(
-		"package-0",
-		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+		"package",
+		0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
 	core := device.NewMockRaplZone(
-		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+		"core", 0, "core", "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 	testZones := []EnergyZone{pkg, core}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
@@ -212,11 +212,11 @@ func TestNodeErrorHandling(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	pkg := device.NewMockRaplZone(
-		"package-0",
-		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+		"package",
+		0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
 	core := device.NewMockRaplZone(
-		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+		"core", 0, "core", "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 	testZones := []EnergyZone{pkg, core}
 
@@ -350,8 +350,8 @@ func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	pkg := device.NewMockRaplZone(
-		"package-0",
-		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+		"package",
+		0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
 
 	testZones := []EnergyZone{pkg}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
@@ -526,8 +526,8 @@ func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	pkg := device.NewMockRaplZone(
-		"package-0",
-		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+		"package",
+		0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
 
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
 	testZones := []EnergyZone{pkg}

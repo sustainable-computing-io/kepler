@@ -228,6 +228,7 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 
 	return device.NewCPUPowerMeter(
 		cfg.Host.SysFS,
+		cfg.Host.ProcFS,
 		device.WithRaplLogger(logger),
 		device.WithZoneFilter(cfg.Rapl.Zones),
 	)

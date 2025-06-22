@@ -244,6 +244,7 @@ func TestRaplZoneFiltering_WithOptions(t *testing.T) {
 	// Create meter with WithZoneFilter option
 	meter, err := NewCPUPowerMeter(
 		validSysFSPath,
+		validProcFSPath,
 		WithSysFSReader(mockReader),
 		WithZoneFilter([]string{"core"}),
 	)

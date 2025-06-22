@@ -30,6 +30,7 @@ const defaultRaplPath = "/sys/class/powercap/intel-rapl"
 type fakeEnergyZone struct {
 	name      string
 	index     int
+	label     string
 	path      string
 	energy    Energy
 	maxEnergy Energy
@@ -50,6 +51,11 @@ func (z *fakeEnergyZone) Name() string {
 // Index returns the index of the zone
 func (z *fakeEnergyZone) Index() int {
 	return z.index
+}
+
+// Index returns the index of the zone
+func (z *fakeEnergyZone) ZoneLabel() string {
+	return z.label
 }
 
 // Path returns the path from which the energy usage value ie being read
@@ -140,6 +146,7 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 		meter.zones = append(meter.zones, &fakeEnergyZone{
 			name:         zoneName,
 			index:        i,
+			label:        zoneName,
 			path:         filepath.Join(defaultRaplPath, fmt.Sprintf("energy_%s", zoneName)),
 			maxEnergy:    1000000,
 			increment:    Energy(100 + zoneIncrementFactor[zoneName]),

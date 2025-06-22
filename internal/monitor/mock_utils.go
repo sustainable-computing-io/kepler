@@ -47,6 +47,11 @@ func (m *MockEnergyZone) Index() int {
 	return args.Int(0)
 }
 
+func (m *MockEnergyZone) ZoneLabel() string {
+	args := m.Called()
+	return args.String(0)
+}
+
 func (m *MockEnergyZone) Path() string {
 	args := m.Called()
 	return args.String(0)
@@ -135,8 +140,8 @@ var _ resource.Informer = (*MockResourceInformer)(nil)
 
 // CreateTestZones creates mock energy zones for testing
 func CreateTestZones() []EnergyZone {
-	pkg := device.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
-	core := device.NewMockRaplZone("core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
+	pkg := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+	core := device.NewMockRaplZone("core", 0, "core", "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
 	return []EnergyZone{pkg, core}
 }
 

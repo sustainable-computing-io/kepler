@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	validSysFSPath = "testdata/sys"
-	badSysFSPath   = "testdata/bad_sysfs"
+	validSysFSPath  = "testdata/sys"
+	validProcFSPath = "testdata/proc"
+	badSysFSPath    = "testdata/bad_sysfs"
 )
 
 type (
@@ -25,15 +26,17 @@ type (
 
 		name           string
 		index          int
+		label          string
 		path           string
 		maxMicroJoules Energy
 	}
 )
 
-func NewMockRaplZone(name string, index int, path string, maxMicroJoules Energy) *MockRaplZone {
+func NewMockRaplZone(name string, index int, label, path string, maxMicroJoules Energy) *MockRaplZone {
 	return &MockRaplZone{
 		name:           name,
 		index:          index,
+		label:          label,
 		path:           path,
 		maxMicroJoules: maxMicroJoules,
 	}
@@ -49,6 +52,10 @@ func (m MockRaplZone) Path() string {
 
 func (m MockRaplZone) Name() string {
 	return m.name
+}
+
+func (m *MockRaplZone) ZoneLabel() string {
+	return m.label
 }
 
 func (m MockRaplZone) Energy() (Energy, error) {

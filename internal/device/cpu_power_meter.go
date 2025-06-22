@@ -24,6 +24,11 @@ type EnergyZone interface {
 	// When energy usage reaches this value, the energy value returned by Energy()
 	// will wrap around and start again from zero.
 	MaxEnergy() Energy
+
+	// ZoneLabel returns a user-friendly zone label for metrics.
+	// Returns zone name without index for single zones of a type,
+	// or zone name with index for multiple zones of the same type.
+	ZoneLabel() string
 }
 
 // CPUPowerMeter implements powerMeter

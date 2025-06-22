@@ -178,8 +178,8 @@ func TestPowerCollector(t *testing.T) {
 	mockMonitor := NewMockPowerMonitor()
 
 	// Setup test zones
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	packageZone := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	dramZone := device.NewMockRaplZone("dram", 0, "dram", "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
@@ -425,7 +425,7 @@ func TestPowerCollector(t *testing.T) {
 			zonePaths = append(zonePaths, path)
 		}
 
-		assert.ElementsMatch(t, zoneNames, []string{"package-0", "dram-0"})
+		assert.ElementsMatch(t, zoneNames, []string{"package", "dram"})
 		assert.ElementsMatch(t, zonePaths, []string{
 			"/sys/class/powercap/intel-rapl/intel-rapl:0",
 			"/sys/class/powercap/intel-rapl/intel-rapl:0:1",
@@ -439,7 +439,7 @@ func TestPowerCollector(t *testing.T) {
 			"comm":      "test-process",
 			"exe":       "/usr/bin/123",
 			"type":      "regular",
-			"zone":      "package-0",
+			"zone":      "package",
 		}
 		assertMetricLabelValues(t, registry, "kepler_process_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_process_cpu_watts", expectedLabels, 5.0)
@@ -451,7 +451,7 @@ func TestPowerCollector(t *testing.T) {
 			"container_id":   "abcd-efgh",
 			"container_name": "test-container",
 			"runtime":        "podman",
-			"zone":           "package-0",
+			"zone":           "package",
 		}
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels, 5.0)
@@ -463,7 +463,7 @@ func TestPowerCollector(t *testing.T) {
 			"vm_id":      "abcd-efgh",
 			"vm_name":    "test-vm",
 			"hypervisor": "kvm",
-			"zone":       "package-0",
+			"zone":       "package",
 		}
 		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts", expectedLabels, 5.0)
@@ -475,7 +475,7 @@ func TestPowerCollector(t *testing.T) {
 			"pod_id":        "test-pod",
 			"pod_name":      "test-pod",
 			"pod_namespace": "default",
-			"zone":          "package-0",
+			"zone":          "package",
 		}
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
@@ -512,7 +512,7 @@ func TestTerminatedProcessExport(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),
@@ -618,7 +618,7 @@ func TestEnhancedErrorReporting(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),

@@ -19,7 +19,7 @@ func TestCPUPowerMeterInterface(t *testing.T) {
 }
 
 func TestNewCPUPowerMeter(t *testing.T) {
-	meter, err := NewCPUPowerMeter("testdata/sys")
+	meter, err := NewCPUPowerMeter("testdata/sys", "testdata/proc")
 	assert.NotNil(t, meter, "NewCPUPowerMeter should not return nil")
 	assert.NoError(t, err, "NewCPUPowerMeter should not return error")
 	assert.IsType(t, &raplPowerMeter{}, meter, "NewCPUPowerMeter should return a *cpuPowerMeter")
@@ -32,7 +32,7 @@ func TestCPUPowerMeter_Name(t *testing.T) {
 }
 
 func TestCPUPowerMeter_Init(t *testing.T) {
-	meter, err := NewCPUPowerMeter(validSysFSPath)
+	meter, err := NewCPUPowerMeter(validSysFSPath, validProcFSPath)
 	assert.NoError(t, err, "NewCPUPowerMeter should not return an error")
 
 	err = meter.Init()
@@ -189,7 +189,7 @@ func TestStandardPathPreference(t *testing.T) {
 		mockReader := &mockRaplReader{}
 		mockReader.On("Zones").Return(test.zones, nil)
 
-		rapl, err := NewCPUPowerMeter(validSysFSPath, WithSysFSReader(mockReader))
+		rapl, err := NewCPUPowerMeter(validSysFSPath, validProcFSPath, WithSysFSReader(mockReader))
 		assert.NoError(t, err)
 
 		zones, err := rapl.Zones()
@@ -229,7 +229,7 @@ func TestZoneCaching(t *testing.T) {
 	mockReader := &mockRaplReader{}
 	mockReader.On("Zones").Return(raplZones, nil).Once()
 
-	rapl, err := NewCPUPowerMeter(validSysFSPath, WithSysFSReader(mockReader))
+	rapl, err := NewCPUPowerMeter(validSysFSPath, validProcFSPath, WithSysFSReader(mockReader))
 	assert.NoError(t, err)
 
 	// Get zones multiple times to test that "Zone" is called only once
@@ -245,7 +245,7 @@ func TestZoneCaching(t *testing.T) {
 // TestZoneCaching_Error tests that zones are not cached when there is an error
 func TestZoneCaching_Error(t *testing.T) {
 	mockReader := &mockRaplReader{}
-	rapl, err := NewCPUPowerMeter(validSysFSPath, WithSysFSReader(mockReader))
+	rapl, err := NewCPUPowerMeter(validSysFSPath, validProcFSPath, WithSysFSReader(mockReader))
 
 	t.Run("Zone Read Error", func(t *testing.T) {
 		mockReader.On("Zones").Return([]EnergyZone(nil), errors.New("error")).Once()
@@ -283,7 +283,7 @@ func TestZoneCaching_Error(t *testing.T) {
 // TestZone_None tests that zones error when none are found
 func TestZone_None(t *testing.T) {
 	mockReader := &mockRaplReader{}
-	rapl, err := NewCPUPowerMeter(validSysFSPath, WithSysFSReader(mockReader))
+	rapl, err := NewCPUPowerMeter(validSysFSPath, validProcFSPath, WithSysFSReader(mockReader))
 	assert.NoError(t, err)
 
 	mockReader.On("Zones").Return([]EnergyZone(nil), nil).Once()
@@ -295,7 +295,7 @@ func TestZone_None(t *testing.T) {
 
 // TestNewCPUPowerMeter_InvalidPath tests that NewCPUPowerMeter returns an error with an invalid sysfs path
 func TestNewCPUPowerMeter_InvalidPath(t *testing.T) {
-	meter, err := NewCPUPowerMeter("/nonexistent/path")
+	meter, err := NewCPUPowerMeter("/nonexistent/path", "/nonexistent/proc")
 	assert.Error(t, err, "Should return an error with an invalid path")
 	assert.Nil(t, meter, "Should not return a meter with an invalid path")
 }

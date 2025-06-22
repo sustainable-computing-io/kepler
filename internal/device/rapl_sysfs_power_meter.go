@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/prometheus/procfs"
 	"github.com/prometheus/procfs/sysfs"
 )
 
@@ -49,14 +50,26 @@ func WithZoneFilter(zones []string) OptionFn {
 }
 
 // NewCPUPowerMeter creates a new CPU power meter
-func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, error) {
-	fs, err := sysfs.NewFS(sysfsPath)
+func NewCPUPowerMeter(sysfsPath string, procfsPath string, opts ...OptionFn) (*raplPowerMeter, error) {
+	sysfs, err := sysfs.NewFS(sysfsPath)
 	if err != nil {
 		return nil, err
 	}
 
+	procfs, err := procfs.NewFS(procfsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	procfsReader := procfsReader{fs: procfs}
+	numSocket, err := procfsReader.getNumCPUSockets()
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("numCPUSockets: %d\n", numSocket)
+
 	ret := &raplPowerMeter{
-		reader:     sysfsRaplReader{fs: fs},
+		reader:     sysfsRaplReader{fs: sysfs, numSocket: numSocket},
 		logger:     slog.Default().With("service", "rapl"),
 		zoneFilter: []string{},
 	}
@@ -159,7 +172,8 @@ func isStandardRaplPath(path string) bool {
 }
 
 type sysfsRaplReader struct {
-	fs sysfs.FS
+	fs        sysfs.FS
+	numSocket int
 }
 
 func (r sysfsRaplReader) Zones() ([]EnergyZone, error) {
@@ -171,16 +185,52 @@ func (r sysfsRaplReader) Zones() ([]EnergyZone, error) {
 	// convert sysfs.RaplZones to EnergyZones
 	energyZones := make([]EnergyZone, 0, len(raplZones))
 	for _, zone := range raplZones {
-		energyZones = append(energyZones, sysfsRaplZone{zone})
+		label := zone.Name
+		if r.numSocket > 1 {
+			label = fmt.Sprintf("%s-%d", zone.Name, zone.Index)
+		}
+		energyZones = append(energyZones, sysfsRaplZone{
+			zone:      zone,
+			zoneLabel: label,
+		})
 	}
 
 	return energyZones, nil
 }
 
+type procfsReader struct {
+	fs procfs.FS
+}
+
+// getCPUSocketCount returns the number of CPU sockets by counting unique PhysicalID values
+func (r *procfsReader) getNumCPUSockets() (int, error) {
+	cpuInfo, err := r.fs.CPUInfo()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read CPU info: %w", err)
+	}
+
+	// Use a map to collect unique physical IDs
+	physicalIDs := make(map[string]bool)
+	for _, cpu := range cpuInfo {
+		if cpu.PhysicalID != "" {
+			physicalIDs[cpu.PhysicalID] = true
+		}
+	}
+
+	socketCount := len(physicalIDs)
+	if socketCount == 0 {
+		// Fallback: if no PhysicalID is found, assume single socket
+		return 1, nil
+	}
+
+	return socketCount, nil
+}
+
 // sysfsRaplZone implements EnergyZone using sysfs.RaplZone.
 // It is an adapter for the EnergyZone interface
 type sysfsRaplZone struct {
-	zone sysfs.RaplZone
+	zone      sysfs.RaplZone
+	zoneLabel string
 }
 
 // Name returns the name of the zone
@@ -191,6 +241,10 @@ func (s sysfsRaplZone) Name() string {
 // Index returns the index of the zone
 func (s sysfsRaplZone) Index() int {
 	return s.zone.Index
+}
+
+func (s sysfsRaplZone) ZoneLabel() string {
+	return s.zoneLabel
 }
 
 // Path returns the path of the zone

@@ -152,8 +152,8 @@ func getTestNodeSnapshot() *monitor.Snapshot {
 
 func getTestNodeData() *monitor.Node {
 	// Setup test zones
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	packageZone := device.NewMockRaplZone("package", 0, "package", "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	dramZone := device.NewMockRaplZone("dram", 0, "dram", "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgPower := 12 * device.Watt

@@ -226,7 +226,7 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 	)
 	for zone, energy := range node.Zones {
 		path := zone.Path()
-		zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+		zoneName := zone.ZoneLabel()
 
 		// joules
 		ch <- prometheus.MustNewConstMetric(
@@ -293,7 +293,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 		)
 
 		for zone, usage := range proc.Zones {
-			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+			zoneName := zone.ZoneLabel()
 			ch <- prometheus.MustNewConstMetric(
 				c.processCPUJoulesDescriptor,
 				prometheus.CounterValue,
@@ -325,7 +325,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 	// No need to lock, already done by the calling function
 	for id, container := range containers {
 		for zone, usage := range container.Zones {
-			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+			zoneName := zone.ZoneLabel()
 
 			ch <- prometheus.MustNewConstMetric(
 				c.containerCPUJoulesDescriptor,
@@ -358,7 +358,7 @@ func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, vms monit
 	// No need to lock, already done by the calling function
 	for id, vm := range vms {
 		for zone, usage := range vm.Zones {
-			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+			zoneName := zone.ZoneLabel()
 			ch <- prometheus.MustNewConstMetric(
 				c.vmCPUJoulesDescriptor,
 				prometheus.CounterValue,
@@ -387,7 +387,7 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, pods mon
 	// No need to lock, already done by the calling function
 	for id, pod := range pods {
 		for zone, usage := range pod.Zones {
-			zoneName := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+			zoneName := zone.ZoneLabel()
 			ch <- prometheus.MustNewConstMetric(
 				c.podCPUJoulesDescriptor,
 				prometheus.CounterValue,
