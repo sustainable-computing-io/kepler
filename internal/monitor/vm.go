@@ -73,11 +73,6 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		newSnapshot.TerminatedVirtualMachines[id] = terminatedVM
 	}
 
-	if len(vms.Running) == 0 {
-		pm.logger.Debug("No running VM found, skipping power calculation")
-		return nil
-	}
-
 	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 	pm.logger.Debug("Calculating VM power",
 		"node.cpu.time", nodeCPUTimeDelta,

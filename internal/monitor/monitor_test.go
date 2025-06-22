@@ -16,7 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
-	test_clock "k8s.io/utils/clock/testing"
+	"github.com/sustainable-computing-io/kepler/internal/resource"
+	testingclock "k8s.io/utils/clock/testing"
 )
 
 func TestNewPowerMonitor(t *testing.T) {
@@ -405,7 +406,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 
 	t.Run("Basic", func(t *testing.T) {
 		startTime := time.Date(2025, 4, 29, 11, 20, 0, 0, time.UTC)
-		mockClock := test_clock.NewFakeClock(startTime)
+		mockClock := testingclock.NewFakeClock(startTime)
 
 		// Create a custom PowerMonitor with the mock readers
 		pm := NewPowerMonitor(
@@ -559,7 +560,7 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 	// Create a mock clock with a fixed start time
 	startTime := time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC)
-	mockClock := test_clock.NewFakeClock(startTime)
+	mockClock := testingclock.NewFakeClock(startTime)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -635,4 +636,386 @@ func TestRefreshSnapshotError(t *testing.T) {
 		assert.Contains(t, snapshot.Node.Zones, pkg)
 		assert.Contains(t, snapshot.Node.Zones, core)
 	})
+}
+
+// TestTerminatedWorkloadsClearedAfterSnapshot validates that terminated workloads
+// (processes, containers, VMs, pods) are cleared in the first calculation after
+// the Snapshot function is called.
+func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	// Create mock CPU meter with test zones
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+
+	// Create test resources with processes, containers, VMs, and pods
+	tr := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetExpectations(t, tr)
+	resourceInformer.On("Refresh").Return(nil)
+
+	// Create monitor
+	monitor := &PowerMonitor{
+		logger:    logger,
+		cpu:       mockMeter,
+		clock:     fakeClock,
+		resources: resourceInformer,
+	}
+
+	err := monitor.initZones()
+	require.NoError(t, err)
+
+	// Step 1: Create initial snapshot with some workloads using refreshSnapshot
+	err = monitor.refreshSnapshot()
+	require.NoError(t, err)
+
+	// Get the initial snapshot and add some energy to workloads so they can be terminated with non-zero energy
+	snapshot1 := monitor.snapshot.Load()
+	require.NotNil(t, snapshot1)
+
+	// Add some energy to processes so they can be terminated with non-zero energy
+	for _, zone := range zones {
+		if proc, exists := snapshot1.Processes[456]; exists {
+			proc.Zones[zone] = Usage{
+				EnergyTotal: 100 * Joule,
+				Power:       10 * Watt,
+			}
+		}
+		if proc, exists := snapshot1.Processes[789]; exists {
+			proc.Zones[zone] = Usage{
+				EnergyTotal: 150 * Joule,
+				Power:       15 * Watt,
+			}
+		}
+	}
+
+	// Add some energy to containers
+	for _, zone := range zones {
+		if container, exists := snapshot1.Containers["container-2"]; exists {
+			container.Zones[zone] = Usage{
+				EnergyTotal: 200 * Joule,
+				Power:       20 * Watt,
+			}
+		}
+	}
+
+	// Add some energy to VMs
+	for _, zone := range zones {
+		if vm, exists := snapshot1.VirtualMachines["vm-2"]; exists {
+			vm.Zones[zone] = Usage{
+				EnergyTotal: 300 * Joule,
+				Power:       30 * Watt,
+			}
+		}
+	}
+
+	// Step 2: Advance time and create test resources with terminated workloads
+	fakeClock.Step(5 * time.Second)
+
+	// Create new test resources where some workloads are now terminated
+	trWithTerminated := &TestResource{
+		Node: tr.Node, // Keep the same node
+		Processes: &resource.Processes{
+			Running: map[int]*resource.Process{
+				123: tr.Processes.Running[123], // Keep process 123 running
+				// Process 456 and 789 are now terminated
+			},
+			Terminated: map[int]*resource.Process{
+				456: tr.Processes.Running[456], // Process 456 terminated
+				789: tr.Processes.Running[789], // Process 789 terminated
+			},
+		},
+		Containers: &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": tr.Containers.Running["container-1"], // Keep container-1 running
+				// container-2 is now terminated
+			},
+			Terminated: map[string]*resource.Container{
+				"container-2": tr.Containers.Running["container-2"], // container-2 terminated
+			},
+		},
+		VirtualMachines: &resource.VirtualMachines{
+			Running: map[string]*resource.VirtualMachine{
+				"vm-1": tr.VirtualMachines.Running["vm-1"], // Keep vm-1 running
+				// vm-2 is now terminated
+			},
+			Terminated: map[string]*resource.VirtualMachine{
+				"vm-2": tr.VirtualMachines.Running["vm-2"], // vm-2 terminated
+			},
+		},
+		Pods: &resource.Pods{
+			Running: map[string]*resource.Pod{
+				"pod-id-1": tr.Pods.Running["pod-id-1"], // Keep pod-id-1 running
+			},
+			Terminated: map[string]*resource.Pod{},
+		},
+	}
+
+	// Update mock expectations with terminated workloads
+	resourceInformer.ExpectedCalls = nil
+	resourceInformer.SetExpectations(t, trWithTerminated)
+	resourceInformer.On("Refresh").Return(nil)
+
+	// Step 3: Calculate power with terminated workloads (first calculation after snapshot not exported)
+	err = monitor.refreshSnapshot()
+	require.NoError(t, err)
+
+	snapshot2 := monitor.snapshot.Load()
+	require.NotNil(t, snapshot2)
+
+	// Step 4: Verify terminated workloads are present before Snapshot() is called
+	assert.NotEmpty(t, snapshot2.TerminatedProcesses, "Terminated processes should be present before Snapshot() call")
+	assert.NotEmpty(t, snapshot2.TerminatedContainers, "Terminated containers should be present before Snapshot() call")
+	assert.NotEmpty(t, snapshot2.TerminatedVirtualMachines, "Terminated VMs should be present before Snapshot() call")
+
+	// Verify specific terminated workloads are present
+	assert.Contains(t, snapshot2.TerminatedProcesses, 456, "Process 456 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedProcesses, 789, "Process 789 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedContainers, "container-2", "Container-2 should be in terminated containers")
+	assert.Contains(t, snapshot2.TerminatedVirtualMachines, "vm-2", "VM-2 should be in terminated VMs")
+
+	// Step 5: Call Snapshot() to mark it as exported
+	exportedSnapshot, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, exportedSnapshot)
+
+	// Verify exported flag is set
+	assert.True(t, monitor.exported.Load(), "Exported flag should be true after Snapshot() call")
+
+	// Step 6: Advance time again and perform another calculation
+	fakeClock.Step(5 * time.Second)
+
+	// Keep the same resource state (no new terminations)
+	resourceInformer.ExpectedCalls = nil
+	resourceInformer.SetExpectations(t, trWithTerminated)
+	resourceInformer.On("Refresh").Return(nil)
+
+	// Step 7: Calculate power again (first calculation after export)
+	err = monitor.refreshSnapshot()
+	require.NoError(t, err)
+
+	snapshot3 := monitor.snapshot.Load()
+	require.NotNil(t, snapshot3)
+
+	// Step 8: Verify terminated workloads are cleared after Snapshot() was called
+	assert.Empty(t, snapshot3.TerminatedProcesses, "Terminated processes should be cleared after Snapshot() call")
+	assert.Empty(t, snapshot3.TerminatedContainers, "Terminated containers should be cleared after Snapshot() call")
+	assert.Empty(t, snapshot3.TerminatedVirtualMachines, "Terminated VMs should be cleared after Snapshot() call")
+	assert.Empty(t, snapshot3.TerminatedPods, "Terminated pods should be cleared after Snapshot() call")
+
+	// Step 9: Verify running workloads are still present
+	assert.Contains(t, snapshot3.Processes, 123, "Running process 123 should still be present")
+	assert.Contains(t, snapshot3.Containers, "container-1", "Running container-1 should still be present")
+	assert.Contains(t, snapshot3.VirtualMachines, "vm-1", "Running vm-1 should still be present")
+	assert.Contains(t, snapshot3.Pods, "pod-id-1", "Running pod-id-1 should still be present")
+
+	// Step 10: Test that if Snapshot() is not called, terminated workloads persist
+	fakeClock.Step(5 * time.Second)
+
+	// Add new workloads to snapshot3 first so they can be terminated later
+	snapshot3.Processes[999] = &Process{
+		PID:          999,
+		Comm:         "new-process",
+		Exe:          "/usr/bin/new-process",
+		CPUTotalTime: 50.0,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+	snapshot3.Containers["container-3"] = &Container{
+		ID:           "container-3",
+		Name:         "new-container-3",
+		Runtime:      resource.ContainerDRuntime,
+		CPUTotalTime: 50.0,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+	snapshot3.VirtualMachines["vm-3"] = &VirtualMachine{
+		ID:           "vm-3",
+		Name:         "new-vm-3",
+		Hypervisor:   resource.KVMHypervisor,
+		CPUTotalTime: 50.0,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+	snapshot3.Pods["pod-id-3"] = &Pod{
+		ID:           "pod-id-3",
+		Name:         "new-pod-3",
+		Namespace:    "default",
+		CPUTotalTime: 50.0,
+		Zones:        make(ZoneUsageMap, len(zones)),
+	}
+
+	// Add some energy to these new workloads
+	for _, zone := range zones {
+		snapshot3.Processes[999].Zones[zone] = Usage{
+			EnergyTotal: 75 * Joule,
+			Power:       7 * Watt,
+		}
+		snapshot3.Containers["container-3"].Zones[zone] = Usage{
+			EnergyTotal: 125 * Joule,
+			Power:       12 * Watt,
+		}
+		snapshot3.VirtualMachines["vm-3"].Zones[zone] = Usage{
+			EnergyTotal: 175 * Joule,
+			Power:       17 * Watt,
+		}
+		snapshot3.Pods["pod-id-3"].Zones[zone] = Usage{
+			EnergyTotal: 225 * Joule,
+			Power:       22 * Watt,
+		}
+	}
+
+	// Update the stored snapshot with the new workloads
+	monitor.snapshot.Store(snapshot3)
+
+	// Create more terminated workloads
+	trWithMoreTerminated := &TestResource{
+		Node: tr.Node,
+		Processes: &resource.Processes{
+			Running: map[int]*resource.Process{
+				123: tr.Processes.Running[123], // Still running
+			},
+			Terminated: map[int]*resource.Process{
+				999: {PID: 999, Comm: "new-terminated", Exe: "/usr/bin/new-terminated", CPUTotalTime: 50.0}, // Now terminated process
+			},
+		},
+		Containers: &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": tr.Containers.Running["container-1"], // Still running
+			},
+			Terminated: map[string]*resource.Container{
+				"container-3": {ID: "container-3", Name: "terminated-container-3", Runtime: resource.ContainerDRuntime}, // Now terminated container
+			},
+		},
+		VirtualMachines: &resource.VirtualMachines{
+			Running: map[string]*resource.VirtualMachine{
+				"vm-1": tr.VirtualMachines.Running["vm-1"], // Still running
+			},
+			Terminated: map[string]*resource.VirtualMachine{
+				"vm-3": {ID: "vm-3", Name: "terminated-vm-3", Hypervisor: resource.KVMHypervisor}, // Now terminated VM
+			},
+		},
+		Pods: &resource.Pods{
+			Running: map[string]*resource.Pod{
+				"pod-id-1": tr.Pods.Running["pod-id-1"], // Still running
+			},
+			Terminated: map[string]*resource.Pod{
+				"pod-id-3": {ID: "pod-id-3", Name: "terminated-pod-3", Namespace: "default", CPUTotalTime: 50.0}, // Now terminated pod
+			},
+		},
+	}
+
+	resourceInformer.ExpectedCalls = nil
+	resourceInformer.SetExpectations(t, trWithMoreTerminated)
+	resourceInformer.On("Refresh").Return(nil)
+
+	// Calculate power without calling Snapshot() first (exported flag should still be false)
+	err = monitor.refreshSnapshot()
+	require.NoError(t, err)
+
+	snapshot4 := monitor.snapshot.Load()
+	require.NotNil(t, snapshot4)
+
+	// Step 11: Verify new terminated workloads are present since Snapshot() wasn't called
+	assert.Contains(t, snapshot4.TerminatedProcesses, 999, "New terminated process should be present")
+	assert.Contains(t, snapshot4.TerminatedContainers, "container-3", "New terminated container should be present")
+	assert.Contains(t, snapshot4.TerminatedVirtualMachines, "vm-3", "New terminated VM should be present")
+	assert.Contains(t, snapshot4.TerminatedPods, "pod-id-3", "New terminated pod should be present")
+
+	resourceInformer.AssertExpectations(t)
+	mockMeter.AssertExpectations(t)
+}
+
+// TestSnapshotFreshnessAndCloning validates that:
+// 1. When data is fresh, Snapshot() returns a copy of the existing snapshot without triggering new calculations
+// 2. When data is stale, Snapshot() triggers new calculations and returns a copy of the updated snapshot
+// 3. The returned snapshot is always a clone (different object) with the same content
+func TestSnapshotFreshnessAndCloning(t *testing.T) {
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	// Create mock CPU meter with test zones
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+
+	// Create test resources
+	tr := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetExpectations(t, tr)
+	resourceInformer.On("Refresh").Return(nil)
+
+	// Create monitor with a short max staleness for testing
+	maxStaleness := 1 * time.Second
+	monitor := NewPowerMonitor(
+		mockMeter,
+		WithClock(fakeClock),
+		WithMaxStaleness(maxStaleness),
+		WithResourceInformer(resourceInformer),
+	)
+
+	err := monitor.initZones()
+	require.NoError(t, err)
+
+	// Step 1: Create initial snapshot
+	err = monitor.refreshSnapshot()
+	require.NoError(t, err)
+
+	initialSnapshot := monitor.snapshot.Load()
+	require.NotNil(t, initialSnapshot)
+	initialTimestamp := initialSnapshot.Timestamp
+
+	// Step 2: Test fresh data behavior - call Snapshot() immediately (data is fresh)
+	resourceInformer.ExpectedCalls = nil // Clear expectations since no new calls should be made
+
+	snapshot1, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, snapshot1)
+
+	// Verify it's a clone (different object, same content)
+	assert.NotSame(t, initialSnapshot, snapshot1, "Snapshot should return a clone, not the same object")
+	assert.Equal(t, initialSnapshot, snapshot1, "Snapshot content should be equal to the original")
+
+	// Verify no new computation happened (timestamp should be the same)
+	currentSnapshot := monitor.snapshot.Load()
+	assert.Equal(t, initialTimestamp, currentSnapshot.Timestamp, "No new computation should have occurred when data is fresh")
+
+	// Step 3: Test stale data behavior - advance time beyond staleness threshold
+	fakeClock.Step(maxStaleness + 100*time.Millisecond)
+
+	// Expect new calls since data is now stale and will trigger recomputation
+	resourceInformer.SetExpectations(t, tr)
+	resourceInformer.On("Refresh").Return(nil)
+
+	snapshot2, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, snapshot2)
+
+	// Verify it's a clone with updated content
+	newSnapshot := monitor.snapshot.Load()
+	assert.NotSame(t, newSnapshot, snapshot2, "Snapshot should return a clone, not the same object")
+	assert.Equal(t, newSnapshot, snapshot2, "Snapshot content should be equal to the updated snapshot")
+
+	// Verify new computation happened (timestamp should be updated)
+	assert.True(t, newSnapshot.Timestamp.After(initialTimestamp), "New computation should have occurred when data is stale")
+	assert.Equal(t, fakeClock.Now(), newSnapshot.Timestamp, "Timestamp should be updated to current time")
+
+	// Step 4: Test fresh data again - call Snapshot() immediately after the previous call
+	resourceInformer.ExpectedCalls = nil // Clear expectations since no new calls should be made
+
+	snapshot3, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, snapshot3)
+
+	// Verify it's a clone of the same fresh data
+	stillCurrentSnapshot := monitor.snapshot.Load()
+	assert.NotSame(t, stillCurrentSnapshot, snapshot3, "Snapshot should return a clone, not the same object")
+	assert.Equal(t, stillCurrentSnapshot, snapshot3, "Snapshot content should be equal to the current snapshot")
+
+	// Verify no new computation happened (timestamp should remain the same)
+	assert.Equal(t, newSnapshot.Timestamp, stillCurrentSnapshot.Timestamp, "No new computation should have occurred when data is fresh")
+
+	// Step 5: Test that exported flag is set correctly
+	assert.True(t, monitor.exported.Load(), "Exported flag should be true after Snapshot() calls")
+
+	resourceInformer.AssertExpectations(t)
+	mockMeter.AssertExpectations(t)
 }

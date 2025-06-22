@@ -98,12 +98,7 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		newSnapshot.TerminatedContainers[id] = terminatedContainer
 	}
 
-	// Skip if no containers
-	if len(cntrs.Running) == 0 {
-		pm.logger.Debug("No running containers found, skipping container power calculation")
-		return nil
-	}
-
+	// process running containers
 	zones := newSnapshot.Node.Zones
 	node := pm.resources.Node()
 	nodeCPUTimeDelta := node.ProcessTotalCPUTimeDelta
