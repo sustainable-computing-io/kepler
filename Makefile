@@ -86,7 +86,7 @@ clean:
 # Run tests with coverage
 .PHONY: test
 test:
-	CGO_ENABLED=$(CGO_ENABLED) $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
+	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 
 # Generate coverage report
 .PHONY: coverage
