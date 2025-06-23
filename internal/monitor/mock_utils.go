@@ -33,6 +33,16 @@ func (m *MockCPUPowerMeter) Run(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockCPUPowerMeter) Init() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockCPUPowerMeter) TopologyEnergy() Energy {
+	args := m.Called()
+	return args.Get(0).(Energy)
+}
+
 type MockEnergyZone struct {
 	mock.Mock
 }

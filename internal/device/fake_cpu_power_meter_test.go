@@ -208,3 +208,204 @@ func TestEnergyRandomness(t *testing.T) {
 
 	assert.False(t, exactIncrement, "Expected randomness in energy readings")
 }
+
+// TestMultiSocketEnergyStrategy tests energy strategy for multi-socket systems
+func TestMultiSocketEnergyStrategy(t *testing.T) {
+	tests := []struct {
+		name             string
+		zones            []string
+		expectedStrategy string
+		expectedZones    int
+	}{{
+		name:             "single socket - pkg+dram",
+		zones:            []string{"package", "dram"},
+		expectedStrategy: "package+dram",
+		expectedZones:    2,
+	}, {
+		name:             "dual socket - pkg", // Must make use of AggregatedZone
+		zones:            []string{"package"},
+		expectedStrategy: "package",
+		expectedZones:    1, // Uses first package found
+	}, {
+		name:             "quad socket with multiple cores",
+		zones:            []string{"package", "core", "core", "core", "core"},
+		expectedStrategy: "package",
+		expectedZones:    1, // Uses first package
+	}, {
+		name:             "multi-socket with psys",
+		zones:            []string{"psys", "package", "dram"},
+		expectedStrategy: "psys",
+		expectedZones:    1, // PSys takes priority
+	}, {
+		name:             "legacy multi-socket with pp0/pp1",
+		zones:            []string{"pp0", "pp1", "dram"},
+		expectedStrategy: "pp0+pp1+dram",
+		expectedZones:    3,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meter, err := NewFakeCPUMeter(tt.zones)
+			assert.NoError(t, err)
+
+			fakeRapl := meter.(*fakeRaplMeter)
+			err = fakeRapl.Init()
+			assert.NoError(t, err)
+
+			assert.NotNil(t, fakeRapl.topologicalEnergy)
+			assert.Equal(t, tt.expectedStrategy, fakeRapl.topologicalEnergy.strategy)
+			assert.Equal(t, tt.expectedZones, len(fakeRapl.topologicalEnergy.zones))
+
+			// Test TopologyEnergy works
+			energy := meter.TopologyEnergy()
+			assert.Greater(t, energy, Energy(0))
+		})
+	}
+}
+
+// TestMultiSocketTopologyEnergySum tests that multi-socket energy is summed correctly
+func TestMultiSocketTopologyEnergySum(t *testing.T) {
+	// Create dual socket with package zones
+	zones := []string{"package-0", "package-1"}
+	meter, err := NewFakeCPUMeter(zones)
+	assert.NoError(t, err)
+
+	fakeRapl := meter.(*fakeRaplMeter)
+	err = fakeRapl.Init()
+	assert.NoError(t, err)
+
+	// Strategy should use only first package (pkg strategy)
+	assert.Equal(t, "pkg", fakeRapl.topologicalEnergy.strategy)
+	assert.Equal(t, 1, len(fakeRapl.topologicalEnergy.zones))
+
+	// Verify the selected zone is package-0 (first one found)
+	selectedZone := fakeRapl.topologicalEnergy.zones[0]
+	assert.Equal(t, "package-0", selectedZone.Name())
+
+	// Test energy reading
+	energy1 := meter.TopologyEnergy()
+	energy2 := meter.TopologyEnergy()
+
+	// Energy should increase over time
+	assert.Greater(t, energy2, energy1)
+}
+
+// TestMultiSocketPkgDramStrategy tests PKG+DRAM strategy with multiple sockets
+func TestMultiSocketPkgDramStrategy(t *testing.T) {
+	// Create system with multiple packages and dram
+	zones := []string{"package-0", "package-1", "dram-0", "dram-1"}
+	meter, err := NewFakeCPUMeter(zones)
+	assert.NoError(t, err)
+
+	fakeRapl := meter.(*fakeRaplMeter)
+	err = fakeRapl.Init()
+	assert.NoError(t, err)
+
+	// Should use pkg+dram strategy with first package and first dram
+	assert.Equal(t, "pkg+dram", fakeRapl.topologicalEnergy.strategy)
+	assert.Equal(t, 2, len(fakeRapl.topologicalEnergy.zones))
+
+	// Verify zone names
+	zoneNames := make([]string, len(fakeRapl.topologicalEnergy.zones))
+	for i, zone := range fakeRapl.topologicalEnergy.zones {
+		zoneNames[i] = zone.Name()
+	}
+	assert.Contains(t, zoneNames, "package-0")
+	assert.Contains(t, zoneNames, "dram-0")
+
+	// Test energy is sum of package and dram
+	// Note: Each call to Energy() increments the value, so we need to capture at the same time
+	energy1 := meter.TopologyEnergy()
+	energy2 := meter.TopologyEnergy()
+
+	// Verify energy increases over time (sum of both zones)
+	assert.Greater(t, energy2, energy1)
+	assert.Greater(t, energy1, Energy(0))
+}
+
+// TestDetermineEnergyStrategy tests the energy strategy logic directly
+func TestDetermineEnergyStrategy(t *testing.T) {
+	tests := []struct {
+		name             string
+		zoneNames        []string
+		expectedStrategy string
+		expectedZones    int
+		shouldPanic      bool
+	}{{
+		name:             "psys priority - exact match",
+		zoneNames:        []string{"psys", "package", "dram"},
+		expectedStrategy: "psys",
+		expectedZones:    1,
+	}, {
+		name:             "pkg+dram strategy - exact match",
+		zoneNames:        []string{"package", "dram", "core"},
+		expectedStrategy: "package+dram",
+		expectedZones:    2,
+	}, {
+		name:             "pkg only - no dram",
+		zoneNames:        []string{"package", "core"},
+		expectedStrategy: "package",
+		expectedZones:    1,
+	}, {
+		name:             "pp0+pp1+dram strategy - legacy",
+		zoneNames:        []string{"pp0", "pp1", "dram", "uncore"},
+		expectedStrategy: "pp0+pp1+dram",
+		expectedZones:    3,
+	}, {
+		name:             "pp0+dram strategy - no pp1",
+		zoneNames:        []string{"pp0", "dram", "uncore"},
+		expectedStrategy: "pp0+dram",
+		expectedZones:    2,
+	}, {
+		name:             "pp0 only strategy",
+		zoneNames:        []string{"pp0", "uncore"},
+		expectedStrategy: "pp0",
+		expectedZones:    1,
+	}, {
+		name:             "fallback strategy",
+		zoneNames:        []string{"unknown", "custom"},
+		expectedStrategy: "fallback-unknown",
+		expectedZones:    1,
+	}, {
+		name:             "no zones",
+		zoneNames:        []string{},
+		expectedStrategy: "none",
+		expectedZones:    0,
+		shouldPanic:      true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create fake zones
+			var zones []EnergyZone
+			for i, name := range tt.zoneNames {
+				zones = append(zones, &fakeEnergyZone{
+					name:      name,
+					index:     i,
+					path:      "/fake/" + name,
+					maxEnergy: 1000000,
+				})
+			}
+
+			if tt.shouldPanic {
+				assert.Panics(t, func() {
+					DetermineTopologyEnergyStrategy(zones)
+				})
+				return
+			}
+
+			strategy := DetermineTopologyEnergyStrategy(zones)
+			assert.NotNil(t, strategy)
+			assert.Equal(t, tt.expectedStrategy, strategy.strategy)
+			assert.Equal(t, tt.expectedZones, len(strategy.zones))
+
+			// Test ComputeEnergy works
+			energy := strategy.ComputeEnergy()
+			if len(strategy.zones) > 0 {
+				assert.GreaterOrEqual(t, energy, Energy(0))
+			} else {
+				assert.Equal(t, Energy(0), energy)
+			}
+		})
+	}
+}

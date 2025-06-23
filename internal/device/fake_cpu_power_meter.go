@@ -13,15 +13,6 @@ import (
 
 // NOTE: This fake meter is not intended to be used in production and is for testing only
 
-type Zone = string
-
-const (
-	ZonePackage Zone = "package"
-	ZoneCore    Zone = "core"
-	ZoneDRAM    Zone = "dram"
-	ZoneUncore  Zone = "uncore"
-)
-
 var defaultFakeZones = []Zone{ZonePackage, ZoneCore, ZoneDRAM}
 
 const defaultRaplPath = "/sys/class/powercap/intel-rapl"
@@ -75,9 +66,10 @@ func (z *fakeEnergyZone) MaxEnergy() Energy {
 
 // fakeRaplMeter implements the CPUPowerMeter interface
 type fakeRaplMeter struct {
-	logger     *slog.Logger
-	zones      []EnergyZone
-	devicePath string
+	logger            *slog.Logger
+	zones             []EnergyZone
+	devicePath        string
+	topologicalEnergy *topologicalEnergy
 }
 
 var _ CPUPowerMeter = (*fakeRaplMeter)(nil)
@@ -160,4 +152,26 @@ func (m *fakeRaplMeter) Name() string {
 
 func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {
 	return m.zones, nil
+}
+
+func (m *fakeRaplMeter) Init() error {
+	zones, err := m.Zones()
+	if err != nil {
+		return err
+	}
+
+	// Cache the energy computation strategy
+	m.topologicalEnergy = DetermineTopologyEnergyStrategy(zones)
+	if m.logger != nil {
+		m.logger.Debug("Cached fake energy strategy", "type", m.topologicalEnergy.strategy, "zones", len(m.topologicalEnergy.zones))
+	}
+
+	return nil
+}
+
+// TopologyEnergy returns the total energy consumption using the cached strategy.
+// This provides O(1) performance by avoiding repeated zone lookups and respects
+// RAPL topology hierarchy for fake zones.
+func (m *fakeRaplMeter) TopologyEnergy() Energy {
+	return m.topologicalEnergy.ComputeEnergy()
 }
