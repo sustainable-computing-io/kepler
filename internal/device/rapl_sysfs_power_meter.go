@@ -134,10 +134,10 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 	}
 
 	// filter out non-standard zones
-	stdZoneMap := map[string]EnergyZone{}
+
+	stdZoneMap := map[zoneKey]EnergyZone{}
 	for _, zone := range zones {
-		// key -> zone-name + index
-		key := fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+		key := zoneKey{name: zone.Name(), index: zone.Index()}
 
 		// ignore non-standard zones if a standard zone already exists
 		if existingZone, exists := stdZoneMap[key]; exists && isStandardRaplPath(existingZone.Path()) {
@@ -146,11 +146,50 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 		stdZoneMap[key] = zone
 	}
 
-	r.cachedZones = make([]EnergyZone, 0, len(stdZoneMap))
-	for _, zone := range stdZoneMap {
-		r.cachedZones = append(r.cachedZones, zone)
-	}
+	// Group zones by name for aggregation
+	r.cachedZones = r.groupZonesByName(stdZoneMap)
 	return r.cachedZones, nil
+}
+
+// groupZonesByName groups zones by their base name and creates AggregatedZone
+// instances when multiple zones share the same name (multi-socket systems)
+func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[zoneKey]EnergyZone) []EnergyZone {
+	// Group zones by base name (e.g., "package", "dram")
+	zoneGroups := make(map[string][]EnergyZone)
+
+	for key, zone := range stdZoneMap {
+		zoneGroups[key.name] = append(zoneGroups[key.name], zone)
+	}
+
+	// Create aggregated zones for duplicates, keep single zones as-is
+	var result []EnergyZone
+	for name, zones := range zoneGroups {
+		if len(zones) == 1 {
+			// Single zone - use as-is
+			result = append(result, zones[0])
+			continue
+
+		}
+
+		// Multiple zones with same name - create AggregatedZone
+		aggregated := NewAggregatedZone(zones)
+		result = append(result, aggregated)
+		r.logger.Debug("Created aggregated zone",
+			"name", name,
+			"zone_count", len(zones),
+			"zones", r.zoneNames(zones))
+	}
+
+	return result
+}
+
+// zoneNames returns a slice of zone names for logging
+func (r *raplPowerMeter) zoneNames(zones []EnergyZone) []string {
+	names := make([]string, len(zones))
+	for i, zone := range zones {
+		names[i] = fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
+	}
+	return names
 }
 
 // isStandardRaplPath checks if a RAPL zone path is in the standard format
