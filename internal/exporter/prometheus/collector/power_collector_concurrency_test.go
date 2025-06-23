@@ -182,34 +182,33 @@ func TestPowerCollectorWithRegistry(t *testing.T) {
 					switch mf.GetName() {
 					case "kepler_node_cpu_joules_total":
 						// Main joules metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", nodePkgAbs.Joules())
-						assertMainMetricValue(t, mf, "package-1", nodePkgAbs.Joules())
-						assertMainMetricValue(t, mf, "dram-0", nodeDramAbs.Joules())
+						assertMainMetricValue(t, mf, "package", nodePkgAbs.Joules())
+						assertMainMetricValue(t, mf, "dram", nodeDramAbs.Joules())
 
 					case "kepler_node_cpu_watts":
 						// Main watts metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", nodePkgPower.Watts())
-						assertMainMetricValue(t, mf, "dram-0", nodeDramPower.Watts())
+						assertMainMetricValue(t, mf, "package", nodePkgPower.Watts())
+						assertMainMetricValue(t, mf, "dram", nodeDramPower.Watts())
 
 					case "kepler_node_cpu_active_watts":
 						// Active watts metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", (nodePkgPower / 2).Watts())
-						assertMainMetricValue(t, mf, "dram-0", (nodeDramPower / 2).Watts())
+						assertMainMetricValue(t, mf, "package", (nodePkgPower / 2).Watts())
+						assertMainMetricValue(t, mf, "dram", (nodeDramPower / 2).Watts())
 
 					case "kepler_node_cpu_idle_watts":
 						// Idle watts metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", (nodePkgPower / 2).Watts())
-						assertMainMetricValue(t, mf, "dram-0", (nodeDramPower / 2).Watts())
+						assertMainMetricValue(t, mf, "package", (nodePkgPower / 2).Watts())
+						assertMainMetricValue(t, mf, "dram", (nodeDramPower / 2).Watts())
 
 					case "kepler_node_cpu_active_joules_total":
 						// Active joules metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", (nodePkgDelta / 2).Joules())
-						assertMainMetricValue(t, mf, "dram-0", (nodeDramDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "package", (nodePkgDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "dram", (nodeDramDelta / 2).Joules())
 
 					case "kepler_node_cpu_idle_joules_total":
 						// Idle joules metric - no mode label
-						assertMainMetricValue(t, mf, "package-0", (nodePkgDelta / 2).Joules())
-						assertMainMetricValue(t, mf, "dram-0", (nodeDramDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "package", (nodePkgDelta / 2).Joules())
+						assertMainMetricValue(t, mf, "dram", (nodeDramDelta / 2).Joules())
 
 					case "kepler_node_cpu_usage_ratio":
 						// Usage ratio metric
