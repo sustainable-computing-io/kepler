@@ -40,8 +40,8 @@ func TestVMPowerCalculation(t *testing.T) {
 
 	t.Run("firstVMRead", func(t *testing.T) {
 		testData := CreateTestVMs()
-		resourceInformer.On("Node").Return(testData.Node, nil).Once()
-		resourceInformer.On("Node").Return(testData.Node, nil).Once() // Additional call for firstVMRead
+		resourceInformer.On("Node").Return(testData.Node, nil).Maybe()
+		resourceInformer.On("Node").Return(testData.Node, nil).Maybe() // Additional call for firstVMRead
 		resourceInformer.On("VirtualMachines").Return(testData.VMs).Once()
 
 		snapshot := NewSnapshot()
@@ -102,7 +102,7 @@ func TestVMPowerCalculation(t *testing.T) {
 
 		// Setup mock to return updated VMs
 		testData := CreateTestVMs()
-		resourceInformer.On("Node").Return(testData.Node, nil).Once()
+		resourceInformer.On("Node").Return(testData.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(testData.VMs).Once()
 
 		err = monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -173,7 +173,7 @@ func TestVMPowerCalculation(t *testing.T) {
 		}
 
 		testData := CreateTestVMs()
-		resourceInformer.On("Node").Return(testData.Node, nil).Once()
+		resourceInformer.On("Node").Return(testData.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(testData.VMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -201,6 +201,8 @@ func TestVMPowerCalculation(t *testing.T) {
 			Running:    map[string]*resource.VirtualMachine{},
 			Terminated: map[string]*resource.VirtualMachine{},
 		}
+		tr := CreateTestResources(createOnly(testNode))
+		resourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(emptyVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -231,7 +233,7 @@ func TestVMPowerCalculation(t *testing.T) {
 		}
 
 		tr := CreateTestResources()
-		resourceInformer.On("Node").Return(tr.Node, nil).Once()
+		resourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(vms).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -286,7 +288,7 @@ func TestVMPowerCalculation(t *testing.T) {
 		}
 
 		tr := CreateTestResources(createOnly(testNode))
-		resourceInformer.On("Node").Return(tr.Node, nil).Once()
+		resourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -394,7 +396,7 @@ func TestVMPowerCalculation(t *testing.T) {
 		}
 
 		tr := CreateTestResources()
-		resourceInformer.On("Node").Return(tr.Node, nil).Once()
+		resourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		resourceInformer.On("VirtualMachines").Return(vmsWithTerminated).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -467,7 +469,7 @@ func TestVMPowerConsistency(t *testing.T) {
 		}
 
 		tr := CreateTestResources()
-		mockResourceInformer.On("Node").Return(tr.Node, nil).Once()
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		mockResourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
@@ -508,7 +510,7 @@ func TestVMPowerConsistency(t *testing.T) {
 		}
 
 		tr := CreateTestResources()
-		mockResourceInformer.On("Node").Return(tr.Node, nil).Once()
+		mockResourceInformer.On("Node").Return(tr.Node, nil).Maybe()
 		mockResourceInformer.On("VirtualMachines").Return(testVMs).Once()
 
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)

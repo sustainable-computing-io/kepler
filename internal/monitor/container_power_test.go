@@ -198,6 +198,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 			Running:    map[string]*resource.Container{},
 			Terminated: map[string]*resource.Container{},
 		}
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
 		resInformer.On("Containers").Return(emptyContaineres).Once()
 
 		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
