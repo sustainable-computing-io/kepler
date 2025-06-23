@@ -12,6 +12,8 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
+	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
 
@@ -804,4 +806,411 @@ exporter:
 		exp.Exporter.Prometheus.DebugCollectors = []string{"go", "process"}
 		assert.Equal(t, exp.String(), cfg.String())
 	})
+}
+
+func TestMetricsLevelValue_Set(t *testing.T) {
+	tests := []struct {
+		name          string
+		initialLevel  metrics.Level
+		setValue      string
+		expectedLevel metrics.Level
+		expectError   bool
+		errorMessage  string
+	}{
+		{
+			name:          "Set node from default all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "node",
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+		{
+			name:          "Set process from default all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "process",
+			expectedLevel: metrics.MetricsLevelProcess,
+			expectError:   false,
+		},
+		{
+			name:          "Set container from default all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "container",
+			expectedLevel: metrics.MetricsLevelContainer,
+			expectError:   false,
+		},
+		{
+			name:          "Set vm from default all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "vm",
+			expectedLevel: metrics.MetricsLevelVM,
+			expectError:   false,
+		},
+		{
+			name:          "Set pod from default all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "pod",
+			expectedLevel: metrics.MetricsLevelPod,
+			expectError:   false,
+		},
+		{
+			name:          "Accumulate node to existing process",
+			initialLevel:  metrics.MetricsLevelProcess,
+			setValue:      "node",
+			expectedLevel: metrics.MetricsLevelProcess | metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+		{
+			name:          "Accumulate container to existing node+process",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess,
+			setValue:      "container",
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer,
+			expectError:   false,
+		},
+		{
+			name:          "Invalid level returns error",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "invalid",
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod, // Should remain unchanged
+			expectError:   true,
+			errorMessage:  "unknown metrics level: invalid",
+		},
+		{
+			name:          "Empty string returns error",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "",
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod, // Should remain unchanged
+			expectError:   true,
+			errorMessage:  "unknown metrics level: ",
+		},
+		{
+			name:          "Case insensitive - NODE",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "NODE",
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+		{
+			name:          "Case insensitive - Process",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "Process",
+			expectedLevel: metrics.MetricsLevelProcess,
+			expectError:   false,
+		},
+		{
+			name:          "Whitespace handling - node with spaces",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "  node  ",
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+		{
+			name:          "Set same level twice (idempotent)",
+			initialLevel:  metrics.MetricsLevelNode,
+			setValue:      "node",
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			level := tt.initialLevel
+			mlv := NewMetricsLevelValue(&level)
+
+			err := mlv.Set(tt.setValue)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMessage != "" {
+					assert.Contains(t, err.Error(), tt.errorMessage)
+				}
+				// Level should remain unchanged on error
+				assert.Equal(t, tt.initialLevel, level)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedLevel, level)
+			}
+		})
+	}
+}
+
+func TestMetricsLevelValue_AccumulativeBehavior(t *testing.T) {
+	// Test the cumulative behavior when multiple Set calls are made
+	tests := []struct {
+		name          string
+		initialLevel  metrics.Level
+		setValues     []string
+		expectedLevel metrics.Level
+		expectError   bool
+	}{
+		{
+			name:          "Accumulate multiple levels from all",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValues:     []string{"node", "process"},
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess,
+			expectError:   false,
+		},
+		{
+			name:          "Accumulate multiple levels from none",
+			initialLevel:  metrics.Level(0),
+			setValues:     []string{"node", "process", "container"},
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer,
+			expectError:   false,
+		},
+		{
+			name:          "Error in middle stops processing",
+			initialLevel:  metrics.Level(0),
+			setValues:     []string{"node", "invalid", "process"},
+			expectedLevel: metrics.MetricsLevelNode, // Should have node from first call
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			level := tt.initialLevel
+			mlv := NewMetricsLevelValue(&level)
+
+			var lastErr error
+			for _, setValue := range tt.setValues {
+				err := mlv.Set(setValue)
+				if err != nil {
+					lastErr = err
+					break // Stop on first error
+				}
+			}
+
+			if tt.expectError {
+				assert.Error(t, lastErr)
+			} else {
+				assert.NoError(t, lastErr)
+			}
+
+			assert.Equal(t, tt.expectedLevel, level)
+		})
+	}
+}
+
+func TestMetricsLevelValue_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		level    metrics.Level
+		expected string
+	}{
+		{
+			name:     "No levels (empty)",
+			level:    metrics.Level(0),
+			expected: "",
+		},
+		{
+			name:     "All individual levels",
+			level:    metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			expected: "node,process,container,vm,pod",
+		},
+		{
+			name:     "Single level - node",
+			level:    metrics.MetricsLevelNode,
+			expected: "node",
+		},
+		{
+			name:     "Multiple levels - node and process",
+			level:    metrics.MetricsLevelNode | metrics.MetricsLevelProcess,
+			expected: "node,process",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mlv := NewMetricsLevelValue(&tt.level)
+			result := mlv.String()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMetricsLevelValue_IsCumulative(t *testing.T) {
+	level := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	mlv := NewMetricsLevelValue(&level)
+	assert.True(t, mlv.IsCumulative(), "MetricsLevelValue should be cumulative")
+}
+
+func TestNewMetricsLevelValue(t *testing.T) {
+	t.Run("Creates valid MetricsLevelValue", func(t *testing.T) {
+		level := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+		mlv := NewMetricsLevelValue(&level)
+
+		assert.NotNil(t, mlv)
+		assert.Equal(t, level, *mlv.level)
+	})
+
+	t.Run("Modifying target level affects MetricsLevelValue", func(t *testing.T) {
+		level := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+		mlv := NewMetricsLevelValue(&level)
+
+		// Modify the original level
+		level = metrics.MetricsLevelNode
+
+		// MetricsLevelValue should reflect the change
+		assert.Equal(t, metrics.MetricsLevelNode, *mlv.level)
+	})
+}
+
+func TestMetricsLevelValue_CommandLineIntegration(t *testing.T) {
+	// Test integration with kingpin command line parsing
+	tests := []struct {
+		name          string
+		args          []string
+		expectedLevel metrics.Level
+		expectError   bool
+	}{
+		{
+			name:          "Single flag value - node",
+			args:          []string{"--metrics", "node"},
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+		{
+			name:          "Multiple flag values accumulate",
+			args:          []string{"--metrics", "node", "--metrics", "process"},
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess,
+			expectError:   false,
+		},
+		{
+			name:          "All flag values",
+			args:          []string{"--metrics", "node", "--metrics", "process", "--metrics", "container", "--metrics", "vm", "--metrics", "pod"},
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			expectError:   false,
+		},
+		{
+			name:          "Invalid flag value",
+			args:          []string{"--metrics", "invalid"},
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod, // Should remain at default
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a kingpin application for testing
+			app := kingpin.New("test", "test application")
+			var metricsLevel = metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+			app.Flag("metrics", "Metrics levels to export").SetValue(NewMetricsLevelValue(&metricsLevel))
+
+			// Parse the arguments
+			_, err := app.Parse(tt.args)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				// On error, the level should remain unchanged (default)
+				assert.Equal(t, metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod, metricsLevel)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedLevel, metricsLevel)
+			}
+		})
+	}
+}
+
+func TestMetricsLevelValue_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name          string
+		initialLevel  metrics.Level
+		setValue      string
+		expectedLevel metrics.Level
+		expectError   bool
+	}{
+		{
+			name:          "Special characters in value",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "node!@#",
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			expectError:   true,
+		},
+		{
+			name:          "Numeric value",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "123",
+			expectedLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			expectError:   true,
+		},
+		{
+			name:          "Tab and newline whitespace",
+			initialLevel:  metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			setValue:      "\t\nnode\t\n",
+			expectedLevel: metrics.MetricsLevelNode,
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			level := tt.initialLevel
+			mlv := NewMetricsLevelValue(&level)
+
+			err := mlv.Set(tt.setValue)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equal(t, tt.initialLevel, level)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedLevel, level)
+			}
+		})
+	}
+}
+
+func TestMetricsLevelYAMLMarshalling(t *testing.T) {
+	tests := []struct {
+		name         string
+		metricsLevel metrics.Level
+		expectedYAML string
+	}{
+		{
+			name:         "All individual levels",
+			metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+			expectedYAML: "metricsLevel:\n    - node\n    - process\n    - container\n    - vm\n    - pod",
+		},
+		{
+			name:         "Node only",
+			metricsLevel: metrics.MetricsLevelNode,
+			expectedYAML: "node",
+		},
+		{
+			name:         "Pod and Node",
+			metricsLevel: metrics.MetricsLevelPod | metrics.MetricsLevelNode,
+			expectedYAML: "metricsLevel:\n    - node\n    - pod",
+		},
+		{
+			name:         "Node and Process",
+			metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess,
+			expectedYAML: "metricsLevel:\n    - node\n    - process",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Exporter.Prometheus.MetricsLevel = tt.metricsLevel
+
+			// Marshal the prometheus exporter section
+			data, err := yaml.Marshal(cfg.Exporter.Prometheus)
+			assert.NoError(t, err)
+
+			yamlStr := string(data)
+
+			// Check that the YAML contains the expected metrics level representation
+			assert.Contains(t, yamlStr, tt.expectedYAML, "YAML should contain expected metrics level representation")
+
+			// Importantly, it should NOT contain the integer representation
+			integerStr := fmt.Sprintf("metricsLevel: %d", tt.metricsLevel)
+			assert.NotContains(t, yamlStr, integerStr, "YAML should not contain integer representation")
+
+			// Test round-trip: unmarshal back and verify it's the same
+			var unmarshaled PrometheusExporter
+			err = yaml.Unmarshal(data, &unmarshaled)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.metricsLevel, unmarshaled.MetricsLevel)
+		})
+	}
 }
