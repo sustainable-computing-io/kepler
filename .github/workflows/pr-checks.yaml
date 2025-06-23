@@ -22,6 +22,7 @@ jobs:
               - '**/*.go'
               - 'go.mod'
               - 'go.sum'
+              - 'Makefile'
   fmt:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
