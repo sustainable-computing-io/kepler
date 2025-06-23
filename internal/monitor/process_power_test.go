@@ -411,24 +411,22 @@ func TestProcessPowerConsistency(t *testing.T) {
 func TestTerminatedProcessTracking(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	fakeClock := testingclock.NewFakeClock(time.Now())
-
 	zones := CreateTestZones()
-	mockMeter := &MockCPUPowerMeter{}
-	mockMeter.On("Zones").Return(zones, nil)
-
-	resInformer := &MockResourceInformer{}
-
-	monitor := &PowerMonitor{
-		logger:    logger,
-		cpu:       mockMeter,
-		clock:     fakeClock,
-		resources: resInformer,
-	}
-
-	err := monitor.initZones()
-	require.NoError(t, err)
 
 	t.Run("terminated process energy accumulation", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
 		// Step 1: Create initial snapshot with running processes
 		snapshot1 := NewSnapshot()
 		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -446,7 +444,7 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
 		resInformer.On("Processes").Return(procs1).Once()
 
-		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		err = monitor.calculateProcessPower(NewSnapshot(), snapshot1)
 		require.NoError(t, err)
 
 		runningProc123 := snapshot1.Processes[123]
@@ -517,6 +515,20 @@ func TestTerminatedProcessTracking(t *testing.T) {
 	})
 
 	t.Run("terminated process cleanup after export", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
 		// Reset monitor state
 		monitor.exported.Store(false)
 
@@ -554,7 +566,7 @@ func TestTerminatedProcessTracking(t *testing.T) {
 
 		// Before export terminated processes should be preserved
 		monitor.exported.Store(false)
-		err := monitor.calculateProcessPower(snapshot1, snapshot2)
+		err = monitor.calculateProcessPower(snapshot1, snapshot2)
 		require.NoError(t, err)
 
 		assert.Len(t, snapshot2.TerminatedProcesses, 1, "Terminated processes should be preserved before export")
@@ -577,6 +589,20 @@ func TestTerminatedProcessTracking(t *testing.T) {
 	})
 
 	t.Run("multiple terminated processes accumulation", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
 		// Reset monitor state
 		monitor.exported.Store(false)
 
@@ -597,7 +623,7 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
 		resInformer.On("Processes").Return(procs1).Once()
 
-		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		err = monitor.calculateProcessPower(NewSnapshot(), snapshot1)
 		require.NoError(t, err)
 
 		// Capture running process values
@@ -657,6 +683,20 @@ func TestTerminatedProcessTracking(t *testing.T) {
 	})
 
 	t.Run("terminated process with zero energy filtering", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
 		// NOTE: Reset monitor state
 		monitor.exported.Store(false)
 
@@ -677,7 +717,7 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
 		resInformer.On("Processes").Return(procs1).Once()
 
-		err := monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		err = monitor.calculateProcessPower(NewSnapshot(), snapshot1)
 		require.NoError(t, err)
 
 		// Verify initial state: process 100 has energy, process 200 has zero energy
@@ -729,6 +769,4 @@ func TestTerminatedProcessTracking(t *testing.T) {
 
 		resInformer.AssertExpectations(t)
 	})
-
-	mockMeter.AssertExpectations(t)
 }

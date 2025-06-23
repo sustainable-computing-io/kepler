@@ -107,6 +107,7 @@ These metrics provide energy and power information for containers.
   - `container_id`
   - `container_name`
   - `runtime`
+  - `state`
   - `zone`
   - `pod_id`
 - **Constant Labels**:
@@ -120,6 +121,7 @@ These metrics provide energy and power information for containers.
   - `container_id`
   - `container_name`
   - `runtime`
+  - `state`
   - `zone`
   - `pod_id`
 - **Constant Labels**:
@@ -187,6 +189,7 @@ These metrics provide energy and power information for virtual machines.
   - `vm_id`
   - `vm_name`
   - `hypervisor`
+  - `state`
   - `zone`
 - **Constant Labels**:
   - `node_name`
@@ -199,6 +202,7 @@ These metrics provide energy and power information for virtual machines.
   - `vm_id`
   - `vm_name`
   - `hypervisor`
+  - `state`
   - `zone`
 - **Constant Labels**:
   - `node_name`
@@ -215,6 +219,7 @@ These metrics provide energy and power information for pods.
   - `pod_id`
   - `pod_name`
   - `pod_namespace`
+  - `state`
   - `zone`
 - **Constant Labels**:
   - `node_name`
@@ -227,6 +232,7 @@ These metrics provide energy and power information for pods.
   - `pod_id`
   - `pod_name`
   - `pod_namespace`
+  - `state`
   - `zone`
 - **Constant Labels**:
   - `node_name`

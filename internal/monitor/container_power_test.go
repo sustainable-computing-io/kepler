@@ -260,17 +260,17 @@ func TestContainerPowerConsistency(t *testing.T) {
 
 		// Verify power conservation for each zone
 		for _, zone := range zones {
-			totalContainerPower := float64(0)
+			ctnrZonePowerTotal := Power(0)
 
-			for _, proc := range newSnapshot.Containers {
-				totalContainerPower += proc.Zones[zone].Power.MicroWatts()
+			for _, ctnr := range newSnapshot.Containers {
+				ctnrZonePowerTotal += ctnr.Zones[zone].Power
 			}
 
 			// Containers have total CPU delta of 100.0 out of node's 200.0 (50%)
 			// So total container power should be 50% of node ActivePower
-			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower.MicroWatts()
+			nodeActivePower := newSnapshot.Node.Zones[zone].ActivePower
 			expectedContainerPower := nodeActivePower * 0.5 // 50% of used power
-			assert.InDelta(t, expectedContainerPower, totalContainerPower, 1.0,
+			assert.Equal(t, expectedContainerPower, ctnrZonePowerTotal,
 				"Power conservation failed for zone %s", zone.Name())
 		}
 
@@ -278,4 +278,340 @@ func TestContainerPowerConsistency(t *testing.T) {
 	})
 
 	mockMeter.AssertExpectations(t)
+}
+
+func TestTerminatedContainerTracking(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+	zones := CreateTestZones()
+
+	t.Run("terminated container energy accumulation", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+		// Step 1: Create initial snapshot with running containers
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Create initial containers - all running
+		cntrsInitial := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "test-container-1", Runtime: resource.DockerRuntime, CPUTotalTime: 100.0, CPUTimeDelta: 30.0},
+				"container-2": {ID: "container-2", Name: "test-container-2", Runtime: resource.PodmanRuntime, CPUTotalTime: 150.0, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[string]*resource.Container{},
+		}
+
+		tr1 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
+		resInformer.On("Containers").Return(cntrsInitial).Once()
+
+		err = monitor.calculateContainerPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		runningCtnr1 := snapshot1.Containers["container-1"]
+		require.NotNil(t, runningCtnr1, "Container container-1 should exist in running containers")
+
+		// Store expected values for terminated container validation
+		expectedEnergy := make(map[string]Energy)
+		expectedPower := make(map[string]Power)
+		for zone, usage := range runningCtnr1.Zones {
+			expectedEnergy[zone.Name()] = usage.EnergyTotal
+			expectedPower[zone.Name()] = usage.Power
+		}
+
+		// Step 2: Create second snapshot where container-1 terminates
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		// container-1 is now terminated, container-2 still running
+		containers2 := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-2": {ID: "container-2", Name: "test-container-2", Runtime: resource.PodmanRuntime, CPUTotalTime: 170.0, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "test-container-1", Runtime: resource.DockerRuntime, CPUTotalTime: 130.0, CPUTimeDelta: 30.0},
+			},
+		}
+
+		tr2 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr2.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers2).Once()
+
+		err = monitor.calculateContainerPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		// Step 3: Validate running containers
+		assert.Len(t, snapshot2.Containers, 1)
+		assert.Contains(t, snapshot2.Containers, "container-2")
+		assert.NotContains(t, snapshot2.Containers, "container-1", "Container container-1 should no longer be in running containers")
+
+		// Step 4: Validate terminated containers - CORE BUSINESS LOGIC
+		assert.Len(t, snapshot2.TerminatedContainers, 1, "Terminated containers should be tracked")
+		assert.Contains(t, snapshot2.TerminatedContainers, "container-1", "Container container-1 should be in terminated containers")
+
+		terminatedCntr1, exists := snapshot2.TerminatedContainers["container-1"]
+		require.True(t, exists, "Container container-1 should exist in terminated containers")
+
+		// TEST: Energy and power values are EXACTLY preserved from when container was running
+		for _, zone := range zones {
+			terminatedUsage := terminatedCntr1.Zones[zone]
+			zoneName := zone.Name()
+
+			// The terminated container should have EXACTLY the same energy as when it was last running
+			assert.Equal(t, expectedEnergy[zoneName], terminatedUsage.EnergyTotal,
+				"Terminated container energy should be preserved from last running state for zone %s", zoneName)
+
+			// The terminated container should have EXACTLY the same power as when it was last running
+			assert.Equal(t, expectedPower[zoneName], terminatedUsage.Power,
+				"Terminated container power should be preserved from last running state for zone %s", zoneName)
+		}
+
+		// Step 5: Validate container metadata is preserved
+		assert.Equal(t, runningCtnr1.ID, terminatedCntr1.ID)
+		assert.Equal(t, runningCtnr1.Name, terminatedCntr1.Name)
+		assert.Equal(t, runningCtnr1.Runtime, terminatedCntr1.Runtime)
+		assert.Equal(t, runningCtnr1.PodID, terminatedCntr1.PodID)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated container cleanup after export", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
+		// Reset monitor state
+		monitor.exported.Store(false)
+
+		// Create snapshot with terminated container
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Add a terminated container from a previous calculation
+		snapshot1.TerminatedContainers["old-terminated"] = &Container{
+			ID:      "old-terminated",
+			Name:    "old-terminated-container",
+			Runtime: resource.DockerRuntime,
+			Zones:   make(ZoneUsageMap),
+		}
+		for _, zone := range zones {
+			snapshot1.TerminatedContainers["old-terminated"].Zones[zone] = Usage{
+				EnergyTotal: 50 * Joule,
+				Power:       10 * Watt,
+			}
+		}
+
+		// Create next snapshot with no new terminated containers
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		containers := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"running-container": {ID: "running-container", Name: "running", Runtime: resource.DockerRuntime, CPUTimeDelta: 10.0},
+			},
+			Terminated: map[string]*resource.Container{}, // No new terminated containers
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers).Once()
+
+		// Before export terminated containers should be preserved
+		monitor.exported.Store(false)
+		err = monitor.calculateContainerPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		assert.Len(t, snapshot2.TerminatedContainers, 1, "Terminated containers should be preserved before export")
+		assert.Contains(t, snapshot2.TerminatedContainers, "old-terminated")
+
+		// After export, terminated containers should be cleaned up
+		monitor.exported.Store(true)
+		snapshot3 := NewSnapshot()
+		snapshot3.Node = createNodeSnapshot(zones, fakeClock.Now().Add(2*time.Second), 0.5)
+
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers).Once()
+
+		err = monitor.calculateContainerPower(snapshot2, snapshot3)
+		require.NoError(t, err)
+
+		assert.Len(t, snapshot3.TerminatedContainers, 0, "Terminated containers should be cleaned up after export")
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("multiple terminated containers accumulation", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
+		// Reset monitor state
+		monitor.exported.Store(false)
+
+		// Create initial snapshot with multiple running containers
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		cntrsInitial := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "cont1", Runtime: resource.DockerRuntime, CPUTimeDelta: 10.0},
+				"container-2": {ID: "container-2", Name: "cont2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 20.0},
+				"container-3": {ID: "container-3", Name: "cont3", Runtime: resource.CrioRuntime, CPUTimeDelta: 30.0},
+			},
+			Terminated: map[string]*resource.Container{},
+		}
+
+		tr1 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
+		resInformer.On("Containers").Return(cntrsInitial).Once()
+
+		err = monitor.calculateContainerPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		// Step 2: First container terminates
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		containers2 := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-2": {ID: "container-2", Name: "cont2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 20.0},
+				"container-3": {ID: "container-3", Name: "cont3", Runtime: resource.CrioRuntime, CPUTimeDelta: 30.0},
+			},
+			Terminated: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "cont1", Runtime: resource.DockerRuntime, CPUTimeDelta: 10.0},
+			},
+		}
+
+		tr2 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr2.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers2).Once()
+
+		err = monitor.calculateContainerPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		assert.Len(t, snapshot2.TerminatedContainers, 1, "Should have 1 terminated container")
+		assert.Contains(t, snapshot2.TerminatedContainers, "container-1")
+
+		// Step 3: Second container terminates
+		snapshot3 := NewSnapshot()
+		snapshot3.Node = createNodeSnapshot(zones, fakeClock.Now().Add(2*time.Second), 0.5)
+
+		containers3 := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-3": {ID: "container-3", Name: "cont3", Runtime: resource.CrioRuntime, CPUTimeDelta: 30.0},
+			},
+			Terminated: map[string]*resource.Container{
+				"container-2": {ID: "container-2", Name: "cont2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 20.0},
+			},
+		}
+
+		tr3 := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr3.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers3).Once()
+
+		err = monitor.calculateContainerPower(snapshot2, snapshot3)
+		require.NoError(t, err)
+
+		// Should now have 2 terminated containers accumulated
+		assert.Len(t, snapshot3.TerminatedContainers, 2, "Should have 2 terminated containers accumulated")
+		assert.Contains(t, snapshot3.TerminatedContainers, "container-1", "First terminated container should still be present")
+		assert.Contains(t, snapshot3.TerminatedContainers, "container-2", "Second terminated container should be added")
+
+		assert.Len(t, snapshot3.Containers, 1, "Should have 1 running container")
+		assert.Contains(t, snapshot3.Containers, "container-3")
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated container with zero energy filtering", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:    logger,
+			cpu:       mockMeter,
+			clock:     fakeClock,
+			resources: resInformer,
+		}
+
+		err := monitor.initZones()
+		require.NoError(t, err)
+
+		// Reset monitor state
+		monitor.exported.Store(false)
+
+		// Create snapshot with container that has zero energy
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Create container with zero energy in all zones
+		snapshot1.Containers["zero-energy-container"] = &Container{
+			ID:      "zero-energy-container",
+			Name:    "zero-container",
+			Runtime: resource.DockerRuntime,
+			Zones:   make(ZoneUsageMap),
+		}
+		for _, zone := range zones {
+			snapshot1.Containers["zero-energy-container"].Zones[zone] = Usage{
+				EnergyTotal: Energy(0), // Zero energy
+				Power:       Power(0),
+			}
+		}
+
+		// Create second snapshot where the zero-energy container terminates
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		containers := &resource.Containers{
+			Running: map[string]*resource.Container{},
+			Terminated: map[string]*resource.Container{
+				"zero-energy-container": {ID: "zero-energy-container", Name: "zero-container", Runtime: resource.DockerRuntime},
+			},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers).Once()
+
+		err = monitor.calculateContainerPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		// Zero-energy terminated containers should be filtered out
+		assert.Len(t, snapshot2.TerminatedContainers, 0, "Containers with zero energy should be filtered out from terminated containers")
+		assert.Len(t, snapshot2.Containers, 0, "No running containers")
+
+		resInformer.AssertExpectations(t)
+	})
 }

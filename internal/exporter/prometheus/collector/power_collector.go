@@ -129,14 +129,14 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 		processCPUWattsDescriptor:  wattsDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", "state", cntrID, vmID, zone}),
 		processCPUTimeDescriptor:   timeDesc("process", "cpu", nodeName, []string{"pid", "comm", "exe", "type", cntrID, vmID}),
 
-		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", zone, podID}),
-		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", zone, podID}),
+		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
+		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
 
-		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", zone}),
-		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", zone}),
+		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", "state", zone}),
+		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", "state", zone}),
 
-		podCPUJoulesDescriptor: joulesDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", zone}),
-		podCPUWattsDescriptor:  wattsDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", zone}),
+		podCPUJoulesDescriptor: joulesDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", "state", zone}),
+		podCPUWattsDescriptor:  wattsDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", "state", zone}),
 	}
 
 	go c.waitForData()
@@ -228,15 +228,18 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if c.metricsLevel.IsContainerEnabled() {
-		c.collectContainerMetrics(ch, snapshot.Containers)
+		c.collectContainerMetrics(ch, "running", snapshot.Containers)
+		c.collectContainerMetrics(ch, "terminated", snapshot.TerminatedContainers)
 	}
 
 	if c.metricsLevel.IsVMEnabled() {
-		c.collectVMMetrics(ch, snapshot.VirtualMachines)
+		c.collectVMMetrics(ch, "running", snapshot.VirtualMachines)
+		c.collectVMMetrics(ch, "terminated", snapshot.TerminatedVirtualMachines)
 	}
 
 	if c.metricsLevel.IsPodEnabled() {
-		c.collectPodMetrics(ch, snapshot.Pods)
+		c.collectPodMetrics(ch, "running", snapshot.Pods)
+		c.collectPodMetrics(ch, "terminated", snapshot.TerminatedPods)
 	}
 }
 
@@ -342,9 +345,9 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 }
 
 // collectContainerMetrics collects container-level power metrics
-func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, containers monitor.Containers) {
+func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, state string, containers monitor.Containers) {
 	if len(containers) == 0 {
-		c.logger.Debug("No containers to export metrics for")
+		c.logger.Debug("No containers to export metrics for", "state", state)
 		return
 	}
 
@@ -357,7 +360,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 				c.containerCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				id, container.Name, string(container.Runtime),
+				id, container.Name, string(container.Runtime), state,
 				zoneName,
 				container.PodID,
 			)
@@ -366,7 +369,7 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 				c.containerCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				id, container.Name, string(container.Runtime),
+				id, container.Name, string(container.Runtime), state,
 				zoneName,
 				container.PodID,
 			)
@@ -375,9 +378,9 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, co
 }
 
 // collectVMMetrics collects vm-level power metrics
-func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, vms monitor.VirtualMachines) {
+func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, state string, vms monitor.VirtualMachines) {
 	if len(vms) == 0 {
-		c.logger.Debug("No vms to export metrics for")
+		c.logger.Debug("No vms to export metrics for", "state", state)
 		return
 	}
 
@@ -389,7 +392,7 @@ func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, vms monit
 				c.vmCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				id, vm.Name, string(vm.Hypervisor),
+				id, vm.Name, string(vm.Hypervisor), state,
 				zoneName,
 			)
 
@@ -397,16 +400,16 @@ func (c *PowerCollector) collectVMMetrics(ch chan<- prometheus.Metric, vms monit
 				c.vmCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				id, vm.Name, string(vm.Hypervisor),
+				id, vm.Name, string(vm.Hypervisor), state,
 				zoneName,
 			)
 		}
 	}
 }
 
-func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, pods monitor.Pods) {
+func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, state string, pods monitor.Pods) {
 	if len(pods) == 0 {
-		c.logger.Debug("No pods to export metrics for")
+		c.logger.Debug("No pods to export metrics", "state", state)
 		return
 	}
 
@@ -418,7 +421,7 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, pods mon
 				c.podCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				id, pod.Name, pod.Namespace,
+				id, pod.Name, pod.Namespace, state,
 				zoneName,
 			)
 
@@ -426,7 +429,7 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, pods mon
 				c.podCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				id, pod.Name, pod.Namespace,
+				id, pod.Name, pod.Namespace, state,
 				zoneName,
 			)
 		}

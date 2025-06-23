@@ -285,7 +285,8 @@ func TestPowerCollector(t *testing.T) {
 	mockMonitor.On("Snapshot").Return(testData, nil)
 
 	// Create collector
-	collector := NewPowerCollector(mockMonitor, "test-node", logger, metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
+	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
 
 	// Trigger update to ensure descriptors are created
 	mockMonitor.TriggerUpdate()
@@ -859,4 +860,198 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 			mockMonitor.AssertExpectations(t)
 		})
 	}
+}
+
+func TestTerminatedContainerExport(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockMonitor := NewMockPowerMonitor()
+
+	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+
+	testSnapshot := &monitor.Snapshot{
+		Timestamp: time.Now(),
+		Node: &monitor.Node{
+			Zones: monitor.NodeZoneUsageMap{
+				packageZone: monitor.NodeUsage{
+					EnergyTotal: 1000 * device.Joule,
+					Power:       10 * device.Watt,
+				},
+			},
+		},
+		Processes: monitor.Processes{},
+		Containers: monitor.Containers{
+			"running-container": &monitor.Container{
+				ID:      "running-container",
+				Name:    "running-cont",
+				Runtime: resource.DockerRuntime,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 150 * device.Joule,
+						Power:       15 * device.Watt,
+					},
+				},
+			},
+		},
+		TerminatedContainers: monitor.Containers{
+			"terminated-container": &monitor.Container{
+				ID:      "terminated-container",
+				Name:    "terminated-cont",
+				Runtime: resource.PodmanRuntime,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 300 * device.Joule,
+						Power:       30 * device.Watt,
+					},
+				},
+			},
+		},
+		VirtualMachines: monitor.VirtualMachines{},
+		Pods:            monitor.Pods{},
+	}
+
+	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
+
+	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collector)
+
+	mockMonitor.TriggerUpdate()
+	time.Sleep(10 * time.Millisecond)
+
+	t.Run("Terminated Container Metrics Export", func(t *testing.T) {
+		// Test running container metrics
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"container_id": "running-container", "state": "running"}, 150.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts",
+			map[string]string{"container_id": "running-container", "state": "running"}, 15.0)
+
+		// Test terminated container metrics
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"container_id": "terminated-container", "state": "terminated"}, 300.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts",
+			map[string]string{"container_id": "terminated-container", "state": "terminated"}, 30.0)
+
+		// Test additional labels for running container
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"container_id": "running-container", "container_name": "running-cont", "runtime": "docker"}, 150.0)
+
+		// Test additional labels for terminated container
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"container_id": "terminated-container", "container_name": "terminated-cont", "runtime": "podman"}, 300.0)
+	})
+
+	t.Run("Container State Labels", func(t *testing.T) {
+		// Verify that the state label exists and has correct values
+		assertMetricExists(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"state": "terminated"})
+
+		// Also verify for watts metrics
+		assertMetricExists(t, registry, "kepler_container_cpu_watts",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_container_cpu_watts",
+			map[string]string{"state": "terminated"})
+	})
+
+	mockMonitor.AssertExpectations(t)
+}
+
+func TestTerminatedVMExport(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockMonitor := NewMockPowerMonitor()
+
+	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+
+	testSnapshot := &monitor.Snapshot{
+		Timestamp: time.Now(),
+		Node: &monitor.Node{
+			Zones: monitor.NodeZoneUsageMap{
+				packageZone: monitor.NodeUsage{
+					EnergyTotal: 1000 * device.Joule,
+					Power:       10 * device.Watt,
+				},
+			},
+		},
+		Processes:  monitor.Processes{},
+		Containers: monitor.Containers{},
+		VirtualMachines: monitor.VirtualMachines{
+			"running-vm": &monitor.VirtualMachine{
+				ID:         "running-vm",
+				Name:       "running-virtual-machine",
+				Hypervisor: resource.KVMHypervisor,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 250 * device.Joule,
+						Power:       25 * device.Watt,
+					},
+				},
+			},
+		},
+		TerminatedVirtualMachines: monitor.VirtualMachines{
+			"terminated-vm": &monitor.VirtualMachine{
+				ID:         "terminated-vm",
+				Name:       "terminated-virtual-machine",
+				Hypervisor: resource.KVMHypervisor,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 400 * device.Joule,
+						Power:       40 * device.Watt,
+					},
+				},
+			},
+		},
+		Pods: monitor.Pods{},
+	}
+
+	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
+
+	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collector)
+
+	mockMonitor.TriggerUpdate()
+	time.Sleep(10 * time.Millisecond)
+
+	t.Run("Terminated VM Metrics Export", func(t *testing.T) {
+		// Test running VM metrics
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"vm_id": "running-vm", "state": "running"}, 250.0)
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts",
+			map[string]string{"vm_id": "running-vm", "state": "running"}, 25.0)
+
+		// Test terminated VM metrics
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"vm_id": "terminated-vm", "state": "terminated"}, 400.0)
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_watts",
+			map[string]string{"vm_id": "terminated-vm", "state": "terminated"}, 40.0)
+
+		// Test additional labels for running VM
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"vm_id": "running-vm", "vm_name": "running-virtual-machine", "hypervisor": "kvm"}, 250.0)
+
+		// Test additional labels for terminated VM
+		assertMetricLabelValues(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"vm_id": "terminated-vm", "vm_name": "terminated-virtual-machine", "hypervisor": "kvm"}, 400.0)
+	})
+
+	t.Run("VM State Labels", func(t *testing.T) {
+		// Verify that the state label exists and has correct values
+		assertMetricExists(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_vm_cpu_joules_total",
+			map[string]string{"state": "terminated"})
+
+		// Also verify for watts metrics
+		assertMetricExists(t, registry, "kepler_vm_cpu_watts",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_vm_cpu_watts",
+			map[string]string{"state": "terminated"})
+	})
+
+	mockMonitor.AssertExpectations(t)
 }
