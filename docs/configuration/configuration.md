@@ -27,6 +27,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
 | `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
 | `--exporter.prometheus` | Enable Prometheus exporter | `true` | `true`, `false` |
+| `--metrics` | Metrics levels to export (can be specified multiple times) | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod` |
 | `--kube.enable` | Monitor kubernetes | `false` | `true`, `false` |
 | `--kube.config` | Path to a kubeconfig file | `""` | Any valid file path |
 | `--kube.node-name` | Name of kubernetes node on which kepler is running | `""` | Any valid node name |
@@ -48,6 +49,12 @@ kepler --exporter.stdout=true --exporter.prometheus=false
 
 # Enable Kubernetes monitoring with specific kubeconfig and node name
 kepler --kube.enable=true --kube.config=/path/to/kubeconfig --kube.node-name=my-node
+
+# Export only node and container level metrics
+kepler --metrics=node --metrics=container
+
+# Export only process level metrics
+kepler --metrics=process
 ```
 
 ## 🗂️ Configuration File
@@ -80,6 +87,12 @@ exporter:
     debugCollectors:
       - go
       - process
+    metricsLevel:
+      - node
+      - process
+      - container
+      - vm
+      - pod
 
 debug:          # debug related config
   pprof:        # pprof related config
@@ -169,6 +182,12 @@ exporter:
     debugCollectors:
       - go
       - process
+    metricsLevel:
+      - node
+      - process
+      - container
+      - vm
+      - pod
 ```
 
 - **stdout**: Configuration for the stdout exporter
@@ -177,6 +196,12 @@ exporter:
 - **prometheus**: Configuration for the Prometheus exporter
   - `enabled`: Enable or disable the Prometheus exporter (default: true)
   - `debugCollectors`: List of debug collectors to enable (available: "go", "process")
+  - `metricsLevel`: List of metric levels to expose. Controls the granularity of metrics exported:
+    - `node`: Node-level metrics (system-wide power consumption)
+    - `process`: Process-level metrics (per-process power consumption)
+    - `container`: Container-level metrics (per-container power consumption)
+    - `vm`: Virtual machine-level metrics (per-VM power consumption)
+    - `pod`: Pod-level metrics (per-pod power consumption in Kubernetes)
 
 ### 🐞 Debug Configuration
 
