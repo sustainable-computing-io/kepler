@@ -36,6 +36,12 @@ exporter:
     debugCollectors:
       - go
       - process
+    metricsLevel:
+      - node
+      - process
+      - container
+      - vm
+      - pod
 
 debug: # debug related config
   pprof: # pprof related config
