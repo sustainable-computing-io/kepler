@@ -107,8 +107,6 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v3
@@ -119,11 +117,25 @@ jobs:
       - name: Run Pre-commit
         run: pre-commit run --all-files
 
-      - name: Run Commitlint
-        run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "$COMMIT_MSG" > .git/COMMIT_EDITMSG
-          pre-commit run commitlint --hook-stage commit-msg --commit-msg-file .git/COMMIT_EDITMSG
+  # Using vanilla commitlint instead of running via pre-commit because pre-commit
+  # hooks are meant to run on the commit-msg hook which will only run at the time of commit creation.
+  # Also it will only validate the current commit message, not the entire commit history.
+  commit-msg-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all the history of PR commits
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+
+      - name: Install commitlint
+        run: npm install @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate PR commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
   build-images:
     runs-on: ubuntu-latest
