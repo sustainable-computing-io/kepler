@@ -117,9 +117,6 @@ jobs:
       - name: Run Pre-commit
         run: pre-commit run --all-files
 
-  # Using vanilla commitlint instead of running via pre-commit because pre-commit
-  # hooks are meant to run on the commit-msg hook which will only run at the time of commit creation.
-  # Also it will only validate the current commit message, not the entire commit history.
   commit-msg-check:
     runs-on: ubuntu-latest
     steps:
@@ -128,14 +125,14 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all the history of PR commits
 
-      - name: Setup node
-        uses: actions/setup-node@v4
+      - name: Setup Pre-commit
+        run: pip install pre-commit
 
-      - name: Install commitlint
-        run: npm install @commitlint/cli @commitlint/config-conventional
-
-      - name: Validate PR commits
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+      - name: Run Pre-commit
+        run: pre-commit run --hook-stage manual pr-commit-lint --all-files
+        env:
+          FROM: ${{ github.event.pull_request.base.sha }}
+          TO: ${{ github.event.pull_request.head.sha }}
 
   build-images:
     runs-on: ubuntu-latest
