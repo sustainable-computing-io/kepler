@@ -2,6 +2,20 @@ default_install_hook_types:
   - pre-commit
   - commit-msg
 repos:
+  # This hook lints commit messages within a specified range, ideal for validating all commits in a PR.
+  # Environment variables $FROM (start of range) and $TO (end of range) are set in PR Checks workflow.
+  - repo: local
+    hooks:
+      - id: pr-commit-lint
+        name: pr-commit-lint
+        stages: [manual]
+        language: node
+        additional_dependencies:
+          - "@commitlint/cli"
+          - "@commitlint/config-conventional"
+        pass_filenames: false
+        entry: bash -c "commitlint --from $FROM --to $TO --verbose"
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
