@@ -14,7 +14,7 @@ go.work.sum
 # env file
 .env
 
-bin/
+/bin/
 tmp
 
 coverage.*
