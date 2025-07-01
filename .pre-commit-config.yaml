@@ -8,16 +8,16 @@ repos:
       - id: end-of-file-fixer
       - id: check-added-large-files
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.0
+    rev: v1.37.1
     hooks:
       - id: yamllint
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v19.1.7 # NOTE: The current config is not compatible with clang-format 20.x
+    rev: v20.1.7 # NOTE: The current config is not compatible with clang-format 20.x
     hooks:
       - id: clang-format
         types_or: [c]
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.17.2
+    rev: v0.18.1
     hooks:
       - id: markdownlint-cli2-rules-docker
   - repo: https://github.com/codespell-project/codespell
@@ -28,7 +28,7 @@ repos:
         additional_dependencies:
           - tomli
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.1.1
+    rev: v2.2.1
     hooks:
       - id: golangci-lint
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
