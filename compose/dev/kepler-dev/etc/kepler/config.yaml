@@ -38,8 +38,10 @@ exporter:
       - process
     metricsLevel:
       - node
-      - container
       - process
+      - container
+      - vm
+      - pod
 
 debug: # debug related config
   pprof: # pprof related config
