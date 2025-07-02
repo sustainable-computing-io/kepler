@@ -1,8 +1,9 @@
-name: maintainer nominate
+name: Maintainer nominate
 description: for nominate a maintainer or self nominate usage.
+labels: kind/documentation
 body:
   - type: textarea
-    id: nominee's bio
+    id: nominee
     attributes:
       label: please introduce nominee here
       description: please including the github id or slack id for nominee
@@ -10,8 +11,22 @@ body:
       required: true
 
   - type: textarea
-    id: nominee's major contribution or other supporting document
+    id: support
     attributes:
       label: for example, contribution on github as pr or others like conference speech.
     validations:
       required: true
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirm the [GOVERNANCE.md](./GOVERNANCE.md). Include your role and update the sign-up date.
+      options:
+        - label: I confirm.
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Create a PR and add the PR link to this issue
+      options:
+        - label: PR link is added.
