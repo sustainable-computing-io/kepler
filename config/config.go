@@ -46,6 +46,8 @@ type (
 	Monitor struct {
 		Interval  time.Duration `yaml:"interval"`  // Interval for monitoring resources
 		Staleness time.Duration `yaml:"staleness"` // Time after which calculated values are considered stale
+
+		MaxTerminated int `yaml:"maxTerminated"`
 	}
 
 	// Exporter configuration
@@ -147,8 +149,9 @@ const (
 	HostSysFSFlag  = "host.sysfs"
 	HostProcFSFlag = "host.procfs"
 
-	MonitorIntervalFlag = "monitor.interval"
-	MonitorStaleness    = "monitor.staleness" // not a flag
+	MonitorIntervalFlag      = "monitor.interval"
+	MonitorStaleness         = "monitor.staleness" // not a flag
+	MonitorMaxTerminatedFlag = "monitor.max-terminated"
 
 	// RAPL
 	RaplZones = "rapl.zones" // not a flag
@@ -190,6 +193,8 @@ func DefaultConfig() *Config {
 		Monitor: Monitor{
 			Interval:  5 * time.Second,
 			Staleness: 500 * time.Millisecond,
+
+			MaxTerminated: 500,
 		},
 		Exporter: Exporter{
 			Stdout: StdoutExporter{
@@ -286,6 +291,8 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	// monitor
 	monitorInterval := app.Flag(MonitorIntervalFlag,
 		"Interval for monitoring resources (processes, container, vm, etc...); 0 to disable").Default("5s").Duration()
+	maxTerminated := app.Flag(MonitorMaxTerminatedFlag,
+		"Maximum number of terminated workloads to keep in memory until exported; 0 for unlimited").Default("500").Int()
 
 	enablePprof := app.Flag(pprofEnabledFlag, "Enable pprof debug endpoints").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
@@ -295,7 +302,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
 
-	var metricsLevel = metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	metricsLevel := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
 	app.Flag(ExporterPrometheusMetricsFlag, "Metrics levels to export (node,process,container,vm,pod)").SetValue(NewMetricsLevelValue(&metricsLevel))
 
 	kubernetes := app.Flag(KubernetesFlag, "Monitor kubernetes").Default("false").Bool()
@@ -323,6 +330,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		// monitor settings
 		if flagsSet[MonitorIntervalFlag] {
 			cfg.Monitor.Interval = *monitorInterval
+		}
+
+		if flagsSet[MonitorMaxTerminatedFlag] {
+			cfg.Monitor.MaxTerminated = *maxTerminated
 		}
 
 		if flagsSet[pprofEnabledFlag] {
@@ -434,6 +445,9 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		if c.Monitor.Staleness < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor staleness: %s can't be negative", c.Monitor.Staleness))
 		}
+		if c.Monitor.MaxTerminated < 0 {
+			errs = append(errs, fmt.Sprintf("invalid monitor max terminated: %d can't be negative", c.Monitor.MaxTerminated))
+		}
 	}
 	{ // Kubernetes
 		if ptr.Deref(c.Kube.Enabled, false) {
@@ -514,6 +528,7 @@ func (c *Config) manualString() string {
 		{HostProcFSFlag, c.Host.ProcFS},
 		{MonitorIntervalFlag, c.Monitor.Interval.String()},
 		{MonitorStaleness, c.Monitor.Staleness.String()},
+		{MonitorMaxTerminatedFlag, fmt.Sprintf("%d", c.Monitor.MaxTerminated)},
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},

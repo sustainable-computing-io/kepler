@@ -20,6 +20,10 @@ monitor:
   # NOTE: Keep staleness shorter than the monitor interval.
   staleness: 1000ms
 
+  # maximum number of terminated workloads (process, container, VM, pods)
+  # to be kept in memory until the data is exported; 0 disables the limit
+  maxTerminated: 500
+
 host:
   sysfs: /sys # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
@@ -54,7 +58,6 @@ kube: # kubernetes related config
   enabled: false # enable kubernetes monitoring (default: false)
   config: "" # path to kubeconfig file (optional if running in-cluster)
   nodeName: "" # name of the kubernetes node (required when enabled)
-
 
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:

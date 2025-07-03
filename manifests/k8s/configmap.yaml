@@ -17,6 +17,7 @@ data:
     monitor:
       interval: 5s
       staleness: 500ms
+      maxTerminated: 100
     rapl:
       zones: []
     exporter:

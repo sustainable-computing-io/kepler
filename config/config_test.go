@@ -627,14 +627,30 @@ func TestMonitorConfig(t *testing.T) {
 		cfg.Monitor.Staleness = 100
 		assert.NoError(t, cfg.Validate())
 	})
+
+	t.Run("maxTerminated", func(t *testing.T) {
+		cfg := DefaultConfig()
+		assert.Equal(t, 500, cfg.Monitor.MaxTerminated, "default maxTerminated should be 500")
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.MaxTerminated = -10
+		assert.ErrorContains(t, cfg.Validate(), "invalid configuration: invalid monitor max terminated")
+
+		cfg.Monitor.MaxTerminated = 0
+		assert.NoError(t, cfg.Validate(), "maxTerminated=0 should be valid (unlimited)")
+
+		cfg.Monitor.MaxTerminated = 1000
+		assert.NoError(t, cfg.Validate())
+	})
 }
 
 func TestMonitorConfigFlags(t *testing.T) {
 	type expect struct {
-		interval   time.Duration
-		staleness  time.Duration
-		parseError error
-		cfgErr     error
+		interval      time.Duration
+		staleness     time.Duration
+		maxTerminated int
+		parseError    error
+		cfgErr        error
 	}
 	tt := []struct {
 		name     string
@@ -643,7 +659,7 @@ func TestMonitorConfigFlags(t *testing.T) {
 	}{{
 		name:     "default",
 		args:     []string{},
-		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, parseError: nil},
+		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, maxTerminated: 500, parseError: nil},
 	}, {
 		name:     "invalid-interval flag",
 		args:     []string{"--monitor.interval=-10Fs"},
@@ -652,6 +668,18 @@ func TestMonitorConfigFlags(t *testing.T) {
 		name:     "invalid-interval",
 		args:     []string{"--monitor.interval=-10s"},
 		expected: expect{cfgErr: fmt.Errorf("invalid configuration: invalid monitor interval")},
+	}, {
+		name:     "valid-max-terminated",
+		args:     []string{"--monitor.max-terminated=1000"},
+		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, maxTerminated: 1000, parseError: nil},
+	}, {
+		name:     "max-terminated-zero",
+		args:     []string{"--monitor.max-terminated=0"},
+		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, maxTerminated: 0, parseError: nil},
+	}, {
+		name:     "invalid-max-terminated",
+		args:     []string{"--monitor.max-terminated=-10"},
+		expected: expect{cfgErr: fmt.Errorf("invalid configuration: invalid monitor max terminated")},
 	}}
 
 	for _, tc := range tt {
@@ -676,8 +704,44 @@ func TestMonitorConfigFlags(t *testing.T) {
 			assert.NoError(t, err, "unexpected config update error")
 			assert.Equal(t, cfg.Monitor.Interval, tc.expected.interval)
 			assert.Equal(t, cfg.Monitor.Staleness, tc.expected.staleness)
+			assert.Equal(t, cfg.Monitor.MaxTerminated, tc.expected.maxTerminated)
 		})
 	}
+}
+
+func TestMonitorMaxTerminatedYAML(t *testing.T) {
+	t.Run("yaml-config-maxTerminated", func(t *testing.T) {
+		yamlData := `
+monitor:
+  maxTerminated: 1000
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, 1000, cfg.Monitor.MaxTerminated)
+	})
+
+	t.Run("yaml-config-maxTerminated-zero", func(t *testing.T) {
+		yamlData := `
+monitor:
+  maxTerminated: 0
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, cfg.Monitor.MaxTerminated)
+	})
+
+	t.Run("yaml-config-maxTerminated-invalid", func(t *testing.T) {
+		yamlData := `
+monitor:
+  maxTerminated: -100
+`
+		reader := strings.NewReader(yamlData)
+		_, err := Load(reader)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid monitor max terminated")
+	})
 }
 
 func TestConfigDefault(t *testing.T) {

@@ -23,6 +23,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--host.sysfs` | Path to sysfs filesystem | `/sys` | Any valid directory path |
 | `--host.procfs` | Path to procfs filesystem | `/proc` | Any valid directory path |
 | `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
+| `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500` | Any non-negative integer (0 for unlimited) |
 | `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
 | `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
 | `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
@@ -55,6 +56,12 @@ kepler --metrics=node --metrics=container
 
 # Export only process level metrics
 kepler --metrics=process
+
+# Set maximum terminated workloads to 1000
+kepler --monitor.max-terminated=1000
+
+# Disable terminated workload tracking (unlimited)
+kepler --monitor.max-terminated=0
 ```
 
 ## 🗂️ Configuration File
@@ -69,8 +76,9 @@ log:
   format: text  # text or json (default: text)
 
 monitor:
-  interval: 5s      # Monitor refresh interval (default: 5s)
-  staleness: 1000ms # Duration after which data is considered stale (default: 1000ms)
+  interval: 5s        # Monitor refresh interval (default: 5s)
+  staleness: 1000ms   # Duration after which data is considered stale (default: 1000ms)
+  maxTerminated: 500  # Maximum number of terminated workloads to keep in memory (default: 500)
 
 host:
   sysfs: /sys   # Path to sysfs filesystem (default: /sys)
@@ -139,11 +147,14 @@ log:
 monitor:
   interval: 5s
   staleness: 1000ms
+  maxTerminated: 500
 ```
 
 - **interval**: The monitor's refresh interval. All processes with a lifetime less than this interval will be ignored. Setting to 0s disables monitor refreshes.
 
 - **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
+
+- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set to 0 for unlimited (no limit). When the limit is reached, the least power consuming terminated workloads are removed first.
 
 ### 🗄️ Host Configuration
 

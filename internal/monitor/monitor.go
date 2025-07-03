@@ -40,10 +40,11 @@ type PowerMonitor struct {
 	logger *slog.Logger
 	cpu    device.CPUPowerMeter
 
-	interval     time.Duration
-	clock        clock.WithTicker
-	maxStaleness time.Duration
-	resources    resource.Informer
+	interval      time.Duration
+	clock         clock.WithTicker
+	maxStaleness  time.Duration
+	maxTerminated int
+	resources     resource.Informer
 
 	// signals when a snapshot has been updated
 	dataCh chan struct{}
@@ -86,6 +87,7 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 		resources:        opts.resources,
 		dataCh:           make(chan struct{}, 1),
 		maxStaleness:     opts.maxStaleness,
+		maxTerminated:    opts.maxTerminated,
 		collectionCtx:    ctx,
 		collectionCancel: cancel,
 	}
