@@ -153,6 +153,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		monitor.WithResourceInformer(resourceInformer),
 		monitor.WithInterval(cfg.Monitor.Interval),
 		monitor.WithMaxStaleness(cfg.Monitor.Staleness),
+		monitor.WithMaxTerminated(cfg.Monitor.MaxTerminated),
 	)
 
 	apiServer := server.NewAPIServer(

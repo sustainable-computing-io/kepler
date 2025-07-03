@@ -12,23 +12,25 @@ import (
 )
 
 type Opts struct {
-	logger       *slog.Logger
-	sysfsPath    string
-	interval     time.Duration
-	clock        clock.WithTicker
-	maxStaleness time.Duration
-	resources    resource.Informer
+	logger        *slog.Logger
+	sysfsPath     string
+	interval      time.Duration
+	clock         clock.WithTicker
+	maxStaleness  time.Duration
+	maxTerminated int
+	resources     resource.Informer
 }
 
 // NewConfig returns a new Config with defaults set
 func DefaultOpts() Opts {
 	return Opts{
-		logger:       slog.Default(),
-		sysfsPath:    "/sys",
-		interval:     5 * time.Second,
-		clock:        clock.RealClock{},
-		maxStaleness: 500 * time.Millisecond,
-		resources:    nil,
+		logger:        slog.Default(),
+		sysfsPath:     "/sys",
+		interval:      5 * time.Second,
+		clock:         clock.RealClock{},
+		maxStaleness:  500 * time.Millisecond,
+		maxTerminated: 500,
+		resources:     nil,
 	}
 }
 
@@ -67,5 +69,12 @@ func WithMaxStaleness(d time.Duration) OptionFn {
 func WithResourceInformer(r resource.Informer) OptionFn {
 	return func(o *Opts) {
 		o.resources = r
+	}
+}
+
+// WithMaxTerminated sets the maximum number of terminated workloads to keep in memory
+func WithMaxTerminated(max int) OptionFn {
+	return func(o *Opts) {
+		o.maxTerminated = max
 	}
 }
