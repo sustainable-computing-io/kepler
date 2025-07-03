@@ -234,10 +234,6 @@ func Load(r io.Reader) (*Config, error) {
 	}
 	cfg.sanitize()
 
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-
 	return cfg, nil
 }
 
@@ -285,8 +281,8 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	logLevel := app.Flag(LogLevelFlag, "Logging level: debug, info, warn, error").Default("info").Enum("debug", "info", "warn", "error")
 	logFormat := app.Flag(LogFormatFlag, "Logging format: text or json").Default("text").Enum("text", "json")
 	// host
-	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").ExistingDir()
-	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").ExistingDir()
+	hostSysFS := app.Flag(HostSysFSFlag, "Host sysfs path").Default("/sys").String()
+	hostProcFS := app.Flag(HostProcFSFlag, "Host procfs path").Default("/proc").String()
 
 	// monitor
 	monitorInterval := app.Flag(MonitorIntervalFlag,
@@ -369,7 +365,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		cfg.sanitize()
-		return cfg.Validate()
+		return nil
 	}
 }
 
