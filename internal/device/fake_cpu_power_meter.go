@@ -12,16 +12,6 @@ import (
 )
 
 // NOTE: This fake meter is not intended to be used in production and is for testing only
-
-type Zone = string
-
-const (
-	ZonePackage Zone = "package"
-	ZoneCore    Zone = "core"
-	ZoneDRAM    Zone = "dram"
-	ZoneUncore  Zone = "uncore"
-)
-
 var defaultFakeZones = []Zone{ZonePackage, ZoneCore, ZoneDRAM}
 
 const defaultRaplPath = "/sys/class/powercap/intel-rapl"
