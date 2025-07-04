@@ -25,7 +25,7 @@ endif
 
 BINARY_DIR=bin
 MAIN_GO_PATH=./cmd/kepler
-VERSION?=$(shell git describe --tags --always --dirty | sed 's/-reboot//' || echo "dev")
+VERSION?=$(shell git describe --tags --always --dirty || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
@@ -47,7 +47,7 @@ BUILD_DEBUG_ARGS ?=
 
 # Docker parameters
 IMG_BASE ?= quay.io/sustainable_computing_io
-KEPLER_IMAGE ?= $(IMG_BASE)/kepler-reboot:$(VERSION)
+KEPLER_IMAGE ?= $(IMG_BASE)/kepler:$(VERSION)
 ADDITIONAL_TAGS ?=
 
 # Test parameters

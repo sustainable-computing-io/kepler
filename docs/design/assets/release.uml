@@ -1,7 +1,7 @@
 @startuml Release Workflow Sequence
 ' NOTE: Render using http://sujoyu.github.io/plantuml-previewer or any PlantUML tool
 
-title Release Workflow for kepler (vX.Y.Z-reboot)
+title Release Workflow for kepler (vX.Y.Z)
 
 
 skinparam sequenceMessageAlign center
@@ -17,7 +17,7 @@ end box
 participant "Quay.io" as Registry
 
 == Trigger ==
-Dev -> SR: Push tag matching v*.*.*."-reboot"
+Dev -> SR: Push tag matching v*.*.*.
 SR -> Runner: Trigger release workflow
 
 == Setup & Build ==
@@ -37,7 +37,6 @@ end
 
 == Release Creation ==
 Runner -> Runner: Extract version from tag
-note right: Remove "-reboot" suffix
 Runner -> SR: Create GitHub Release
 note right: Using softprops/action-gh-release\nwith extracted version
 
