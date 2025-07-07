@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
+	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -23,7 +23,7 @@ type PowerDataProvider = monitor.PowerDataProvider
 type PowerCollector struct {
 	pm           PowerDataProvider
 	logger       *slog.Logger
-	metricsLevel metrics.Level
+	metricsLevel config.Level
 
 	// Lock to ensure thread safety during collection
 	mutex sync.RWMutex
@@ -97,7 +97,7 @@ func timeDesc(level, device, nodeName string, labels []string) *prometheus.Desc 
 
 // NewPowerCollector creates a collector that provides consistent metrics
 // by fetching all data in a single snapshot during collection
-func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.Logger, metricsLevel metrics.Level) *PowerCollector {
+func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.Logger, metricsLevel config.Level) *PowerCollector {
 	const (
 		// these labels should remain the same across all descriptors to ease querying
 		zone   = "zone"

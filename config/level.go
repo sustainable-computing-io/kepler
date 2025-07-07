@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package metrics
+package config
 
 import (
 	"fmt"
@@ -18,6 +18,9 @@ const (
 	MetricsLevelContainer                   // 4
 	MetricsLevelVM                          // 8
 	MetricsLevelPod                         // 16
+
+	// MetricsLevelAll represents all metric levels combined
+	MetricsLevelAll = MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod
 )
 
 // String returns the string representation of the level
@@ -69,7 +72,7 @@ func (l Level) IsPodEnabled() bool {
 // ParseLevel parses a slice of strings into a Level
 func ParseLevel(levels []string) (Level, error) {
 	if len(levels) == 0 {
-		return MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod, nil
+		return MetricsLevelAll, nil
 	}
 
 	var result Level

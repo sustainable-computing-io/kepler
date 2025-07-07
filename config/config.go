@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
@@ -56,9 +55,9 @@ type (
 	}
 
 	PrometheusExporter struct {
-		Enabled         *bool         `yaml:"enabled"`
-		DebugCollectors []string      `yaml:"debugCollectors"`
-		MetricsLevel    metrics.Level `yaml:"metricsLevel"`
+		Enabled         *bool    `yaml:"enabled"`
+		DebugCollectors []string `yaml:"debugCollectors"`
+		MetricsLevel    Level    `yaml:"metricsLevel"`
 	}
 
 	Exporter struct {
@@ -97,24 +96,24 @@ type (
 
 // MetricsLevelValue is a custom kingpin.Value that parses metrics levels directly into metrics.Level
 type MetricsLevelValue struct {
-	level *metrics.Level
+	level *Level
 }
 
 // NewMetricsLevelValue creates a new MetricsLevelValue with the given target
-func NewMetricsLevelValue(target *metrics.Level) *MetricsLevelValue {
+func NewMetricsLevelValue(target *Level) *MetricsLevelValue {
 	return &MetricsLevelValue{level: target}
 }
 
 // Set implements kingpin.Value interface - parses and accumulates metrics levels
 func (m *MetricsLevelValue) Set(value string) error {
 	// Parse the single value into a level
-	level, err := metrics.ParseLevel([]string{value})
+	level, err := ParseLevel([]string{value})
 	if err != nil {
 		return err
 	}
 
 	// If this is the first value, initialize to 0 first to clear any default
-	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	allLevels := MetricsLevelAll
 	if *m.level == allLevels {
 		*m.level = 0
 	}
@@ -203,7 +202,7 @@ func DefaultConfig() *Config {
 			Prometheus: PrometheusExporter{
 				Enabled:         ptr.To(true),
 				DebugCollectors: []string{"go"},
-				MetricsLevel:    metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+				MetricsLevel:    MetricsLevelAll,
 			},
 		},
 		Debug: Debug{
@@ -302,7 +301,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
 
-	metricsLevel := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	metricsLevel := MetricsLevelAll
 	app.Flag(ExporterPrometheusMetricsFlag, "Metrics levels to export (node,process,container,vm,pod)").SetValue(NewMetricsLevelValue(&metricsLevel))
 
 	kubernetes := app.Flag(KubernetesFlag, "Monitor kubernetes").Default("false").Bool()

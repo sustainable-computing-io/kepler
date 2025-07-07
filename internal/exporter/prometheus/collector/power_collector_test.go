@@ -16,8 +16,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
@@ -285,7 +285,7 @@ func TestPowerCollector(t *testing.T) {
 	mockMonitor.On("Snapshot").Return(testData, nil)
 
 	// Create collector
-	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	allLevels := config.MetricsLevelAll
 	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
 
 	// Trigger update to ensure descriptors are created
@@ -567,7 +567,7 @@ func TestTerminatedProcessExport(t *testing.T) {
 
 	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
 
-	collector := NewPowerCollector(mockMonitor, "test-node", logger, metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
+	collector := NewPowerCollector(mockMonitor, "test-node", logger, config.MetricsLevelAll)
 
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(collector)
@@ -672,7 +672,7 @@ func TestEnhancedErrorReporting(t *testing.T) {
 	}
 
 	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
-	collector := NewPowerCollector(mockMonitor, "test-node", logger, metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
+	collector := NewPowerCollector(mockMonitor, "test-node", logger, config.MetricsLevelAll)
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(collector)
 	mockMonitor.TriggerUpdate()
@@ -690,12 +690,12 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		metricsLevel    metrics.Level
+		metricsLevel    config.Level
 		expectedMetrics map[string]bool
 	}{
 		{
 			name:         "Only Node metrics",
-			metricsLevel: metrics.MetricsLevelNode,
+			metricsLevel: config.MetricsLevelNode,
 			expectedMetrics: map[string]bool{
 				"kepler_node_cpu_joules_total":        true,
 				"kepler_node_cpu_watts":               true,
@@ -712,7 +712,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 		},
 		{
 			name:         "Only Process metrics",
-			metricsLevel: metrics.MetricsLevelProcess,
+			metricsLevel: config.MetricsLevelProcess,
 			expectedMetrics: map[string]bool{
 				"kepler_node_cpu_joules_total":      false,
 				"kepler_process_cpu_joules_total":   true,
@@ -725,7 +725,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 		},
 		{
 			name:         "Node and Container metrics",
-			metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelContainer,
+			metricsLevel: config.MetricsLevelNode | config.MetricsLevelContainer,
 			expectedMetrics: map[string]bool{
 				"kepler_node_cpu_joules_total":      true,
 				"kepler_node_cpu_watts":             true,
@@ -738,7 +738,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 		},
 		{
 			name:         "No metrics",
-			metricsLevel: metrics.Level(0),
+			metricsLevel: config.Level(0),
 			expectedMetrics: map[string]bool{
 				"kepler_node_cpu_joules_total":      false,
 				"kepler_process_cpu_joules_total":   false,
@@ -911,7 +911,7 @@ func TestTerminatedContainerExport(t *testing.T) {
 
 	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
 
-	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	allLevels := config.MetricsLevelAll
 	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
 
 	registry := prometheus.NewRegistry()
@@ -1008,7 +1008,7 @@ func TestTerminatedVMExport(t *testing.T) {
 
 	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
 
-	allLevels := metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod
+	allLevels := config.MetricsLevelAll
 	collector := NewPowerCollector(mockMonitor, "test-node", logger, allLevels)
 
 	registry := prometheus.NewRegistry()
