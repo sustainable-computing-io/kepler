@@ -11,8 +11,8 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sustainable-computing-io/kepler/config"
 	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 )
@@ -32,7 +32,7 @@ type Opts struct {
 	collectors      map[string]prom.Collector
 	procfs          string
 	nodeName        string
-	metricsLevel    metrics.Level
+	metricsLevel    config.Level
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -43,7 +43,7 @@ func DefaultOpts() Opts {
 			"go": true,
 		},
 		collectors:   map[string]prom.Collector{},
-		metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+		metricsLevel: config.MetricsLevelAll,
 	}
 }
 
@@ -88,7 +88,7 @@ func WithNodeName(nodeName string) OptionFn {
 	}
 }
 
-func WithMetricsLevel(level metrics.Level) OptionFn {
+func WithMetricsLevel(level config.Level) OptionFn {
 	return func(o *Opts) {
 		o.metricsLevel = level
 	}
@@ -140,7 +140,7 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 	opts := Opts{
 		logger:       slog.Default(),
 		procfs:       "/proc",
-		metricsLevel: metrics.MetricsLevelNode | metrics.MetricsLevelProcess | metrics.MetricsLevelContainer | metrics.MetricsLevelVM | metrics.MetricsLevelPod,
+		metricsLevel: config.MetricsLevelAll,
 	}
 	for _, apply := range applyOpts {
 		apply(&opts)

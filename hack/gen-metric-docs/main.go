@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/metrics"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -261,7 +261,7 @@ func main() {
 	fmt.Println("Creating collectors...")
 	// Create a logger for the collectors
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	powerCollector := collector.NewPowerCollector(mockMonitor, "test-node", logger, metrics.MetricsLevelNode|metrics.MetricsLevelProcess|metrics.MetricsLevelContainer|metrics.MetricsLevelVM|metrics.MetricsLevelPod)
+	powerCollector := collector.NewPowerCollector(mockMonitor, "test-node", logger, config.MetricsLevelAll)
 	fmt.Println("Created power collector")
 	buildInfoCollector := collector.NewKeplerBuildInfoCollector()
 	fmt.Println("Created build info collector")

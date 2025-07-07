@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package metrics
+package config
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ func TestLevel_IsEnabled(t *testing.T) {
 	}{
 		{
 			name:  "All levels",
-			level: MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			level: MetricsLevelAll,
 			expected: map[string]bool{
 				"node":      true,
 				"process":   true,
@@ -81,7 +81,7 @@ func TestLevel_String(t *testing.T) {
 	}{
 		{
 			name:     "All levels",
-			level:    MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			level:    MetricsLevelAll,
 			expected: "node,process,container,vm,pod",
 		},
 		{
@@ -123,7 +123,7 @@ func TestParseLevel(t *testing.T) {
 		{
 			name:        "Empty slice",
 			levels:      []string{},
-			expected:    MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			expected:    MetricsLevelAll,
 			expectError: false,
 		},
 		{
@@ -141,7 +141,7 @@ func TestParseLevel(t *testing.T) {
 		{
 			name:        "All levels",
 			levels:      []string{"node", "process", "container", "vm", "pod"},
-			expected:    MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			expected:    MetricsLevelAll,
 			expectError: false,
 		},
 		{
@@ -198,8 +198,8 @@ func TestBitPatterns(t *testing.T) {
 	assert.Equal(t, Level(16), MetricsLevelPod)      // 1 << 5 = 32
 
 	// Test that combined levels work correctly
-	expected := MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod
-	assert.Equal(t, expected, MetricsLevelNode|MetricsLevelProcess|MetricsLevelContainer|MetricsLevelVM|MetricsLevelPod)
+	expected := MetricsLevelAll
+	assert.Equal(t, expected, MetricsLevelAll)
 }
 
 func TestLevel_MarshalYAML(t *testing.T) {
@@ -210,7 +210,7 @@ func TestLevel_MarshalYAML(t *testing.T) {
 	}{
 		{
 			name:     "All levels",
-			level:    MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			level:    MetricsLevelAll,
 			expected: "- node\n- process\n- container\n- vm\n- pod\n",
 		},
 		{
@@ -277,7 +277,7 @@ func TestLevel_UnmarshalYAML(t *testing.T) {
 		{
 			name:        "Array with all levels",
 			yamlData:    "- node\n- process\n- container\n- vm\n- pod",
-			expected:    MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+			expected:    MetricsLevelAll,
 			expectError: false,
 		},
 		{
@@ -327,7 +327,7 @@ func TestLevel_YAMLRoundTrip(t *testing.T) {
 		MetricsLevelNode | MetricsLevelProcess,
 		MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
 		MetricsLevelPod | MetricsLevelNode, // 17
-		MetricsLevelNode | MetricsLevelProcess | MetricsLevelContainer | MetricsLevelVM | MetricsLevelPod,
+		MetricsLevelAll,
 	}
 
 	for _, original := range tests {
