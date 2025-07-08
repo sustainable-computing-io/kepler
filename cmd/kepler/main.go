@@ -158,6 +158,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	apiServer := server.NewAPIServer(
 		server.WithLogger(logger),
+		server.WithListenAddress(cfg.Web.ListenAddresses),
 		server.WithWebConfig(cfg.Web.Config),
 	)
 

@@ -25,6 +25,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
 | `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500` | Any non-negative integer (0 for unlimited) |
 | `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
+| `--web.listen-address` | Web server listen addresses (can be specified multiple times) | `:28282` | Any valid host:port or :port format |
 | `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
 | `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
 | `--exporter.prometheus` | Enable Prometheus exporter | `true` | `true`, `false` |
@@ -44,6 +45,9 @@ kepler --host.procfs=/custom/proc --log.format=json
 
 # Load configuration from file
 kepler --config.file=/path/to/config.yaml
+
+# Use custom listen addresses
+kepler --web.listen-address=:8080 --web.listen-address=localhost:9090
 
 # Enable stdout exporter and disable Prometheus exporter
 kepler --exporter.stdout=true --exporter.prometheus=false
@@ -108,6 +112,8 @@ debug:          # debug related config
 
 web:
   configFile: "" # Path to TLS server config file
+  listenAddresses: # Web server listen addresses
+    - ":28282"
 
 kube:           # kubernetes related config
   enabled: false    # Enable kubernetes monitoring (default: false)
@@ -230,9 +236,15 @@ debug:
 ```yaml
 web:
   configFile: ""  # Path to TLS server config file
+  listenAddresses: # Web server listen addresses
+    - ":28282"
 ```
 
-This setting specifies the path to a TLS server configuration file for securing Kepler's web endpoints.
+- **configFile**: Path to a TLS server configuration file for securing Kepler's web endpoints
+- **listenAddresses**: List of addresses where the web server should listen (default: [":28282"])
+  - Supports both host:port format (e.g., "localhost:8080", "0.0.0.0:9090") and port-only format (e.g., ":8080")
+  - Multiple addresses can be specified for listening on different interfaces or ports
+  - IPv6 addresses are supported using bracket notation (e.g., "[::1]:8080")
 
 Example TLS server configuration file content:
 
