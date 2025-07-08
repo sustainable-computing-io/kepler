@@ -227,8 +227,7 @@ tls_server_config:
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := NewAPIServer(
-			WithListenAddress([]string{addr}),
-			WithWebConfig(webConfigFile))
+			WithListen([]string{addr}, webConfigFile))
 		assert.NoError(t, server.Init())
 
 		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,8 +280,7 @@ tls_server_config:
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := NewAPIServer(
-			WithListenAddress([]string{addr}),
-			WithWebConfig(webConfigFile))
+			WithListen([]string{addr}, webConfigFile))
 		assert.NoError(t, server.Init())
 
 		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -332,8 +330,7 @@ tls_server_config:
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := NewAPIServer(
-			WithListenAddress([]string{addr}),
-			WithWebConfig(webConfigFile))
+			WithListen([]string{addr}, webConfigFile))
 		assert.NoError(t, server.Init())
 
 		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -383,8 +380,7 @@ tls_server_config:
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := NewAPIServer(
-			WithListenAddress([]string{addr}),
-			WithWebConfig(webConfigFile))
+			WithListen([]string{addr}, webConfigFile))
 		assert.NoError(t, server.Init())
 
 		errCh := make(chan error, 1)
