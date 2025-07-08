@@ -29,6 +29,8 @@ data:
           - go
     web:
       configFile: ""
+      listenAddresses:
+        - ":28282"
     debug:
       pprof:
         enabled: false

@@ -1156,7 +1156,7 @@ func TestMetricsLevelValue_CommandLineIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a kingpin application for testing
 			app := kingpin.New("test", "test application")
-			var metricsLevel = MetricsLevelAll
+			metricsLevel := MetricsLevelAll
 			app.Flag("metrics", "Metrics levels to export").SetValue(NewMetricsLevelValue(&metricsLevel))
 
 			// Parse the arguments
@@ -1223,6 +1223,234 @@ func TestMetricsLevelValue_EdgeCases(t *testing.T) {
 	}
 }
 
+func TestWebListenAddressesValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		addresses     []string
+		expectError   bool
+		errorContains string
+	}{{
+		name:        "valid port-only address",
+		addresses:   []string{":8080"},
+		expectError: false,
+	}, {
+		name:        "valid host:port address",
+		addresses:   []string{"localhost:8080"},
+		expectError: false,
+	}, {
+		name:        "valid IPv4 address",
+		addresses:   []string{"192.168.1.1:8080"},
+		expectError: false,
+	}, {
+		name:        "valid IPv6 address",
+		addresses:   []string{"[::1]:8080"},
+		expectError: false,
+	}, {
+		name:        "multiple valid addresses",
+		addresses:   []string{":8080", "localhost:8081", "192.168.1.1:8082"},
+		expectError: false,
+	}, {
+		name:          "empty addresses list",
+		addresses:     []string{},
+		expectError:   true,
+		errorContains: "at least one web listen address must be specified",
+	}, {
+		name:          "empty address string",
+		addresses:     []string{""},
+		expectError:   true,
+		errorContains: "web listen address cannot be empty",
+	}, {
+		name:          "empty address in list",
+		addresses:     []string{":8080", "", "localhost:8081"},
+		expectError:   true,
+		errorContains: "web listen address cannot be empty",
+	}, {
+		name:          "invalid port-only format (missing port)",
+		addresses:     []string{":"},
+		expectError:   true,
+		errorContains: "port must be numeric",
+	}, {
+		name:          "invalid port number (too high)",
+		addresses:     []string{":99999"},
+		expectError:   true,
+		errorContains: "port must be between 1 and 65535",
+	}, {
+		name:          "invalid port number (zero)",
+		addresses:     []string{":0"},
+		expectError:   true,
+		errorContains: "port must be between 1 and 65535",
+	}, {
+		name:          "invalid port (non-numeric)",
+		addresses:     []string{":abc"},
+		expectError:   true,
+		errorContains: "port must be numeric",
+	}, {
+		name:          "missing port in host:port format",
+		addresses:     []string{"localhost"},
+		expectError:   true,
+		errorContains: "invalid address format",
+	}, {
+		name:        "empty host in host:port format",
+		addresses:   []string{":8080"},
+		expectError: false, // This is valid (port-only format)
+	}, {
+		name:          "invalid host:port format (empty host with colon)",
+		addresses:     []string{"localhost:"},
+		expectError:   true,
+		errorContains: "port must be numeric",
+	}, {
+		name:          "valid address mixed with invalid",
+		addresses:     []string{":8080", "invalid"},
+		expectError:   true,
+		errorContains: "invalid address format",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Web.ListenAddresses = tt.addresses
+
+			err := cfg.Validate()
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestWebListenAddressesFlags(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      []string
+		expectError   bool
+		errorContains string
+	}{{
+		name:     "default listen address",
+		args:     []string{},
+		expected: []string{":28282"},
+	}, {
+		name:     "single custom address",
+		args:     []string{"--web.listen-address=:9090"},
+		expected: []string{":9090"},
+	}, {
+		name:     "multiple addresses",
+		args:     []string{"--web.listen-address=:9090", "--web.listen-address=localhost:9091"},
+		expected: []string{":9090", "localhost:9091"},
+	}, {
+		name:          "invalid address via flag",
+		args:          []string{"--web.listen-address=invalid"},
+		expectError:   true,
+		errorContains: "invalid address format",
+	}, {
+		name:          "invalid port via flag",
+		args:          []string{"--web.listen-address=:99999"},
+		expectError:   true,
+		errorContains: "port must be between 1 and 65535",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := kingpin.New("test", "Test application")
+			updateConfig := RegisterFlags(app)
+
+			_, parseErr := app.Parse(tt.args)
+			assert.NoError(t, parseErr, "flag parsing should not fail")
+
+			cfg := DefaultConfig()
+			err := updateConfig(cfg)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, cfg.Web.ListenAddresses)
+			}
+		})
+	}
+}
+
+func TestWebListenAddressesYAML(t *testing.T) {
+	tests := []struct {
+		name          string
+		yamlData      string
+		expected      []string
+		expectError   bool
+		errorContains string
+	}{{
+		name: "valid single address in YAML",
+		yamlData: `
+web:
+  listenAddresses:
+    - ":9090"
+`,
+		expected: []string{":9090"},
+	}, {
+		name: "valid multiple addresses in YAML",
+		yamlData: `
+web:
+  listenAddresses:
+    - ":9090"
+    - "localhost:9091"
+    - "192.168.1.1:9092"
+`,
+		expected: []string{":9090", "localhost:9091", "192.168.1.1:9092"},
+	}, {
+		name: "empty addresses list in YAML",
+		yamlData: `
+web:
+  listenAddresses: []
+`,
+		expectError:   true,
+		errorContains: "at least one web listen address must be specified",
+	}, {
+		name: "invalid address in YAML",
+		yamlData: `
+web:
+  listenAddresses:
+    - ":9090"
+    - "invalid"
+`,
+		expectError:   true,
+		errorContains: "invalid address format",
+	}, {
+		name: "addresses with whitespace in YAML",
+		yamlData: `
+web:
+  listenAddresses:
+    - "  :9090  "
+    - "  localhost:9091  "
+`,
+		expected: []string{":9090", "localhost:9091"}, // Should be trimmed by sanitize()
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.yamlData)
+			cfg, err := Load(reader)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, cfg.Web.ListenAddresses)
+			}
+		})
+	}
+}
+
 func TestMetricsLevelYAMLMarshalling(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1274,6 +1502,335 @@ func TestMetricsLevelYAMLMarshalling(t *testing.T) {
 			err = yaml.Unmarshal(data, &unmarshaled)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.metricsLevel, unmarshaled.MetricsLevel)
+		})
+	}
+}
+
+// TestValidateListenAddress tests the validateListenAddress function directly
+func TestValidateListenAddress(t *testing.T) {
+	tests := []struct {
+		name          string
+		addr          string
+		expectError   bool
+		errorContains string
+	}{
+		// Valid cases
+		{
+			name:        "valid port-only address",
+			addr:        ":8080",
+			expectError: false,
+		},
+		{
+			name:        "valid host:port address",
+			addr:        "localhost:8080",
+			expectError: false,
+		},
+		{
+			name:        "valid IPv4 address",
+			addr:        "192.168.1.1:8080",
+			expectError: false,
+		},
+		{
+			name:        "valid IPv6 address",
+			addr:        "[::1]:8080",
+			expectError: false,
+		},
+		{
+			name:        "valid IPv6 address with full notation",
+			addr:        "[2001:db8::1]:8080",
+			expectError: false,
+		},
+		{
+			name:        "valid minimum port",
+			addr:        ":1",
+			expectError: false,
+		},
+		{
+			name:        "valid maximum port",
+			addr:        ":65535",
+			expectError: false,
+		},
+		{
+			name:        "valid 0.0.0.0 address",
+			addr:        "0.0.0.0:8080",
+			expectError: false,
+		},
+		{
+			name:        "valid hostname with domain",
+			addr:        "example.com:8080",
+			expectError: false,
+		},
+		// Invalid cases - port-only format
+		{
+			name:          "port-only format with empty port",
+			addr:          ":",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "port-only format with zero port",
+			addr:          ":0",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "port-only format with port too high",
+			addr:          ":99999",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "port-only format with non-numeric port",
+			addr:          ":abc",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "port-only format with mixed alphanumeric",
+			addr:          ":8080a",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		// Invalid cases - host:port format
+		{
+			name:          "host:port format with missing port",
+			addr:          "localhost",
+			expectError:   true,
+			errorContains: "invalid address format",
+		},
+		{
+			name:          "host:port format with empty port",
+			addr:          "localhost:",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "host:port format with zero port",
+			addr:          "localhost:0",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "host:port format with port too high",
+			addr:          "localhost:99999",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "host:port format with non-numeric port",
+			addr:          "localhost:abc",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "host:port format with mixed alphanumeric port",
+			addr:          "localhost:8080a",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		// Edge cases
+		{
+			name:          "empty address",
+			addr:          "",
+			expectError:   true,
+			errorContains: "address cannot be empty",
+		},
+		// Add some additional valid cases
+		{
+			name:        "IPv6 with proper brackets",
+			addr:        "[fe80::1]:8080",
+			expectError: false,
+		},
+		{
+			name:        "IPv6 localhost with brackets",
+			addr:        "[::1]:9090",
+			expectError: false,
+		},
+		{
+			name:          "IPv6 address without brackets (invalid)",
+			addr:          "::1:8080",
+			expectError:   true, // net.SplitHostPort requires brackets for IPv6
+			errorContains: "invalid address format",
+		},
+		{
+			name:          "IPv6 address with brackets but empty port",
+			addr:          "[::1]:",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "IPv6 address with brackets but invalid port",
+			addr:          "[::1]:abc",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "IPv6 address without brackets (invalid)",
+			addr:          "fe80::1:8080",
+			expectError:   true, // net.SplitHostPort requires brackets for IPv6
+			errorContains: "invalid address format",
+		},
+		{
+			name:          "colon without port number",
+			addr:          "localhost:",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "only colon character",
+			addr:          ":",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:        "port with leading zeros",
+			addr:        ":08080",
+			expectError: false, // Leading zeros are valid in our implementation
+		},
+		{
+			name:          "very long port number",
+			addr:          ":123456789",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "port with special characters",
+			addr:          ":80-80",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "port with spaces",
+			addr:          ":80 80",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateListenAddress(tt.addr)
+
+			if tt.expectError {
+				assert.Error(t, err, "Expected error for address: %s", tt.addr)
+				if err != nil && tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains, "Error message should contain expected text")
+				}
+			} else {
+				assert.NoError(t, err, "Expected no error for address: %s", tt.addr)
+			}
+		})
+	}
+}
+
+// TestValidatePort tests the validatePort function directly
+func TestValidatePort(t *testing.T) {
+	tests := []struct {
+		name          string
+		port          string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:        "valid port 8080",
+			port:        "8080",
+			expectError: false,
+		},
+		{
+			name:        "valid port 1",
+			port:        "1",
+			expectError: false,
+		},
+		{
+			name:        "valid port 65535",
+			port:        "65535",
+			expectError: false,
+		},
+		{
+			name:        "valid port with leading zeros",
+			port:        "08080",
+			expectError: false,
+		},
+		{
+			name:          "invalid port 0",
+			port:          "0",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "invalid port 65536",
+			port:          "65536",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "invalid port 99999",
+			port:          "99999",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "invalid port with letters",
+			port:          "abc",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "invalid port with mixed alphanumeric",
+			port:          "8080a",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "invalid port with special characters",
+			port:          "80-80",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "invalid port with spaces",
+			port:          "80 80",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "empty port",
+			port:          "",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+		{
+			name:          "very long port number",
+			port:          "123456789",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "negative sign in port",
+			port:          "-8080",
+			expectError:   true,
+			errorContains: "port must be between 1 and 65535",
+		},
+		{
+			name:          "port with decimal point",
+			port:          "80.80",
+			expectError:   true,
+			errorContains: "port must be numeric",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePort(tt.port)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

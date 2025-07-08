@@ -6,7 +6,9 @@ package config
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +41,8 @@ type (
 		} `yaml:"fake-cpu-meter"`
 	}
 	Web struct {
-		Config string `yaml:"configFile"`
+		Config          string   `yaml:"configFile"`
+		ListenAddresses []string `yaml:"listenAddresses"`
 	}
 
 	Monitor struct {
@@ -157,7 +160,8 @@ const (
 
 	pprofEnabledFlag = "debug.pprof"
 
-	WebConfigFlag = "web.config-file"
+	WebConfigFlag        = "web.config-file"
+	WebListenAddressFlag = "web.listen-address"
 
 	// Exporters
 	ExporterStdoutEnabledFlag = "exporter.stdout"
@@ -209,6 +213,9 @@ func DefaultConfig() *Config {
 			Pprof: PprofDebug{
 				Enabled: ptr.To(false),
 			},
+		},
+		Web: Web{
+			ListenAddresses: []string{":28282"},
 		},
 		Kube: Kube{
 			Enabled: ptr.To(false),
@@ -295,6 +302,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	enablePprof := app.Flag(pprofEnabledFlag, "Enable pprof debug endpoints").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
+	webListenAddresses := app.Flag(WebListenAddressFlag, "Web server listen addresses").Default(":28282").Strings()
 
 	// exporters
 	stdoutExporterEnabled := app.Flag(ExporterStdoutEnabledFlag, "Enable stdout exporter").Default("false").Bool()
@@ -343,6 +351,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Web.Config = *webConfig
 		}
 
+		if flagsSet[WebListenAddressFlag] {
+			cfg.Web.ListenAddresses = *webListenAddresses
+		}
+
 		if flagsSet[ExporterStdoutEnabledFlag] {
 			cfg.Exporter.Stdout.Enabled = stdoutExporterEnabled
 		}
@@ -378,6 +390,9 @@ func (c *Config) sanitize() {
 	c.Host.SysFS = strings.TrimSpace(c.Host.SysFS)
 	c.Host.ProcFS = strings.TrimSpace(c.Host.ProcFS)
 	c.Web.Config = strings.TrimSpace(c.Web.Config)
+	for i := range c.Web.ListenAddresses {
+		c.Web.ListenAddresses[i] = strings.TrimSpace(c.Web.ListenAddresses[i])
+	}
 
 	for i := range c.Rapl.Zones {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
@@ -434,6 +449,20 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		if c.Web.Config != "" {
 			if err := canReadFile(c.Web.Config); err != nil {
 				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
+			}
+		}
+	}
+	{ // Web listen addresses
+		if len(c.Web.ListenAddresses) == 0 {
+			errs = append(errs, "at least one web listen address must be specified")
+		}
+		for _, addr := range c.Web.ListenAddresses {
+			if addr == "" {
+				errs = append(errs, "web listen address cannot be empty")
+				continue
+			}
+			if err := validateListenAddress(addr); err != nil {
+				errs = append(errs, fmt.Sprintf("invalid web listen address %q: %s", addr, err.Error()))
 			}
 		}
 	}
@@ -503,6 +532,37 @@ func canReadFile(path string) error {
 		return err
 	}
 
+	return nil
+}
+
+func validateListenAddress(addr string) error {
+	if addr == "" {
+		return fmt.Errorf("address cannot be empty")
+	}
+
+	// Use Go's standard library to parse host:port
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid address format: %w", err)
+	}
+
+	// Validate port (host can be empty for listening on all interfaces)
+	if err := validatePort(port); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePort(port string) error {
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return fmt.Errorf("port must be numeric, got %s", port)
+	}
+
+	if portNum < 1 || portNum > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535, got %d", portNum)
+	}
 	return nil
 }
 

@@ -53,6 +53,8 @@ debug: # debug related config
 
 web:
   configFile: "" # Path to TLS server config file
+  listenAddresses: # Web server listen addresses
+    - :28282
 
 kube: # kubernetes related config
   enabled: false # enable kubernetes monitoring (default: false)
