@@ -23,19 +23,21 @@ func TestVMPowerCalculation(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	resourceInformer := &MockResourceInformer{}
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
-		logger:    logger,
-		cpu:       mockMeter,
-		clock:     fakeClock,
-		resources: resourceInformer,
+		logger:        logger,
+		cpu:           mockMeter,
+		clock:         fakeClock,
+		resources:     resourceInformer,
+		maxTerminated: 500,
 	}
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	t.Run("firstVMRead", func(t *testing.T) {
@@ -402,17 +404,37 @@ func TestVMPowerCalculation(t *testing.T) {
 		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		newSnapshot.TerminatedVirtualMachines = monitor.terminatedVMsTracker.Items()
+
 		// Verify running VM is still present
 		assert.Len(t, newSnapshot.VirtualMachines, 1)
 		assert.Contains(t, newSnapshot.VirtualMachines, "vm-running")
 
 		// Verify terminated VMs - only the one with non-zero energy should be included
 		assert.Len(t, newSnapshot.TerminatedVirtualMachines, 1)
-		assert.Contains(t, newSnapshot.TerminatedVirtualMachines, "vm-terminated")
-		assert.NotContains(t, newSnapshot.TerminatedVirtualMachines, "vm-zero-energy")
+
+		// Find terminated VM by ID
+		var terminatedVM *VirtualMachine
+		for _, vm := range newSnapshot.TerminatedVirtualMachines {
+			if vm.ID == "vm-terminated" {
+				terminatedVM = vm
+				break
+			}
+		}
+		require.NotNil(t, terminatedVM, "vm-terminated should exist in terminated VMs")
+
+		// Ensure vm-zero-energy is not in terminated VMs
+		foundZeroEnergy := false
+		for _, vm := range newSnapshot.TerminatedVirtualMachines {
+			if vm.ID == "vm-zero-energy" {
+				foundZeroEnergy = true
+				break
+			}
+		}
+		assert.False(t, foundZeroEnergy, "vm-zero-energy should not be in terminated VMs")
 
 		// Check that terminated VM retains its energy from previous snapshot
-		terminatedVM := newSnapshot.TerminatedVirtualMachines["vm-terminated"]
 		assert.Equal(t, "vm-terminated", terminatedVM.ID)
 		assert.Equal(t, "terminated-vm", terminatedVM.Name)
 		assert.Equal(t, 80.0, terminatedVM.CPUTotalTime)
@@ -437,6 +459,7 @@ func TestVMPowerConsistency(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 	zones := CreateTestZones()
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	mockResourceInformer := &MockResourceInformer{}

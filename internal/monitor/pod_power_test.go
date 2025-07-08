@@ -23,19 +23,21 @@ func TestPodPowerCalculation(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	resInformer := &MockResourceInformer{}
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
-		logger:    logger,
-		cpu:       mockMeter,
-		clock:     fakeClock,
-		resources: resInformer,
+		logger:        logger,
+		cpu:           mockMeter,
+		clock:         fakeClock,
+		resources:     resInformer,
+		maxTerminated: 500,
 	}
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	t.Run("firstPodRead", func(t *testing.T) {
@@ -201,19 +203,21 @@ func TestPodPowerConsistency(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	resInformer := &MockResourceInformer{}
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
-		logger:    logger,
-		cpu:       mockMeter,
-		clock:     fakeClock,
-		resources: resInformer,
+		logger:        logger,
+		cpu:           mockMeter,
+		clock:         fakeClock,
+		resources:     resInformer,
+		maxTerminated: 500,
 	}
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	t.Run("power_conservation_across_pods", func(t *testing.T) {
@@ -258,16 +262,18 @@ func TestTerminatedPodTracking(t *testing.T) {
 	t.Run("terminated_pod_energy_accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Setup previous snapshot with pod data (similar to container test pattern)
@@ -324,11 +330,21 @@ func TestTerminatedPodTracking(t *testing.T) {
 		err = monitor.calculatePodPower(prevSnapshot, newSnapshot)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		newSnapshot.TerminatedPods = monitor.terminatedPodsTracker.Items()
+
 		// Verify terminated pod tracking
 		assert.Len(t, newSnapshot.TerminatedPods, 1, "Terminated pods should be tracked")
-		assert.Contains(t, newSnapshot.TerminatedPods, "pod-1")
 
-		terminatedPod := newSnapshot.TerminatedPods["pod-1"]
+		// Find terminated pod by ID
+		var terminatedPod *Pod
+		for _, pod := range newSnapshot.TerminatedPods {
+			if pod.ID == "pod-1" {
+				terminatedPod = pod
+				break
+			}
+		}
+		require.NotNil(t, terminatedPod, "Pod pod-1 should exist in terminated pods")
 		originalPod := prevSnapshot.Pods["pod-1"]
 
 		// Verify terminated pod preserves energy and power from last running state
@@ -358,16 +374,18 @@ func TestTerminatedPodTracking(t *testing.T) {
 	t.Run("terminated_pod_cleanup_after_export", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Start with terminated pod already in system
@@ -386,12 +404,22 @@ func TestTerminatedPodTracking(t *testing.T) {
 
 		// Create snapshot with terminated pod data
 		snapshot1 := NewSnapshot()
-		snapshot1.TerminatedPods["pod-1"] = &Pod{
+		oldTerminatedPod := &Pod{
 			ID:        "pod-1",
 			Name:      "test-pod-1",
 			Namespace: "default",
 			Zones:     make(ZoneUsageMap),
 		}
+
+		// Initialize zones with non-zero energy to pass HasZeroEnergy() check
+		for _, zone := range zones {
+			oldTerminatedPod.Zones[zone] = Usage{
+				EnergyTotal: 50 * Joule,
+				Power:       10,
+			}
+		}
+
+		snapshot1.Pods = map[string]*Pod{"pod-1": oldTerminatedPod} // Add to previous pods so it can be found
 
 		// Before export - terminated pods should be preserved
 		monitor.exported.Store(false)
@@ -402,6 +430,9 @@ func TestTerminatedPodTracking(t *testing.T) {
 		err = monitor.calculatePodPower(snapshot1, newSnapshot)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		newSnapshot.TerminatedPods = monitor.terminatedPodsTracker.Items()
+
 		assert.Len(t, newSnapshot.TerminatedPods, 1, "Terminated pods should be preserved before export")
 
 		// After export - terminated pods should be cleaned up
@@ -411,22 +442,27 @@ func TestTerminatedPodTracking(t *testing.T) {
 		err = monitor.calculatePodPower(newSnapshot, snapshot3)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot3.TerminatedPods = monitor.terminatedPodsTracker.Items()
+
 		assert.Len(t, snapshot3.TerminatedPods, 0, "Terminated pods should be cleaned up after export")
 	})
 
 	t.Run("multiple_terminated_pods_accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Reset monitor state
@@ -473,8 +509,19 @@ func TestTerminatedPodTracking(t *testing.T) {
 		err = monitor.calculatePodPower(snapshot1, snapshot2)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot2.TerminatedPods = monitor.terminatedPodsTracker.Items()
+
 		assert.Len(t, snapshot2.TerminatedPods, 1, "Should have 1 terminated pod")
-		assert.Contains(t, snapshot2.TerminatedPods, "pod-1")
+		// Check pod-1 is in terminated pods
+		found := false
+		for _, pod := range snapshot2.TerminatedPods {
+			if pod.ID == "pod-1" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "pod-1 should be in terminated pods")
 
 		// Step 3: Second pod terminates
 		snapshot3 := NewSnapshot()
@@ -496,10 +543,19 @@ func TestTerminatedPodTracking(t *testing.T) {
 		err = monitor.calculatePodPower(snapshot2, snapshot3)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot3.TerminatedPods = monitor.terminatedPodsTracker.Items()
+
 		// Should now have 2 terminated pods accumulated
 		assert.Len(t, snapshot3.TerminatedPods, 2, "Should have 2 terminated pods accumulated")
-		assert.Contains(t, snapshot3.TerminatedPods, "pod-1", "First terminated pod should still be present")
-		assert.Contains(t, snapshot3.TerminatedPods, "pod-2", "Second terminated pod should be added")
+
+		// Check that both terminated pods are present
+		podIDs := make(map[string]bool)
+		for _, pod := range snapshot3.TerminatedPods {
+			podIDs[pod.ID] = true
+		}
+		assert.True(t, podIDs["pod-1"], "First terminated pod should still be present")
+		assert.True(t, podIDs["pod-2"], "Second terminated pod should be added")
 
 		assert.Len(t, snapshot3.Pods, 1, "Should have 1 running pod")
 		assert.Contains(t, snapshot3.Pods, "pod-3")
@@ -508,16 +564,18 @@ func TestTerminatedPodTracking(t *testing.T) {
 	t.Run("terminated_pod_with_zero_energy_filtering", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Pod with zero energy should be filtered out
@@ -553,6 +611,9 @@ func TestTerminatedPodTracking(t *testing.T) {
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.0) // Keep zero usage
 		err = monitor.calculatePodPower(snapshot1, newSnapshot)
 		require.NoError(t, err)
+
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		newSnapshot.TerminatedPods = monitor.terminatedPodsTracker.Items()
 
 		// Pod with zero energy should be filtered out from terminated tracking
 		assert.Len(t, newSnapshot.TerminatedPods, 0, "Pods with zero energy should be filtered out")

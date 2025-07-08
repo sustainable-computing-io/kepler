@@ -4,8 +4,6 @@
 package monitor
 
 import (
-	"maps"
-
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -71,14 +69,14 @@ func newContainer(cntr *resource.Container, zones NodeZoneUsageMap) *Container {
 
 // calculateContainerPower calculates container power for each running container
 func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) error {
+	// Clear terminated workloads if snapshot has been exported
+	if pm.exported.Load() {
+		pm.logger.Debug("Clearing terminated containers after export")
+		pm.terminatedContainersTracker.Clear()
+	}
+
 	// Get the current cntrs
 	cntrs := pm.resources.Containers()
-
-	// Copy existing terminated containers from previous snapshot if not exported
-	if !pm.exported.Load() {
-		// NOTE: no need to deep clone since already terminated containers won't be updated
-		maps.Copy(newSnapshot.TerminatedContainers, prev.TerminatedContainers)
-	}
 
 	pm.logger.Debug("Processing terminated containers", "terminated", len(cntrs.Terminated))
 	for id := range cntrs.Terminated {
@@ -94,8 +92,10 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		}
 		pm.logger.Debug("Including terminated container with non-zero energy", "id", id)
 
+		// Add to internal tracker (which will handle priority-based retention)
+		// NOTE: Each terminated container is only added once since a container cannot be terminated twice
 		terminatedContainer := prevContainer.Clone()
-		newSnapshot.TerminatedContainers[id] = terminatedContainer
+		pm.terminatedContainersTracker.Add(terminatedContainer)
 	}
 
 	// process running containers
@@ -150,9 +150,12 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 	// Update the snapshot
 	newSnapshot.Containers = containerMap
 
+	// Populate terminated containers from tracker
+	newSnapshot.TerminatedContainers = pm.terminatedContainersTracker.Items()
 	pm.logger.Debug("snapshot updated for containers",
 		"running", len(newSnapshot.Containers),
-		"terminated", len(newSnapshot.TerminatedContainers))
+		"terminated", len(newSnapshot.TerminatedContainers),
+	)
 
 	return nil
 }

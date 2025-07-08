@@ -4,8 +4,6 @@
 package monitor
 
 import (
-	"maps"
-
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -46,13 +44,13 @@ func (pm *PowerMonitor) firstVMRead(snapshot *Snapshot) error {
 
 // calculateVMPower calculates power for each running VM and handles terminated VMs
 func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
-	vms := pm.resources.VirtualMachines()
-
-	// Copy existing terminated VMs from previous snapshot if not exported
-	if !pm.exported.Load() {
-		// NOTE: no need to deep clone since already terminated VMs won't be updated
-		maps.Copy(newSnapshot.TerminatedVirtualMachines, prev.TerminatedVirtualMachines)
+	// Clear terminated workloads if snapshot has been exported
+	if pm.exported.Load() {
+		pm.logger.Debug("Clearing terminated VMs after export")
+		pm.terminatedVMsTracker.Clear()
 	}
+
+	vms := pm.resources.VirtualMachines()
 
 	// Handle terminated VMs
 	pm.logger.Debug("Processing terminated VMs", "terminated", len(vms.Terminated))
@@ -69,8 +67,10 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 		}
 		pm.logger.Debug("Including terminated VM with non-zero energy", "id", id)
 
+		// Add to internal tracker (which will handle priority-based retention)
+		// NOTE: Each terminated VM is only added once since a VM cannot be terminated twice
 		terminatedVM := prevVM.Clone()
-		newSnapshot.TerminatedVirtualMachines[id] = terminatedVM
+		pm.terminatedVMsTracker.Add(terminatedVM)
 	}
 
 	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
@@ -118,9 +118,12 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 
 	newSnapshot.VirtualMachines = vmMap
 
+	// Populate terminated VMs from tracker
+	newSnapshot.TerminatedVirtualMachines = pm.terminatedVMsTracker.Items()
 	pm.logger.Debug("snapshot updated for VMs",
 		"running", len(newSnapshot.VirtualMachines),
-		"terminated", len(newSnapshot.TerminatedVirtualMachines))
+		"terminated", len(newSnapshot.TerminatedVirtualMachines),
+	)
 
 	return nil
 }

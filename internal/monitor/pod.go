@@ -4,8 +4,6 @@
 package monitor
 
 import (
-	"maps"
-
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -46,14 +44,14 @@ func (pm *PowerMonitor) firstPodRead(snapshot *Snapshot) error {
 
 // calculatePodPower calculates pod power for each running pod and handles terminated pods
 func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
+	// Clear terminated workloads if snapshot has been exported
+	if pm.exported.Load() {
+		pm.logger.Debug("Clearing terminated pods after export")
+		pm.terminatedPodsTracker.Clear()
+	}
+
 	// Get the current pods
 	pods := pm.resources.Pods()
-
-	// Copy existing terminated pods from previous snapshot if not exported
-	if !pm.exported.Load() {
-		// NOTE: no need to deep clone since already terminated pods won't be updated
-		maps.Copy(newSnapshot.TerminatedPods, prev.TerminatedPods)
-	}
 
 	// Handle terminated pods
 	pm.logger.Debug("Processing terminated pods", "terminated", len(pods.Terminated))
@@ -70,8 +68,10 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		}
 		pm.logger.Debug("Including terminated pod with non-zero energy", "id", id)
 
+		// Add to internal tracker (which will handle priority-based retention)
+		// NOTE: Each terminated pod is only added once since a pod cannot be terminated twice
 		terminatedPod := prevPod.Clone()
-		newSnapshot.TerminatedPods[id] = terminatedPod
+		pm.terminatedPodsTracker.Add(terminatedPod)
 	}
 
 	// Skip if no running pods
@@ -127,7 +127,13 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 
 	// Update the snapshot
 	newSnapshot.Pods = podMap
-	pm.logger.Debug("snapshot updated for pods", "pods", len(newSnapshot.Pods))
+
+	// Populate terminated pods from tracker
+	newSnapshot.TerminatedPods = pm.terminatedPodsTracker.Items()
+	pm.logger.Debug("snapshot updated for pods",
+		"running", len(newSnapshot.Pods),
+		"terminated", len(newSnapshot.TerminatedPods),
+	)
 
 	return nil
 }

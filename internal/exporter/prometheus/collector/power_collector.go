@@ -311,13 +311,12 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 
 	// No need to lock, already done by the calling function
 	for pid, proc := range processes {
-		pidStr := fmt.Sprintf("%d", pid)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.processCPUTimeDescriptor,
 			prometheus.CounterValue,
 			proc.CPUTotalTime,
-			pidStr, proc.Comm, proc.Exe, string(proc.Type),
+			pid, proc.Comm, proc.Exe, string(proc.Type),
 			proc.ContainerID, proc.VirtualMachineID,
 		)
 
@@ -327,7 +326,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 				c.processCPUJoulesDescriptor,
 				prometheus.CounterValue,
 				usage.EnergyTotal.Joules(),
-				pidStr, proc.Comm, proc.Exe, string(proc.Type), state,
+				pid, proc.Comm, proc.Exe, string(proc.Type), state,
 				proc.ContainerID, proc.VirtualMachineID,
 				zoneName,
 			)
@@ -336,7 +335,7 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 				c.processCPUWattsDescriptor,
 				prometheus.GaugeValue,
 				usage.Power.Watts(),
-				pidStr, proc.Comm, proc.Exe, string(proc.Type), state,
+				pid, proc.Comm, proc.Exe, string(proc.Type), state,
 				proc.ContainerID, proc.VirtualMachineID,
 				zoneName,
 			)

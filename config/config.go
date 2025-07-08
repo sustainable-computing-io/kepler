@@ -49,6 +49,10 @@ type (
 		Interval  time.Duration `yaml:"interval"`  // Interval for monitoring resources
 		Staleness time.Duration `yaml:"staleness"` // Time after which calculated values are considered stale
 
+		// MaxTerminated controls terminated workload tracking behavior:
+		// <0: Any negative value indicates to track unlimited terminated workloads (no capacity limit)
+		// =0: Disable terminated workload tracking completely
+		// >0: Track top N terminated workloads by energy consumption
 		MaxTerminated int `yaml:"maxTerminated"`
 	}
 
@@ -297,8 +301,8 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	// monitor
 	monitorInterval := app.Flag(MonitorIntervalFlag,
 		"Interval for monitoring resources (processes, container, vm, etc...); 0 to disable").Default("5s").Duration()
-	maxTerminated := app.Flag(MonitorMaxTerminatedFlag,
-		"Maximum number of terminated workloads to keep in memory until exported; 0 for unlimited").Default("500").Int()
+	monitorMaxTerminated := app.Flag(MonitorMaxTerminatedFlag,
+		"Maximum number of terminated workloads to track; 0 to disable, -1 for unlimited").Default("500").Int()
 
 	enablePprof := app.Flag(pprofEnabledFlag, "Enable pprof debug endpoints").Default("false").Bool()
 	webConfig := app.Flag(WebConfigFlag, "Web config file path").Default("").String()
@@ -338,9 +342,8 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		if flagsSet[MonitorIntervalFlag] {
 			cfg.Monitor.Interval = *monitorInterval
 		}
-
 		if flagsSet[MonitorMaxTerminatedFlag] {
-			cfg.Monitor.MaxTerminated = *maxTerminated
+			cfg.Monitor.MaxTerminated = *monitorMaxTerminated
 		}
 
 		if flagsSet[pprofEnabledFlag] {

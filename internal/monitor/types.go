@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"maps"
+	"strconv"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/device"
@@ -29,13 +30,13 @@ type NodeUsage struct {
 
 	// Split of Delta Energy between Active and Idle
 	ActiveEnergyTotal Energy // Cumulative energy counter for active workloads
-	ActivePower       Power  // portion of the total power that is being used by the workload
+	ActivePower       Power  // portion of the total power that is being used by the Resource
 
 	IdleEnergyTotal Energy // Cumulative energy counter for idle workloads
 	IdlePower       Power  // portion of the total power that allocated to node idling
 
-	// NOTE: activeEnergy is an internal variable that is used to calculate workload's energy
-	activeEnergy Energy // Energy used by the workload running
+	// NOTE: activeEnergy is an internal variable that is used to calculate Resource's energy
+	activeEnergy Energy // Energy used by the Resource running
 }
 
 // Usage contains energy consumption data of workloads (Process, Container, VM)
@@ -107,6 +108,16 @@ func (p *Process) Clone() *Process {
 	return &ret
 }
 
+// ZonesUsage implements the Resource interface
+func (p *Process) ZoneUsage() ZoneUsageMap {
+	return p.Zones
+}
+
+// StringID implements the Resource interface
+func (p *Process) StringID() string {
+	return strconv.Itoa(p.PID)
+}
+
 type ContainerRuntime = resource.ContainerRuntime
 
 // Container represents the power consumption of a container
@@ -135,6 +146,16 @@ func (c *Container) Clone() *Container {
 	return &ret
 }
 
+// ZoneUsage implements the Resource interface
+func (c *Container) ZoneUsage() ZoneUsageMap {
+	return c.Zones
+}
+
+// StringID implements the Resource interface
+func (c *Container) StringID() string {
+	return c.ID
+}
+
 type Hypervisor = resource.Hypervisor
 
 // VirtualMachine represents the power consumption of a VM
@@ -160,6 +181,16 @@ func (vm *VirtualMachine) Clone() *VirtualMachine {
 	return &ret
 }
 
+// ZoneUsage implements the Resource interface
+func (vm *VirtualMachine) ZoneUsage() ZoneUsageMap {
+	return vm.Zones
+}
+
+// StringID implements the Resource interface
+func (vm *VirtualMachine) StringID() string {
+	return vm.ID
+}
+
 type Pod struct {
 	ID        string // Pod UUID
 	Name      string // Pod Name
@@ -182,8 +213,18 @@ func (p *Pod) Clone() *Pod {
 	return &ret
 }
 
+// ZoneUsage implements the Resource interface
+func (p *Pod) ZoneUsage() ZoneUsageMap {
+	return p.Zones
+}
+
+// StringID implements the Resource interface
+func (p *Pod) StringID() string {
+	return p.ID
+}
+
 type (
-	Processes       = map[int]*Process
+	Processes       = map[string]*Process
 	Containers      = map[string]*Container
 	VirtualMachines = map[string]*VirtualMachine
 	Pods            = map[string]*Pod
@@ -195,15 +236,15 @@ type Snapshot struct {
 	Node      *Node     // Node power data
 
 	Processes           Processes // Process power data, keyed by PID
-	TerminatedProcesses Processes // Terminated processes with accumulated energy since last snapshot
+	TerminatedProcesses Processes // Terminated processes with highest energy consumption
 
 	Containers           Containers // Container power data, keyed by container ID
-	TerminatedContainers Containers // Terminated containers with accumulated energy since last snapshot
+	TerminatedContainers Containers // Terminated containers with highest energy consumption
 
 	VirtualMachines           VirtualMachines // VM power data, keyed by container ID
-	TerminatedVirtualMachines VirtualMachines // Terminated VMs with accumulated energy since last snapshot
+	TerminatedVirtualMachines VirtualMachines // Terminated VMs with highest energy consumption
 	Pods                      Pods            // Pod power data, keyed by pod ID
-	TerminatedPods            Pods            // Terminated pods with accumulated energy since last snapshot
+	TerminatedPods            Pods            // Terminated pods with highest energy consumption
 }
 
 // NewSnapshot creates a new Snapshot instance
@@ -243,14 +284,16 @@ func (s *Snapshot) Clone() *Snapshot {
 		clone.Processes[pid] = src.Clone()
 	}
 
-	for pid, src := range s.TerminatedProcesses {
-		clone.TerminatedProcesses[pid] = src.Clone()
+	// Deep copy terminated processes map
+	for id, src := range s.TerminatedProcesses {
+		clone.TerminatedProcesses[id] = src.Clone()
 	}
 
 	for id, src := range s.Containers {
 		clone.Containers[id] = src.Clone()
 	}
 
+	// Deep copy terminated containers map
 	for id, src := range s.TerminatedContainers {
 		clone.TerminatedContainers[id] = src.Clone()
 	}
@@ -259,6 +302,7 @@ func (s *Snapshot) Clone() *Snapshot {
 		clone.VirtualMachines[id] = src.Clone()
 	}
 
+	// Deep copy terminated VMs map
 	for id, src := range s.TerminatedVirtualMachines {
 		clone.TerminatedVirtualMachines[id] = src.Clone()
 	}
@@ -267,6 +311,7 @@ func (s *Snapshot) Clone() *Snapshot {
 		clone.Pods[id] = src.Clone()
 	}
 
+	// Deep copy terminated pods map
 	for id, src := range s.TerminatedPods {
 		clone.TerminatedPods[id] = src.Clone()
 	}

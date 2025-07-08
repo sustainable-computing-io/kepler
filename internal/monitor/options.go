@@ -13,24 +13,22 @@ import (
 
 type Opts struct {
 	logger        *slog.Logger
-	sysfsPath     string
 	interval      time.Duration
 	clock         clock.WithTicker
+	resources     resource.Informer
 	maxStaleness  time.Duration
 	maxTerminated int
-	resources     resource.Informer
 }
 
 // NewConfig returns a new Config with defaults set
 func DefaultOpts() Opts {
 	return Opts{
 		logger:        slog.Default(),
-		sysfsPath:     "/sys",
 		interval:      5 * time.Second,
 		clock:         clock.RealClock{},
 		maxStaleness:  500 * time.Millisecond,
-		maxTerminated: 500,
 		resources:     nil,
+		maxTerminated: 500,
 	}
 }
 

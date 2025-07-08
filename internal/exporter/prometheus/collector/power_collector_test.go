@@ -215,7 +215,7 @@ func TestPowerCollector(t *testing.T) {
 	}
 
 	testProcesses := monitor.Processes{
-		123: {
+		"123": {
 			PID:          123,
 			Comm:         "test-process",
 			Exe:          "/usr/bin/123",
@@ -527,7 +527,7 @@ func TestTerminatedProcessExport(t *testing.T) {
 			},
 		},
 		Processes: monitor.Processes{
-			123: &monitor.Process{
+			"123": &monitor.Process{
 				PID:          123,
 				Comm:         "running-proc",
 				Exe:          "/usr/bin/running-proc",
@@ -544,7 +544,7 @@ func TestTerminatedProcessExport(t *testing.T) {
 			},
 		},
 		TerminatedProcesses: monitor.Processes{
-			456: &monitor.Process{
+			"456": &monitor.Process{
 				PID:          456,
 				Comm:         "terminated-proc",
 				Exe:          "/usr/bin/terminated-proc",
@@ -633,7 +633,7 @@ func TestEnhancedErrorReporting(t *testing.T) {
 			},
 		},
 		Processes: monitor.Processes{
-			123: &monitor.Process{
+			"123": &monitor.Process{
 				PID:          123,
 				Comm:         "actual-proc",
 				Exe:          "/usr/bin/actual-proc",
@@ -650,7 +650,7 @@ func TestEnhancedErrorReporting(t *testing.T) {
 			},
 		},
 		TerminatedProcesses: monitor.Processes{
-			456: &monitor.Process{
+			"456": &monitor.Process{
 				PID:          456,
 				Comm:         "terminated-proc",
 				Exe:          "/usr/bin/terminated-proc",
@@ -771,7 +771,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 					UsageRatio: 0.5,
 				},
 				Processes: monitor.Processes{
-					123: &monitor.Process{
+					"123": &monitor.Process{
 						PID:          123,
 						Comm:         "test-process",
 						Exe:          "/usr/bin/test-process",

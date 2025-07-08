@@ -23,6 +23,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	resInformer := &MockResourceInformer{}
@@ -35,7 +36,7 @@ func TestContainerPowerCalculation(t *testing.T) {
 		resources: resInformer,
 	}
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	t.Run("firstContainerRead", func(t *testing.T) {
@@ -220,6 +221,7 @@ func TestContainerPowerConsistency(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 	zones := CreateTestZones()
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create mock resource informer
 	mockResourceInformer := &MockResourceInformer{}
@@ -290,18 +292,51 @@ func TestTerminatedContainerTracking(t *testing.T) {
 	t.Run("terminated container energy accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 		// Step 1: Create initial snapshot with running containers
+		// We need a previous snapshot with some energy to have proper power attribution
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(-time.Second), 0.5)
+
+		// Add existing containers with some energy
+		prevSnapshot.Containers["container-1"] = &Container{
+			ID:           "container-1",
+			Name:         "test-container-1",
+			Runtime:      resource.DockerRuntime,
+			CPUTotalTime: 70.0, // Previous CPU time
+			Zones:        make(ZoneUsageMap, len(zones)),
+		}
+		prevSnapshot.Containers["container-2"] = &Container{
+			ID:           "container-2",
+			Name:         "test-container-2",
+			Runtime:      resource.PodmanRuntime,
+			CPUTotalTime: 130.0, // Previous CPU time
+			Zones:        make(ZoneUsageMap, len(zones)),
+		}
+		// Initialize previous energy values
+		for _, zone := range zones {
+			prevSnapshot.Containers["container-1"].Zones[zone] = Usage{
+				EnergyTotal: 15 * Joule,
+				Power:       Power(0),
+			}
+			prevSnapshot.Containers["container-2"].Zones[zone] = Usage{
+				EnergyTotal: 10 * Joule,
+				Power:       Power(0),
+			}
+		}
+
 		snapshot1 := NewSnapshot()
 		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
@@ -318,8 +353,11 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		resInformer.On("Node").Return(tr1.Node, nil).Maybe()
 		resInformer.On("Containers").Return(cntrsInitial).Once()
 
-		err = monitor.calculateContainerPower(NewSnapshot(), snapshot1)
+		err = monitor.calculateContainerPower(prevSnapshot, snapshot1)
 		require.NoError(t, err)
+
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot1.TerminatedContainers = monitor.terminatedContainersTracker.Items()
 
 		runningCtnr1 := snapshot1.Containers["container-1"]
 		require.NotNil(t, runningCtnr1, "Container container-1 should exist in running containers")
@@ -353,6 +391,9 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(snapshot1, snapshot2)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot2.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		// Step 3: Validate running containers
 		assert.Len(t, snapshot2.Containers, 1)
 		assert.Contains(t, snapshot2.Containers, "container-2")
@@ -360,10 +401,16 @@ func TestTerminatedContainerTracking(t *testing.T) {
 
 		// Step 4: Validate terminated containers - CORE BUSINESS LOGIC
 		assert.Len(t, snapshot2.TerminatedContainers, 1, "Terminated containers should be tracked")
-		assert.Contains(t, snapshot2.TerminatedContainers, "container-1", "Container container-1 should be in terminated containers")
 
-		terminatedCntr1, exists := snapshot2.TerminatedContainers["container-1"]
-		require.True(t, exists, "Container container-1 should exist in terminated containers")
+		// Find terminated container by ID
+		var terminatedCntr1 *Container
+		for _, cntr := range snapshot2.TerminatedContainers {
+			if cntr.ID == "container-1" {
+				terminatedCntr1 = cntr
+				break
+			}
+		}
+		require.NotNil(t, terminatedCntr1, "Container container-1 should exist in terminated containers")
 
 		// TEST: Energy and power values are EXACTLY preserved from when container was running
 		for _, zone := range zones {
@@ -391,16 +438,18 @@ func TestTerminatedContainerTracking(t *testing.T) {
 	t.Run("terminated container cleanup after export", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Reset monitor state
@@ -411,18 +460,22 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Add a terminated container from a previous calculation
-		snapshot1.TerminatedContainers["old-terminated"] = &Container{
+		oldTerminated := &Container{
 			ID:      "old-terminated",
 			Name:    "old-terminated-container",
 			Runtime: resource.DockerRuntime,
 			Zones:   make(ZoneUsageMap),
 		}
 		for _, zone := range zones {
-			snapshot1.TerminatedContainers["old-terminated"].Zones[zone] = Usage{
+			oldTerminated.Zones[zone] = Usage{
 				EnergyTotal: 50 * Joule,
 				Power:       10 * Watt,
 			}
 		}
+		snapshot1.TerminatedContainers[oldTerminated.StringID()] = oldTerminated
+
+		// Also add to the internal tracker (simulating previous processing)
+		monitor.terminatedContainersTracker.Add(oldTerminated)
 
 		// Create next snapshot with no new terminated containers
 		snapshot2 := NewSnapshot()
@@ -444,8 +497,19 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(snapshot1, snapshot2)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot2.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		assert.Len(t, snapshot2.TerminatedContainers, 1, "Terminated containers should be preserved before export")
-		assert.Contains(t, snapshot2.TerminatedContainers, "old-terminated")
+		// Verify old-terminated container is still present
+		found := false
+		for _, cntr := range snapshot2.TerminatedContainers {
+			if cntr.ID == "old-terminated" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "old-terminated container should be present")
 
 		// After export, terminated containers should be cleaned up
 		monitor.exported.Store(true)
@@ -458,6 +522,9 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(snapshot2, snapshot3)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot3.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		assert.Len(t, snapshot3.TerminatedContainers, 0, "Terminated containers should be cleaned up after export")
 
 		resInformer.AssertExpectations(t)
@@ -466,16 +533,18 @@ func TestTerminatedContainerTracking(t *testing.T) {
 	t.Run("multiple terminated containers accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Reset monitor state
@@ -501,6 +570,9 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(NewSnapshot(), snapshot1)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot1.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		// Step 2: First container terminates
 		snapshot2 := NewSnapshot()
 		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
@@ -522,8 +594,19 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(snapshot1, snapshot2)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot2.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		assert.Len(t, snapshot2.TerminatedContainers, 1, "Should have 1 terminated container")
-		assert.Contains(t, snapshot2.TerminatedContainers, "container-1")
+		// Check that container-1 is in terminated containers
+		foundContainer1 := false
+		for _, cntr := range snapshot2.TerminatedContainers {
+			if cntr.ID == "container-1" {
+				foundContainer1 = true
+				break
+			}
+		}
+		assert.True(t, foundContainer1, "container-1 should be in terminated containers")
 
 		// Step 3: Second container terminates
 		snapshot3 := NewSnapshot()
@@ -545,10 +628,19 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		err = monitor.calculateContainerPower(snapshot2, snapshot3)
 		require.NoError(t, err)
 
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot3.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
 		// Should now have 2 terminated containers accumulated
 		assert.Len(t, snapshot3.TerminatedContainers, 2, "Should have 2 terminated containers accumulated")
-		assert.Contains(t, snapshot3.TerminatedContainers, "container-1", "First terminated container should still be present")
-		assert.Contains(t, snapshot3.TerminatedContainers, "container-2", "Second terminated container should be added")
+
+		// Check that both terminated containers are present
+		containerIDs := make(map[string]bool)
+		for _, cntr := range snapshot3.TerminatedContainers {
+			containerIDs[cntr.ID] = true
+		}
+		assert.True(t, containerIDs["container-1"], "First terminated container should still be present")
+		assert.True(t, containerIDs["container-2"], "Second terminated container should be added")
 
 		assert.Len(t, snapshot3.Containers, 1, "Should have 1 running container")
 		assert.Contains(t, snapshot3.Containers, "container-3")
@@ -559,16 +651,18 @@ func TestTerminatedContainerTracking(t *testing.T) {
 	t.Run("terminated container with zero energy filtering", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:    logger,
-			cpu:       mockMeter,
-			clock:     fakeClock,
-			resources: resInformer,
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
 		}
 
-		err := monitor.initZones()
+		err := monitor.Init()
 		require.NoError(t, err)
 
 		// Reset monitor state
@@ -579,18 +673,19 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
 		// Create container with zero energy in all zones
-		snapshot1.Containers["zero-energy-container"] = &Container{
+		zeroEnergyContainer := &Container{
 			ID:      "zero-energy-container",
 			Name:    "zero-container",
 			Runtime: resource.DockerRuntime,
 			Zones:   make(ZoneUsageMap),
 		}
 		for _, zone := range zones {
-			snapshot1.Containers["zero-energy-container"].Zones[zone] = Usage{
+			zeroEnergyContainer.Zones[zone] = Usage{
 				EnergyTotal: Energy(0), // Zero energy
 				Power:       Power(0),
 			}
 		}
+		snapshot1.Containers["zero-energy-container"] = zeroEnergyContainer
 
 		// Create second snapshot where the zero-energy container terminates
 		snapshot2 := NewSnapshot()
@@ -609,6 +704,9 @@ func TestTerminatedContainerTracking(t *testing.T) {
 
 		err = monitor.calculateContainerPower(snapshot1, snapshot2)
 		require.NoError(t, err)
+
+		// Populate terminated resources from trackers (normally done by refreshSnapshot)
+		snapshot2.TerminatedContainers = monitor.terminatedContainersTracker.Items()
 
 		// Zero-energy terminated containers should be filtered out
 		assert.Len(t, snapshot2.TerminatedContainers, 0, "Containers with zero energy should be filtered out from terminated containers")

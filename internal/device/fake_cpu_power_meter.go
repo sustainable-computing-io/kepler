@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -150,4 +151,26 @@ func (m *fakeRaplMeter) Name() string {
 
 func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {
 	return m.zones, nil
+}
+
+// PrimaryEnergyZone returns the zone with the highest energy coverage/priority
+func (m *fakeRaplMeter) PrimaryEnergyZone() (EnergyZone, error) {
+	zones, err := m.Zones()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("no zones available in fake meter")
+	}
+
+	// For fake meter, prefer package if available, otherwise first zone
+	for _, zone := range zones {
+		if strings.Contains(strings.ToLower(zone.Name()), "package") {
+			return zone, nil
+		}
+	}
+
+	// Fallback to first zone
+	return zones[0], nil
 }
