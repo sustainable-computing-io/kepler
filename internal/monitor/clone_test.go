@@ -289,7 +289,7 @@ func TestSnapshotClone(t *testing.T) {
 				},
 			},
 			Processes: Processes{
-				1: &Process{
+				"1": &Process{
 					PID:  1,
 					Comm: "init",
 					Zones: ZoneUsageMap{
@@ -298,7 +298,7 @@ func TestSnapshotClone(t *testing.T) {
 				},
 			},
 			TerminatedProcesses: Processes{
-				999: &Process{
+				"999": &Process{
 					PID:  999,
 					Comm: "terminated-proc",
 					Exe:  "/bin/terminated",
@@ -360,9 +360,9 @@ func TestSnapshotClone(t *testing.T) {
 		// Store original values
 		originalNodeRatio := original.Node.UsageRatio
 		originalNodeEnergy := original.Node.Zones[zone].EnergyTotal
-		originalProcessComm := original.Processes[1].Comm
-		originalTerminatedComm := original.TerminatedProcesses[999].Comm
-		originalTerminatedEnergy := original.TerminatedProcesses[999].Zones[zone].EnergyTotal
+		originalProcessComm := original.Processes["1"].Comm
+		originalTerminatedComm := original.TerminatedProcesses["999"].Comm
+		originalTerminatedEnergy := original.TerminatedProcesses["999"].Zones[zone].EnergyTotal
 		originalContainerName := original.Containers["c1"].Name
 		originalVMName := original.VirtualMachines["vm1"].Name
 		originalPodName := original.Pods["p1"].Name
@@ -370,9 +370,9 @@ func TestSnapshotClone(t *testing.T) {
 		// Verify deep copy by modifying clone
 		clone.Node.UsageRatio = 0.9
 		clone.Node.Zones[zone] = NodeUsage{EnergyTotal: 2000 * Joule, Power: 100 * Watt}
-		clone.Processes[1].Comm = "modified"
-		clone.TerminatedProcesses[999].Comm = "modified-terminated"
-		clone.TerminatedProcesses[999].Zones[zone] = Usage{EnergyTotal: 999 * Joule, Power: 99 * Watt}
+		clone.Processes["1"].Comm = "modified"
+		clone.TerminatedProcesses["999"].Comm = "modified-terminated"
+		clone.TerminatedProcesses["999"].Zones[zone] = Usage{EnergyTotal: 999 * Joule, Power: 99 * Watt}
 		clone.Containers["c1"].Name = "modified"
 		clone.VirtualMachines["vm1"].Name = "modified"
 		clone.Pods["p1"].Name = "modified"
@@ -380,9 +380,9 @@ func TestSnapshotClone(t *testing.T) {
 		// Verify original is unchanged
 		assert.Equal(t, originalNodeRatio, original.Node.UsageRatio, "Original Node UsageRatio should be unchanged")
 		assert.Equal(t, originalNodeEnergy, original.Node.Zones[zone].EnergyTotal, "Original Node zones should be unchanged")
-		assert.Equal(t, originalProcessComm, original.Processes[1].Comm, "Original Process should be unchanged")
-		assert.Equal(t, originalTerminatedComm, original.TerminatedProcesses[999].Comm, "Original TerminatedProcess should be unchanged")
-		assert.Equal(t, originalTerminatedEnergy, original.TerminatedProcesses[999].Zones[zone].EnergyTotal, "Original TerminatedProcess zones should be unchanged")
+		assert.Equal(t, originalProcessComm, original.Processes["1"].Comm, "Original Process should be unchanged")
+		assert.Equal(t, originalTerminatedComm, original.TerminatedProcesses["999"].Comm, "Original TerminatedProcess should be unchanged")
+		assert.Equal(t, originalTerminatedEnergy, original.TerminatedProcesses["999"].Zones[zone].EnergyTotal, "Original TerminatedProcess zones should be unchanged")
 		assert.Equal(t, originalContainerName, original.Containers["c1"].Name, "Original Container should be unchanged")
 		assert.Equal(t, originalVMName, original.VirtualMachines["vm1"].Name, "Original VirtualMachine should be unchanged")
 		assert.Equal(t, originalPodName, original.Pods["p1"].Name, "Original Pod should be unchanged")
@@ -390,9 +390,9 @@ func TestSnapshotClone(t *testing.T) {
 		// Verify clone has modified values
 		assert.Equal(t, 0.9, clone.Node.UsageRatio, "Clone Node should have modified UsageRatio")
 		assert.Equal(t, 2000*Joule, clone.Node.Zones[zone].EnergyTotal, "Clone Node should have modified EnergyTotal")
-		assert.Equal(t, "modified", clone.Processes[1].Comm, "Clone Process should have modified Comm")
-		assert.Equal(t, "modified-terminated", clone.TerminatedProcesses[999].Comm, "Clone TerminatedProcess should have modified Comm")
-		assert.Equal(t, 999*Joule, clone.TerminatedProcesses[999].Zones[zone].EnergyTotal, "Clone TerminatedProcess should have modified EnergyTotal")
+		assert.Equal(t, "modified", clone.Processes["1"].Comm, "Clone Process should have modified Comm")
+		assert.Equal(t, "modified-terminated", clone.TerminatedProcesses["999"].Comm, "Clone TerminatedProcess should have modified Comm")
+		assert.Equal(t, 999*Joule, clone.TerminatedProcesses["999"].Zones[zone].EnergyTotal, "Clone TerminatedProcess should have modified EnergyTotal")
 		assert.Equal(t, "modified", clone.Containers["c1"].Name, "Clone Container should have modified Name")
 		assert.Equal(t, "modified", clone.VirtualMachines["vm1"].Name, "Clone VirtualMachine should have modified Name")
 		assert.Equal(t, "modified", clone.Pods["p1"].Name, "Clone Pod should have modified Name")
@@ -409,7 +409,7 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 			Node:      &Node{Zones: make(NodeZoneUsageMap)},
 			Processes: make(Processes),
 			TerminatedProcesses: Processes{
-				100: &Process{
+				"100": &Process{
 					PID:          100,
 					Comm:         "term-proc-1",
 					Exe:          "/usr/bin/term-proc-1",
@@ -421,7 +421,7 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 						zone2: Usage{EnergyTotal: 300 * Joule, Power: 15 * Watt},
 					},
 				},
-				200: &Process{
+				"200": &Process{
 					PID:              200,
 					Comm:             "term-proc-2",
 					Exe:              "/usr/bin/term-proc-2",
@@ -447,12 +447,11 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 		assert.Len(t, clone.TerminatedProcesses, 2, "Clone should have same number of terminated processes")
 
 		// Verify each terminated process is deeply cloned
-		for pid := range original.TerminatedProcesses {
-			originalProc := original.TerminatedProcesses[pid]
-			clonedProc := clone.TerminatedProcesses[pid]
+		for id, originalProc := range original.TerminatedProcesses {
+			clonedProc := clone.TerminatedProcesses[id]
 
-			require.NotNil(t, clonedProc, "Cloned terminated process %d should exist", pid)
-			assert.NotSame(t, originalProc, clonedProc, "Terminated process %d should be different instance", pid)
+			require.NotNil(t, clonedProc, "Cloned terminated process %d should exist", originalProc.PID)
+			assert.NotSame(t, originalProc, clonedProc, "Terminated process %d should be different instance", originalProc.PID)
 
 			// Verify all fields are copied correctly
 			assert.Equal(t, originalProc.PID, clonedProc.PID)
@@ -464,43 +463,44 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 			assert.Equal(t, originalProc.VirtualMachineID, clonedProc.VirtualMachineID)
 
 			// Verify zones map independence and content
-			assert.NotSame(t, &originalProc.Zones, &clonedProc.Zones, "Process %d zones map should be different instance", pid)
-			assert.Len(t, clonedProc.Zones, len(originalProc.Zones), "Process %d should have same number of zones", pid)
+			assert.NotSame(t, &originalProc.Zones, &clonedProc.Zones, "Process %d zones map should be different instance", originalProc.PID)
+			assert.Len(t, clonedProc.Zones, len(originalProc.Zones), "Process %d should have same number of zones", originalProc.PID)
 
 			for zone, originalUsage := range originalProc.Zones {
 				clonedUsage, exists := clonedProc.Zones[zone]
-				require.True(t, exists, "Process %d should have zone %s", pid, zone.Name())
-				assert.Equal(t, originalUsage, clonedUsage, "Process %d zone %s usage should be identical", pid, zone.Name())
+				require.True(t, exists, "Process %d should have zone %s", originalProc.PID, zone.Name())
+				assert.Equal(t, originalUsage, clonedUsage, "Process %d zone %s usage should be identical", originalProc.PID, zone.Name())
 			}
 		}
 
 		// Test deep copy isolation by modifying clone
-		clone.TerminatedProcesses[100].Comm = "modified-terminated"
-		clone.TerminatedProcesses[100].CPUTotalTime = 999.9
-		clone.TerminatedProcesses[100].Zones[zone1] = Usage{EnergyTotal: 9999 * Joule, Power: 888 * Watt}
+		clone.TerminatedProcesses["100"].Comm = "modified-terminated"
+		clone.TerminatedProcesses["100"].CPUTotalTime = 999.9
+		clone.TerminatedProcesses["100"].Zones[zone1] = Usage{EnergyTotal: 9999 * Joule, Power: 888 * Watt}
 
 		// Add new terminated process to clone
-		clone.TerminatedProcesses[300] = &Process{
+		newProcess := &Process{
 			PID:  300,
 			Comm: "new-terminated",
 			Zones: ZoneUsageMap{
 				zone1: Usage{EnergyTotal: 111 * Joule, Power: 11 * Watt},
 			},
 		}
+		clone.TerminatedProcesses[newProcess.StringID()] = newProcess
 
 		// Verify original is completely unchanged
-		assert.Equal(t, "term-proc-1", original.TerminatedProcesses[100].Comm, "Original process comm should be unchanged")
-		assert.Equal(t, 125.5, original.TerminatedProcesses[100].CPUTotalTime, "Original process CPU time should be unchanged")
-		assert.Equal(t, 500*Joule, original.TerminatedProcesses[100].Zones[zone1].EnergyTotal, "Original process zone energy should be unchanged")
-		assert.Equal(t, 25*Watt, original.TerminatedProcesses[100].Zones[zone1].Power, "Original process zone power should be unchanged")
-		assert.NotContains(t, original.TerminatedProcesses, 300, "Original should not have new terminated process")
+		assert.Equal(t, "term-proc-1", original.TerminatedProcesses["100"].Comm, "Original process comm should be unchanged")
+		assert.Equal(t, 125.5, original.TerminatedProcesses["100"].CPUTotalTime, "Original process CPU time should be unchanged")
+		assert.Equal(t, 500*Joule, original.TerminatedProcesses["100"].Zones[zone1].EnergyTotal, "Original process zone energy should be unchanged")
+		assert.Equal(t, 25*Watt, original.TerminatedProcesses["100"].Zones[zone1].Power, "Original process zone power should be unchanged")
+		assert.Len(t, original.TerminatedProcesses, 2, "Original should not have new terminated process")
 
 		// Verify clone has modified values
-		assert.Equal(t, "modified-terminated", clone.TerminatedProcesses[100].Comm, "Clone process should have modified comm")
-		assert.Equal(t, 999.9, clone.TerminatedProcesses[100].CPUTotalTime, "Clone process should have modified CPU time")
-		assert.Equal(t, 9999*Joule, clone.TerminatedProcesses[100].Zones[zone1].EnergyTotal, "Clone process should have modified energy")
-		assert.Equal(t, 888*Watt, clone.TerminatedProcesses[100].Zones[zone1].Power, "Clone process should have modified power")
-		assert.Contains(t, clone.TerminatedProcesses, 300, "Clone should have new terminated process")
+		assert.Equal(t, "modified-terminated", clone.TerminatedProcesses["100"].Comm, "Clone process should have modified comm")
+		assert.Equal(t, 999.9, clone.TerminatedProcesses["100"].CPUTotalTime, "Clone process should have modified CPU time")
+		assert.Equal(t, 9999*Joule, clone.TerminatedProcesses["100"].Zones[zone1].EnergyTotal, "Clone process should have modified energy")
+		assert.Equal(t, 888*Watt, clone.TerminatedProcesses["100"].Zones[zone1].Power, "Clone process should have modified power")
+		assert.Len(t, clone.TerminatedProcesses, 3, "Clone should have new terminated process")
 	})
 
 	t.Run("nil_terminated_processes", func(t *testing.T) {
@@ -516,7 +516,7 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 
 		clone := original.Clone()
 		require.NotNil(t, clone, "Clone should not be nil")
-		assert.Len(t, clone.TerminatedProcesses, 0, "Clone should have empty TerminatedProcesses map when original is nil")
+		assert.Len(t, clone.TerminatedProcesses, 0, "Clone should have empty TerminatedProcesses slice when original is nil")
 	})
 
 	t.Run("empty_terminated_processes", func(t *testing.T) {
@@ -532,8 +532,8 @@ func TestSnapshotTerminatedProcessesClone(t *testing.T) {
 
 		clone := original.Clone()
 		require.NotNil(t, clone, "Clone should not be nil")
-		assert.Len(t, clone.TerminatedProcesses, 0, "Clone should have empty TerminatedProcesses map")
-		assert.NotSame(t, &original.TerminatedProcesses, &clone.TerminatedProcesses, "Even empty maps should be different instances")
+		assert.Len(t, clone.TerminatedProcesses, 0, "Clone should have empty TerminatedProcesses slice")
+		assert.NotSame(t, &original.TerminatedProcesses, &clone.TerminatedProcesses, "Even empty slices should be different instances")
 	})
 }
 
@@ -595,7 +595,7 @@ func TestCloneConcurrency(t *testing.T) {
 				},
 			},
 			Processes: Processes{
-				1: &Process{PID: 1, Zones: ZoneUsageMap{zone: Usage{EnergyTotal: 100 * Joule}}},
+				"1": &Process{PID: 1, Zones: ZoneUsageMap{zone: Usage{EnergyTotal: 100 * Joule}}},
 			},
 		}
 

@@ -87,6 +87,7 @@ func TestFreshSnapshotCaching(t *testing.T) {
 
 	energyZones := []device.EnergyZone{pkg}
 	mockMeter.On("Zones").Return(energyZones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()
@@ -204,6 +205,7 @@ func TestSingleflightSnapshot(t *testing.T) {
 
 	energyZones := []device.EnergyZone{pkg}
 	mockMeter.On("Zones").Return(energyZones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	// Create a fake clock to control time
 	fakeClock := testingclock.NewFakeClock(time.Now())
@@ -290,6 +292,7 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 	pkg.On("Energy").Return(Energy(0), assert.AnError).Once()
 
 	mockMeter.On("Zones").Return([]device.EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
@@ -359,6 +362,7 @@ func TestSnapshot_ConcurrentAfterError(t *testing.T) {
 	mockMeter.On("Name").Return("mock-cpu")
 	mockMeter.On("Init", mock.Anything).Return(nil)
 	mockMeter.On("Zones").Return([]device.EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	// Create the monitor
 	fakeClock := testingclock.NewFakeClock(time.Now())
@@ -465,6 +469,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 		}).Return(Energy(energyVal.Load()), nil).Maybe()
 
 		mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 		fakeClock := testingclock.NewFakeClock(time.Now())
 
@@ -569,6 +574,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 		}).Return(Energy(100*Joule), nil).Maybe()
 
 		mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 		fakeClock := testingclock.NewFakeClock(time.Now())
 

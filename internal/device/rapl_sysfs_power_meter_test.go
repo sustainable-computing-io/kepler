@@ -445,3 +445,143 @@ func TestCPUPowerMeter_InitNoZones(t *testing.T) {
 	assert.Equal(t, "no RAPL zones found", err.Error(), "Start() should return a specific error message")
 	mockReader.AssertExpectations(t)
 }
+
+// TestPrimaryEnergyZone tests the PrimaryEnergyZone method
+func TestPrimaryEnergyZone(t *testing.T) {
+	t.Run("Priority hierarchy", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			zones    []EnergyZone
+			expected string
+		}{{
+			name: "psys has highest priority",
+			zones: []EnergyZone{
+				mockZone{name: "package", index: 0},
+				mockZone{name: "psys", index: 0},
+				mockZone{name: "core", index: 0},
+			},
+			expected: "psys",
+		}, {
+			name: "package has priority over core",
+			zones: []EnergyZone{
+				mockZone{name: "core", index: 0},
+				mockZone{name: "package", index: 0},
+				mockZone{name: "dram", index: 0},
+			},
+			expected: "package",
+		}, {
+			name: "core has priority over dram",
+			zones: []EnergyZone{
+				mockZone{name: "dram", index: 0},
+				mockZone{name: "core", index: 0},
+				mockZone{name: "uncore", index: 0},
+			},
+			expected: "core",
+		}, {
+			name: "dram has priority over uncore",
+			zones: []EnergyZone{
+				mockZone{name: "uncore", index: 0},
+				mockZone{name: "dram", index: 0},
+			},
+			expected: "dram",
+		}}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				mockReader := &mockRaplReader{}
+				mockReader.On("Zones").Return(tt.zones, nil)
+
+				meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+				zone, err := meter.PrimaryEnergyZone()
+
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, zone.Name())
+				mockReader.AssertExpectations(t)
+			})
+		}
+	})
+
+	t.Run("Case insensitive matching", func(t *testing.T) {
+		mockReader := &mockRaplReader{}
+		mockReader.On("Zones").Return([]EnergyZone{
+			mockZone{name: "PACKAGE", index: 0},
+			mockZone{name: "Core", index: 0},
+		}, nil)
+
+		meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+		zone, err := meter.PrimaryEnergyZone()
+
+		assert.NoError(t, err)
+		assert.Equal(t, "PACKAGE", zone.Name())
+		mockReader.AssertExpectations(t)
+	})
+
+	t.Run("Fallback to first zone", func(t *testing.T) {
+		zones := []EnergyZone{
+			mockZone{name: "unknown1", index: 0},
+			mockZone{name: "unknown2", index: 1},
+		}
+		mockReader := &mockRaplReader{}
+		mockReader.On("Zones").Return(zones, nil)
+
+		meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+		zone, err := meter.PrimaryEnergyZone()
+
+		assert.NoError(t, err)
+		// NOTE: since reader.Zones() does not guarantee the order after filtering,
+		// we cannot assert zone.Name() == "unknown1", thus assert the zone returned
+		// any of the zones passed as input
+		zoneName := zone.Name()
+		assert.Contains(t, []string{"unknown1", "unknown2"}, zoneName)
+		mockReader.AssertExpectations(t)
+	})
+
+	t.Run("Caching behavior", func(t *testing.T) {
+		mockReader := &mockRaplReader{}
+		mockReader.On("Zones").Return([]EnergyZone{
+			mockZone{name: "package", index: 0},
+		}, nil).Once()
+
+		meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+
+		// First call should read from zones and cache topZone
+		zone1, err := meter.PrimaryEnergyZone()
+		assert.NoError(t, err)
+		assert.Equal(t, "package", zone1.Name())
+
+		// Second call should use cached topZone directly
+		zone2, err := meter.PrimaryEnergyZone()
+		assert.NoError(t, err)
+		assert.Equal(t, "package", zone2.Name())
+
+		mockReader.AssertExpectations(t)
+	})
+
+	t.Run("Error handling", func(t *testing.T) {
+		t.Run("Zones() returns error", func(t *testing.T) {
+			mockReader := &mockRaplReader{}
+			mockReader.On("Zones").Return([]EnergyZone{}, errors.New("zones error"))
+
+			meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+			zone, err := meter.PrimaryEnergyZone()
+
+			assert.Error(t, err)
+			assert.Nil(t, zone)
+			assert.Contains(t, err.Error(), "zones error")
+			mockReader.AssertExpectations(t)
+		})
+
+		t.Run("Empty zones list", func(t *testing.T) {
+			mockReader := &mockRaplReader{}
+			mockReader.On("Zones").Return([]EnergyZone{}, nil)
+
+			meter := &raplPowerMeter{reader: mockReader, logger: slog.Default()}
+			zone, err := meter.PrimaryEnergyZone()
+
+			assert.Error(t, err)
+			assert.Nil(t, zone)
+			assert.Contains(t, err.Error(), "no RAPL zones found")
+			mockReader.AssertExpectations(t)
+		})
+	})
+}

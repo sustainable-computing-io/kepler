@@ -4,7 +4,7 @@
 package monitor
 
 import (
-	"maps"
+	"fmt"
 
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
@@ -17,7 +17,7 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 	zones := snapshot.Node.Zones
 	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
 
-	for pid, proc := range running {
+	for _, proc := range running {
 		process := newProcess(proc, zones)
 
 		// Calculate initial energy based on CPU ratio * nodeActiveEnergy
@@ -35,7 +35,7 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 			}
 		}
 
-		processes[pid] = process
+		processes[process.StringID()] = process
 	}
 	snapshot.Processes = processes
 
@@ -77,17 +77,18 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 
 // calculateProcessPower calculates process power for each running process
 func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error {
-	procs := pm.resources.Processes()
-
-	// Copy existing terminated processes from previous snapshot if not exported
-	if !pm.exported.Load() {
-		// NOTE: no need to deep clone since already terminated processes won't be updated
-		maps.Copy(newSnapshot.TerminatedProcesses, prev.TerminatedProcesses)
+	// Clear terminated workloads if snapshot has been exported
+	if pm.exported.Load() {
+		pm.logger.Debug("Clearing terminated processes after export")
+		pm.terminatedProcessesTracker.Clear()
 	}
+
+	procs := pm.resources.Processes()
 
 	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
 	for pid := range procs.Terminated {
-		prevProcess, exists := prev.Processes[pid]
+		pidStr := fmt.Sprintf("%d", pid)
+		prevProcess, exists := prev.Processes[pidStr]
 		if !exists {
 			continue
 		}
@@ -99,8 +100,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		}
 		pm.logger.Debug("Including terminated process with non-zero energy", "pid", pid)
 
+		// Add to internal tracker (which will handle priority-based retention)
+		// NOTE: Each terminated process is only added once since a process cannot be terminated twice
 		terminatedProcess := prevProcess.Clone()
-		newSnapshot.TerminatedProcesses[pid] = terminatedProcess
+		pm.terminatedProcessesTracker.Add(terminatedProcess)
 	}
 
 	running := procs.Running
@@ -120,8 +123,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		pm.logger.Warn("No running processes found, skipping running process power calculation")
 	}
 
-	for pid, proc := range running {
+	for _, proc := range running {
 		process := newProcess(proc, zones)
+		pid := process.StringID() // to string
 
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
@@ -148,15 +152,18 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			}
 		}
 
-		processMap[pid] = process
+		processMap[process.StringID()] = process
 	}
 
 	// Update the snapshot of running processes
 	newSnapshot.Processes = processMap
 
+	// Populate terminated processes from tracker
+	newSnapshot.TerminatedProcesses = pm.terminatedProcessesTracker.Items()
 	pm.logger.Debug("snapshot updated for process",
 		"running", len(newSnapshot.Processes),
-		"terminated", len(newSnapshot.TerminatedProcesses))
+		"terminated", len(newSnapshot.TerminatedProcesses),
+	)
 
 	return nil
 }

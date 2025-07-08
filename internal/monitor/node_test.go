@@ -42,7 +42,7 @@ func TestNodePowerCollection(t *testing.T) {
 		startTime := time.Date(2025, 4, 14, 5, 40, 0, 0, time.UTC)
 		mockClock := test_clock.NewFakeClock(startTime)
 
-		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 		// Create mock resource informer
 		mockResourceInformer := &MockResourceInformer{}
@@ -373,7 +373,7 @@ func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 		WithResourceInformer(mockResourceInformer))
 
 	t.Run("Initial measurement", func(t *testing.T) {
-		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 		pkg.Inc(100 * Joule) // Start at 100J
 
 		snapshot := NewSnapshot()
@@ -396,7 +396,7 @@ func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 	t.Run("Second measurement - verify interval-based attribution", func(t *testing.T) {
 		mockClock.Step(2 * time.Second)
 		mockCPUPowerMeter.ExpectedCalls = nil
-		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 		pkg.Inc(50 * Joule) // Total: 150J, Delta: 50J
 
@@ -435,7 +435,7 @@ func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 	t.Run("Third measurement - verify values reset per interval", func(t *testing.T) {
 		mockClock.Step(3 * time.Second)
 		mockCPUPowerMeter.ExpectedCalls = nil
-		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 		pkg.Inc(60 * Joule) // Total: 210J, Delta: 60J
 
@@ -476,7 +476,7 @@ func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 
 		mockClock.Step(1 * time.Second)
 		mockCPUPowerMeter.ExpectedCalls = nil
-		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Once()
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 		pkg.Inc(40 * Joule) // Total: 250J, Delta: 40J
 
@@ -532,6 +532,7 @@ func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
 	testZones := []EnergyZone{pkg}
 	mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+	mockCPUPowerMeter.On("PrimaryEnergyZone").Return(testZones[0], nil)
 
 	mockResourceInformer := &MockResourceInformer{}
 	mockNode := &resource.Node{
@@ -549,7 +550,7 @@ func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
 		resources: mockResourceInformer,
 	}
 
-	err := pm.initZones()
+	err := pm.Init()
 	require.NoError(t, err)
 
 	t.Run("measurement 1 - initial", func(t *testing.T) {

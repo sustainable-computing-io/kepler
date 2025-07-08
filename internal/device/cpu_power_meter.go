@@ -32,4 +32,9 @@ type CPUPowerMeter interface {
 
 	// Zones() returns a slice of the energy measurement zones
 	Zones() ([]EnergyZone, error)
+
+	// PrimaryEnergyZone() returns the zone with the highest energy coverage/priority
+	// This zone represents the most comprehensive energy measurement available
+	// E.g. Psys > Package > Core > DRAM > Uncore
+	PrimaryEnergyZone() (EnergyZone, error)
 }

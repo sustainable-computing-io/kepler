@@ -24,6 +24,7 @@ func TestCollectionLoop(t *testing.T) {
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
 	tr := CreateTestResources()
@@ -74,6 +75,7 @@ func TestPeriodicCollection(t *testing.T) {
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
 	resourceInformer := &MockResourceInformer{}
@@ -139,6 +141,7 @@ func TestCollectionCancellation(t *testing.T) {
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	resourceInformer := &MockResourceInformer{}
 
@@ -216,6 +219,7 @@ func TestScheduleNextCollection(t *testing.T) {
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 
@@ -270,6 +274,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	pkg.On("MaxEnergy").Return(Energy(1000*Joule), nil).Once()
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()
@@ -321,6 +326,7 @@ func TestCollectionErrorHandling(t *testing.T) {
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	tr := CreateTestResources()

@@ -17,6 +17,7 @@ type raplPowerMeter struct {
 	cachedZones []EnergyZone
 	logger      *slog.Logger
 	zoneFilter  []string
+	topZone     EnergyZone
 }
 
 type OptionFn func(*raplPowerMeter)
@@ -190,6 +191,43 @@ func (r *raplPowerMeter) zoneNames(zones []EnergyZone) []string {
 		names[i] = fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
 	}
 	return names
+}
+
+// PrimaryEnergyZone returns the zone with the highest energy coverage/priority
+func (r *raplPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
+	// Return cached zone if already initialized
+	if r.topZone != nil {
+		return r.topZone, nil
+	}
+
+	zones, err := r.Zones()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("no energy zones available")
+	}
+
+	zoneMap := map[string]EnergyZone{}
+	for _, zone := range zones {
+		zoneMap[strings.ToLower(zone.Name())] = zone
+	}
+
+	// Priority hierarchy for RAPL zones (highest to lowest priority)
+	priorityOrder := []string{"psys", "package", "core", "dram", "uncore"}
+
+	// Find highest priority zone available
+	for _, p := range priorityOrder {
+		if zone, exists := zoneMap[p]; exists {
+			r.topZone = zone
+			return zone, nil
+		}
+	}
+
+	// Fallback to first zone if none match our preferences
+	r.topZone = zones[0]
+	return zones[0], nil
 }
 
 // isStandardRaplPath checks if a RAPL zone path is in the standard format

@@ -78,6 +78,7 @@ func TestPowerMonitor_Init(t *testing.T) {
 		pkg,
 	}
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
+	mockPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 	mockPowerMeter.On("Name").Return("mock-cpu")
 
 	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
@@ -147,6 +148,7 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 
 	mockPowerMeter.On("Init").Return(nil)
 	mockPowerMeter.On("Zones").Return(energyZones, nil)
+	mockPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -154,6 +156,9 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 	resourceInformer.On("Refresh").Return(nil)
 
 	monitor := NewPowerMonitor(mockPowerMeter, WithResourceInformer(resourceInformer))
+
+	err := monitor.Init()
+	require.NoError(t, err)
 
 	snapshot, err := monitor.Snapshot()
 	assert.NotNil(t, snapshot)
@@ -182,6 +187,7 @@ func TestPowerMonitor_Init_Success(t *testing.T) {
 	core := &MockEnergyZone{}
 	core.On("Name").Return("core")
 	mockMeter.On("Zones").Return([]EnergyZone{pkg, core}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -268,6 +274,7 @@ func TestPowerMonitor_Run(t *testing.T) {
 
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -318,6 +325,7 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 
 	mockMeter.On("Init", mock.Anything).Return(nil).Once()
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -326,11 +334,14 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 
 	monitor := NewPowerMonitor(mockMeter, WithResourceInformer(resourceInformer))
 
+	err := monitor.Init()
+	require.NoError(t, err)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	startTime := time.Now()
-	err := monitor.Run(ctx) // will block until context times out
+	err = monitor.Run(ctx) // will block until context times out
 	duration := time.Since(startTime)
 
 	assert.NoError(t, err)
@@ -346,6 +357,7 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	zone.On("Name").Return("test-zone")
 	zone.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zone, nil)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -398,6 +410,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 	testZones := []EnergyZone{pkg, core}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
 	mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+	mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -417,6 +430,9 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 			WithInterval(0),
 		)
 		assert.NotNil(t, pm)
+
+		err := pm.Init()
+		require.NoError(t, err)
 
 		// First collection should store the initial values
 		t.Run("First Collection", func(t *testing.T) {
@@ -459,6 +475,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 			pkg.Inc(50 * Joule)  // 20 -> 25
 			core.Inc(25 * Joule) // 10 -> 12.5
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+			mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 			// Collect node power data again
 
@@ -490,6 +507,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 			pkg.Inc(3 * 25 * Joule)
 			core.Inc(3 * 15 * Joule)
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+			mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 			// Collect node power data again
 			err := pm.refreshSnapshot()
@@ -528,6 +546,7 @@ func TestMonitorRefreshSnapshot(t *testing.T) {
 			pkg.Inc(10 * 8 * Joule)  // 145 + 80 -> 225 (wraps at 200) -> 25
 			core.Inc(10 * 3 * Joule) // 80 + 40 -> 120 (wraps at 100) -> 15
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+			mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
 			// Collect node power data again
 			err := pm.refreshSnapshot()
@@ -574,6 +593,7 @@ func TestRefreshSnapshotError(t *testing.T) {
 		WithClock(mockClock),
 		WithResourceInformer(resourceInformer),
 	)
+
 	t.Run("Zone Listing Error", func(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return([]EnergyZone(nil), assert.AnError)
 		err := pm.refreshSnapshot()
@@ -594,9 +614,12 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 		testZones := []EnergyZone{pkg, core}
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+		mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 		mockClock.Step(10 * time.Second)
 
-		err := pm.refreshSnapshot()
+		err := pm.Init()
+		require.NoError(t, err)
+		err = pm.refreshSnapshot()
 		assert.NoError(t, err)
 		snapshot := pm.snapshot.Load()
 		assert.Equal(t, mockClock.Now(), snapshot.Timestamp)
@@ -627,9 +650,12 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 		testZones := []EnergyZone{pkg, core}
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+		mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 		mockClock.Step(30 * time.Second)
 
-		err := pm.refreshSnapshot()
+		err := pm.Init()
+		require.NoError(t, err)
+		err = pm.refreshSnapshot()
 		assert.NoError(t, err)
 		snapshot := pm.snapshot.Load()
 		assert.Equal(t, mockClock.Now(), snapshot.Timestamp)
@@ -649,6 +675,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create test resources with processes, containers, VMs, and pods
 	tr := CreateTestResources()
@@ -658,13 +685,14 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 
 	// Create monitor
 	monitor := &PowerMonitor{
-		logger:    logger,
-		cpu:       mockMeter,
-		clock:     fakeClock,
-		resources: resourceInformer,
+		logger:        logger,
+		cpu:           mockMeter,
+		clock:         fakeClock,
+		resources:     resourceInformer,
+		maxTerminated: 500,
 	}
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// Step 1: Create initial snapshot with some workloads using refreshSnapshot
@@ -677,13 +705,13 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 
 	// Add some energy to processes so they can be terminated with non-zero energy
 	for _, zone := range zones {
-		if proc, exists := snapshot1.Processes[456]; exists {
+		if proc, exists := snapshot1.Processes["456"]; exists {
 			proc.Zones[zone] = Usage{
 				EnergyTotal: 100 * Joule,
 				Power:       10 * Watt,
 			}
 		}
-		if proc, exists := snapshot1.Processes[789]; exists {
+		if proc, exists := snapshot1.Processes["789"]; exists {
 			proc.Zones[zone] = Usage{
 				EnergyTotal: 150 * Joule,
 				Power:       15 * Watt,
@@ -771,8 +799,8 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	assert.NotEmpty(t, snapshot2.TerminatedVirtualMachines, "Terminated VMs should be present before Snapshot() call")
 
 	// Verify specific terminated workloads are present
-	assert.Contains(t, snapshot2.TerminatedProcesses, 456, "Process 456 should be in terminated processes")
-	assert.Contains(t, snapshot2.TerminatedProcesses, 789, "Process 789 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedProcesses, "456", "Process 456 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedProcesses, "789", "Process 789 should be in terminated processes")
 	assert.Contains(t, snapshot2.TerminatedContainers, "container-2", "Container-2 should be in terminated containers")
 	assert.Contains(t, snapshot2.TerminatedVirtualMachines, "vm-2", "VM-2 should be in terminated VMs")
 
@@ -806,7 +834,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	assert.Empty(t, snapshot3.TerminatedPods, "Terminated pods should be cleared after Snapshot() call")
 
 	// Step 9: Verify running workloads are still present
-	assert.Contains(t, snapshot3.Processes, 123, "Running process 123 should still be present")
+	assert.Contains(t, snapshot3.Processes, "123", "Running process 123 should still be present")
 	assert.Contains(t, snapshot3.Containers, "container-1", "Running container-1 should still be present")
 	assert.Contains(t, snapshot3.VirtualMachines, "vm-1", "Running vm-1 should still be present")
 	assert.Contains(t, snapshot3.Pods, "pod-id-1", "Running pod-id-1 should still be present")
@@ -815,7 +843,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	fakeClock.Step(5 * time.Second)
 
 	// Add new workloads to snapshot3 first so they can be terminated later
-	snapshot3.Processes[999] = &Process{
+	snapshot3.Processes["999"] = &Process{
 		PID:          999,
 		Comm:         "new-process",
 		Exe:          "/usr/bin/new-process",
@@ -846,7 +874,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 
 	// Add some energy to these new workloads
 	for _, zone := range zones {
-		snapshot3.Processes[999].Zones[zone] = Usage{
+		snapshot3.Processes["999"].Zones[zone] = Usage{
 			EnergyTotal: 75 * Joule,
 			Power:       7 * Watt,
 		}
@@ -916,7 +944,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	require.NotNil(t, snapshot4)
 
 	// Step 11: Verify new terminated workloads are present since Snapshot() wasn't called
-	assert.Contains(t, snapshot4.TerminatedProcesses, 999, "New terminated process should be present")
+	assert.Contains(t, snapshot4.TerminatedProcesses, "999", "New terminated process should be present")
 	assert.Contains(t, snapshot4.TerminatedContainers, "container-3", "New terminated container should be present")
 	assert.Contains(t, snapshot4.TerminatedVirtualMachines, "vm-3", "New terminated VM should be present")
 	assert.Contains(t, snapshot4.TerminatedPods, "pod-id-3", "New terminated pod should be present")
@@ -936,6 +964,7 @@ func TestSnapshotFreshnessAndCloning(t *testing.T) {
 	zones := CreateTestZones()
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
 
 	// Create test resources
 	tr := CreateTestResources()
@@ -952,7 +981,7 @@ func TestSnapshotFreshnessAndCloning(t *testing.T) {
 		WithResourceInformer(resourceInformer),
 	)
 
-	err := monitor.initZones()
+	err := monitor.Init()
 	require.NoError(t, err)
 
 	// Step 1: Create initial snapshot

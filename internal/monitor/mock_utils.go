@@ -23,6 +23,11 @@ func (m *MockCPUPowerMeter) Zones() ([]EnergyZone, error) {
 	return args.Get(0).([]EnergyZone), args.Error(1)
 }
 
+func (m *MockCPUPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
+	args := m.Called()
+	return args.Get(0).(EnergyZone), args.Error(1)
+}
+
 func (m *MockCPUPowerMeter) Name() string {
 	args := m.Called()
 	return args.String(0)
