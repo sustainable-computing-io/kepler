@@ -2,7 +2,6 @@ name: Check Config Changes
 
 on: #yamllint disable-line rule:truthy
   pull_request_target:
-    branches: [reboot]
 
 permissions:
   pull-requests: write
@@ -36,7 +35,7 @@ jobs:
           message: |
             :warning: Config changes detected in this PR.
             Please make sure that the config changes are updated in the following places as part of this PR:
-            - docs/configuration/configuration.md
-            - compose/dev/kepler-dev/etc/kepler/config.yaml
-            - hack/config.yaml
-            - manifests/k8s/configmap.yaml
+            - [ ] docs/configuration/configuration.md
+            - [ ] compose/dev/kepler-dev/etc/kepler/config.yaml
+            - [ ] hack/config.yaml
+            - [ ] manifests/k8s/configmap.yaml
