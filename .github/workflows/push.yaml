@@ -2,7 +2,6 @@ name: Push
 
 on: # yamllint disable-line rule:truthy
   push:
-    branches: [reboot]
 
 jobs:
   test-and-codecov:
