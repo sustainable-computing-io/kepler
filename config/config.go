@@ -483,9 +483,7 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		if c.Monitor.Staleness < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor staleness: %s can't be negative", c.Monitor.Staleness))
 		}
-		if c.Monitor.MaxTerminated < 0 {
-			errs = append(errs, fmt.Sprintf("invalid monitor max terminated: %d can't be negative", c.Monitor.MaxTerminated))
-		}
+
 		if c.Monitor.MinTerminatedEnergyThreshold < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
 		}
