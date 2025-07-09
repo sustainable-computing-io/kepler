@@ -60,7 +60,7 @@ func TestTerminatedResourceTracker_New(t *testing.T) {
 	zone := zones[0]
 	maxSize := 10
 
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, slog.Default().With("test", "tracker"))
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, 0*Joule, slog.Default().With("test", "tracker"))
 
 	assert.NotNil(t, tracker)
 	assert.Equal(t, 0, tracker.Size())
@@ -72,7 +72,7 @@ func TestTerminatedResourceTracker_New(t *testing.T) {
 func TestTerminatedResourceTracker_AddSingleResource(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 6*Joule, slog.Default())
 
 	// Add a resource with energy
 	resource := createMockResource("resource-1", zone, 1000*Joule)
@@ -87,9 +87,9 @@ func TestTerminatedResourceTracker_AddSingleResource(t *testing.T) {
 func TestTerminatedResourceTracker_AddResourceWithZeroEnergy(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 1*Joule, slog.Default())
 
-	// Add a resource with zero energy - should be ignored
+	// Add a resource with zero energy - should be ignored due to threshold
 	resource := createMockResource("resource-1", zone, 0*Joule)
 	tracker.Add(resource)
 
@@ -101,7 +101,7 @@ func TestTerminatedResourceTracker_AddResourceWithoutTrackedZone(t *testing.T) {
 	zones := CreateTestZones()
 	trackedZone := zones[0]
 	otherZone := zones[1]
-	tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 5, 1*Joule, slog.Default())
 
 	// Add a resource that only has energy in a different zone
 	resource := createMockResource("resource-1", otherZone, 1000*Joule)
@@ -114,7 +114,7 @@ func TestTerminatedResourceTracker_AddResourceWithoutTrackedZone(t *testing.T) {
 func TestTerminatedResourceTracker_AddMultipleResources(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 10*Joule, slog.Default())
 
 	// Add multiple resources with different energies
 	resources := []*MockResource{
@@ -144,7 +144,7 @@ func TestTerminatedResourceTracker_AddMultipleResources(t *testing.T) {
 func TestTerminatedResourceTracker_DuplicatesIgnored(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 8*Joule, slog.Default())
 
 	// Add initial resource
 	resource1 := createMockResource("resource-1", zone, 1000*Joule)
@@ -171,7 +171,7 @@ func TestTerminatedResourceTracker_EvictOnCapactity(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
 	maxSize := 3
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, slog.Default().With("test", "tracker"))
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, 7*Joule, slog.Default().With("test", "tracker"))
 
 	// Fill to capacity with different energy levels
 	resources := []*MockResource{
@@ -212,7 +212,7 @@ func TestTerminatedResourceTracker_CapacityEvictionWithLowerEnergy(t *testing.T)
 	zones := CreateTestZones()
 	zone := zones[0]
 	maxSize := 2
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, slog.Default().With("test", "tracker"))
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxSize, 9*Joule, slog.Default().With("test", "tracker"))
 
 	// Fill to capacity
 	resources := []*MockResource{
@@ -246,7 +246,7 @@ func TestTerminatedResourceTracker_CapacityEvictionWithLowerEnergy(t *testing.T)
 func TestTerminatedResourceTracker_Clear(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 12*Joule, slog.Default())
 
 	// Add some resources
 	resources := []*MockResource{
@@ -270,7 +270,7 @@ func TestTerminatedResourceTracker_MultiZoneResource(t *testing.T) {
 	zones := CreateTestZones()
 	trackedZone := zones[0]
 	otherZone := zones[1]
-	tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 5, 15*Joule, slog.Default())
 
 	// Create a resource with energy in multiple zones
 	zoneEnergies := map[device.EnergyZone]Energy{
@@ -297,7 +297,7 @@ func TestTerminatedResourceTracker_String(t *testing.T) {
 	zone := zones[0]
 
 	t.Run("normal capacity", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, 18*Joule, slog.Default())
 
 		// Add a few resources
 		tracker.Add(createMockResource("resource-1", zone, 1000*Joule))
@@ -309,7 +309,7 @@ func TestTerminatedResourceTracker_String(t *testing.T) {
 	})
 
 	t.Run("disabled capacity", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, 0, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 0, 0*Joule, slog.Default())
 
 		str := tracker.String()
 		assert.Contains(t, str, "0/disabled") // size/maxSize for disabled
@@ -317,7 +317,7 @@ func TestTerminatedResourceTracker_String(t *testing.T) {
 	})
 
 	t.Run("unlimited capacity", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, -1, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, -1, 0*Joule, slog.Default())
 
 		str := tracker.String()
 		assert.Contains(t, str, "0/unlimited") // size/maxSize for unlimited
@@ -330,7 +330,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 	zone := zones[0]
 
 	t.Run("zero capacity tracker - feature disabled", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, 0, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 0, 0*Joule, slog.Default())
 		resource := createMockResource("resource-1", zone, 1000*Joule)
 
 		tracker.Add(resource)
@@ -340,7 +340,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("negative capacity tracker is unlimited", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, -5, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, -5, 0*Joule, slog.Default())
 
 		// Add many resources beyond what would normally be capacity
 		for i := 0; i < 100; i++ {
@@ -354,7 +354,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("unlimited capacity tracker", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, -1, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, -1, 0*Joule, slog.Default())
 
 		// Add many resources beyond what would normally be capacity
 		for i := 0; i < 100; i++ {
@@ -368,7 +368,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("capacity of 1", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, 1, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 1, 0*Joule, slog.Default())
 
 		// Add first resource
 		resource1 := createMockResource("resource-1", zone, 1000*Joule)
@@ -386,7 +386,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty resource ID", func(t *testing.T) {
-		tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 0*Joule, slog.Default())
 		resource := createMockResource("", zone, 1000*Joule)
 
 		tracker.Add(resource)
@@ -401,7 +401,7 @@ func TestTerminatedResourceTracker_EdgeCases(t *testing.T) {
 func TestTerminatedResourceTracker_HeapIntegrity(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, 5, 20*Joule, slog.Default())
 
 	// Add resources in various orders to test heap integrity
 	energies := []Energy{500 * Joule, 1000 * Joule, 100 * Joule, 2000 * Joule, 300 * Joule}
@@ -434,7 +434,7 @@ func TestTerminatedResourceTracker_RealWorldScenario(t *testing.T) {
 	zones := CreateTestZones()
 	zone := zones[0]
 	maxTerminated := 100
-	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxTerminated, slog.Default())
+	tracker := NewTerminatedResourceTracker[*MockResource](zone, maxTerminated, 25*Joule, slog.Default())
 
 	// Simulate adding many terminated processes over time
 	processCount := 0
@@ -486,4 +486,321 @@ func TestTerminatedResourceTracker_RealWorldScenario(t *testing.T) {
 	tracker.Clear()
 	assert.Equal(t, 0, tracker.Size())
 	assert.Equal(t, 0, len(tracker.Items()))
+}
+
+// TestTerminatedResourceTracker_MinimumThreshold tests the minimum energy threshold functionality
+func TestTerminatedResourceTracker_MinimumThreshold(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+
+	t.Run("resources below threshold are rejected", func(t *testing.T) {
+		minThreshold := 100 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, minThreshold, slog.Default())
+
+		// Add resources below threshold - should be rejected
+		belowThresholdResources := []*MockResource{
+			createMockResource("below-1", zone, 50*Joule), // Below threshold
+			createMockResource("below-2", zone, 99*Joule), // Just below threshold
+			createMockResource("below-3", zone, 0*Joule),  // Zero energy
+		}
+
+		for _, resource := range belowThresholdResources {
+			tracker.Add(resource)
+		}
+
+		// All resources should be rejected
+		assert.Equal(t, 0, tracker.Size())
+		assert.Equal(t, 0, len(tracker.Items()))
+	})
+
+	t.Run("resources above threshold are accepted", func(t *testing.T) {
+		minThreshold := 100 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, minThreshold, slog.Default())
+
+		// Add resources above threshold - should be accepted
+		aboveThresholdResources := []*MockResource{
+			createMockResource("above-1", zone, 100*Joule), // Exactly at threshold
+			createMockResource("above-2", zone, 101*Joule), // Just above threshold
+			createMockResource("above-3", zone, 500*Joule), // Well above threshold
+		}
+
+		for _, resource := range aboveThresholdResources {
+			tracker.Add(resource)
+		}
+
+		// All resources should be accepted
+		assert.Equal(t, 3, tracker.Size())
+		items := tracker.Items()
+		assert.Len(t, items, 3)
+
+		// Verify all resources are present
+		expectedIDs := []string{"above-1", "above-2", "above-3"}
+		for _, id := range expectedIDs {
+			assert.Contains(t, items, id)
+		}
+	})
+
+	t.Run("mixed resources - some accepted, some rejected", func(t *testing.T) {
+		minThreshold := 200 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, minThreshold, slog.Default())
+
+		// Add mix of resources above and below threshold
+		mixedResources := []*MockResource{
+			createMockResource("reject-1", zone, 50*Joule),   // Below - reject
+			createMockResource("accept-1", zone, 250*Joule),  // Above - accept
+			createMockResource("reject-2", zone, 199*Joule),  // Below - reject
+			createMockResource("accept-2", zone, 200*Joule),  // At threshold - accept
+			createMockResource("reject-3", zone, 0*Joule),    // Zero - reject
+			createMockResource("accept-3", zone, 1000*Joule), // Above - accept
+		}
+
+		for _, resource := range mixedResources {
+			tracker.Add(resource)
+		}
+
+		// Only 3 resources should be accepted
+		assert.Equal(t, 3, tracker.Size())
+		items := tracker.Items()
+		assert.Len(t, items, 3)
+
+		// Verify only the accepted resources are present
+		expectedAcceptedIDs := []string{"accept-1", "accept-2", "accept-3"}
+		for _, id := range expectedAcceptedIDs {
+			assert.Contains(t, items, id)
+		}
+
+		// Verify rejected resources are not present
+		rejectedIDs := []string{"reject-1", "reject-2", "reject-3"}
+		for _, id := range rejectedIDs {
+			assert.NotContains(t, items, id)
+		}
+	})
+
+	t.Run("threshold with capacity eviction", func(t *testing.T) {
+		minThreshold := 100 * Joule
+		maxCapacity := 2
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, maxCapacity, minThreshold, slog.Default())
+
+		// Add resources that meet threshold but test capacity eviction
+		resources := []*MockResource{
+			createMockResource("low-valid", zone, 120*Joule), // Above threshold, but lowest
+			createMockResource("high", zone, 500*Joule),      // High energy
+			createMockResource("medium", zone, 300*Joule),    // Medium energy
+		}
+
+		for _, resource := range resources {
+			tracker.Add(resource)
+		}
+
+		// Should be at capacity, with lowest energy resource evicted
+		assert.Equal(t, maxCapacity, tracker.Size())
+		items := tracker.Items()
+		assert.Len(t, items, 2)
+
+		// Verify the highest energy resources are retained
+		assert.Contains(t, items, "high")
+		assert.Contains(t, items, "medium")
+		assert.NotContains(t, items, "low-valid")
+	})
+
+	t.Run("threshold with multi-zone resource", func(t *testing.T) {
+		trackedZone := zones[0]
+		otherZone := zones[1]
+		minThreshold := 150 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 10, minThreshold, slog.Default())
+
+		// Create resources with energy in multiple zones
+		tt := []struct {
+			name          string
+			trackedEnergy Energy
+			otherEnergy   Energy
+			shouldBeAdded bool
+		}{
+			{
+				name:          "tracked-zone-above-threshold",
+				trackedEnergy: 200 * Joule, // Above threshold in tracked zone
+				otherEnergy:   50 * Joule,  // Below threshold in other zone
+				shouldBeAdded: true,
+			},
+			{
+				name:          "tracked-zone-below-threshold",
+				trackedEnergy: 100 * Joule,  // Below threshold in tracked zone
+				otherEnergy:   1000 * Joule, // Above threshold in other zone
+				shouldBeAdded: false,
+			},
+			{
+				name:          "tracked-zone-at-threshold",
+				trackedEnergy: 150 * Joule, // At threshold in tracked zone
+				otherEnergy:   0 * Joule,   // Zero in other zone
+				shouldBeAdded: true,
+			},
+		}
+
+		for _, tc := range tt {
+			t.Run(tc.name, func(t *testing.T) {
+				// Clear tracker for each sub-test
+				tracker.Clear()
+
+				zoneEnergies := map[device.EnergyZone]Energy{
+					trackedZone: tc.trackedEnergy,
+					otherZone:   tc.otherEnergy,
+				}
+				resource := createMockResourceMultiZone(tc.name, zoneEnergies)
+				tracker.Add(resource)
+
+				if tc.shouldBeAdded {
+					assert.Equal(t, 1, tracker.Size())
+					items := tracker.Items()
+					assert.Contains(t, items, tc.name)
+				} else {
+					assert.Equal(t, 0, tracker.Size())
+					items := tracker.Items()
+					assert.NotContains(t, items, tc.name)
+				}
+			})
+		}
+	})
+}
+
+// TestTerminatedResourceTracker_ThresholdEdgeCases tests edge cases and boundary conditions for the threshold
+func TestTerminatedResourceTracker_ThresholdEdgeCases(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+
+	t.Run("zero threshold accepts all resources", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, 0*Joule, slog.Default())
+
+		// Add resources with various energies including zero
+		resources := []*MockResource{
+			createMockResource("zero", zone, 0*Joule),
+			createMockResource("tiny", zone, 1*Joule),
+			createMockResource("small", zone, 10*Joule),
+			createMockResource("large", zone, 1000*Joule),
+		}
+
+		for _, resource := range resources {
+			tracker.Add(resource)
+		}
+
+		// All resources should be accepted with zero threshold
+		assert.Equal(t, 4, tracker.Size())
+		items := tracker.Items()
+		assert.Len(t, items, 4)
+
+		for _, resource := range resources {
+			assert.Contains(t, items, resource.StringID())
+		}
+	})
+
+	t.Run("very high threshold rejects most resources", func(t *testing.T) {
+		veryHighThreshold := 10000 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, veryHighThreshold, slog.Default())
+
+		// Add resources with various energies
+		resources := []*MockResource{
+			createMockResource("low", zone, 1000*Joule),        // Below threshold
+			createMockResource("medium", zone, 5000*Joule),     // Below threshold
+			createMockResource("high", zone, 9999*Joule),       // Just below threshold
+			createMockResource("accepted", zone, 10000*Joule),  // At threshold
+			createMockResource("very-high", zone, 15000*Joule), // Above threshold
+		}
+
+		for _, resource := range resources {
+			tracker.Add(resource)
+		}
+
+		// Only 2 resources should be accepted
+		assert.Equal(t, 2, tracker.Size())
+		items := tracker.Items()
+		assert.Len(t, items, 2)
+
+		// Verify only the high-energy resources are present
+		assert.Contains(t, items, "accepted")
+		assert.Contains(t, items, "very-high")
+		assert.NotContains(t, items, "low")
+		assert.NotContains(t, items, "medium")
+		assert.NotContains(t, items, "high")
+	})
+
+	t.Run("threshold with disabled tracker", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 0, 100*Joule, slog.Default())
+
+		// Add a resource that would meet the threshold
+		resource := createMockResource("valid", zone, 200*Joule)
+		tracker.Add(resource)
+
+		// Should still be rejected because tracker is disabled (capacity = 0)
+		assert.Equal(t, 0, tracker.Size())
+		assert.Equal(t, 0, len(tracker.Items()))
+	})
+
+	t.Run("threshold with unlimited capacity", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, -1, 50*Joule, slog.Default())
+
+		// Add many resources, some above and some below threshold
+		var acceptedCount int
+		for i := 0; i < 100; i++ {
+			energy := Energy(i * 10 * int(Joule)) // 0, 10, 20, ... 990 Joules
+			resource := createMockResource(fmt.Sprintf("resource-%d", i), zone, energy)
+			tracker.Add(resource)
+
+			if energy >= 50*Joule {
+				acceptedCount++
+			}
+		}
+
+		// Should accept all resources that meet the threshold
+		assert.Equal(t, acceptedCount, tracker.Size())
+		assert.Equal(t, acceptedCount, len(tracker.Items()))
+	})
+
+	t.Run("exact threshold boundary values", func(t *testing.T) {
+		exactThreshold := 500 * Joule
+		tracker := NewTerminatedResourceTracker[*MockResource](zone, 10, exactThreshold, slog.Default())
+
+		// Test boundary values around the exact threshold
+		tt := []struct {
+			name         string
+			energy       Energy
+			shouldAccept bool
+		}{
+			{"below-by-1", 499 * Joule, false},
+			{"exact-threshold", 500 * Joule, true},
+			{"above-by-1", 501 * Joule, true},
+		}
+
+		for _, tc := range tt {
+			t.Run(tc.name, func(t *testing.T) {
+				// Clear tracker for each sub-test
+				tracker.Clear()
+
+				resource := createMockResource(tc.name, zone, tc.energy)
+				tracker.Add(resource)
+
+				if tc.shouldAccept {
+					assert.Equal(t, 1, tracker.Size(), "Resource with energy %v should be accepted", tc.energy)
+					items := tracker.Items()
+					assert.Contains(t, items, tc.name)
+				} else {
+					assert.Equal(t, 0, tracker.Size(), "Resource with energy %v should be rejected", tc.energy)
+					items := tracker.Items()
+					assert.NotContains(t, items, tc.name)
+				}
+			})
+		}
+	})
+
+	t.Run("threshold validation with resource missing tracked zone", func(t *testing.T) {
+		trackedZone := zones[0]
+		otherZone := zones[1]
+		tracker := NewTerminatedResourceTracker[*MockResource](trackedZone, 10, 100*Joule, slog.Default())
+
+		// Create a resource that only has energy in the non-tracked zone
+		resource := createMockResource("missing-zone", otherZone, 1000*Joule)
+		tracker.Add(resource)
+
+		// Should be rejected because it has no energy in the tracked zone
+		assert.Equal(t, 0, tracker.Size())
+		assert.Equal(t, 0, len(tracker.Items()))
+	})
 }

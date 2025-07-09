@@ -12,23 +12,25 @@ import (
 )
 
 type Opts struct {
-	logger        *slog.Logger
-	interval      time.Duration
-	clock         clock.WithTicker
-	resources     resource.Informer
-	maxStaleness  time.Duration
-	maxTerminated int
+	logger                       *slog.Logger
+	interval                     time.Duration
+	clock                        clock.WithTicker
+	resources                    resource.Informer
+	maxStaleness                 time.Duration
+	maxTerminated                int
+	minTerminatedEnergyThreshold Energy
 }
 
 // NewConfig returns a new Config with defaults set
 func DefaultOpts() Opts {
 	return Opts{
-		logger:        slog.Default(),
-		interval:      5 * time.Second,
-		clock:         clock.RealClock{},
-		maxStaleness:  500 * time.Millisecond,
-		resources:     nil,
-		maxTerminated: 500,
+		logger:                       slog.Default(),
+		interval:                     5 * time.Second,
+		clock:                        clock.RealClock{},
+		maxStaleness:                 500 * time.Millisecond,
+		resources:                    nil,
+		maxTerminated:                500,
+		minTerminatedEnergyThreshold: 10 * Joule,
 	}
 }
 
@@ -74,5 +76,12 @@ func WithResourceInformer(r resource.Informer) OptionFn {
 func WithMaxTerminated(max int) OptionFn {
 	return func(o *Opts) {
 		o.maxTerminated = max
+	}
+}
+
+// WithMinTerminatedEnergyThreshold sets the minimum energy threshold for terminated workloads
+func WithMinTerminatedEnergyThreshold(threshold Energy) OptionFn {
+	return func(o *Opts) {
+		o.minTerminatedEnergyThreshold = threshold
 	}
 }

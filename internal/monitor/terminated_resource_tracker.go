@@ -29,11 +29,12 @@ type Resource interface {
 //
 // These constraints allow for optimizations like skipping duplicate checks
 type TerminatedResourceTracker[T Resource] struct {
-	logger     *slog.Logger
-	heap       Heap[T]           // min-heap for efficient eviction of lowest energy items
-	resources  map[string]T      // ID -> Resource for O(1) lookup
-	targetZone device.EnergyZone // zone to use for energy comparison
-	maxSize    int               // maximum number of resources to track
+	logger             *slog.Logger
+	heap               Heap[T]           // min-heap for efficient eviction of lowest energy items
+	resources          map[string]T      // ID -> Resource for O(1) lookup
+	targetZone         device.EnergyZone // zone to use for energy comparison
+	maxSize            int               // maximum number of resources to track
+	minEnergyThreshold Energy            // minimum energy threshold to track a resource
 }
 
 // Heap implements a min-heap of resources sorted by energy consumption
@@ -46,8 +47,8 @@ type HeapItem[T Resource] struct {
 	EnergyTotal Energy
 }
 
-// NewTerminatedResourceTracker creates a new tracker with the specified energy zone and capacity
-func NewTerminatedResourceTracker[T Resource](zone device.EnergyZone, maxSize int, logger *slog.Logger) *TerminatedResourceTracker[T] {
+// NewTerminatedResourceTracker creates a new tracker with the specified energy zone, capacity, and minimum energy threshold
+func NewTerminatedResourceTracker[T Resource](zone device.EnergyZone, maxSize int, minEnergyThreshold Energy, logger *slog.Logger) *TerminatedResourceTracker[T] {
 	h := Heap[T]{}
 	heap.Init(&h)
 
@@ -57,11 +58,12 @@ func NewTerminatedResourceTracker[T Resource](zone device.EnergyZone, maxSize in
 	loggerWithType := logger.With("service", "terminated-resource-tracker", "resource", resourceType)
 
 	return &TerminatedResourceTracker[T]{
-		logger:     loggerWithType,
-		heap:       h,
-		resources:  make(map[string]T),
-		targetZone: zone,
-		maxSize:    maxSize,
+		logger:             loggerWithType,
+		heap:               h,
+		resources:          make(map[string]T),
+		targetZone:         zone,
+		maxSize:            maxSize,
+		minEnergyThreshold: minEnergyThreshold,
 	}
 }
 
@@ -90,18 +92,23 @@ func (trt *TerminatedResourceTracker[T]) Add(resource T) {
 		return // Ignore duplicate - terminated resource already tracked
 	}
 
-	zones := resource.ZoneUsage()
-
-	// Get energy for the configured zone
-	zoneUsage, exists := zones[trt.targetZone]
-	if !exists || zoneUsage.EnergyTotal == 0 {
-		trt.logger.Debug("Resource has no energy in target zone", "id", id, "zone", trt.targetZone, "action", "skip")
-		return // skip resources with no energy in this zone
+	// Get the energy from the target zone for this resource
+	energyTotal := Energy(0)
+	if zoneUsage, exists := resource.ZoneUsage()[trt.targetZone]; exists {
+		energyTotal = zoneUsage.EnergyTotal
 	}
 
+	// Filter out resources that don't meet the minimum energy threshold
+	if energyTotal < trt.minEnergyThreshold {
+		trt.logger.Debug("Filtering out terminated resource with low energy",
+			"id", id, "energy", energyTotal, "threshold", trt.minEnergyThreshold)
+		return
+	}
+
+	trt.logger.Debug("Keeping track of terminated resource", "id", id, "energy", energyTotal)
 	newItem := HeapItem[T]{
 		ID:          id,
-		EnergyTotal: zoneUsage.EnergyTotal,
+		EnergyTotal: energyTotal,
 		resource:    resource,
 	}
 

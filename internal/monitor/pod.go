@@ -61,17 +61,9 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 			continue
 		}
 
-		// Only include terminated pods that have consumed energy
-		if prevPod.Zones.HasZeroEnergy() {
-			pm.logger.Debug("Filtering out terminated pod with zero energy", "id", id)
-			continue
-		}
-		pm.logger.Debug("Including terminated pod with non-zero energy", "id", id)
-
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated pod is only added once since a pod cannot be terminated twice
-		terminatedPod := prevPod.Clone()
-		pm.terminatedPodsTracker.Add(terminatedPod)
+		pm.terminatedPodsTracker.Add(prevPod.Clone())
 	}
 
 	// Skip if no running pods

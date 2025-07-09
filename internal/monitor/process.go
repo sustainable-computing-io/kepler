@@ -93,17 +93,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			continue
 		}
 
-		// Only include terminated processes that have consumed energy
-		if prevProcess.Zones.HasZeroEnergy() {
-			pm.logger.Debug("Filtering out terminated process with zero energy", "pid", pid)
-			continue
-		}
-		pm.logger.Debug("Including terminated process with non-zero energy", "pid", pid)
-
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated process is only added once since a process cannot be terminated twice
-		terminatedProcess := prevProcess.Clone()
-		pm.terminatedProcessesTracker.Add(terminatedProcess)
+		pm.terminatedProcessesTracker.Add(prevProcess.Clone())
 	}
 
 	running := procs.Running

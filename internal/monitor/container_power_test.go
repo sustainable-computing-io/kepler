@@ -655,11 +655,12 @@ func TestTerminatedContainerTracking(t *testing.T) {
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:        logger,
-			cpu:           mockMeter,
-			clock:         fakeClock,
-			resources:     resInformer,
-			maxTerminated: 500,
+			logger:                       logger,
+			cpu:                          mockMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule, // Set threshold to filter zero-energy containers
 		}
 
 		err := monitor.Init()

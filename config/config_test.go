@@ -633,12 +633,27 @@ func TestMonitorConfig(t *testing.T) {
 		assert.NoError(t, cfg.Validate())
 
 		cfg.Monitor.MaxTerminated = -10
-		assert.ErrorContains(t, cfg.Validate(), "invalid configuration: invalid monitor max terminated")
+		assert.NoError(t, cfg.Validate(), "invalid configuration: invalid monitor max terminated")
 
 		cfg.Monitor.MaxTerminated = 0
 		assert.NoError(t, cfg.Validate(), "maxTerminated=0 should be valid (unlimited)")
 
 		cfg.Monitor.MaxTerminated = 1000
+		assert.NoError(t, cfg.Validate())
+	})
+
+	t.Run("minTerminatedEnergyThreshold", func(t *testing.T) {
+		cfg := DefaultConfig()
+		assert.Equal(t, int64(10), cfg.Monitor.MinTerminatedEnergyThreshold, "default minTerminatedEnergyThreshold should be 10")
+		assert.NoError(t, cfg.Validate())
+
+		cfg.Monitor.MinTerminatedEnergyThreshold = -10
+		assert.ErrorContains(t, cfg.Validate(), "invalid configuration: invalid monitor min terminated energy threshold")
+
+		cfg.Monitor.MinTerminatedEnergyThreshold = 0
+		assert.NoError(t, cfg.Validate(), "minTerminatedEnergyThreshold=0 should be valid (no filtering)")
+
+		cfg.Monitor.MinTerminatedEnergyThreshold = 1000
 		assert.NoError(t, cfg.Validate())
 	})
 }
@@ -676,9 +691,9 @@ func TestMonitorConfigFlags(t *testing.T) {
 		args:     []string{"--monitor.max-terminated=0"},
 		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, maxTerminated: 0, parseError: nil},
 	}, {
-		name:     "invalid-max-terminated",
+		name:     "negative-max-terminated",
 		args:     []string{"--monitor.max-terminated=-10"},
-		expected: expect{cfgErr: fmt.Errorf("invalid configuration: invalid monitor max terminated")},
+		expected: expect{interval: 5 * time.Second, staleness: 500 * time.Millisecond, maxTerminated: -10, parseError: nil},
 	}}
 
 	for _, tc := range tt {
@@ -731,15 +746,50 @@ monitor:
 		assert.Equal(t, 0, cfg.Monitor.MaxTerminated)
 	})
 
-	t.Run("yaml-config-maxTerminated-invalid", func(t *testing.T) {
+	t.Run("yaml-config-maxTerminated-negative", func(t *testing.T) {
 		yamlData := `
 monitor:
   maxTerminated: -100
 `
 		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, -100, cfg.Monitor.MaxTerminated)
+	})
+}
+
+func TestMonitorMinTerminatedEnergyThresholdYAML(t *testing.T) {
+	t.Run("yaml-config-minTerminatedEnergyThreshold", func(t *testing.T) {
+		yamlData := `
+monitor:
+  minTerminatedEnergyThreshold: 50
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(50), cfg.Monitor.MinTerminatedEnergyThreshold)
+	})
+
+	t.Run("yaml-config-minTerminatedEnergyThreshold-zero", func(t *testing.T) {
+		yamlData := `
+monitor:
+  minTerminatedEnergyThreshold: 0
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(0), cfg.Monitor.MinTerminatedEnergyThreshold)
+	})
+
+	t.Run("yaml-config-minTerminatedEnergyThreshold-invalid", func(t *testing.T) {
+		yamlData := `
+monitor:
+  minTerminatedEnergyThreshold: -100
+`
+		reader := strings.NewReader(yamlData)
 		_, err := Load(reader)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid monitor max terminated")
+		assert.Contains(t, err.Error(), "invalid monitor min terminated energy threshold")
 	})
 }
 

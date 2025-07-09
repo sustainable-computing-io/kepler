@@ -60,17 +60,9 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 			continue
 		}
 
-		// Only include terminated VMs that have consumed energy
-		if prevVM.Zones.HasZeroEnergy() {
-			pm.logger.Debug("Filtering out terminated VM with zero energy", "id", id)
-			continue
-		}
-		pm.logger.Debug("Including terminated VM with non-zero energy", "id", id)
-
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated VM is only added once since a VM cannot be terminated twice
-		terminatedVM := prevVM.Clone()
-		pm.terminatedVMsTracker.Add(terminatedVM)
+		pm.terminatedVMsTracker.Add(prevVM.Clone())
 	}
 
 	nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta

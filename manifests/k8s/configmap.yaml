@@ -18,6 +18,7 @@ data:
       interval: 5s
       staleness: 500ms
       maxTerminated: 100
+      minTerminatedEnergyThreshold: 10
     rapl:
       zones: []
     exporter:

@@ -24,6 +24,10 @@ monitor:
   # to be kept in memory until the data is exported; 0 disables the limit
   maxTerminated: 500
 
+  # minimum energy threshold (in joules) for terminated workloads
+  # terminated workloads with energy consumption below this threshold will be filtered out
+  minTerminatedEnergyThreshold: 10
+
 host:
   sysfs: /host/sys # Path to sysfs filesystem (default: /sys)
   procfs: /host/proc # Path to procfs filesystem (default: /proc)
