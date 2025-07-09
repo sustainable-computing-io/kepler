@@ -23,7 +23,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--host.sysfs` | Path to sysfs filesystem | `/sys` | Any valid directory path |
 | `--host.procfs` | Path to procfs filesystem | `/proc` | Any valid directory path |
 | `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
-| `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500` | Any non-negative integer (0 for unlimited) |
+| `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500` | Negative number indicates `unlimited` and `0` disables the feature |
 | `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
 | `--web.listen-address` | Web server listen addresses (can be specified multiple times) | `:28282` | Any valid host:port or :port format |
 | `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
@@ -64,8 +64,11 @@ kepler --metrics=process
 # Set maximum terminated workloads to 1000
 kepler --monitor.max-terminated=1000
 
-# Disable terminated workload tracking (unlimited)
+# Disable terminated workload tracking
 kepler --monitor.max-terminated=0
+
+# Unlimited terminated workload tracking
+kepler --monitor.max-terminated=-1
 ```
 
 ## 🗂️ Configuration File
@@ -162,7 +165,7 @@ monitor:
 
 - **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
 
-- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set to 0 for unlimited (no limit). When the limit is reached, the least power consuming terminated workloads are removed first.
+- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, the least power consuming terminated workloads are removed first.
 
 - **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. Only terminated workloads with energy consumption above this threshold will be included in the tracking. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
 
