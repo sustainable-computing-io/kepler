@@ -30,11 +30,12 @@ func TestVMPowerCalculation(t *testing.T) {
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
-		logger:        logger,
-		cpu:           mockMeter,
-		clock:         fakeClock,
-		resources:     resourceInformer,
-		maxTerminated: 500,
+		logger:                       logger,
+		cpu:                          mockMeter,
+		clock:                        fakeClock,
+		resources:                    resourceInformer,
+		maxTerminated:                500,
+		minTerminatedEnergyThreshold: 1 * Joule, // Set threshold to filter zero-energy VMs
 	}
 
 	err := monitor.Init()

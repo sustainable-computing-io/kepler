@@ -85,17 +85,9 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			continue
 		}
 
-		// Only include terminated containers that have consumed energy
-		if prevContainer.Zones.HasZeroEnergy() {
-			pm.logger.Debug("Filtering out terminated container with zero energy", "id", id)
-			continue
-		}
-		pm.logger.Debug("Including terminated container with non-zero energy", "id", id)
-
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated container is only added once since a container cannot be terminated twice
-		terminatedContainer := prevContainer.Clone()
-		pm.terminatedContainersTracker.Add(terminatedContainer)
+		pm.terminatedContainersTracker.Add(prevContainer.Clone())
 	}
 
 	// process running containers

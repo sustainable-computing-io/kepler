@@ -31,11 +31,12 @@ func TestProcessPowerCalculation(t *testing.T) {
 
 	// Create monitor with mocks
 	monitor := &PowerMonitor{
-		logger:        logger,
-		cpu:           mockMeter,
-		clock:         fakeClock,
-		resources:     resInformer,
-		maxTerminated: 500,
+		logger:                       logger,
+		cpu:                          mockMeter,
+		clock:                        fakeClock,
+		resources:                    resInformer,
+		maxTerminated:                500,
+		minTerminatedEnergyThreshold: 1 * Joule, // Set threshold to filter zero-energy processes
 	}
 
 	err := monitor.Init()
@@ -747,11 +748,12 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:        logger,
-			cpu:           mockMeter,
-			clock:         fakeClock,
-			resources:     resInformer,
-			maxTerminated: 500,
+			logger:                       logger,
+			cpu:                          mockMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule, // Set threshold to filter zero-energy processes
 		}
 
 		err := monitor.Init()
@@ -791,10 +793,26 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		process200 := snapshot1.Processes["200"]
 
 		// Process 100 should have energy due to CPU usage
-		assert.False(t, process100.Zones.HasZeroEnergy(), "Process 100 should have non-zero energy")
+		// Check that process 100 has energy in at least one zone
+		hasEnergy := false
+		for _, usage := range process100.Zones {
+			if usage.EnergyTotal >= 1*Joule {
+				hasEnergy = true
+				break
+			}
+		}
+		assert.True(t, hasEnergy, "Process 100 should have significant energy")
 
 		// Process 200 should have zero energy due to zero CPU delta
-		assert.True(t, process200.Zones.HasZeroEnergy(), "Process 200 should have zero energy")
+		// Check that process 200 has minimal energy in all zones
+		hasMinimalEnergy := true
+		for _, usage := range process200.Zones {
+			if usage.EnergyTotal >= 1*Joule {
+				hasMinimalEnergy = false
+				break
+			}
+		}
+		assert.True(t, hasMinimalEnergy, "Process 200 should have minimal energy")
 
 		// Step 2: Create snapshot where both processes terminate
 		snapshot2 := NewSnapshot()

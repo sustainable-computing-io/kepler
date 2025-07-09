@@ -411,7 +411,7 @@ func TestTerminatedPodTracking(t *testing.T) {
 			Zones:     make(ZoneUsageMap),
 		}
 
-		// Initialize zones with non-zero energy to pass HasZeroEnergy() check
+		// Initialize zones with energy above threshold to pass energy filtering
 		for _, zone := range zones {
 			oldTerminatedPod.Zones[zone] = Usage{
 				EnergyTotal: 50 * Joule,
@@ -568,11 +568,12 @@ func TestTerminatedPodTracking(t *testing.T) {
 		resInformer := &MockResourceInformer{}
 
 		monitor := &PowerMonitor{
-			logger:        logger,
-			cpu:           mockMeter,
-			clock:         fakeClock,
-			resources:     resInformer,
-			maxTerminated: 500,
+			logger:                       logger,
+			cpu:                          mockMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule, // Set threshold to filter zero-energy pods
 		}
 
 		err := monitor.Init()

@@ -83,6 +83,7 @@ monitor:
   interval: 5s        # Monitor refresh interval (default: 5s)
   staleness: 1000ms   # Duration after which data is considered stale (default: 1000ms)
   maxTerminated: 500  # Maximum number of terminated workloads to keep in memory (default: 500)
+  minTerminatedEnergyThreshold: 10  # Minimum energy threshold for terminated workloads (default: 10)
 
 host:
   sysfs: /sys   # Path to sysfs filesystem (default: /sys)
@@ -154,6 +155,7 @@ monitor:
   interval: 5s
   staleness: 1000ms
   maxTerminated: 500
+  minTerminatedEnergyThreshold: 10
 ```
 
 - **interval**: The monitor's refresh interval. All processes with a lifetime less than this interval will be ignored. Setting to 0s disables monitor refreshes.
@@ -161,6 +163,8 @@ monitor:
 - **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
 
 - **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set to 0 for unlimited (no limit). When the limit is reached, the least power consuming terminated workloads are removed first.
+
+- **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. Only terminated workloads with energy consumption above this threshold will be included in the tracking. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
 
 ### 🗄️ Host Configuration
 

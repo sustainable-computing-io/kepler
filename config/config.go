@@ -54,6 +54,12 @@ type (
 		// =0: Disable terminated workload tracking completely
 		// >0: Track top N terminated workloads by energy consumption
 		MaxTerminated int `yaml:"maxTerminated"`
+
+		// MinTerminatedEnergyThreshold sets the minimum energy consumption threshold for terminated workloads
+		// Only terminated workloads with energy consumption above this threshold will be tracked
+		// Value is in joules (e.g., 10 = 10 joules)
+		// TODO: Add support for parsing energy units like "10J", "500mJ", "2kJ"
+		MinTerminatedEnergyThreshold int64 `yaml:"minTerminatedEnergyThreshold"`
 	}
 
 	// Exporter configuration
@@ -201,7 +207,8 @@ func DefaultConfig() *Config {
 			Interval:  5 * time.Second,
 			Staleness: 500 * time.Millisecond,
 
-			MaxTerminated: 500,
+			MaxTerminated:                500,
+			MinTerminatedEnergyThreshold: 10, // 10 Joules
 		},
 		Exporter: Exporter{
 			Stdout: StdoutExporter{
@@ -478,6 +485,9 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		}
 		if c.Monitor.MaxTerminated < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor max terminated: %d can't be negative", c.Monitor.MaxTerminated))
+		}
+		if c.Monitor.MinTerminatedEnergyThreshold < 0 {
+			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
 		}
 	}
 	{ // Kubernetes

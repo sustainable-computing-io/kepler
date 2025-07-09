@@ -50,16 +50,6 @@ type Usage struct {
 // Used by processes, containers, and VMs which only track their attributed energy consumption.
 type ZoneUsageMap map[EnergyZone]Usage
 
-// HasZeroEnergy returns true if all zones have zero energy consumption
-func (z ZoneUsageMap) HasZeroEnergy() bool {
-	for _, usage := range z {
-		if usage.EnergyTotal > 0 {
-			return false
-		}
-	}
-	return true
-}
-
 // NodeZoneUsageMap maps energy zones to node-specific usage data that includes idle/used breakdown.
 // Used exclusively by Node to track total energy consumption with attribution between active workloads
 // and idle system overhead, enabling proper power attribution calculations.

@@ -40,11 +40,17 @@ type PowerMonitor struct {
 	logger *slog.Logger
 	cpu    device.CPUPowerMeter
 
-	interval      time.Duration
-	clock         clock.WithTicker
-	maxStaleness  time.Duration
-	maxTerminated int
-	resources     resource.Informer
+	interval time.Duration
+	clock    clock.WithTicker
+
+	// related to snapshots
+	maxStaleness time.Duration
+
+	// related to terminated resource tracking
+	maxTerminated                int
+	minTerminatedEnergyThreshold Energy
+
+	resources resource.Informer
 
 	// signals when a snapshot has been updated
 	dataCh chan struct{}
@@ -86,14 +92,18 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 	ctx, cancel := context.WithCancel(context.Background())
 
 	monitor := &PowerMonitor{
-		logger:           opts.logger.With("service", "monitor"),
-		cpu:              meter,
-		clock:            opts.clock,
-		interval:         opts.interval,
-		resources:        opts.resources,
-		dataCh:           make(chan struct{}, 1),
-		maxStaleness:     opts.maxStaleness,
-		maxTerminated:    opts.maxTerminated,
+		logger:    opts.logger.With("service", "monitor"),
+		cpu:       meter,
+		clock:     opts.clock,
+		interval:  opts.interval,
+		resources: opts.resources,
+		dataCh:    make(chan struct{}, 1),
+
+		maxStaleness: opts.maxStaleness,
+
+		maxTerminated:                opts.maxTerminated,
+		minTerminatedEnergyThreshold: opts.minTerminatedEnergyThreshold,
+
 		collectionCtx:    ctx,
 		collectionCancel: cancel,
 	}
@@ -119,11 +129,19 @@ func (pm *PowerMonitor) Init() error {
 	pm.logger.Info("Using primary energy zone for terminated workload tracking",
 		"zone", primaryEnergyZone.Name())
 
-	// Initialize terminated workload trackers with the primary energy zone
-	pm.terminatedProcessesTracker = NewTerminatedResourceTracker[*Process](primaryEnergyZone, pm.maxTerminated, pm.logger)
-	pm.terminatedContainersTracker = NewTerminatedResourceTracker[*Container](primaryEnergyZone, pm.maxTerminated, pm.logger)
-	pm.terminatedVMsTracker = NewTerminatedResourceTracker[*VirtualMachine](primaryEnergyZone, pm.maxTerminated, pm.logger)
-	pm.terminatedPodsTracker = NewTerminatedResourceTracker[*Pod](primaryEnergyZone, pm.maxTerminated, pm.logger)
+	// Initialize terminated workload trackers with the primary energy zone and minimum energy threshold
+	pm.terminatedProcessesTracker = NewTerminatedResourceTracker[*Process](
+		primaryEnergyZone, pm.maxTerminated,
+		pm.minTerminatedEnergyThreshold, pm.logger)
+	pm.terminatedContainersTracker = NewTerminatedResourceTracker[*Container](
+		primaryEnergyZone, pm.maxTerminated,
+		pm.minTerminatedEnergyThreshold, pm.logger)
+	pm.terminatedVMsTracker = NewTerminatedResourceTracker[*VirtualMachine](
+		primaryEnergyZone, pm.maxTerminated,
+		pm.minTerminatedEnergyThreshold, pm.logger)
+	pm.terminatedPodsTracker = NewTerminatedResourceTracker[*Pod](
+		primaryEnergyZone, pm.maxTerminated,
+		pm.minTerminatedEnergyThreshold, pm.logger)
 
 	// signal now so that exporters can construct descriptors
 	pm.signalNewData()
