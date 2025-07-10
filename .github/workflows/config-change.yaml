@@ -11,7 +11,11 @@ jobs:
   check-changes:
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.filter.outputs.changes }}
+      changes: ${{ steps.filter.outputs.config }}
+      doc_changes: ${{ steps.filter.outputs.doc }}
+      compose_changes: ${{ steps.filter.outputs.compose }}
+      hack_changes: ${{ steps.filter.outputs.hack }}
+      manifest_changes: ${{ steps.filter.outputs.manifest }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -21,21 +25,51 @@ jobs:
         id: filter
         with:
           filters: |
-            changes:
+            config:
               - 'config/**/*.go'
+            doc:
+              - 'docs/configuration/configuration.md'
+            compose:
+              - 'compose/dev/kepler-dev/etc/kepler/config.yaml'
+            hack:
+              - 'hack/config.yaml'
+            manifest:
+              - 'manifests/k8s/configmap.yaml'
 
   comment-on-pr:
     needs: check-changes
-    if: needs.check-changes.outputs.changes == 'true'
+    if: >-
+      ${{ needs.check-changes.outputs.changes == 'true' }} &&
+      (
+        ${{ needs.check-changes.outputs.doc_changes != 'true' }} ||
+        ${{ needs.check-changes.outputs.compose_changes != 'true' }} ||
+        ${{ needs.check-changes.outputs.hack_changes != 'true' }} ||
+        ${{ needs.check-changes.outputs.manifest_changes != 'true' }}
+      )
     runs-on: ubuntu-latest
     steps:
+      - name: Generate comment message
+        id: generate_message
+        run: |
+          {
+            echo "message<<EOF"
+            echo "⚠️ Config changes detected in this PR"
+            echo "Please make sure that the config changes are updated in the following places as part of this PR:"
+            if [[ "${{ needs.check-changes.outputs.doc_changes }}" != "true" ]]; then
+              echo "- docs/configuration/configuration.md"
+            fi
+            if [[ "${{ needs.check-changes.outputs.compose_changes }}" != "true" ]]; then
+              echo "- compose/dev/kepler-dev/etc/kepler/config.yaml"
+            fi
+            if [[ "${{ needs.check-changes.outputs.hack_changes }}" != "true" ]]; then
+              echo "- hack/config.yaml"
+            fi
+            if [[ "${{ needs.check-changes.outputs.manifest_changes }}" != "true" ]]; then
+              echo "- manifests/k8s/configmap.yaml"
+            fi
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
       - name: Comment on PR
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: |
-            :warning: Config changes detected in this PR.
-            Please make sure that the config changes are updated in the following places as part of this PR:
-            - [ ] docs/configuration/configuration.md
-            - [ ] compose/dev/kepler-dev/etc/kepler/config.yaml
-            - [ ] hack/config.yaml
-            - [ ] manifests/k8s/configmap.yaml
+          message: ${{ steps.generate_message.outputs.message }}
