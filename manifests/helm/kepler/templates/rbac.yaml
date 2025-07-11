@@ -1,0 +1,53 @@
+{{- if .Values.rbac.create}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{include "kepler.serviceAccountName" .}}
+  namespace: {{include "kepler.namespace" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{include "kepler.fullname" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{include "kepler.fullname" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{include "kepler.fullname" .}}
+subjects:
+  - kind: ServiceAccount
+    name: {{include "kepler.serviceAccountName" .}}
+    namespace: {{include "kepler.namespace" .}}
+{{- end}}

@@ -28,6 +28,7 @@ repos:
     rev: v1.37.0
     hooks:
       - id: yamllint
+        exclude: ^manifests/helm/.*/templates/.*\.yaml$
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.44.0
@@ -76,3 +77,13 @@ repos:
     hooks:
       - id: shellcheck
         args: [-x]
+
+  - repo: local
+    hooks:
+      - id: helm-lint
+        name: helm-lint
+        entry: helm lint
+        language: system
+        files: ^manifests/helm/[^/]+/(Chart\.yaml|values\.yaml|templates/.*)$
+        pass_filenames: false
+        args: [manifests/helm/kepler]

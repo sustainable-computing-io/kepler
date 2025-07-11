@@ -1,0 +1,113 @@
+# Default values for kepler.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: quay.io/sustainable_computing_io/kepler
+  pullPolicy: IfNotPresent
+  tag: latest
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespace:
+  create: false
+  name: kepler
+
+serviceAccount:
+  create: true
+  name: kepler
+
+rbac:
+  create: true
+
+service:
+  type: ClusterIP
+  port: 28282
+  targetPort: http
+  protocol: TCP
+
+daemonset:
+  hostPID: true
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+
+  nodeSelector: {}
+  affinity: {}
+
+  securityContext:
+    privileged: true
+
+  resources:
+    {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 512Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  livenessProbe:
+    httpGet:
+      path: /metrics
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 60
+
+  readinessProbe: {}
+
+config:
+  log:
+    level: debug
+    format: text
+  host:
+    sysfs: /host/sys
+    procfs: /host/proc
+  monitor:
+    interval: 5s
+    staleness: 500ms
+    maxTerminated: 100
+    minTerminatedEnergyThreshold: 10
+  rapl:
+    zones: []
+  exporter:
+    stdout:
+      enabled: false
+    prometheus:
+      enabled: true
+      debugCollectors:
+        - go
+  web:
+    configFile: ""
+    listenAddresses:
+      - :28282
+  debug:
+    pprof:
+      enabled: false
+  kube:
+    enabled: false
+    config: ""
+    nodeName: ""
+  dev:
+    fake-cpu-meter:
+      enabled: false
+      zones: []
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  interval: 5s
+  path: /metrics
+  labels: {}
+  annotations: {}
+
+# Additional labels to add to all resources
+labels: {}
+
+# Additional annotations to add to all resources
+annotations: {}

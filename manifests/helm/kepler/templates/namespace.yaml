@@ -1,0 +1,12 @@
+{{- if .Values.namespace.create}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{include "kepler.namespace" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+{{- end}}

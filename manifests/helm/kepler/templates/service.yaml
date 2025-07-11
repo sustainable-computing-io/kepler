@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{include "kepler.fullname" .}}
+  namespace: {{include "kepler.namespace" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+spec:
+  type: {{.Values.service.type}}
+  ports:
+  - name: http
+    port: {{.Values.service.port}}
+    targetPort: {{.Values.service.targetPort}}
+    protocol: {{.Values.service.protocol}}
+  selector:
+    {{- include "kepler.selectorLabels" . | nindent 4}}
