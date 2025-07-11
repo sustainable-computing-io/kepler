@@ -2,17 +2,12 @@ name: Push
 
 on: # yamllint disable-line rule:truthy
   push:
-    branches: [main]
 
 jobs:
   test-and-codecov:
     uses: ./.github/workflows/test-and-codecov.yaml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  # for each PR merge, openSSF scan
-  scorecard:
-    uses: ./.github/workflows/scorecard.yml
 
   publish:
     runs-on: ubuntu-latest
