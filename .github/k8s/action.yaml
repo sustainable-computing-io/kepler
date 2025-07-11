@@ -45,6 +45,11 @@ runs:
       run: |
         kubectl version --client
 
+    - name: Setup Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: latest
+
     - name: Checkout source
       uses: actions/checkout@v4
       with:
@@ -55,6 +60,11 @@ runs:
       with:
         go-version-file: go.mod
         cache: false
+
+    - name: Lint Helm chart
+      shell: bash
+      run: |
+        helm lint manifests/helm/kepler
 
     - name: Build image
       shell: bash
@@ -127,6 +137,55 @@ runs:
             exit 1
           fi
         done
+
+    - name: Remove existing Kepler deployment
+      shell: bash
+      run: |
+        echo "::group::Remove existing Kepler deployment before Helm test"
+        make undeploy
+        echo "::endgroup::"
+
+    - name: Test Helm deployment
+      shell: bash
+      run: |
+        echo "::group::Deploy Kepler using Helm"
+        # Update Helm chart to use the locally built image
+        sed -i 's|repository: quay.io/sustainable_computing_io/kepler|repository: localhost:5001/kepler|' manifests/helm/kepler/values.yaml
+        sed -i 's|tag: latest|tag: dev|' manifests/helm/kepler/values.yaml
+        sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' manifests/helm/kepler/values.yaml
+
+        # Install using Helm
+        helm install kepler-helm-test manifests/helm/kepler --namespace kepler-helm --create-namespace --wait --timeout=5m
+        echo "::endgroup::"
+
+    - name: Verify Helm deployment
+      shell: bash
+      run: |
+        echo "::group::Verify Helm deployment"
+        kubectl rollout status daemonset/kepler-helm-test -n kepler-helm --timeout=5m
+        kubectl get pods -n kepler-helm
+        echo "::endgroup::"
+
+    - name: Validate Helm metrics endpoint
+      shell: bash
+      run: |
+        echo "::group::Test Helm deployment metrics"
+        kubectl port-forward service/kepler-helm-test 28283:28282 -n kepler-helm &
+        sleep 20
+
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:28283/metrics)
+        [[ $HTTP_STATUS -ne 200 ]] && echo "Helm deployment HTTP status code is not 200" && exit 1
+
+        echo "Helm deployment metrics endpoint is working"
+        echo "::endgroup::"
+
+    - name: Cleanup Helm deployment
+      shell: bash
+      run: |
+        echo "::group::Cleanup Helm deployment"
+        helm uninstall kepler-helm-test -n kepler-helm
+        kubectl delete namespace kepler-helm
+        echo "::endgroup::"
 
     - name: Run must gather
       shell: bash
