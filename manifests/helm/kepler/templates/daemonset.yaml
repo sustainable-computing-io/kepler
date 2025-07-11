@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{include "kepler.fullname" .}}
+  namespace: {{include "kepler.namespace" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kepler.selectorLabels" . | nindent 6}}
+  template:
+    metadata:
+      labels:
+        {{- include "kepler.selectorLabels" . | nindent 8 }}
+        {{- with .Values.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "kepler.serviceAccountName" . }}
+      hostPID: {{ .Values.daemonset.hostPID }}
+      {{- with .Values.daemonset.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.daemonset.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.daemonset.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: kepler
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.daemonset.securityContext | nindent 12 }}
+          command:
+            - /usr/bin/kepler
+          args:
+            - --config.file=/etc/kepler/config.yaml
+            - --kube.enable
+            - --kube.node-name=$(NODE_NAME)
+          ports:
+            - name: http
+              containerPort: 28282
+              protocol: TCP
+          volumeMounts:
+            - name: sysfs
+              mountPath: /host/sys
+              readOnly: true
+            - name: procfs
+              mountPath: /host/proc
+              readOnly: true
+            - name: cfm
+              mountPath: /etc/kepler
+          {{- with .Values.daemonset.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.daemonset.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          {{- with .Values.daemonset.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: sysfs
+          hostPath:
+            path: /sys
+        - name: procfs
+          hostPath:
+            path: /proc
+        - name: cfm
+          configMap:
+            name: {{ include "kepler.fullname" . }}

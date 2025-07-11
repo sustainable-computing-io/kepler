@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{include "kepler.fullname" .}}
+  namespace: {{include "kepler.namespace" .}}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+data:
+  config.yaml: |
+    {{- toYaml .Values.config | nindent 4}}

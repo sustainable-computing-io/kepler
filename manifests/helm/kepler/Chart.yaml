@@ -1,0 +1,20 @@
+apiVersion: v2
+name: kepler
+description: A Helm chart for Kepler - Kubernetes Efficient Power Level Exporter
+type: application
+version: 0.0.0-dev
+appVersion: latest
+home: https://github.com/sustainable-computing-io/kepler
+sources:
+  - https://github.com/sustainable-computing-io/kepler
+maintainers:
+  - name: Kepler Team
+    url: https://github.com/sustainable-computing-io/kepler
+keywords:
+  - energy
+  - power
+  - monitoring
+  - prometheus
+  - sustainability
+annotations:
+  category: Monitoring
