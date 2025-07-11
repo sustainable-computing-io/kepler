@@ -56,11 +56,41 @@ COVER_PROFILE=coverage.out
 COVER_HTML=coverage.html
 
 
+.DEFAULT_GOAL := help
+
 all: clean fmt lint vet build test
+
+# Display help information about available make targets
+.PHONY: help
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@echo ''
+	@echo '  Build Targets:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*Build/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ''
+	@echo '  Development & Testing:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Test|Quality|Format|Lint|Vet|Clean|Coverage|Dependencies)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ''
+	@echo '  Docker & Container:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Docker|Container|Image|Push)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ''
+	@echo '  Kubernetes & Deployment:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Cluster|Deploy|K8s|Kubernetes)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ''
+	@echo '  Documentation & Utilities:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Documentation|Generate|Run|Help)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ''
+	@echo 'Examples:'
+	@echo '  make build           # Build production binary'
+	@echo '  make test            # Run tests with coverage'
+	@echo '  make cluster-up      # Setup local k8s cluster'
+	@echo '  make deploy          # Deploy to k8s cluster'
 
 # Build the application
 .PHONY: build
-build:
+build: ## Build production binary
 	mkdir -p $(BINARY_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
@@ -68,7 +98,7 @@ build:
 		$(MAIN_GO_PATH)
 
 .PHONY: build-debug
-build-debug:
+build-debug: ## Build debug binary with race detection
 	mkdir -p $(BINARY_DIR)
 	$(GOBUILD) $(BUILD_ARGS) \
 		-race \
@@ -78,51 +108,51 @@ build-debug:
 
 # Clean build artifacts
 .PHONY: clean
-clean:
+clean: ## Clean build artifacts and coverage files
 	$(GOCLEAN)
 	rm -rf $(BINARY_DIR)
 	rm -f $(COVER_PROFILE) $(COVER_HTML)
 
 # Run tests with coverage
 .PHONY: test
-test:
+test: ## Test with race detection and coverage
 	CGO_ENABLED=1 $(GOTEST) -v -race -coverprofile=$(COVER_PROFILE) $(TEST_PKGS)
 
 # Generate coverage report
 .PHONY: coverage
-coverage: test
+coverage: test ## Coverage report generation (HTML)
 	$(GOCMD) tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
 
 # Generate metrics documentation
 .PHONY: gen-metrics-docs
-gen-metrics-docs:
+gen-metrics-docs: ## Documentation generation for metrics
 	$(GOCMD) run ./hack/gen-metric-docs/main.go --output metrics.md
 	mv metrics.md docs/metrics/
 
 # Run linting
 .PHONY: lint
-lint:
+lint: ## Lint code using golangci-lint
 	$(GOLINT) run ./...
 
 # Run go vet
 .PHONY: vet
-vet:
+vet: ## Vet code using go vet
 	$(GOVET) ./...
 
 # Format code
 .PHONY: fmt
-fmt:
+fmt: ## Format code using go fmt
 	$(GOFMT) ./...
 
 # Tidy and verify dependencies
 .PHONY: deps
-deps:
+deps: ## Dependencies management (tidy and verify)
 	$(GOMOD) tidy
 	$(GOMOD) verify
 
 # Build Docker image
 .PHONY: image
-image:
+image: ## Docker image build
 	docker build -t \
 		$(KEPLER_IMAGE) \
 		--platform=linux/$(GOARCH) .
@@ -130,12 +160,12 @@ image:
 
 # Push Docker image
 .PHONY: push
-push:
+push: ## Docker image push to registry
 	$(call docker_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Run the application
 .PHONY: run
-run:
+run: ## Run the built binary
 	$(BINARY_DIR)/$(BINARY_NAME)
 
 # K8s Development env
@@ -147,7 +177,7 @@ KIND_WORKER_NODES ?=2
 
 # setup a cluster for local development
 .PHONY: cluster-up
-cluster-up:
+cluster-up: ## K8s cluster setup for local development
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
@@ -157,7 +187,7 @@ cluster-up:
 
 # restart the local development cluster
 .PHONY: cluster-restart
-cluster-restart:
+cluster-restart: ## K8s cluster restart
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	GRAFANA_ENABLE=$(GRAFANA_ENABLE) \
@@ -167,21 +197,21 @@ cluster-restart:
 
 # delete the local development cluster
 .PHONY: cluster-down
-cluster-down:
+cluster-down: ## K8s cluster teardown
 	CLUSTER_PROVIDER=$(CLUSTER_PROVIDER) \
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	./hack/cluster.sh down
 
 # Deploy Kepler to the K8s cluster
 .PHONY: deploy
-deploy:
+deploy: ## Deploy Kepler to K8s cluster
 	kubectl kustomize manifests/k8s | \
 	sed -e "s|<KEPLER_IMAGE>|$(KEPLER_IMAGE)|g" | \
 	kubectl apply --server-side --force-conflicts -f -
 
 # Undeploy Kepler from the K8s cluster. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 .PHONY: undeploy
-undeploy:
+undeploy: ## Deploy removal from K8s cluster
 	kubectl delete -k manifests/k8s --ignore-not-found=true
 
 # docker_tag accepts an image:tag and a list of additional tags comma-separated
