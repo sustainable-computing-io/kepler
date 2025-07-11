@@ -1,0 +1,86 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with Kepler
+labels: [kind/bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Important Version Notice
+
+        **Kepler 0.10.0 Major Rewrite:** Starting with version 0.10.0, Kepler has undergone a complete rewrite with significant architectural changes.
+
+        - **Legacy versions (0.9.0 and earlier)** are now **frozen** - no bug fixes or feature updates will be provided
+        - **All new development** happens on the current version (0.10.0+)
+        - If you're using 0.9.0 or earlier, please consider upgrading to the latest version
+
+        📢 **Read more:** [CNCF Slack Announcement](https://cloud-native.slack.com/archives/C05QK3KN3HT/p1752049660866519)
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Kepler Version
+      description: Which version of Kepler are you using?
+      options:
+        - 0.10.0 or later (Current/Supported)
+        - 0.9.0 or earlier (Legacy/Frozen - No Support)
+        - I'm not sure
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the issue you're experiencing
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide details about your environment
+      placeholder: |
+        - OS: [e.g. Ubuntu 20.04]
+        - Kubernetes Version: [e.g. 1.25]
+        - Container Runtime: [e.g. containerd 1.6]
+        - Hardware: [e.g. Intel CPU with RAPL support]
+        - Deployment Method: [e.g. Kubernetes DaemonSet, Docker Compose, Local Binary]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Error Messages
+      description: If applicable, add logs or error messages to help explain your problem
+      render: shell
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
