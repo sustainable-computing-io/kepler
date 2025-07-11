@@ -24,14 +24,14 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5.4.0
+        uses: actions/setup-go@v5.5.0
         with:
           go-version-file: go.mod
           cache: true
           check-latest: true
 
       - name: Login to Image Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.IMG_BASE }}
           username: ${{ secrets.BOT_NAME }}
