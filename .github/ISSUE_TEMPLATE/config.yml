@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📋 General Support & Questions
+    url: https://github.com/sustainable-computing-io/kepler/discussions
+    about: For general questions, support, and community discussions
+
+  - name: 🚨 Security Issues
+    url: https://github.com/sustainable-computing-io/kepler/security/policy
+    about: For security vulnerabilities, please follow our security policy
