@@ -30,6 +30,19 @@ BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
 
+ifeq ($(GIT_COMMIT),)
+$(error GIT_COMMIT cannot be empty)
+endif
+
+ifeq ($(GIT_BRANCH),)
+$(error GIT_BRANCH cannot be empty)
+endif
+
+ifeq ($(VERSION),)
+$(error VERSION cannot be empty)
+endif
+
+
 LD_VERSION_FLAGS=\
 	-X github.com/sustainable-computing-io/kepler/internal/version.version=$(VERSION) \
 	-X github.com/sustainable-computing-io/kepler/internal/version.buildTime=$(BUILD_TIME) \
@@ -155,6 +168,9 @@ deps: ## Dependencies management (tidy and verify)
 image: ## Docker image build
 	docker build -t \
 		$(KEPLER_IMAGE) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg GIT_BRANCH=$(GIT_BRANCH) \
 		--platform=linux/$(GOARCH) .
 	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
