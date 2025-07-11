@@ -110,7 +110,19 @@ docker-compose up -d
 
 ### 3️⃣ Running on Kubernetes 🐳
 
-Deploy Kepler to your Kubernetes cluster:
+Deploy Kepler to your Kubernetes cluster using Helm or Kustomize:
+
+#### Using Helm Chart (Recommended)
+
+```bash
+# Install using Helm
+helm install kepler manifests/helm/kepler/ \
+  --namespace kepler \
+  --create-namespace \
+  --set namespace.create=false
+```
+
+#### Using Kustomize
 
 ```bash
 # Set up a local development cluster with Kind
@@ -133,6 +145,10 @@ make deploy IMG_BASE=<your registry> VERSION=<your version>
 ```
 
 ## 📖 Documentation
+
+- **[Installation Guide](docs/user/installation.md)** - Detailed installation instructions for all deployment methods
+- **[Configuration Guide](docs/configuration/configuration.md)** - Configuration options and examples
+- **[Metrics Documentation](docs/metrics/metrics.md)** - Available metrics and their descriptions
 
 For more detailed documentation, please visit the [official Kepler documentation](https://sustainable-computing.io/kepler/).
 
