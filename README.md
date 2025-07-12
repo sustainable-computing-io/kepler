@@ -54,94 +54,21 @@ accurate energy consumption monitoring for cloud-native workloads.
 
 ## 🚀 Getting Started
 
-There are two main ways to run Kepler:
+> **📖 For comprehensive installation instructions, troubleshooting, and advanced deployment options, see our [Installation Guide](docs/user/installation.md)**
 
-### 1️⃣ Running Kepler Locally
+### ⚡ Quick Start
 
-To run Kepler on your local machine:
-
-```bash
-# Build Kepler
-make build
-
-# Run Kepler
-sudo ./bin/kepler
-```
-
-**Configuration:** Kepler can be configured using the `hack/config.yaml` file. You can customize settings like log level, filesystem paths, and more:
+Choose your preferred method:
 
 ```bash
-# Run Kepler with a custom configuration file
-sudo ./bin/kepler --config hack/config.yaml
-```
+# 💻 Local Development
+make build && sudo ./bin/kepler
 
-**Note:** Running Kepler locally requires you to:
+# ✨ Docker Compose (with Prometheus & Grafana)
+cd compose/dev && docker-compose up -d
 
-- Set up Prometheus and Grafana separately for metrics collection and visualization
-- Configure Prometheus to scrape metrics from Kepler's endpoint
-
-**📋 Access the Services:**
-
-- **Kepler Metrics**: <http://localhost:28282/metrics>
-
-### 2️⃣ Running with Docker Compose ✨
-
-The Docker Compose method provides a complete environment with Kepler, Prometheus, and Grafana configured and ready to use:
-
-```bash
-cd compose/dev
-
-# Start the Docker Compose environment
-docker-compose up -d
-```
-
-**With Docker Compose:**
-
-- 🔍 Prometheus is automatically deployed and configured
-- 📊 Grafana is automatically deployed with pre-configured dashboards
-- 🔄 All services are connected and ready to use
-- 🛠️ No additional setup required
-
-**📋 Access the Services:**
-
-- **Kepler Metrics**: <http://localhost:28283/metrics>
-- **Prometheus**: <http://localhost:29090>
-- **Grafana**: <http://localhost:23000> (default credentials: admin/admin)
-
-### 3️⃣ Running on Kubernetes 🐳
-
-Deploy Kepler to your Kubernetes cluster using Helm or Kustomize:
-
-#### Using Helm Chart (Recommended)
-
-```bash
-# Install using Helm
-helm install kepler manifests/helm/kepler/ \
-  --namespace kepler \
-  --create-namespace \
-  --set namespace.create=false
-```
-
-#### Using Kustomize
-
-```bash
-# Set up a local development cluster with Kind
-make cluster-up
-
-# Deploy Kepler to the cluster
-make deploy
-```
-
-**Custom Image Deployment:**
-
-You can build, push, and deploy Kepler using your own image:
-
-```bash
-# Build and push image to your registry
-make image push IMG_BASE=<your registry> VERSION=<your version>
-
-# Deploy Kepler using the custom image
-make deploy IMG_BASE=<your registry> VERSION=<your version>
+# 🐳 Kubernetes
+helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
 ```
 
 ## 📖 Documentation
