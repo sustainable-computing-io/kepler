@@ -2,7 +2,8 @@ name: Check Config Changes
 
 on: #yamllint disable-line rule:truthy
   pull_request_target:
-
+  # Using `pull_request_target` event type to allow the workflow to comment on the PR.
+  # Refer: https://github.com/thollander/actions-comment-pull-request?tab=readme-ov-file#permissions
 permissions:
   pull-requests: write
   contents: write
@@ -16,6 +17,7 @@ jobs:
       compose_changes: ${{ steps.filter.outputs.compose }}
       hack_changes: ${{ steps.filter.outputs.hack }}
       manifest_changes: ${{ steps.filter.outputs.manifest }}
+      helm_changes: ${{ steps.filter.outputs.helm }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -35,17 +37,20 @@ jobs:
               - 'hack/config.yaml'
             manifest:
               - 'manifests/k8s/configmap.yaml'
+            helm:
+              - 'manifests/helm/kepler/values.yaml'
 
   comment-on-pr:
     needs: check-changes
     if: >-
-      ${{ needs.check-changes.outputs.changes == 'true' }} &&
-      (
-        ${{ needs.check-changes.outputs.doc_changes != 'true' }} ||
-        ${{ needs.check-changes.outputs.compose_changes != 'true' }} ||
-        ${{ needs.check-changes.outputs.hack_changes != 'true' }} ||
-        ${{ needs.check-changes.outputs.manifest_changes != 'true' }}
-      )
+        needs.check-changes.outputs.changes == 'true' &&
+        (
+          needs.check-changes.outputs.doc_changes != 'true' ||
+          needs.check-changes.outputs.compose_changes != 'true' ||
+          needs.check-changes.outputs.hack_changes != 'true' ||
+          needs.check-changes.outputs.manifest_changes != 'true' ||
+          needs.check-changes.outputs.helm_changes != 'true'
+        )
     runs-on: ubuntu-latest
     steps:
       - name: Generate comment message
@@ -66,6 +71,9 @@ jobs:
             fi
             if [[ "${{ needs.check-changes.outputs.manifest_changes }}" != "true" ]]; then
               echo "- manifests/k8s/configmap.yaml"
+            fi
+            if [[ "${{ needs.check-changes.outputs.helm_changes }}" != "true" ]]; then
+              echo "- manifests/helm/kepler/values.yaml"
             fi
             echo "EOF"
           } >> $GITHUB_OUTPUT
