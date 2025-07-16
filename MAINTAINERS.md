@@ -3,10 +3,11 @@
 <!-- markdownlint-disable  MD013 -->
 <!-- Teporarily disable MD013 - Line length to keep the table formatting  -->
 
-(As of July, 2nd, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
+(As of July, 16th, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
 
 | Name                  | Company    | Github ID      | Email                            | Role              | Last sign up |
 | --------------------- | ---------- | -------------- | -------------------------------- | ----------------- | ------------ |
+| Sunil Thaha           | Red Hat    | sthaha         | <sthaha@redhat.com>              | Project Lead      | 16/07/2025   |
 | Huamin Chen           | Red Hat    | rootfs         | <hchen@redhat.com>               |                   |              |
 | Ji Chen               | IBM        | jichenjc       | <jichenjc@cn.ibm.com>            |                   |              |
 | Parul Singh           | Red Hat    | husky-parul    | <parsingh@redhat.com>            |                   |              |
@@ -22,7 +23,6 @@
 | Sunyanan Choochotkaew | IBM        | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> |                   |              |
 | Ruomeng Hao           | Intel      | ruomengh       | <ruomengh@intel.com>             |                   |              |
 | Chen Wang             | IBM        | wangchen615    | <chen.wang1@ibm.com>             |                   |              |
-| Sunil Thaha           | Red Hat    | sthaha         | <sthaha@redhat.com>              |                   |              |
 | Jie Ren               | Intel      | jiere          | <jie.ren@intel.com>              |                   |              |
 | Vibhu Prashar         | Red Hat    | vprashar2929   | <vibhu.sharma2929@gmail.com>     |                   |              |
 | Vimal Kumar           | Red Hat    | vimalk78       | <vimal78@gmail.com>              |                   |              |
