@@ -138,6 +138,25 @@ runs:
           fi
         done
 
+    - name: Run must gather
+      shell: bash
+      run: |
+        echo "::group::Get pods in kepler namespace"
+        kubectl get pods -n kepler || true
+        echo "::endgroup::"
+
+        echo "::group::Get pods in monitoring namespace"
+        kubectl get pods -n monitoring || true
+        echo "::endgroup::"
+
+        echo "::group::Get logs for kepler daemonset"
+        kubectl logs daemonset/kepler -n kepler || true
+        echo "::endgroup::"
+
+        echo "::group::Fetch metrics from localhost:28282"
+        curl -s http://localhost:28282/metrics || true
+        echo "::endgroup::"
+
     - name: Remove existing Kepler deployment
       shell: bash
       run: |
@@ -179,19 +198,11 @@ runs:
         echo "Helm deployment metrics endpoint is working"
         echo "::endgroup::"
 
-    - name: Cleanup Helm deployment
-      shell: bash
-      run: |
-        echo "::group::Cleanup Helm deployment"
-        helm uninstall kepler-helm-test -n kepler-helm
-        kubectl delete namespace kepler-helm
-        echo "::endgroup::"
-
-    - name: Run must gather
+    - name: Run must gather for Helm deployment
       shell: bash
       run: |
         echo "::group::Get pods in kepler namespace"
-        kubectl get pods -n kepler || true
+        kubectl get pods -n kepler-helm || true
         echo "::endgroup::"
 
         echo "::group::Get pods in monitoring namespace"
@@ -199,9 +210,17 @@ runs:
         echo "::endgroup::"
 
         echo "::group::Get logs for kepler daemonset"
-        kubectl logs daemonset/kepler -n kepler || true
+        kubectl logs daemonset/kepler-helm-test -n kepler-helm || true
         echo "::endgroup::"
 
-        echo "::group::Fetch metrics from localhost:28282"
-        curl -s http://localhost:28282/metrics || true
+        echo "::group::Fetch metrics from localhost:28283"
+        curl -s http://localhost:28283/metrics || true
+        echo "::endgroup::"
+
+    - name: Cleanup Helm deployment
+      shell: bash
+      run: |
+        echo "::group::Cleanup Helm deployment"
+        helm uninstall kepler-helm-test -n kepler-helm
+        kubectl delete namespace kepler-helm
         echo "::endgroup::"
