@@ -73,9 +73,16 @@ helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
 
 ## 📖 Documentation
 
+### User Documentation
+
 - **[Installation Guide](docs/user/installation.md)** - Detailed installation instructions for all deployment methods
-- **[Configuration Guide](docs/configuration/configuration.md)** - Configuration options and examples
-- **[Metrics Documentation](docs/metrics/metrics.md)** - Available metrics and their descriptions
+- **[Configuration Guide](docs/user/configuration.md)** - Configuration options and examples
+- **[Metrics Documentation](docs/user/metrics.md)** - Available metrics and their descriptions
+
+### Developer Documentation
+
+- **[Power Attribution Guide](docs/developer/power-attribution-guide.md)** - How Kepler measures and attributes power consumption
+- **[Developer Documentation](docs/developer/)** - Contributing guidelines and development workflow
 
 For more detailed documentation, please visit the [official Kepler documentation](https://sustainable-computing.io/kepler/).
 
