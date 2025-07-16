@@ -1,32 +1,67 @@
-name: Maintainer nominate
-description: for nominate a maintainer or self nominate usage.
-labels: kind/documentation
+name: Nominate New Maintainer or Role
+description: Use this template to nominate a new maintainer, assign a new role, or self-nominate.
+labels:
+  - kind/documentation
+  - kind/nomination
+
 body:
   - type: textarea
     id: nominee
     attributes:
-      label: please introduce nominee here
-      description: please including the github id or slack id for nominee
+      label: 🧑‍💼 Nominee Introduction
+      description: |
+        Please include the nominee's GitHub ID or Slack ID, the role they are being nominated for, and a brief explanation of why they are being nominated.
+      placeholder: |
+        GitHub ID: @username
+        Role: Maintainer
+        Reason: Contributed extensively to XYZ area...
     validations:
       required: true
 
   - type: textarea
     id: support
     attributes:
-      label: for example, contribution on github as pr or others like conference speech.
+      label: 🔗 Supporting Contributions
+      description: |
+        Provide links that support this nomination — for example, GitHub PRs, issue discussions, talks, blogs, or community contributions.
+      placeholder: |
+        - https://github.com/sustainable-computing-io/kepler/pull/
+        - Presented at ABC Conference: [link]
     validations:
       required: true
 
   - type: checkboxes
-    id: confirm
+    id: self_nomination
     attributes:
-      label: Confirm the [GOVERNANCE.md](./GOVERNANCE.md). Include your role and update the sign-up date.
+      label: 🙋 Self Nomination
+      description: Is this a self-nomination?
       options:
-        - label: I confirm.
+        - label: Yes, this is a self-nomination.
+
+  - type: input
+    id: nominee_approval
+    attributes:
+      label: ✅ Nominee Approval (if not self-nomination)
+      description: |
+        If this is not a self-nomination, please confirm that the nominee has agreed to take the role. Mention how or where the approval was obtained (e.g., Slack message, email).
+      placeholder: Confirmed via Slack message on 2025-07-15.
+    validations:
+      required: false
 
   - type: checkboxes
-    id: pr
+    id: confirm
     attributes:
-      label: Create a PR and add the PR link to this issue
+      label: 📜 Governance Confirmation
+      description: |
+        Confirm that you have read and agree with the [GOVERNANCE.md](https://github.com/sustainable-computing-io/kepler/blob/main/GOVERNANCE.md). Please include your role and sign-up date in the comment.
       options:
-        - label: PR link is added.
+        - label: I confirm I have read and agree with GOVERNANCE.md.
+
+  - type: input
+    id: link
+    attributes:
+      label: 🔗 MAINTAINER.md PR Link
+      description: Please provide the link to the PR that updates `MAINTAINER.md`.
+      placeholder: https://github.com/sustainable-computing-io/kepler/pull/
+    validations:
+      required: false
