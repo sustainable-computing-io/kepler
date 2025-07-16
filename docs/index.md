@@ -6,24 +6,19 @@ Welcome to the Kepler documentation. Kepler is a Prometheus exporter that measur
 
 ### [User Documentation](user/)
 
+Documentation for users deploying and operating Kepler:
+
 - [Installation Guide](user/installation.md) - How to install and deploy Kepler
+- [Configuration Guide](user/configuration.md) - Configuring Kepler for your environment
+- [Metrics Reference](user/metrics.md) - Available Prometheus metrics exported by Kepler
 
 ### [Developer Documentation](developer/)
 
+Documentation for developers contributing to Kepler:
+
 - [Power Attribution Guide](developer/power-attribution-guide.md) - How Kepler measures and attributes power consumption
 - [Pre-commit Setup](developer/pre-commit.md) - Development workflow setup
-
-### [Configuration](configuration/)
-
-- [Configuration Guide](configuration/configuration.md) - Configuring Kepler for your environment
-
-### [Design Documents](design/)
-
-- [Release Process](design/release.md) - Kepler release process and lifecycle
-
-### [Metrics](metrics/)
-
-- [Metrics Documentation](metrics/metrics.md) - Available Prometheus metrics exported by Kepler
+- [Release Process](developer/release.md) - Kepler release process and lifecycle
 
 ## Quick Start
 

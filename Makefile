@@ -139,8 +139,7 @@ coverage: test ## Coverage report generation (HTML)
 # Generate metrics documentation
 .PHONY: gen-metrics-docs
 gen-metrics-docs: ## Documentation generation for metrics
-	$(GOCMD) run ./hack/gen-metric-docs/main.go --output metrics.md
-	mv metrics.md docs/metrics/
+	$(GOCMD) run ./hack/gen-metric-docs/main.go --output docs/user/metrics.md
 
 # Run linting
 .PHONY: lint
