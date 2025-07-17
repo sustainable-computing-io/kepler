@@ -1,8 +1,7 @@
 name: Check x/crypto
 
 on:
-  workflow_dispatch:
-  # pull_request_target:
+  pull_request:
 
 jobs:
   check-x-crypto-deps:
@@ -19,6 +18,11 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           fetch-depth: 0
 
+      - name: fetch base branch
+        run: |
+          git fetch https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git \
+            ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+
       - name: setup go
         uses: actions/setup-go@v5.5.0
         with:
@@ -30,14 +34,3 @@ jobs:
         with:
           base_ref: ${{ github.event.pull_request.base.ref }}
           head_sha: ${{ github.event.pull_request.head.sha }}
-
-      - name: Append run info to x/crypto report
-        run: |
-          echo "" >> /tmp/check-xcrypto-report.txt
-          echo "_(execution **${{ github.run_id }}**)_" >> /tmp/check-xcrypto-report.txt
-
-      - name: Comment x/crypto dependencies to PR
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          file-path: /tmp/check-xcrypto-report.txt
-          comment-tag: xcrypto-check
