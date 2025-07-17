@@ -11,6 +11,10 @@ Kepler is a Go-based project focused on sustainable computing. Before contributi
 - Familiarize yourself with the project structure by exploring the repository
 - Read our [GOVERNANCE.md](GOVERNANCE.md) and [MAINTAINERS.md](MAINTAINERS.md) documents
 
+## Gen AI policy
+
+Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+
 ## How Do I Start Contributing? 🚀
 
 1. Fork the repository on GitHub

@@ -90,6 +90,10 @@ For more detailed documentation, please visit the [official Kepler documentation
 
 Contributions are welcome! Please feel free to submit a Pull Request. For more detailed information about contributing to this project, please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
+### Gen AI policy
+
+Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+
 ## 📝 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSES](LICENSES) for details.
