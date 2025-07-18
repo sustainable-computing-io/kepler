@@ -1,64 +1,121 @@
 # Kepler Power Attribution Guide
 
-This guide explains how Kepler measures and attributes power consumption to processes, containers, VMs, and pods.
+This guide explains how Kepler measures and attributes power consumption to
+processes, containers, VMs, and pods running on a system.
 
-## How Power Measurement Works
+## Table of Contents
 
-Kepler's power attribution follows a simple but effective approach: measure total system energy consumption from hardware, then distribute it fairly to individual workloads based on their resource usage.
+1. [Bird's Eye View](#birds-eye-view)
+2. [Key Concepts](#key-concepts)
+3. [Attribution Examples](#attribution-examples)
+4. [Implementation Overview](#implementation-overview)
+5. [Code Reference](#code-reference)
+6. [Limitations and Considerations](#limitations-and-considerations)
+
+## Bird's Eye View
 
 ### The Big Picture
 
-Think of your computer like an apartment building with a single electricity meter. The meter shows total power consumption (e.g., 40W), but you need to know how much each apartment (process) is using. Kepler solves this by:
+Modern systems lack per-workload energy metering, providing only aggregate
+power consumption at the hardware level. Kepler addresses this attribution
+challenge through proportional distribution based on resource utilization:
 
-1. **Reading the main meter** - Hardware sensors (Intel RAPL) provide total energy consumption
-2. **Understanding system activity** - Monitor CPU usage to determine how "busy" the system is
-3. **Splitting costs fairly** - Divide energy between "active work" and "idle baseline"
-4. **Allocating to tenants** - Give each process power proportional to their CPU usage
+1. **Hardware Energy Collection** - Intel RAPL sensors provide cumulative
+   energy counters at package, core, DRAM, and uncore levels
+2. **System Activity Analysis** - CPU utilization metrics from `/proc/stat`
+   determine the ratio of active vs idle system operation
+3. **Power Domain Separation** - Total energy is split into active power
+   (proportional to workload activity) and idle power (baseline consumption)
+4. **Proportional Attribution** - Active power is distributed to workloads
+   based on their CPU time consumption ratios
 
-### Core Insight: Active vs Idle Power
+### Core Philosophy
 
-The key insight is that system power has two components:
+Kepler implements a **CPU-time-proportional energy attribution model** that
+distributes hardware-measured energy consumption to individual workloads based
+on their computational resource usage patterns.
 
-- **Active Power**: Energy consumed doing actual work (running processes)
-- **Idle Power**: Baseline energy for keeping the system running (even when idle)
+The fundamental principle recognizes that system power consumption has two
+distinct components:
 
-If your system uses 25% of CPU capacity, then 25% of total power goes to "active" and 75% stays as "idle."
+- **Active Power**: Energy consumed by computational work, proportional to CPU
+  utilization and scalable with workload activity
+- **Idle Power**: Fixed baseline energy for maintaining system operation,
+  including memory refresh, clock distribution, and idle core power states
 
-### Attribution Principle
+### Attribution Formula
 
-Once Kepler knows the active power available, it distributes it proportionally:
+All workload types use the same proportional attribution formula:
 
 ```text
-Process Power = (Process CPU Time / Total CPU Time) × Active Power
+Workload Power = (Workload CPU Time Δ / Node CPU Time Δ) × Active Power
 ```
 
-This ensures that processes consuming more CPU get more power attribution, while the total never exceeds what hardware actually measured.
-
-## Overview
-
-Kepler uses a hierarchical power attribution system that starts with hardware energy measurements and distributes power proportionally based on CPU utilization. The system ensures energy conservation while providing fair attribution across workloads.
+This ensures energy conservation - the sum of attributed power remains
+proportional to measured hardware consumption while maintaining fairness based
+on actual resource utilization.
 
 ![Power Attribution Diagram](assets/power-attribution.png)
 
-*Figure 1: Power attribution flow showing how 40W total power is split between active (10W) and idle (30W) components, then distributed to workloads based on CPU usage ratios.*
+*Figure 1: Power attribution flow showing how total measured power is
+decomposed into active and idle components, with active power distributed
+proportionally based on workload CPU time deltas.*
 
-### Real-World Example
+### Multi-Socket and Zone Aggregation
 
-Using the diagram above:
+Modern server systems often feature multiple CPU sockets, each with their own
+RAPL energy domains. Kepler handles this complexity through zone aggregation:
 
-- **Hardware reports**: 40W total system power
-- **System analysis**: 25% CPU usage ratio
-- **Power split**: 40W × 25% = 10W active, 30W idle
-- **VM attribution**: VM uses 100% of active CPU → gets all 10W active power
-- **Container breakdown**: Within the VM, containers get proportional shares of the 10W
+**Zone Types and Hierarchy:**
 
-## Architecture Components
+- **Package zones**: CPU socket-level energy (e.g., `package-0`, `package-1`)
+- **Core zones**: Individual CPU core energy within each package
+- **DRAM zones**: Memory controller energy per socket
+- **Uncore zones**: Integrated GPU, cache, and interconnect energy
+- **PSys zones**: Platform-level energy (most comprehensive when available)
 
-### 1. Hardware Energy Reading (`internal/device/`)
+**Aggregation Strategy:**
 
-The device layer provides the foundation for all power measurements:
+```text
+Total Package Energy = Σ(Package-0 + Package-1 + ... + Package-N)
+Total DRAM Energy = Σ(DRAM-0 + DRAM-1 + ... + DRAM-N)
+```
 
-#### Energy Zones
+**Counter Wraparound Handling:**
+Each zone maintains independent energy counters that can wrap around at
+different rates. The `AggregatedZone` implementation:
+
+- Tracks last readings per individual zone
+- Calculates deltas across wraparound boundaries using `MaxEnergy` values
+- Aggregates deltas to provide system-wide energy consumption
+- Maintains a unified counter that wraps at the combined `MaxEnergy` boundary
+
+This ensures accurate energy accounting across heterogeneous multi-socket
+systems while preserving the precision needed for power attribution
+calculations.
+
+## Key Concepts
+
+### CPU Time Hierarchy
+
+CPU time is calculated hierarchically for different workload types:
+
+```text
+Process CPU Time = Individual process CPU time from /proc/<pid>/stat
+Container CPU Time = Σ(CPU time of all processes in the container)
+Pod CPU Time = Σ(CPU time of all containers in the pod)
+VM CPU Time = CPU time of the hypervisor process (e.g., QEMU/KVM)
+Node CPU Time = Σ(All process CPU time deltas)
+```
+
+### Energy vs Power
+
+- **Energy**: Measured in microjoules (μJ) as cumulative counters from hardware
+- **Power**: Calculated as rate in microwatts (μW) using `Power = ΔEnergy / Δtime`
+
+### Energy Zones
+
+Hardware energy is read from different zones:
 
 - **Package**: CPU package-level energy consumption
 - **Core**: Individual CPU core energy
@@ -66,23 +123,222 @@ The device layer provides the foundation for all power measurements:
 - **Uncore**: Integrated graphics and other uncore components
 - **PSys**: Platform-level energy (most comprehensive when available)
 
-#### Key Interfaces
+### Independent Attribution
 
-- `EnergyZone`: Interface for reading energy from hardware zones
-- `CPUPowerMeter`: Main interface for accessing energy zones
-- `AggregatedZone`: Combines multiple zones of the same type
+Each workload type (process, container, VM, pod) calculates power
+**independently** based on its own CPU time usage. This means:
 
-#### Energy Types
+- Containers don't inherit power from their processes
+- Pods don't inherit power from their containers
+- VMs don't inherit power from their processes
+- Each calculates directly from node active power
 
-- **Energy**: Measured in microjoules (μJ) as cumulative counters
-- **Power**: Calculated as rate in microwatts (μW) using `Power = ΔEnergy / Δtime`
+## Attribution Examples
+
+### Example 1: Basic Power Split
+
+**System State:**
+
+- Hardware reports: 40W total system power
+- Node CPU usage: 25% utilization ratio
+- Power split: 40W × 25% = 10W active, 30W idle
+
+**Workload Attribution:**
+If a container used 20% of total node CPU time during the measurement
+interval:
+
+- **Container power** = (20% CPU usage) × 10W active = 2W
+
+### Example 2: Multi-Workload Scenario
+
+**System State:**
+
+- Total power: 60W
+- CPU usage ratio: 33.3% (1/3)
+- Active power: 20W, Idle power: 40W
+- Node total CPU time: 1000ms
+
+**Process-Level CPU Usage:**
+
+- Process 1 (standalone): 100ms CPU time
+- Process 2 (in container-A): 80ms CPU time
+- Process 3 (in container-A): 70ms CPU time
+- Process 4 (in container-B): 60ms CPU time
+- Process 5 (QEMU hypervisor): 200ms CPU time
+- Process 6 (in container-C, pod-X): 90ms CPU time
+- Process 7 (in container-D, pod-X): 110ms CPU time
+
+**Hierarchical CPU Time Aggregation:**
+
+- Container-A CPU time: 80ms + 70ms = 150ms
+- Container-B CPU time: 60ms
+- Container-C CPU time: 90ms (part of pod-X)
+- Container-D CPU time: 110ms (part of pod-X)
+- Pod-X CPU time: 90ms + 110ms = 200ms
+- VM CPU time: 200ms (QEMU hypervisor process)
+
+**Independent Power Attribution (each from node active power):**
+
+- Process 1: (100ms / 1000ms) × 20W = 2W
+- Process 2: (80ms / 1000ms) × 20W = 1.6W
+- Process 3: (70ms / 1000ms) × 20W = 1.4W
+- Process 4: (60ms / 1000ms) × 20W = 1.2W
+- Process 5: (200ms / 1000ms) × 20W = 4W
+- Process 6: (90ms / 1000ms) × 20W = 1.8W
+- Process 7: (110ms / 1000ms) × 20W = 2.2W
+- Container-A: (150ms / 1000ms) × 20W = 3W
+- Container-B: (60ms / 1000ms) × 20W = 1.2W
+- Container-C: (90ms / 1000ms) × 20W = 1.8W
+- Container-D: (110ms / 1000ms) × 20W = 2.2W
+- Pod-X: (200ms / 1000ms) × 20W = 4W
+- VM: (200ms / 1000ms) × 20W = 4W
+
+**Note:** Each workload type calculates power independently from node active power based on its own CPU time, not by inheriting from constituent workloads.
+
+### Example 3: Container with Multiple Processes
+
+**Container "web-server":**
+
+- Process 1 (nginx): 100ms CPU time
+- Process 2 (worker): 50ms CPU time
+- Container total: 150ms CPU time
+
+**If node total CPU time is 1000ms:**
+
+- Container CPU ratio: 150ms / 1000ms = 15%
+- Container power: 15% × active power
+
+### Example 4: Pod with Multiple Containers
+
+**Pod "frontend":**
+
+- Container 1 (nginx): 200ms CPU time
+- Container 2 (sidecar): 50ms CPU time
+- Pod total: 250ms CPU time
+
+**If node total CPU time is 1000ms:**
+
+- Pod CPU ratio: 250ms / 1000ms = 25%
+- Pod power: 25% × active power
+
+## Implementation Overview
+
+### Architecture Flow
+
+```text
+Hardware (RAPL) → Device Layer → Monitor (Attribution) → Exporters
+    ↑                                ↑
+/proc filesystem → Resource Layer ----┘
+```
+
+### Core Components
+
+1. **Device Layer** (`internal/device/`): Reads energy from hardware sensors
+2. **Resource Layer** (`internal/resource/`): Tracks processes/containers/VMs/ pods
+   and calculates CPU time
+3. **Monitor Layer** (`internal/monitor/`): Performs power attribution calculations
+4. **Export Layer** (`internal/exporter/`): Exposes metrics via Prometheus/stdout
+
+### Attribution Process
+
+1. **Hardware Reading**: Device layer reads total energy from RAPL sensors
+2. **CPU Time Calculation**: Resource layer aggregates CPU time hierarchically
+3. **Node Power Split**: Monitor calculates active vs idle power based on CPU usage ratio
+4. **Workload Attribution**: Each workload gets power proportional to its CPU time
+5. **Energy Accumulation**: Energy totals accumulate over time for each workload
+6. **Export**: Metrics are exposed for consumption
+
+### Thread Safety
+
+- **Device Layer**: Not required to be thread-safe (single monitor goroutine)
+- **Resource Layer**: Not required to be thread-safe
+- **Monitor Layer**: All public methods except `Init()` must be thread-safe
+- **Singleflight Pattern**: Prevents redundant power calculations during
+  concurrent requests
+
+## Code Reference
+
+### Key Files and Functions
+
+#### Node Power Calculation
+
+**File**: `internal/monitor/node.go`
+**Function**: `calculateNodePower()`
+
+```go
+// Splits total hardware energy into active and idle components
+activeEnergy = Energy(float64(deltaEnergy) * nodeCPUUsageRatio)
+idleEnergy := deltaEnergy - activeEnergy
+```
+
+#### Process Power Attribution
+
+**File**: `internal/monitor/process.go`
+**Function**: `calculateProcessPower()`
+
+```go
+// Each process gets power proportional to its CPU usage
+cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
+process.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
+```
+
+#### Container Power Attribution
+
+**File**: `internal/monitor/container.go`
+**Function**: `calculateContainerPower()`
+
+```go
+// Container CPU time = sum of all its processes
+cpuTimeRatio := container.CPUTimeDelta / nodeCPUTimeDelta
+container.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
+```
+
+#### VM Power Attribution
+
+**File**: `internal/monitor/vm.go`
+**Function**: `calculateVMPower()`
+
+```go
+// VM CPU time = hypervisor process CPU time
+cpuTimeRatio := vm.CPUTimeDelta / nodeCPUTimeDelta
+vm.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
+```
+
+#### Pod Power Attribution
+
+**File**: `internal/monitor/pod.go`
+**Function**: `calculatePodPower()`
+
+```go
+// Pod CPU time = sum of all its containers
+cpuTimeRatio := pod.CPUTimeDelta / nodeCPUTimeDelta
+pod.Power = Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower))
+```
+
+#### CPU Time Aggregation
+
+**File**: `internal/resource/informer.go`
+**Functions**: `updateContainerCache()`, `updatePodCache()`,
+`updateVMCache()`
+
+```go
+// Container: Sum of process CPU times
+cached.CPUTimeDelta += proc.CPUTimeDelta
+
+// Pod: Sum of container CPU times
+cached.CPUTimeDelta += container.CPUTimeDelta
+
+// VM: Direct from hypervisor process
+cached.CPUTimeDelta = proc.CPUTimeDelta
+```
 
 #### Wraparound Handling
 
-Hardware energy counters have maximum values and wrap around to zero.
-Kepler handles this in `calculateEnergyDelta()`:
+**File**: `internal/monitor/node.go`
+**Function**: `calculateEnergyDelta()`
 
 ```go
+// Handles RAPL counter wraparound
 func calculateEnergyDelta(current, previous, maxJoules Energy) Energy {
     if current >= previous {
         return current - previous
@@ -91,204 +347,135 @@ func calculateEnergyDelta(current, previous, maxJoules Energy) Energy {
     if maxJoules > 0 {
         return (maxJoules - previous) + current
     }
-    return 0 // Unable to calculate delta
+    return 0
 }
 ```
 
-### 2. Node-Level Power Calculation (`internal/monitor/node.go`)
+### Data Structures
 
-The node calculation is the first step in power attribution, splitting total hardware energy into active and idle components.
-
-#### CPU Usage Calculation
+**File**: `internal/monitor/types.go`
 
 ```go
-nodeCPUTimeDelta := pm.resources.Node().ProcessTotalCPUTimeDelta
-nodeCPUUsageRatio := pm.resources.Node().CPUUsageRatio
-```
+type Usage struct {
+    Power       Power  // Current power consumption
+    EnergyTotal Energy // Cumulative energy over time
+}
 
-#### Energy Split Algorithm
-
-For each energy zone, Kepler calculates:
-
-```go
-deltaEnergy := calculateEnergyDelta(absEnergy, prevZone.EnergyTotal, zone.MaxEnergy())
-activeEnergy = Energy(float64(deltaEnergy) * nodeCPUUsageRatio)
-idleEnergy := deltaEnergy - activeEnergy
-```
-
-**Key Principle**: Active energy represents the portion consumed by CPU-intensive work, while idle energy represents baseline system power consumption.
-
-#### Power Calculation
-
-```go
-powerF64 := float64(deltaEnergy) / float64(timeDiff)
-power = Power(powerF64)
-activePower = Power(powerF64 * nodeCPUUsageRatio)
-idlePower = power - activePower
-```
-
-### 3. Process Power Attribution (`internal/monitor/process.go`)
-
-Individual processes receive power proportional to their CPU time usage relative to total system CPU time.
-
-#### Attribution Formula
-
-For each running process:
-
-```go
-cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
-activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
-```
-
-#### Power Assignment
-
-```go
-process.Zones[zone] = Usage{
-    Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-    EnergyTotal: absoluteEnergy,
+type NodeUsage struct {
+    EnergyTotal       Energy // Total absolute energy
+    ActiveEnergyTotal Energy // Cumulative active energy
+    IdleEnergyTotal   Energy // Cumulative idle energy
+    Power             Power  // Total power
+    ActivePower       Power  // Active power
+    IdlePower         Power  // Idle power
 }
 ```
 
-#### Cumulative Energy Tracking
+## Limitations and Considerations
 
-Process energy accumulates over time:
+### CPU Power States and Attribution Accuracy
 
-```go
-absoluteEnergy := activeEnergy
-if prev, exists := prev.Processes[pid]; exists {
-    if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-        absoluteEnergy += prevUsage.EnergyTotal
-    }
-}
-```
+Modern CPUs implement sophisticated power management that affects attribution
+accuracy beyond simple CPU time percentages:
 
-## Attribution Flow Example
+#### C-States (CPU Sleep States)
 
-Using the diagram as reference, here's how 40W total power gets attributed:
+- **C0 (Active)**: CPU executing instructions
+- **C1 (Halt)**: CPU stopped but cache coherent
+- **C2-C6+ (Deep Sleep)**: Progressively deeper sleep states
+- **Impact**: Two processes with identical CPU time can have different power
+  footprints based on sleep behavior
 
-### Step 1: Hardware Measurement
+#### P-States (Performance States)
 
-- RAPL sensors report total energy consumption for the measurement interval
-- Convert to power: `40W total power`
+- **Dynamic Frequency Scaling**: CPU frequency adjusts based on workload
+- **Voltage Scaling**: Power scales quadratically with voltage changes
+- **Turbo Boost**: Short bursts of higher frequency
+- **Impact**: High-frequency workloads consume disproportionately more power
+  per CPU cycle
 
-### Step 2: Node CPU Usage Analysis
+### Workload-Specific Characteristics
 
-- System reports 25% CPU usage ratio
-- Split power: `40W × 25% = 10W active`, `40W - 10W = 30W idle`
-
-### Step 3: Process Attribution
-
-- VM process uses 100% of active CPU time
-- VM gets: `10W × (100% CPU usage) = 10W`
-- Container processes within VM get proportional shares of the 10W
-
-### Step 4: Workload Aggregation
-
-- **Container power** = sum of constituent process power
-- **VM power** = sum of all processes in the VM
-- **Pod power** = sum of container power (in Kubernetes)
-
-## Key Principles
-
-### 1. Energy Conservation
-
-The total attributed power always equals the measured hardware power:
+#### Compute vs Memory-Bound Workloads
 
 ```text
-Σ(Process Power) + Idle Power = Total Hardware Power
+Example Scenario:
+- Process A: 50% CPU, compute-intensive (high frequency, active execution)
+- Process B: 50% CPU, memory-bound (frequent stalls, lower frequency)
+
+Current Attribution: Both receive equal power
+Reality: Process A likely consumes 2-3x more power
 ```
 
-### 2. Proportional Attribution
+#### Instruction-Level Variations
 
-Power distribution is strictly proportional to CPU time usage:
+- **Vector Instructions (AVX/SSE)**: 2-4x more power than scalar operations
+- **Execution Units**: Different power profiles for integer vs floating point
+- **Cache Behavior**: Cache misses trigger higher memory controller power
+
+### Beyond CPU Attribution
+
+#### Memory Subsystem
+
+- **DRAM Power**: Memory-intensive workloads consume more DRAM power
+- **Memory Controller**: Higher bandwidth increases uncore power
+- **Cache Hierarchy**: Different access patterns affect cache power
+
+#### I/O and Peripherals
+
+- **Storage I/O**: Triggers storage controller and device power
+- **Network I/O**: Consumes network interface and PCIe power
+- **GPU Workloads**: Integrated graphics power not captured by CPU metrics
+
+### Temporal Distribution Issues
+
+#### Bursty vs Steady Workloads
 
 ```text
-Process Power = (Process CPU Time / Total CPU Time) × Active Power
+10-Second Window Example:
+- Process A: Steady 20% CPU throughout interval
+- Process B: 100% CPU for 2 seconds, idle for 8 seconds (20% average)
+
+Current Attribution: Both receive equal power
+Reality: Process B likely consumed more during its burst due to:
+- Higher frequency scaling
+- Thermal effects
+- Different sleep state behavior
 ```
 
-### 3. Hierarchical Aggregation
+### When CPU Attribution Works Well
 
-Higher-level workloads inherit power from their constituent processes:
+- **CPU-bound workloads** with similar instruction mixes
+- **Steady-state workloads** without significant frequency scaling
+- **Relative comparisons** between similar workload types
+- **Trend analysis** over longer time periods
 
-- **Pods** = sum of container power
-- **Containers** = sum of process power
-- **VMs** = sum of process power
+### When to Exercise Caution
 
-### 4. Idle Power Handling
-
-Idle power represents baseline system consumption and is tracked separately but not attributed to individual workloads.
-
-## Implementation Details
-
-### Thread Safety
-
-- **Device Layer**: Not required to be thread-safe (single monitor goroutine)
-- **Monitor Layer**: All public methods except `Init()` must be thread-safe
-- **Singleflight Pattern**: Prevents redundant power calculations during concurrent requests
-
-### Data Freshness
-
-- Configurable staleness threshold ensures data isn't stale
-- Atomic snapshots provide consistent power readings across all workloads
-
-### Terminated Process Handling
-
-- Terminated processes are tracked in a separate collection
-- Power attribution continues until the next export cycle
-- Priority-based retention manages memory usage
-
-### Error Handling
-
-- Individual zone read failures don't stop attribution
-- Graceful degradation when hardware sensors are unavailable
-- Comprehensive logging for debugging attribution issues
-
-## Configuration
-
-### Key Settings
-
-- **Collection Interval**: How frequently to read hardware sensors
-- **Staleness Threshold**: Maximum age of cached power data
-- **Zone Filtering**: Which RAPL zones to use for attribution
-- **Fake Meter**: Development mode when hardware unavailable
-
-### Development Mode
-
-```bash
-# Use fake CPU meter for development
-sudo ./bin/kepler --dev.fake-cpu-meter.enabled --config hack/config.yaml
-```
-
-## Monitoring and Debugging
-
-### Metrics Access
-
-- **Local**: `http://localhost:28282/metrics`
-- **Compose**: `http://localhost:28283/metrics`
-- **Grafana**: `http://localhost:23000`
-
-### Debug Options
-
-```bash
-# Enable debug logging
---log.level=debug
-
-# Use stdout exporter for immediate inspection
---exporter.stdout
-
-# Enable performance profiling
---debug.pprof
-```
+- **Mixed workload environments** with varying compute vs I/O patterns
+- **High-performance computing** workloads using specialized instructions
+- **Absolute power budgeting** decisions based solely on Kepler metrics
+- **Fine-grained optimization** requiring precise per-process power
+  measurement
 
 ### Key Metrics
 
 - `kepler_node_cpu_watts{}`: Total node power consumption
 - `kepler_process_cpu_watts{}`: Individual process power
-- `kepler_container_cpu_watts{}`: Container-level aggregation
-- `kepler_vm_cpu_watts{}`: Virtual machine power attribution
+- `kepler_container_cpu_watts{}`: Container-level power
+- `kepler_vm_cpu_watts{}`: Virtual machine power
+- `kepler_pod_cpu_watts{}`: Kubernetes pod power
 
 ## Conclusion
 
-Kepler's power attribution system provides accurate, proportional distribution of hardware energy consumption to individual workloads. By using CPU utilization as the primary attribution factor and maintaining strict energy conservation, Kepler enables fine-grained energy accounting for modern containerized and virtualized environments.
+Kepler's power attribution system provides practical, proportional distribution
+of hardware energy consumption to individual workloads. While CPU-time-based
+attribution has inherent limitations due to modern CPU complexity, it offers a
+good balance between accuracy, simplicity, and performance overhead for most
+monitoring and optimization use cases.
 
-The implementation balances accuracy with performance, providing thread-safe concurrent access while minimizing the overhead of continuous power monitoring.
+The implementation ensures energy conservation, fair proportional distribution,
+and thread-safe concurrent access while minimizing the overhead of continuous
+power monitoring. Understanding both the capabilities and limitations helps
+users make informed decisions about when and how to rely on Kepler's power
+attribution metrics.
