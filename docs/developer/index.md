@@ -6,6 +6,10 @@ This section contains documentation for developers working on Kepler.
 
 - [Power Attribution Guide](power-attribution-guide.md) - Comprehensive guide on how Kepler measures and attributes power consumption to processes, containers, VMs, and pods
 
+## Enhancement Proposals
+
+- [Enhancement Proposals](proposal/) - Technical proposals for major features and changes to Kepler
+
 ## Development Workflow
 
 - [Pre-commit Setup](pre-commit.md) - Setting up pre-commit hooks for code quality
