@@ -46,17 +46,17 @@ jobs:
         shell: bash
         run: make deps
 
-      - name: Build Image
-        shell: bash
-        run: |
-          make image
-
       - name: Extract version
         shell: bash
         id: version
         run: |
           TAG_NAME=${{ github.ref_name }}
           echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build Image
+        shell: bash
+        run: |
+          make image VERSION=${{ steps.version.outputs.version }}
 
       - name: Update Helm Chart Version
         shell: bash
@@ -107,4 +107,4 @@ jobs:
       - name: Push Image
         shell: bash
         run: |
-          make push
+          make push VERSION=${{ steps.version.outputs.version }}
