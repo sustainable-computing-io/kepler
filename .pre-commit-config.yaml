@@ -78,12 +78,9 @@ repos:
       - id: shellcheck
         args: [-x]
 
-  - repo: local
+  - repo: https://github.com/gruntwork-io/pre-commit
+    rev: v0.1.30
     hooks:
-      - id: helm-lint
+      - id: helmlint
         name: helm-lint
-        entry: helm lint
-        language: system
         files: ^manifests/helm/[^/]+/(Chart\.yaml|values\.yaml|templates/.*)$
-        pass_filenames: false
-        args: [manifests/helm/kepler]
