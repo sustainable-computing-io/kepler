@@ -33,6 +33,10 @@ Our pre-commit configuration includes the following hooks:
 7. **codespell**: Checks for common misspellings
 8. **golangci-lint**: Runs Go linters
 9. **commitlint**: Validates commit messages against Conventional Commits format
+10. **reuse-lint-file**: Checks copyright and license information in files
+11. **shell-fmt-go**: Formats shell scripts using `shfmt`
+12. **shellcheck**: Lints shell scripts
+13. **helmlint**: Lints Helm charts which requires `helm` command to be installed
 
 ## Running Manually
 
