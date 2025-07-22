@@ -1,0 +1,20 @@
+log:
+  level: debug
+  format: text
+
+exporter:
+  mcp:
+    enabled: true
+    transport: "streamable"  # Streamable HTTP transport
+    httpPath: "/mcp"         # HTTP endpoint path
+  prometheus:
+    enabled: false
+
+web:
+  listenAddresses:
+    - ":28282"
+
+dev:
+  fake-cpu-meter:
+    enabled: true
+    zones: ["package", "core", "uncore", "dram"]

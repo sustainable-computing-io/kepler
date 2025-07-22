@@ -73,9 +73,16 @@ type (
 		MetricsLevel    Level    `yaml:"metricsLevel"`
 	}
 
+	McpExporter struct {
+		Enabled   *bool  `yaml:"enabled"`
+		Transport string `yaml:"transport"` // "stdio", "sse", "streamable"
+		HTTPPath  string `yaml:"httpPath"`  // HTTP endpoint path
+	}
+
 	Exporter struct {
 		Stdout     StdoutExporter     `yaml:"stdout"`
 		Prometheus PrometheusExporter `yaml:"prometheus"`
+		Mcp        McpExporter        `yaml:"mcp"`
 	}
 
 	// Debug configuration
@@ -177,6 +184,9 @@ const (
 	ExporterStdoutEnabledFlag = "exporter.stdout"
 
 	ExporterPrometheusEnabledFlag = "exporter.prometheus"
+	ExporterMcpEnabledFlag        = "exporter.mcp"
+	ExporterMcpTransportFlag      = "exporter.mcp.transport"
+	ExporterMcpHttpPathFlag       = "exporter.mcp.http-path"
 	// NOTE: not a flag
 	ExporterPrometheusDebugCollectors = "exporter.prometheus.debug-collectors"
 	ExporterPrometheusMetricsFlag     = "metrics"
@@ -218,6 +228,11 @@ func DefaultConfig() *Config {
 				Enabled:         ptr.To(true),
 				DebugCollectors: []string{"go"},
 				MetricsLevel:    MetricsLevelAll,
+			},
+			Mcp: McpExporter{
+				Enabled:   ptr.To(false),
+				Transport: "stdio",
+				HTTPPath:  "/mcp",
 			},
 		},
 		Debug: Debug{
@@ -319,6 +334,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	stdoutExporterEnabled := app.Flag(ExporterStdoutEnabledFlag, "Enable stdout exporter").Default("false").Bool()
 
 	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
+	mcpExporterEnabled := app.Flag(ExporterMcpEnabledFlag, "Enable MCP exporter").Default("false").Bool()
+	mcpTransport := app.Flag(ExporterMcpTransportFlag, "MCP transport (stdio, sse, streamable)").Default("stdio").Enum("stdio", "sse", "streamable")
+	mcpHttpPath := app.Flag(ExporterMcpHttpPathFlag, "MCP HTTP endpoint path").Default("/mcp").String()
 
 	metricsLevel := MetricsLevelAll
 	app.Flag(ExporterPrometheusMetricsFlag, "Metrics levels to export (node,process,container,vm,pod)").SetValue(NewMetricsLevelValue(&metricsLevel))
@@ -371,6 +389,18 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[ExporterPrometheusEnabledFlag] {
 			cfg.Exporter.Prometheus.Enabled = prometheusExporterEnabled
+		}
+
+		if flagsSet[ExporterMcpEnabledFlag] {
+			cfg.Exporter.Mcp.Enabled = mcpExporterEnabled
+		}
+
+		if flagsSet[ExporterMcpTransportFlag] {
+			cfg.Exporter.Mcp.Transport = *mcpTransport
+		}
+
+		if flagsSet[ExporterMcpHttpPathFlag] {
+			cfg.Exporter.Mcp.HTTPPath = *mcpHttpPath
 		}
 
 		if flagsSet[ExporterPrometheusMetricsFlag] {
@@ -602,6 +632,9 @@ func (c *Config) manualString() string {
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},
+		{ExporterMcpEnabledFlag, fmt.Sprintf("%v", c.Exporter.Mcp.Enabled)},
+		{ExporterMcpTransportFlag, c.Exporter.Mcp.Transport},
+		{ExporterMcpHttpPathFlag, c.Exporter.Mcp.HTTPPath},
 		{ExporterPrometheusDebugCollectors, strings.Join(c.Exporter.Prometheus.DebugCollectors, ", ")},
 		{ExporterPrometheusMetricsFlag, c.Exporter.Prometheus.MetricsLevel.String()},
 		{pprofEnabledFlag, fmt.Sprintf("%v", c.Debug.Pprof.Enabled)},

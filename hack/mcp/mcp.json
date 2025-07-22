@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "kepler": {
+      "command": "sudo ./bin/kepler",
+      "args": [
+        "--exporter.mcp",
+        "--config=test-mcp-config.yaml"
+      ],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin:/bin"
+      },
+      "description": "Kepler power monitoring MCP server - provides energy consumption data for processes, containers, VMs, and pods"
+    }
+  }
+}

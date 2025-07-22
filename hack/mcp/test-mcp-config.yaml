@@ -1,0 +1,14 @@
+log:
+  level: debug
+  format: text
+
+exporter:
+  mcp:
+    enabled: true
+  prometheus:
+    enabled: false
+
+dev:
+  fake-cpu-meter:
+    enabled: true
+    zones: ["package", "core", "uncore", "dram"]

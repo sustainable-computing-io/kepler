@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kepler": {
+      "command": "/usr/local/bin/kepler",
+      "args": ["--exporter.mcp", "--config=/etc/kepler/kepler.yaml"],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "KEPLER_LOG_LEVEL": "info"
+      },
+      "description": "Kepler power monitoring MCP server (production)"
+    }
+  }
+}

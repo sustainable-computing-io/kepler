@@ -13,6 +13,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/mcp"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -31,9 +32,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Configure logger - use stderr if stdout exporter is enabled to prevent output interleaving
+	// Configure logger - use stderr if stdout exporter or MCP stdio transport is enabled to prevent output interleaving
 	logOut := os.Stdout
-	if *cfg.Exporter.Stdout.Enabled {
+	if *cfg.Exporter.Stdout.Enabled || (*cfg.Exporter.Mcp.Enabled && cfg.Exporter.Mcp.Transport == "stdio") {
 		logOut = os.Stderr
 	}
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
@@ -189,6 +190,25 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if *cfg.Exporter.Stdout.Enabled {
 		stdoutExporter := stdout.NewExporter(pm, stdout.WithLogger(logger))
 		services = append(services, stdoutExporter)
+	}
+
+	// Add MCP server if enabled
+	if *cfg.Exporter.Mcp.Enabled {
+		var mcpServer *mcp.Server
+
+		switch cfg.Exporter.Mcp.Transport {
+		case "sse":
+			mcpServer = mcp.NewServer(pm, logger, mcp.WithSSETransport(apiServer, cfg.Exporter.Mcp.HTTPPath))
+		case "streamable":
+			mcpServer = mcp.NewServer(pm, logger, mcp.WithStreamableHTTP(apiServer, cfg.Exporter.Mcp.HTTPPath))
+		case "stdio":
+			mcpServer = mcp.NewServer(pm, logger)
+		default:
+			logger.Warn("Unknown MCP transport, defaulting to stdio", "transport", cfg.Exporter.Mcp.Transport)
+			mcpServer = mcp.NewServer(pm, logger)
+		}
+
+		services = append(services, mcpServer)
 	}
 
 	return services, nil
