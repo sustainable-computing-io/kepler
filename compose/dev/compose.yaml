@@ -10,6 +10,10 @@ services:
     build:
       context: ../../
       dockerfile: Dockerfile
+      args:
+        VERSION: 0.0.0-dev
+        GIT_COMMIT: dev
+        GIT_BRANCH: dev
 
     ports:
       # NOTE: Use 28282 for host
@@ -44,53 +48,40 @@ services:
       - kepler-dev
       # - kind  # NOTE: uncomment to use kind
 
-  kepler-old:
+  kepler-latest:
     image: quay.io/sustainable_computing_io/kepler:latest
-    privileged: true
-    pid: host
-    networks:
-      - kepler-old
-      # - kind  # NOTE: uncomment to use kind
-    cap_add:
-      - ALL
     ports:
-      - 29288:8888
-
+      # NOTE: Use 28282 for host
+      - 28284:28282
+    privileged: true
     volumes:
       - type: bind
         source: /proc
         target: /host/proc
+        read_only: true
       - type: bind
         source: /sys
         target: /host/sys
+        read_only: true
       - type: bind
-        source: ./kepler-old/etc/kepler
+        source: ./kepler-latest/etc/kepler/
         target: /etc/kepler
+        read_only: true
+
+      # NOTE: place kubeconfig here
+      # e.g. cp $KUBECONFIG ./shared/kube/kubeconfig
+      # for kind cluster, rename host in kubeconfig to kind-control-plane:6443
       - type: bind
         source: ./shared/kube
         target: /host/kube
         read_only: true
 
-    entrypoint: [/usr/bin/bash, -c]
     command:
-      - |
-        echo Starting kepler;
-        # NOTE: uncomment to wait for estimator container
-        # echo waiting for estimator socket to be ready;
-        # until [[ -e /tmp/estimator.sock ]]; do
-        #   echo " ... waiting for socket";
-        #   sleep 1;
-        # done;
-        set -x;
-        /usr/bin/kepler \
-          -address "0.0.0.0:8888" \
-          -disable-power-meter=$$DISABLE_POWER_METER \
-          -v "8" \
-          -enable-gpu=false \
-        # -kubeconfig=/host/kube/kubeconfig
+      - --config.file=/etc/kepler/config.yaml
 
-    environment:
-      - DISABLE_POWER_METER=${DISABLE_POWER_METER:-false}
+    networks:
+      - kepler-latest
+      # - kind  # NOTE: uncomment to use kind
 
   scaphandre:
     image: hubblo/scaphandre
@@ -145,7 +136,7 @@ services:
       - node-exporter-network
 
 networks:
-  kepler-old:
+  kepler-latest:
   kepler-dev:
   scaph-network:
   node-exporter-network:

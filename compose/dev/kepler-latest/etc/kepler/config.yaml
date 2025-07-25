@@ -1,0 +1,72 @@
+log:
+  level: debug # debug, info, warn, error (default: info)
+  format: text # text or json (default: text)
+
+monitor:
+  #  Interval is the monitor's refresh interval. All process that
+  #  have a life time (gets spawned and killed within one monitor interval)
+  #  less than the interval will be ignored.
+  #
+  #  NOTE: setting the interval to 0s will disable the monitor refreshes
+  interval: 5s
+
+  # Staleness is the duration after the data that is computed by the monitor
+  # in each refresh is considered stale and recomputed when requested again.
+  #
+  # This is especially useful if you have multiple prometheus instances
+  # (in a HA) scrapping kepler and the data received by both instances will be
+  # the same as long as the scrapes happens within the staleness duration.
+  #
+  # NOTE: Keep staleness shorter than the monitor interval.
+  staleness: 1000ms
+
+  # maximum number of terminated workloads (process, container, VM, pods)
+  # to be kept in memory until the data is exported; 0 disables the limit
+  maxTerminated: 500
+
+  # minimum energy threshold (in joules) for terminated workloads
+  # terminated workloads with energy consumption below this threshold will be filtered out
+  minTerminatedEnergyThreshold: 10
+
+host:
+  sysfs: /host/sys # Path to sysfs filesystem (default: /sys)
+  procfs: /host/proc # Path to procfs filesystem (default: /proc)
+
+rapl:
+  zones: [] # zones to be enabled, empty enables all default zones
+
+exporter:
+  stdout: # stdout exporter related config
+    enabled: false # disabled by default
+
+  prometheus: # prometheus exporter related config
+    enabled: true
+    debugCollectors:
+      - go
+      - process
+    metricsLevel:
+      - node
+      - process
+      - container
+      - vm
+      - pod
+
+debug: # debug related config
+  pprof: # pprof related config
+    enabled: true
+
+web:
+  configFile: "" # Path to TLS server config file
+  listenAddresses: # Web server listen addresses
+    - :28282
+
+kube: # kubernetes related config
+  enabled: false # enable kubernetes monitoring (default: false)
+  config: /host/kube/kubeconfig # path to kubeconfig file (optional if running in-cluster)
+  nodeName: kind-control-plane # name of the kubernetes node (required when enabled)
+
+# WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
+dev:
+  fake-cpu-meter:
+    enabled: false
+    zones: [] # zones to be enabled, empty enables all default zones
