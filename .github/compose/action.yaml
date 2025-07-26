@@ -1,0 +1,70 @@
+name: Build and Deploy using Docker Compose
+description: Builds and deploys Kepler using Docker Compose
+
+runs:
+  using: composite
+  steps:
+    - name: Install Docker
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+        sudo usermod -aG docker $USER
+
+    - name: Verify Docker installation
+      shell: bash
+      run: |
+        docker ps
+        docker --version
+
+    - name: Checkout source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Enable fake cpu meter
+      shell: bash
+      run: |
+        sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' \
+          compose/dev/kepler-dev/etc/kepler/config.yaml \
+          compose/dev/kepler-latest/etc/kepler/config.yaml
+
+    - name: Run Docker Compose services
+      shell: bash
+      working-directory: compose/dev
+      run: |
+        # Build and start containers for services defined in compose.yaml in detach mode
+        # NOTE: Disabling scapahndre service as it requires RAPL to be available on host
+        docker compose up --build -d --wait --wait-timeout 300 --scale scaphandre=0
+
+    - name: Run must gather
+      if: always()
+      shell: bash
+      working-directory: compose/dev
+      run: |
+        echo "::group::Get Docker ps output"
+        docker ps || true
+        echo "::endgroup::"
+
+        echo "::group::Get Docker compose ps output"
+        docker compose ps || true
+        echo "::endgroup::"
+
+        services=$(docker compose config --services)
+        for service in $services; do
+          echo "::group::Get logs for $service service"
+          docker compose logs $service || true
+          echo "::endgroup::"
+        done
+
+        echo "::group::Fetch metrics from kepler-dev service"
+        curl -s http://localhost:28283/metrics || true
+        echo "::endgroup::"
+
+        echo "::group::Fetch metrics from kepler-latest service"
+        curl -s http://localhost:28284/metrics || true
+        echo "::endgroup::"
