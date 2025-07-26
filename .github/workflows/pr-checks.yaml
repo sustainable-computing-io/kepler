@@ -158,3 +158,12 @@ jobs:
 
       - name: Build and Deploy Kepler on K8s
         uses: ./.github/k8s
+
+  compose-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build and Deploy Kepler using Docker Compose
+        uses: ./.github/compose
