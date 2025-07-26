@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Energy monitoring dashboard comparing Kepler Reboot, Node Exporter, and Kepler metrics for system-wide, process-level, and container-level energy consumption analysis.",
+  "description": "Energy monitoring dashboard comparing Kepler Dev, Node Exporter, and Kepler Latest metrics for system-wide, process-level, and container-level energy consumption analysis.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -54,7 +54,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## 🔋 Energy Monitoring Dashboard\n\nThis dashboard provides comparative metrics from multiple energy monitoring solutions:\n\n| Source | Description |\n|--------|-------------|\n| **🚀 Kepler Reboot** | Next generation energy monitoring with enhanced precision |\n| **🔥 Node Exporter** | Hardware-level monitoring via Prometheus node exporter |\n| **⚡ Kepler** | Kubernetes-based energy monitoring for containerized workloads |\n\nUse the dashboard variables to select:\n- RAPL zone (package, core, dram)\n- Monitoring job\n- Process to analyze",
+        "content": "## 🔋 Energy Monitoring Dashboard\n\nThis dashboard provides comparative metrics from multiple energy monitoring solutions:\n\n| Source | Description |\n|--------|-------------|\n| **🚀 Kepler Dev** | Development build of Kepler from current code base |\n| **🔥 Node Exporter** | Hardware-level monitoring via Prometheus node exporter |\n| **⚡ Kepler Latest** | Latest build of Kepler from the main branch |\n\nUse the dashboard variables to select:\n- RAPL zone (package, core, dram)\n- Monitoring job\n- Process to analyze",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -65,7 +65,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "CPU information from the Kepler Reboot monitoring tool",
+      "description": "CPU information from the Kepler monitoring tool",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -132,7 +132,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (instance, model_name, vendor_id) (kepler_node_cpu_info)",
+          "expr": "count by (instance, model_name, vendor_id, job) (\n  kepler_node_cpu_info\n)",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -155,7 +155,8 @@
               "Value": "Processor Count",
               "instance": "Instance",
               "model_name": "CPU Model",
-              "vendor_id": "Vendor"
+              "vendor_id": "Vendor",
+              "job": "Job"
             }
           }
         }
@@ -167,7 +168,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Build information for Kepler Reboot",
+      "description": "Build information for Kepler Dev",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -221,7 +222,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "kepler_build_info",
+          "expr": "kepler_build_info{job=\"${job}\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -229,7 +230,7 @@
           "refId": "A"
         }
       ],
-      "title": "Kepler Reboot Build Information",
+      "title": "Kepler Dev Build Information",
       "transformations": [
         {
           "id": "filterFieldsByName",
@@ -355,7 +356,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Build information for Kepler monitoring tool",
+      "description": "Build information for Kepler Latest",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -409,7 +410,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "kepler_exporter_build_info",
+          "expr": "kepler_build_info{job=\"kepler-latest\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -417,7 +418,7 @@
           "refId": "A"
         }
       ],
-      "title": "Kepler Build Information",
+      "title": "Kepler Latest Build Information",
       "transformations": [
         {
           "id": "filterFieldsByName",
@@ -523,9 +524,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_node_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s])",
+          "expr": "rate(\n  kepler_node_cpu_joules_total{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot Node (${zone}) (ΔJ/s)",
+          "legendFormat": "Kepler Dev Node (${zone}) (ΔJ/s)",
           "range": true,
           "refId": "A"
         },
@@ -535,9 +536,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "kepler_node_cpu_watts{job=\"${job}\", zone=\"${zone}\"}\n",
+          "expr": "kepler_node_cpu_watts{\n  job=\"${job}\",\n  zone=\"${zone}\"\n}",
           "instant": false,
-          "legendFormat": "Kepler Reboot Node (${zone}) Watts",
+          "legendFormat": "Kepler Dev Node (${zone}) Watts",
           "range": true,
           "refId": "B"
         },
@@ -547,7 +548,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_rapl_${zone_name}_joules_total[20s]))",
+          "expr": "sum(\n  rate(\n    node_rapl_${zone_name}_joules_total[20s]\n  )\n)",
           "instant": false,
           "legendFormat": "Node Exporter (${zone})",
           "range": true,
@@ -559,11 +560,23 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
+          "expr": "rate(\n  kepler_node_cpu_joules_total{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "instant": false,
-          "legendFormat": "Kepler - OLD (${zone})",
+          "legendFormat": "Kepler Latest Node (${zone}) (ΔJ/s)",
           "range": true,
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "kepler_node_cpu_watts{\n  job=\"kepler-latest\",\n  zone=\"${zone}\"\n}",
+          "instant": false,
+          "legendFormat": "Kepler Latest Node (${zone}) Watts",
+          "range": true,
+          "refId": "E"
         }
       ],
       "title": "Current Energy Consumption Values",
@@ -574,7 +587,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between Node exporter and Kepler Reboot energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
+      "description": "Difference between Node exporter and Kepler Dev energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -701,14 +714,14 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zone_name}_joules_total[20s])) \n- sum(rate(kepler_node_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n",
+          "expr": "sum(\n  rate(\n    node_rapl_${zone_name}_joules_total[20s]\n  )\n)\n- \nsum(\n  rate(\n    kepler_node_cpu_joules_total{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
           "legendFormat": "Δ ${zone} J/s",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Exporter vs Kepler Reboot (Δ J/s)",
+      "title": "Node Exporter vs Kepler (Δ J/s)",
       "type": "timeseries"
     },
     {
@@ -716,7 +729,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Difference between Node exporter and Kepler Reboot energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
+      "description": "Difference between Node exporter and Kepler energy measurements in watts. Values close to zero indicate good alignment between the metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -843,14 +856,14 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(node_rapl_${zone_name}_joules_total[20s])) \n- sum(kepler_node_cpu_watts{job=\"${job}\", zone=\"${zone}\"})",
+          "expr": "sum(\n  rate(\n    node_rapl_${zone_name}_joules_total[20s]\n  )\n)\n- \nsum(\n  kepler_node_cpu_watts{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }\n)",
           "instant": false,
           "legendFormat": "Δ ${zone} J/s - W",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node Exporter vs Kepler Reboot Measurement Delta (Watts)",
+      "title": "Node Exporter vs Kepler Measurement Delta (Watts)",
       "type": "timeseries"
     },
     {
@@ -858,7 +871,7 @@
         "type": "prometheus",
         "uid": "PDE6745920139CE56"
       },
-      "description": "Direct comparison of energy measurements from all three monitoring systems - Node Exporter, Kepler Reboot, and Kepler.",
+      "description": "Direct comparison of energy measurements from all three monitoring systems - Node Exporter, Kepler Dev, and Kepler Latest",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -943,9 +956,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(kepler_node_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s])",
+          "expr": "rate(\n  kepler_node_cpu_joules_total{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot CPU Total (${zone})",
+          "legendFormat": "Kepler Dev CPU Total (${zone})",
           "range": true,
           "refId": "A"
         },
@@ -955,10 +968,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_node_cpu_idle_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s])",
+          "expr": "rate(\n  kepler_node_cpu_idle_joules_total{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot CPU Idle (${zone})",
+          "legendFormat": "Kepler Dev CPU Idle (${zone})",
           "range": true,
           "refId": "B"
         },
@@ -968,10 +981,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "rate(kepler_node_cpu_active_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s])",
+          "expr": "rate(\n  kepler_node_cpu_active_joules_total{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot CPU Active (${zone})",
+          "legendFormat": "Kepler Dev CPU Active (${zone})",
           "range": true,
           "refId": "C"
         },
@@ -981,7 +994,7 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(node_rapl_${zone_name}_joules_total[20s]))",
+          "expr": "sum(\n  rate(\n    node_rapl_${zone_name}_joules_total[20s]\n  )\n)",
           "hide": false,
           "instant": false,
           "legendFormat": "Node Exporter (${zone})",
@@ -994,12 +1007,38 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
-          "hide": false,
+          "exemplar": false,
+          "expr": "rate(\n  kepler_node_cpu_joules_total{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }[20s]\n)",
           "instant": false,
-          "legendFormat": "Kepler - OLD (${zone})",
+          "legendFormat": "Kepler Latest CPU Total (${zone})",
           "range": true,
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "rate(\n  kepler_node_cpu_idle_joules_total{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }[20s]\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Latest CPU Idle (${zone})",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "rate(\n  kepler_node_cpu_active_joules_total{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }[20s]\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Latest CPU Active (${zone})",
+          "range": true,
+          "refId": "G"
         }
       ],
       "title": "Node Energy Comparison (J/s)",
@@ -1037,7 +1076,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## 📊 Process Energy Monitoring\n\nComparing process-level metrics between Kepler Reboot and Kepler for the selected process.\n\nKey metrics shown:\n- Attribution gap between node and process measurements\n- Direct power consumption comparisons between monitoring systems\n- Joules and Watts measurements from different sources",
+        "content": "## 📊 Process Energy Monitoring\n\nComparing process-level metrics between Kepler Dev and Kepler Latest for the selected process.\n\nKey metrics shown:\n- Attribution gap between node and process measurements\n- Direct power consumption comparisons between monitoring systems\n- Joules and Watts measurements from different sources",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -1146,9 +1185,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(kepler_node_cpu_active_watts{job=\"${job}\", zone=\"${zone}\"}) \n  - \n  sum(kepler_process_cpu_watts{job=\"${job}\", zone=\"${zone}\"})\n)",
+          "expr": "abs(\n  sum(\n    kepler_node_cpu_active_watts{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }\n  )\n  - \n  sum(\n    kepler_process_cpu_watts{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot Attribution Gap - Watts",
+          "legendFormat": "Kepler Dev Attribution Gap - Watts",
           "range": true,
           "refId": "A"
         },
@@ -1158,9 +1197,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_node_cpu_active_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n  - \n  sum(rate(kepler_process_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n)",
+          "expr": "abs(\n  sum(\n    rate(\n      kepler_node_cpu_active_joules_total{\n        job=\"${job}\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  - \n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"${job}\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot Attribution Gap - ΔJ/s",
+          "legendFormat": "Kepler Dev Attribution Gap - ΔJ/s",
           "range": true,
           "refId": "B"
         },
@@ -1170,11 +1209,23 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n  - \n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)",
+          "expr": "abs(\n  sum(\n    kepler_node_cpu_active_watts{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }\n  )\n  - \n  sum(\n    kepler_process_cpu_watts{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Attribution Gap",
+          "legendFormat": "Kepler Latest Attribution Gap - Watts",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(\n    rate(\n      kepler_node_cpu_active_joules_total{\n        job=\"kepler-latest\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  - \n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"kepler-latest\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)",
+          "instant": false,
+          "legendFormat": "Kepler Latest Attribution Gap - ΔJ/s",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Process Energy Attribution Gap",
@@ -1281,13 +1332,28 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Kepler Reboot - Node-Process Gap (W)"
+              "options": "Kepler Dev - Node-Process Gap (W)"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kepler Latest - Node-Process Gap (W)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-green",
                   "mode": "fixed"
                 }
               }
@@ -1328,9 +1394,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_node_cpu_active_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n- \nsum(rate(kepler_process_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))",
+          "expr": "sum(\n  rate(\n    kepler_node_cpu_active_joules_total{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)\n- \nsum(\n  rate(\n    kepler_process_cpu_joules_total{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot: Node - Process (J/s)",
+          "legendFormat": "Kepler Dev: Node - Process (J/s)",
           "range": true,
           "refId": "A"
         },
@@ -1340,10 +1406,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(kepler_node_cpu_active_watts{job=\"${job}\", zone=\"${zone}\"}) \n- \nsum(kepler_process_cpu_watts{job=\"${job}\", zone=\"${zone}\"})",
+          "expr": "sum(\n  kepler_node_cpu_active_watts{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }\n)\n- \nsum(\n  kepler_process_cpu_watts{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }\n)",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot: Node - Process (W)",
+          "legendFormat": "Kepler Dev: Node - Process (W)",
           "range": true,
           "refId": "B"
         },
@@ -1353,12 +1419,25 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s])) \n- \nsum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
-          "hide": false,
+          "exemplar": false,
+          "expr": "sum(\n  rate(\n    kepler_node_cpu_active_joules_total{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)\n- \nsum(\n  rate(\n    kepler_process_cpu_joules_total{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler OLD: Node - Process (J/s)",
+          "legendFormat": "Kepler Latest: Node - Process (J/s)",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(\n  kepler_node_cpu_active_watts{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }\n)\n- \nsum(\n  kepler_process_cpu_watts{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Latest: Node - Process (W)",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Node - Process Energy Attribution Gap",
@@ -1453,7 +1532,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Kepler Reboot - 2113657 (Watts)"
+              "options": "Kepler Dev - 2113657 (Watts)"
             },
             "properties": [
               {
@@ -1468,7 +1547,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Kepler Reboot - 2113657 (Joules)"
+              "options": "Kepler Dev - 2113657 (Joules)"
             },
             "properties": [
               {
@@ -1483,7 +1562,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Kepler - 2113657 (Joules)"
+              "options": "Kepler Latest - 2113657 (Joules)"
             },
             "properties": [
               {
@@ -1498,7 +1577,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Kepler OLD - 2113657 (Joules)"
+              "options": "Kepler Latest - 2113657 (Watts)"
             },
             "properties": [
               {
@@ -1545,9 +1624,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{pid=\"$pid\",job=\"kepler-old\"}[20s]))",
+          "expr": "sum(\n  rate(\n    kepler_process_cpu_joules_total{\n      pid=\"$pid\",\n      job=\"kepler-latest\"\n    }[20s]\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler OLD - ${pid} (Joules)",
+          "legendFormat": "Kepler Latest - ${pid} (Joules)",
           "range": true,
           "refId": "A"
         },
@@ -1557,10 +1636,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "kepler_process_cpu_watts{pid=\"$pid\",job=\"$job\", zone=\"${zone}\"}",
+          "expr": "kepler_process_cpu_watts{\n  pid=\"$pid\",\n  job=\"kepler-latest\",\n  zone=\"${zone}\"\n}",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot - ${pid} (Watts)",
+          "legendFormat": "Kepler Latest - ${pid} (Watts)",
           "range": true,
           "refId": "B"
         },
@@ -1570,12 +1649,25 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_process_cpu_joules_total{pid=\"$pid\",job=\"$job\", zone=\"${zone}\"}[20s]))",
+          "expr": "sum(\n  rate(\n    kepler_process_cpu_joules_total{\n      pid=\"$pid\",\n      job=\"$job\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot - ${pid} (Joules)",
+          "legendFormat": "Kepler Dev - ${pid} (Joules)",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "kepler_process_cpu_watts{\n  pid=\"$pid\",\n  job=\"${job}\",\n  zone=\"${zone}\"\n}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Dev - ${pid} (Watts)",
+          "range": true,
+          "refId": "D"
         },
         {
           "datasource": {
@@ -1588,7 +1680,7 @@
           "instant": false,
           "legendFormat": "Scaphandre - ${pid} (Watts)",
           "range": true,
-          "refId": "D"
+          "refId": "E"
         }
       ],
       "title": "Process Energy Comparison - ${process}",
@@ -1626,7 +1718,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "## 📊 Container Energy Monitoring\n\nThis section shows container-level energy metrics from Kepler Reboot and Kepler.\n\nMetrics shown:\n- Energy attribution gap between process and container measurements\n- Power consumption comparisons across monitoring systems\n- Container power attribution accuracy",
+        "content": "## 📊 Container Energy Monitoring\n\nThis section shows container-level energy metrics from Kepler Dev and Kepler Latest.\n\nMetrics shown:\n- Energy attribution gap between process and container measurements\n- Power consumption comparisons across monitoring systems\n- Container power attribution accuracy",
         "mode": "markdown"
       },
       "pluginVersion": "10.4.2",
@@ -1700,9 +1792,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(kepler_process_cpu_watts{job=\"${job}\",container_id!=\"\", zone=\"${zone}\"}) \n  - \n  sum(kepler_container_cpu_watts{job=\"${job}\", zone=\"${zone}\"})\n)",
+          "expr": "abs(\n  sum(\n    kepler_process_cpu_watts{\n      job=\"${job}\",\n      container_id!=\"\",\n      zone=\"${zone}\"\n    }\n  )\n  - \n  sum(\n    kepler_container_cpu_watts{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot Attribution Gap - Watts",
+          "legendFormat": "Kepler Dev Attribution Gap - Watts",
           "range": true,
           "refId": "A"
         },
@@ -1712,9 +1804,9 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_process_cpu_joules_total{job=\"${job}\",container_id!=\"\", zone=\"${zone}\"}[20s]))\n  - \n  sum(rate(kepler_container_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n)",
+          "expr": "abs(\n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"${job}\",\n        container_id!=\"\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  - \n  sum(\n    rate(\n      kepler_container_cpu_joules_total{\n        job=\"${job}\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot Attribution Gap - Joules",
+          "legendFormat": "Kepler Dev Attribution Gap - Joules",
           "range": true,
           "refId": "B"
         },
@@ -1724,11 +1816,23 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "abs(\n  sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n  - \n  sum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)",
+          "expr": "abs(\n  sum(\n    kepler_process_cpu_watts{\n      job=\"kepler-latest\",\n      container_id!=\"\",\n      zone=\"${zone}\"\n    }\n  )\n  - \n  sum(\n    kepler_container_cpu_watts{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Attribution Gap",
+          "legendFormat": "Kepler Latest Attribution Gap - Watts",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "abs(\n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"kepler-latest\",\n        container_id!=\"\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  - \n  sum(\n    rate(\n      kepler_container_cpu_joules_total{\n        job=\"kepler-latest\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)",
+          "instant": false,
+          "legendFormat": "Kepler Latest Attribution Gap - Joules",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Container Energy Attribution Gap",
@@ -1866,9 +1970,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(kepler_process_cpu_joules_total{job=\"${job}\",container_id!=\"\", zone=\"${zone}\"}[20s])) \n- \nsum(rate(kepler_container_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))",
+          "expr": "sum(\n  rate(\n    kepler_process_cpu_joules_total{\n      job=\"${job}\",\n      container_id!=\"\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)\n- \nsum(\n  rate(\n    kepler_container_cpu_joules_total{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler Reboot:  Process - Container (J/s)",
+          "legendFormat": "Kepler Dev:  Process - Container (J/s)",
           "range": true,
           "refId": "A"
         },
@@ -1878,10 +1982,10 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(kepler_process_cpu_watts{job=\"${job}\",container_id!=\"\", zone=\"${zone}\"}) \n- \nsum(kepler_container_cpu_watts{job=\"${job}\", zone=\"${zone}\"})",
+          "expr": "sum(\n  kepler_process_cpu_watts{\n    job=\"${job}\",\n    container_id!=\"\",\n    zone=\"${zone}\"\n  }\n)\n- \nsum(\n  kepler_container_cpu_watts{\n    job=\"${job}\",\n    zone=\"${zone}\"\n  }\n)",
           "hide": false,
           "instant": false,
-          "legendFormat": "Kepler Reboot: Process - Container (W)",
+          "legendFormat": "Kepler Dev: Process - Container (W)",
           "range": true,
           "refId": "B"
         },
@@ -1891,12 +1995,24 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n-\nsum(rate(kepler_container_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
-          "hide": false,
+          "expr": "sum(\n  rate(\n    kepler_process_cpu_joules_total{\n      job=\"kepler-latest\",\n      container_id!=\"\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)\n- \nsum(\n  rate(\n    kepler_container_cpu_joules_total{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
-          "legendFormat": "Kepler OLD:  Process - Container (J/s)",
+          "legendFormat": "Kepler Latest:  Process - Container (J/s)",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PDE6745920139CE56"
+          },
+          "editorMode": "code",
+          "expr": "sum(\n  kepler_process_cpu_watts{\n    job=\"kepler-latest\",\n    container_id!=\"\",\n    zone=\"${zone}\"\n  }\n)\n- \nsum(\n  kepler_container_cpu_watts{\n    job=\"kepler-latest\",\n    zone=\"${zone}\"\n  }\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Kepler Latest: Process - Container (W)",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Process-Container Energy Attribution Gap",
@@ -1989,14 +2105,14 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "100 * (\n    sum(rate(kepler_node_cpu_active_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s])) \n    -\n    sum(rate(kepler_process_cpu_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))\n) / \nsum(rate(kepler_node_cpu_active_joules_total{job=\"${job}\", zone=\"${zone}\"}[20s]))",
+          "expr": "100 * (\n  sum(\n    rate(\n      kepler_node_cpu_active_joules_total{\n        job=\"${job}\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  -\n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"${job}\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)\n/ \nsum(\n  rate(\n    kepler_node_cpu_active_joules_total{\n      job=\"${job}\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
           "legendFormat": "Process Attribution Gap (ΔJ/s)",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Kepler Reboot - Process Energy Attribution Gap (%)",
+      "title": "Kepler Dev - Process Energy Attribution Gap (%)",
       "type": "gauge"
     },
     {
@@ -2072,14 +2188,14 @@
             "uid": "PDE6745920139CE56"
           },
           "editorMode": "code",
-          "expr": "100 * (\n    sum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s])) - sum(rate(kepler_process_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))\n)  / \nsum(rate(kepler_node_${zone_name}_joules_total{job=\"kepler-old\"}[20s]))",
+          "expr": "100 * (\n  sum(\n    rate(\n      kepler_node_cpu_active_joules_total{\n        job=\"kepler-latest\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n  -\n  sum(\n    rate(\n      kepler_process_cpu_joules_total{\n        job=\"kepler-latest\",\n        zone=\"${zone}\"\n      }[20s]\n    )\n  )\n)\n/ \nsum(\n  rate(\n    kepler_node_cpu_active_joules_total{\n      job=\"kepler-latest\",\n      zone=\"${zone}\"\n    }[20s]\n  )\n)",
           "instant": false,
           "legendFormat": "Process Attribution Gap",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Kepler - Process Energy Attribution Gap (%)",
+      "title": "Kepler Latest - Process Energy Attribution Gap (%)",
       "type": "gauge"
     }
   ],
@@ -2118,7 +2234,7 @@
           "uid": "PDE6745920139CE56"
         },
         "definition": "label_values(kepler_build_info,job)",
-        "description": "Select Kepler Reboot job/instance for monitoring",
+        "description": "Select Kepler Dev job/instance for monitoring",
         "hide": 0,
         "includeAll": false,
         "label": "⚙️ Kepler Job",
@@ -2127,7 +2243,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(kepler_build_info,job)",
+          "query": "label_values(kepler_build_info{job!~\"kepler-latest\"},job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -2177,7 +2293,7 @@
           "type": "prometheus",
           "uid": "PDE6745920139CE56"
         },
-        "definition": "label_values(kepler_node_cpu_watts{zone=\"$zone\"},zone)",
+        "definition": "label_values(kepler_node_cpu_watts{zone=\"$zone\",job=\"kepler-latest\"},zone)",
         "hide": 2,
         "includeAll": false,
         "multi": false,
@@ -2185,11 +2301,10 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(kepler_node_cpu_watts{zone=\"$zone\"},zone)",
+          "query": "label_values(kepler_node_cpu_watts{zone=\"$zone\",job=\"kepler-latest\"},zone)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "/^(.*)-[0-9]+$/",
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
