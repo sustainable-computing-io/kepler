@@ -1,0 +1,31 @@
+name: Test Oracle Runners
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  test-oracle-runners:
+    runs-on: oracle-16cpu-64gb-x86-64
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Discover RAPL domains
+        run: |
+          for d in /sys/devices/virtual/powercap/intel-rapl/intel-rapl:*; do
+            [ -f "$d/name" ] && echo "${d#/sys/devices/virtual/powercap/intel-rapl/}: $(cat "$d/name")"
+            for s in "$d"/intel-rapl:*; do
+              [ -f "$s/name" ] && echo "${s#/sys/devices/virtual/powercap/intel-rapl/}: $(cat "$s/name")"
+            done
+          done
+
+      - name: Run must gather
+        if: always()
+        run: |
+          hostnamectl
+          lscpu
+          tree /sys/class/powercap/intel-rapl/*
