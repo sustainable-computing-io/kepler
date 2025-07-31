@@ -7,17 +7,18 @@ and are approved through consensus by the existing maintainers.
 
 ### Nomination Protocol
 
-#### Submit Nomination
+#### Submit Nomination for a New Maintainer or Role
 
-The candidate or an existing maintainer creates
-a [maintainer nomination issue](.github/ISSUE_TEMPLATE/maintainer_nominate.yaml)
-and submits a pull request (PR) to modify the `MAINTAINERS.md`
-or `ADVISORS.md` file to add the nominee.
+The candidate or an existing maintainer creates a [maintainer nomination issue](.github/ISSUE_TEMPLATE/maintainer_nominate.yaml) and submits a pull request (PR) to update the `MAINTAINERS.md`
+or `ADVISORS.md` file by adding the nominee or reflecting the new role.
 
 #### Voting
 
-The PR requires approval from **at least three maintainers**,
-including the nominator if they are not self-nominating.
+The PR requires approval from **at least three maintainers**.
+
+For self-nominations, all three approvals must come from other maintainers.
+
+For nominations by existing maintainers, the nominator's approval counts toward the three required.
 Maintainers indicate their approval by approving on the PR.
 
 #### Approval and Merge
@@ -27,6 +28,48 @@ Once the required approvals are met, the PR can be merged.
 If the nominee is not yet added as a maintainer to the repository,
 they should be added at this point,
 officially confirming their maintainer status.
+
+### Active Maintainer Definition
+
+An **active maintainer** is a contributor who demonstrates ongoing commitment
+to the Kepler project through regular participation and meaningful contributions.
+Active maintainers are listed in the [`MAINTAINERS.md`](https://github.com/sustainable-computing-io/kepler/blob/main/MAINTAINERS.md)
+file to provide users with a reliable point of contact for project-related questions,
+support, and collaboration.
+
+Active maintainer will be reviewed on a 6-month cycle.
+
+| **Cycle** | **Active Period**         | **Nomination / Review Period**       |
+|-----------|---------------------------|--------------------------------------|
+| **Fall**  | October 1 – March 31      | August 1 – September 30              |
+| **Spring**| April 1 – September 30    | February 1 – March 31                |
+
+- Active maintainers are expected to maintain engagement during each cycle by providing tangible contributions in accordance with the [Active Engagement Expectations](#active-engagement-expectations).
+- A designated person responsible for maintaining the maintainer list will create an issue during each review period to propose changes based on observed activity. This issue will remain open throughout the window, giving maintainers the opportunity to review and confirm their status.
+- Maintainers who are not included in the proposed active list may respond or rebut (i.e., provide justification or recent contributions) to remain on the list.
+- Maintainers who do not confirm their active status during the review period will be moved to the **Emeritus** list.
+- **Emeritus maintainers** can return to active status in a future cycle by reaffirming their commitment to active participation.
+
+This lightweight process helps streamline contributor engagement while maintaining an up-to-date and representative list of active maintainers.
+
+#### Active Engagement Expectations
+
+To help maintain a healthy and transparent governance process, the following example metrics can be used to demonstrate active involvement over a 6-month cycle. These are **guidelines**, not strict requirements:
+
+- Volunteering for specific operational tasks such as:
+  - Hosting community meetings
+  - Triage and issue management
+  - Release coordination or management
+  - Triage and response to community questions in Slack channels
+- Attending **more than 25% of community meetings** (e.g., at least 4 out of 12 calls within a cycle)
+- Actively participating in **more than 3 triaged issues** (e.g., raising, commenting on, or resolving issues)
+- Completing **more than 3 pull request reviews**
+- Actively promoting the Kepler project in the community, such as:
+  - Organizing a meetup
+  - Writing a blog post
+  - Giving a talk or presentation at an event
+
+These metrics support transparency in participation and help ensure that active maintainers remain engaged and accountable to the community.
 
 ## Maintainers
 
@@ -47,13 +90,13 @@ Their roles and responsibilities are organized into functional areas:
 
 ### 2. Technical Committee
 
-- Oversee the overall direction of the Kepler project.
+- Oversee the overall direction of the Kepler project
 - Provide guidance for the project maintainers and the onboarding process for
-  new maintainers.
-- Actively engage in the technical committee meetings.
+  new maintainers
+- Actively engage in the technical committee meetings
 - Participate in design and technical discussions
-- Review and approve pull requests,
-  especially those involving significant technical changes or core areas
+- Review and approve pull requests involving significant technical changes,
+  core architecture decisions, and breaking changes
 
 #### Becoming a Technical Committee Member
 
@@ -95,7 +138,8 @@ significant contributions including:
 - Respond to contributor questions in forums, Slack, GitHub Discussions
 - Connect contributors with the appropriate maintainers or domain experts
 - Welcome new contributors and guide them toward first issues
-- Review and approve pull requests, especially those involving community engagement
+- Review and approve pull requests involving documentation,
+  community resources, and contributor experience improvements
 
 The current list of maintainers is published and updated in
 [MAINTAINERS.md](./MAINTAINERS.md).
@@ -129,7 +173,7 @@ The contributor is nominated by opening a PR against the appropriate repository,
 which adds their GitHub username to
 one or more [OWNERS file](https://www.kubernetes.dev/docs/guide/owners/).
 
-At least one member of the maintainer or the team
+At least one member of the maintainers or the team
 that owns that repository or main directory,
 who are already Approvers, approve the PR.
 
