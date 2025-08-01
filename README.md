@@ -81,6 +81,7 @@ helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
 
 ### Developer Documentation
 
+- **[Architecture Documentation](docs/developer/design/architecture/)** - Complete architectural documentation including design principles, system components, data flow, concurrency model, and deployment patterns
 - **[Power Attribution Guide](docs/developer/power-attribution-guide.md)** - How Kepler measures and attributes power consumption
 - **[Developer Documentation](docs/developer/)** - Contributing guidelines and development workflow
 
