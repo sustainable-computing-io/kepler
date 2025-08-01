@@ -14,7 +14,7 @@
 | Kaiyi Liu             | Red Hat    | KaiyiLiu1234   | <kaliu@redhat.com>               |                   |              |
 | Peng Hui Jiang        | IBM        | jiangphcn      | <jiangph@cn.ibm.com>             |                   |              |
 | William Caban         | Red Hat    | williamcaban   | <wcabanba@redhat.com>            |                   |              |
-| Yi Yuan               | IBM        | SamYuan1990    | <yy19902439@126.com>             |                   |              |
+| Yi Yuan               |         | SamYuan1990    | <yy19902439@126.com>             |    Community Engagement   |01/08/2025              |
 | Qi Feng Huo           | IBM        | huoqifeng      | <huoqif@cn.ibm.com>              |                   |              |
 | Ken Lu                | Intel      | kenplusplus    | <ken.lu@intel.com>               |                   |              |
 | Marcelo Amaral        | IBM        | marceloamaral  | <marcelo.amaral1@ibm.com>        |                   |              |
