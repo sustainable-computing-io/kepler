@@ -3,7 +3,7 @@
 <!-- markdownlint-disable  MD013 -->
 <!-- Teporarily disable MD013 - Line length to keep the table formatting  -->
 
-(As of July, 16th, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
+(As of August, 1st, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
 
 | Name                  | Company    | Github ID      | Email                            | Role              | Last sign up |
 | --------------------- | ---------- | -------------- | -------------------------------- | ----------------- | ------------ |
@@ -20,7 +20,7 @@
 | Marcelo Amaral        | IBM        | marceloamaral  | <marcelo.amaral1@ibm.com>        |                   |              |
 | Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>  |                   |              |
 | Brad McCoy            | Basiq      | bradmccoydev   | <bradmccoydev@gmail.com>         |                   |              |
-| Sunyanan Choochotkaew | IBM        | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> |                   |              |
+| Sunyanan Choochotkaew | IBM        | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement|01/08/2025  |
 | Ruomeng Hao           | Intel      | ruomengh       | <ruomengh@intel.com>             |                   |              |
 | Chen Wang             | IBM        | wangchen615    | <chen.wang1@ibm.com>             |                   |              |
 | Jie Ren               | Intel      | jiere          | <jie.ren@intel.com>              |                   |              |
