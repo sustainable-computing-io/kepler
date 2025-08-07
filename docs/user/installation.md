@@ -31,10 +31,10 @@ helm install kepler manifests/helm/kepler/ \
   --set namespace.create=false
 ```
 
-#### Install from Release (Future)
+#### Install from Release (Coming Soon)
 
 ```bash
-# Add Kepler Helm repository (once published)
+# Add Kepler Helm repository
 helm repo add kepler https://sustainable-computing-io.github.io/kepler
 
 # Update repository
@@ -57,24 +57,44 @@ image:
   tag: "v0.10.0"
   pullPolicy: IfNotPresent
 
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+# DaemonSet configuration
+daemonset:
+  securityContext:
+    privileged: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+    - operator: Exists  # Tolerate all taints
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
 
-tolerations:
-  - operator: Exists
-
-nodeSelector:
-  kubernetes.io/os: linux
-
-# Enable ServiceMonitor for Prometheus
+# Enable Prometheus monitoring
 serviceMonitor:
   enabled: true
   interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    prometheus: kube-prometheus
+
+# Enable network security (optional)
+networkPolicy:
+  enabled: false
+
+# Add custom labels
+labels:
+  environment: production
+  team: platform
+
+# Add custom annotations
+annotations:
+  owner: platform-team
 ```
 
 Install with custom values:
@@ -83,7 +103,6 @@ Install with custom values:
 helm install kepler manifests/helm/kepler/ \
   --namespace kepler \
   --create-namespace \
-  --set namespace.create=false \
   --values values.yaml
 ```
 
@@ -95,6 +114,9 @@ helm status kepler -n kepler
 
 # List releases
 helm list -n kepler
+
+# Get values used in deployment
+helm get values kepler -n kepler
 
 # Upgrade release
 helm upgrade kepler manifests/helm/kepler/ -n kepler
@@ -212,8 +234,11 @@ kubectl get daemonset -n kepler
 # Check services
 kubectl get svc -n kepler
 
+# Check service account and RBAC
+kubectl get serviceaccount,clusterrole,clusterrolebinding -n kepler
+
 # View logs
-kubectl logs -n kepler -l app.kubernetes.io/name=kepler
+kubectl logs -n kepler -l app.kubernetes.io/name=kepler -f
 ```
 
 ### Access Metrics
@@ -224,6 +249,9 @@ kubectl port-forward -n kepler svc/kepler 28282:28282
 
 # Test metrics endpoint
 curl http://localhost:28282/metrics
+
+# Check if ServiceMonitor is detected by Prometheus
+kubectl get servicemonitor -n kepler
 ```
 
 ### Verify Metrics Collection
@@ -244,36 +272,61 @@ Key configuration options in `values.yaml`:
 # Image configuration
 image:
   repository: quay.io/sustainable_computing_io/kepler
-  tag: "latest"
+  tag: ""  # Uses chart appVersion
   pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 28282
 
 # DaemonSet configuration
 daemonset:
-  hostPID: true
   securityContext:
-    privileged: true
+    privileged: true  # Required for hardware access
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+  resources: {}  # Set based on your needs
+  livenessProbe:
+    httpGet:
+      path: /metrics
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 60
 
-# Resource limits
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+# RBAC
+rbac:
+  create: true
 
-# Node scheduling
-tolerations:
-  - operator: Exists
-
-nodeSelector:
-  kubernetes.io/os: linux
+serviceAccount:
+  create: true
+  name: kepler
 
 # Monitoring
 serviceMonitor:
-  enabled: true
+  enabled: false  # Enable if using Prometheus Operator
   interval: 30s
   scrapeTimeout: 10s
+
+# Network Security
+networkPolicy:
+  enabled: false  # Enable for network isolation
+
+# Kepler configuration
+config:
+  log:
+    level: debug
+  host:
+    sysfs: /host/sys
+    procfs: /host/proc
+  monitor:
+    interval: 5s
+  web:
+    listenAddresses:
+      - :28282
 ```
 
 ### Environment-Specific Settings
@@ -300,12 +353,21 @@ kubectl logs -n kepler -l app.kubernetes.io/name=kepler
 # Describe pod for events
 kubectl describe pod -n kepler -l app.kubernetes.io/name=kepler
 
-# Check node hardware
+# Check RBAC permissions
+kubectl auth can-i get pods --as=system:serviceaccount:kepler:kepler
+
+# Check node hardware access
 kubectl exec -n kepler -it <pod-name> -- ls /sys/class/powercap/intel-rapl
 
-# Test with fake meter (development)
+# Test with development mode (fake CPU meter)
 helm upgrade kepler manifests/helm/kepler/ -n kepler \
-  --set env.KEPLER_FAKE_CPU_METER=true
+  --set config.dev.fake-cpu-meter.enabled=true
+
+# Validate Helm chart
+helm lint manifests/helm/kepler/
+
+# Test chart template rendering
+helm template kepler manifests/helm/kepler/ --debug
 ```
 
 ### Getting Help

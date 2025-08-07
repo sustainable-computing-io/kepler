@@ -1,0 +1,31 @@
+# Test values for CI validation
+nameOverride: kepler-test
+
+# Enable features for testing
+serviceMonitor:
+  enabled: true
+  interval: 10s
+  labels:
+    test: "true"
+
+networkPolicy:
+  enabled: true
+
+daemonset:
+  # Test resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Additional test labels
+labels:
+  test: ci
+  environment: test
+
+# Test annotations
+annotations:
+  test.io/purpose: ci-validation

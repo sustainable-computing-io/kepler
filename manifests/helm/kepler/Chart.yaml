@@ -1,10 +1,8 @@
 apiVersion: v2
 name: kepler
 description: A Helm chart for Kepler - Kubernetes Efficient Power Level Exporter
-type: application
-version: 0.0.0-dev
-appVersion: latest
-home: https://github.com/sustainable-computing-io/kepler
+icon: https://avatars.githubusercontent.com/u/91567619?s=200&v=4
+home: https://sustainable-computing.io/
 sources:
   - https://github.com/sustainable-computing-io/kepler
 maintainers:
@@ -16,5 +14,19 @@ keywords:
   - monitoring
   - prometheus
   - sustainability
+  - cloud-native
+  - sustainable-computing
 annotations:
   category: Monitoring
+  artifacthub.io/links: |
+    - name: support
+      url: https://github.com/sustainable-computing-io/kepler/issues/new
+    - name: docs
+      url: https://sustainable-computing.io/
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/signKey: |
+    fingerprint: [GPG_KEY_FINGERPRINT]
+    url: https://keybase.io/[MAINTAINER]/pgp_keys.asc
+type: application
+version: 0.0.0-dev
+appVersion: latest

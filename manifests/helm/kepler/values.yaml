@@ -3,22 +3,36 @@
 # Declare variables to be passed into your templates.
 
 image:
+  # -- Repository to pull the image from
   repository: quay.io/sustainable_computing_io/kepler
+  # -- Image tag, if empty it will get it from the chart's appVersion
+  tag: ""
+  # -- Pull policy
   pullPolicy: IfNotPresent
-  tag: latest
 
+# -- Replaces the name of the chart in the Chart.yaml file
 nameOverride: ""
+# -- Replaces the generated name
 fullnameOverride: ""
+
+# -- Additional labels to add to all resources
+labels: {}
+
+# -- Additional annotations to add to all resources
+annotations: {}
 
 namespace:
   create: false
   name: kepler
 
 serviceAccount:
+  # Specifies whether a service account should be created
   create: true
+  # The name of the service account to use.
   name: kepler
 
 rbac:
+  # Specifies whether rbac should be created
   create: true
 
 service:
@@ -28,37 +42,27 @@ service:
   protocol: TCP
 
 daemonset:
-  hostPID: true
-  tolerations:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
-      effect: NoSchedule
-    - key: node-role.kubernetes.io/master
-      operator: Exists
-      effect: NoSchedule
-
-  nodeSelector: {}
-  affinity: {}
-
+  # -- Privileges and access control settings for a container
   securityContext:
     privileged: true
-
-  resources:
-    {}
-    # limits:
-    #   cpu: 500m
-    #   memory: 512Mi
-    # requests:
-    #   cpu: 100m
-    #   memory: 128Mi
-
+  # -- Node selection constraint
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Toleration for taints
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+    - operator: Exists # Tolerate all taints
+  # -- Affinity rules
+  affinity: {}
+  # -- CPU/MEM resources
+  resources: {}
   livenessProbe:
     httpGet:
       path: /metrics
       port: http
     initialDelaySeconds: 10
     periodSeconds: 60
-
   readinessProbe: {}
 
 config:
@@ -98,16 +102,17 @@ config:
       enabled: false
       zones: []
 
-# ServiceMonitor for Prometheus Operator
 serviceMonitor:
   enabled: false
-  interval: 5s
+  interval: 30s
   path: /metrics
   labels: {}
   annotations: {}
 
-# Additional labels to add to all resources
-labels: {}
-
-# Additional annotations to add to all resources
-annotations: {}
+networkPolicy:
+  enabled: false
+  egress: {}
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 28282
