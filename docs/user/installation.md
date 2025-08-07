@@ -143,13 +143,13 @@ The Docker Compose setup provides a complete monitoring stack with Kepler, Prome
 cd compose/dev
 
 # Start the complete stack
-docker-compose up -d
+docker compose up --build -d
 
 # View logs
-docker-compose logs -f kepler
+docker compose logs -f kepler-dev
 
 # Stop the stack
-docker-compose down
+docker compose down --volumes
 ```
 
 **Access Points:**
