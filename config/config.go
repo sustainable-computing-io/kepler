@@ -93,6 +93,18 @@ type (
 		Node    string `yaml:"nodeName"`
 	}
 
+	// Platform contains settings for platform power monitoring
+	Platform struct {
+		NodeID  string  `yaml:"nodeID"` // High-level node identifier
+		Redfish Redfish `yaml:"redfish"`
+	}
+
+	// Redfish contains settings for Redfish BMC power monitoring
+	Redfish struct {
+		Enabled    *bool  `yaml:"enabled"`
+		ConfigFile string `yaml:"configFile"`
+	}
+
 	Config struct {
 		Log      Log      `yaml:"log"`
 		Host     Host     `yaml:"host"`
@@ -103,7 +115,8 @@ type (
 		Debug    Debug    `yaml:"debug"`
 		Dev      Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
 
-		Kube Kube `yaml:"kube"`
+		Platform Platform `yaml:"platform"`
+		Kube     Kube     `yaml:"kube"`
 	}
 )
 
@@ -186,6 +199,11 @@ const (
 	KubeConfigFlag   = "kube.config"
 	KubeNodeNameFlag = "kube.node-name"
 
+	// Platform flags
+	PlatformNodeIDFlag         = "platform.node-id"
+	PlatformRedfishEnabledFlag = "platform.redfish.enabled"
+	PlatformRedfishConfigFlag  = "platform.redfish.config"
+
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
 
@@ -227,6 +245,13 @@ func DefaultConfig() *Config {
 		},
 		Web: Web{
 			ListenAddresses: []string{":28282"},
+		},
+		Platform: Platform{
+			NodeID: "",
+			Redfish: Redfish{
+				Enabled:    ptr.To(false),
+				ConfigFile: "",
+			},
 		},
 		Kube: Kube{
 			Enabled: ptr.To(false),
@@ -327,6 +352,11 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	kubeconfig := app.Flag(KubeConfigFlag, "Path to a kubeconfig. Only required if out-of-cluster.").ExistingFile()
 	nodeName := app.Flag(KubeNodeNameFlag, "Name of kubernetes node on which kepler is running.").String()
 
+	// platform
+	platformNodeID := app.Flag(PlatformNodeIDFlag, "Node identifier for platform power monitoring").String()
+	platformRedfishEnabled := app.Flag(PlatformRedfishEnabledFlag, "Enable Redfish BMC power monitoring").Default("false").Bool()
+	platformRedfishConfig := app.Flag(PlatformRedfishConfigFlag, "Path to Redfish BMC configuration file").String()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -389,6 +419,19 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Kube.Node = *nodeName
 		}
 
+		// platform settings
+		if flagsSet[PlatformNodeIDFlag] {
+			cfg.Platform.NodeID = *platformNodeID
+		}
+
+		if flagsSet[PlatformRedfishEnabledFlag] {
+			cfg.Platform.Redfish.Enabled = platformRedfishEnabled
+		}
+
+		if flagsSet[PlatformRedfishConfigFlag] {
+			cfg.Platform.Redfish.ConfigFile = *platformRedfishConfig
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
@@ -412,6 +455,8 @@ func (c *Config) sanitize() {
 		c.Exporter.Prometheus.DebugCollectors[i] = strings.TrimSpace(c.Exporter.Prometheus.DebugCollectors[i])
 	}
 	c.Kube.Config = strings.TrimSpace(c.Kube.Config)
+	c.Platform.NodeID = strings.TrimSpace(c.Platform.NodeID)
+	c.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Platform.Redfish.ConfigFile)
 }
 
 // Validate checks for configuration errors
@@ -497,6 +542,17 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 			if c.Kube.Node == "" {
 				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", KubeNodeNameFlag, KubernetesFlag))
+			}
+		}
+	}
+	{ // Platform
+		if ptr.Deref(c.Platform.Redfish.Enabled, false) {
+			if c.Platform.Redfish.ConfigFile == "" {
+				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", PlatformRedfishConfigFlag, PlatformRedfishEnabledFlag))
+			} else {
+				if err := canReadFile(c.Platform.Redfish.ConfigFile); err != nil {
+					errs = append(errs, fmt.Sprintf("unreadable Redfish config file: %s: %s", c.Platform.Redfish.ConfigFile, err.Error()))
+				}
 			}
 		}
 	}
