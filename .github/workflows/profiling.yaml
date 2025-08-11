@@ -1,0 +1,111 @@
+name: Profiling Report
+# This configuration runs two separate workflows for PRs
+# 1. On 'pull_request': Builds and run pprof profiling scripts
+# 2. On 'pull_request_target': Deploys the artifacts from (1) with write permissions
+on:
+  pull_request:
+  pull_request_target:
+
+permissions:
+  contents: write # Needed for gh-pages push
+  pull-requests: write # Needed for PR comment
+
+jobs:
+  # Job 1: Run on the PR from the fork with a read-only token
+  build_and_profile:
+    # This job only runs for the 'pull_request' event, not 'pull_request_target'
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        # This explicitly checks out the head of the pull request
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Build Kepler
+        run: |
+          make build
+
+      - name: Enable fake cpu meter
+        shell: bash
+        run: |
+          sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' hack/config.yaml
+
+      - name: Run Kepler in the background
+        run: |
+          nohup ./bin/kepler --config.file=hack/config.yaml > kepler.log 2>&1 &
+
+      - name: Run profiling script
+        run: |
+          ./hack/reports/profiling.sh
+
+      - name: Upload profiling artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: profiling-results-${{ github.event.pull_request.number }}
+          path: ./tmp
+          retention-days: 1 # Keep artifact for 1 day
+
+      - name: Run must gather
+        shell: bash
+        run: |
+          echo "::group::Get logs for kepler"
+          cat kepler.log || true
+          echo "::endgroup::"
+
+          echo "::group::Fetch metrics from localhost:28282"
+          curl -s http://localhost:28282/metrics || true
+          echo "::endgroup::"
+
+  # Job 2: Run in the context of the base repo with a write token
+  deploy_and_comment:
+    # This job only runs for the 'pull_request_target' event
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    # It requires the build_and_profile job from the corresponding 'pull_request' workflow to succeed
+    needs: build_and_profile
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        # Checks out the base branch of the PR, NOT the fork's code
+
+      - name: Download rofiling artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: profiling-results-${{ github.event.pull_request.number }}
+          path: ./tmp
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./tmp
+          destination_dir: pr-${{ github.event.pull_request.number }}
+          keep_files: false
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+
+      - name: Generate comment message
+        id: generate_message
+        run: |
+          {
+            echo "message<<EOF"
+            echo "Profiling reports are ready to be viewed."
+            echo ""
+            echo "CPU Profiling Reports:"
+            echo " * Graph (CPU): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/cpu-profile/graph-cpu.html"
+            echo " * Flamegraph (CPU): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/cpu-profile/flamegraph-cpu.html"
+            echo ""
+            echo "Memory Profiling Reports:"
+            echo " * Graph (Allocated Objects): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/mem-profile/graph-alloc_objects.html"
+            echo " * Flamegraph (Allocated Space): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/mem-profile/flamegraph-alloc_space.html"
+            echo ""
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create PR Comment with report links
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ${{ steps.generate_message.outputs.message }}
