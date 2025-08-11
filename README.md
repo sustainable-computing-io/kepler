@@ -95,6 +95,10 @@ Contributions are welcome! Please feel free to submit a Pull Request. For more d
 
 Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
 
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://www.star-history.com/#sustainable-computing-io/kepler&Date)
+
 ## 📝 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSES](LICENSES) for details.
