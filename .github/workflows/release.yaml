@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # NOTE: setting fetch-depth to 0 to retrieve the entire history
           # instead of a shallow -clone so that all tags are fetched as well.

@@ -13,7 +13,7 @@ jobs:
     name: Assign labels in Pull Request
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Execute assign labels
         uses: mauroalderete/action-assign-labels@v1

@@ -17,7 +17,7 @@ jobs:
       changes: ${{ steps.filter.outputs.changes }}
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: filter changes
         uses: dorny/paths-filter@v3
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -103,7 +103,7 @@ jobs:
           kubectl version --client
 
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -207,7 +207,7 @@ jobs:
     if: always() && needs.check-changes.outputs.changes == 'true' # Run even if the previous job fails
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 

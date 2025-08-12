@@ -20,7 +20,7 @@ jobs:
       helm_changes: ${{ steps.filter.outputs.helm }}
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Filter changes
         uses: dorny/paths-filter@v3
