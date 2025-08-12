@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	// QEMU/KVM patterns
-	qemuPattern = regexp.MustCompile(`bin/qemu-system-\w+`)
+	// QEMU/KVM patterns - matches both qemu-system-* and qemu-kvm variants
+	qemuPattern = regexp.MustCompile(`(bin/qemu-system-\w+|libexec/qemu-kvm)`)
 
 	// TODO: add patterns for virtual box,  VMware, Xen
 

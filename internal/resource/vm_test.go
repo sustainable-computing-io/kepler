@@ -73,6 +73,37 @@ func TestVMInfoFromCmdLine(t *testing.T) {
 			vmID:       "12345678-1234-5678-9abc-123456789abc",
 		},
 	}, {
+		name: "QEMU-KVM OpenStack (CentOS/RHEL) - realistic command from issue #2276",
+		cmdline: []string{
+			"/usr/libexec/qemu-kvm",
+			"-name", "guest=instance-0000008b,debug-threads=on",
+			"-S",
+			"-object", `{"qom-type":"secret","id":"masterKey0","format":"raw","file":"/var/lib/libvirt/qemu/domain-25-instance-0000008b/master-key.aes"}`,
+			"-machine", "pc-q35-rhel9.4.0,usb=off,dump-guest-core=off,hpet=off,acpi=on",
+			"-accel", "kvm",
+			"-cpu", "Broadwell-IBRS",
+			"-uuid", "df12672f-fedb-4f6f-9d51-0166868835fb",
+		},
+		expected: expect{
+			hypervisor: KVMHypervisor,
+			vmID:       "df12672f-fedb-4f6f-9d51-0166868835fb",
+		},
+	}, {
+		name: "QEMU-KVM OpenStack without UUID (CentOS/RHEL) - uses guest name",
+		cmdline: []string{
+			"/usr/libexec/qemu-kvm",
+			"-name", "guest=instance-0000008b,debug-threads=on",
+			"-S",
+			"-object", `{"qom-type":"secret","id":"masterKey0","format":"raw","file":"/var/lib/libvirt/qemu/domain-25-instance-0000008b/master-key.aes"}`,
+			"-machine", "pc-q35-rhel9.4.0,usb=off,dump-guest-core=off,hpet=off,acpi=on",
+			"-accel", "kvm",
+			"-cpu", "Broadwell-IBRS",
+		},
+		expected: expect{
+			hypervisor: KVMHypervisor,
+			vmID:       "instance-0000008b",
+		},
+	}, {
 		name: "Not a VM process",
 		cmdline: []string{
 			"/usr/bin/firefox",
