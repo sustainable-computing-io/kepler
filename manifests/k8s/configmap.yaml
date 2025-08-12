@@ -21,6 +21,10 @@ data:
       minTerminatedEnergyThreshold: 10
     rapl:
       zones: []
+    msr:
+      enabled: false
+      force: false
+      devicePath: "/dev/cpu/%d/msr"
     exporter:
       stdout:
         enabled: false
