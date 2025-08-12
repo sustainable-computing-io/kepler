@@ -95,6 +95,11 @@ host:
 rapl:
   zones: []     # RAPL zones to be enabled, empty enables all default zones
 
+msr:            # MSR fallback configuration for RAPL energy reading
+  enabled: false    # Enable automatic MSR fallback when powercap unavailable
+  force: false      # Force MSR usage even if powercap available (testing)
+  devicePath: "/dev/cpu/%d/msr"  # MSR device path template
+
 exporter:
   stdout:       # stdout exporter related config
     enabled: false # disabled by default
@@ -194,6 +199,41 @@ Example with specific zones:
 rapl:
   zones: ["package", "core", "uncore"]
 ```
+
+### 🔌 MSR Configuration
+
+```yaml
+msr:
+  enabled: false    # Enable automatic MSR fallback
+  force: false      # Force MSR usage for testing
+  devicePath: "/dev/cpu/%d/msr"  # MSR device path template
+```
+
+Model Specific Register (MSR) support provides a fallback mechanism for reading Intel RAPL energy counters when the Linux powercap sysfs interface is unavailable.
+
+- **enabled**: Enable automatic MSR fallback when powercap is unavailable
+  - Default: `false` (opt-in for security reasons)
+  - When enabled, Kepler will automatically fall back to MSR if powercap fails
+  - Requires appropriate permissions and hardware support
+
+- **force**: Force MSR usage even when powercap is available
+  - Default: `false`
+  - Primarily for testing and development purposes
+  - When `true`, MSR will be used regardless of powercap availability
+
+- **devicePath**: Template for MSR device file paths
+  - Default: `"/dev/cpu/%d/msr"`
+  - The `%d` placeholder is replaced with the CPU number
+  - Must be accessible with appropriate permissions
+
+⚠️ **Security Note**: MSR access requires elevated privileges and may be restricted on some systems due to security considerations (PLATYPUS attacks, CVE-2020-8694/8695). Use MSR configuration only when necessary and ensure proper system security measures are in place.
+
+**Prerequisites for MSR support:**
+
+- Intel CPU with RAPL support
+- `msr` kernel module loaded (`modprobe msr`)
+- Read access to `/dev/cpu/*/msr` files
+- Elevated privileges (typically root)
 
 ### 📦 Exporter Configuration
 

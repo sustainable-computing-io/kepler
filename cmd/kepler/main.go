@@ -233,9 +233,17 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
 	}
 
+	// Convert config MSR settings to device MSRConfig
+	msrConfig := device.MSRConfig{
+		Enabled:    cfg.MSR.Enabled,
+		Force:      cfg.MSR.Force,
+		DevicePath: cfg.MSR.DevicePath,
+	}
+
 	return device.NewCPUPowerMeter(
 		cfg.Host.SysFS,
 		device.WithRaplLogger(logger),
 		device.WithZoneFilter(cfg.Rapl.Zones),
+		device.WithMSRConfig(msrConfig),
 	)
 }

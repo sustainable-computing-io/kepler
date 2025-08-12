@@ -35,6 +35,11 @@ host:
 rapl:
   zones: [] # zones to be enabled, empty enables all default zones
 
+msr: # MSR fallback configuration for RAPL energy reading
+  enabled: false # enable automatic MSR fallback when powercap unavailable (default: false)
+  force: false # force MSR usage even if powercap available (testing only, default: false)
+  devicePath: /dev/cpu/%d/msr # MSR device path template (default: "/dev/cpu/%d/msr")
+
 exporter:
   stdout: # stdout exporter related config
     enabled: false # disabled by default

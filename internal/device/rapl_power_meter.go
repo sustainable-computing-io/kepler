@@ -8,27 +8,41 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/prometheus/procfs/sysfs"
+	"k8s.io/utils/ptr"
 )
 
-// raplPowerMeter implements CPUPowerMeter using sysfs
+// raplPowerMeter implements CPUPowerMeter with automatic MSR fallback support
 type raplPowerMeter struct {
-	reader      sysfsReader
+	reader      raplReader // Current active reader (powercap or MSR)
 	cachedZones []EnergyZone
 	logger      *slog.Logger
 	zoneFilter  []string
 	topZone     EnergyZone
+
+	// Configuration for MSR fallback
+	msrConfig MSRConfig
+	sysfsPath string
+	useMSR    bool // Track which backend is active
+}
+
+// MSRConfig holds MSR-specific configuration
+type MSRConfig struct {
+	Enabled    *bool
+	Force      *bool
+	DevicePath string
 }
 
 type OptionFn func(*raplPowerMeter)
 
-// sysfsReader is an interface for a sysfs filesystem used by raplPowerMeter to mock for testing
-type sysfsReader interface {
-	Zones() ([]EnergyZone, error)
+// WithMSRConfig sets the MSR configuration for fallback behavior
+func WithMSRConfig(msrConfig MSRConfig) OptionFn {
+	return func(pm *raplPowerMeter) {
+		pm.msrConfig = msrConfig
+	}
 }
 
-// WithSysFSReader sets the sysfsReader used by raplPowerMeter
-func WithSysFSReader(r sysfsReader) OptionFn {
+// WithRaplReader sets a specific raplReader (for testing)
+func WithRaplReader(r raplReader) OptionFn {
 	return func(pm *raplPowerMeter) {
 		pm.reader = r
 	}
@@ -49,17 +63,18 @@ func WithZoneFilter(zones []string) OptionFn {
 	}
 }
 
-// NewCPUPowerMeter creates a new CPU power meter
+// NewCPUPowerMeter creates a new CPU power meter with MSR fallback support
 func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, error) {
-	fs, err := sysfs.NewFS(sysfsPath)
-	if err != nil {
-		return nil, err
-	}
-
 	ret := &raplPowerMeter{
-		reader:     sysfsRaplReader{fs: fs},
 		logger:     slog.Default().With("service", "rapl"),
 		zoneFilter: []string{},
+		sysfsPath:  sysfsPath,
+		// Default MSR configuration (disabled)
+		msrConfig: MSRConfig{
+			Enabled:    ptr.To(false),
+			Force:      ptr.To(false),
+			DevicePath: "/dev/cpu/%d/msr",
+		},
 	}
 
 	for _, opt := range opts {
@@ -70,21 +85,112 @@ func NewCPUPowerMeter(sysfsPath string, opts ...OptionFn) (*raplPowerMeter, erro
 }
 
 func (r *raplPowerMeter) Name() string {
-	return "rapl"
+	if r.useMSR {
+		return "rapl-msr"
+	}
+	return "rapl-powercap"
 }
 
 func (r *raplPowerMeter) Init() error {
-	// ensure zones can be read but don't cache them
-	zones, err := r.reader.Zones()
-	if err != nil {
-		return err
-	} else if len(zones) == 0 {
-		return fmt.Errorf("no RAPL zones found")
+	// Clear any cached state
+	r.cachedZones = nil
+	r.topZone = nil
+
+	// If a specific reader is set (for testing), use it directly
+	if r.reader != nil {
+		r.logger.Info("Using provided power reader", "reader", r.reader.Name())
+		return r.validateReader(r.reader)
 	}
 
-	// try reading the first zone and return the error
+	// Determine which reader to use based on configuration and availability
+	reader, useMSR, err := r.selectRaplReader()
+	if err != nil {
+		return fmt.Errorf("failed to select power reader: %w", err)
+	}
+
+	r.reader = reader
+	r.useMSR = useMSR
+
+	r.logger.Info("Selected power reader",
+		"reader", r.reader.Name(),
+		"msr_fallback", r.useMSR,
+		"force_msr", ptr.Deref(r.msrConfig.Force, false))
+
+	return r.validateReader(r.reader)
+}
+
+// selectRaplReader chooses the appropriate RAPL reader based on configuration and availability
+func (r *raplPowerMeter) selectRaplReader() (raplReader, bool, error) {
+	forceMSR := ptr.Deref(r.msrConfig.Force, false)
+	enableFallback := ptr.Deref(r.msrConfig.Enabled, false)
+
+	// If force MSR is enabled, use MSR directly (for testing)
+	if forceMSR {
+		r.logger.Info("MSR forced via configuration")
+		msrReader := NewMSRReader(r.msrConfig.DevicePath, r.logger)
+		if !msrReader.Available() {
+			return nil, false, fmt.Errorf("MSR reader forced but not available")
+		}
+		if err := msrReader.Init(); err != nil {
+			return nil, false, fmt.Errorf("failed to initialize forced MSR reader: %w", err)
+		}
+		return msrReader, true, nil
+	}
+
+	// Try powercap first (default behavior)
+	powercapReader, err := NewPowercapReader(r.sysfsPath)
+	if err == nil && powercapReader.Available() {
+		if err := powercapReader.Init(); err == nil {
+			r.logger.Debug("Using powercap reader")
+			return powercapReader, false, nil
+		} else {
+			r.logger.Debug("Powercap reader initialization failed", "error", err)
+		}
+	} else {
+		r.logger.Debug("Powercap reader not available", "error", err)
+	}
+
+	// If powercap failed and MSR fallback is enabled, try MSR
+	if enableFallback {
+		r.logger.Info("Attempting MSR fallback as powercap unavailable")
+
+		// Log security warning for MSR usage
+		r.logger.Warn("MSR fallback enabled - be aware of PLATYPUS attack vectors (CVE-2020-8694/8695)")
+
+		msrReader := NewMSRReader(r.msrConfig.DevicePath, r.logger)
+		if !msrReader.Available() {
+			return nil, false, fmt.Errorf("neither powercap nor MSR readers are available")
+		}
+		if err := msrReader.Init(); err != nil {
+			return nil, false, fmt.Errorf("MSR fallback failed to initialize: %w", err)
+		}
+
+		r.logger.Info("MSR fallback activated successfully")
+		return msrReader, true, nil
+	}
+
+	// Neither powercap works nor MSR fallback is enabled
+	return nil, false, fmt.Errorf("powercap unavailable and MSR fallback disabled")
+}
+
+// validateReader ensures the reader can provide valid energy readings
+func (r *raplPowerMeter) validateReader(reader raplReader) error {
+	zones, err := reader.Zones()
+	if err != nil {
+		return fmt.Errorf("failed to get zones from %s reader: %w", reader.Name(), err)
+	}
+
+	if len(zones) == 0 {
+		return fmt.Errorf("no energy zones found from %s reader", reader.Name())
+	}
+
+	// Try reading energy from the first zone to verify functionality
 	_, err = zones[0].Energy()
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to read energy from zone %s: %w", zones[0].Name(), err)
+	}
+
+	return nil
 }
 
 func (r *raplPowerMeter) needsFiltering() bool {
@@ -122,6 +228,10 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 		return r.cachedZones, nil
 	}
 
+	if r.reader == nil {
+		return nil, fmt.Errorf("power reader not initialized")
+	}
+
 	zones, err := r.reader.Zones()
 	if err != nil {
 		return nil, err
@@ -135,7 +245,6 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 	}
 
 	// filter out non-standard zones
-
 	stdZoneMap := map[zoneKey]EnergyZone{}
 	for _, zone := range zones {
 		key := zoneKey{name: zone.Name(), index: zone.Index()}
@@ -230,58 +339,23 @@ func (r *raplPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
 	return zones[0], nil
 }
 
+// Close releases resources held by the power reader
+func (r *raplPowerMeter) Close() error {
+	if r.reader != nil {
+		return r.reader.Close()
+	}
+	return nil
+}
+
 // isStandardRaplPath checks if a RAPL zone path is in the standard format
 func isStandardRaplPath(path string) bool {
-	return strings.Contains(path, "/intel-rapl:")
-}
-
-type sysfsRaplReader struct {
-	fs sysfs.FS
-}
-
-func (r sysfsRaplReader) Zones() ([]EnergyZone, error) {
-	raplZones, err := sysfs.GetRaplZones(r.fs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read rapl zones: %w", err)
+	// For powercap, check standard path format
+	if strings.Contains(path, "/intel-rapl:") {
+		return true
 	}
-
-	// convert sysfs.RaplZones to EnergyZones
-	energyZones := make([]EnergyZone, 0, len(raplZones))
-	for _, zone := range raplZones {
-		energyZones = append(energyZones, sysfsRaplZone{zone})
+	// For MSR, check MSR path format
+	if strings.Contains(path, "/dev/cpu/") && strings.Contains(path, "/msr:") {
+		return true
 	}
-
-	return energyZones, nil
-}
-
-// sysfsRaplZone implements EnergyZone using sysfs.RaplZone.
-// It is an adapter for the EnergyZone interface
-type sysfsRaplZone struct {
-	zone sysfs.RaplZone
-}
-
-// Name returns the name of the zone
-func (s sysfsRaplZone) Name() string {
-	return s.zone.Name
-}
-
-// Index returns the index of the zone
-func (s sysfsRaplZone) Index() int {
-	return s.zone.Index
-}
-
-// Path returns the path of the zone
-func (s sysfsRaplZone) Path() string {
-	return s.zone.Path
-}
-
-// Energy returns the current energy value
-func (s sysfsRaplZone) Energy() (Energy, error) {
-	mj, err := s.zone.GetEnergyMicrojoules()
-	return Energy(mj), err
-}
-
-// MaxEnergy returns the maximum energy value before wraparound
-func (s sysfsRaplZone) MaxEnergy() Energy {
-	return Energy(s.zone.MaxMicrojoules)
+	return false
 }

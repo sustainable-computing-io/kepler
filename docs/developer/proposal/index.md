@@ -6,7 +6,8 @@ This directory contains Enhancement Proposals (EPs) for major features and chang
 
 | ID | Title | Status | Author | Created |
 |----|-------|--------|--------|---------|
-| [EP-000](EP_TEMPLATE.md) | Enhancement Proposal Template | Accepted |Sunil Thaha | 2025-01-18 |
+| [EP-000](EP_TEMPLATE.md) | Enhancement Proposal Template | Accepted | Sunil Thaha | 2025-01-18 |
+| [EP-002](EP-002-MSR-Fallback-Power-Meter.md) | MSR Fallback for CPU Power Meter | Draft | Kepler Development Team | 2025-08-12 |
 
 ## Proposal Status
 

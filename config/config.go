@@ -33,6 +33,16 @@ type (
 		Zones []string `yaml:"zones"`
 	}
 
+	// MSR configuration for fallback power reading
+	MSR struct {
+		// Enable automatic MSR fallback when powercap unavailable
+		Enabled *bool `yaml:"enabled"`
+		// Force MSR usage even if powercap available (testing)
+		Force *bool `yaml:"force"`
+		// MSR device path template
+		DevicePath string `yaml:"devicePath"`
+	}
+
 	// Development mode settings; disabled by default
 	Dev struct {
 		FakeCpuMeter struct {
@@ -98,6 +108,7 @@ type (
 		Host     Host     `yaml:"host"`
 		Monitor  Monitor  `yaml:"monitor"`
 		Rapl     Rapl     `yaml:"rapl"`
+		MSR      MSR      `yaml:"msr"`
 		Exporter Exporter `yaml:"exporter"`
 		Web      Web      `yaml:"web"`
 		Debug    Debug    `yaml:"debug"`
@@ -168,6 +179,12 @@ const (
 	// RAPL
 	RaplZones = "rapl.zones" // not a flag
 
+	// MSR - NOTE: MSR settings are not exposed as CLI flags per proposal
+	// They should only be configured via YAML files due to security implications
+	MSREnabled    = "msr.enabled"    // not a flag
+	MSRForce      = "msr.force"      // not a flag
+	MSRDevicePath = "msr.devicePath" // not a flag
+
 	pprofEnabledFlag = "debug.pprof"
 
 	WebConfigFlag        = "web.config-file"
@@ -202,6 +219,11 @@ func DefaultConfig() *Config {
 		},
 		Rapl: Rapl{
 			Zones: []string{},
+		},
+		MSR: MSR{
+			Enabled:    ptr.To(false), // Opt-in for security
+			Force:      ptr.To(false),
+			DevicePath: "/dev/cpu/%d/msr",
 		},
 		Monitor: Monitor{
 			Interval:  5 * time.Second,
@@ -408,6 +430,9 @@ func (c *Config) sanitize() {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
 	}
 
+	// MSR settings sanitization
+	c.MSR.DevicePath = strings.TrimSpace(c.MSR.DevicePath)
+
 	for i := range c.Exporter.Prometheus.DebugCollectors {
 		c.Exporter.Prometheus.DebugCollectors[i] = strings.TrimSpace(c.Exporter.Prometheus.DebugCollectors[i])
 	}
@@ -486,6 +511,16 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 
 		if c.Monitor.MinTerminatedEnergyThreshold < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
+		}
+	}
+	{ // MSR settings
+		if c.MSR.DevicePath == "" {
+			errs = append(errs, "MSR device path cannot be empty")
+		} else {
+			// Basic validation that device path is a template
+			if !strings.Contains(c.MSR.DevicePath, "%d") {
+				errs = append(errs, "MSR device path must contain '%d' placeholder for CPU ID")
+			}
 		}
 	}
 	{ // Kubernetes
