@@ -8,6 +8,7 @@ Welcome to the Kepler documentation. Kepler is a Prometheus exporter that measur
 
 Documentation for users deploying and operating Kepler:
 
+- [Getting Started Guide](user/getting-started.md) - Quick Kubernetes cluster deployment
 - [Installation Guide](user/installation.md) - How to install and deploy Kepler
 - [Configuration Guide](user/configuration.md) - Configuring Kepler for your environment
 - [Metrics Reference](user/metrics.md) - Available Prometheus metrics exported by Kepler
@@ -22,7 +23,7 @@ Documentation for developers contributing to Kepler:
 
 ## Quick Start
 
-For a quick start, see the [Installation Guide](user/installation.md) and the main project README.
+For a quick start, see the [Getting Started Guide](user/getting-started.md) and the main project README.
 
 ## Contributing
 

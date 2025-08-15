@@ -24,6 +24,7 @@ This section contains documentation for developers working on Kepler.
 
 ## Development Workflow
 
+- [Developer Getting Started](getting-started.md) - Building from source and setting up development environments
 - [Pre-commit Setup](pre-commit.md) - Setting up pre-commit hooks for code quality
 
 ## Release Management
