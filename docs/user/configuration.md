@@ -299,6 +299,46 @@ dev:
   - `enabled`: Set to `true` to enable fake CPU meter
   - `zones`: Specific zones to enable, empty enables all
 
+## 🔧 Fake CPU Meter Configuration
+
+The fake CPU meter is a development/testing feature that generates synthetic power data
+when real hardware power measurements aren't available.
+
+### When to Use Fake CPU Meter
+
+- **Virtual Machines** - VMs typically don't expose hardware power sensors
+- **Non-Intel Systems** - AMD or ARM systems without RAPL support
+- **Cloud Instances** - Most cloud VMs don't have access to power sensors
+- **Development/Testing** - When you want to see Kepler working without hardware
+- **CI/CD Environments** - Automated testing of Kepler functionality
+
+### Configuration Options
+
+```yaml
+dev:
+  fake-cpu-meter:
+    enabled: true  # Enable synthetic power measurements
+    zones: []      # Zones to simulate (empty = all default zones)
+```
+
+### What Fake CPU Meter Provides
+
+The fake CPU meter generates realistic synthetic data:
+
+- **Simulated CPU power usage** - Based on actual CPU utilization patterns
+- **Consistent metric structure** - All the same metrics as real hardware
+- **Realistic value ranges** - Power values similar to actual hardware (10-200W typical)
+- **Proper workload attribution** - Correctly attributes power to containers/processes
+- **Time-based variation** - Power values change realistically with load
+
+### Limitations and Considerations
+
+⚠️ **Important Limitations:**
+
+- **Not real measurements** - Data is synthetic approximation, not actual power consumption
+- **Development only** - Never use for production monitoring, billing, or real optimization decisions
+- **No hardware insights** - Won't help identify actual hardware-specific power characteristics
+
 ## 📖 Further Reading
 
 For more details see the [config file](../../hack/config.yaml)

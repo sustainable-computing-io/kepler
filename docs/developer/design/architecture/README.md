@@ -84,7 +84,7 @@ For specific implementation work:
 ## Related Documentation
 
 - **[Power Attribution Guide](../../power-attribution-guide.md)**: Detailed explanation of power calculation methodology
-- **[Development Setup](../../index.md)**: Setting up the development environment
+- **[Development Setup](../../README.md)**: Setting up the development environment
 - **[User Configuration Guide](../../../user/configuration.md)**: End-user configuration options
 
 ---
