@@ -54,33 +54,44 @@ accurate energy consumption monitoring for cloud-native workloads.
 
 ## 🚀 Getting Started
 
-> **📖 For comprehensive installation instructions, troubleshooting, and advanced deployment options, see our [Installation Guide](docs/user/installation.md)**
+**New to Kepler?** Follow our [**📖 Getting Started Guide**](docs/user/getting-started.md) for quick Kubernetes cluster deployment, or see our [**🧑‍💻 Developer Getting Started Guide**](docs/developer/getting-started.md) for local development with dashboards.
 
 ### ⚡ Quick Start
 
 Choose your preferred method:
 
 ```bash
-# 💻 Local Development
-make build && sudo ./bin/kepler
-
-# ✨ Docker Compose (with Prometheus & Grafana)
-cd compose/dev && docker-compose up -d
-
-# 🐳 Kubernetes
+# 🎯 Deploy to Kubernetes Cluster (Recommended for users)
 helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
+
+# 🧑‍💻 Local Development with Dashboards
+cd compose/dev && docker compose up -d
+# Access Grafana: http://localhost:23000 (admin/admin)
+
+# 🏗️ Local Kubernetes Development
+make cluster-up && make deploy
+
+# 💻 Build from Source
+make build && sudo ./bin/kepler
 ```
+
+> **📖 For detailed installation instructions, troubleshooting, and advanced deployment options, see our [Installation Guide](docs/user/installation.md)**
 
 ## 📖 Documentation
 
 ### User Documentation
 
-- **[Installation Guide](docs/user/installation.md)** - Detailed installation instructions for all deployment methods
-- **[Configuration Guide](docs/user/configuration.md)** - Configuration options and examples
+📋 **[User Guide Index](docs/user/README.md)** - Complete navigation hub for all user documentation
+
+- **[Getting Started Guide](docs/user/getting-started.md)** - Quick Kubernetes cluster deployment
+- **[Installation Guide](docs/user/installation.md)** - Production deployment methods and enterprise integration
+- **[Configuration Guide](docs/user/configuration.md)** - Configuration options and customization examples
+- **[Troubleshooting Guide](docs/user/troubleshooting.md)** - Comprehensive problem-solving and debugging guide
 - **[Metrics Documentation](docs/user/metrics.md)** - Available metrics and their descriptions
 
 ### Developer Documentation
 
+- **[Developer Getting Started Guide](docs/developer/getting-started.md)** - Local development setup with Docker Compose, dashboards, and building from source
 - **[Architecture Documentation](docs/developer/design/architecture/)** - Complete architectural documentation including design principles, system components, data flow, concurrency model, and deployment patterns
 - **[Power Attribution Guide](docs/developer/power-attribution-guide.md)** - How Kepler measures and attributes power consumption
 - **[Developer Documentation](docs/developer/)** - Contributing guidelines and development workflow

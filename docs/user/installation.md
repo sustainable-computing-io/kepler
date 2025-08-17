@@ -1,21 +1,20 @@
 # Kepler Installation Guide
 
-This guide covers different methods to install and run Kepler (Kubernetes-based Efficient Power Level Exporter) for monitoring energy consumption metrics.
+This guide covers production-ready installation methods for deploying Kepler
+to Kubernetes clusters. For local development and testing setups,
+see our [**Developer Getting Started Guide**](../developer/getting-started.md).
 
 ## Prerequisites
 
-- **For Local Installation**: Go 1.21+ and sudo access for hardware sensor access
-- **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
-- **For Helm**: Helm 3.0+ installed
+- **Kubernetes cluster** (v1.20+) with kubectl configured
+- **Admin access** for creating namespaces and RBAC resources
+- **Helm 3.0+** (recommended) or kubectl with kustomize support
 
-## Installation Methods
+## Deployment Methods
 
-### 1. Helm Chart Installation (Recommended for Kubernetes)
+### 1. Helm Installation (Recommended)
 
-#### Prerequisites for Helm
-
-- Helm 3.0+
-- Kubernetes cluster with kubectl configured
+Helm provides the most flexible and user-friendly way to deploy Kepler to production Kubernetes clusters.
 
 #### Install from Source
 
@@ -103,79 +102,15 @@ helm upgrade kepler manifests/helm/kepler/ -n kepler
 helm uninstall kepler -n kepler
 ```
 
-### 2. Local Installation
+### 2. kubectl/Kustomize Deployment
 
-#### Building from Source
+For environments requiring manual control or GitOps integration:
 
 ```bash
-# Clone the repository
+# Clone the repository for manifest access
 git clone https://github.com/sustainable-computing-io/kepler.git
 cd kepler
 
-# Build Kepler
-make build
-
-# Run Kepler (requires sudo for hardware access)
-sudo ./bin/kepler --config.file hack/config.yaml
-```
-
-#### Configuration
-
-Kepler can be configured using YAML files or CLI flags. The default configuration is in `hack/config.yaml`:
-
-```bash
-# Run with custom configuration
-sudo ./bin/kepler --config.file /path/to/your/config.yaml
-
-# Run with CLI flags
-sudo ./bin/kepler --log.level=debug --exporter.stdout
-```
-
-**Access Points:**
-
-- Metrics: <http://localhost:28282/metrics>
-
-### 3. Docker Compose (Recommended for Development)
-
-The Docker Compose setup provides a complete monitoring stack with Kepler, Prometheus, and Grafana:
-
-```bash
-cd compose/dev
-
-# Start the complete stack
-docker compose up --build -d
-
-# View logs
-docker compose logs -f kepler-dev
-
-# Stop the stack
-docker compose down --volumes
-```
-
-**Access Points:**
-
-- Kepler Metrics: <http://localhost:28283/metrics>
-- Prometheus: <http://localhost:29090>
-- Grafana: <http://localhost:23000> (admin/admin)
-
-### 4. Kubernetes with Kustomize
-
-#### Quick Setup with Kind
-
-```bash
-# Create a local cluster with monitoring stack
-make cluster-up
-
-# Deploy Kepler
-make deploy
-
-# Clean up
-make cluster-down
-```
-
-#### Manual Kubernetes Deployment
-
-```bash
 # Deploy using kustomize
 kubectl kustomize manifests/k8s | \
   sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" | \
@@ -188,14 +123,32 @@ kubectl get pods -n kepler
 kubectl port-forward -n kepler svc/kepler 28282:28282
 ```
 
-#### Custom Image Deployment
+#### Custom Kustomization
+
+For advanced users requiring specific configurations:
+
+```yaml
+# kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kepler
+
+resources:
+- https://github.com/sustainable-computing-io/kepler/manifests/k8s
+
+patchesStrategicMerge:
+- resource-limits.yaml
+
+images:
+- name: quay.io/sustainable_computing_io/kepler
+  newTag: v0.10.0
+```
+
+Deploy with custom kustomization:
 
 ```bash
-# Build and push custom image
-make image push IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
-
-# Deploy with custom image
-make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
+kubectl apply -k .
 ```
 
 ## Verification
@@ -276,11 +229,26 @@ serviceMonitor:
   scrapeTimeout: 10s
 ```
 
-### Environment-Specific Settings
+### Production Considerations
 
-- **Development**: Use fake CPU meter when RAPL unavailable
-- **Production**: Ensure nodes have Intel RAPL support
-- **Cloud**: May need different privilege configurations
+- **Hardware Requirements**: Intel RAPL support (most Intel processors since 2011)
+- **Security Context**: Kepler requires privileged access for hardware monitoring
+- **Resource Planning**: Minimum 100m CPU, 200Mi memory per node
+- **Monitoring Integration**: Configure ServiceMonitor for Prometheus scraping
+- **High Availability**: Deploy across multiple nodes with appropriate tolerations
+
+## Local Development Setup
+
+🧑‍💻 **Want to try Kepler locally first?**
+
+This guide focuses on production Kubernetes deployments. For local development, testing, and learning setups including Docker Compose with dashboards, see our comprehensive [**Developer Getting Started Guide**](../developer/getting-started.md).
+
+The developer guide includes:
+
+- **Docker Compose** setup with Prometheus & Grafana dashboards
+- **make cluster-up** for local Kubernetes development
+- **Building from source** and development workflows
+- **Fake CPU meter** configuration for systems without RAPL support
 
 ## Troubleshooting
 
@@ -303,9 +271,6 @@ kubectl describe pod -n kepler -l app.kubernetes.io/name=kepler
 # Check node hardware
 kubectl exec -n kepler -it <pod-name> -- ls /sys/class/powercap/intel-rapl
 
-# Test with fake meter (development)
-helm upgrade kepler manifests/helm/kepler/ -n kepler \
-  --set env.KEPLER_FAKE_CPU_METER=true
 ```
 
 ### Getting Help
@@ -319,8 +284,7 @@ helm upgrade kepler manifests/helm/kepler/ -n kepler \
 
 After successful installation:
 
-1. **Set up Prometheus**: Configure scraping of Kepler metrics
-2. **Install Grafana**: Use pre-built dashboards for visualization
-3. **Configure Alerts**: Set up energy consumption alerts
-4. **Explore Metrics**: Learn about available energy metrics
-5. **Optimize Workloads**: Use insights to improve energy efficiency
+1. **📊 Set up monitoring** - Configure Prometheus scraping and Grafana dashboards
+2. **🔧 Customize configuration** - Review [Configuration Guide](configuration.md) for environment-specific settings
+3. **📈 Analyze metrics** - Learn about available metrics in our [Metrics Reference](metrics.md)
+4. **🚨 Plan troubleshooting** - Familiarize yourself with our [Troubleshooting Guide](troubleshooting.md)
