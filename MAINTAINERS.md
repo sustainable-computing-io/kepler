@@ -3,7 +3,7 @@
 <!-- markdownlint-disable  MD013 -->
 <!-- Teporarily disable MD013 - Line length to keep the table formatting  -->
 
-(As of August, 1st, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
+(As of August, 18, 2025) <!-- For every PR that modifies this file, please update the PR creation date here accordingly -->
 
 | Name                  | Company    | Github ID      | Email                            | Role              | Last sign up |
 | --------------------- | ---------- | -------------- | -------------------------------- | ----------------- | ------------ |
@@ -24,7 +24,7 @@
 | Ruomeng Hao           | Intel      | ruomengh       | <ruomengh@intel.com>             |                   |              |
 | Chen Wang             | IBM        | wangchen615    | <chen.wang1@ibm.com>             |                   |              |
 | Jie Ren               | Intel      | jiere          | <jie.ren@intel.com>              |                   |              |
-| Vibhu Prashar         | Red Hat    | vprashar2929   | <vibhu.sharma2929@gmail.com>     |                   |              |
+| Vibhu Prashar         | Red Hat    | vprashar2929   | <vibhu.sharma2929@gmail.com>     | Maintainer        |              |
 | Vimal Kumar           | Red Hat    | vimalk78       | <vimal78@gmail.com>              |                   |              |
 | Dave Tucker           | Red Hat    | dave-tucker    | <datucker@redhat.com>            |                   |              |
 | Maryam Tahhan         | Red Hat    | maryamtahhan   | <mtahhan@redhat.com>             |                   |              |
