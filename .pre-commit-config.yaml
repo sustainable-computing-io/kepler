@@ -2,7 +2,18 @@ default_install_hook_types:
   - pre-commit
   - commit-msg
 repos:
-  # This hook lints commit messages within a specified range, ideal for validating all commits in a PR.
+  # NOTE: This hook formats the tables in markdown files ensuring consistent formatting
+  - repo: local
+    hooks:
+      - id: markdown-table-format
+        name: markdown-table-format
+        language: node
+        additional_dependencies:
+          - markdown-table-formatter
+        pass_filenames: false
+        entry: bash -c "markdown-table-formatter"
+
+  # NOTE: This hook lints commit messages within a specified range, ideal for validating all commits in a PR.
   # Environment variables $FROM (start of range) and $TO (end of range) are set in PR Checks workflow.
   - repo: local
     hooks:

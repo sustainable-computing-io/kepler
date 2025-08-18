@@ -77,13 +77,13 @@ func calculateEnergyDelta(current, previous, maxEnergy Energy) Energy {
 
 ### Energy Zone Types
 
-| Zone | Description | Coverage | Priority |
-|------|-------------|----------|----------|
-| **psys** | Platform system energy | CPU + Memory + I/O | Highest |
-| **package** | CPU package energy | Cores + Uncore + Cache | High |
-| **core** | CPU cores only | Processing units | Medium |
-| **dram** | Memory energy | System memory | Medium |
-| **uncore** | Uncore energy | Cache, memory controller | Low |
+| Zone        | Description            | Coverage                 | Priority |
+|-------------|------------------------|--------------------------|----------|
+| **psys**    | Platform system energy | CPU + Memory + I/O       | Highest  |
+| **package** | CPU package energy     | Cores + Uncore + Cache   | High     |
+| **core**    | CPU cores only         | Processing units         | Medium   |
+| **dram**    | Memory energy          | System memory            | Medium   |
+| **uncore**  | Uncore energy          | Cache, memory controller | Low      |
 
 ## Phase 2: Node Energy Breakdown
 

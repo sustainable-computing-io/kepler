@@ -15,24 +15,24 @@ Kepler supports two primary methods for configuration:
 
 You can configure Kepler by passing flags when starting the service. The following flags are available:
 
-| Flag | Description | Default | Values |
-|------|-------------|---------|--------|
-| `--config.file` | Path to YAML configuration file | | Any valid file path |
-| `--log.level` | Logging level | `info` | `debug`, `info`, `warn`, `error` |
-| `--log.format` | Output format for logs | `text` | `text`, `json` |
-| `--host.sysfs` | Path to sysfs filesystem | `/sys` | Any valid directory path |
-| `--host.procfs` | Path to procfs filesystem | `/proc` | Any valid directory path |
-| `--monitor.interval` | Monitor refresh interval | `5s` | Any valid duration |
-| `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500` | Negative number indicates `unlimited` and `0` disables the feature |
-| `--web.config-file` | Path to TLS server config file | `""` | Any valid file path |
-| `--web.listen-address` | Web server listen addresses (can be specified multiple times) | `:28282` | Any valid host:port or :port format |
-| `--debug.pprof` | Enable pprof debugging endpoints | `false` | `true`, `false` |
-| `--exporter.stdout` | Enable stdout exporter | `false` | `true`, `false` |
-| `--exporter.prometheus` | Enable Prometheus exporter | `true` | `true`, `false` |
-| `--metrics` | Metrics levels to export (can be specified multiple times) | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod` |
-| `--kube.enable` | Monitor kubernetes | `false` | `true`, `false` |
-| `--kube.config` | Path to a kubeconfig file | `""` | Any valid file path |
-| `--kube.node-name` | Name of kubernetes node on which kepler is running | `""` | Any valid node name |
+| Flag                       | Description                                                             | Default                         | Values                                                             |
+|----------------------------|-------------------------------------------------------------------------|---------------------------------|--------------------------------------------------------------------|
+| `--config.file`            | Path to YAML configuration file                                         |                                 | Any valid file path                                                |
+| `--log.level`              | Logging level                                                           | `info`                          | `debug`, `info`, `warn`, `error`                                   |
+| `--log.format`             | Output format for logs                                                  | `text`                          | `text`, `json`                                                     |
+| `--host.sysfs`             | Path to sysfs filesystem                                                | `/sys`                          | Any valid directory path                                           |
+| `--host.procfs`            | Path to procfs filesystem                                               | `/proc`                         | Any valid directory path                                           |
+| `--monitor.interval`       | Monitor refresh interval                                                | `5s`                            | Any valid duration                                                 |
+| `--monitor.max-terminated` | Maximum number of terminated workloads to keep in memory until exported | `500`                           | Negative number indicates `unlimited` and `0` disables the feature |
+| `--web.config-file`        | Path to TLS server config file                                          | `""`                            | Any valid file path                                                |
+| `--web.listen-address`     | Web server listen addresses (can be specified multiple times)           | `:28282`                        | Any valid host:port or :port format                                |
+| `--debug.pprof`            | Enable pprof debugging endpoints                                        | `false`                         | `true`, `false`                                                    |
+| `--exporter.stdout`        | Enable stdout exporter                                                  | `false`                         | `true`, `false`                                                    |
+| `--exporter.prometheus`    | Enable Prometheus exporter                                              | `true`                          | `true`, `false`                                                    |
+| `--metrics`                | Metrics levels to export (can be specified multiple times)              | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod`                        |
+| `--kube.enable`            | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
+| `--kube.config`            | Path to a kubeconfig file                                               | `""`                            | Any valid file path                                                |
+| `--kube.node-name`         | Name of kubernetes node on which kepler is running                      | `""`                            | Any valid node name                                                |
 
 ### 💡 Examples
 

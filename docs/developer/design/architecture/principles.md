@@ -181,14 +181,14 @@ go test -race ./...
 
 ### Well-Maintained Dependencies
 
-| Area | Package | Benefit |
-|------|---------|---------|
-| Service Management | `oklog/run` | Coordinated lifecycle management |
-| Metrics | `prometheus/client_golang` | Standard Prometheus exposition |
-| Concurrency | `golang.org/x/sync/singleflight` | Proven deduplication patterns |
-| Kubernetes | `k8s.io/client-go` | Native Kubernetes API integration |
-| Configuration | `alecthomas/kingpin/v2` | Battle-tested CLI parsing |
-| Logging | `log/slog` | Standard structured logging |
+| Area               | Package                          | Benefit                           |
+|--------------------|----------------------------------|-----------------------------------|
+| Service Management | `oklog/run`                      | Coordinated lifecycle management  |
+| Metrics            | `prometheus/client_golang`       | Standard Prometheus exposition    |
+| Concurrency        | `golang.org/x/sync/singleflight` | Proven deduplication patterns     |
+| Kubernetes         | `k8s.io/client-go`               | Native Kubernetes API integration |
+| Configuration      | `alecthomas/kingpin/v2`          | Battle-tested CLI parsing         |
+| Logging            | `log/slog`                       | Standard structured logging       |
 
 ### Package Reuse Benefits
 
@@ -223,13 +223,13 @@ exporter:
 
 ### Current Support Matrix
 
-| Level | Status | Metrics | Benefits |
-|-------|--------|---------|----------|
-| **Node** | ✅ | `kepler_node_cpu_watts{zone="package"}` | System-level monitoring |
-| **Process** | 🔄 | `kepler_process_cpu_watts{pid="1234"}` | Fine-grained analysis |
-| **Container** | 🔄 | `kepler_container_cpu_watts{id="abc123"}` | Container-level billing |
-| **VM** | 🔄 | `kepler_vm_cpu_watts{id="vm-123"}` | Virtualization monitoring |
-| **Pod** | ✅ | `kepler_pod_cpu_watts{pod="webapp"}` | Kubernetes workload monitoring |
+| Level         | Status | Metrics                                   | Benefits                       |
+|---------------|--------|-------------------------------------------|--------------------------------|
+| **Node**      | ✅      | `kepler_node_cpu_watts{zone="package"}`   | System-level monitoring        |
+| **Process**   | 🔄     | `kepler_process_cpu_watts{pid="1234"}`    | Fine-grained analysis          |
+| **Container** | 🔄     | `kepler_container_cpu_watts{id="abc123"}` | Container-level billing        |
+| **VM**        | 🔄     | `kepler_vm_cpu_watts{id="vm-123"}`        | Virtualization monitoring      |
+| **Pod**       | ✅      | `kepler_pod_cpu_watts{pod="webapp"}`      | Kubernetes workload monitoring |
 
 ### Configuration Benefits
 
@@ -270,11 +270,11 @@ type Informer interface {
 
 ### Current and Future Implementations
 
-| Layer | Current | Future | Abstraction Benefit |
-|-------|---------|--------|-------------------|
-| **Hardware** | RAPL sysfs | eBPF perf counters | Pluggable energy sources |
-| **Resource Tracking** | procfs reader | eBPF tracer | Different collection methods |
-| **Export** | Prometheus, stdout | OpenTelemetry | Multiple presentation formats |
+| Layer                 | Current            | Future             | Abstraction Benefit           |
+|-----------------------|--------------------|--------------------|-------------------------------|
+| **Hardware**          | RAPL sysfs         | eBPF perf counters | Pluggable energy sources      |
+| **Resource Tracking** | procfs reader      | eBPF tracer        | Different collection methods  |
+| **Export**            | Prometheus, stdout | OpenTelemetry      | Multiple presentation formats |
 
 ### Design Benefits
 
@@ -322,17 +322,17 @@ kepler --config=production.yaml --log.level=debug --monitor.interval=5s
 
 These principles directly influenced major architectural decisions:
 
-| Principle | Architectural Impact | Implementation |
-|-----------|---------------------|----------------|
-| Fair Allocation | Terminated workload tracking system | `TerminatedResourceTracker` with priority queues |
-| Mathematical Integrity | Atomic snapshots + energy conservation | Immutable `Snapshot` with validation |
-| M/V Separation | PowerDataProvider interface + pluggable exporters | Interface-based exporter system |
-| Data Freshness | Staleness control + singleflight pattern | `isFresh()` checks + automatic refresh |
-| Deterministic Processing | Thread-safe design + immutable snapshots | Single writer, multiple readers |
-| Package Reuse | Minimal custom implementations + proven libraries | Strategic dependency selection |
-| Configurable Exposure | Metrics level system + zone filtering | `config.Level` + filtering logic |
-| Implementation Abstraction | Interface-based layers + dependency injection | Clean interface boundaries |
-| Simple Configuration | Hierarchical config + CLI/YAML sync | `kingpin` + YAML parsing |
+| Principle                  | Architectural Impact                              | Implementation                                   |
+|----------------------------|---------------------------------------------------|--------------------------------------------------|
+| Fair Allocation            | Terminated workload tracking system               | `TerminatedResourceTracker` with priority queues |
+| Mathematical Integrity     | Atomic snapshots + energy conservation            | Immutable `Snapshot` with validation             |
+| M/V Separation             | PowerDataProvider interface + pluggable exporters | Interface-based exporter system                  |
+| Data Freshness             | Staleness control + singleflight pattern          | `isFresh()` checks + automatic refresh           |
+| Deterministic Processing   | Thread-safe design + immutable snapshots          | Single writer, multiple readers                  |
+| Package Reuse              | Minimal custom implementations + proven libraries | Strategic dependency selection                   |
+| Configurable Exposure      | Metrics level system + zone filtering             | `config.Level` + filtering logic                 |
+| Implementation Abstraction | Interface-based layers + dependency injection     | Clean interface boundaries                       |
+| Simple Configuration       | Hierarchical config + CLI/YAML sync               | `kingpin` + YAML parsing                         |
 
 ---
 
