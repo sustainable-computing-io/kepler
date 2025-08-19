@@ -19,19 +19,19 @@ This section provides comprehensive documentation of Kepler's architecture, desi
 
 ### Core Architecture
 
-| Document | Description |
-|----------|-------------|
-| **[Design Principles](principles.md)** | The fundamental principles that drive all architectural decisions |
-| **[System Components](components.md)** | Deep dive into each architectural layer and component |
-| **[Data Flow & Attribution](data-flow.md)** | Power attribution algorithm and data flow patterns |
-| **[Concurrency & Thread Safety](concurrency.md)** | Thread safety guarantees and concurrent processing |
+| Document                                          | Description                                                       |
+|---------------------------------------------------|-------------------------------------------------------------------|
+| **[Design Principles](principles.md)**            | The fundamental principles that drive all architectural decisions |
+| **[System Components](components.md)**            | Deep dive into each architectural layer and component             |
+| **[Data Flow & Attribution](data-flow.md)**       | Power attribution algorithm and data flow patterns                |
+| **[Concurrency & Thread Safety](concurrency.md)** | Thread safety guarantees and concurrent processing                |
 
 ### Implementation Details
 
-| Document | Description |
-|----------|-------------|
-| **[Interfaces & Contracts](interfaces.md)** | Key interfaces, service contracts, and API boundaries |
-| **[Configuration System](configuration.md)** | Hierarchical configuration and option management |
+| Document                                     | Description                                           |
+|----------------------------------------------|-------------------------------------------------------|
+| **[Interfaces & Contracts](interfaces.md)**  | Key interfaces, service contracts, and API boundaries |
+| **[Configuration System](configuration.md)** | Hierarchical configuration and option management      |
 
 ## Quick Reference
 
