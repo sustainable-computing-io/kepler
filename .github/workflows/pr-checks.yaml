@@ -102,6 +102,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   pre-commit:
+    if: ${{ github.actor != 'dependabot[bot]' || github.actor != 'dependabot' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -117,6 +118,7 @@ jobs:
         run: pre-commit run --all-files
 
   commit-msg-check:
+    if: ${{ github.actor != 'dependabot[bot]' || github.actor != 'dependabot' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
