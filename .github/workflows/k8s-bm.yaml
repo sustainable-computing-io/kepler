@@ -1,10 +1,7 @@
-name: Build and Deploy K8s on Equinix
+name: Build and Deploy K8s on Self Hosted BM
 
 on: #yamllint disable-line rule:truthy
-  pull_request_target:
-  # In order to trigger this workflow on comment, GH accepts the workflow to be available in the default branch only.
-  # issue_comment:
-  #   types: [created]
+  pull_request:
 
 permissions:
   pull-requests: write
@@ -25,83 +22,19 @@ jobs:
         with:
           filters: |
             changes:
-              - '.github/workflows/k8s-equinix.yaml'
               - 'cmd/**/*.go'
               - 'internal/**/*.go'
               - 'config/**/*.go'
               - 'go.mod'
               - 'go.sum'
-  create-runner:
-    needs: check-changes
-    if: needs.check-changes.outputs.changes == 'true'
-    # TODO: Uncomment once we enable workflow on issue_comment
-    # if: github.event.issue.pull_request && contains(github.event.comment.body, '/test-equinix')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Create Equinix runner
-        uses: ./.github/create-equinix-runner
-        with:
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          metal_auth_token: ${{ secrets.EQUINIX_API_TOKEN }}
-          metal_project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
-          os_name: ubuntu_22_04
 
   build-and-deploy:
-    needs: [check-changes, create-runner]
+    # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
+    # Hence, we don't need to install them as part of the job.
+    needs: [check-changes]
     if: needs.check-changes.outputs.changes == 'true'
     runs-on: self-hosted
-    env:
-      GOCACHE: /home/ghrunner/.cache/go-build
-      HOME: /home/ghrunner
-    outputs:
-      runner_name: ${{ runner.name }}
     steps:
-      - name: Install Docker
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-          sudo usermod -aG docker root
-
-      - name: Verify Docker installation
-        shell: bash
-        run: |
-          docker ps
-          docker --version
-
-      - name: Install Kind
-        shell: bash
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
-
-      - name: Verify Kind installation
-        shell: bash
-        run: |
-          kind version
-
-      - name: Install Kubectl
-        shell: bash
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x ./kubectl
-          sudo mv ./kubectl /usr/local/bin/kubectl
-
-      - name: Verify Kubectl installation
-        shell: bash
-        run: |
-          kubectl version --client
-
       - name: Checkout source
         uses: actions/checkout@v5
         with:
@@ -201,19 +134,25 @@ jobs:
           curl -s http://localhost:28282/metrics || true
           echo "::endgroup::"
 
-  cleanup-runner:
+  cleanup:
     needs: [check-changes, build-and-deploy]
-    runs-on: ubuntu-latest
-    if: always() && needs.check-changes.outputs.changes == 'true' # Run even if the previous job fails
+    runs-on: self-hosted
+    # NOTE: Run even if the previous job fails
+    if: always() && needs.check-changes.outputs.changes == 'true'
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Clean Equinix runner
-        uses: ./.github/clean-equinix-runner
-        with:
-          runner_name: ${{ needs.build-and-deploy.outputs.runner_name }}
-          project_id: ${{ secrets.EQUINIX_PROJECT_ID }}
-          api_token: ${{ secrets.EQUINIX_API_TOKEN }}
+      # NOTE: Ensure that all deployments and built images are properly cleaned up
+      # to prevent residual resources
+      - name: Undeploy Kepler
+        shell: bash
+        run: |
+          make undeploy
+
+      - name: Clean Docker images
+        shell: bash
+        run: |
+          docker image prune -af
