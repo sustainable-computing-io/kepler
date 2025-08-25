@@ -4,10 +4,11 @@ This directory contains Enhancement Proposals (EPs) for major features and chang
 
 ## Active Proposals
 
-| ID                                           | Title                            | Status   | Author                  | Created    |
-|----------------------------------------------|----------------------------------|----------|-------------------------|------------|
-| [EP-000](EP_TEMPLATE.md)                     | Enhancement Proposal Template    | Accepted | Sunil Thaha             | 2025-01-18 |
-| [EP-002](EP-002-MSR-Fallback-Power-Meter.md) | MSR Fallback for CPU Power Meter | Draft    | Kepler Development Team | 2025-08-12 |
+| ID                                                        | Title                            | Status   | Author                  | Created    |
+|-----------------------------------------------------------|----------------------------------|----------|-------------------------|------------|
+| [EP-000](EP_TEMPLATE.md)                                  | Enhancement Proposal Template    | Accepted | Sunil Thaha             | 2025-01-18 |
+| [EP-002](EP-002-MSR-Fallback-Power-Meter.md)              | MSR Fallback for CPU Power Meter | Draft    | Kepler Development Team | 2025-08-12 |
+| [EP-003](EP-003-VM-CPU-Power-Models-Training-Proposal.md) | VM CPU Power Models For Training | Draft    | Kaiyi Liu               | 2025-08-25 |
 
 ## Proposal Status
 
