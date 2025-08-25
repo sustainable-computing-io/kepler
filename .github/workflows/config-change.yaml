@@ -1,12 +1,7 @@
 name: Check Config Changes
 
 on: #yamllint disable-line rule:truthy
-  pull_request_target:
-  # Using `pull_request_target` event type to allow the workflow to comment on the PR.
-  # Refer: https://github.com/thollander/actions-comment-pull-request?tab=readme-ov-file#permissions
-permissions:
-  pull-requests: write
-  contents: write
+  pull_request:
 
 jobs:
   check-changes:
@@ -40,7 +35,7 @@ jobs:
             helm:
               - 'manifests/helm/kepler/values.yaml'
 
-  comment-on-pr:
+  generate-comment-message:
     needs: check-changes
     if: >-
         needs.check-changes.outputs.changes == 'true' &&
@@ -54,10 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate comment message
-        id: generate_message
         run: |
           {
-            echo "message<<EOF"
             echo "⚠️ Config changes detected in this PR"
             echo "Please make sure that the config changes are updated in the following places as part of this PR:"
             if [[ "${{ needs.check-changes.outputs.doc_changes }}" != "true" ]]; then
@@ -76,8 +69,13 @@ jobs:
               echo "- manifests/helm/kepler/values.yaml"
             fi
             echo "EOF"
-          } >> $GITHUB_OUTPUT
-      - name: Comment on PR
-        uses: thollander/actions-comment-pull-request@v3
+          } > /tmp/message.txt
+
+      # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
+      # add comment on PR with the message.
+      - name: Upload message
+        uses: actions/upload-artifact@v4
         with:
-          message: ${{ steps.generate_message.outputs.message }}
+          name: message
+          path: /tmp/message.txt
+          retention-days: 1 # Keep artifact for 1 days

@@ -1,10 +1,6 @@
 name: Profiling Report
 on:
-  pull_request_target:
-
-permissions:
-  contents: write
-  pull-requests: write
+  pull_request:
 
 jobs:
   profiling:
@@ -109,7 +105,7 @@ jobs:
           path: ./tmp/*
           retention-days: 5 # Keep artifact for 5 days
 
-  comment_on_pr:
+  generate-comment-message:
     runs-on: ubuntu-latest
     needs: [profiling]
     steps:
@@ -132,11 +128,9 @@ jobs:
           path: ./tmp
 
       - name: Generate comment messages
-        id: generate_message
         run: |
           {
-            echo "message<<EOF"
-            ./hack/reports/profiling.sh output
+            ./hack/reports/profiling.sh output | awk 'NR >4'
             echo ""
             echo "⬇️ Download the Profiling artifacts from the [Actions Summary page](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             echo ""
@@ -147,11 +141,12 @@ jobs:
             echo "gh run download ${{ github.run_id }} -n profile-artifacts-${{ github.event.pull_request.number }}"
             echo "\`\`\`"
             echo ""
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-      - name: Create PR Comment with report links
-        uses: thollander/actions-comment-pull-request@v3
+          } > /tmp/message.txt
+      # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
+      # add comment on PR with the message.
+      - name: Upload message
+        uses: actions/upload-artifact@v4
         with:
-          message: ${{ steps.generate_message.outputs.message }}
-          reactions: eyes, rocket
+          name: message
+          path: /tmp/message.txt
+          retention-days: 1 # Keep artifact for 1 days
