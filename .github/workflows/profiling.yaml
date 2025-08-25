@@ -1,0 +1,157 @@
+name: Profiling Report
+on:
+  pull_request_target:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  profiling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      - name: Install Docker
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          sudo usermod -aG docker $USER
+
+      - name: Verify Docker installation
+        shell: bash
+        run: |
+          docker ps
+          docker --version
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install pprof
+        run: go install github.com/google/pprof@latest
+
+      - name: Enable fake cpu meter
+        shell: bash
+        run: |
+          sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' \
+            compose/dev/kepler-dev/etc/kepler/config.yaml \
+            compose/dev/kepler-latest/etc/kepler/config.yaml
+
+      - name: Run Docker Compose services
+        shell: bash
+        working-directory: compose/dev
+        run: |
+          # Build and start kepler-dev and kepler-latest services in detach mode
+          docker compose up kepler-dev kepler-latest --build -d --wait --wait-timeout 300
+
+      - name: Run must gather
+        if: always()
+        shell: bash
+        working-directory: compose/dev
+        run: |
+          echo "::group::Get Docker ps output"
+          docker ps || true
+          echo "::endgroup::"
+
+          echo "::group::Get Docker compose ps output"
+          docker compose ps || true
+          echo "::endgroup::"
+
+          services=$(docker compose config --services)
+          for service in $services; do
+            echo "::group::Get logs for $service service"
+            docker compose logs $service || true
+            echo "::endgroup::"
+          done
+
+          echo "::group::Fetch metrics from kepler-dev service"
+          curl -s http://localhost:28283/metrics || true
+          echo "::endgroup::"
+
+          echo "::group::Fetch metrics from kepler-latest service"
+          curl -s http://localhost:28284/metrics || true
+          echo "::endgroup::"
+
+      - name: Sleeping for 10 seconds
+        shell: bash
+        run: |
+          sleep 10
+
+      - name: Capture CPU and Memory profiling for Kepler
+        run: |
+          # NOTE: Setting the duration to 60 seconds
+          ./hack/reports/profiling.sh capture --duration 60
+
+      - name: Compare profiling results
+        run: |
+          ./hack/reports/profiling.sh compare
+
+      - name: Upload profiling artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-artifacts-${{ github.event.pull_request.number }}
+          path: ./tmp/*
+          retention-days: 5 # Keep artifact for 5 days
+
+  comment_on_pr:
+    runs-on: ubuntu-latest
+    needs: [profiling]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install pprof
+        run: go install github.com/google/pprof@latest
+
+      - name: Download profiling artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: profile-artifacts-${{ github.event.pull_request.number }}
+          path: ./tmp
+
+      - name: Generate comment messages
+        id: generate_message
+        run: |
+          {
+            echo "message<<EOF"
+            ./hack/reports/profiling.sh output
+            echo ""
+            echo "⬇️ Download the Profiling artifacts from the [Actions Summary page](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo ""
+            echo "📦 Artifact name: \`profile-artifacts-${{ github.event.pull_request.number }}\`"
+            echo ""
+            echo "🔧 Or use GitHub CLI to download artifacts:"
+            echo "\`\`\`bash"
+            echo "gh run download ${{ github.run_id }} -n profile-artifacts-${{ github.event.pull_request.number }}"
+            echo "\`\`\`"
+            echo ""
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create PR Comment with report links
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ${{ steps.generate_message.outputs.message }}
+          reactions: eyes, rocket
