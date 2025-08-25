@@ -1,7 +1,7 @@
 name: Check Config Changes
 
 on: #yamllint disable-line rule:truthy
-  pull_request_target:
+  pull_request:
   # Using `pull_request_target` event type to allow the workflow to comment on the PR.
   # Refer: https://github.com/thollander/actions-comment-pull-request?tab=readme-ov-file#permissions
 permissions:
@@ -81,3 +81,4 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           message: ${{ steps.generate_message.outputs.message }}
+          github-token: ${{ secrets.GH_BOT_SECRET }}
