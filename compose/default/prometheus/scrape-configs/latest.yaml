@@ -1,0 +1,4 @@
+scrape_configs:
+  - job_name: kepler-latest
+    static_configs:
+      - targets: [kepler-latest:28282]

@@ -31,9 +31,46 @@ runs:
       run: |
         sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' \
           compose/dev/kepler-dev/etc/kepler/config.yaml \
-          compose/dev/kepler-latest/etc/kepler/config.yaml
+          compose/default/kepler/etc/kepler/config.yaml
 
     - name: Run Docker Compose services
+      shell: bash
+      working-directory: compose
+      run: |
+        # Build and start containers for services defined in compose.yaml in detach mode
+        docker compose up --build -d --wait --wait-timeout 300
+
+    - name: Run must gather
+      if: always()
+      shell: bash
+      working-directory: compose
+      run: |
+        echo "::group::Get Docker ps output"
+        docker ps || true
+        echo "::endgroup::"
+
+        echo "::group::Get Docker compose ps output"
+        docker compose ps || true
+        echo "::endgroup::"
+
+        services=$(docker compose config --services)
+        for service in $services; do
+          echo "::group::Get logs for $service service"
+          docker compose logs $service || true
+          echo "::endgroup::"
+        done
+
+        echo "::group::Fetch metrics from kepler-dev service"
+        curl -s http://localhost:28283/metrics || true
+        echo "::endgroup::"
+
+    - name: Stop Docker Compose services
+      shell: bash
+      working-directory: compose
+      run: |
+        docker compose down --volumes
+
+    - name: Run Docker Dev Compose services
       shell: bash
       working-directory: compose/dev
       run: |
@@ -68,3 +105,9 @@ runs:
         echo "::group::Fetch metrics from kepler-latest service"
         curl -s http://localhost:28284/metrics || true
         echo "::endgroup::"
+
+    - name: Stop Docker Compose services
+      shell: bash
+      working-directory: compose/dev
+      run: |
+        docker compose down --volumes
