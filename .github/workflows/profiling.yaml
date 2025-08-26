@@ -20,6 +20,9 @@ jobs:
               - '**/*.go'
               - 'go.mod'
               - 'go.sum'
+              - '.github/workflows/profiling.yaml'
+              - 'hack/reports/profiling.sh'
+
   profiling:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
