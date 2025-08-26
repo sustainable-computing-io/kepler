@@ -32,11 +32,18 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Comment on PR
+      - name: Extract PR number from filename
         if: steps.download-artifact.outcome == 'success'
+        id: extract-pr
+        run: |
+          echo "message-file=$(ls /tmp/message*.txt)" >> $GITHUB_OUTPUT
+          echo "pr-number=$(echo /tmp/message*.txt | sed -E 's/.*message-([0-9]+)\.txt/\1/')" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: steps.download-artifact.outcome == 'success' && steps.extract-pr.outputs.pr-number != ''
         uses: thollander/actions-comment-pull-request@v3
         with:
-          file-path: /tmp/message.txt
+          file-path: ${{ steps.extract-pr.outputs.message-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          pr-number: ${{ steps.extract-pr.outputs.pr-number }}
           reactions: eyes, rocket
