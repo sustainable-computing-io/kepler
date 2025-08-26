@@ -17,7 +17,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// Config represents the complete application configuration
 type (
 	Log struct {
 		Level  string `yaml:"level"`
