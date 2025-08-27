@@ -27,6 +27,7 @@ jobs:
               - 'config/**/*.go'
               - 'go.mod'
               - 'go.sum'
+              - '.github/workflows/k8s-bm.yaml'
 
   build-and-deploy:
     # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
@@ -134,25 +135,22 @@ jobs:
           curl -s http://localhost:28282/metrics || true
           echo "::endgroup::"
 
-  cleanup:
-    needs: [check-changes, build-and-deploy]
-    runs-on: self-hosted
-    # NOTE: Run even if the previous job fails
-    if: always() && needs.check-changes.outputs.changes == 'true'
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      # NOTE: Ensure that all deployments and built images are properly cleaned up
+      # NOTE: Ensure that all deployments, built images and cluster are properly cleaned up
       # to prevent residual resources
       - name: Undeploy Kepler
+        if: always()
         shell: bash
         run: |
           make undeploy
 
+      - name: Remove kind cluster
+        if: always()
+        shell: bash
+        run: |
+          make cluster-down
+
       - name: Clean Docker images
+        if: always()
         shell: bash
         run: |
           docker image prune -af
