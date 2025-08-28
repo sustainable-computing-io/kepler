@@ -39,10 +39,10 @@ support, and collaboration.
 
 Active maintainer will be reviewed on a 6-month cycle.
 
-| **Cycle** | **Active Period**         | **Nomination / Review Period**       |
-|-----------|---------------------------|--------------------------------------|
-| **Fall**  | October 1 – March 31      | August 1 – September 30              |
-| **Spring**| April 1 – September 30    | February 1 – March 31                |
+| **Cycle**  | **Active Period**      | **Nomination / Review Period** |
+|------------|------------------------|--------------------------------|
+| **Fall**   | October 1 – March 31   | August 1 – September 30        |
+| **Spring** | April 1 – September 30 | February 1 – March 31          |
 
 - Active maintainers are expected to maintain engagement during each cycle by providing tangible contributions in accordance with the [Active Engagement Expectations](#active-engagement-expectations).
 - A designated person responsible for maintaining the maintainer list will create an issue during each review period to propose changes based on observed activity. This issue will remain open throughout the window, giving maintainers the opportunity to review and confirm their status.

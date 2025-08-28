@@ -10,7 +10,7 @@ jobs:
       changes: ${{ steps.filter.outputs.changes }}
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: filter changes
         uses: dorny/paths-filter@v3
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup go
         uses: actions/setup-go@v5.5.0
@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup go
         uses: actions/setup-go@v5.5.0
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup go
         uses: actions/setup-go@v5.5.0
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup go
         uses: actions/setup-go@v5.5.0
@@ -102,10 +102,11 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   pre-commit:
+    if: ${{ github.actor != 'dependabot[bot]' || github.actor != 'dependabot' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -117,10 +118,11 @@ jobs:
         run: pre-commit run --all-files
 
   commit-msg-check:
+    if: ${{ github.actor != 'dependabot[bot]' || github.actor != 'dependabot' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Fetch all the history of PR commits
 
@@ -137,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: setup go
         uses: actions/setup-go@v5.5.0
@@ -154,7 +156,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build and Deploy Kepler on K8s
         uses: ./.github/k8s
@@ -163,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build and Deploy Kepler using Docker Compose
         uses: ./.github/compose

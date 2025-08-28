@@ -116,7 +116,7 @@ cd kepler
 make build
 
 # Run Kepler (requires sudo for hardware access)
-sudo ./bin/kepler --config hack/config.yaml
+sudo ./bin/kepler --config.file hack/config.yaml
 ```
 
 #### Configuration
@@ -125,7 +125,7 @@ Kepler can be configured using YAML files or CLI flags. The default configuratio
 
 ```bash
 # Run with custom configuration
-sudo ./bin/kepler --config /path/to/your/config.yaml
+sudo ./bin/kepler --config.file /path/to/your/config.yaml
 
 # Run with CLI flags
 sudo ./bin/kepler --log.level=debug --exporter.stdout

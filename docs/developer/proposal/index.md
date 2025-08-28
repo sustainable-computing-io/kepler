@@ -4,10 +4,12 @@ This directory contains Enhancement Proposals (EPs) for major features and chang
 
 ## Active Proposals
 
-| ID | Title | Status | Author | Created |
-|----|-------|--------|--------|---------|
-| [EP-000](EP_TEMPLATE.md) | Enhancement Proposal Template | Accepted | Sunil Thaha | 2025-01-18 |
-| [EP-004](EP_004-ACPI-support.md) | ACPI Support for Platform Power/Energy Metrics | Draft | Ray Huang | 2025-08-28 |
+| ID                                           | Title                                          | Status   | Author                  | Created    |
+|----------------------------------------------|------------------------------------------------|----------|-------------------------|------------|
+| [EP-000](EP_TEMPLATE.md)                     | Enhancement Proposal Template                  | Accepted | Sunil Thaha             | 2025-01-18 |
+| [EP-001](EP_001-redfish-support.md)          | Redfish Power Monitoring Support               | Draft    | Sunil Thaha             | 2025-08-14 |
+| [EP-002](EP-002-MSR-Fallback-Power-Meter.md) | MSR Fallback for CPU Power Meter               | Draft    | Kepler Development Team | 2025-08-12 |
+| [EP-004](EP_004-ACPI-support.md)             | ACPI Support for Platform Power/Energy Metrics | Draft    | Ray Huang               | 2025-08-28 |
 
 ## Proposal Status
 

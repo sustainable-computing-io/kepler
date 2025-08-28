@@ -81,6 +81,7 @@ helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
 
 ### Developer Documentation
 
+- **[Architecture Documentation](docs/developer/design/architecture/)** - Complete architectural documentation including design principles, system components, data flow, concurrency model, and deployment patterns
 - **[Power Attribution Guide](docs/developer/power-attribution-guide.md)** - How Kepler measures and attributes power consumption
 - **[Developer Documentation](docs/developer/)** - Contributing guidelines and development workflow
 
@@ -93,6 +94,10 @@ Contributions are welcome! Please feel free to submit a Pull Request. For more d
 ### Gen AI policy
 
 Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://www.star-history.com/#sustainable-computing-io/kepler&Date)
 
 ## 📝 License
 

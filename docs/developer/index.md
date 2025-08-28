@@ -2,7 +2,19 @@
 
 This section contains documentation for developers working on Kepler.
 
-## Architecture and Design
+## 🏗️ Architecture Documentation
+
+**Start here to understand Kepler's design and implementation:**
+
+- **[Architecture Overview](design/architecture/)** - Complete architectural documentation
+  - [Design Principles](design/architecture/principles.md) - The fundamental principles that drive all architectural decisions
+  - [System Components](design/architecture/components.md) - Deep dive into each architectural layer and component
+  - [Data Flow & Attribution](design/architecture/data-flow.md) - Power attribution algorithm and data flow patterns
+  - [Concurrency & Thread Safety](design/architecture/concurrency.md) - Thread safety guarantees and concurrent processing
+  - [Interfaces & Contracts](design/architecture/interfaces.md) - Key interfaces, service contracts, and API boundaries
+  - [Configuration System](design/architecture/configuration.md) - Hierarchical configuration and option management
+
+## Power Attribution
 
 - [Power Attribution Guide](power-attribution-guide.md) - Comprehensive guide on how Kepler measures and attributes power consumption to processes, containers, VMs, and pods
 
