@@ -3,10 +3,6 @@ scrape_configs:
     static_configs:
       - targets: [kepler-dev:28282]
 
-  - job_name: kepler-latest
-    static_configs:
-      - targets: [kepler-latest:28282]
-
   - job_name: host
     static_configs:
       - targets: [host.docker.internal:28282]
