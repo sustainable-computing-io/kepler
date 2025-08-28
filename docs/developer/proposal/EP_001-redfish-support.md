@@ -1,8 +1,10 @@
 # EP-001: Redfish Power Monitoring Support
 
-- **Status**: Draft
+- **Status**: Implemented
+- **Maturity**: Experimental
 - **Author**: Sunil Thaha
 - **Created**: 2025-08-14
+- **Updated**: 2025-08-28
 
 ## Summary
 
@@ -109,9 +111,25 @@ graph TD
 
 Implements standard Kepler patterns:
 
-- `service.Initializer`: Configuration and connection setup
-- `service.Runner`: Periodic power collection with context
-- `service.Shutdowner`: Clean resource release
+- `service.Initializer`: Configuration and BMC connection setup
+- `service.Runner`: Hybrid collection mode with context cancellation
+- `service.Shutdowner`: Clean resource release and client disconnection
+
+### Implementation Details
+
+**Demand-Based Architecture:**
+
+- `LatestReading()`: Returns cached data or triggers collection if stale
+- `ensureFreshData()`: Checks staleness and coordinates collection
+- `synchronizedPowerRefresh()`: Thread-safe BMC data collection with retry logic
+- Atomic pointers for thread-safe data access (`lastReading`, `lastUpdateTime`)
+- Singleflight pattern prevents concurrent BMC API calls
+
+**Service Lifecycle:**
+
+- `Init()`: Establishes BMC connection, validates credentials
+- `Run()`: Implements hybrid collection based on `interval` configuration
+- `Shutdown()`: Gracefully disconnects from BMC
 
 ### Configuration
 
@@ -123,9 +141,15 @@ type Platform struct {
 }
 
 type Redfish struct {
-    Enabled    *bool  `yaml:"enabled"`
-    NodeID     string `yaml:"nodeID"`
-    ConfigFile string `yaml:"configFile"`
+    Enabled    *bool             `yaml:"enabled"`
+    NodeID     string            `yaml:"nodeID"`
+    ConfigFile string            `yaml:"configFile"`
+    Collection RedfishCollection `yaml:"collection"`
+}
+
+type RedfishCollection struct {
+    Staleness time.Duration `yaml:"staleness"` // Max age before forcing new collection
+    Interval  time.Duration `yaml:"interval"`  // Periodic collection interval (0 = on-demand only)
 }
 ```
 
@@ -135,6 +159,8 @@ type Redfish struct {
 --platform.redfish.enabled=true
 --platform.redfish.node-id=worker-1
 --platform.redfish.config=/etc/kepler/redfish.yaml
+--platform.redfish.collection.staleness=30s
+--platform.redfish.collection.interval=0
 ```
 
 **Main Configuration (`hack/config.yaml`):**
@@ -147,6 +173,9 @@ platform:
     enabled: true
     nodeID: "worker-1"  # Node identifier for BMC mapping
     configFile: "/etc/kepler/redfish.yaml"
+    collection:
+      staleness: 30s         # Max age before forcing new collection
+      interval: 0            # Periodic collection interval (0 = on-demand only)
 ```
 
 **BMC Configuration (`/etc/kepler/redfish.yaml`):**
@@ -185,6 +214,47 @@ bmcs:
 
 ```
 
+## Collection Strategy
+
+The Redfish service implements a **demand-based collection pattern** for optimal resource efficiency:
+
+### Collection Modes
+
+1. **On-demand Only** (`interval: 0`, default):
+   - No periodic BMC polling
+   - Data collected only when requested via `LatestReading()`
+   - Collection triggered when data is stale (older than `staleness` threshold)
+
+2. **Hybrid Mode** (`interval: >0`):
+   - Periodic collection at specified interval
+   - Plus on-demand collection when data is stale between intervals
+
+### Resource Efficiency Benefits
+
+- **Reduces BMC API calls**: No unnecessary polling when data isn't needed
+- **Configurable freshness**: `staleness` parameter controls data age tolerance
+- **Thread-safe**: Uses singleflight pattern to prevent concurrent BMC calls
+- **Graceful degradation**: Service continues running despite BMC failures
+
+### Example Collection Behaviors
+
+```yaml
+# Minimal BMC load - collect only when needed
+collection:
+  staleness: 30s
+  interval: 0
+
+# Balanced approach - periodic backup with on-demand freshness
+collection:
+  staleness: 15s
+  interval: 60s
+
+# Aggressive collection - frequent updates
+collection:
+  staleness: 5s
+  interval: 10s
+```
+
 ## Metrics
 
 Platform-level metrics are introduced as a separate metric namespace to distinguish from
@@ -201,7 +271,8 @@ metal or within a VM. This separation enables:
 Energy counters (`kepler_platform_joules_total`) are not supported because:
 
 - Redfish does not provide native energy counters
-- BMC polling is intermittent (every 10 seconds) vs continuous monitoring
+- BMC polling is intermittent and on-demand vs continuous monitoring
+- Collection frequency varies based on demand and configuration
 
 ```prometheus
 # Platform power metrics (bare metal power consumption)
