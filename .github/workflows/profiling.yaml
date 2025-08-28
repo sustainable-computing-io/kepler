@@ -51,7 +51,7 @@ jobs:
           docker --version
 
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
         uses: actions/setup-go@v5.5.0
@@ -145,7 +145,7 @@ jobs:
         run: go install github.com/google/pprof@latest
 
       - name: Download profiling artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp
