@@ -25,7 +25,7 @@ jobs:
       - name: Download comment message
         id: download-artifact
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: message
           path: /tmp/
