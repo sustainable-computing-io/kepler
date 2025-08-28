@@ -11,13 +11,17 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"k8s.io/utils/ptr"
+
 	"github.com/sustainable-computing-io/kepler/config"
+	redfishconfig "github.com/sustainable-computing-io/kepler/config/redfish"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/platform/redfish"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -157,6 +161,8 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		monitor.WithMinTerminatedEnergyThreshold(monitor.Energy(cfg.Monitor.MinTerminatedEnergyThreshold)*monitor.Joule),
 	)
 
+	// Create Redfish service if enabled (experimental feature)
+
 	apiServer := server.NewAPIServer(
 		server.WithLogger(logger),
 		server.WithListenAddress(cfg.Web.ListenAddresses),
@@ -170,9 +176,20 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		pm,
 	)
 
+	// Add Redfish service if enabled
+	var redfishService *redfish.Service
+	if ptr.Deref(cfg.Experimental.Platform.Redfish.Enabled, false) {
+		rs, err := createRedfishService(logger, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Redfish service: %w", err)
+		}
+		services = append(services, rs)
+		redfishService = rs
+	}
+
 	// Add Prometheus exporter if enabled
 	if *cfg.Exporter.Prometheus.Enabled {
-		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm)
+		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm, redfishService)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
 		}
@@ -194,19 +211,52 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	return services, nil
 }
 
-func createPrometheusExporter(logger *slog.Logger, cfg *config.Config, apiServer *server.APIServer, pm *monitor.PowerMonitor) (*prometheus.Exporter, error) {
+func createRedfishService(logger *slog.Logger, cfg *config.Config) (*redfish.Service, error) {
+	// Resolve node ID using new priority logic
+	redfishCfg := cfg.Experimental.Platform.Redfish
+
+	nodeID, err := redfishconfig.ResolveNodeID(redfishCfg.NodeID, cfg.Kube.Node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve node ID for Redfish service: %w", err)
+	}
+
+	rs, err := redfish.NewService(
+		cfg.Experimental.Platform.Redfish.ConfigFile,
+		nodeID,
+		redfishCfg,
+		logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Redfish service: %w", err)
+	}
+
+	return rs, nil
+}
+
+func createPrometheusExporter(
+	logger *slog.Logger, cfg *config.Config,
+	apiServer *server.APIServer, pm *monitor.PowerMonitor,
+	rs *redfish.Service,
+) (*prometheus.Exporter, error) {
 	logger.Debug("Creating Prometheus exporter")
 
 	// Use metrics level from configuration (already parsed)
 	metricsLevel := cfg.Exporter.Prometheus.MetricsLevel
 
-	collectors, err := prometheus.CreateCollectors(
-		pm,
+	var collectorOpts []prometheus.OptionFn
+	collectorOpts = append(collectorOpts,
 		prometheus.WithLogger(logger),
 		prometheus.WithProcFSPath(cfg.Host.ProcFS),
 		prometheus.WithNodeName(cfg.Kube.Node),
 		prometheus.WithMetricsLevel(metricsLevel),
 	)
+
+	// Add platform data provider if Redfish service is available
+	if rs != nil {
+		collectorOpts = append(collectorOpts, prometheus.WithPlatformDataProvider(rs))
+	}
+
+	collectors, err := prometheus.CreateCollectors(pm, collectorOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Prometheus collectors: %w", err)
 	}
