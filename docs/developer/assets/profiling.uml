@@ -1,0 +1,60 @@
+@startuml Profiling Report Workflow Sequence
+' NOTE: Render using http://sujoyu.github.io/plantuml-previewer or any PlantUML tool
+title Profiling Report Workflow
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 150
+skinparam style strictuml
+actor "Contributor" as Dev
+participant "GitHub Repo" as SR
+box "GitHub Actions" #LightBlue
+participant "Workflow Runner" as Runner
+end box
+participant "Artifact Storage" as Artifacts
+participant "External Workflow" as ExtWF
+note over ExtWF: Separate PR Comment Workflow\n(triggered on workflow_run event)
+== Trigger ==
+Dev -> SR: Create or update Pull Request
+SR -> Runner: Trigger profiling-report workflow\n(on: pull_request)
+== Job: check-changes ==
+group Change Detection
+    Runner -> Runner: Checkout source code
+    Runner -> Runner: Filter paths for changes\n(using dorny/paths-filter)
+    note right: Outputs 'changes' if relevant files modified
+end
+== Job: profiling ==
+note right of Runner: Needs check-changes;\nRuns if changes == 'true'
+group Environment Setup
+    Runner -> Runner: Install and Verify Docker
+    Runner -> Runner: Checkout source code
+    Runner -> Runner: Setup Go environment
+    Runner -> Runner: Install pprof
+end
+group Profiling Execution
+    Runner -> Runner: Enable fake CPU meter in configs
+    Runner -> Runner: Run Docker Compose services\n(build and start kepler-dev/latest in detach mode)
+    Runner -> Runner: Run must-gather (always)\n(collect logs, metrics, etc.)
+    Runner -> Runner: Sleep for 10 seconds
+    Runner -> Runner: Capture CPU/Memory profiling\n(using hack/reports/profiling.sh capture --duration 60)
+    Runner -> Runner: Compare profiling results\n(using hack/reports/profiling.sh compare)
+end
+group Artifact Upload
+    Runner -> Artifacts: Upload profiling artifacts\n(name: profile-artifacts-${{ github.event.pull_request.number }})
+end
+== Job: generate-comment-message ==
+note right of Runner: Needs profiling;\nRuns if profiling success
+group Message Generation
+    Runner -> Runner: Checkout source code
+    Runner -> Runner: Setup Go environment
+    Runner -> Runner: Install pprof
+    Runner -> Artifacts: Download profiling artifacts
+    Runner -> Runner: Generate comment messages\n(using hack/reports/profiling.sh output;\nincludes download instructions)
+end
+group Message Artifact Upload
+    Runner -> Artifacts: Upload message artifact\n(name: message;\npath: /tmp/message-*.txt)
+    note right: This upload enables a separate PR Comment workflow\nto download the artifact and post a comment on the PR
+    Artifacts --> ExtWF: Triggers PR Comment workflow\n(on workflow_run event;\ndownloads message and comments on PR)
+end
+== Complete ==
+Runner --> SR: Workflow complete
+@enduml
