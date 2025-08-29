@@ -3,7 +3,7 @@
 **Status**: Draft
 **Author**: Ray Huang
 **Created**: 2025-08-28
-**Last Updated**: 2025-08-28
+**Last Updated**: 2025-08-29
 
 ## Summary
 
@@ -58,30 +58,26 @@ Not all nodes have Redfish for getting platform power metrics, so this proposal 
 Add ACPI option which is an alternative of Redfish to Kepler.
 ACPI can collect platform power metrics from reading sysfs. The platform collector is able to reuse the one that Redfish uses if merged.
 
-```text
-┌─────────────────┐    ┌───────────────────┐
-│   CPU Power     │    │  Platform Power   │
-│   (RAPL)        │    │ (Redfish or ACPI) │
-└─────────────────┘    └───────────────────┘
-         │                        │
-         ▼                        ▼
-┌─────────────────┐    ┌────────────────────┐
-│ Power Monitor   │    │ Power Monitor      │
-│ (Attribution)   │    │ (For ACPI,         │
-│                 │    │ no attribution)    │
-└─────────────────┘    └────────────────────┘
-         │                        │
-         ▼                        ▼
-┌─────────────────┐    ┌────────────────────┐
-│ Power Collector │    │ Platform Collector │
-│                 │    │                    │
-└─────────────────┘    └────────────────────┘
-         └──────────┬─────────────┘
-                    ▼
-           ┌──────────────────┐
-           │ Prometheus       │
-           │ Exporter         │
-           └──────────────────┘
+```mermaid
+graph TB
+  CPUPowerMeter[CPU Power Meter]
+  PowerMonitorNode[Power Monitor **With** attribution]
+  PlatformPowerMeter[Platform Power Meter with ACPI]
+  PowerMonitorPlatform[Power Monitor **Without** attribution]
+  PowerCollector[Power Collector]
+  PlatformCollector[Platform Collector]
+  PromExporter[Prometheus Exporter]
+
+  CPUPowerMeter --> PowerMonitorNode --> PowerCollector --> PromExporter
+  PlatformPowerMeter --> PowerMonitorPlatform --> PlatformCollector --> PromExporter
+
+  style CPUPowerMeter fill:#1e88e5,color:#fff
+  style PlatformPowerMeter fill:#1e88ff,color:#fff
+  style PowerMonitorNode fill:#43a047,color:#fff
+  style PowerMonitorPlatform fill:#43a067,color:#fff
+  style PowerCollector fill:#fb8c00,color:#fff
+  style PlatformCollector fill:#f57c00,color:#fff
+  style PromExporter fill:#8e24aa,color:#fff
 ```
 
 ### Aggregate power metrics
@@ -114,8 +110,6 @@ internal/
 
 ### API/Interface Changes
 
-[Describe any changes to public APIs, service interfaces, or data structures. Show code snippets for new or modified interfaces.]
-
 ```go
 // acpi_power_meter.go - Implements powerMeter interface
 type acpiPowerMeter struct {
@@ -147,9 +141,9 @@ type ACPI struct {
 }
 ```
 
-**CLI flags**
+**CLI flags:**
 
-```
+```bash
 --platform.acpi.enabled=true  # Enable ACPI monitoring
 ```
 
@@ -223,6 +217,7 @@ spec:
 ## Migration and Compatibility
 
 ### Backward Compatibility
+
 No conflict with existing RAPL support.
 
 ### Migration Path
@@ -237,16 +232,16 @@ Set `ACPI.Enabled` to false and restart the Kepler service.
 
 ## Metrics Output
 
-ACPI provides native power **average** metrics, so we can expose `kepler_platform_joules_total` by multiplying `power[1-*]_average` with `power[1-*]_average_interval`.
+Because ACPI does not support `energy[1-*]_input`, which accumulates energy consumption over time, and since the result of multiplying `power[1-*]_average` by `power[1-*]_average_interval` cannot be validated, only `kepler_platform_watts` is provided.
+
+We will be able to implement `kepler_platform_joules_total` after ACPI supports `energy[1-*]_input`.
 
 ```prometheus
 # Platform power metrics with new source
 kepler_platform_watts{source="acpi",node_name="worker-1"} 450.5
-kepler_platform_joules_total{source="acpi",node_name="worker-1"} 123456.789
 
 # Existing CPU power metrics (unchanged)
 kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
-kepler_node_cpu_joules_total{zone="package",node_name="worker-1"} 89234.567
 ```
 
 ## Implementation Plan
