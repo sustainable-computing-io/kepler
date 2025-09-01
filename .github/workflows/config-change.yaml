@@ -1,6 +1,6 @@
 name: Check Config Changes
 
-on: #yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   pull_request:
 
 jobs:
@@ -38,14 +38,14 @@ jobs:
   generate-comment-message:
     needs: check-changes
     if: >-
-        needs.check-changes.outputs.changes == 'true' &&
-        (
-          needs.check-changes.outputs.doc_changes != 'true' ||
-          needs.check-changes.outputs.compose_changes != 'true' ||
-          needs.check-changes.outputs.hack_changes != 'true' ||
-          needs.check-changes.outputs.manifest_changes != 'true' ||
-          needs.check-changes.outputs.helm_changes != 'true'
-        )
+      needs.check-changes.outputs.changes == 'true' &&
+      (
+        needs.check-changes.outputs.doc_changes != 'true' ||
+        needs.check-changes.outputs.compose_changes != 'true' ||
+        needs.check-changes.outputs.hack_changes != 'true' ||
+        needs.check-changes.outputs.manifest_changes != 'true' ||
+        needs.check-changes.outputs.helm_changes != 'true'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Generate comment message
@@ -68,7 +68,6 @@ jobs:
             if [[ "${{ needs.check-changes.outputs.helm_changes }}" != "true" ]]; then
               echo "- manifests/helm/kepler/values.yaml"
             fi
-            echo "EOF"
           } > /tmp/message-${{ github.event.pull_request.number }}.txt
 
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to

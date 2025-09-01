@@ -2,7 +2,7 @@
 # Triggered when specified workflows complete successfully
 name: PR Comment
 
-on:
+on: # yamllint disable-line rule:truthy
   workflow_run:
     # NOTE: Add any workflow that needs to comment on PRs to this list
     workflows:
