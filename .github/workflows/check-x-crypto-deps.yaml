@@ -1,6 +1,6 @@
 name: Check x/crypto
 
-on:
+on: # yamllint disable-line rule:truthy
   pull_request:
 
 jobs:
