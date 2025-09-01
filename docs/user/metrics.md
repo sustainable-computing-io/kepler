@@ -237,6 +237,24 @@ These metrics provide energy and power information for pods.
 - **Constant Labels**:
   - `node_name`
 
+### Platform Metrics
+
+These metrics provide hardware-level power information from platform management controllers (e.g., BMC via Redfish).
+
+#### kepler_platform_watts
+
+- **Type**: GAUGE
+- **Description**: Current platform power consumption in watts from BMC PowerControl entries
+- **Labels**:
+  - `source`: Platform monitoring source (e.g., "redfish")
+  - `node_name`: Node identifier
+  - `bmc_id`: BMC identifier
+  - `chassis_id`: Chassis identifier from BMC
+  - `power_control_id`: PowerControl entry identifier (e.g., "PC1", "PC2")
+  - `power_control_name`: Human-readable PowerControl name (e.g., "Server Power Control", "CPU Sub-system Power")
+
+**Note**: Each PowerControl entry from the BMC is exposed as an individual metric with unique labels. This allows monitoring of different power domains (server, CPU subsystem, memory, etc.) without making assumptions about power topology.
+
 ### Other Metrics
 
 Additional metrics provided by Kepler.
