@@ -1,5 +1,5 @@
 name: Profiling Report
-on:
+on: # yamllint disable-line rule:truthy
   pull_request:
 
 jobs:
@@ -26,25 +26,10 @@ jobs:
   profiling:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Install Docker
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-          sudo usermod -aG docker $USER
-
-      - name: Verify Docker installation
-        shell: bash
-        run: |
-          docker ps
-          docker --version
-
+      # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
+      # Hence, we don't need to install them as part of the job.
       - name: Checkout source
         uses: actions/checkout@v4
         with:
@@ -58,13 +43,6 @@ jobs:
 
       - name: Install pprof
         run: go install github.com/google/pprof@latest
-
-      - name: Enable fake cpu meter
-        shell: bash
-        run: |
-          sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' \
-            compose/dev/kepler-dev/etc/kepler/config.yaml \
-            compose/dev/kepler-latest/etc/kepler/config.yaml
 
       - name: Run Docker Compose services
         shell: bash
@@ -121,6 +99,22 @@ jobs:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp/*
           retention-days: 5 # Keep artifact for 5 days
+
+      # NOTE: Ensure that all deployments, built images and cluster are properly cleaned up
+      # to prevent residual resources
+      - name: Shutdown Docker Compose services
+        if: always()
+        shell: bash
+        working-directory: compose/dev
+        run: |
+          # Stop kepler-dev and kepler-latest services
+          docker compose down kepler-dev kepler-latest --volumes
+
+      - name: Cleanup Docker images
+        if: always()
+        shell: bash
+        run: |
+          docker image prune -af
 
   generate-comment-message:
     needs: profiling

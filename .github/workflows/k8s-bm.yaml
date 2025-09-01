@@ -1,6 +1,6 @@
 name: Build and Deploy K8s on Self Hosted BM
 
-on: #yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   pull_request:
 
 permissions:
@@ -30,12 +30,12 @@ jobs:
               - '.github/workflows/k8s-bm.yaml'
 
   build-and-deploy:
-    # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
-    # Hence, we don't need to install them as part of the job.
     needs: [check-changes]
     if: needs.check-changes.outputs.changes == 'true'
     runs-on: self-hosted
     steps:
+      # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
+      # Hence, we don't need to install them as part of the job.
       - name: Checkout source
         uses: actions/checkout@v5
         with:

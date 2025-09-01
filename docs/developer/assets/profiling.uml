@@ -25,13 +25,11 @@ end
 == Job: profiling ==
 note right of Runner: Needs check-changes;\nRuns if changes == 'true'
 group Environment Setup
-    Runner -> Runner: Install and Verify Docker
     Runner -> Runner: Checkout source code
     Runner -> Runner: Setup Go environment
     Runner -> Runner: Install pprof
 end
 group Profiling Execution
-    Runner -> Runner: Enable fake CPU meter in configs
     Runner -> Runner: Run Docker Compose services\n(build and start kepler-dev/latest in detach mode)
     Runner -> Runner: Run must-gather (always)\n(collect logs, metrics, etc.)
     Runner -> Runner: Sleep for 10 seconds
