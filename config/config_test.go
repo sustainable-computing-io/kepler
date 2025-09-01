@@ -1884,3 +1884,494 @@ func TestValidatePort(t *testing.T) {
 		})
 	}
 }
+
+// Redfish-related tests for improved coverage
+
+func TestDefaultRedfishConfig(t *testing.T) {
+	redfish := defaultRedfishConfig()
+	assert.Equal(t, ptr.To(false), redfish.Enabled)
+	assert.Equal(t, 5*time.Second, redfish.HTTPTimeout)
+}
+
+func TestApplyRedfishFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		redfish  *Redfish
+		flagsSet map[string]bool
+		enabled  *bool
+		nodeName *string
+		cfgFile  *string
+		expected *Redfish
+	}{{
+		name:     "no flags set",
+		redfish:  &Redfish{},
+		flagsSet: map[string]bool{},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To("/test/config.yaml"),
+		expected: &Redfish{},
+	}, {
+		name:    "enabled flag set",
+		redfish: &Redfish{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag: true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To("/test/config.yaml"),
+		expected: &Redfish{
+			Enabled: ptr.To(true),
+		},
+	}, {
+		name:    "nodename flag set",
+		redfish: &Redfish{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishNodeNameFlag: true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To("/test/config.yaml"),
+		expected: &Redfish{
+			NodeName: "test-node",
+		},
+	}, {
+		name:    "config flag set",
+		redfish: &Redfish{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishConfigFlag: true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To("/test/config.yaml"),
+		expected: &Redfish{
+			ConfigFile: "/test/config.yaml",
+		},
+	}, {
+		name:    "all flags set",
+		redfish: &Redfish{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag:  true,
+			ExperimentalPlatformRedfishNodeNameFlag: true,
+			ExperimentalPlatformRedfishConfigFlag:   true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To("/test/config.yaml"),
+		expected: &Redfish{
+			Enabled:    ptr.To(true),
+			NodeName:   "test-node",
+			ConfigFile: "/test/config.yaml",
+		},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			applyRedfishFlags(tc.redfish, tc.flagsSet, tc.enabled, tc.nodeName, tc.cfgFile)
+			assert.Equal(t, tc.expected, tc.redfish)
+		})
+	}
+}
+
+func TestHasRedfishFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		flagsSet map[string]bool
+		expected bool
+	}{{
+		name:     "no redfish flags",
+		flagsSet: map[string]bool{},
+		expected: false,
+	}, {
+		name: "has enabled flag",
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag: true,
+		},
+		expected: true,
+	}, {
+		name: "has nodename flag",
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishNodeNameFlag: true,
+		},
+		expected: true,
+	}, {
+		name: "has config flag",
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishConfigFlag: true,
+		},
+		expected: true,
+	}, {
+		name: "has multiple redfish flags",
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag:  true,
+			ExperimentalPlatformRedfishNodeNameFlag: true,
+		},
+		expected: true,
+	}, {
+		name: "has non-redfish flags only",
+		flagsSet: map[string]bool{
+			"some.other.flag": true,
+		},
+		expected: false,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := hasRedfishFlags(tc.flagsSet)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestResolveNodeName(t *testing.T) {
+	tests := []struct {
+		name            string
+		redfishNodeName string
+		kubeNodeName    string
+		expectError     bool
+		errorContains   string
+	}{{
+		name:            "redfish node name provided",
+		redfishNodeName: "redfish-node",
+		kubeNodeName:    "kube-node",
+		expectError:     false,
+	}, {
+		name:            "redfish node name with whitespace",
+		redfishNodeName: "  redfish-node  ",
+		kubeNodeName:    "kube-node",
+		expectError:     false,
+	}, {
+		name:            "kube node name fallback",
+		redfishNodeName: "",
+		kubeNodeName:    "kube-node",
+		expectError:     false,
+	}, {
+		name:            "kube node name with whitespace",
+		redfishNodeName: "",
+		kubeNodeName:    "  kube-node  ",
+		expectError:     false,
+	}, {
+		name:            "hostname fallback",
+		redfishNodeName: "",
+		kubeNodeName:    "",
+		expectError:     false,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := resolveNodeName(tc.redfishNodeName, tc.kubeNodeName)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				if tc.errorContains != "" {
+					assert.Contains(t, err.Error(), tc.errorContains)
+				}
+				return
+			}
+
+			assert.NoError(t, err)
+			if tc.redfishNodeName != "" {
+				assert.Equal(t, strings.TrimSpace(tc.redfishNodeName), result)
+			} else if tc.kubeNodeName != "" {
+				assert.Equal(t, strings.TrimSpace(tc.kubeNodeName), result)
+			} else {
+				// Should be hostname
+				assert.NotEmpty(t, result)
+			}
+		})
+	}
+}
+
+func TestResolveRedfishNodeName(t *testing.T) {
+	tests := []struct {
+		name         string
+		redfish      *Redfish
+		kubeNodeName string
+		expectError  bool
+	}{{
+		name: "successful resolution",
+		redfish: &Redfish{
+			NodeName: "test-node",
+		},
+		kubeNodeName: "kube-node",
+		expectError:  false,
+	}, {
+		name: "fallback to kube node name",
+		redfish: &Redfish{
+			NodeName: "",
+		},
+		kubeNodeName: "kube-node",
+		expectError:  false,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := resolveRedfishNodeName(tc.redfish, tc.kubeNodeName)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.NotEmpty(t, tc.redfish.NodeName)
+		})
+	}
+}
+
+func TestIsFeatureEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *Config
+		feature  Feature
+		expected bool
+	}{{
+		name: "redfish feature enabled",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		},
+		feature:  ExperimentalRedfishFeature,
+		expected: true,
+	}, {
+		name: "redfish feature disabled",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		feature:  ExperimentalRedfishFeature,
+		expected: false,
+	}, {
+		name:     "redfish feature nil experimental",
+		config:   &Config{},
+		feature:  ExperimentalRedfishFeature,
+		expected: false,
+	}, {
+		name: "prometheus feature enabled",
+		config: &Config{
+			Exporter: Exporter{
+				Prometheus: PrometheusExporter{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+		feature:  PrometheusFeature,
+		expected: true,
+	}, {
+		name: "stdout feature enabled",
+		config: &Config{
+			Exporter: Exporter{
+				Stdout: StdoutExporter{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+		feature:  StdoutFeature,
+		expected: true,
+	}, {
+		name: "pprof feature enabled",
+		config: &Config{
+			Debug: Debug{
+				Pprof: PprofDebug{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+		feature:  PprofFeature,
+		expected: true,
+	}, {
+		name:     "unknown feature",
+		config:   &Config{},
+		feature:  Feature("unknown"),
+		expected: false,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.config.IsFeatureEnabled(tc.feature)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestApplyRedfishConfig(t *testing.T) {
+	// Create a temporary config file for testing
+	tmpFile, err := os.CreateTemp("", "redfish-config-*.yaml")
+	assert.NoError(t, err)
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
+
+	// Write some dummy config content to make it a valid file
+	_, err = tmpFile.WriteString("# dummy redfish config\nendpoint: https://redfish.example.com\n")
+	assert.NoError(t, err)
+	assert.NoError(t, tmpFile.Close())
+
+	tests := []struct {
+		name        string
+		cfg         *Config
+		flagsSet    map[string]bool
+		enabled     *bool
+		nodeName    *string
+		cfgFile     *string
+		expectError bool
+	}{{
+		name:     "no redfish flags and no experimental config",
+		cfg:      &Config{},
+		flagsSet: map[string]bool{},
+		enabled:  ptr.To(false),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To(tmpFile.Name()),
+	}, {
+		name: "has redfish flags",
+		cfg:  &Config{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag: true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To(tmpFile.Name()),
+	}, {
+		name: "experimental config exists",
+		cfg: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		flagsSet: map[string]bool{},
+		enabled:  ptr.To(false),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To(tmpFile.Name()),
+	}, {
+		name: "redfish enabled with valid config",
+		cfg:  &Config{},
+		flagsSet: map[string]bool{
+			ExperimentalPlatformRedfishEnabledFlag: true,
+			ExperimentalPlatformRedfishConfigFlag:  true,
+		},
+		enabled:  ptr.To(true),
+		nodeName: ptr.To("test-node"),
+		cfgFile:  ptr.To(tmpFile.Name()),
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := applyRedfishConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.nodeName, tc.cfgFile)
+
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateExperimentalConfig(t *testing.T) {
+	// Create a temporary config file for testing
+	tmpFile, err := os.CreateTemp("", "redfish-config-*.yaml")
+	assert.NoError(t, err)
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
+
+	// Write some dummy config content to make it a valid file
+	_, err = tmpFile.WriteString("# dummy redfish config\nendpoint: https://redfish.example.com\n")
+	assert.NoError(t, err)
+	assert.NoError(t, tmpFile.Close())
+
+	tests := []struct {
+		name           string
+		config         *Config
+		expectedErrors []string
+	}{{
+		name:           "no experimental config",
+		config:         &Config{},
+		expectedErrors: nil,
+	}, {
+		name: "redfish disabled",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		expectedErrors: nil,
+	}, {
+		name: "redfish enabled without config file",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled:    ptr.To(true),
+						ConfigFile: "",
+					},
+				},
+			},
+		},
+		expectedErrors: []string{ExperimentalPlatformRedfishConfigFlag + " not supplied"},
+	}, {
+		name: "redfish enabled with valid config file",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled:    ptr.To(true),
+						ConfigFile: tmpFile.Name(),
+					},
+				},
+			},
+		},
+		expectedErrors: nil,
+	}, {
+		name: "redfish enabled with invalid config file",
+		config: &Config{
+			Experimental: &Experimental{
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled:    ptr.To(true),
+						ConfigFile: "/non/existent/file.yaml",
+					},
+				},
+			},
+		},
+		expectedErrors: []string{"unreadable Redfish config file"},
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errors := tc.config.validateExperimentalConfig()
+
+			if tc.expectedErrors == nil {
+				assert.Empty(t, errors)
+				return
+			}
+			assert.NotEmpty(t, errors)
+			for _, expectedErr := range tc.expectedErrors {
+				found := false
+				for _, actualErr := range errors {
+					if strings.Contains(actualErr, expectedErr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected error containing '%s' not found in: %v", expectedErr, errors)
+			}
+		})
+	}
+}

@@ -1,0 +1,17 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#Power.Power",
+  "@odata.type": "#Power.v1_5_0.Power",
+  "@odata.id": "/redfish/v1/Chassis/1/Power",
+  "Id": "Power",
+  "Name": "Power",
+  "PowerControl": [
+    {
+      "@odata.id": "/redfish/v1/Chassis/1/Power#/PowerControl/0",
+      "Name": "Server Power Control",
+      "PowerConsumedWatts": 189.5,
+      "PowerRequestedWatts": 214.5,
+      "PowerAvailableWatts": 800.0,
+      "PowerAllocatedWatts": 289.5
+    }
+  ]
+}

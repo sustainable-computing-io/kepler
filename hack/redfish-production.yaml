@@ -1,0 +1,111 @@
+# Production Redfish BMC Configuration Example
+# This file demonstrates production-ready BMC configurations for Redfish power monitoring
+#
+# IMPORTANT: This is an experimental feature with no stability guarantees
+#
+# Production Best Practices:
+# - Use TLS certificates (insecure: false)
+# - Secure credential management
+# - Network segmentation for BMC access
+# - Regular credential rotation
+# - Monitoring and alerting for BMC connectivity
+
+# Node to BMC mapping
+# Production environments typically have dedicated BMCs per physical server
+# or shared BMCs for blade servers in chassis
+nodes:
+  # Kubernetes cluster nodes mapped to their respective BMCs
+  k8s-master-01: hpe-proliant-dl380-001
+  k8s-master-02: hpe-proliant-dl380-002
+  k8s-master-03: hpe-proliant-dl380-003
+
+  # Worker nodes on Dell PowerEdge servers
+  k8s-worker-01: dell-poweredge-r650-001
+  k8s-worker-02: dell-poweredge-r650-002
+  k8s-worker-03: dell-poweredge-r650-003
+  k8s-worker-04: dell-poweredge-r650-004
+
+  # Blade servers sharing chassis BMC
+  blade-01: dell-chassis-m1000e-001
+  blade-02: dell-chassis-m1000e-001
+  blade-03: dell-chassis-m1000e-001
+  blade-04: dell-chassis-m1000e-001
+
+  # GPU compute nodes
+  gpu-worker-01: supermicro-sys-4029gp-001
+  gpu-worker-02: supermicro-sys-4029gp-002
+
+# BMC connection details for production environment
+bmcs:
+  # HPE ProLiant DL380 Gen10 Plus servers
+  hpe-proliant-dl380-001:
+    endpoint: https://bmc-master-01.datacenter.local
+    username: monitoring_user
+    password: hpe_master_01_secure_pass
+    insecure: false # Use valid TLS certificates in production
+
+  hpe-proliant-dl380-002:
+    endpoint: https://bmc-master-02.datacenter.local:8443 # <- different port
+    username: monitoring_user
+    password: hpe_master_02_secure_pass
+    insecure: false
+
+  hpe-proliant-dl380-003:
+    endpoint: https://bmc-master-03.datacenter.local
+    username: monitoring_user
+    password: hpe_master_03_secure_pass
+    insecure: false
+
+  # Dell PowerEdge R650 servers
+  dell-poweredge-r650-001:
+    endpoint: http://idrac-worker-01.mgmt.datacenter.local # <- HTTP
+    username: keplermon
+    password: dell_worker_01_secure_pass
+    insecure: false
+
+  dell-poweredge-r650-002:
+    endpoint: https://idrac-worker-02.mgmt.datacenter.local
+    username: keplermon
+    password: dell_worker_02_secure_pass
+    insecure: false
+
+  dell-poweredge-r650-003:
+    endpoint: https://idrac-worker-03.mgmt.datacenter.local
+    username: keplermon
+    password: dell_worker_03_secure_pass
+    insecure: false
+
+  dell-poweredge-r650-004:
+    endpoint: https://idrac-worker-04.mgmt.datacenter.local
+    username: keplermon
+    password: dell_worker_04_secure_pass
+    insecure: false
+
+  # Dell PowerEdge M1000e Blade Chassis BMC
+  # Multiple blade servers share the same chassis management controller
+  dell-chassis-m1000e-001:
+    endpoint: https://cmc-chassis-01.mgmt.datacenter.local
+    username: keplermon
+    password: dell_chassis_01_secure_pass
+    insecure: false
+
+  # Supermicro GPU servers
+  supermicro-sys-4029gp-001:
+    endpoint: https://ipmi-gpu-01.mgmt.datacenter.local
+    username: ADMIN
+    password: supermicro_gpu_01_secure_pass
+    insecure: false
+
+  supermicro-sys-4029gp-002:
+    endpoint: https://ipmi-gpu-02.mgmt.datacenter.local
+    username: ADMIN
+    password: supermicro_gpu_02_secure_pass
+    insecure: false
+# Production Collection Configuration (in main config.yaml):
+# experimental:
+#   platform:
+#     redfish:
+#       enabled: true
+#       configFile: /etc/kepler/redfish.yaml
+#       nodeID: ""  # Auto-resolve from Kubernetes node name
+#       staleness: 2s   # Reasonable balance of freshness vs BMC load
