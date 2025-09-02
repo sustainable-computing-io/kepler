@@ -9,7 +9,8 @@ jobs:
     outputs:
       changes: ${{ steps.filter.outputs.config }}
       doc_changes: ${{ steps.filter.outputs.doc }}
-      compose_changes: ${{ steps.filter.outputs.compose }}
+      compose_dev_changes: ${{ steps.filter.outputs.compose_dev }}
+      compose_latest_changes: ${{ steps.filter.outputs.compose_latest }}
       hack_changes: ${{ steps.filter.outputs.hack }}
       manifest_changes: ${{ steps.filter.outputs.manifest }}
       helm_changes: ${{ steps.filter.outputs.helm }}
@@ -26,8 +27,10 @@ jobs:
               - 'config/**/*.go'
             doc:
               - 'docs/configuration/configuration.md'
-            compose:
+            compose_dev:
               - 'compose/dev/kepler-dev/etc/kepler/config.yaml'
+            compose_latest:
+              - 'compose/default/kepler/etc/kepler/config.yaml'
             hack:
               - 'hack/config.yaml'
             manifest:
@@ -41,7 +44,8 @@ jobs:
       needs.check-changes.outputs.changes == 'true' &&
       (
         needs.check-changes.outputs.doc_changes != 'true' ||
-        needs.check-changes.outputs.compose_changes != 'true' ||
+        needs.check-changes.outputs.compose_dev_changes != 'true' ||
+        needs.check-changes.outputs.compose_latest_changes != 'true' ||
         needs.check-changes.outputs.hack_changes != 'true' ||
         needs.check-changes.outputs.manifest_changes != 'true' ||
         needs.check-changes.outputs.helm_changes != 'true'
@@ -56,8 +60,11 @@ jobs:
             if [[ "${{ needs.check-changes.outputs.doc_changes }}" != "true" ]]; then
               echo "- docs/configuration/configuration.md"
             fi
-            if [[ "${{ needs.check-changes.outputs.compose_changes }}" != "true" ]]; then
+            if [[ "${{ needs.check-changes.outputs.compose_dev_changes }}" != "true" ]]; then
               echo "- compose/dev/kepler-dev/etc/kepler/config.yaml"
+            fi
+            if [[ "${{ needs.check-changes.outputs.compose_latest_changes }}" != "true" ]]; then
+              echo "- compose/default/kepler/etc/kepler/config.yaml"
             fi
             if [[ "${{ needs.check-changes.outputs.hack_changes }}" != "true" ]]; then
               echo "- hack/config.yaml"

@@ -5,17 +5,16 @@ services:
 
     volumes:
       - type: bind
-        source: ../dev/grafana/dashboards/dev/
+        source: ./dev/grafana/dashboards/dev
         target: /var/lib/grafana/dashboards/dev
 
   prometheus:
     volumes:
       - type: bind
-        source: ../dev/prometheus/scrape-configs/dev.yaml
+        source: ./dev/prometheus/scrape-configs/dev.yaml
         target: /etc/prometheus/scrape-configs/dev.yaml
 
     networks:
-      - kepler-latest
       - kepler-dev
       - scaph-network
       - node-exporter-network

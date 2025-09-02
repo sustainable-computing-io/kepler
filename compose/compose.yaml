@@ -1,0 +1,47 @@
+name: kepler
+include:
+  - path:
+      - ./monitoring/compose.yaml
+      - ./default/override.yaml
+
+services:
+  ### 📦 kepler latest without any modifications
+  kepler-latest:
+    image: quay.io/sustainable_computing_io/kepler:latest
+    ports:
+      # NOTE: Use 28282 for host
+      - 28284:28282
+    privileged: true
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+      - type: bind
+        source: ./default/kepler/etc/kepler/
+        target: /etc/kepler
+        read_only: true
+
+      # NOTE: place kubeconfig here
+      # e.g. cp $KUBECONFIG ./shared/kube/kubeconfig
+      # for kind cluster, rename host in kubeconfig to kind-control-plane:6443
+      - type: bind
+        source: ./shared/kube
+        target: /host/kube
+        read_only: true
+
+    command:
+      - --config.file=/etc/kepler/config.yaml
+
+    networks:
+      - kepler-latest
+      # - kind # NOTE: uncomment to use kind
+networks:
+  kepler-latest:
+  # NOTE: uncomment to use kind
+  # kind:
+  #   external: true
