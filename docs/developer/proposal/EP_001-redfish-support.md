@@ -69,17 +69,17 @@ C4Container
 
 Nodes are automatically identified using the following priority:
 
-1. **CLI flag**: `--experimental.platform.redfish.node-id=worker-1`
-2. **Configuration**: `experimental.platform.redfish.nodeID` in config.yaml
+1. **CLI flag**: `--experimental.platform.redfish.node-name=worker-1`
+2. **Configuration**: `experimental.platform.redfish.nodeName` in config.yaml
 3. **Kubernetes node name**: Automatically detected when Kubernetes is enabled
 4. **Hostname fallback**: System hostname used if no explicit identifier provided
 
 ```bash
-# Explicit node ID
-kepler --experimental.platform.redfish.node-id=worker-1
+# Explicit node name
+kepler --experimental.platform.redfish.node-name=worker-1
 
 # Or automatic resolution from Kubernetes node name
-kepler --kube.enable --kube.node-name=worker-1
+kepler --kube.enabled --kube.node-name=worker-1
 ```
 
 **Configuration Example:**
@@ -89,7 +89,7 @@ kepler --kube.enable --kube.node-name=worker-1
 experimental:
   platform:
     redfish:
-      nodeID: worker-1  # Optional - will auto-resolve if not provided
+      nodeName: worker-1  # Optional - will auto-resolve to kube.node or hostname if not provided
 ```
 
 ```mermaid
@@ -147,9 +147,8 @@ type Platform struct {
 
 type Redfish struct {
     Enabled     *bool         `yaml:"enabled"`
-    NodeID      string        `yaml:"nodeID"`
+    NodeName    string        `yaml:"nodeName"`
     ConfigFile  string        `yaml:"configFile"`
-    Staleness   time.Duration `yaml:"staleness"`   // Max age before forcing new collection (simplified caching)
     HTTPTimeout time.Duration `yaml:"httpTimeout"` // HTTP client timeout for BMC requests
 }
 ```
@@ -158,9 +157,9 @@ type Redfish struct {
 
 ```bash
 --experimental.platform.redfish.enabled=true
---experimental.platform.redfish.node-id=worker-1
+--experimental.platform.redfish.node-name=worker-1
 --experimental.platform.redfish.config=/etc/kepler/redfish.yaml
-# Note: staleness and httpTimeout are configuration-only (not exposed as CLI flags)
+# Note: httpTimeout is configuration-only (not exposed as CLI flag)
 ```
 
 **Main Configuration (`hack/config.yaml`):**
@@ -172,9 +171,8 @@ experimental:
   platform:
     redfish:
       enabled: true
-      nodeID: "worker-1"  # Node identifier for BMC mapping
+      nodeName: "worker-1"  # Node identifier for BMC mapping
       configFile: "/etc/kepler/redfish.yaml"
-      staleness: 30s      # Cache readings for 30 seconds
       httpTimeout: 5s     # HTTP client timeout for BMC requests
 ```
 
@@ -222,7 +220,7 @@ The Redfish service implements a **on-demand collection with caching**:
 
 - No background collection or periodic polling
 - Direct BMC API calls during Prometheus scrape via `Power()`
-- Implements simple caching with configurable staleness (default 30 seconds) to
+- Implements simple caching with staleness-based expiration to
  support multiple Prometheus scrapes in a short period (High Availability)
 - Returns cached data if available and fresh, otherwise collects fresh data
 - Returns all chassis with detailed PowerControl readings in a single call
@@ -338,7 +336,7 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 - On-demand collection with caching reduces BMC load
 - Simplified architecture minimizes overhead
 - Multiple chassis data collected in single BMC interaction
-- Configurable staleness for different performance requirements
+- Built-in staleness management to optimize performance
 
 ## Migration
 
@@ -376,13 +374,13 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 
 - Power-only metrics (no energy counters due to intermittent BMC polling)
 - Basic staleness-based caching (more advanced cache management could be added)
-- BMC calls during Prometheus scrape when cache is stale (mitigated by configurable staleness)
+- BMC calls during Prometheus scrape when cache is stale (mitigated by built-in caching)
 - Tested with mock servers (Dell, HPE, Lenovo, Generic scenarios)
 
 ## Future Enhancements
 
 - Background collection with better caching for improved performance
-- Enhanced staleness management and retry logic
+- Enhanced cache management and retry logic
 - Circuit breaker patterns for BMC failure handling
 - External secret integration (Kubernetes, Vault)
 - Chassis sub-component power zones (PSU, fans, storage)
@@ -392,7 +390,7 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 ## Open Questions
 
 1. ~~Multi-chassis server handling for complex hardware?~~ **Addressed**: `ChassisPower()` returns all chassis with power readings
-2. ~~Need for caching layer in future versions?~~ **Partially Addressed**: Simple staleness-based caching implemented
+2. ~~Need for caching layer in future versions?~~ **Addressed**: Simple caching layer implemented
 3. Sub-component power exposure (PSU, fans) priority?
 4. Integration with other platform monitoring tools?
 5. Performance impact of BMC calls during Prometheus scrape (mitigated by caching)?
