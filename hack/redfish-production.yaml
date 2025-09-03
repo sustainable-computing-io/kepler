@@ -102,10 +102,11 @@ bmcs:
     password: supermicro_gpu_02_secure_pass
     insecure: false
 # Production Collection Configuration (in main config.yaml):
+#
 # experimental:
 #   platform:
 #     redfish:
 #       enabled: true
 #       configFile: /etc/kepler/redfish.yaml
-#       nodeID: ""  # Auto-resolve from Kubernetes node name
-#       staleness: 2s   # Reasonable balance of freshness vs BMC load
+#       nodeName: ""  # Auto-resolve from Kubernetes node name
+#       httpTimeout: 5s   # Reasonable balance of freshness vs BMC load
