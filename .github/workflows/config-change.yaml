@@ -26,7 +26,7 @@ jobs:
             config:
               - 'config/**/*.go'
             doc:
-              - 'docs/configuration/configuration.md'
+              - 'docs/user/configuration/configuration.md'
             compose_dev:
               - 'compose/dev/kepler-dev/etc/kepler/config.yaml'
             compose_latest:
@@ -58,7 +58,7 @@ jobs:
             echo "⚠️ Config changes detected in this PR"
             echo "Please make sure that the config changes are updated in the following places as part of this PR:"
             if [[ "${{ needs.check-changes.outputs.doc_changes }}" != "true" ]]; then
-              echo "- docs/configuration/configuration.md"
+              echo "- docs/user/configuration/configuration.md"
             fi
             if [[ "${{ needs.check-changes.outputs.compose_dev_changes }}" != "true" ]]; then
               echo "- compose/dev/kepler-dev/etc/kepler/config.yaml"
