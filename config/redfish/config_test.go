@@ -163,32 +163,32 @@ bmcs:
 
 	tt := []struct {
 		name     string
-		nodeID   string
+		nodeName string
 		expected string
 		wantErr  bool
 	}{{
 		name:     "Valid node1",
-		nodeID:   "node1",
+		nodeName: "node1",
 		expected: "bmc1",
 		wantErr:  false,
 	}, {
 		name:     "Valid node2",
-		nodeID:   "node2",
+		nodeName: "node2",
 		expected: "bmc2",
 		wantErr:  false,
 	}, {
-		name:    "Non-existent node",
-		nodeID:  "node3",
-		wantErr: true,
+		name:     "Non-existent node",
+		nodeName: "node3",
+		wantErr:  true,
 	}, {
-		name:    "Empty node ID",
-		nodeID:  "",
-		wantErr: true,
+		name:     "Empty node ID",
+		nodeName: "",
+		wantErr:  true,
 	}}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := config.BMCIDForNode(tc.nodeID)
+			result, err := config.BMCIDForNode(tc.nodeName)
 
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -241,18 +241,18 @@ bmcs:
 	}
 
 	tt := []struct {
-		name    string
-		nodeID  string
-		wantErr bool
+		name     string
+		nodeName string
+		wantErr  bool
 	}{{
-		name:    "Valid node",
-		nodeID:  "node1",
-		wantErr: false,
+		name:     "Valid node",
+		nodeName: "node1",
+		wantErr:  false,
 	}}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := config.BMCForNode(tc.nodeID)
+			_, err := config.BMCForNode(tc.nodeName)
 
 			if tc.wantErr {
 				assert.Error(t, err)
