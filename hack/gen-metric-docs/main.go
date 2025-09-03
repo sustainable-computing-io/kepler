@@ -12,11 +12,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sustainable-computing-io/kepler/config"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/platform/redfish"
 )
 
 // MetricInfo holds information about a Prometheus metric
@@ -44,6 +47,56 @@ func (m *MockMonitor) Snapshot() (*monitor.Snapshot, error) {
 // ZoneNames implements monitor.PowerDataProvider interface
 func (m *MockMonitor) ZoneNames() []string {
 	return []string{"package-0"}
+}
+
+// MockRedfishService implements collector.RedfishDataProvider interface
+// Uses real test data from fixtures to generate realistic metrics documentation
+type MockRedfishService struct {
+	nodeName string
+	bmcID    string
+}
+
+func (m *MockRedfishService) Power() (*redfish.PowerReading, error) {
+	// Create a realistic power reading using test scenario data
+	// This represents a typical multi-chassis server with different power controls
+	return &redfish.PowerReading{
+		Timestamp: time.Now(),
+		Chassis: []redfish.Chassis{
+			{
+				ID: "System.Embedded.1",
+				Readings: []redfish.Reading{
+					{
+						ControlID: "PC1",
+						Name:      "System Power Control",
+						Power:     245.0 * device.Watt, // Dell 245W scenario
+					},
+				},
+			},
+			{
+				ID: "Enclosure.Internal.0-1",
+				Readings: []redfish.Reading{
+					{
+						ControlID: "PC1",
+						Name:      "Enclosure Power Control",
+						Power:     189.5 * device.Watt, // HPE 189W scenario
+					},
+					{
+						ControlID: "PC2",
+						Name:      "CPU Sub-system Power",
+						Power:     167.8 * device.Watt, // Lenovo 167W scenario
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+func (m *MockRedfishService) NodeName() string {
+	return m.nodeName
+}
+
+func (m *MockRedfishService) BMCID() string {
+	return m.bmcID
 }
 
 // DescCollector is a helper struct to collect metric descriptions
@@ -153,10 +206,14 @@ func generateMarkdown(metrics []MetricInfo) string {
 	processMetrics := []MetricInfo{}
 	vmMetrics := []MetricInfo{}
 	podMetrics := []MetricInfo{}
+	experimentalMetrics := []MetricInfo{}
 	otherMetrics := []MetricInfo{}
 
 	for _, metric := range metrics {
 		switch {
+		case strings.HasPrefix(metric.Name, "kepler_platform_"):
+			// Platform metrics are experimental
+			experimentalMetrics = append(experimentalMetrics, metric)
 		case strings.HasPrefix(metric.Name, "kepler_node_"):
 			nodeMetrics = append(nodeMetrics, metric)
 		case strings.HasPrefix(metric.Name, "kepler_container_"):
@@ -201,6 +258,17 @@ func generateMarkdown(metrics []MetricInfo) string {
 		md.WriteString("### Other Metrics\n\n")
 		md.WriteString("Additional metrics provided by Kepler.\n\n")
 		writeMetricsSection(&md, otherMetrics)
+	}
+
+	// Add experimental section
+	if len(experimentalMetrics) > 0 {
+		md.WriteString("## Experimental Metrics\n\n")
+		md.WriteString("⚠️ **Warning**: The following metrics are experimental and may change or be removed in future versions. ")
+		md.WriteString("They are provided for early testing and feedback purposes.\n\n")
+		md.WriteString("### Platform Power Metrics\n\n")
+		md.WriteString("These experimental metrics provide platform-level power information from BMC sources (e.g., Redfish). ")
+		md.WriteString("Enable the experimental Redfish feature to collect these metrics.\n\n")
+		writeMetricsSection(&md, experimentalMetrics)
 	}
 
 	md.WriteString("---\n\n")
@@ -303,6 +371,24 @@ func main() {
 		fmt.Printf("Extracted %d CPU info metrics\n", len(cpuInfoMetrics))
 		allMetrics = append(allMetrics, cpuInfoMetrics...)
 	}
+
+	// Create mock redfish service for platform collector
+	mockRedfish := &MockRedfishService{
+		nodeName: "test-node",
+		bmcID:    "test-bmc",
+	}
+	fmt.Println("Creating platform collector...")
+	platformCollector := collector.NewRedfishCollector(mockRedfish, logger)
+	fmt.Println("Created platform collector")
+
+	fmt.Println("Extracting metrics from platform collector...")
+	platformMetrics, err := extractMetricsInfo(platformCollector)
+	if err != nil {
+		fmt.Printf("Failed to extract platform metrics: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Extracted %d platform metrics\n", len(platformMetrics))
+	allMetrics = append(allMetrics, platformMetrics...)
 
 	fmt.Printf("Total metrics extracted: %d\n", len(allMetrics))
 
