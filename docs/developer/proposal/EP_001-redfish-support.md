@@ -4,7 +4,7 @@
 - **Maturity**: Experimental
 - **Author**: Sunil Thaha
 - **Created**: 2025-08-14
-- **Updated**: 2025-08-28
+- **Updated**: 2025-09-03
 
 ## Summary
 
@@ -124,12 +124,16 @@ Implements standard Kepler patterns:
 
 ### Implementation Details
 
-**Simplified On-Demand Architecture with Caching:**
+**Hybrid PowerSubsystem with Power API Fallback Architecture:**
 
-- `Power()`: synchronous method returning detailed PowerControl readings from all chassis
+- `Power()`: synchronous method returning power readings from all chassis with automatic API selection
+- **Primary**: Modern Redfish PowerSubsystem API (PowerSupplies collection)
+- **Fallback**: Deprecated Power API (PowerControl array) for backward compatibility
+- Automatic fallback when PowerSubsystem is unavailable or returns errors
 - Simple staleness-based caching to reduce BMC API calls
-- Individual PowerControl entry exposure with detailed labeling (chassis_id, power_control_id, power_control_name)
+- Individual power source exposure with generic labeling (chassis_id, source_id, source_name, source_type)
 - BMC API calls only when cached data is stale or unavailable
+- Source type differentiation enables clear identification of API used
 
 **Service Lifecycle:**
 
@@ -223,17 +227,17 @@ The Redfish service implements a **on-demand collection with caching**:
 - Implements simple caching with staleness-based expiration to
  support multiple Prometheus scrapes in a short period (High Availability)
 - Returns cached data if available and fresh, otherwise collects fresh data
-- Returns all chassis with detailed PowerControl readings in a single call
-- Each PowerControl entry identified by `chassis_id`, `power_control_id`, and `power_control_name` for granular metric labeling
+- Returns all chassis with detailed power supply readings in a single call via PowerSubsystem
+- Each power supply entry identified by `chassis_id`, `source_id`, and `source_name` for granular metric labeling
 
-### Multiple Chassis and PowerControl Support
+### Multiple Chassis and PowerSupply Support
 
-- `Power()` method returns `*PowerReading` (single reading containing multiple chassis with detailed PowerControl data)
-- `PowerReading` struct contains `[]Chassis` slice, each with `ID` and `[]Reading` for individual PowerControl entries
-- Iterates through all available chassis on the BMC and their PowerControl arrays
-- Filters and returns only PowerControl entries with valid power readings
-- Each reading includes `ControlID`, `Name`, and `Power` for granular power domain monitoring
-- Exposes individual PowerControl entries as separate metrics (e.g., Server Power Control, CPU Sub-system Power, Memory Power)
+- `Power()` method returns `*PowerReading` (single reading containing multiple chassis with detailed power supply data via PowerSubsystem)
+- `PowerReading` struct contains `[]Chassis` slice, each with `ID` and `[]Reading` for individual power supply entries
+- Iterates through all available chassis on the BMC and their PowerSubsystem → PowerSupplies arrays
+- Filters and returns only power supply entries with valid power output readings
+- Each reading includes `SourceID`, `SourceName`, and `Power` for granular power supply monitoring
+- Exposes individual power supply entries as separate metrics (e.g., Power Supply 1, Power Supply 2, Power Supply Bay 1)
 
 ## Metrics
 
@@ -243,17 +247,17 @@ to workloads running on a node, platform metrics represent individual power doma
 the underlying bare metal server (via BMC), regardless of whether Kepler runs on bare
 metal or within a VM.
 
-**PowerControl Granularity**: Each PowerControl entry from the BMC's PowerControl array is
-exposed as an individual metric with detailed labels. This approach avoids making assumptions
-about power topology (whether PowerControl entries should be summed or represent independent
-power domains) and allows users to understand their specific hardware's power structure.
+**PowerSupply Granularity**: Each power supply from the BMC's PowerSubsystem → PowerSupplies collection is
+exposed as an individual metric with detailed labels. This approach provides direct visibility into
+individual power supply output and allows users to understand their hardware's power supply topology
+and redundancy configuration.
 
 This separation enables:
 
 - Multiple VMs on the same bare metal to report the same platform power
-- Clear distinction between attributed workload power and platform power domains
-- Granular monitoring of power subsystems (CPU, memory, storage, etc.)
-- Flexible aggregation based on understanding of specific hardware topology
+- Clear distinction between attributed workload power and platform power supplies
+- Granular monitoring of individual power supplies and their redundancy status
+- Direct visibility into power supply efficiency and utilization
 
 **Important**: This implementation uses a **power-only (Watts) approach**.
 Energy counters (`kepler_platform_joules_total`) are not supported because:
@@ -262,10 +266,14 @@ Energy counters (`kepler_platform_joules_total`) are not supported because:
 - Collection frequency varies based on demand and configuration
 
 ```prometheus
-# Platform power metrics (bare metal power consumption) - individual PowerControl entries exposed
-kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="System.Embedded.1",power_control_id="PC1",power_control_name="Server Power Control"} 450.5
-kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="System.Embedded.1",power_control_id="PC2",power_control_name="CPU Sub-system Power"} 85.2
-kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="Enclosure.Internal.0-1",power_control_id="PC1",power_control_name="Enclosure Power Control"} 125.3
+# Platform power metrics (bare metal power consumption) - hybrid API approach with source_type differentiation
+
+# Modern PowerSubsystem API (PowerSupplies)
+kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="System.Embedded.1",source_id="PS1",source_name="Power Supply 1",source_type="PowerSupply"} 245.0
+kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="System.Embedded.1",source_id="PS2",source_name="Power Supply 2",source_type="PowerSupply"} 0.0
+
+# Fallback Power API (PowerControl) when PowerSubsystem unavailable
+kepler_platform_watts{source="redfish",node_name="worker-1",bmc_id="bmc-1",chassis_id="System.Embedded.1",source_id="0",source_name="System Power Control",source_type="PowerControl"} 189.5
 
 # Existing node metrics unchanged (workload attribution)
 kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
@@ -289,12 +297,14 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 
 **✅ Implemented and Available (Experimental):**
 
-1. **Core**: Full Gofish integration with simplified on-demand power collection and service interfaces
-2. **Metrics**: Platform collector integrated with Prometheus exporter
-3. **Configuration**: CLI flags and YAML configuration with automatic node ID resolution
-4. **Testing**: Unit tests with mock server covering multiple vendor scenarios
-5. **Caching**: Staleness-based caching to reduce BMC API calls
-6. **Multiple Chassis and PowerControl**: Support for collecting detailed power data from all chassis and individual PowerControl entries
+1. **Core**: Full Gofish integration with hybrid PowerSubsystem/Power API collection and service interfaces
+2. **API Hybrid Approach**: PowerSubsystem API (modern) with automatic fallback to Power API (deprecated) for backward compatibility
+3. **Metrics**: Platform collector with generic source_id/source_name/source_type labels for power data
+4. **Configuration**: CLI flags and YAML configuration with automatic node ID resolution
+5. **Testing**: Unit tests with mock server including PowerSubsystem, Power API, and fallback scenarios
+6. **Caching**: Staleness-based caching to reduce BMC API calls
+7. **Multiple Chassis and Sources**: Support for collecting detailed power data from all chassis via both APIs with source differentiation
+8. **Fallback Logic**: Automatic detection and fallback when PowerSubsystem is unavailable
 
 **Current State:**
 
@@ -314,13 +324,16 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 
 **Implemented Testing:**
 
-- **Unit tests**: Full test coverage with mocked Redfish responses
-- **Mock server**: HTTP server simulating BMC Redfish API endpoints for different vendors
-- **Multi-vendor scenarios**: Dell, HPE, Lenovo, and Generic response variations
-- **Error conditions**: Connection failures, authentication errors, timeouts, missing chassis
+- **Unit tests**: Full test coverage with mocked PowerSubsystem and Power API responses
+- **Mock server**: HTTP server simulating BMC Redfish PowerSubsystem and Power API endpoints for different vendors
+- **PowerSupply fixtures**: Dell, HPE, Lenovo PowerSupply collection response variations
+- **PowerControl fixtures**: PowerControl array response variations for fallback testing
+- **Fallback scenarios**: Comprehensive testing of PowerSubsystem → Power API fallback logic
+- **Error conditions**: Connection failures, authentication errors, timeouts, missing chassis/power supplies/power subsystems
+- **Source type validation**: Testing proper source_type assignment for PowerSupply vs PowerControl
 - **Concurrency testing**: Race detection and thread safety validation
 - **Caching behavior**: Staleness-based caching and cache expiry testing
-- **Service lifecycle**: Complete Init, ChassisPower, and Shutdown testing
+- **Service lifecycle**: Complete Init, Power (hybrid approach), and Shutdown testing
 
 **Testing Infrastructure:**
 
@@ -375,7 +388,8 @@ kepler_node_cpu_watts{zone="package",node_name="worker-1"} 125.2
 - Power-only metrics (no energy counters due to intermittent BMC polling)
 - Basic staleness-based caching (more advanced cache management could be added)
 - BMC calls during Prometheus scrape when cache is stale (mitigated by built-in caching)
-- Tested with mock servers (Dell, HPE, Lenovo, Generic scenarios)
+- Optimal for modern Redfish implementations with PowerSubsystem support (gracefully falls back to deprecated Power API)
+- Tested with mock servers simulating both PowerSubsystem and Power API scenarios
 
 ## Future Enhancements
 
