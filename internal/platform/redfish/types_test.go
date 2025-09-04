@@ -28,9 +28,10 @@ func TestPowerReadingCloneSuccess(t *testing.T) {
 				ID: "chassis-1",
 				Readings: []Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Chassis 1 Power Control",
-						Power:     100.5 * device.Watt,
+						SourceID:   "PS1",
+						SourceName: "Chassis 1 Power Supply",
+						SourceType: PowerSupplySource,
+						Power:      100.5 * device.Watt,
 					},
 				},
 			},
@@ -38,9 +39,10 @@ func TestPowerReadingCloneSuccess(t *testing.T) {
 				ID: "chassis-2",
 				Readings: []Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Chassis 2 Power Control",
-						Power:     200.3 * device.Watt,
+						SourceID:   "PS1",
+						SourceName: "Chassis 2 Power Supply",
+						SourceType: PowerSupplySource,
+						Power:      200.3 * device.Watt,
 					},
 				},
 			},
@@ -60,16 +62,16 @@ func TestPowerReadingCloneSuccess(t *testing.T) {
 	assert.Len(t, cloned.Chassis, 2)
 	assert.Equal(t, original.Chassis[0].ID, cloned.Chassis[0].ID)
 	assert.Equal(t, original.Chassis[0].Readings[0].Power, cloned.Chassis[0].Readings[0].Power)
-	assert.Equal(t, original.Chassis[0].Readings[0].ControlID, cloned.Chassis[0].Readings[0].ControlID)
+	assert.Equal(t, original.Chassis[0].Readings[0].SourceID, cloned.Chassis[0].Readings[0].SourceID)
 	assert.Equal(t, original.Chassis[1].Readings[0].Power, cloned.Chassis[1].Readings[0].Power)
-	assert.Equal(t, original.Chassis[1].Readings[0].ControlID, cloned.Chassis[1].Readings[0].ControlID)
+	assert.Equal(t, original.Chassis[1].Readings[0].SourceID, cloned.Chassis[1].Readings[0].SourceID)
 
 	// Verify it's a deep copy - modifying original shouldn't affect clone
 	original.Chassis[0].Readings[0].Power = 999 * device.Watt
-	original.Chassis[0].Readings[0].ControlID = "modified"
+	original.Chassis[0].Readings[0].SourceID = "modified"
 
 	assert.Equal(t, 100.5*device.Watt, cloned.Chassis[0].Readings[0].Power)
-	assert.Equal(t, "PC1", cloned.Chassis[0].Readings[0].ControlID)
+	assert.Equal(t, "PS1", cloned.Chassis[0].Readings[0].SourceID)
 }
 
 func TestPowerReadingCloneEmpty(t *testing.T) {

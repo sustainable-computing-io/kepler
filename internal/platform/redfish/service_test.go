@@ -4,6 +4,7 @@
 package redfish
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,7 +18,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
-	"github.com/sustainable-computing-io/kepler/internal/platform/redfish/mock"
+	"github.com/sustainable-computing-io/kepler/internal/platform/redfish/testutil"
 )
 
 const testMonitorStaleness = 30 * time.Second // Test monitor staleness duration
@@ -34,12 +35,25 @@ func defaultRedfishConfig(configFile string, nodeName string) config.Redfish {
 func TestNewService(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Create a test server for valid endpoint URLs
+	server := testutil.NewServer(testutil.ServerConfig{
+		Username:   "admin",
+		Password:   "password",
+		PowerWatts: 150.0,
+		EnableAuth: true,
+	})
+	defer server.Close()
+
+	type expectation struct {
+		error bool
+	}
+
 	tt := []struct {
 		name          string
 		configContent string
 		nodeName      string
 		kubeNodeName  string
-		expectError   bool
+		expect        expectation
 	}{{
 		name: "ValidConfiguration",
 		configContent: `
@@ -47,14 +61,16 @@ nodes:
   test-node: test-bmc
 bmcs:
   test-bmc:
-    endpoint: "https://192.168.1.100"
+    endpoint: "` + server.URL() + `"
     username: "admin"
     password: "password"
     insecure: true
 `,
 		nodeName:     "test-node",
 		kubeNodeName: "",
-		expectError:  false,
+		expect: expectation{
+			error: false,
+		},
 	}, {
 		name: "NodeNotFound",
 		configContent: `
@@ -62,14 +78,16 @@ nodes:
   other-node: test-bmc
 bmcs:
   test-bmc:
-    endpoint: "https://192.168.1.100"
+    endpoint: "` + server.URL() + `"
     username: "admin"
     password: "password"
     insecure: true
 `,
 		nodeName:     "missing-node",
 		kubeNodeName: "",
-		expectError:  true,
+		expect: expectation{
+			error: true,
+		},
 	}, {
 		name: "InvalidConfigFile",
 		configContent: `
@@ -77,7 +95,9 @@ invalid: yaml: content
 `,
 		nodeName:     "test-node",
 		kubeNodeName: "",
-		expectError:  true,
+		expect: expectation{
+			error: true,
+		},
 	}, {
 		name: "HostnameFallback",
 		configContent: func() string {
@@ -87,7 +107,7 @@ nodes:
   ` + hostname + `: test-bmc
 bmcs:
   test-bmc:
-    endpoint: "https://192.168.1.100"
+    endpoint: "` + server.URL() + `"
     username: "admin"
     password: "password"
     insecure: true
@@ -95,7 +115,9 @@ bmcs:
 		}(),
 		nodeName:     "",
 		kubeNodeName: "",
-		expectError:  false, // Should succeed with hostname fallback
+		expect: expectation{
+			error: false, // Should succeed with hostname fallback
+		},
 	}}
 
 	for _, tc := range tt {
@@ -120,7 +142,7 @@ bmcs:
 			redfishCfg := defaultRedfishConfig(configFile, resolvedNodeName)
 			service, err := NewService(redfishCfg, logger, WithStaleness(testMonitorStaleness))
 
-			if tc.expectError {
+			if tc.expect.error {
 				assert.Error(t, err)
 				assert.Nil(t, service)
 				return
@@ -131,7 +153,7 @@ bmcs:
 
 			// Verify service properties
 			assert.Equal(t, "platform.redfish", service.Name())
-			assert.Nil(t, service.client) // Client is created during Init()
+			// Client is now managed internally by PowerReader
 			assert.NotNil(t, service.powerReader)
 			// Verify configuration
 			assert.Equal(t, testMonitorStaleness, service.staleness)
@@ -162,8 +184,8 @@ func TestNewServiceNonExistentConfig(t *testing.T) {
 
 func TestServiceInitSuccess(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 150.0,
@@ -171,7 +193,7 @@ func TestServiceInitSuccess(t *testing.T) {
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create service with mock server
@@ -180,7 +202,7 @@ func TestServiceInitSuccess(t *testing.T) {
 	// Test initialization
 	err := service.Init()
 	assert.NoError(t, err)
-	assert.NotNil(t, service.client)
+	// Client connection is now managed internally by PowerReader
 
 	// Cleanup
 	err = service.Shutdown()
@@ -189,17 +211,17 @@ func TestServiceInitSuccess(t *testing.T) {
 
 func TestServiceInitConnectionFailure(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 150.0,
 			EnableAuth: true,
-			ForceError: mock.ErrorAuth,
+			ForceError: testutil.ErrorAuth,
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create service with failing mock server
@@ -209,14 +231,14 @@ func TestServiceInitConnectionFailure(t *testing.T) {
 	err := service.Init()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to connect to BMC")
-	assert.Nil(t, service.client)
+	// Client connection failure is now handled internally by PowerReader
 }
 
 func TestServicePowerDataCollection(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	initialPower := 150.0
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: initialPower,
@@ -224,7 +246,7 @@ func TestServicePowerDataCollection(t *testing.T) {
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create and initialize service with short staleness for testing
@@ -278,51 +300,46 @@ func TestServicePowerDataCollection(t *testing.T) {
 
 func TestServiceCollectionErrors(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 150.0,
 			EnableAuth: true,
-			ForceError: mock.ErrorMissingChassis,
+			ForceError: testutil.ErrorMissingChassis,
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
-	// Create and initialize service (should succeed)
+	// Create service
 	service := createTestService(t, server, logger)
+
+	// Initialize service (should fail due to missing chassis during PowerReader initialization)
 	err := service.Init()
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to initialize power reader")
+	assert.Contains(t, err.Error(), "failed to get chassis collection")
 
-	// Try to collect power data (should fail)
-	readings, err := service.Power()
-	assert.Error(t, err)
-	assert.Nil(t, readings)
-
-	// Verify subsequent calls also fail
-	readings, err = service.Power()
-	assert.Error(t, err)
-	assert.Nil(t, readings)
-
-	// Cleanup
+	// Since initialization failed, we can still test shutdown
 	err = service.Shutdown()
-	assert.NoError(t, err)
+	assert.NoError(t, err) // Shutdown should not fail even if initialization failed
 }
 
-func TestServiceConcurrentAccess(t *testing.T) {
+func TestServiceConcurrentAccessPowerSubsystem(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 180.0,
 			EnableAuth: true,
+			// PowerSubsystem API is used by default (ForceFallback: false)
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create and initialize service
@@ -335,7 +352,7 @@ func TestServiceConcurrentAccess(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, readings)
 
-	// Test concurrent reads using ChassisPower
+	// Test concurrent reads - PowerSubsystem API returns multiple power supply readings
 	const numReaders = 10
 	var wg sync.WaitGroup
 
@@ -346,14 +363,76 @@ func TestServiceConcurrentAccess(t *testing.T) {
 			for range 100 {
 				readings, err := service.Power()
 				if err == nil && readings != nil && len(readings.Chassis) > 0 && len(readings.Chassis[0].Readings) > 0 {
-					expectedPower := 180 * device.Watt
+					// With standardized mock server: each power supply reports full chassis power (180W)
+					expectedPower := 180 * device.Watt // Each power supply reports the full chassis power for consistency
 					assert.Equal(t, expectedPower, readings.Chassis[0].Readings[0].Power)
 				}
 			}
 		}()
 	}
 
-	// Concurrent data collection using ChassisPower()
+	// Concurrent data collection
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 10 {
+			_, _ = service.Power()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	wg.Wait()
+
+	// Cleanup
+	err = service.Shutdown()
+	assert.NoError(t, err)
+}
+
+func TestServiceConcurrentAccessPowerAPI(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
+			Username:      "admin",
+			Password:      "password",
+			PowerWatts:    180.0,
+			EnableAuth:    true,
+			ForceFallback: true, // Force use of Power API instead of PowerSubsystem
+		},
+	}
+
+	server := testutil.CreateScenarioServer(scenario)
+	defer server.Close()
+
+	// Create and initialize service
+	service := createTestService(t, server, logger)
+	err := service.Init()
+	require.NoError(t, err)
+
+	// Test that we can collect data on-demand
+	readings, err := service.Power()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, readings)
+
+	// Test concurrent reads - Power API returns single total power reading
+	const numReaders = 10
+	var wg sync.WaitGroup
+
+	for range numReaders {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 100 {
+				readings, err := service.Power()
+				if err == nil && readings != nil && len(readings.Chassis) > 0 && len(readings.Chassis[0].Readings) > 0 {
+					// Power API: returns total chassis power consumption
+					expectedPower := 180 * device.Watt // Full power from single PowerControl reading
+					assert.Equal(t, expectedPower, readings.Chassis[0].Readings[0].Power)
+				}
+			}
+		}()
+	}
+
+	// Concurrent data collection
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -374,12 +453,12 @@ func TestServiceStalenessCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Create a mock server with initial power reading
-	config := mock.ServerConfig{
+	config := testutil.ServerConfig{
 		Username:   "admin",
 		Password:   "secret",
 		PowerWatts: 200.0,
 	}
-	server := mock.NewServer(config)
+	server := testutil.NewServer(config)
 	defer server.Close()
 
 	// Create service using helper with short staleness for testing
@@ -399,6 +478,7 @@ func TestServiceStalenessCache(t *testing.T) {
 	readings1, err := service.Power()
 	require.NoError(t, err)
 	require.NotEmpty(t, readings1)
+	// With standardized mock server, each power supply reports full chassis power (200W)
 	assert.Equal(t, 200.0*device.Watt, readings1.Chassis[0].Readings[0].Power)
 
 	// Change power on server
@@ -417,6 +497,7 @@ func TestServiceStalenessCache(t *testing.T) {
 	readings3, err := service.Power()
 	require.NoError(t, err)
 	require.NotEmpty(t, readings3)
+	// With standardized mock server, each power supply reports full chassis power (300W)
 	assert.Equal(t, 300.0*device.Watt, readings3.Chassis[0].Readings[0].Power) // New value from BMC
 
 	// Fourth immediate call should return new cached data
@@ -428,8 +509,8 @@ func TestServiceStalenessCache(t *testing.T) {
 
 func TestServiceShutdownIdempotent(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 150.0,
@@ -437,7 +518,7 @@ func TestServiceShutdownIdempotent(t *testing.T) {
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create and initialize service
@@ -460,8 +541,8 @@ func TestServiceShutdownIdempotent(t *testing.T) {
 
 func TestServiceIntegrationBasic(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 165.5,
@@ -469,7 +550,7 @@ func TestServiceIntegrationBasic(t *testing.T) {
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	// Create and test service
@@ -497,8 +578,8 @@ func TestServiceIntegrationBasic(t *testing.T) {
 
 func TestServiceInterfaceCompliance(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	scenario := mock.TestScenario{
-		Config: mock.ServerConfig{
+	scenario := testutil.TestScenario{
+		Config: testutil.ServerConfig{
 			Username:   "admin",
 			Password:   "password",
 			PowerWatts: 150.0,
@@ -506,7 +587,7 @@ func TestServiceInterfaceCompliance(t *testing.T) {
 		},
 	}
 
-	server := mock.CreateScenarioServer(scenario)
+	server := testutil.CreateScenarioServer(scenario)
 	defer server.Close()
 
 	service := createTestService(t, server, logger)
@@ -560,6 +641,15 @@ func TestServiceInitCredentialValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Create test server
+			server := testutil.NewServer(testutil.ServerConfig{
+				Username:   "admin",
+				Password:   "secret",
+				PowerWatts: 150.0,
+				EnableAuth: true,
+			})
+			defer server.Close()
+
 			// Create temporary config file with specific credentials
 			tmpDir, err := os.MkdirTemp("", "credential_test")
 			require.NoError(t, err)
@@ -570,11 +660,11 @@ nodes:
   test-node: test-bmc
 bmcs:
   test-bmc:
-    endpoint: "https://192.168.1.100"
+    endpoint: "%s"
     username: "%s"
     password: "%s"
     insecure: true
-`, tc.username, tc.password)
+`, server.URL(), tc.username, tc.password)
 
 			configFile := filepath.Join(tmpDir, "config.yaml")
 			err = os.WriteFile(configFile, []byte(configContent), 0644)
@@ -592,9 +682,11 @@ bmcs:
 				require.NoError(t, err)
 				require.NotNil(t, service)
 
-				// Test initialization - may fail due to connection issues, but not credential validation
+				// Test initialization - may fail due to auth issues if credentials don't match
 				err = service.Init()
 				if err != nil {
+					// For credential mismatch cases, we expect auth errors
+					// but not "both username and password must be provided" errors
 					assert.NotContains(t, err.Error(), "both username and password must be provided")
 				}
 			}
@@ -603,7 +695,7 @@ bmcs:
 }
 
 // Helper function to create a test service with mock server
-func createTestService(t *testing.T, server *mock.Server, logger *slog.Logger) *Service {
+func createTestService(t *testing.T, server *testutil.Server, logger *slog.Logger) *Service {
 	// Create temporary config file
 	tmpDir, err := os.MkdirTemp("", "service_test")
 	require.NoError(t, err)
@@ -635,6 +727,15 @@ bmcs:
 func TestServiceNodeNameAndBMCID(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Create a test server
+	server := testutil.NewServer(testutil.ServerConfig{
+		Username:   "admin",
+		Password:   "password",
+		PowerWatts: 150.0,
+		EnableAuth: true,
+	})
+	defer server.Close()
+
 	// Create temporary config file
 	tmpDir, err := os.MkdirTemp("", "service_test")
 	require.NoError(t, err)
@@ -645,7 +746,7 @@ nodes:
   test-worker-1: test-bmc-1
 bmcs:
   test-bmc-1:
-    endpoint: "https://192.168.1.100"
+    endpoint: "` + server.URL() + `"
     username: "admin"
     password: "password"
     insecure: true
@@ -673,6 +774,15 @@ bmcs:
 func TestServiceIsFresh(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Create a test server
+	server := testutil.NewServer(testutil.ServerConfig{
+		Username:   "admin",
+		Password:   "password",
+		PowerWatts: 150.0,
+		EnableAuth: true,
+	})
+	defer server.Close()
+
 	// Create temporary config file
 	tmpDir, err := os.MkdirTemp("", "service_test")
 	require.NoError(t, err)
@@ -683,7 +793,7 @@ nodes:
   test-node: test-bmc
 bmcs:
   test-bmc:
-    endpoint: "https://192.168.1.100"
+    endpoint: "` + server.URL() + `"
     username: "admin"
     password: "password"
     insecure: true
@@ -709,7 +819,7 @@ bmcs:
 			{
 				ID: "test",
 				Readings: []Reading{
-					{ControlID: "PC1", Name: "Test Power Control", Power: 100 * device.Watt},
+					{SourceID: "PS1", SourceName: "Test Power Supply", SourceType: PowerSupplySource, Power: 100 * device.Watt},
 				},
 			},
 		},
@@ -727,7 +837,7 @@ bmcs:
 			{
 				ID: "test",
 				Readings: []Reading{
-					{ControlID: "PC1", Name: "Test Power Control", Power: 100 * device.Watt},
+					{SourceID: "PS1", SourceName: "Test Power Supply", SourceType: PowerSupplySource, Power: 100 * device.Watt},
 				},
 			},
 		},
@@ -737,4 +847,56 @@ bmcs:
 	// Test 5: Nil cached data - should not be fresh
 	service.cachedReading = nil
 	assert.False(t, service.isFresh())
+}
+
+func TestServiceRun(t *testing.T) {
+	// Test the Service.Run method which is currently a no-op waiting for context cancellation
+	server := testutil.NewServer(testutil.ServerConfig{
+		Username:   "admin",
+		Password:   "password",
+		PowerWatts: 100.0,
+		EnableAuth: false,
+	})
+	defer server.Close()
+
+	// Create a temporary config file for the test
+	tmpDir, err := os.MkdirTemp("", "service_run_test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	configContent := `
+nodes:
+  test-node: test-bmc
+bmcs:
+  test-bmc:
+    endpoint: "` + server.URL() + `"
+    username: "admin"
+    password: "password"
+    insecure: true
+`
+	configFile := filepath.Join(tmpDir, "config.yaml")
+	err = os.WriteFile(configFile, []byte(configContent), 0600)
+	require.NoError(t, err)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	redfishCfg := defaultRedfishConfig(configFile, "test-node")
+	service, err := NewService(redfishCfg, logger, WithStaleness(testMonitorStaleness))
+	require.NoError(t, err)
+
+	// Initialize the service
+	err = service.Init()
+	require.NoError(t, err)
+
+	// Test Run method with context cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err = service.Run(ctx)
+	duration := time.Since(start)
+
+	// Run should complete when context is cancelled
+	assert.NoError(t, err)
+	assert.True(t, duration >= 100*time.Millisecond, "Run should wait for context cancellation")
+	assert.True(t, duration < 200*time.Millisecond, "Run should return promptly after context cancellation")
 }
