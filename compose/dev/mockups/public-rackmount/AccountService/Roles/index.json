@@ -1,0 +1,19 @@
+{
+    "@odata.type": "#RoleCollection.RoleCollection",
+    "Name": "Roles Collection",
+    "Members@odata.count": 3,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/AccountService/Roles/Admin"
+        },
+        {
+            "@odata.id": "/redfish/v1/AccountService/Roles/Operator"
+        },
+        {
+            "@odata.id": "/redfish/v1/AccountService/Roles/ReadOnlyUser"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Role.Role",
+    "@odata.id": "/redfish/v1/AccountService/Roles",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

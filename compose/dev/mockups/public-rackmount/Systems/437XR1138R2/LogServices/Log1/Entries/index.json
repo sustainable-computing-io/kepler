@@ -1,0 +1,64 @@
+{
+    "@odata.type": "#LogEntryCollection.LogEntryCollection",
+    "Name": "Log Service Collection",
+    "Description": "Collection of Logs for this System",
+    "Members@odata.count": 2,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries/1",
+            "@odata.type": "#LogEntry.v1_0_2.LogEntry",
+            "Id": "1",
+            "Name": "Log Entry 1",
+            "EntryType": "SEL",
+            "OemRecordFormat": "Contoso",
+            "RecordId": 1,
+            "Severity": "Warning",
+            "Created": "2012-03-07T14:44",
+            "EntryCode": "Assert",
+            "SensorType": "Temperature",
+            "Number": 1,
+            "Message": "Temperature threshold exceeded",
+            "MessageID": "Contoso.1.0.TempAssert",
+            "MessageArgs": [
+                "42"
+            ],
+            "Links": {
+                "OriginOfCondition": {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal"
+                },
+                "Oem": {}
+            },
+            "Oem": {}
+        },
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries/2",
+            "@odata.type": "#LogEntry.v1_0_2.LogEntry",
+            "Id": "2",
+            "Name": "Log Entry 2",
+            "EntryType": "SEL",
+            "OEMRecordFormat": "Contoso",
+            "RecordId": 2,
+            "Severity": "Critical",
+            "Created": "2012-03-07T14:45",
+            "EntryCode": "Assert",
+            "SensorType": "Temperature",
+            "Number": 2,
+            "Message": "Temperature threshold exceeded",
+            "MessageID": "Contoso.1.0.TempAssert",
+            "MessageArgs": [
+                "46"
+            ],
+            "Links": {
+                "OriginOfCondition": {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal"
+                },
+                "Oem": {}
+            },
+            "Oem": {}
+        }
+    ],
+    "@odata.nextLink": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries?$skiptoken=2",
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/LogServices/Members/Log1/Entries",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

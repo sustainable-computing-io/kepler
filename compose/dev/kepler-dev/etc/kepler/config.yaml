@@ -76,7 +76,7 @@ dev:
 experimental:
   platform:
     redfish:
-      enabled: false # Enable experimental Redfish BMC power monitoring
+      enabled: true # Enable experimental Redfish BMC power monitoring
       configFile: /etc/kepler/redfish.yaml # Path to Redfish BMC configuration file
-      nodeName: "" # Node name to use (overrides Kubernetes node name and hostname fallback)
+      nodeName: kepler-dev # Node name to use (overrides Kubernetes node name and hostname fallback)
       httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)

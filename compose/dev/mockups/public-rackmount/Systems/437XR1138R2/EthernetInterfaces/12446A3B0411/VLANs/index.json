@@ -1,0 +1,16 @@
+{
+    "@odata.type": "#VLanNetworkInterfaceCollection.VLanNetworkInterfaceCollection",
+    "Name": "VLAN Network Interface Collection",
+    "Members@odata.count": 2,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411/VLANs/1"
+        },
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411/VLANs/2"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/EthernetInterfaces/Members/12446A3B0411/VLANs/$entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411/VLANs",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

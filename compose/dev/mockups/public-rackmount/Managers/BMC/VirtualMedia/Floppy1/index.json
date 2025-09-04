@@ -1,0 +1,17 @@
+{
+    "@odata.type": "#VirtualMedia.v1_0_2.VirtualMedia",
+    "Id": "Floppy1",
+    "Name": "Virtual Removable Media",
+    "MediaTypes": [
+        "Floppy",
+        "USBStick"
+    ],
+    "Image": "https://www.dmtf.org/freeImages/Sardine.img",
+    "ImageName": "Sardine2.1.43.35.6a",
+    "ConnectedVia": "URI",
+    "Inserted": true,
+    "WriteProtected": false,
+    "@odata.context": "/redfish/v1/$metadata#Managers/Members/BMC/VirtualMedia/Members/$entity",
+    "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia/Floppy1",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

@@ -1,0 +1,174 @@
+{
+    "@odata.type": "#Power.v1_1_0.Power",
+    "Id": "Power",
+    "Name": "Power",
+    "PowerControl": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/4U/Power#/PowerControl/0",
+            "MemberId": "0",
+            "Name": "Server Power Control",
+            "PowerConsumedWatts": 750,
+            "PowerRequestedWatts": 1600,
+            "PowerAvailableWatts": 0,
+            "PowerCapacityWatts": 1600,
+            "PowerAllocatedWatts": 1600,
+            "PowerMetrics": {
+                "IntervalInMin": 30,
+                "MinConsumedWatts": 600,
+                "MaxConsumedWatts": 900,
+                "AverageConsumedWatts": 720
+            },
+            "PowerLimit": {
+                "LimitInWatts": 1000,
+                "LimitException": "LogEventOnly",
+                "CorrectionInMs": 50
+            },
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R4"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/4U"
+                }
+            ],
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "Oem": {}
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/4U/Power#/PowerControl/1",
+            "MemberId": "1",
+            "Name": "Chassis Power Control",
+            "PowerConsumedWatts": 95,
+            "PowerRequestedWatts": 200,
+            "PowerAvailableWatts": 0,
+            "PowerCapacityWatts": 200,
+            "PowerAllocatedWatts": 200,
+            "PowerMetrics": {
+                "IntervalInMin": 30,
+                "MinConsumedWatts": 75,
+                "MaxConsumedWatts": 125,
+                "AverageConsumedWatts": 95
+            },
+            "PowerLimit": {
+                "LimitInWatts": 150,
+                "LimitException": "HardPowerOff",
+                "CorrectionInMs": 100
+            },
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/4U"
+                }
+            ],
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "Oem": {}
+        }
+    ],
+    "Voltages": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/4U/Power#/Voltages/0",
+            "MemberId": "0",
+            "Name": "VRM1 Voltage",
+            "SensorNumber": 11,
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "ReadingVolts": 12,
+            "UpperThresholdNonCritical": 12.5,
+            "UpperThresholdCritical": 13,
+            "UpperThresholdFatal": 15,
+            "LowerThresholdNonCritical": 11.5,
+            "LowerThresholdCritical": 11,
+            "LowerThresholdFatal": 10,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 20,
+            "PhysicalContext": "VoltageRegulator",
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R4"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/4U"
+                }
+            ]
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/4U/Power#/Voltages/1",
+            "MemberId": "1",
+            "Name": "VRM2 Voltage",
+            "SensorNumber": 12,
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "ReadingVolts": 5,
+            "UpperThresholdNonCritical": 5.5,
+            "UpperThresholdCritical": 7,
+            "LowerThresholdNonCritical": 4.75,
+            "LowerThresholdCritical": 4.5,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 20,
+            "PhysicalContext": "VoltageRegulator",
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R4"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/4U"
+                }
+            ]
+        }
+    ],
+    "PowerSupplies": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/4U/Power#/PowerSupplies/0",
+            "MemberId": "0",
+            "Name": "Power Supply Bay",
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "Oem": {},
+            "PowerSupplyType": "AC",
+            "LineInputVoltageType": "ACWideRange",
+            "LineInputVoltage": 120,
+            "PowerCapacityWatts": 1600,
+            "LastPowerOutputWatts": 725,
+            "Model": "499253-B24",
+            "Manufacturer": "ManufacturerName",
+            "FirmwareVersion": "1.00",
+            "SerialNumber": "4Z0000001",
+            "PartNumber": "0000004A3A",
+            "SparePartNumber": "0000004A3A",
+            "InputRanges": [
+                {
+                    "InputType": "AC",
+                    "MinimumVoltage": 100,
+                    "MaximumVoltage": 120,
+                    "OutputWattage": 1600
+                },
+                {
+                    "InputType": "AC",
+                    "MinimumVoltage": 200,
+                    "MaximumVoltage": 240,
+                    "OutputWattage": 2400
+                }
+            ],
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/4U"
+                }
+            ]
+        }
+    ],
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Power.Power",
+    "@odata.id": "/redfish/v1/Chassis/4U/Power",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

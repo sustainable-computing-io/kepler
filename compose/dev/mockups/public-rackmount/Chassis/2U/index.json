@@ -1,0 +1,47 @@
+{
+    "@odata.type": "#Chassis.v1_2_0.Chassis",
+    "Id": "2U",
+    "Name": "Computer System Chassis",
+    "ChassisType": "RackMount",
+    "AssetTag": "Chicago-45Z-2382",
+    "Manufacturer": "Contoso",
+    "Model": "4500RX",
+    "SKU": "8675310",
+    "SerialNumber": "437XR1138R3",
+    "PartNumber": "224071-J24",
+    "PowerState": "On",
+    "IndicatorLED": "Lit",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+    },
+    "Thermal": {
+        "@odata.id": "/redfish/v1/Chassis/2U/Thermal"
+    },
+    "Power": {
+        "@odata.id": "/redfish/v1/Chassis/2U/Power"
+    },
+    "PowerSubsystem": {
+        "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem"
+    },
+    "Links": {
+        "ComputerSystems": [
+            {
+                "@odata.id": "/redfish/v1/Systems/437XR1138R3"
+            }
+        ],
+        "ManagedBy": [
+            {
+                "@odata.id": "/redfish/v1/Managers/BMC"
+            }
+        ],
+        "ManagersInChassis": [
+            {
+                "@odata.id": "/redfish/v1/Managers/BMC"
+            }
+        ]
+    },
+    "@odata.context": "/redfish/v1/$metadata#Chassis.Chassis",
+    "@odata.id": "/redfish/v1/Chassis/2U",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

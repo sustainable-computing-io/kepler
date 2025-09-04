@@ -1,0 +1,55 @@
+{
+    "@odata.type": "#ManagerNetworkProtocol.v1_0_2.ManagerNetworkProtocol",
+    "Id": "NetworkProtocol",
+    "Name": "Manager Network Protocol",
+    "Description": "Manager Network Service",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+    },
+    "HostName": "web483-bmc",
+    "FQDN": "web483-bmc.dmtf.org",
+    "HTTP": {
+        "ProtocolEnabled": true,
+        "Port": 80
+    },
+    "HTTPS": {
+        "ProtocolEnabled": true,
+        "Port": 443
+    },
+    "IPMI": {
+        "ProtocolEnabled": true,
+        "Port": 623
+    },
+    "SSH": {
+        "ProtocolEnabled": true,
+        "Port": 22
+    },
+    "SNMP": {
+        "ProtocolEnabled": true,
+        "Port": 161
+    },
+    "VirtualMedia": {
+        "ProtocolEnabled": true,
+        "Port": 17988
+    },
+    "SSDP": {
+        "ProtocolEnabled": true,
+        "Port": 1900,
+        "NotifyMulticastIntervalSeconds": 600,
+        "NotifyTTL": 5,
+        "NotifyIPv6Scope": "Site"
+    },
+    "Telnet": {
+        "ProtocolEnabled": true,
+        "Port": 23
+    },
+    "KVMIP": {
+        "ProtocolEnabled": true,
+        "Port": 5288
+    },
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Managers/Members/BMC/NetworkProtocol/$entity",
+    "@odata.id": "/redfish/v1/Managers/BMC/NetworkProtocol",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

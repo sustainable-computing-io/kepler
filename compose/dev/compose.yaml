@@ -44,8 +44,12 @@ services:
     command:
       - --config.file=/etc/kepler/config.yaml
 
+    depends_on:
+      - sushy-static
+
     networks:
       - kepler-dev
+      - sushy-network
       # - kind  # NOTE: uncomment to use kind
 
   scaphandre:
@@ -100,10 +104,30 @@ services:
     networks:
       - node-exporter-network
 
+  sushy-static:
+    image: quay.io/metal3-io/sushy-tools:latest
+    ports:
+      - 28001:8001
+    volumes:
+      - type: bind
+        source: ./mockups
+        target: /mockups
+    command:
+      - sushy-static
+      - -m
+      - /mockups/public-rackmount
+      - -i
+      - 0.0.0.0
+      - -p
+      - "8001"
+    networks:
+      - sushy-network
+
 networks:
   kepler-dev:
   scaph-network:
   node-exporter-network:
+  sushy-network:
   # NOTE: uncomment to use kind
   # kind:
   #   external: true

@@ -1,0 +1,79 @@
+{
+    "@odata.type": "#EthernetInterface.v1_0_2.EthernetInterface",
+    "Id": "Dedicated",
+    "Name": "Manager Ethernet Interface",
+    "Description": "Management Network Interface",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+    },
+    "InterfaceEnabled": true,
+    "PermanentMACAddress": "23:11:8A:33:CF:EA",
+    "MACAddress": "23:11:8A:33:CF:EA",
+    "SpeedMbps": 100,
+    "AutoNeg": true,
+    "FullDuplex": true,
+    "MTUSize": 1500,
+    "HostName": "web483-bmc",
+    "FQDN": "web483-bmc.dmtf.org",
+    "MaxIPv6StaticAddresses": 1,
+    "VLAN": {
+        "VLANEnable": true,
+        "VLANId": 101
+    },
+    "IPv4Addresses": [
+        {
+            "Address": "192.168.0.10",
+            "SubnetMask": "255.255.252.0",
+            "AddressOrigin": "DHCP",
+            "Gateway": "192.168.0.1",
+            "Oem": {}
+        }
+    ],
+    "IPv6AddressPolicyTable": [
+        {
+            "Prefix": "::1/128",
+            "Precedence": 50,
+            "Label": 0
+        }
+    ],
+    "IPv6StaticAddresses": [
+        {
+            "Address": "fe80::1ec1:deff:fe6f:1e24",
+            "PrefixLength": 16
+        }
+    ],
+    "IPv6DefaultGateway": "fe80::1ec1:deff:fe6f:1e24",
+    "IPv6Addresses": [
+        {
+            "Address": "fe80::1ec1:deff:fe6f:1e24",
+            "PrefixLength": 64,
+            "AddressOrigin": "SLAAC",
+            "AddressState": "Preferred",
+            "Oem": {}
+        }
+    ],
+    "NameServers": [
+        "names.dmtf.org"
+    ],
+    "@Redfish.Settings": {
+        "@odata.type": "#Settings.v1_0_2.Settings",
+        "SettingsObject": {
+            "@odata.id": "/redfish/v1/Managers/BMC/NICs/Dedicated/SD"
+        },
+        "Time": "2012-03-07T14:44.30-05:00",
+        "ETag": "84ffcbb050ddc7fa9cddb59014546e59",
+        "Messages": [
+            {
+                "MessageId": "Base.1.0.SettingsFailed",
+                "RelatedProperties": [
+                    "#/IPv6Addresses/PrefixLength"
+                ]
+            }
+        ]
+    },
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Managers/Members/BMC/NICs/Members/$entity",
+    "@odata.id": "/redfish/v1/Managers/BMC/NICs/Dedicated",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

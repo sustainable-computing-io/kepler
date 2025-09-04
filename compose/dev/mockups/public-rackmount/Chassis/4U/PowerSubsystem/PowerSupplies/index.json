@@ -1,0 +1,49 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#PowerSupplyCollection.PowerSupplyCollection",
+  "@odata.type": "#PowerSupplyCollection.PowerSupplyCollection",
+  "@odata.id": "/redfish/v1/Chassis/4U/PowerSubsystem/PowerSupplies",
+  "Name": "Power Supply Collection",
+  "Members@odata.count": 2,
+  "Members": [
+    {
+      "@odata.id": "/redfish/v1/Chassis/4U/PowerSubsystem/PowerSupplies/PS1",
+      "@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+      "Id": "PS1",
+      "Name": "Power Supply 1",
+      "MemberId": "PS1",
+      "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+      },
+      "PowerSupplyType": "AC",
+      "PowerCapacityWatts": 1600.0,
+      "PowerOutputWatts": 445.0,
+      "PowerInputWatts": 488.0,
+      "EfficiencyPercent": 91.2,
+      "Manufacturer": "Dell Inc.",
+      "Model": "PWR SPLY,1600W,RDNT,ARTESYN",
+      "SerialNumber": "CN0345678901",
+      "PartNumber": "0H5H70"
+    },
+    {
+      "@odata.id": "/redfish/v1/Chassis/4U/PowerSubsystem/PowerSupplies/PS2",
+      "@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+      "Id": "PS2",
+      "Name": "Power Supply 2",
+      "MemberId": "PS2",
+      "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+      },
+      "PowerSupplyType": "AC",
+      "PowerCapacityWatts": 1600.0,
+      "PowerOutputWatts": 0.0,
+      "PowerInputWatts": 25.0,
+      "EfficiencyPercent": 0.0,
+      "Manufacturer": "Dell Inc.",
+      "Model": "PWR SPLY,1600W,RDNT,ARTESYN",
+      "SerialNumber": "CN0109876543",
+      "PartNumber": "0H5H70"
+    }
+  ]
+}

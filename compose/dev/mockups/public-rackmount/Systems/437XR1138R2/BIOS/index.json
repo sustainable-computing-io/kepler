@@ -1,0 +1,43 @@
+{
+	"@odata.type": "#Bios.v1_0_0.Bios",
+	"Id": "BIOS",
+	"Name": "BIOS Configuration Current Settings",
+	"AttributeRegistry": "BiosAttributeRegistryP89.v1_0_0",
+	"Attributes": {
+		"AdminPhone": "",
+		"BootMode": "Uefi",
+		"EmbeddedSata": "Raid",
+		"NicBoot1": "NetworkBoot",
+		"NicBoot2": "Disabled",
+		"PowerProfile": "MaxPerf",
+		"ProcCoreDisable": 0,
+		"ProcHyperthreading": "Enabled",
+		"ProcTurboMode": "Enabled",
+		"UsbControl": "UsbEnabled"
+	},
+	"@Redfish.Settings": {
+		"@odata.type": "#Settings.v1_0_0.Settings",
+		"ETag": "9234ac83b9700123cc32",
+		"Messages": [{
+			"MessageId": "Base.1.0.SettingsFailed",
+			"RelatedProperties": [
+				"#/Attributes/ProcTurboMode"
+			]
+		}],
+		"SettingsObject": {
+			"@odata.id": "/redfish/v1/Systems/437XR1138R2/BIOS/Settings"
+		},
+		"Time": "2016-03-07T14:44.30-05:00"
+	},
+	"Actions": {
+		"#Bios.ResetBios": {
+			"target": "/redfish/v1/Systems/437XR1138R2/BIOS/Actions/Bios.ResetBios"
+		},
+		"#Bios.ChangePassword": {
+			"target": "/redfish/v1/Systems/437XR1138R2/BIOS/Actions/Bios.ChangePassword"
+		}
+	},
+	"@odata.context": "/redfish/v1/$metadata#Bios.Bios",
+	"@odata.id": "/redfish/v1/Systems/437XR1138R2/BIOS",
+	"@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}
