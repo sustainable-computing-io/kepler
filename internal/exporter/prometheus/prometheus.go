@@ -27,12 +27,13 @@ type APIRegistry interface {
 }
 
 type Opts struct {
-	logger          *slog.Logger
-	debugCollectors map[string]bool
-	collectors      map[string]prom.Collector
-	procfs          string
-	nodeName        string
-	metricsLevel    config.Level
+	logger               *slog.Logger
+	debugCollectors      map[string]bool
+	collectors           map[string]prom.Collector
+	procfs               string
+	nodeName             string
+	metricsLevel         config.Level
+	platformDataProvider collector.RedfishDataProvider
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -91,6 +92,12 @@ func WithNodeName(nodeName string) OptionFn {
 func WithMetricsLevel(level config.Level) OptionFn {
 	return func(o *Opts) {
 		o.metricsLevel = level
+	}
+}
+
+func WithPlatformDataProvider(provider collector.RedfishDataProvider) OptionFn {
+	return func(o *Opts) {
+		o.platformDataProvider = provider
 	}
 }
 
@@ -154,6 +161,12 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 		return nil, err
 	}
 	collectors["cpu_info"] = cpuInfoCollector
+
+	// Add platform collector if platform data provider is available
+	if opts.platformDataProvider != nil {
+		collectors["platform"] = collector.NewRedfishCollector(opts.platformDataProvider, opts.logger)
+	}
+
 	return collectors, nil
 }
 

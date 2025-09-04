@@ -14,7 +14,25 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"gopkg.in/yaml.v3"
+
 	"k8s.io/utils/ptr"
+)
+
+// Feature represents an experimental feature identifier
+type Feature string
+
+const (
+	// ExperimentalRedfishFeature represents the Redfish BMC power monitoring feature
+	ExperimentalRedfishFeature Feature = "redfish"
+
+	// PrometheusFeature represents the Prometheus exporter feature
+	PrometheusFeature Feature = "prometheus"
+
+	// StdoutFeature represents the stdout exporter feature
+	StdoutFeature Feature = "stdout"
+
+	// PprofFeature represents the pprof debug endpoints feature
+	PprofFeature Feature = "pprof"
 )
 
 // Config represents the complete application configuration
@@ -93,6 +111,24 @@ type (
 		Node    string `yaml:"nodeName"`
 	}
 
+	// Platform contains settings for platform power monitoring
+	Platform struct {
+		Redfish Redfish `yaml:"redfish"`
+	}
+
+	// Redfish contains settings for Redfish BMC power monitoring
+	Redfish struct {
+		Enabled     *bool         `yaml:"enabled"`
+		NodeName    string        `yaml:"nodeName"`
+		ConfigFile  string        `yaml:"configFile"`
+		HTTPTimeout time.Duration `yaml:"httpTimeout"` // HTTP client timeout for BMC requests
+	}
+
+	// Experimental contains experimental features (no stability guarantees)
+	Experimental struct {
+		Platform Platform `yaml:"platform"`
+	}
+
 	Config struct {
 		Log      Log      `yaml:"log"`
 		Host     Host     `yaml:"host"`
@@ -102,8 +138,12 @@ type (
 		Web      Web      `yaml:"web"`
 		Debug    Debug    `yaml:"debug"`
 		Dev      Dev      `yaml:"dev"` // WARN: do not expose dev settings as flags
+		Kube     Kube     `yaml:"kube"`
 
-		Kube Kube `yaml:"kube"`
+		// NOTE: Experimental field is a pointer on purpose to
+		// use omitempty to suppress printing (String) Experimental configuration
+		// when it is empty
+		Experimental *Experimental `yaml:"experimental,omitempty"`
 	}
 )
 
@@ -186,6 +226,11 @@ const (
 	KubeConfigFlag   = "kube.config"
 	KubeNodeNameFlag = "kube.node-name"
 
+	// Experimental Platform flags
+	ExperimentalPlatformRedfishEnabledFlag  = "experimental.platform.redfish.enabled"
+	ExperimentalPlatformRedfishNodeNameFlag = "experimental.platform.redfish.node-name"
+	ExperimentalPlatformRedfishConfigFlag   = "experimental.platform.redfish.config-file"
+
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
 
@@ -231,6 +276,10 @@ func DefaultConfig() *Config {
 		Kube: Kube{
 			Enabled: ptr.To(false),
 		},
+
+		// NOTE: Experimental config will be nil by default and only allocated when needed
+		// to avoid printing the configs if experimental features are disabled
+		// see use of `omitempty`
 	}
 
 	cfg.Dev.FakeCpuMeter.Enabled = ptr.To(false)
@@ -327,6 +376,11 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	kubeconfig := app.Flag(KubeConfigFlag, "Path to a kubeconfig. Only required if out-of-cluster.").ExistingFile()
 	nodeName := app.Flag(KubeNodeNameFlag, "Name of kubernetes node on which kepler is running.").String()
 
+	// experimental platform
+	redfishEnabled := app.Flag(ExperimentalPlatformRedfishEnabledFlag, "Enable experimental Redfish BMC power monitoring").Default("false").Bool()
+	redfishNodeName := app.Flag(ExperimentalPlatformRedfishNodeNameFlag, "Node name for experimental Redfish platform power monitoring").String()
+	redfishConfig := app.Flag(ExperimentalPlatformRedfishConfigFlag, "Path to experimental Redfish BMC configuration file").String()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -389,9 +443,144 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Kube.Node = *nodeName
 		}
 
+		// Apply experimental platform settings
+		if err := applyRedfishConfig(cfg, flagsSet, redfishEnabled, redfishNodeName, redfishConfig); err != nil {
+			return err
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
+}
+
+// applyRedfishConfig applies Redfish configuration flags and resolves NodeName if enabled
+func applyRedfishConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, nodeName *string, cfgFile *string) error {
+	// Early exit if no redfish flags are set and config file does not have experimental
+	// section (i.e cfg.Experimental == nil)
+	if !hasRedfishFlags(flagsSet) && cfg.Experimental == nil {
+		return nil
+	}
+
+	// At this point, either redfish flags are set or config file has experimental section
+	// so ensure experimental section exists
+	if cfg.Experimental == nil {
+		cfg.Experimental = &Experimental{
+			Platform: Platform{
+				Redfish: defaultRedfishConfig(),
+			},
+		}
+	}
+
+	redfish := &cfg.Experimental.Platform.Redfish
+
+	// Apply flag values
+	applyRedfishFlags(redfish, flagsSet, enabled, nodeName, cfgFile)
+
+	// Exit (without resolving NodeName) if Redfish is not enabled
+	if !ptr.Deref(redfish.Enabled, false) {
+		return nil
+	}
+
+	// Resolve NodeName since Redfish is enabled
+	return resolveRedfishNodeName(redfish, cfg.Kube.Node)
+}
+
+// hasRedfishFlags returns true if any experimental flags are set
+func hasRedfishFlags(flagsSet map[string]bool) bool {
+	return flagsSet[ExperimentalPlatformRedfishEnabledFlag] ||
+		flagsSet[ExperimentalPlatformRedfishNodeNameFlag] ||
+		flagsSet[ExperimentalPlatformRedfishConfigFlag]
+}
+
+func defaultRedfishConfig() Redfish {
+	return Redfish{
+		Enabled:     ptr.To(false),
+		HTTPTimeout: 5 * time.Second,
+	}
+}
+
+// applyRedfishFlags applies flag values to redfish config
+func applyRedfishFlags(redfish *Redfish, flagsSet map[string]bool, enabled *bool, nodeName *string, cfgFile *string) {
+	if flagsSet[ExperimentalPlatformRedfishEnabledFlag] {
+		redfish.Enabled = enabled
+	}
+
+	if flagsSet[ExperimentalPlatformRedfishNodeNameFlag] {
+		redfish.NodeName = *nodeName
+	}
+
+	if flagsSet[ExperimentalPlatformRedfishConfigFlag] {
+		redfish.ConfigFile = *cfgFile
+	}
+}
+
+// resolveRedfishNodeName resolves the Redfish node name
+func resolveRedfishNodeName(redfish *Redfish, kubeNodeName string) error {
+	resolvedNodeName, err := resolveNodeName(redfish.NodeName, kubeNodeName)
+	if err != nil {
+		return fmt.Errorf("failed to resolve Redfish node name: %w", err)
+	}
+	redfish.NodeName = resolvedNodeName
+	return nil
+}
+
+// resolveNodeName resolves the node name using the following precedence:
+// 1. CLI flag / config.yaml (--experimental.platform.redfish.node-name)
+// 2. Kubernetes node name
+// 3. Hostname fallback
+func resolveNodeName(redfishNodeName, kubeNodeName string) (string, error) {
+	// Priority 1: CLI flag
+	if strings.TrimSpace(redfishNodeName) != "" {
+		return strings.TrimSpace(redfishNodeName), nil
+	}
+
+	// Priority 2: Kubernetes node name
+	if strings.TrimSpace(kubeNodeName) != "" {
+		return strings.TrimSpace(kubeNodeName), nil
+	}
+
+	// Priority 3: Hostname fallback
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine node name: %w", err)
+	}
+
+	return hostname, nil
+}
+
+// IsFeatureEnabled returns true if the specified feature is enabled
+func (c *Config) IsFeatureEnabled(feature Feature) bool {
+	switch feature {
+	case ExperimentalRedfishFeature:
+		if c.Experimental == nil {
+			return false
+		}
+		return ptr.Deref(c.Experimental.Platform.Redfish.Enabled, false)
+	case PrometheusFeature:
+		return ptr.Deref(c.Exporter.Prometheus.Enabled, false)
+	case StdoutFeature:
+		return ptr.Deref(c.Exporter.Stdout.Enabled, false)
+	case PprofFeature:
+		return ptr.Deref(c.Debug.Pprof.Enabled, false)
+	default:
+		return false
+	}
+}
+
+// experimentalFeatureEnabled returns true if any experimental feature is enabled
+func (c *Config) experimentalFeatureEnabled() bool {
+	if c.Experimental == nil {
+		return false
+	}
+
+	// Check if Redfish is enabled
+	if ptr.Deref(c.Experimental.Platform.Redfish.Enabled, false) {
+		return true
+	}
+
+	// Add checks for future experimental features here
+
+	return false
 }
 
 func (c *Config) sanitize() {
@@ -412,6 +601,18 @@ func (c *Config) sanitize() {
 		c.Exporter.Prometheus.DebugCollectors[i] = strings.TrimSpace(c.Exporter.Prometheus.DebugCollectors[i])
 	}
 	c.Kube.Config = strings.TrimSpace(c.Kube.Config)
+
+	if c.Experimental == nil {
+		return
+	}
+
+	c.Experimental.Platform.Redfish.NodeName = strings.TrimSpace(c.Experimental.Platform.Redfish.NodeName)
+	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
+
+	// If all experimental features are disabled, set experimental to nil to hide it
+	if !c.experimentalFeatureEnabled() {
+		c.Experimental = nil
+	}
 }
 
 // Validate checks for configuration errors
@@ -500,12 +701,37 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
+	// Experimental Platform validation
+	if experimentalErrs := c.validateExperimentalConfig(); len(experimentalErrs) > 0 {
+		errs = append(errs, experimentalErrs...)
+	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %s", strings.Join(errs, ", "))
 	}
 
 	return nil
+}
+
+// validateExperimentalConfig validates experimental configuration settings
+func (c *Config) validateExperimentalConfig() []string {
+	if !c.experimentalFeatureEnabled() {
+		return nil
+	}
+
+	var errs []string
+
+	if c.IsFeatureEnabled(ExperimentalRedfishFeature) {
+		if c.Experimental.Platform.Redfish.ConfigFile == "" {
+			errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", ExperimentalPlatformRedfishConfigFlag, ExperimentalPlatformRedfishEnabledFlag))
+		} else {
+			if err := canReadFile(c.Experimental.Platform.Redfish.ConfigFile); err != nil {
+				errs = append(errs, fmt.Sprintf("unreadable Redfish config file: %s: %s", c.Experimental.Platform.Redfish.ConfigFile, err.Error()))
+			}
+		}
+	}
+
+	return errs
 }
 
 func canReadDir(path string) error {

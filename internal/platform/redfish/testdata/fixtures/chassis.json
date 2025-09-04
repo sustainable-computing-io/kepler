@@ -1,0 +1,12 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#Chassis.Chassis",
+  "@odata.type": "#Chassis.v1_10_0.Chassis",
+  "@odata.id": "/redfish/v1/Chassis/1",
+  "Id": "1",
+  "Name": "Computer System Chassis",
+  "ChassisType": "RackMount",
+  "PowerState": "On",
+  "Power": {
+    "@odata.id": "/redfish/v1/Chassis/1/Power"
+  }
+}

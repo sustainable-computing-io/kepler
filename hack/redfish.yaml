@@ -1,0 +1,20 @@
+# IMPORTANT: This is an experimental feature with no stability guarantees
+#
+# Example Redfish BMC Configuration for Development using Sushy tool
+#
+# Configuration structure:
+# - nodes: Maps node names/IDs to BMC identifiers
+# - bmcs: Contains connection details for each BMC
+
+# Node to BMC mapping
+# Key: Node identifier (Kubernetes node name, hostname, or custom ID)
+# Value: BMC identifier that references an entry in the 'bmcs' section
+nodes:
+  fedora: sushy-static # development environment; use hostname as the node name
+
+bmcs:
+  sushy-static:
+    endpoint: http://127.0.0.1:8000
+    username: ""
+    password: ""
+    insecure: true

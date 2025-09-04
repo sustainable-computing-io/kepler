@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "Base.1.0.GeneralError",
+    "message": "Authentication failed",
+    "@Message.ExtendedInfo": [
+      {
+        "MessageId": "Base.1.0.SessionLimitExceeded",
+        "Message": "The session establishment failed due to authentication failure.",
+        "Severity": "Critical",
+        "Resolution": "Log in with proper credentials."
+      }
+    ]
+  }
+}
