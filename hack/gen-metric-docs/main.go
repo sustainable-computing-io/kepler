@@ -66,9 +66,10 @@ func (m *MockRedfishService) Power() (*redfish.PowerReading, error) {
 				ID: "System.Embedded.1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "System Power Control",
-						Power:     245.0 * device.Watt, // Dell 245W scenario
+						SourceID:   "PC1",
+						SourceName: "System Power Control",
+						SourceType: redfish.PowerControlSource,
+						Power:      245.0 * device.Watt, // Dell 245W scenario
 					},
 				},
 			},
@@ -76,14 +77,16 @@ func (m *MockRedfishService) Power() (*redfish.PowerReading, error) {
 				ID: "Enclosure.Internal.0-1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Enclosure Power Control",
-						Power:     189.5 * device.Watt, // HPE 189W scenario
+						SourceID:   "PC1",
+						SourceName: "Enclosure Power Control",
+						SourceType: redfish.PowerControlSource,
+						Power:      189.5 * device.Watt, // HPE 189W scenario
 					},
 					{
-						ControlID: "PC2",
-						Name:      "CPU Sub-system Power",
-						Power:     167.8 * device.Watt, // Lenovo 167W scenario
+						SourceID:   "PC2",
+						SourceName: "CPU Sub-system Power",
+						SourceType: redfish.PowerControlSource,
+						Power:      167.8 * device.Watt, // Lenovo 167W scenario
 					},
 				},
 			},

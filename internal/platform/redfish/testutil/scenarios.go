@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package mock
+package testutil
 
 import "time"
 
@@ -58,6 +58,16 @@ func SuccessScenarios() []TestScenario {
 			EnableAuth: baseConfig.EnableAuth,
 		},
 		PowerWatts: 590.0,
+	}, {
+		Name: "ForceFallback",
+		Config: ServerConfig{
+			Username:      baseConfig.Username,
+			Password:      baseConfig.Password,
+			PowerWatts:    200.0,
+			EnableAuth:    baseConfig.EnableAuth,
+			ForceFallback: true, // Force fallback to Power API
+		},
+		PowerWatts: 200.0,
 	}}
 }
 
@@ -142,6 +152,15 @@ func ErrorScenarios() []TestScenario {
 			EnableAuth:           baseConfig.EnableAuth,
 			SimulateSlowResponse: true,
 			ResponseDelay:        1 * time.Second,
+		},
+	}, {
+		Name: "MissingPowerSubsystem",
+		Config: ServerConfig{
+			Username:   baseConfig.Username,
+			Password:   baseConfig.Password,
+			PowerWatts: baseConfig.PowerWatts,
+			EnableAuth: baseConfig.EnableAuth,
+			ForceError: ErrorMissingPowerSubsystem,
 		},
 	}}
 }
