@@ -2154,9 +2154,8 @@
       {
         "allValue": ".*",
         "current": {
-          "selected": false,
-          "text": "local-path-storage",
-          "value": "local-path-storage"
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
