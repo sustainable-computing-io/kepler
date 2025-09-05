@@ -1,0 +1,17 @@
+{
+	"@odata.type": "#MemoryCollection.MemoryCollection",
+	"Name": "Memory Module Collection",
+	"Members@odata.count": 4,
+	"Members": [{
+		"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory/DIMM1"
+	}, {
+		"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory/DIMM2"
+	}, {
+		"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory/DIMM3"
+	}, {
+		"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory/DIMM4"
+	}],
+	"@odata.context": "/redfish/v1/$metadata#MemoryCollection.MemoryCollection",
+	"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory",
+	"@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

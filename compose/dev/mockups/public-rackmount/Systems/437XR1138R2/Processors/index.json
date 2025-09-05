@@ -1,0 +1,16 @@
+{
+    "@odata.type": "#ProcssorCollection.ProcessorCollection",
+    "Name": "Processors Collection",
+    "Members@odata.count": 2,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/Processors/CPU1"
+        },
+        {
+            "@odata.id": "/redfish/v1/Systems/437XR1138R2/Processors/CPU2"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Systems/Links/Members/437XR1138R2/Processors/#entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/Processors",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

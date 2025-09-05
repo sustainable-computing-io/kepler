@@ -1,0 +1,21 @@
+{
+    "@odata.type": "#Role.v1_0_2.Role",
+    "Id": "Admin",
+    "Name": "User Role",
+    "Description": "Admin User Role",
+    "IsPredefined": true,
+    "AssignedPrivileges": [
+        "Login",
+        "ConfigureManager",
+        "ConfigureUsers",
+        "ConfigureSelf",
+        "ConfigureComponents"
+    ],
+    "OEMPrivileges": [
+        "OemClearLog",
+        "OemPowerControl"
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Role.Role",
+    "@odata.id": "/redfish/v1/AccountService/Roles/Admin",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

@@ -1,0 +1,17 @@
+{
+    "@odata.type": "#VirtualMedia.v1_0_2.VirtualMedia",
+    "Id": "CD1",
+    "Name": "Virtual CD",
+    "MediaTypes": [
+        "CD",
+        "DVD"
+    ],
+    "Image": "redfish.dmtf.org/freeImages/freeOS.1.1.iso",
+    "ImageName": "mymedia-read-only",
+    "ConnectedVia": "Applet",
+    "Inserted": true,
+    "WriteProtected": false,
+    "@odata.context": "/redfish/v1/$metadata#Managers/Members/BMC/VirtualMedia/Members/$entity",
+    "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia/CD1",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

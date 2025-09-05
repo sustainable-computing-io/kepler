@@ -1,0 +1,33 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#PowerSubsystem.PowerSubsystem",
+  "@odata.type": "#PowerSubsystem.v1_1_0.PowerSubsystem",
+  "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem",
+  "Id": "PowerSubsystem",
+  "Name": "Power Subsystem",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "PowerSupplies": {
+    "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem/PowerSupplies"
+  },
+  "PowerSupplyRedundancy": [
+    {
+      "RedundancyGroup": [
+        {
+          "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem/PowerSupplies/PS1"
+        },
+        {
+          "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem/PowerSupplies/PS2"
+        }
+      ],
+      "Mode": "N+1",
+      "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+      },
+      "MinNumNeeded": 1,
+      "MaxNumSupported": 2
+    }
+  ]
+}

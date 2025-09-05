@@ -1,0 +1,18 @@
+{
+    "@odata.type": "#VirtualMediaCollection.VirtualMediaCollection",
+    "Name": "Virtual Media Services",
+    "Description": "Redfish-BMC Virtual Media Service Settings",
+    "Members@odata.count": 2,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia/Floppy1"
+        },
+        {
+            "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia/CD1"
+        }
+    ],
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Managers/Members/BMC/VirtualMedia/$entity",
+    "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

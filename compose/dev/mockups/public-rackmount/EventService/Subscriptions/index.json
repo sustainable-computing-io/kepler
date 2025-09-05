@@ -1,0 +1,12 @@
+{
+    "@odata.type": "#EventDestinationCollection.EventDestinationCollection",
+    "Name": "Event Subscriptions Collection",
+    "Members@odata.count": 1,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/EventService/Subscriptions/1"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#EventDestinationCollection.EventDestinationCollection",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

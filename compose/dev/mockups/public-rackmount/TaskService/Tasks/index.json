@@ -1,0 +1,12 @@
+{
+    "@odata.type": "#TasksCollection.TaskCollection",
+    "Name": "Task Collection",
+    "Members@odata.count": 1,
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/TaskService/Tasks/545"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#TaskService/Tasks/$entity",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

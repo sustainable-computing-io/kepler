@@ -1,0 +1,37 @@
+{
+    "@odata.type": "#ServiceRoot.v1_0_2.ServiceRoot",
+    "Id": "RootService",
+    "Name": "Root Service",
+    "RedfishVersion": "1.0.2",
+    "UUID": "92384634-2938-2342-8820-489239905423",
+    "Systems": {
+        "@odata.id": "/redfish/v1/Systems"
+    },
+    "Chassis": {
+        "@odata.id": "/redfish/v1/Chassis"
+    },
+    "Managers": {
+        "@odata.id": "/redfish/v1/Managers"
+    },
+    "Tasks": {
+        "@odata.id": "/redfish/v1/TaskService"
+    },
+    "SessionService": {
+        "@odata.id": "/redfish/v1/SessionService"
+    },
+    "AccountService": {
+        "@odata.id": "/redfish/v1/AccountService"
+    },
+    "EventService": {
+        "@odata.id": "/redfish/v1/EventService"
+    },
+    "Links": {
+        "Sessions": {
+            "@odata.id": "/redfish/v1/SessionService/Sessions"
+        }
+    },
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#ServiceRoot",
+    "@odata.id": "/redfish/v1/",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

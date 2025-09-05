@@ -1,0 +1,33 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#PowerSupply.PowerSupply",
+  "@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+  "@odata.id": "/redfish/v1/Chassis/4U/PowerSubsystem/PowerSupplies/PS2",
+  "Id": "PS2",
+  "Name": "Power Supply 2",
+  "MemberId": "PS2",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "PowerSupplyType": "AC",
+  "LineInputVoltageType": "ACMidLine",
+  "PowerCapacityWatts": 1600.0,
+  "PowerOutputWatts": 0.0,
+  "PowerInputWatts": 25.0,
+  "EfficiencyPercent": 0.0,
+  "Manufacturer": "Dell Inc.",
+  "Model": "PWR SPLY,1600W,RDNT,ARTESYN",
+  "SerialNumber": "CN0109876543",
+  "PartNumber": "0H5H70",
+  "FirmwareVersion": "1.2.3",
+  "Location": {
+    "PartLocation": {
+      "ServiceLabel": "PS2",
+      "LocationType": "Slot",
+      "LocationOrdinalValue": 2
+    }
+  },
+  "Metrics": {
+    "@odata.id": "/redfish/v1/Chassis/4U/PowerSubsystem/PowerSupplies/PS2/Metrics"
+  }
+}

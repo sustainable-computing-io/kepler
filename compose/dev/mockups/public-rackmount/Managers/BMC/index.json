@@ -1,0 +1,86 @@
+{
+  "@odata.type": "#Manager.v1_1_0.Manager",
+  "Id": "BMC",
+  "Name": "Manager",
+  "ManagerType": "BMC",
+  "Description": "Contoso BMC",
+  "ServiceEntryPointUUID": "92384634-2938-2342-8820-489239905423",
+  "UUID": "58893887-8974-2487-2389-841168418919",
+  "Model": "Janta 200",
+  "DateTime": "2015-03-13T04:14:33+06:00",
+  "DateTimeLocalOffset": "+06:00",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "GraphicalConsole": {
+    "ServiceEnabled": true,
+    "MaxConcurrentSessions": 2,
+    "ConnectTypesSupported": [
+      "KVMIP"
+    ]
+  },
+  "SerialConsole": {
+    "ServiceEnabled": true,
+    "MaxConcurrentSessions": 1,
+    "ConnectTypesSupported": [
+      "Telnet",
+      "SSH",
+      "IPMI"
+    ]
+  },
+  "CommandShell": {
+    "ServiceEnabled": true,
+    "MaxConcurrentSessions": 4,
+    "ConnectTypesSupported": [
+      "Telnet",
+      "SSH"
+    ]
+  },
+  "FirmwareVersion": "1.00",
+  "NetworkProtocol": {
+    "@odata.id": "/redfish/v1/Managers/BMC/NetworkProtocol"
+  },
+  "EthernetInterfaces": {
+    "@odata.id": "/redfish/v1/Managers/BMC/NICs"
+  },
+  "SerialInterfaces": {
+    "@odata.id": "/redfish/v1/Managers/BMC/SerialInterfaces"
+  },
+  "LogServices": {
+    "@odata.id": "/redfish/v1/Managers/BMC/LogServices"
+  },
+  "VirtualMedia": {
+    "@odata.id": "/redfish/v1/Managers/BMC/VirtualMedia"
+  },
+  "Links": {
+    "ManagerForServers": [
+      {
+        "@odata.id": "/redfish/v1/Systems/437XR1138R2"
+      }
+    ],
+    "ManagerForChassis": [
+      {
+        "@odata.id": "/redfish/v1/Chassis/1U"
+      }
+    ],
+    "ManagerInChassis": {
+      "@odata.id": "/redfish/v1/Chassis/1U"
+    },
+    "Oem": {}
+  },
+  "Actions": {
+    "#Manager.Reset": {
+      "target": "/redfish/v1/Managers/BMC/Actions/Manager.Reset",
+      "ResetType@Redfish.AllowableValues": [
+        "ForceRestart",
+        "GracefulRestart"
+      ]
+    },
+    "Oem": {}
+  },
+  "Oem": {},
+  "@odata.context": "/redfish/v1/$metadata#Manager.Manager",
+  "@odata.id": "/redfish/v1/Managers/BMC",
+  "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

@@ -1,0 +1,30 @@
+{
+	"@odata.type": "#Memory.v1_0_0.Memory",
+	"Name": "DIMM Slot 3",
+	"Id": "DIMM3",
+	"RankCount": 2,
+	"MaxTDPMilliWatts": [12000],
+	"CapacityMiB": 32768,
+	"DataWidthBits": 64,
+	"BusWidthBits": 72,
+	"ErrorCorrection": "MultiBitECC",
+	"MemoryLocation": {
+		"Socket": 2,
+		"MemoryController": 2,
+		"Channel": 1,
+		"Slot": 3
+	},
+	"MemoryType": "DRAM",
+	"MemoryDeviceType": "DDR4",
+	"BaseModuleType": "RDIMM",
+	"MemoryMedia": [
+		"DRAM"
+	],
+	"Status": {
+		"State": "Enabled",
+		"Health": "OK"
+	},
+	"@odata.context": "/redfish/v1/$metadata#Memory.Memory",
+	"@odata.id": "/redfish/v1/Systems/437XR1138R2/Memory/DIMM2",
+	"@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

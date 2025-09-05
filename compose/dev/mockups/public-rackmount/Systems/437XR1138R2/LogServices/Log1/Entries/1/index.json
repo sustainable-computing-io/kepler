@@ -1,0 +1,28 @@
+{
+    "@odata.type": "#LogEntry.v1_0_2.LogEntry",
+    "Id": "1",
+    "Name": "Log Entry 1",
+    "EntryType": "SEL",
+    "OemRecordFormat": "Contoso",
+    "RecordId": 1,
+    "Severity": "Critical",
+    "Created": "2012-03-07T14:44",
+    "EntryCode": "Assert",
+    "SensorType": "Temperature",
+    "SensorNumber": 1,
+    "Message": "Temperature threshold exceeded",
+    "MessageID": "Contoso.1.0.TempAssert",
+    "MessageArgs": [
+        "42"
+    ],
+    "Links": {
+        "OriginOfCondition": {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal"
+        },
+        "Oem": {}
+    },
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/LogServices/Members/Log1/Entries/$entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries/1",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

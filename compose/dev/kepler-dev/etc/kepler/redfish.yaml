@@ -1,0 +1,12 @@
+# Redfish BMC Configuration for Development Environment
+# This configuration connects to the sushy-static service running in Docker Compose
+
+nodes:
+  kepler-dev: sushy-static
+
+bmcs:
+  sushy-static:
+    endpoint: http://sushy-static:8001
+    username: ""
+    password: ""
+    insecure: true
