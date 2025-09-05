@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package mock
+package testutil
 
 import (
 	"crypto/tls"
@@ -26,20 +26,23 @@ type ServerConfig struct {
 	ResponseDelay        time.Duration
 	ForceError           ErrorType
 	SessionTimeout       time.Duration
+	ForceFallback        bool // Force fallback to Power API (disable PowerSubsystem)
 }
 
 // ErrorType represents different error scenarios
 type ErrorType string
 
 const (
-	ErrorNone           ErrorType = ""
-	ErrorConnection     ErrorType = "connection"
-	ErrorAuth           ErrorType = "auth"
-	ErrorTimeout        ErrorType = "timeout"
-	ErrorMissingChassis ErrorType = "missing_chassis"
-	ErrorMissingPower   ErrorType = "missing_power"
-	ErrorInternalServer ErrorType = "internal_server"
-	ErrorBadJSON        ErrorType = "bad_json"
+	ErrorNone                  ErrorType = ""
+	ErrorConnection            ErrorType = "connection"
+	ErrorAuth                  ErrorType = "auth"
+	ErrorTimeout               ErrorType = "timeout"
+	ErrorMissingChassis        ErrorType = "missing_chassis"
+	ErrorMissingPower          ErrorType = "missing_power"
+	ErrorMissingPowerSubsystem ErrorType = "missing_power_subsystem"
+	ErrorMissingBothAPIs       ErrorType = "missing_both_apis"
+	ErrorInternalServer        ErrorType = "internal_server"
+	ErrorBadJSON               ErrorType = "bad_json"
 )
 
 // Server represents a mock Redfish BMC server
@@ -47,8 +50,10 @@ type Server struct {
 	server *httptest.Server
 	config ServerConfig
 
-	mutex    sync.RWMutex
-	sessions map[string]time.Time // Track active sessions
+	mutex         sync.RWMutex
+	sessions      map[string]time.Time // Track active sessions
+	calledAPIs    []string             // Track which API endpoints were called
+	apiCallCounts map[string]int       // Count calls to each API endpoint
 }
 
 // NewServer creates a new mock Redfish server
@@ -67,8 +72,10 @@ func NewServer(config ServerConfig) *Server {
 	}
 
 	s := &Server{
-		config:   config,
-		sessions: make(map[string]time.Time),
+		config:        config,
+		sessions:      make(map[string]time.Time),
+		calledAPIs:    make([]string, 0),
+		apiCallCounts: make(map[string]int),
 	}
 
 	// Create HTTP server with custom handler
@@ -105,8 +112,41 @@ func (s *Server) SetError(errorType ErrorType) {
 	s.config.ForceError = errorType
 }
 
-// GetTLSCertificate returns the server's TLS certificate (for testing TLS scenarios)
-func (s *Server) GetTLSCertificate() *tls.Certificate {
+// CalledAPIs returns a list of API endpoints that were called
+func (s *Server) CalledAPIs() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	// Return a copy to avoid race conditions
+	called := make([]string, len(s.calledAPIs))
+	copy(called, s.calledAPIs)
+	return called
+}
+
+// APICallCount returns the number of times a specific API endpoint was called
+func (s *Server) APICallCount(endpoint string) int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.apiCallCounts[endpoint]
+}
+
+// ResetAPITracking clears the API call tracking
+func (s *Server) ResetAPITracking() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.calledAPIs = make([]string, 0)
+	s.apiCallCounts = make(map[string]int)
+}
+
+// trackAPICall records that an API endpoint was called
+func (s *Server) trackAPICall(endpoint string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.calledAPIs = append(s.calledAPIs, endpoint)
+	s.apiCallCounts[endpoint]++
+}
+
+// TLSCertificate returns the server's TLS certificate (for testing TLS scenarios)
+func (s *Server) TLSCertificate() *tls.Certificate {
 	if s.server.TLS != nil && len(s.server.TLS.Certificates) > 0 {
 		return &s.server.TLS.Certificates[0]
 	}
@@ -166,6 +206,14 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		s.handleChassis(w, r)
 	case "/redfish/v1/Chassis/1/Power":
 		s.handlePower(w, r)
+	case "/redfish/v1/Chassis/1/PowerSubsystem":
+		s.handlePowerSubsystem(w, r)
+	case "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies":
+		s.handlePowerSupplies(w, r)
+	case "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS1":
+		s.handleIndividualPowerSupply(w, r, "PS1")
+	case "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS2":
+		s.handleIndividualPowerSupply(w, r, "PS2")
 	default:
 		if strings.HasPrefix(r.URL.Path, "/redfish/v1/SessionService/Sessions/") {
 			// Handle individual session endpoints
@@ -263,6 +311,9 @@ func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
 		"Power": map[string]any{
 			"@odata.id": "/redfish/v1/Chassis/1/Power",
 		},
+		"PowerSubsystem": map[string]any{
+			"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem",
+		},
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
@@ -275,7 +326,10 @@ func (s *Server) handlePower(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.config.ForceError == ErrorMissingPower {
+	// Track that Power API was called
+	s.trackAPICall("Power")
+
+	if s.config.ForceError == ErrorMissingPower || s.config.ForceError == ErrorMissingBothAPIs {
 		http.NotFound(w, r)
 		return
 	}
@@ -289,6 +343,7 @@ func (s *Server) handlePower(w http.ResponseWriter, r *http.Request) {
 	powerWatts := s.config.PowerWatts
 	s.mutex.RUnlock()
 
+	// Power API returns the full chassis power consumption
 	response := PowerResponse(powerWatts)
 	_ = json.NewEncoder(w).Encode(response)
 }
@@ -441,4 +496,180 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request, sessionID
 
 	delete(s.sessions, sessionID)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handlePowerSubsystem handles PowerSubsystem endpoint
+func (s *Server) handlePowerSubsystem(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if PowerSubsystem should be disabled for fallback testing
+	if s.config.ForceFallback || s.config.ForceError == ErrorMissingPowerSubsystem || s.config.ForceError == ErrorMissingBothAPIs {
+		http.NotFound(w, r)
+		return
+	}
+
+	// PowerSubsystem endpoint - return PowerSubsystem object with link to PowerSupplies
+	response := map[string]any{
+		"@odata.context": "/redfish/v1/$metadata#PowerSubsystem.PowerSubsystem",
+		"@odata.type":    "#PowerSubsystem.v1_1_0.PowerSubsystem",
+		"@odata.id":      "/redfish/v1/Chassis/1/PowerSubsystem",
+		"Id":             "PowerSubsystem",
+		"Name":           "Power Subsystem for Chassis",
+		"CapacityWatts":  1500.0,
+		"Status": map[string]any{
+			"State":  "Enabled",
+			"Health": "OK",
+		},
+		"PowerSupplies": map[string]any{
+			"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies",
+		},
+		"PowerSupplyRedundancy": []map[string]any{
+			{
+				"RedundancyType":      "N+1",
+				"MaxSupportedInGroup": 2,
+				"MinNeededInGroup":    1,
+				"RedundancyGroup": []map[string]any{
+					{"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS1"},
+					{"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS2"},
+				},
+				"Status": map[string]any{"State": "Enabled", "Health": "OK"},
+			},
+		},
+	}
+
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handlePowerSupplies handles PowerSupplies collection endpoint
+func (s *Server) handlePowerSupplies(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Track that PowerSubsystem API was called
+	s.trackAPICall("PowerSubsystem")
+
+	// Check if PowerSubsystem should be disabled for fallback testing
+	if s.config.ForceFallback || s.config.ForceError == ErrorMissingPowerSubsystem || s.config.ForceError == ErrorMissingBothAPIs {
+		http.NotFound(w, r)
+		return
+	}
+
+	if s.config.ForceError == ErrorBadJSON {
+		_, _ = w.Write([]byte("{invalid json"))
+		return
+	}
+
+	s.mutex.RLock()
+	powerWatts := s.config.PowerWatts
+	s.mutex.RUnlock()
+
+	// PowerSupplies collection - return collection of PowerSupply objects
+	response := map[string]any{
+		"@odata.context":      "/redfish/v1/$metadata#PowerSupplyCollection.PowerSupplyCollection",
+		"@odata.type":         "#PowerSupplyCollection.PowerSupplyCollection",
+		"@odata.id":           "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies",
+		"Name":                "Power Supply Collection",
+		"Members@odata.count": 2,
+		"Members": []map[string]any{
+			{
+				"@odata.id":   "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS1",
+				"@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+				"Id":          "PS1",
+				"Name":        "Power Supply 1",
+				"MemberId":    "PS1",
+				"Status": map[string]any{
+					"State":  "Enabled",
+					"Health": "OK",
+				},
+				"PowerSupplyType":    "AC",
+				"PowerCapacityWatts": 750.0,
+				"PowerOutputWatts":   powerWatts,       // Each PSU reports the total chassis power for consistency
+				"PowerInputWatts":    powerWatts / 0.9, // Account for 90% efficiency
+				"EfficiencyPercent":  90.0,
+				"Manufacturer":       "Generic",
+				"Model":              "PSU-750W",
+				"SerialNumber":       "SN123456",
+				"PartNumber":         "PN123-750",
+			},
+			{
+				"@odata.id":   "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS2",
+				"@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+				"Id":          "PS2",
+				"Name":        "Power Supply 2",
+				"MemberId":    "PS2",
+				"Status": map[string]any{
+					"State":  "Enabled",
+					"Health": "OK",
+				},
+				"PowerSupplyType":    "AC",
+				"PowerCapacityWatts": 750.0,
+				"PowerOutputWatts":   powerWatts,       // Each PSU reports the total chassis power for consistency
+				"PowerInputWatts":    powerWatts / 0.9, // Account for 90% efficiency
+				"EfficiencyPercent":  90.0,
+				"Manufacturer":       "Generic",
+				"Model":              "PSU-750W",
+				"SerialNumber":       "SN654321",
+				"PartNumber":         "PN456-750",
+			},
+		},
+	}
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// handleIndividualPowerSupply handles individual PowerSupply endpoint
+func (s *Server) handleIndividualPowerSupply(w http.ResponseWriter, r *http.Request, powerSupplyID string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Track that PowerSubsystem API was called
+	s.trackAPICall("PowerSubsystem")
+
+	// Check if PowerSubsystem should be disabled for fallback testing
+	if s.config.ForceFallback || s.config.ForceError == ErrorMissingPowerSubsystem || s.config.ForceError == ErrorMissingBothAPIs {
+		http.NotFound(w, r)
+		return
+	}
+
+	if s.config.ForceError == ErrorBadJSON {
+		_, _ = w.Write([]byte("{invalid json"))
+		return
+	}
+
+	s.mutex.RLock()
+	powerWatts := s.config.PowerWatts
+	s.mutex.RUnlock()
+
+	// Inline individual PowerSupply response (avoiding unused function)
+	response := map[string]any{
+		"@odata.context":       "/redfish/v1/$metadata#PowerSupply.PowerSupply",
+		"@odata.type":          "#PowerSupply.v1_6_0.PowerSupply",
+		"@odata.id":            fmt.Sprintf("/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/%s", powerSupplyID),
+		"Id":                   powerSupplyID,
+		"Name":                 fmt.Sprintf("Power Supply %s", powerSupplyID),
+		"MemberId":             powerSupplyID,
+		"PowerInputWatts":      powerWatts / 0.9, // Account for 90% efficiency
+		"PowerOutputWatts":     powerWatts,       // Each PSU reports the total chassis power for consistency
+		"PowerCapacityWatts":   750.0,
+		"EfficiencyPercent":    90.0,
+		"HotPluggable":         true,
+		"PowerSupplyType":      "AC",
+		"LineInputVoltageType": "ACHighLine",
+		"LineInputVoltage":     240.0,
+		"Status": map[string]any{
+			"State":  "Enabled",
+			"Health": "OK",
+		},
+		"Manufacturer": "Generic",
+		"Model":        fmt.Sprintf("PSU-%s-750W", powerSupplyID),
+		"SerialNumber": fmt.Sprintf("SN%s123456", powerSupplyID),
+		"PartNumber":   fmt.Sprintf("PN%s-750", powerSupplyID),
+	}
+	_ = json.NewEncoder(w).Encode(response)
 }

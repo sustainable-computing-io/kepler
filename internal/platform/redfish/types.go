@@ -14,23 +14,46 @@ type (
 	Power  = device.Power
 )
 
-// Reading represents a single PowerControl entry measurement
+// SourceType indicates the API source of the power reading
+type SourceType string
+
+const (
+	// PowerSupplySource indicates data from PowerSubsystem → PowerSupplies (modern API)
+	PowerSupplySource SourceType = "PowerSupply"
+	// PowerControlSource indicates data from Power → PowerControl (deprecated API)
+	PowerControlSource SourceType = "PowerControl"
+)
+
+// PowerAPIStrategy defines the power reading strategy
+type PowerAPIStrategy string
+
+const (
+	// UnknownStrategy indicates that the strategy has not been determined yet
+	UnknownStrategy PowerAPIStrategy = ""
+	// PowerSubsystemStrategy uses the modern PowerSubsystem API
+	PowerSubsystemStrategy PowerAPIStrategy = "PowerSubsystem"
+	// PowerStrategy uses the deprecated Power API
+	PowerStrategy PowerAPIStrategy = "Power"
+)
+
+// Reading represents a power measurement from either PowerSubsystem (PowerSupply) or Power (PowerControl)
 type Reading struct {
-	ControlID string // PowerControl MemberID
-	Name      string // PowerControl Name (optional)
-	Power     Power  // Current power consumption in watts
+	SourceID   string     // PowerSupply MemberID or PowerControl MemberID
+	SourceName string     // PowerSupply Name or PowerControl Name (optional)
+	SourceType SourceType // API source: PowerSupply or PowerControl
+	Power      Power      // Current power output/consumption in watts
 }
 
-// Chassis represents a single chassis with its PowerControl readings
+// Chassis represents a single chassis with its power readings (PowerSupply or PowerControl)
 type Chassis struct {
 	ID       string    // Chassis ID for identification
-	Readings []Reading // PowerControl readings from this chassis
+	Readings []Reading // Power readings from this chassis (PowerSupply or PowerControl)
 }
 
 // PowerReading represents a collection of chassis with their power measurements and a single timestamp
 type PowerReading struct {
 	Timestamp time.Time // When the readings were taken
-	Chassis   []Chassis // Chassis with their PowerControl readings
+	Chassis   []Chassis // Chassis with their power readings (PowerSupply or PowerControl)
 }
 
 // Clone creates a deep copy of PowerReading for safe concurrent usage

@@ -169,14 +169,14 @@ func TestPlatformCollector_Collect_Success(t *testing.T) {
 				ID: "System.Embedded.1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Server Power Control",
-						Power:     450.5 * device.Watt,
+						SourceID:   "PC1",
+						SourceName: "Server Power Control",
+						Power:      450.5 * device.Watt,
 					},
 					{
-						ControlID: "PC2",
-						Name:      "CPU Sub-system Power",
-						Power:     85.2 * device.Watt,
+						SourceID:   "PC2",
+						SourceName: "CPU Sub-system Power",
+						Power:      85.2 * device.Watt,
 					},
 				},
 			},
@@ -184,9 +184,9 @@ func TestPlatformCollector_Collect_Success(t *testing.T) {
 				ID: "Enclosure.Internal.0-1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Enclosure Power Control",
-						Power:     125.3 * device.Watt,
+						SourceID:   "PC1",
+						SourceName: "Enclosure Power Control",
+						Power:      125.3 * device.Watt,
 					},
 				},
 			},
@@ -220,34 +220,34 @@ func TestPlatformCollector_Collect_Success(t *testing.T) {
 
 	// Verify first chassis, first PowerControl metric
 	chassis1PC1Value := findMetricValue(t, platformMetric, map[string]string{
-		"source":             "redfish",
-		"node_name":          "worker-1",
-		"bmc_id":             "bmc-1",
-		"chassis_id":         "System.Embedded.1",
-		"power_control_id":   "PC1",
-		"power_control_name": "Server Power Control",
+		"source":      "redfish",
+		"node_name":   "worker-1",
+		"bmc_id":      "bmc-1",
+		"chassis_id":  "System.Embedded.1",
+		"source_id":   "PC1",
+		"source_name": "Server Power Control",
 	})
 	assert.Equal(t, 450.5, chassis1PC1Value)
 
 	// Verify first chassis, second PowerControl metric
 	chassis1PC2Value := findMetricValue(t, platformMetric, map[string]string{
-		"source":             "redfish",
-		"node_name":          "worker-1",
-		"bmc_id":             "bmc-1",
-		"chassis_id":         "System.Embedded.1",
-		"power_control_id":   "PC2",
-		"power_control_name": "CPU Sub-system Power",
+		"source":      "redfish",
+		"node_name":   "worker-1",
+		"bmc_id":      "bmc-1",
+		"chassis_id":  "System.Embedded.1",
+		"source_id":   "PC2",
+		"source_name": "CPU Sub-system Power",
 	})
 	assert.Equal(t, 85.2, chassis1PC2Value)
 
 	// Verify second chassis metric
 	chassis2Value := findMetricValue(t, platformMetric, map[string]string{
-		"source":             "redfish",
-		"node_name":          "worker-1",
-		"bmc_id":             "bmc-1",
-		"chassis_id":         "Enclosure.Internal.0-1",
-		"power_control_id":   "PC1",
-		"power_control_name": "Enclosure Power Control",
+		"source":      "redfish",
+		"node_name":   "worker-1",
+		"bmc_id":      "bmc-1",
+		"chassis_id":  "Enclosure.Internal.0-1",
+		"source_id":   "PC1",
+		"source_name": "Enclosure Power Control",
 	})
 	assert.Equal(t, 125.3, chassis2Value)
 }
@@ -338,9 +338,9 @@ func TestPlatformCollector_Collect_SingleChassis(t *testing.T) {
 				ID: "System.Embedded.1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Server Power Control",
-						Power:     300.0 * device.Watt,
+						SourceID:   "PC1",
+						SourceName: "Server Power Control",
+						Power:      300.0 * device.Watt,
 					},
 				},
 			},
@@ -389,9 +389,9 @@ func TestPlatformCollector_Collect_ParallelCollection(t *testing.T) {
 				ID: "System.Embedded.1",
 				Readings: []redfish.Reading{
 					{
-						ControlID: "PC1",
-						Name:      "Server Power Control",
-						Power:     200.0 * device.Watt,
+						SourceID:   "PC1",
+						SourceName: "Server Power Control",
+						Power:      200.0 * device.Watt,
 					},
 				},
 			},
@@ -479,9 +479,9 @@ func TestPlatformCollector_Collect_MetricLabelsValidation(t *testing.T) {
 						ID: tc.chassisID,
 						Readings: []redfish.Reading{
 							{
-								ControlID: "PC1",
-								Name:      "Server Power Control",
-								Power:     tc.power,
+								SourceID:   "PC1",
+								SourceName: "Server Power Control",
+								Power:      tc.power,
 							},
 						},
 					},
