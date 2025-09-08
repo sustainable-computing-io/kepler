@@ -9,9 +9,11 @@ resources:
   - service.yaml
   - servicemonitor.yaml
   - prometheus-rbac.yaml
-
-labels:
-  - includeSelectors: true
-    pairs:
-      app.kubernetes.io/name: kepler
-      app.kubernetes.io/part-of: kepler
+  # NOTE: To enable the static sushy service uncomment the following lines
+  # - redfish-secret.yaml
+  # - sushy-deployment.yaml
+  # - sushy-service.yaml
+# NOTE: When enabling sushy-static above, also uncomment the following patch
+# to enable redfish functionality with sushy-static dependency
+# patches:
+#   - path: patches/enable-redfish.yaml

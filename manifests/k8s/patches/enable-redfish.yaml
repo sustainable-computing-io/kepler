@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler
+  namespace: kepler
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-sushy-static
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for sushy-static service to be ready..."
+              until curl -f http://sushy-static.kepler.svc.cluster.local:8001/redfish/v1/; do
+                echo "Sushy-static not ready yet, sleeping 5 seconds..."
+                sleep 5
+              done
+              echo "Sushy-static is ready!"
+      containers:
+        - name: kepler
+          args:
+            - --config.file=/etc/kepler/config.yaml
+            - --kube.enable
+            - --kube.node-name=$(NODE_NAME)
+            - --experimental.platform.redfish.enabled
+            - --experimental.platform.redfish.node-name=$(NODE_NAME)
+            - --experimental.platform.redfish.config-file=/etc/kepler/redfish.yaml
+          volumeMounts:
+            - name: redfish-secret
+              mountPath: /etc/kepler/redfish.yaml
+              subPath: redfish.yaml
+              readOnly: true
+      volumes:
+        - name: redfish-secret
+          secret:
+            secretName: redfish-secret

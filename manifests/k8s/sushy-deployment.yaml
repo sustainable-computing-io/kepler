@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sushy-static
+  namespace: kepler
+  labels:
+    app.kubernetes.io/name: sushy-static
+    app.kubernetes.io/part-of: kepler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sushy-static
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sushy-static
+        app.kubernetes.io/part-of: kepler
+    spec:
+      containers:
+        - name: sushy-static
+          # NOTE: Build and push the sushy-static image to the local registry
+          image: localhost:5001/kepler-sushy-static:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redfish
+              containerPort: 8001
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /redfish/v1/
+              port: redfish
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /redfish/v1/
+              port: redfish
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: mockups
+          emptyDir: {}
