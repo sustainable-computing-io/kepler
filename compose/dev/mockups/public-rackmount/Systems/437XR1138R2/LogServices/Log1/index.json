@@ -1,0 +1,26 @@
+{
+    "@odata.type": "#LogService.v1_0_2.LogService",
+    "Id": "Log1",
+    "Name": "System Log Service",
+    "MaxNumberOfRecords": 1000,
+    "OverWritePolicy": "WrapsWhenFull",
+    "DateTime": "2015-03-13T04:14:33+06:00",
+    "DateTimeLocalOffset": "+06:00",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+    },
+    "Oem": {},
+    "Actions": {
+        "#LogService.ClearLog": {
+            "target": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Actions/LogService.Reset"
+        },
+        "Oem": {}
+    },
+    "Entries": {
+        "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1/Entries"
+    },
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/LogServices/Members/$entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/LogServices/Log1",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

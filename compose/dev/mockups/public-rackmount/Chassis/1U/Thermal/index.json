@@ -1,0 +1,160 @@
+{
+    "@odata.type": "#Thermal.v1_0_2.Thermal",
+    "Id": "Thermal",
+    "Name": "Thermal",
+    "Temperatures": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Temperatures/0",
+            "MemberId": "0",
+            "Name": "CPU1 Temp",
+            "SensorNumber": 5,
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "ReadingCelsius": 41,
+            "UpperThresholdNonCritical": 42,
+            "UpperThresholdCritical": 45,
+            "UpperThresholdFatal": 48,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 60,
+            "PhysicalContext": "CPU",
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R2/Processors/CPU1"
+                }
+            ]
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Temperatures/1",
+            "MemberId": "1",
+            "Name": "CPU2 Temp",
+            "SensorNumber": 6,
+            "Status": {
+                "State": "Disabled"
+            },
+            "UpperThresholdNonCritical": 42,
+            "UpperThresholdCritical": 45,
+            "UpperThresholdFatal": 48,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 60,
+            "PhysicalContext": "CPU",
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R2/Processors/CPU2"
+                }
+            ]
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Temperatures/2",
+            "MemberId": "2",
+            "Name": "Chassis Intake Temp",
+            "SensorNumber": 9,
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "ReadingCelsius": 25,
+            "UpperThresholdNonCritical": 30,
+            "UpperThresholdCritical": 40,
+            "UpperThresholdFatal": 50,
+            "LowerThresholdNonCritical": 10,
+            "LowerThresholdCritical": 5,
+            "LowerThresholdFatal": 0,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 60,
+            "PhysicalContext": "Intake",
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R2"
+                }
+            ]
+        }
+    ],
+    "Fans": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Fans/0",
+            "MemberId": "0",
+            "Name": "BaseBoard System Fan",
+            "PhysicalContext": "Backplane",
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "Reading": 2100,
+            "ReadingUnits": "RPM",
+            "LowerThresholdFatal": 0,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 5000,
+            "Redundancy": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Redundancy/0"
+                }
+            ],
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R2"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U"
+                }
+            ]
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Fans/1",
+            "MemberId": "1",
+            "Name": "BaseBoard System Fan Backup",
+            "PhysicalContext": "Backplane",
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "Reading": 2050,
+            "ReadingUnits": "RPM",
+            "LowerThresholdFatal": 0,
+            "MinReadingRange": 0,
+            "MaxReadingRange": 5000,
+            "Redundancy": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Redundancy/0"
+                }
+            ],
+            "RelatedItem": [
+                {
+                    "@odata.id": "/redfish/v1/Systems/437XR1138R2"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U"
+                }
+            ]
+        }
+    ],
+    "Redundancy": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Redundancy/0",
+            "MemberId": "0",
+            "Name": "BaseBoard System Fans",
+            "RedundancySet": [
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Fans/0"
+                },
+                {
+                    "@odata.id": "/redfish/v1/Chassis/1U/Thermal#/Fans/1"
+                }
+            ],
+            "Mode": "N+m",
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            },
+            "MinNumNeeded": 1,
+            "MaxNumSupported": 2
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Thermal.Thermal",
+    "@odata.id": "/redfish/v1/Chassis/1U/Thermal",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

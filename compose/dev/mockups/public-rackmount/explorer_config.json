@@ -1,0 +1,62 @@
+{
+    "name" : "Simple Rack-mounted Server",
+    "description" : "A typical 1U or 2U server intended for scale-out deployments.",
+    "navlinks" : [
+        {
+            "text" : "Main",
+            "target" : "main"
+        },
+        {
+            "text" : "Systems",
+            "target" : "Systems",
+            "navlinks" : [
+                {
+                    "text" : "437XR1138R2",
+                    "target" : "437XR1138R2"
+                }
+            ]
+        },
+        {
+            "text" : "Chassis",
+            "target": "Chassis",
+            "navlinks" : [
+                {
+                    "text" : "1U",
+                    "target" : "1U"
+                }
+            ]
+        },
+        {
+            "text" : "Managers",
+            "target" : "Managers",
+            "navlinks" : [
+                {
+                    "text" : "BMC",
+                    "target" : "BMC"
+                }
+            ]
+        },
+        {
+            "text" : "Task Service",
+            "target" : "TaskService"
+        },
+        {
+            "text" : "Session Service",
+            "target" : "SessionService"
+        },
+        {
+            "target" : "AccountService",
+            "text" : "Account Service"
+        },
+        {
+            "target" :  "EventService",
+            "text" : "Event Service",
+            "navlinks" : [
+                {
+                    "text" : "Subscriptions",
+                    "target" : "Subscriptions"
+                }
+            ]
+        }
+    ]
+}

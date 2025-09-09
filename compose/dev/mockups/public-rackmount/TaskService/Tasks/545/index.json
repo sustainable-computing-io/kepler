@@ -1,0 +1,25 @@
+{
+    "@odata.type": "#Tasks.v1_0_2.Task",
+    "Id": "545",
+    "Name": "Task 545",
+    "TaskState": "Completed",
+    "StartTime": "2012-03-07T14:44+06:00",
+    "EndTime": "2012-03-07T14:45+06:00",
+    "TaskStatus": "OK",
+    "Messages": [
+        {
+            "MessageId": "Base.1.0.PropertyNotWriteable",
+            "RelatedProperties": [
+                "SKU"
+            ],
+            "Message": "The property SKU is a read only property and cannot be assigned a value",
+            "MessageArgs": [
+                "SKU"
+            ],
+            "Severity": "Warning"
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata/TaskService/Tasks/Members/$entity",
+    "@odata.id": "/redfish/v1/TaskService/Tasks/545",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

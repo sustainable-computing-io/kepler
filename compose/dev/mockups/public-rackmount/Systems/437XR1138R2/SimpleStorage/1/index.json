@@ -1,0 +1,49 @@
+{
+    "@odata.type": "#SimpleStorage.v1_0_2.SimpleStorage",
+    "Id": "1",
+    "Name": "Simple Storage Controller",
+    "Description": "System SATA",
+    "UEFIDevicePath": "Acpi(PNP0A03,0)/Pci(1F|1)/Ata(Primary,Master)/HD(Part3, Sig00110011)",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK",
+        "HealthRollUp": "Degraded"
+    },
+    "Devices": [
+        {
+            "Name": "SATA Bay 1",
+            "Manufacturer": "Contoso",
+            "Model": "3000GT8",
+            "CapacityBytes": 8000000000000,
+            "Status": {
+                "State": "Enabled",
+                "Health": "OK"
+            }
+        },
+        {
+            "Name": "SATA Bay 2",
+            "Manufacturer": "Contoso",
+            "Model": "3000GT7",
+            "CapacityBytes": 4000000000000,
+            "Status": {
+                "State": "Enabled",
+                "Health": "Degraded"
+            }
+        },
+        {
+            "Name": "SATA Bay 3",
+            "Status": {
+                "State": "Absent"
+            }
+        },
+        {
+            "Name": "SATA Bay 4",
+            "Status": {
+                "State": "Absent"
+            }
+        }
+    ],
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/SimpleStorage/Members/$entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/SimpleStorage/1",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

@@ -1,0 +1,42 @@
+{
+    "@odata.type": "#EthernetInterface.v1_0_2.EthernetInterface",
+    "Id": "1",
+    "Name": "Ethernet Interface",
+    "Description": "System NIC 1",
+    "Status": {
+        "State": "Enabled",
+        "Health": "OK"
+    },
+    "FactoryMacAddress": "12:44:6A:3B:04:11",
+    "MacAddress": "12:44:6A:3B:04:11",
+    "SpeedMbps": 1000,
+    "FullDuplex": true,
+    "HostName": "web483",
+    "FQDN": "web483.contoso.com",
+    "IPv6DefaultGateway": "fe80::3ed9:2bff:fe34:600",
+    "NameServers": [
+        "names.contoso.com"
+    ],
+    "IPv4Addresses": [
+        {
+            "Address": "192.168.0.10",
+            "SubnetMask": "255.255.252.0",
+            "AddressOrigin": "Static",
+            "Gateway": "192.168.0.1"
+        }
+    ],
+    "IPv6Addresses": [
+        {
+            "Address": "fe80::1ec1:deff:fe6f:1e24",
+            "PrefixLength": 64,
+            "AddressOrigin": "Static",
+            "AddressState": "Preferred"
+        }
+    ],
+    "VLANs": {
+        "@odata.id": "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411/VLANs"
+    },
+    "@odata.context": "/redfish/v1/$metadata#Systems/Members/437XR1138R2/EthernetInterfaces/Members/$entity",
+    "@odata.id": "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}

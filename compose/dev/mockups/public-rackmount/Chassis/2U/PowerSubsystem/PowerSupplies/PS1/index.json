@@ -1,0 +1,33 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#PowerSupply.PowerSupply",
+  "@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+  "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem/PowerSupplies/PS1",
+  "Id": "PS1",
+  "Name": "Power Supply 1",
+  "MemberId": "PS1",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "PowerSupplyType": "AC",
+  "LineInputVoltageType": "ACMidLine",
+  "PowerCapacityWatts": 1200.0,
+  "PowerOutputWatts": 345.0,
+  "PowerInputWatts": 378.0,
+  "EfficiencyPercent": 91.3,
+  "Manufacturer": "Dell Inc.",
+  "Model": "PWR SPLY,1200W,RDNT,ARTESYN",
+  "SerialNumber": "CN0234567890",
+  "PartNumber": "0H4H60",
+  "FirmwareVersion": "1.2.3",
+  "Location": {
+    "PartLocation": {
+      "ServiceLabel": "PS1",
+      "LocationType": "Slot",
+      "LocationOrdinalValue": 1
+    }
+  },
+  "Metrics": {
+    "@odata.id": "/redfish/v1/Chassis/2U/PowerSubsystem/PowerSupplies/PS1/Metrics"
+  }
+}

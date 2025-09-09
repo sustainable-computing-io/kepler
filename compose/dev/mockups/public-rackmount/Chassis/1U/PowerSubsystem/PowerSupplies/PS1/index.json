@@ -1,0 +1,33 @@
+{
+  "@odata.context": "/redfish/v1/$metadata#PowerSupply.PowerSupply",
+  "@odata.type": "#PowerSupply.v1_6_0.PowerSupply",
+  "@odata.id": "/redfish/v1/Chassis/1U/PowerSubsystem/PowerSupplies/PS1",
+  "Id": "PS1",
+  "Name": "Power Supply 1",
+  "MemberId": "PS1",
+  "Status": {
+    "State": "Enabled",
+    "Health": "OK"
+  },
+  "PowerSupplyType": "AC",
+  "LineInputVoltageType": "ACMidLine",
+  "PowerCapacityWatts": 800.0,
+  "PowerOutputWatts": 245.0,
+  "PowerInputWatts": 268.0,
+  "EfficiencyPercent": 91.4,
+  "Manufacturer": "Dell Inc.",
+  "Model": "PWR SPLY,800W,RDNT,ARTESYN",
+  "SerialNumber": "CN0123456789",
+  "PartNumber": "0H3H50",
+  "FirmwareVersion": "1.2.3",
+  "Location": {
+    "PartLocation": {
+      "ServiceLabel": "PS1",
+      "LocationType": "Slot",
+      "LocationOrdinalValue": 1
+    }
+  },
+  "Metrics": {
+    "@odata.id": "/redfish/v1/Chassis/1U/PowerSubsystem/PowerSupplies/PS1/Metrics"
+  }
+}

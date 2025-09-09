@@ -1,0 +1,11 @@
+{
+    "@odata.type": "#Session.v1_0_2.Session",
+    "Id": "1234567890ABCDEF",
+    "Name": "User Session",
+    "Description": "Manager User Session",
+    "UserName": "Administrator",
+    "Oem": {},
+    "@odata.context": "/redfish/v1/$metadata#Session.Session",
+    "@odata.id": "/redfish/v1/SessionService/Sessions/1234567890ABCDEF",
+    "@Redfish.Copyright": "Copyright 2014-2016 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright."
+}
