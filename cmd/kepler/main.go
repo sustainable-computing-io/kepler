@@ -200,6 +200,10 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		services = append(services, pprof)
 	}
 
+	// Add health check probe endpoints
+	probe := server.NewProbe(apiServer, pm)
+	services = append(services, probe)
+
 	// Add stdout exporter if enabled
 	if cfg.IsFeatureEnabled(config.StdoutFeature) {
 		stdoutExporter := stdout.NewExporter(pm, stdout.WithLogger(logger))

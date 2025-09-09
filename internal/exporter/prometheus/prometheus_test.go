@@ -60,6 +60,11 @@ func (m *MockMonitor) ZoneNames() []string {
 	return args.Get(0).([]string)
 }
 
+func (m *MockMonitor) LastCollectionTime() time.Time {
+	args := m.Called()
+	return args.Get(0).(time.Time)
+}
+
 // MockAPIRegistry mocks the APIRegistry interface
 type MockAPIRegistry struct {
 	mock.Mock

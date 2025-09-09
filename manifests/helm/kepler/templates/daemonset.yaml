@@ -64,6 +64,7 @@ spec:
               readOnly: true
             - name: cfm
               mountPath: /etc/kepler
+          {{- if .Values.daemonset.useOptimizedProbes }}
           {{- with .Values.daemonset.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -71,6 +72,16 @@ spec:
           {{- with .Values.daemonset.readinessProbe }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- else }}
+          {{- with .Values.daemonset.legacyProbes.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.daemonset.legacyProbes.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           env:
             - name: NODE_NAME
