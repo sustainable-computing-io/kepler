@@ -15,27 +15,27 @@ Kepler supports two primary methods for configuration:
 
 You can configure Kepler by passing flags when starting the service. The following flags are available:
 
-| Flag                                      | Description                                                             | Default                         | Values                                                             |
-|-------------------------------------------|-------------------------------------------------------------------------|---------------------------------|--------------------------------------------------------------------|
-| `--config.file`                           | Path to YAML configuration file                                         |                                 | Any valid file path                                                |
-| `--log.level`                             | Logging level                                                           | `info`                          | `debug`, `info`, `warn`, `error`                                   |
-| `--log.format`                            | Output format for logs                                                  | `text`                          | `text`, `json`                                                     |
-| `--host.sysfs`                            | Path to sysfs filesystem                                                | `/sys`                          | Any valid directory path                                           |
-| `--host.procfs`                           | Path to procfs filesystem                                               | `/proc`                         | Any valid directory path                                           |
-| `--monitor.interval`                      | Monitor refresh interval                                                | `5s`                            | Any valid duration                                                 |
-| `--monitor.max-terminated`                | Maximum number of terminated workloads to keep in memory until exported | `500`                           | Negative number indicates `unlimited` and `0` disables the feature |
-| `--web.config-file`                       | Path to TLS server config file                                          | `""`                            | Any valid file path                                                |
-| `--web.listen-address`                    | Web server listen addresses (can be specified multiple times)           | `:28282`                        | Any valid host:port or :port format                                |
-| `--debug.pprof`                           | Enable pprof debugging endpoints                                        | `false`                         | `true`, `false`                                                    |
-| `--exporter.stdout`                       | Enable stdout exporter                                                  | `false`                         | `true`, `false`                                                    |
-| `--exporter.prometheus`                   | Enable Prometheus exporter                                              | `true`                          | `true`, `false`                                                    |
-| `--metrics`                               | Metrics levels to export (can be specified multiple times)              | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod`                        |
-| `--kube.enable`                           | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
-| `--kube.config`                           | Path to a kubeconfig file                                               | `""`                            | Any valid file path                                                |
-| `--kube.node-name`                        | Name of kubernetes node on which kepler is running                      | `""`                            | Any valid node name                                                |
-| `--experimental.platform.redfish.enabled` | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
-| `--experimental.platform.redfish.node-id` | Node identifier for experimental Redfish platform power monitoring      | `""`                            | Any valid node identifier                                          |
-| `--experimental.platform.redfish.config`  | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
+| Flag                                          | Description                                                             | Default                         | Values                                                             |
+|-----------------------------------------------|-------------------------------------------------------------------------|---------------------------------|--------------------------------------------------------------------|
+| `--config.file`                               | Path to YAML configuration file                                         |                                 | Any valid file path                                                |
+| `--log.level`                                 | Logging level                                                           | `info`                          | `debug`, `info`, `warn`, `error`                                   |
+| `--log.format`                                | Output format for logs                                                  | `text`                          | `text`, `json`                                                     |
+| `--host.sysfs`                                | Path to sysfs filesystem                                                | `/sys`                          | Any valid directory path                                           |
+| `--host.procfs`                               | Path to procfs filesystem                                               | `/proc`                         | Any valid directory path                                           |
+| `--monitor.interval`                          | Monitor refresh interval                                                | `5s`                            | Any valid duration                                                 |
+| `--monitor.max-terminated`                    | Maximum number of terminated workloads to keep in memory until exported | `500`                           | Negative number indicates `unlimited` and `0` disables the feature |
+| `--web.config-file`                           | Path to TLS server config file                                          | `""`                            | Any valid file path                                                |
+| `--web.listen-address`                        | Web server listen addresses (can be specified multiple times)           | `:28282`                        | Any valid host:port or :port format                                |
+| `--debug.pprof`                               | Enable pprof debugging endpoints                                        | `false`                         | `true`, `false`                                                    |
+| `--exporter.stdout`                           | Enable stdout exporter                                                  | `false`                         | `true`, `false`                                                    |
+| `--exporter.prometheus`                       | Enable Prometheus exporter                                              | `true`                          | `true`, `false`                                                    |
+| `--metrics`                                   | Metrics levels to export (can be specified multiple times)              | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod`                        |
+| `--kube.enable`                               | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
+| `--kube.config`                               | Path to a kubeconfig file                                               | `""`                            | Any valid file path                                                |
+| `--kube.node-name`                            | Name of kubernetes node on which kepler is running                      | `""`                            | Any valid node name                                                |
+| `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
+| `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
+| `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
 
 ### 💡 Examples
 
@@ -60,8 +60,8 @@ kepler --kube.enable=true --kube.config=/path/to/kubeconfig --kube.node-name=my-
 
 # Enable experimental Redfish BMC power monitoring
 kepler --experimental.platform.redfish.enabled=true \
-       --experimental.platform.redfish.config=/path/to/redfish-config.yaml \
-       --experimental.platform.redfish.node-id=worker-node-1
+       --experimental.platform.redfish.config-file=/path/to/redfish-config.yaml \
+       --experimental.platform.redfish.node-name=worker-node-1
 
 # Export only node and container level metrics
 kepler --metrics=node --metrics=container
