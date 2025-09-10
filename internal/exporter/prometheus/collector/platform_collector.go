@@ -53,8 +53,8 @@ func NewRedfishCollector(redfish RedfishDataProvider, logger *slog.Logger) *Plat
 		bmcID:    redfish.BMCID(),
 		wattsDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(keplerNS, platformSubsystem, "watts"),
-			"Current platform power consumption in watts from BMC PowerControl entries",
-			[]string{"source", "node_name", "bmc_id", "chassis_id", "power_control_id", "power_control_name"},
+			"Current platform power in watts from BMC (PowerSubsystem or deprecated Power API)",
+			[]string{"source", "node_name", "bmc_id", "chassis_id", "source_id", "source_name", "source_type"},
 			nil,
 		),
 	}
@@ -80,13 +80,13 @@ func (c *PlatformCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// Emit metrics for each PowerControl reading in each chassis
+	// Emit metrics for each power reading in each chassis (PowerSupply or PowerControl)
 	for _, chassis := range powerReading.Chassis {
 		for _, reading := range chassis.Readings {
-			// Label order must match the descriptor: source, node_name, bmc_id, chassis_id, power_control_id, power_control_name
-			labels := []string{"redfish", c.nodeName, c.bmcID, chassis.ID, reading.ControlID, reading.Name}
+			// Label order must match the descriptor: source, node_name, bmc_id, chassis_id, source_id, source_name, source_type
+			labels := []string{"redfish", c.nodeName, c.bmcID, chassis.ID, reading.SourceID, reading.SourceName, string(reading.SourceType)}
 
-			// Emit current power consumption metric (power-only approach)
+			// Emit current power metric (output from PowerSupply or consumption from PowerControl)
 			ch <- prometheus.MustNewConstMetric(
 				c.wattsDesc,
 				prometheus.GaugeValue,
@@ -98,8 +98,9 @@ func (c *PlatformCollector) Collect(ch chan<- prometheus.Metric) {
 				"node.name", c.nodeName,
 				"bmc.id", c.bmcID,
 				"chassis.id", chassis.ID,
-				"power_control.id", reading.ControlID,
-				"power_control.name", reading.Name,
+				"source.id", reading.SourceID,
+				"source.name", reading.SourceName,
+				"source.type", reading.SourceType,
 				"power.watts", reading.Power,
 				"age", time.Since(powerReading.Timestamp).Seconds())
 		}

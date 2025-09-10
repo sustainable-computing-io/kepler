@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package mock
+package testutil
 
 // NOTE: all static fixtures should be placed  in testdata/fixtures/
 
