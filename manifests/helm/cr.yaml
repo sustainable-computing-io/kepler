@@ -1,0 +1,11 @@
+# cr.yaml - Configuration for chart-releaser
+# Set to true for GPG signing
+sign: true
+# UID of the GPG key to use
+key: Kepler Maintainer
+# Charts directory
+charts-dir: manifests/helm
+# Package charts from this directory
+package-path: .cr-release-packages
+# Index file location in target branch
+index-path: .cr-index/index.yaml
