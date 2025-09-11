@@ -6,7 +6,6 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -15,7 +14,6 @@ import (
 type probe struct {
 	api          APIService
 	powerMonitor monitor.PowerDataProvider
-	maxStaleTime time.Duration
 }
 
 var (
@@ -28,7 +26,6 @@ func NewProbe(api APIService, powerMonitor monitor.PowerDataProvider) *probe {
 	return &probe{
 		api:          api,
 		powerMonitor: powerMonitor,
-		maxStaleTime: 30 * time.Second, // Consider stale if no sample in 30s
 	}
 }
 
@@ -44,27 +41,34 @@ func (p *probe) Init() error {
 func (p *probe) handlers() http.Handler {
 	mux := http.NewServeMux()
 
+	// Register both health check endpoints
+	p.registerHealthEndpoints(mux)
+
+	return mux
+}
+
+// registerHealthEndpoints consolidates the registration of health check endpoints
+func (p *probe) registerHealthEndpoints(mux *http.ServeMux) {
 	// Readiness probe endpoint
 	mux.HandleFunc("/probe/readyz", p.readyzHandler)
 	
 	// Liveness probe endpoint
 	mux.HandleFunc("/probe/livez", p.livezHandler)
-
-	return mux
 }
 
 // readyzHandler handles readiness probe requests
-// Returns 200 after critical init (sensors) and first successful sample/export; else 503
+// Returns 200 when all services are running, regardless of data collection status
 func (p *probe) readyzHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Check if we have at least one successful sample (ultra-lightweight)
-	lastCollection := p.powerMonitor.LastCollectionTime()
-	if lastCollection.IsZero() {
-		p.respondWithError(w, "not ready", "no successful sample yet")
+	// For readiness, we check if the monitor service is operational
+	// This works even when collection interval is 0
+	_, err := p.powerMonitor.Snapshot()
+	if err != nil {
+		p.respondWithError(w, "not ready", "monitor service not operational")
 		return
 	}
 
@@ -72,24 +76,18 @@ func (p *probe) readyzHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // livezHandler handles liveness probe requests  
-// Returns 200 if the sampling loop ticked recently, 503 if stalled
+// Returns 200 if all services are running, regardless of sampling frequency
 func (p *probe) livezHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Get the last collection time (ultra-lightweight)
-	lastCollection := p.powerMonitor.LastCollectionTime()
-	if lastCollection.IsZero() {
-		p.respondWithError(w, "not alive", "no samples available")
-		return
-	}
-
-	// Check if the sampling loop has ticked recently
-	timeSinceLastSample := time.Since(lastCollection)
-	if timeSinceLastSample > p.maxStaleTime {
-		p.respondWithError(w, "not alive", "sampling loop stalled")
+	// For liveness, we check if the monitor service is operational
+	// This approach works even with interval=0
+	_, err := p.powerMonitor.Snapshot()
+	if err != nil {
+		p.respondWithError(w, "not alive", "monitor service not operational")
 		return
 	}
 

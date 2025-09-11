@@ -21,10 +21,6 @@ type PowerDataProvider interface {
 	// Snapshot returns the current power data
 	Snapshot() (*Snapshot, error)
 
-	// LastCollectionTime returns the timestamp of the last successful collection.
-	// Returns zero time if no collection has occurred yet. This is ultra-lightweight.
-	LastCollectionTime() time.Time
-
 	// DataChannel returns a channel that signals when new data is available
 	DataChannel() <-chan struct{}
 
@@ -203,15 +199,6 @@ func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
 	return snapshot.Clone(), nil
 }
 
-// LastCollectionTime returns the timestamp of the last successful collection.
-// Returns zero time if no collection has occurred yet. This is ultra-lightweight.
-func (pm *PowerMonitor) LastCollectionTime() time.Time {
-	snapshot := pm.snapshot.Load()
-	if snapshot == nil {
-		return time.Time{}
-	}
-	return snapshot.Timestamp
-}
 
 func (pm *PowerMonitor) initZones() error {
 	// zone names need to be collected only once and can be cached

@@ -60,10 +60,6 @@ func (m *MockPowerMonitor) ZoneNames() []string {
 	return args.Get(0).([]string)
 }
 
-func (m *MockPowerMonitor) LastCollectionTime() time.Time {
-	args := m.Called()
-	return args.Get(0).(time.Time)
-}
 
 func (m *MockPowerMonitor) TriggerUpdate() {
 	select {

@@ -30,10 +30,6 @@ func (m *mockPowerDataProvider) Snapshot() (*monitor.Snapshot, error) {
 	return snapshot.(*monitor.Snapshot), args.Error(1)
 }
 
-func (m *mockPowerDataProvider) LastCollectionTime() time.Time {
-	args := m.Called()
-	return args.Get(0).(time.Time)
-}
 
 func (m *mockPowerDataProvider) DataChannel() <-chan struct{} {
 	args := m.Called()
@@ -66,19 +62,22 @@ func (m *mockAPIService) Register(endpoint, summary, description string, handler
 func TestProbe_ReadyzHandler(t *testing.T) {
 	tests := []struct {
 		name             string
-		lastCollection   time.Time
+		snapshotReturn   *monitor.Snapshot
+		snapshotError    error
 		expectedStatus   int
 		expectedResult   string
 	}{
 		{
-			name:           "ready with valid timestamp",
-			lastCollection: time.Now(),
+			name:           "ready with valid snapshot",
+			snapshotReturn: &monitor.Snapshot{Timestamp: time.Now()},
+			snapshotError:  nil,
 			expectedStatus: http.StatusOK,
 			expectedResult: "ok",
 		},
 		{
-			name:           "not ready - zero timestamp",
-			lastCollection: time.Time{},
+			name:           "not ready - snapshot error",
+			snapshotReturn: nil,
+			snapshotError:  assert.AnError,
 			expectedStatus: http.StatusServiceUnavailable,
 			expectedResult: "not ready",
 		},
@@ -90,7 +89,7 @@ func TestProbe_ReadyzHandler(t *testing.T) {
 			mockAPI := &mockAPIService{}
 			mockPowerProvider := &mockPowerDataProvider{}
 			
-			mockPowerProvider.On("LastCollectionTime").Return(tt.lastCollection)
+			mockPowerProvider.On("Snapshot").Return(tt.snapshotReturn, tt.snapshotError)
 
 			// Create probe service
 			probe := NewProbe(mockAPI, mockPowerProvider)
@@ -122,29 +121,24 @@ func TestProbe_ReadyzHandler(t *testing.T) {
 }
 
 func TestProbe_LivezHandler(t *testing.T) {
-	now := time.Now()
-	
 	tests := []struct {
 		name             string
-		lastCollection   time.Time
+		snapshotReturn   *monitor.Snapshot
+		snapshotError    error
 		expectedStatus   int
 		expectedResult   string
 	}{
 		{
-			name:           "alive with recent timestamp",
-			lastCollection: now.Add(-5 * time.Second), // Recent timestamp
+			name:           "alive with valid snapshot",
+			snapshotReturn: &monitor.Snapshot{Timestamp: time.Now()},
+			snapshotError:  nil,
 			expectedStatus: http.StatusOK,
 			expectedResult: "alive",
 		},
 		{
-			name:           "not alive - zero timestamp",
-			lastCollection: time.Time{},
-			expectedStatus: http.StatusServiceUnavailable,
-			expectedResult: "not alive",
-		},
-		{
-			name:           "not alive - stale timestamp",
-			lastCollection: now.Add(-35 * time.Second), // Stale timestamp (>30s)
+			name:           "not alive - snapshot error",
+			snapshotReturn: nil,
+			snapshotError:  assert.AnError,
 			expectedStatus: http.StatusServiceUnavailable,
 			expectedResult: "not alive",
 		},
@@ -156,7 +150,7 @@ func TestProbe_LivezHandler(t *testing.T) {
 			mockAPI := &mockAPIService{}
 			mockPowerProvider := &mockPowerDataProvider{}
 			
-			mockPowerProvider.On("LastCollectionTime").Return(tt.lastCollection)
+			mockPowerProvider.On("Snapshot").Return(tt.snapshotReturn, tt.snapshotError)
 
 			// Create probe service
 			probe := NewProbe(mockAPI, mockPowerProvider)

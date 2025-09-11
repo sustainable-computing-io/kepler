@@ -49,10 +49,6 @@ func (m *MockMonitor) ZoneNames() []string {
 	return []string{"package-0"}
 }
 
-// LastCollectionTime implements monitor.PowerDataProvider interface
-func (m *MockMonitor) LastCollectionTime() time.Time {
-	return time.Now()
-}
 
 // MockRedfishService implements collector.RedfishDataProvider interface
 // Uses real test data from fixtures to generate realistic metrics documentation
