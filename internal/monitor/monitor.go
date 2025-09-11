@@ -199,6 +199,7 @@ func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
 	return snapshot.Clone(), nil
 }
 
+
 func (pm *PowerMonitor) initZones() error {
 	// zone names need to be collected only once and can be cached
 	zones, err := pm.cpu.Zones()

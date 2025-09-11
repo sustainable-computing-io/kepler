@@ -62,6 +62,7 @@ func (m *MockMonitor) ZoneNames() []string {
 	return args.Get(0).([]string)
 }
 
+
 func TestNewExporter(t *testing.T) {
 	tests := []struct {
 		name          string

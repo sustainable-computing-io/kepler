@@ -49,6 +49,7 @@ func (m *MockMonitor) ZoneNames() []string {
 	return []string{"package-0"}
 }
 
+
 // MockRedfishService implements collector.RedfishDataProvider interface
 // Uses real test data from fixtures to generate realistic metrics documentation
 type MockRedfishService struct {

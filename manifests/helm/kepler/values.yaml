@@ -52,14 +52,39 @@ daemonset:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # Health check probes configuration
+  # useOptimizedProbes: true enables ultra-lightweight health endpoints (/probe/livez, /probe/readyz)
+  # useOptimizedProbes: false fallback to legacy /metrics endpoint (for backward compatibility)
+  useOptimizedProbes: true
+
   livenessProbe:
     httpGet:
-      path: /metrics
+      path: /probe/livez
       port: http
     initialDelaySeconds: 10
-    periodSeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
 
-  readinessProbe: {}
+  readinessProbe:
+    httpGet:
+      path: /probe/readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Legacy probes configuration (used when useOptimizedProbes: false)
+  legacyProbes:
+    livenessProbe:
+      httpGet:
+        path: /metrics
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 60
+    readinessProbe: {}
 
 config:
   log:

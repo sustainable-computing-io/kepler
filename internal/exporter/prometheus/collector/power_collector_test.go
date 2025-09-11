@@ -60,6 +60,7 @@ func (m *MockPowerMonitor) ZoneNames() []string {
 	return args.Get(0).([]string)
 }
 
+
 func (m *MockPowerMonitor) TriggerUpdate() {
 	select {
 	case m.dataCh <- struct{}{}:
