@@ -1,0 +1,27 @@
+# Dockerfile for sushy-static with built-in mockups for Kepler Redfish testing
+# This image extends the official sushy-tools image with Kepler's mockup data
+
+FROM quay.io/metal3-io/sushy-tools:latest
+
+# Set environment variables
+ENV MOCKUPS_DIR=/mockups
+ENV MOCKUPS_PATH=/mockups/public-rackmount
+
+# Create directory for mockups
+RUN mkdir -p ${MOCKUPS_DIR}
+
+# Copy Kepler's mockup data
+# This assumes the Dockerfile is built from the Kepler repository root
+COPY hack/mockups/public-rackmount/ ${MOCKUPS_PATH}/
+
+# Expose the default Redfish port
+EXPOSE 8001
+
+# Set default command to run sushy-static with mockups
+CMD ["sushy-static", \
+  "-m", \
+  "/mockups/public-rackmount", \
+  "-i", \
+  "0.0.0.0", \
+  "-p", \
+  "8001"]
