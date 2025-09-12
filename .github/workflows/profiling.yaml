@@ -41,8 +41,10 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # NOTE: Using a specific SHA of pprof as
+      # the latest version of pprof requires Go 1.24 or later
       - name: Install pprof
-        run: go install github.com/google/pprof@latest
+        run: go install github.com/google/pprof@6e76a2b096b5fa52e4bb3f7f7a357bd6e6b3b7b1
 
       - name: Run Docker Compose services
         shell: bash
@@ -130,8 +132,10 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # NOTE: Using a specific SHA of pprof as
+      # the latest version of pprof requires Go 1.24 or later
       - name: Install pprof
-        run: go install github.com/google/pprof@latest
+        run: go install github.com/google/pprof@6e76a2b096b5fa52e4bb3f7f7a357bd6e6b3b7b1
 
       - name: Download profiling artifacts
         uses: actions/download-artifact@v5
