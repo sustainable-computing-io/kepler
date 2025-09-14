@@ -189,8 +189,8 @@ func (m *MetricsLevelValue) IsCumulative() bool {
 type SkipValidation int
 
 const (
-	SkipHostValidation SkipValidation = 1
-	SkipKubeValidation SkipValidation = 2
+	SkipHostValidation         SkipValidation = 1
+	SkipExperimentalValidation SkipValidation = 2
 )
 
 const (
@@ -702,7 +702,7 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		}
 	}
 	// Experimental Platform validation
-	if experimentalErrs := c.validateExperimentalConfig(); len(experimentalErrs) > 0 {
+	if experimentalErrs := c.validateExperimentalConfig(validationSkipped); len(experimentalErrs) > 0 {
 		errs = append(errs, experimentalErrs...)
 	}
 
@@ -714,19 +714,21 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 }
 
 // validateExperimentalConfig validates experimental configuration settings
-func (c *Config) validateExperimentalConfig() []string {
-	if !c.experimentalFeatureEnabled() {
+func (c *Config) validateExperimentalConfig(validationSkipped map[SkipValidation]bool) []string {
+	if !c.experimentalFeatureEnabled() || validationSkipped[SkipExperimentalValidation] {
 		return nil
 	}
 
 	var errs []string
 
-	if c.IsFeatureEnabled(ExperimentalRedfishFeature) {
-		if c.Experimental.Platform.Redfish.ConfigFile == "" {
-			errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", ExperimentalPlatformRedfishConfigFlag, ExperimentalPlatformRedfishEnabledFlag))
-		} else {
-			if err := canReadFile(c.Experimental.Platform.Redfish.ConfigFile); err != nil {
-				errs = append(errs, fmt.Sprintf("unreadable Redfish config file: %s: %s", c.Experimental.Platform.Redfish.ConfigFile, err.Error()))
+	{ // Validate experimental settings
+		if c.IsFeatureEnabled(ExperimentalRedfishFeature) {
+			if c.Experimental.Platform.Redfish.ConfigFile == "" {
+				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", ExperimentalPlatformRedfishConfigFlag, ExperimentalPlatformRedfishEnabledFlag))
+			} else {
+				if err := canReadFile(c.Experimental.Platform.Redfish.ConfigFile); err != nil {
+					errs = append(errs, fmt.Sprintf("unreadable Redfish config file: %s: %s", c.Experimental.Platform.Redfish.ConfigFile, err.Error()))
+				}
 			}
 		}
 	}

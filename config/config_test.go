@@ -590,6 +590,21 @@ func TestValidateWithSkip(t *testing.T) {
 	// Validate with skipping host validation
 	err := cfg.Validate(SkipHostValidation)
 	assert.NoError(t, err, "Should pass when SkipHostValidation is provided")
+
+	// Create a config with invalid experimental config
+	cfg = DefaultConfig()
+	cfg.Experimental = &Experimental{
+		Platform: Platform{
+			Redfish: Redfish{
+				Enabled:    ptr.To(true),
+				ConfigFile: "/path/invalid",
+			},
+		},
+	}
+
+	// Validate with skipping experimental validation
+	err = cfg.Validate(SkipExperimentalValidation)
+	assert.NoError(t, err, "Should pass when SkipExperimentalValidation is provided")
 }
 
 func TestMonitorConfig(t *testing.T) {
@@ -2355,7 +2370,7 @@ func TestValidateExperimentalConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			errors := tc.config.validateExperimentalConfig()
+			errors := tc.config.validateExperimentalConfig(nil)
 
 			if tc.expectedErrors == nil {
 				assert.Empty(t, errors)
