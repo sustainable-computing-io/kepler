@@ -263,14 +263,15 @@ These experimental metrics provide platform-level power information from BMC sou
 #### kepler_platform_watts
 
 - **Type**: GAUGE
-- **Description**: Current platform power consumption in watts from BMC PowerControl entries
+- **Description**: Current platform power in watts from BMC (PowerSubsystem or deprecated Power API)
 - **Labels**:
   - `source`
   - `node_name`
   - `bmc_id`
   - `chassis_id`
-  - `power_control_id`
-  - `power_control_name`
+  - `source_id`
+  - `source_name`
+  - `source_type`
 
 ---
 

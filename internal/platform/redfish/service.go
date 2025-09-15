@@ -5,14 +5,11 @@ package redfish
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"sync"
 	"time"
 
-	"github.com/stmcginnis/gofish"
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/config/redfish"
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -22,7 +19,6 @@ import (
 type Service struct {
 	logger *slog.Logger
 	bmc    *redfish.BMCDetail // Store BMC configuration
-	client *gofish.APIClient  // Direct gofish client
 
 	powerReader *PowerReader
 	nodeName    string
@@ -85,8 +81,8 @@ func NewService(cfg config.Redfish, logger *slog.Logger, opts ...OptionFn) (*Ser
 
 	logger.Info("BMC configuration loaded", "node_name", nodeName, "bmc_id", bmcID, "endpoint", bmcDetail.Endpoint)
 
-	// Create power reader (will be initialized in Init())
-	reader := NewPowerReader(logger)
+	// Create power reader with BMC configuration
+	reader := NewPowerReader(bmcDetail, cfg.HTTPTimeout, logger)
 
 	service := &Service{
 		logger:      logger,
@@ -96,6 +92,7 @@ func NewService(cfg config.Redfish, logger *slog.Logger, opts ...OptionFn) (*Ser
 		bmcID:       bmcID,
 		staleness:   500 * time.Millisecond, // Default staleness
 		httpTimeout: cfg.HTTPTimeout,
+
 		// Initialize cache fields
 		cachedReading: nil,
 	}
@@ -119,44 +116,39 @@ func (s *Service) Init() error {
 		"node_name", s.nodeName,
 		"bmc_endpoint", s.bmc.Endpoint)
 
-	// Configure HTTP client with timeout and TLS configuration
-	httpClient := &http.Client{
-		Timeout: s.httpTimeout,
-	}
+	// Retry logic for power reader initialization
+	maxRetries := 3
+	retryDelay := 1 * time.Second
 
-	if s.bmc.Insecure {
-		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	var initErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if initErr = s.powerReader.Init(); initErr == nil {
+			s.logger.Info("Successfully initialized power reader",
+				"node_name", s.nodeName, "attempt", attempt)
+			s.logger.Info("Successfully connected to BMC", "node_name", s.nodeName)
+			break
+		}
+
+		s.logger.Info("Power reader initialization failed, will retry",
+			"node_name", s.nodeName, "attempt", attempt, "max_retries", maxRetries, "error", initErr)
+
+		if attempt < maxRetries {
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
 		}
 	}
 
-	//  Gofish client
-	gofishConfig := gofish.ClientConfig{
-		Endpoint:   s.bmc.Endpoint,
-		Username:   s.bmc.Username,
-		Password:   s.bmc.Password,
-		HTTPClient: httpClient,
+	if initErr != nil {
+		return fmt.Errorf("failed to initialize power reader after %d attempts for node %s: %w", maxRetries, s.nodeName, initErr)
 	}
+	return nil
+}
 
-	// NOTE: Use Background() for client connection since gofish stores this context
-	// and uses it for all subsequent HTTP requests. A timeout context causes
-	// "context canceled" errors on later requests when the timeout expires.
-	client, err := gofish.ConnectContext(context.Background(), gofishConfig)
-	if err != nil {
-		// Don't log credentials in error messages
-		return fmt.Errorf("failed to connect to BMC at %s for node %s: %w", s.bmc.Endpoint, s.nodeName, err)
-	}
-
-	s.client = client
-
-	// Initialize power reader with the connected client
-	s.powerReader.SetClient(client)
-
-	// NOTE: Do not validate power reading capability during Init()
-	// to allow the service to start even if power data is temporarily unavailable.
-	// Power reading errors will be handled during actual data collection.
-
-	s.logger.Info("Successfully connected to BMC", "node_name", s.nodeName)
+// Run is a no-op for this service
+func (s *Service) Run(ctx context.Context) error {
+	// TODO: remove this once service.Run calls Shutdown even for services that
+	// don't have a Run method
+	<-ctx.Done()
 	return nil
 }
 
@@ -165,13 +157,11 @@ func (s *Service) Shutdown() error {
 	s.logger.Info("Shutting down Redfish power monitoring service")
 	defer s.logger.Info("Redfish power monitoring service shutdown complete")
 
-	// Disconnect gofish client if connected
-	if s.client == nil {
+	if s.powerReader == nil {
 		return nil
 	}
-	s.client.Logout()
-	s.client = nil
 
+	s.powerReader.Close()
 	return nil
 }
 
@@ -221,7 +211,7 @@ func (s *Service) Power() (*PowerReading, error) {
 	// Need fresh data - collect from BMC
 	readings, err := s.powerReader.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to collect power data from BMC: %w", err)
+		return nil, fmt.Errorf("failed to collect power readings: %w", err)
 	}
 
 	// Assemble PowerReading with timestamp
