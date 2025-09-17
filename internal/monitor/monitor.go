@@ -67,6 +67,10 @@ type PowerMonitor struct {
 	// state atomically across goroutines.
 	exported atomic.Bool
 
+
+	// lastCollectUnixNano tracks the last collection timestamp for liveness checks
+	lastCollectUnixNano int64
+
 	zonesNames []string // cache of all zones
 
 	// Internal terminated workload trackers (not exposed)
@@ -338,8 +342,13 @@ func (pm *PowerMonitor) refreshSnapshot() error {
 	pm.exported.Store(false)
 
 	// Update snapshot with current timestamp
-	newSnapshot.Timestamp = pm.clock.Now()
+	now := pm.clock.Now()
+	newSnapshot.Timestamp = now
 	pm.snapshot.Store(newSnapshot)
+	
+	// Update collection heartbeat for liveness checks
+	atomic.StoreInt64(&pm.lastCollectUnixNano, now.UnixNano())
+	
 	pm.signalNewData()
 	pm.logger.Debug("refreshSnapshot",
 		"processes", len(newSnapshot.Processes),
@@ -429,3 +438,46 @@ func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
 
 	return nil
 }
+
+// IsLive checks if the monitor is alive and responsive
+func (pm *PowerMonitor) IsLive(ctx context.Context) (bool, error) {
+	if pm == nil {
+		return false, fmt.Errorf("monitor is nil")
+	}
+	if pm.cpu == nil {
+		return false, fmt.Errorf("CPU meter not initialized")
+	}
+
+	// If periodic collection is expected, require a recent heartbeat
+	if pm.interval > 0 {
+		lastNano := atomic.LoadInt64(&pm.lastCollectUnixNano)
+		if lastNano == 0 {
+			return false, fmt.Errorf("no collection heartbeat yet")
+		}
+		last := time.Unix(0, lastNano)
+		if time.Since(last) > 2*pm.interval { // simple tolerance
+			return false, fmt.Errorf("collector stalled; last=%s", last)
+		}
+	}
+	return true, nil
+}
+
+// IsReady checks if the monitor is ready to serve data
+func (pm *PowerMonitor) IsReady(ctx context.Context) (bool, error) {
+	if pm == nil {
+		return false, fmt.Errorf("monitor is nil")
+	}
+	
+	// Passive mode: ready even without periodic collection
+	if pm.interval == 0 {
+		return true, nil
+	}
+	
+	// Active collection: require at least one snapshot
+	if pm.snapshot.Load() == nil {
+		return false, fmt.Errorf("no data yet")
+	}
+	
+	return true, nil
+}
+
