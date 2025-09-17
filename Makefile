@@ -64,7 +64,7 @@ KEPLER_IMAGE ?= $(IMG_BASE)/kepler:$(VERSION)
 ADDITIONAL_TAGS ?=
 
 # Test parameters
-TEST_PKGS:= $(shell go list ./... | grep -v cmd)
+TEST_PKGS:= $(shell go list ./... | grep -vE '(cmd|testutil)')
 COVER_PROFILE=coverage.out
 COVER_HTML=coverage.html
 
