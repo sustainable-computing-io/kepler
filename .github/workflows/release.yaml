@@ -108,3 +108,11 @@ jobs:
         shell: bash
         run: |
           make push VERSION=${{ steps.version.outputs.version }}
+
+      - name: Push Helm Chart to OCI registry
+        shell: bash
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          # Remove 'v' prefix from version
+          CHART_VERSION=${VERSION#v}
+          helm push helm-releases/kepler-helm-${CHART_VERSION}.tgz oci://${{ env.IMG_BASE }}/charts
