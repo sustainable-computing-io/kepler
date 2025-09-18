@@ -17,7 +17,27 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 - Helm 3.0+
 - Kubernetes cluster with kubectl configured
 
-#### Install from Source
+#### Install from OCI Registry (Recommended)
+
+Install directly from the OCI registry (OCI registries cannot be added as traditional Helm repositories):
+
+```bash
+# Install specific version
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --version 0.11.1 \
+  --namespace kepler \
+  --create-namespace
+
+# Install latest version (omit --version)
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace
+```
+
+#### Install from Source (Development/Testing)
+
+> **NOTE**: This method is intended for development and testing purposes.
+> For production deployments, use the OCI registry method above.
 
 ```bash
 # Clone the repository
@@ -29,21 +49,6 @@ helm install kepler manifests/helm/kepler/ \
   --namespace kepler \
   --create-namespace \
   --set namespace.create=false
-```
-
-#### Install from Release (Future)
-
-```bash
-# Add Kepler Helm repository (once published)
-helm repo add kepler https://sustainable-computing-io.github.io/kepler
-
-# Update repository
-helm repo update
-
-# Install Kepler
-helm install kepler kepler/kepler \
-  --namespace kepler \
-  --create-namespace
 ```
 
 #### Customizing the Installation
@@ -80,10 +85,18 @@ serviceMonitor:
 Install with custom values:
 
 ```bash
+# From source
 helm install kepler manifests/helm/kepler/ \
   --namespace kepler \
   --create-namespace \
   --set namespace.create=false \
+  --values values.yaml
+
+# From OCI registry
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --version 0.11.1 \
+  --namespace kepler \
+  --create-namespace \
   --values values.yaml
 ```
 
@@ -96,8 +109,14 @@ helm status kepler -n kepler
 # List releases
 helm list -n kepler
 
-# Upgrade release
+# Upgrade release from source
 helm upgrade kepler manifests/helm/kepler/ -n kepler
+
+# Upgrade release from OCI registry to specific version
+helm upgrade kepler oci://quay.io/sustainable_computing_io/charts/kepler --version 0.11.2 -n kepler
+
+# Upgrade to latest version from OCI registry
+helm upgrade kepler oci://quay.io/sustainable_computing_io/charts/kepler -n kepler
 
 # Uninstall
 helm uninstall kepler -n kepler
