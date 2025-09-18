@@ -9,6 +9,7 @@ Welcome to the Kepler documentation. Kepler is a Prometheus exporter that measur
 Documentation for users deploying and operating Kepler:
 
 - [Installation Guide](user/installation.md) - How to install and deploy Kepler
+- [Helm Updates Guide](user/helm-updates.md) - Managing Kepler updates and rolling deployments
 - [Configuration Guide](user/configuration.md) - Configuring Kepler for your environment
 - [Metrics Reference](user/metrics.md) - Available Prometheus metrics exported by Kepler
 
