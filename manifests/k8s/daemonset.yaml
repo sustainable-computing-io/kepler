@@ -49,7 +49,9 @@ spec:
               mountPath: /host/proc
               readOnly: true
             - name: cfm
-              mountPath: /etc/kepler
+              mountPath: /etc/kepler/config.yaml
+              subPath: config.yaml
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /metrics
