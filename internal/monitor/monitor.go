@@ -70,6 +70,9 @@ type PowerMonitor struct {
 
 	// lastCollectUnixNano tracks the last collection timestamp for liveness checks
 	lastCollectUnixNano int64
+	
+	// healthCheckTolerance is the multiplier for interval tolerance in liveness checks
+	healthCheckTolerance float64
 
 	zonesNames []string // cache of all zones
 
@@ -107,6 +110,8 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 
 		maxTerminated:                opts.maxTerminated,
 		minTerminatedEnergyThreshold: opts.minTerminatedEnergyThreshold,
+		
+		healthCheckTolerance: opts.healthCheckTolerance,
 
 		collectionCtx:    ctx,
 		collectionCancel: cancel,
@@ -455,8 +460,9 @@ func (pm *PowerMonitor) IsLive(ctx context.Context) (bool, error) {
 			return false, fmt.Errorf("no collection heartbeat yet")
 		}
 		last := time.Unix(0, lastNano)
-		if time.Since(last) > 2*pm.interval { // simple tolerance
-			return false, fmt.Errorf("collector stalled; last=%s", last)
+		tolerance := time.Duration(float64(pm.interval) * pm.healthCheckTolerance)
+		if time.Since(last) > tolerance {
+			return false, fmt.Errorf("collector stalled; last=%s, tolerance=%.1fx interval", last, pm.healthCheckTolerance)
 		}
 	}
 	return true, nil

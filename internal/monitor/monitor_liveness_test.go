@@ -148,14 +148,16 @@ func TestPowerMonitor_IsLive_ActiveMode_StaleHeartbeat(t *testing.T) {
 	}
 
 	interval := 1 * time.Second
+	tolerance := 2.0 // Default tolerance
 	pm := NewPowerMonitor(
 		fakeMeter,
 		WithLogger(logger),
 		WithInterval(interval), // Active mode
+		WithHealthCheckTolerance(tolerance),
 	)
 
-	// Simulate stale heartbeat (older than 2*interval)
-	staleTime := time.Now().Add(-3 * interval) // 3 seconds ago, should be stale
+	// Simulate stale heartbeat (older than tolerance*interval)
+	staleTime := time.Now().Add(-time.Duration(float64(interval) * (tolerance + 1))) // Beyond tolerance
 	atomic.StoreInt64(&pm.lastCollectUnixNano, staleTime.UnixNano())
 
 	ctx := context.Background()
@@ -171,6 +173,9 @@ func TestPowerMonitor_IsLive_ActiveMode_StaleHeartbeat(t *testing.T) {
 	if !containsString(err.Error(), "collector stalled") {
 		t.Errorf("Expected 'collector stalled' error, got: %v", err)
 	}
+	if !containsString(err.Error(), "tolerance=2.0x interval") {
+		t.Errorf("Expected tolerance info in error, got: %v", err)
+	}
 }
 
 func TestPowerMonitor_IsLive_ActiveMode_HeartbeatAtLimit(t *testing.T) {
@@ -182,14 +187,17 @@ func TestPowerMonitor_IsLive_ActiveMode_HeartbeatAtLimit(t *testing.T) {
 	}
 
 	interval := 1 * time.Second
+	tolerance := 2.0
 	pm := NewPowerMonitor(
 		fakeMeter,
 		WithLogger(logger),
 		WithInterval(interval),
+		WithHealthCheckTolerance(tolerance),
 	)
 
-	// Simulate heartbeat exactly at the tolerance limit (2*interval)
-	limitTime := time.Now().Add(-2*interval + 100*time.Millisecond) // Just under the limit
+	// Simulate heartbeat exactly at the tolerance limit
+	toleranceDuration := time.Duration(float64(interval) * tolerance)
+	limitTime := time.Now().Add(-toleranceDuration + 100*time.Millisecond) // Just under the limit
 	atomic.StoreInt64(&pm.lastCollectUnixNano, limitTime.UnixNano())
 
 	ctx := context.Background()
@@ -316,6 +324,56 @@ func TestPowerMonitor_IsLive_ConcurrentAccess(t *testing.T) {
 
 	if aliveCount != numGoroutines {
 		t.Errorf("Expected %d alive results, got %d", numGoroutines, aliveCount)
+	}
+}
+
+func TestPowerMonitor_IsLive_CustomTolerance(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	
+	fakeMeter, err := device.NewFakeCPUMeter([]string{"package-0"}, device.WithFakeLogger(logger))
+	if err != nil {
+		t.Fatalf("Failed to create fake CPU meter: %v", err)
+	}
+
+	interval := 1 * time.Second
+	customTolerance := 3.5 // 3.5x interval tolerance
+
+	pm := NewPowerMonitor(
+		fakeMeter,
+		WithLogger(logger),
+		WithInterval(interval),
+		WithHealthCheckTolerance(customTolerance),
+	)
+
+	ctx := context.Background()
+
+	// Test heartbeat that would be stale with default tolerance (2.0) but fresh with custom (3.5)
+	heartbeatTime := time.Now().Add(-time.Duration(float64(interval) * 3.0)) // 3x interval ago
+	atomic.StoreInt64(&pm.lastCollectUnixNano, heartbeatTime.UnixNano())
+
+	// Should be alive with custom tolerance
+	alive, err := pm.IsLive(ctx)
+	if err != nil {
+		t.Errorf("Expected no error with custom tolerance, got: %v", err)
+	}
+	if !alive {
+		t.Error("Expected alive=true with custom tolerance")
+	}
+
+	// Test heartbeat beyond custom tolerance
+	staleTime := time.Now().Add(-time.Duration(float64(interval) * 4.0)) // 4x interval ago, beyond 3.5x
+	atomic.StoreInt64(&pm.lastCollectUnixNano, staleTime.UnixNano())
+
+	// Should not be alive beyond custom tolerance
+	alive, err = pm.IsLive(ctx)
+	if alive {
+		t.Error("Expected alive=false beyond custom tolerance")
+	}
+	if err == nil {
+		t.Error("Expected error beyond custom tolerance")
+	}
+	if !containsString(err.Error(), "tolerance=3.5x interval") {
+		t.Errorf("Expected custom tolerance info in error, got: %v", err)
 	}
 }
 
