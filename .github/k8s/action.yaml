@@ -87,10 +87,31 @@ runs:
         IMG_BASE: localhost:5001
         VERSION: dev
 
+    - name: Build sushy-static image
+      shell: bash
+      run: |
+        docker build -t localhost:5001/kepler-sushy-static:latest -f hack/Dockerfile.sushy-static .
+
+    - name: Push sushy-static image
+      shell: bash
+      run: |
+        docker push localhost:5001/kepler-sushy-static:latest
+
     - name: Enable fake cpu meter
       shell: bash
       run: |
         sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' manifests/k8s/configmap.yaml
+
+    - name: Enable redfish
+      shell: bash
+      run: |
+        sed -i \
+          -e 's/^  # - redfish-secret.yaml/  - redfish-secret.yaml/' \
+          -e 's/^  # - sushy-deployment.yaml/  - sushy-deployment.yaml/' \
+          -e 's/^  # - sushy-service.yaml/  - sushy-service.yaml/' \
+          -e 's/^# patches:/patches:/' \
+          -e 's/^#   - path: patches\/enable-redfish.yaml/  - path: patches\/enable-redfish.yaml/' \
+          manifests/k8s/kustomization.yaml
 
     - name: Deploy Kepler
       shell: bash
@@ -130,7 +151,8 @@ runs:
           kepler_container_cpu_joules_total \
           kepler_container_cpu_watts \
           kepler_pod_cpu_joules_total \
-          kepler_pod_cpu_watts; do
+          kepler_pod_cpu_watts \
+          kepler_platform_watts; do
           echo "Checking metric: $metric"
           if ! grep -q "$metric" /tmp/metrics.txt; then
             echo "Metric $metric not found"
@@ -139,6 +161,7 @@ runs:
         done
 
     - name: Run must gather
+      if: always()
       shell: bash
       run: |
         echo "::group::Get pods in kepler namespace"
@@ -199,6 +222,7 @@ runs:
         echo "::endgroup::"
 
     - name: Run must gather for Helm deployment
+      if: always()
       shell: bash
       run: |
         echo "::group::Get pods in kepler namespace"
