@@ -54,10 +54,20 @@ spec:
               readOnly: true
           livenessProbe:
             httpGet:
-              path: /metrics
+              path: /probe/livez
               port: http
             initialDelaySeconds: 10
             periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /probe/readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           env:
             - name: NODE_NAME
               valueFrom:
