@@ -19,6 +19,7 @@ type Opts struct {
 	maxStaleness                 time.Duration
 	maxTerminated                int
 	minTerminatedEnergyThreshold Energy
+	healthCheckTolerance         float64
 }
 
 // NewConfig returns a new Config with defaults set
@@ -31,6 +32,7 @@ func DefaultOpts() Opts {
 		resources:                    nil,
 		maxTerminated:                500,
 		minTerminatedEnergyThreshold: 10 * Joule,
+		healthCheckTolerance:         2.0,
 	}
 }
 
@@ -76,6 +78,13 @@ func WithResourceInformer(r resource.Informer) OptionFn {
 func WithMaxTerminated(max int) OptionFn {
 	return func(o *Opts) {
 		o.maxTerminated = max
+	}
+}
+
+// WithHealthCheckTolerance sets the tolerance multiplier for health check heartbeat
+func WithHealthCheckTolerance(tolerance float64) OptionFn {
+	return func(o *Opts) {
+		o.healthCheckTolerance = tolerance
 	}
 }
 
