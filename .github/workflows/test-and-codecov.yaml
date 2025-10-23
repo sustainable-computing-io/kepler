@@ -7,9 +7,15 @@ on: # yamllint disable-line rule:truthy
         description: Codecov token
         required: true
 
+# Restrict permissions for GITHUB_TOKEN by default.
+# Each job must explicitly declare what it needs.
+permissions: {}
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
@@ -32,6 +38,8 @@ jobs:
   coverage-upload:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout source
         uses: actions/checkout@v5

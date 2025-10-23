@@ -3,6 +3,9 @@ name: PR Checks
 on: # yamllint disable-line rule:truthy
   pull_request:
 
+# default permissions as read only
+permissions: read-all
+
 jobs:
   check-changes:
     runs-on: ubuntu-latest
@@ -97,9 +100,18 @@ jobs:
   test-and-codecov:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/test-and-codecov.yaml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  scorecard:
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    uses: ./.github/workflows/scorecard.yml
 
   pre-commit:
     runs-on: ubuntu-latest
