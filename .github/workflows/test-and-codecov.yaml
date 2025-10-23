@@ -10,6 +10,8 @@ on: # yamllint disable-line rule:truthy
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
@@ -32,6 +34,8 @@ jobs:
   coverage-upload:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
