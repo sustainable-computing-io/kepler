@@ -4,14 +4,22 @@ on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
 
+# default permissions as read only
+permissions: read-all
+
 jobs:
   test-and-codecov:
+    permissions:
+      contents: read
     uses: ./.github/workflows/test-and-codecov.yaml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # for each PR merge, openSSF scan
   scorecard:
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
     uses: ./.github/workflows/scorecard.yml
 
   publish:
