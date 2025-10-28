@@ -30,3 +30,17 @@ type Shutdowner interface {
 	// Shutdown shuts down the service
 	Shutdown() error
 }
+
+// LiveChecker is the interface that services can implement to provide liveness status
+type LiveChecker interface {
+	Service
+	// IsLive returns true if the service is alive (initialized and running without fatal errors)
+	IsLive() bool
+}
+
+// ReadyChecker is the interface that services can implement to provide readiness status
+type ReadyChecker interface {
+	Service
+	// IsReady returns true if the service is ready to serve requests (has data and is not stale)
+	IsReady() bool
+}
