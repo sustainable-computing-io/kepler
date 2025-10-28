@@ -17,7 +17,6 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
-// MockMonitor mocks the Monitor interface
 type MockMonitor struct {
 	mock.Mock
 }
