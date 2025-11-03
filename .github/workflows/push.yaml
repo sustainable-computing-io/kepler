@@ -23,6 +23,7 @@ jobs:
     uses: ./.github/workflows/scorecard.yml
 
   publish:
+    if: github.repository_owner == 'sustainable-computing-io'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source

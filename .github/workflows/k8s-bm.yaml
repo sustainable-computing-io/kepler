@@ -30,7 +30,7 @@ jobs:
 
   build-and-deploy:
     needs: [check-changes]
-    if: needs.check-changes.outputs.changes == 'true'
+    if: needs.check-changes.outputs.changes == 'true' && github.repository_owner == 'sustainable-computing-io'
     runs-on: self-hosted
     steps:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
