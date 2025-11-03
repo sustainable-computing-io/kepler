@@ -5,15 +5,14 @@ on: # yamllint disable-line rule:truthy
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
 
-jobs:
-  release:
-    permissions:
-      contents: write
+# default permissions as read only
+permissions: read-all
 
+jobs:
+  build:
     runs-on: ubuntu-latest
     env:
       IMG_BASE: quay.io/sustainable_computing_io
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v5
@@ -90,19 +89,14 @@ jobs:
           # Currently the binary is built for linux-amd64 only
           tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          name: release-${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          draft: false
-          make_latest: true
-          files: |
+          name: release-artifacts
+          retention-days: 1 # Keep the artifacts for 1 day
+          path: |
             helm-releases/*.tgz
             bin/*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Image
         shell: bash
@@ -116,3 +110,38 @@ jobs:
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           helm push helm-releases/kepler-helm-${CHART_VERSION}.tgz oci://${{ env.IMG_BASE }}/charts
+
+  release:
+    needs: build
+    permissions:
+      # contents: write is required for publishing Github Releases
+      # This follows Github's recommended pattern: top-level read-all with minimal job-level permissions
+      # See: https://github.com/softprops/action-gh-release?tab=readme-ov-file#permissions
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+
+      - name: Extract version
+        shell: bash
+        id: version
+        run: |
+          TAG_NAME=${{ github.ref_name }}
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: release-${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          make_latest: true
+          files: |
+            helm-releases/*.tgz
+            bin/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

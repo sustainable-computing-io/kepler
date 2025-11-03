@@ -2,6 +2,9 @@ name: Profiling Report
 on: # yamllint disable-line rule:truthy
   pull_request:
 
+# default permissions as read only
+permissions: read-all
+
 jobs:
   check-changes:
     runs-on: ubuntu-latest
