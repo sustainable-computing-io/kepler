@@ -6,20 +6,22 @@ name: Scorecard supply-chain security
 on: # yamllint disable-line rule:truthy
   workflow_call:
 
-# Declare default permissions as read only.
-permissions: read-all
+# Restrict permissions for GITHUB_TOKEN by default.
+# Each job must explicitly declare what it needs.
+permissions: {}
 
 jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
+      # Needed to checkout code.
+      contents: read
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
-      # contents: read
       # actions: read
 
     steps:
@@ -55,7 +57,7 @@ jobs:
         with:
           name: SARIF file
           path: scorecard-results.sarif
-          retention-days: 5
+          retention-days: 1 # Keeping the results for 1 day
 
       # Upload the results to GitHub's code scanning dashboard.
       - name: Upload to code-scanning
