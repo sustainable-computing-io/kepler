@@ -56,7 +56,43 @@ accurate energy consumption monitoring for cloud-native workloads.
 
 > **📖 For comprehensive installation instructions, troubleshooting, and advanced deployment options, see our [Installation Guide](docs/user/installation.md)**
 
-### ⚡ Quick Start
+### ⚡ Quick Start (Kubernetes with Helm)
+
+```sh
+# 1. Install Kepler using Helm from OCI registry
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace
+
+# Wait for Kepler pods to be running
+kubectl wait --for=condition=ready --timeout=120s pod -n kepler --all
+
+# 2. Verify installation
+kubectl get pods -n kepler
+
+# 3. Access metrics (port-forward)
+kubectl port-forward -n kepler svc/kepler 28282:28282
+
+# Test metrics endpoint
+curl http://localhost:28282/metrics | grep kepler_node_cpu_watts
+```
+
+> **📋 For Production Deployments:** Consider using the [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator#-getting-started) for advanced lifecycle management and operational capabilities.
+
+**Next Steps:**
+
+To ensure Kepler is working correctly and to visualize the metrics:
+
+- **[Verify Metrics Collection](docs/user/installation.md#verify-metrics-collection)** - Verify power consumption metrics are being collected
+- **[Configuration Options](docs/user/configuration.md)** - Customize Kepler deployment
+- **[Helm Updates & Management](docs/user/helm-updates.md)** - Learn how to upgrade and manage Kepler with Helm
+
+**Need Help?**
+
+- [Installation Guide](docs/user/installation.md) - Detailed prerequisites, configuration options, and installation steps
+- [Metrics Documentation](docs/user/metrics.md) - Available metrics and their descriptions
+
+### 🔧 Other Installation Methods
 
 Choose your preferred method:
 
@@ -67,8 +103,10 @@ make build && sudo ./bin/kepler
 # ✨ Docker Compose (with Prometheus & Grafana)
 cd compose/dev && docker-compose up -d
 
-# 🐳 Kubernetes
-helm install kepler manifests/helm/kepler/ --namespace kepler --create-namespace
+# 🐳 Kubernetes with Kustomize
+kubectl kustomize manifests/k8s | \
+  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" | \
+  kubectl apply --server-side --force-conflicts -f -
 ```
 
 ## 📖 Documentation
