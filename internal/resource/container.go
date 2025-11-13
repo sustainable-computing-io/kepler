@@ -21,7 +21,7 @@ var (
 	libpodPattern        = regexp.MustCompile(`libpod-([0-9a-f]{64}).*`)
 	libpodPayloadPattern = regexp.MustCompile(`/libpod-payload-([0-9a-f]+)`)
 
-	kubepodsPattern = regexp.MustCompile(`/kubepods/[^/]+/pod[0-9a-f\-]+/([0-9a-f]{64})`)
+	kubepodsPattern = regexp.MustCompile(`/kubepods/([^/]+/)?pod[0-9a-f\-]+/([0-9a-f]{64})`)
 )
 
 // containerPatterns maps pre-compiled patterns to runtime types
