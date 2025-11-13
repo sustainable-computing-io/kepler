@@ -99,7 +99,7 @@ jobs:
 
   test-and-codecov:
     needs: check-changes
-    if: needs.check-changes.outputs.changes == 'true'
+    if: needs.check-changes.outputs.changes == 'true' && github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     uses: ./.github/workflows/test-and-codecov.yaml
