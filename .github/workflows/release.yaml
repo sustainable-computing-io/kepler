@@ -7,9 +7,9 @@ on: # yamllint disable-line rule:truthy
 
 # default permissions as read only
 permissions: read-all
-
 jobs:
   build:
+    if: github.repository_owner == 'sustainable-computing-io'
     runs-on: ubuntu-latest
     env:
       IMG_BASE: quay.io/sustainable_computing_io
@@ -45,22 +45,15 @@ jobs:
         shell: bash
         run: make deps
 
-      - name: Extract version
-        shell: bash
-        id: version
-        run: |
-          TAG_NAME=${{ github.ref_name }}
-          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
-
       - name: Build Image
         shell: bash
         run: |
-          make image VERSION=${{ steps.version.outputs.version }}
+          make image VERSION=${{ github.ref_name }}
 
       - name: Update Helm Chart Version
         shell: bash
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ github.ref_name }}
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           # Update Chart.yaml with the release version
@@ -71,7 +64,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p helm-releases
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ github.ref_name }}
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           helm package manifests/helm/kepler -d helm-releases
@@ -81,7 +74,7 @@ jobs:
       - name: Build Kepler binary
         shell: bash
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ github.ref_name }}
           # Remove 'v' prefix from version
           VERSION=${VERSION#v}
           make build PRODUCTION=1
@@ -101,12 +94,12 @@ jobs:
       - name: Push Image
         shell: bash
         run: |
-          make push VERSION=${{ steps.version.outputs.version }}
+          make push VERSION=${{ github.ref_name }}
 
       - name: Push Helm Chart to OCI registry
         shell: bash
         run: |
-          VERSION=${{ steps.version.outputs.version }}
+          VERSION=${{ github.ref_name }}
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           helm push helm-releases/kepler-helm-${CHART_VERSION}.tgz oci://${{ env.IMG_BASE }}/charts
@@ -125,18 +118,11 @@ jobs:
         with:
           name: release-artifacts
 
-      - name: Extract version
-        shell: bash
-        id: version
-        run: |
-          TAG_NAME=${{ github.ref_name }}
-          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: release-${{ steps.version.outputs.version }}
+          name: release-${{ github.ref_name }}
           generate_release_notes: true
           draft: false
           make_latest: true
