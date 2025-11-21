@@ -129,6 +129,16 @@ func TestContainerIDFromPathWithCgroup(t *testing.T) {
 
 		expected: expect{id: "35b97177dada20362ab90d90ac63cd54e8a41cf87bea34f270631b6da17f4a93", runtime: KubePodsRuntime},
 	}, {
+		name: "valid path with guaranteed qos pod",
+		path: "0::/kubepods/pod51b64565-2b17-4d46-83ac-22e398f2f7fb/65d752a38e1db784d521f48c3f1956f4f9a74ebb923377144f253f3aca9fa028",
+
+		expected: expect{id: "65d752a38e1db784d521f48c3f1956f4f9a74ebb923377144f253f3aca9fa028", runtime: KubePodsRuntime},
+	}, {
+		name: "valid path with burstable qos pod",
+		path: "0::/kubepods/burstable/pod5a89bcaa-3509-4375-83e1-b9e7a5712123/a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee",
+
+		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
+	}, {
 		name: "podman rootless container",
 		path: "0::/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-3f05ee050f82c0145f1d88c94269c39dff0f07dbf8bba20aafd54b3a75dcaecc.scope/container",
 
