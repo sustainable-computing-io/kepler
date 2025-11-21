@@ -139,6 +139,16 @@ func TestContainerIDFromPathWithCgroup(t *testing.T) {
 
 		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
 	}, {
+		name: "guaranteed qos pod cgroup v2 systemd slice openshift",
+		path: "0::/kubepods.slice/kubepods-pod7922aa99_d4aa_4885_a953_82976860b23a.slice/crio-1c33afbc9e5aa6c69150d1af05254b562a4b17c313fc6153e3625cf456922bfe.scope",
+
+		expected: expect{id: "1c33afbc9e5aa6c69150d1af05254b562a4b17c313fc6153e3625cf456922bfe", runtime: CrioRuntime},
+	}, {
+		name: "besteffort qos pod cgroup v2 systemd slice openshift",
+		path: "0::/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-poddbdd9718_6f63_40ef_987e_34776599d7d6.slice/crio-bdf2eeede4551b27acbbb05fb1b4f61925786681734bf128e68d39e17d115098.scope",
+
+		expected: expect{id: "bdf2eeede4551b27acbbb05fb1b4f61925786681734bf128e68d39e17d115098", runtime: CrioRuntime},
+	}, {
 		name: "podman rootless container",
 		path: "0::/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-3f05ee050f82c0145f1d88c94269c39dff0f07dbf8bba20aafd54b3a75dcaecc.scope/container",
 
