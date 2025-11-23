@@ -15,8 +15,7 @@ RUN make build \
   GIT_COMMIT=${GIT_COMMIT} \
   GIT_BRANCH=${GIT_BRANCH}
 
-FROM registry.access.redhat.com/ubi9:latest
-
+FROM scratch
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /workspace/bin/kepler-release /usr/bin/kepler
-
 ENTRYPOINT ["/usr/bin/kepler"]
