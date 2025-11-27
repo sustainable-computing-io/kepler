@@ -26,7 +26,7 @@ endif
 BINARY_DIR=bin
 MAIN_GO_PATH=./cmd/kepler
 VERSION?=$(shell git describe --tags --always --dirty || echo "dev")
-BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null)
 
@@ -167,6 +167,7 @@ deps: ## Dependencies management (tidy and verify)
 image: ## Docker image build
 	docker build -t \
 		$(KEPLER_IMAGE) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg GIT_BRANCH=$(GIT_BRANCH) \
