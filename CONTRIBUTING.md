@@ -75,7 +75,7 @@ For smaller improvements to existing functionality:
 
 ### Set up your dev environment
 
-1. Install Go (1.19 or later recommended)
+1. Install Go 1.24.0+ (toolchain go1.24.9)
 2. Install pre-commit hooks:
 
 ```bash

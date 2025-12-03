@@ -4,7 +4,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 
 ## Prerequisites
 
-- **For Local Installation**: Go 1.21+ and sudo access for hardware sensor access
+- **For Local Installation**: Go 1.24.0+ and sudo access for hardware sensor access
 - **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
