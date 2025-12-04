@@ -30,6 +30,15 @@ type (
 		path           string
 		maxMicroJoules Energy
 	}
+
+	MockPowerZone struct {
+		power    float64
+		powerErr error
+
+		name  string
+		index int
+		path  string
+	}
 )
 
 func NewMockRaplZone(name string, index int, path string, maxMicroJoules Energy) *MockRaplZone {
@@ -73,6 +82,49 @@ func (m *MockRaplZone) OnEnergy(j Energy, err error) {
 
 func (m *MockRaplZone) Inc(delta Energy) {
 	m.energy = (m.energy + delta) % m.maxMicroJoules
+}
+
+func NewMockPowerZone(name string, index int, path string) *MockPowerZone {
+	return &MockPowerZone{
+		name:  name,
+		index: index,
+		path:  path,
+	}
+}
+
+func (m MockPowerZone) Index() int {
+	return m.index
+}
+
+func (m MockPowerZone) Path() string {
+	return m.path
+}
+
+func (m MockPowerZone) Name() string {
+	return m.name
+}
+
+func (m MockPowerZone) Energy() (Energy, error) {
+	// Power zones don't provide energy readings
+	return 0, nil
+}
+
+func (m MockPowerZone) MaxEnergy() Energy {
+	// Power zones don't have max energy
+	return 0
+}
+
+func (m MockPowerZone) Power() (float64, error) {
+	return m.power, m.powerErr
+}
+
+func (m *MockPowerZone) OnPower(watts float64, err error) {
+	m.power = watts
+	m.powerErr = err
+}
+
+func (m *MockPowerZone) SetPower(watts float64) {
+	m.power = watts
 }
 
 func validSysFSFixtures(t *testing.T) sysfs.FS {

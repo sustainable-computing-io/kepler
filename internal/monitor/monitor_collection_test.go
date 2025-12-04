@@ -184,6 +184,7 @@ func TestCollectionCancellation(t *testing.T) {
 	time.Sleep(waitInterval)
 	cancel()
 
+	// Wait for Run() to complete to ensure all in-flight collections finish
 	select {
 	case <-runCh:
 		t.Log("Run exited as expected")
@@ -192,6 +193,9 @@ func TestCollectionCancellation(t *testing.T) {
 		t.Fatal("Run didn't exit after context cancellation")
 	}
 	assert.GreaterOrEqual(t, energyCalls.Load(), int32(waitInterval/interval)-1, "Should have made at least 5 energy call")
+
+	// Give extra time for any in-flight collection goroutines to complete
+	time.Sleep(100 * time.Millisecond)
 
 	snapshotAfterRun := monitor.snapshot.Load()
 	require.NotNil(t, snapshotAfterRun)
