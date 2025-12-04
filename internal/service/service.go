@@ -30,3 +30,15 @@ type Shutdowner interface {
 	// Shutdown shuts down the service
 	Shutdown() error
 }
+
+// LiveChecker is the interface for checking if a service is alive
+type LiveChecker interface {
+	// IsLive returns whether the service is alive and responsive
+	IsLive(ctx context.Context) (bool, error)
+}
+
+// ReadyChecker is the interface for checking if a service is ready to serve traffic
+type ReadyChecker interface {
+	// IsReady returns whether the service is ready to handle requests
+	IsReady(ctx context.Context) (bool, error)
+}
