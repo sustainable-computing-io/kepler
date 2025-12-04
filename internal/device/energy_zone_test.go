@@ -32,7 +32,8 @@ func (m *mockEnergyZone) Energy() (Energy, error) {
 	defer m.mu.RUnlock()
 	return m.energy, m.err
 }
-func (m *mockEnergyZone) MaxEnergy() Energy { return m.maxEnergy }
+func (m *mockEnergyZone) MaxEnergy() Energy       { return m.maxEnergy }
+func (m *mockEnergyZone) Power() (float64, error) { return 0, nil }
 
 // SetEnergy safely updates the energy value for testing
 func (m *mockEnergyZone) SetEnergy(energy Energy) {
