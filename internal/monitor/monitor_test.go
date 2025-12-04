@@ -271,6 +271,7 @@ func TestPowerMonitor_Run(t *testing.T) {
 	// Set up pkg mock
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -355,6 +356,7 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 
 	zone := &MockEnergyZone{}
 	zone.On("Name").Return("test-zone")
+	zone.On("MaxEnergy").Return(Energy(1000 * Joule))
 	zone.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(zone, nil)

@@ -25,6 +25,7 @@ func (z *fakeZone) Index() int              { return z.index }
 func (z *fakeZone) Path() string            { return "/fake/path" }
 func (z *fakeZone) Energy() (Energy, error) { return 0, nil }
 func (z *fakeZone) MaxEnergy() Energy       { return 1000000 * Joule }
+func (z *fakeZone) Power() (float64, error) { return 0, nil }
 
 func TestNodeClone(t *testing.T) {
 	t.Run("nil_safety", func(t *testing.T) {

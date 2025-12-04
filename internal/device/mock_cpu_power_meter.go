@@ -9,6 +9,8 @@ import (
 	"slices"
 	"testing"
 
+	"fmt"
+
 	"github.com/prometheus/procfs/sysfs"
 	"github.com/stretchr/testify/require"
 )
@@ -57,6 +59,11 @@ func (m MockRaplZone) Energy() (Energy, error) {
 
 func (m MockRaplZone) MaxEnergy() Energy {
 	return m.maxMicroJoules
+}
+
+func (m MockRaplZone) Power() (float64, error) {
+	// Mock RAPL zones don't provide power
+	return 0, fmt.Errorf("mock rapl zones do not provide power readings")
 }
 
 func (m *MockRaplZone) OnEnergy(j Energy, err error) {

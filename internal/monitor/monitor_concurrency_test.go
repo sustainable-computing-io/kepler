@@ -286,6 +286,7 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("Index").Return(0)
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	// first call to Energy succeeds, second fails
 	pkg.On("Energy").Return(Energy(100_000), nil).Once()
@@ -564,6 +565,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 
 		pkg := &MockEnergyZone{}
 		pkg.On("Name").Return("package")
+		pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 		// Track the number of collections by tracking energy reads
 		var computeCount atomic.Int32
