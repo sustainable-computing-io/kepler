@@ -285,3 +285,9 @@ func (s sysfsRaplZone) Energy() (Energy, error) {
 func (s sysfsRaplZone) MaxEnergy() Energy {
 	return Energy(s.zone.MaxMicrojoules)
 }
+
+// Power returns the current power consumption in watts
+// RAPL zones provide cumulative energy, not instantaneous power
+func (s sysfsRaplZone) Power() (float64, error) {
+	return 0, fmt.Errorf("RAPL zones do not provide instantaneous power readings")
+}

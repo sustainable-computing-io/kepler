@@ -64,6 +64,12 @@ func (z *fakeEnergyZone) MaxEnergy() Energy {
 	return z.maxEnergy
 }
 
+// Power for fake zones implemented to satisfy interface.
+func (z *fakeEnergyZone) Power() (float64, error) {
+	// Fake zones don't provide power, only energy
+	return 0, fmt.Errorf("fake zones do not provide power readings")
+}
+
 // fakeRaplMeter implements the CPUPowerMeter interface
 type fakeRaplMeter struct {
 	logger     *slog.Logger

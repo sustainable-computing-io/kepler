@@ -20,7 +20,8 @@ func TestCollectionLoop(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
-	// NOTE:  max energy is not called for the initial collection, since there is no diff calculation
+	// NOTE: MaxEnergy is now called during first read for zone type detection
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -59,7 +60,6 @@ func TestCollectionLoop(t *testing.T) {
 
 	mockMeter.AssertExpectations(t)
 	pkg.AssertExpectations(t)
-	pkg.AssertNotCalled(t, "MaxEnergy")
 }
 
 func TestPeriodicCollection(t *testing.T) {
@@ -271,7 +271,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("Energy").Return(Energy(100*Joule), nil).Twice()
-	pkg.On("MaxEnergy").Return(Energy(1000*Joule), nil).Once()
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
