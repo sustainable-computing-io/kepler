@@ -335,12 +335,20 @@ func TestConcurrentRegistration(t *testing.T) {
 	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), config.MetricsLevelAll)
 	assert.NoError(t, fakeMonitor.Init())
 
+	// Start monitor in background and ensure it completes before test cleanup
+	var monitorWg sync.WaitGroup
+	monitorWg.Add(1)
 	go func() {
+		defer monitorWg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
+	// Ensure monitor completes before test ends to avoid data races in cleanup
+	t.Cleanup(func() {
+		monitorWg.Wait()
+	})
 
 	// Create registries
 	registries := make([]*prometheus.Registry, numRegistries)

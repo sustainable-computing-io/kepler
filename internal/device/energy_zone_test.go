@@ -20,7 +20,9 @@ type mockEnergyZone struct {
 	path      string
 	energy    Energy
 	maxEnergy Energy
+	power     float64
 	err       error
+	powerErr  error
 	mu        sync.RWMutex
 }
 
@@ -32,14 +34,32 @@ func (m *mockEnergyZone) Energy() (Energy, error) {
 	defer m.mu.RUnlock()
 	return m.energy, m.err
 }
-func (m *mockEnergyZone) MaxEnergy() Energy       { return m.maxEnergy }
-func (m *mockEnergyZone) Power() (float64, error) { return 0, nil }
+func (m *mockEnergyZone) MaxEnergy() Energy { return m.maxEnergy }
+func (m *mockEnergyZone) Power() (float64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.power, m.powerErr
+}
 
 // SetEnergy safely updates the energy value for testing
 func (m *mockEnergyZone) SetEnergy(energy Energy) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.energy = energy
+}
+
+// SetPower safely updates the power value for testing
+func (m *mockEnergyZone) SetPower(power float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.power = power
+}
+
+// SetPowerError safely updates the power error for testing
+func (m *mockEnergyZone) SetPowerError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.powerErr = err
 }
 
 // TestNewAggregatedZone tests constructor validation and basic properties
@@ -610,5 +630,314 @@ func TestAggregatedZone_EdgeCases(t *testing.T) {
 
 		expected2 := energy1 + 1000 // Total delta should be 1000
 		assert.Equal(t, expected2, energy2)
+	})
+}
+
+// TestAggregatedZone_Power tests the Power() method
+func TestAggregatedZone_Power(t *testing.T) {
+	t.Run("BasicPowerAggregation", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 50.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 75.5, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 125.5, power) // 50.0 + 75.5
+	})
+
+	t.Run("SingleZonePower", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 42.5, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 42.5, power)
+	})
+
+	t.Run("ZeroPower", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 0.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 0.0, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 0.0, power)
+	})
+
+	t.Run("MultipleZonesPower", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 25.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 30.5, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 2, power: 45.25, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 3, power: 60.0, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.InDelta(t, 160.75, power, 0.01) // 25.0 + 30.5 + 45.25 + 60.0
+	})
+
+	t.Run("PowerWithDecimalValues", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 12.345, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 67.890, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.InDelta(t, 80.235, power, 0.001)
+	})
+}
+
+// TestAggregatedZone_PowerErrorHandling tests error scenarios in Power()
+func TestAggregatedZone_PowerErrorHandling(t *testing.T) {
+	t.Run("SingleZoneError", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 50.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 75.5, powerErr: fmt.Errorf("sensor failure"), maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read power from zone")
+		assert.Contains(t, err.Error(), "sensor failure")
+		assert.Equal(t, 0.0, power)
+	})
+
+	t.Run("FirstZoneError", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 0.0, powerErr: fmt.Errorf("hw error"), maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 75.5, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read power from zone")
+		assert.Equal(t, 0.0, power)
+	})
+
+	t.Run("AllZonesError", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, powerErr: fmt.Errorf("error1"), maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, powerErr: fmt.Errorf("error2"), maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read power from zone")
+		assert.Equal(t, 0.0, power)
+	})
+}
+
+// TestAggregatedZone_PowerConcurrentAccess tests thread safety of Power()
+func TestAggregatedZone_PowerConcurrentAccess(t *testing.T) {
+	t.Run("ConcurrentPowerReads", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 50.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 75.5, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		done := make(chan bool, 20)
+		results := make(chan float64, 20)
+
+		// Multiple concurrent Power() calls
+		for i := 0; i < 20; i++ {
+			go func() {
+				defer func() { done <- true }()
+				power, err := az.Power()
+				if err == nil {
+					results <- power
+				}
+			}()
+		}
+
+		// Wait for all goroutines
+		for i := 0; i < 20; i++ {
+			<-done
+		}
+		close(results)
+
+		// All results should be the same
+		var powers []float64
+		for power := range results {
+			powers = append(powers, power)
+		}
+
+		assert.Len(t, powers, 20)
+		for _, power := range powers {
+			assert.InDelta(t, 125.5, power, 0.001)
+		}
+	})
+
+	t.Run("ConcurrentPowerReadsWithUpdates", func(t *testing.T) {
+		zone0 := &mockEnergyZone{name: "package", index: 0, power: 50.0, maxEnergy: 1000}
+		zone1 := &mockEnergyZone{name: "package", index: 1, power: 75.5, maxEnergy: 1000}
+		zones := []EnergyZone{zone0, zone1}
+
+		az := NewAggregatedZone(zones)
+
+		done := make(chan bool, 30)
+		results := make(chan float64, 20)
+
+		// Goroutines that update power values
+		for i := 0; i < 10; i++ {
+			go func(powerVal float64) {
+				defer func() { done <- true }()
+				zone0.SetPower(powerVal)
+			}(float64(i * 10))
+		}
+
+		// Goroutines that read power
+		for i := 0; i < 20; i++ {
+			go func() {
+				defer func() { done <- true }()
+				power, err := az.Power()
+				if err == nil {
+					results <- power
+				}
+			}()
+		}
+
+		// Wait for all goroutines
+		for i := 0; i < 30; i++ {
+			<-done
+		}
+		close(results)
+
+		// Collect results - they should all be valid
+		var powers []float64
+		for power := range results {
+			powers = append(powers, power)
+		}
+
+		assert.NotEmpty(t, powers)
+		// All power values should be non-negative
+		for _, power := range powers {
+			assert.GreaterOrEqual(t, power, 0.0)
+		}
+	})
+}
+
+// TestAggregatedZone_PowerAndEnergyIndependence tests that Power() and Energy() are independent
+func TestAggregatedZone_PowerAndEnergyIndependence(t *testing.T) {
+	t.Run("PowerDoesNotAffectEnergy", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, energy: 100, power: 50.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, energy: 200, power: 75.5, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		// Call Power() first
+		power1, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 125.5, power1)
+
+		// Call Energy() - should still work correctly
+		energy1, err := az.Energy()
+		require.NoError(t, err)
+		assert.Equal(t, Energy(300), energy1)
+
+		// Call Power() again - should return same value
+		power2, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 125.5, power2)
+
+		// Energy should be unchanged
+		energy2, err := az.Energy()
+		require.NoError(t, err)
+		assert.Equal(t, Energy(300), energy2)
+	})
+
+	t.Run("EnergyDoesNotAffectPower", func(t *testing.T) {
+		zone := &mockEnergyZone{name: "package", index: 0, energy: 100, power: 50.0, maxEnergy: 1000}
+		zones := []EnergyZone{zone}
+
+		az := NewAggregatedZone(zones)
+
+		// Call Energy() first
+		energy1, err := az.Energy()
+		require.NoError(t, err)
+		assert.Equal(t, Energy(100), energy1)
+
+		// Call Power() - should work correctly
+		power1, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 50.0, power1)
+
+		// Update energy
+		zone.SetEnergy(200)
+		energy2, err := az.Energy()
+		require.NoError(t, err)
+		assert.Equal(t, Energy(200), energy2)
+
+		// Power should still be the same
+		power2, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 50.0, power2)
+	})
+}
+
+// TestAggregatedZone_PowerEdgeCases tests edge cases for Power()
+func TestAggregatedZone_PowerEdgeCases(t *testing.T) {
+	t.Run("VeryLargePowerValues", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 999999.99, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 888888.88, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.InDelta(t, 1888888.87, power, 0.01)
+	})
+
+	t.Run("VerySmallPowerValues", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 0.0001, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 0.0002, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.InDelta(t, 0.0003, power, 0.00001)
+	})
+
+	t.Run("MixedPositiveAndZeroPower", func(t *testing.T) {
+		zones := []EnergyZone{
+			&mockEnergyZone{name: "package", index: 0, power: 100.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 1, power: 0.0, maxEnergy: 1000},
+			&mockEnergyZone{name: "package", index: 2, power: 50.0, maxEnergy: 1000},
+		}
+
+		az := NewAggregatedZone(zones)
+
+		power, err := az.Power()
+		require.NoError(t, err)
+		assert.Equal(t, 150.0, power)
 	})
 }
