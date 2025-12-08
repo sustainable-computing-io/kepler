@@ -36,35 +36,118 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 
 	var retErr error
 	for _, zone := range zones {
-		absEnergy, err := zone.Energy()
-		if err != nil {
-			retErr = errors.Join(err)
-			pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", err)
-			continue
+		var deltaEnergy Energy
+		var power Power
+		var absEnergy Energy
+
+		// Try to read energy first (for RAPL zones)
+		energyReading, energyErr := zone.Energy()
+
+		// Detect zone type based on MaxEnergy and energy reading
+		// hwmon zones have MaxEnergy() == 0 and Energy() returns 0
+		isEnergySensor := zone.MaxEnergy() > 0 || energyReading > 0
+
+		if isEnergySensor {
+			// energy sensor
+			absEnergy = energyReading
+
+			if energyErr != nil {
+				retErr = errors.Join(energyErr)
+				pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", energyErr)
+				continue
+			}
+
+			pm.logger.Debug("Processing energy zone",
+				"zone", zone.Name(),
+				"type", "energy",
+				"abs_energy", absEnergy,
+				"max_energy", zone.MaxEnergy())
+		} else {
+			// power sensor
+			powerReading, powerErr := zone.Power()
+			if powerErr != nil {
+				retErr = errors.Join(powerErr)
+				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
+				continue
+			}
+
+			// Convert watts to microwatts for consistency
+			power = Power(powerReading * 1000000.0)
+
+			pm.logger.Debug("Processing power zone",
+				"zone", zone.Name(),
+				"type", "power",
+				"power_watts", powerReading,
+				"power_microwatts", power.MicroWatts())
+
+			// For power zones, we don't have absolute energy
+			// We'll calculate deltaEnergy below using power and timeDiff
+			absEnergy = 0
 		}
 
 		// Calculate watts and joules diff if we have previous data for the zone
 		var activeEnergy, activeEnergyTotal, idleEnergyTotal Energy
-		var power, activePower, idlePower Power
+		var activePower, idlePower Power
 
 		if prevZone, ok := prevZones[zone]; ok {
-			// Absolute is a running total, so to find the current energy usage, calculate the delta
-			// delta = current - previous
+
+			if isEnergySensor {
+				// energy sensor
+				// RAPL: Calculate delta from cumulative energy counters
+				// Absolute is a running total, so to find the current energy usage, calculate the delta
+				// delta = current - previous
+				deltaEnergy = calculateEnergyDelta(absEnergy, prevZone.EnergyTotal, zone.MaxEnergy())
+
+				// Derive power from energy delta: P = ΔE / Δt
+				powerF64 := float64(deltaEnergy) / float64(timeDiff)
+				power = Power(powerF64)
+
+				pm.logger.Debug("Energy zone delta calculation",
+					"zone", zone.Name(),
+					"current", absEnergy,
+					"previous", prevZone.EnergyTotal,
+					"delta_energy", deltaEnergy,
+					"time_diff", timeDiff,
+					"power", power)
+			} else {
+				// power sensor
+				// hwmon: Calculate energy from instantaneous power reading
+				// Energy = Power × Time
+				// E (µJ) = P (µW) × t (s)
+				deltaEnergy = Energy(float64(power) * timeDiff)
+
+				// For energy accumulation, we need to maintain a cumulative counter
+				// even though hwmon doesn't provide one natively
+				absEnergy = prevZone.EnergyTotal + deltaEnergy
+
+				pm.logger.Debug("Power zone energy integration",
+					"zone", zone.Name(),
+					"power", power,
+					"time_diff", timeDiff,
+					"delta_energy", deltaEnergy,
+					"accumulated_energy", absEnergy)
+			}
+
+			// Idle and Dynamic Division
 			// active = delta * cpuUsage
 			// idle = delta - active
-
-			deltaEnergy := calculateEnergyDelta(absEnergy, prevZone.EnergyTotal, zone.MaxEnergy())
-
 			activeEnergy = Energy(float64(deltaEnergy) * nodeCPUUsageRatio)
 			idleEnergy := deltaEnergy - activeEnergy
 
 			activeEnergyTotal = prevZone.ActiveEnergyTotal + activeEnergy
 			idleEnergyTotal = prevZone.IdleEnergyTotal + idleEnergy
 
-			powerF64 := float64(deltaEnergy) / float64(timeDiff)
-			power = Power(powerF64)
-			activePower = Power(powerF64 * nodeCPUUsageRatio)
+			activePower = Power(float64(power) * nodeCPUUsageRatio)
 			idlePower = power - activePower
+		} else {
+			// initial reading
+			pm.logger.Debug("First reading for zone",
+				"zone", zone.Name(),
+				"type", map[bool]string{true: "energy", false: "power"}[isEnergySensor])
+
+			// For first reading, we can't calculate delta or power
+			// For power zones, we could use the current power reading, but
+			// we'll be conservative and wait for the next sample
 		}
 
 		newNode.Zones[zone] = NodeUsage{
@@ -109,12 +192,48 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 	nodeCPUUsageRatio := pm.resources.Node().CPUUsageRatio
 	var retErr error
 	for _, zone := range zones {
-		energy, err := zone.Energy()
-		if err != nil {
-			retErr = errors.Join(err)
-			pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", err)
-			continue
+
+		var energy Energy
+		var power Power
+
+		// Try to read energy first
+		energyReading, energyErr := zone.Energy()
+
+		// Detect if this is an energy zone or power zone
+		isEnergySensor := zone.MaxEnergy() > 0 || energyReading > 0
+
+		if isEnergySensor {
+			// energy sensor
+			if energyErr != nil {
+				retErr = errors.Join(energyErr)
+				pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", energyErr)
+				continue
+			}
+			energy = energyReading
+
+			pm.logger.Info("First read - energy zone",
+				"zone", zone.Name(),
+				"energy", energy)
+		} else {
+			// power sensor
+			powerReading, powerErr := zone.Power()
+			if powerErr != nil {
+				retErr = errors.Join(powerErr)
+				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
+				continue
+			}
+
+			// For first reading, we start with 0 accumulated energy
+			// Next reading will integrate power over time
+			energy = 0
+			power = Power(powerReading * 1000000.0) // Convert W to µW
+
+			pm.logger.Info("First read - power zone",
+				"zone", zone.Name(),
+				"power_watts", powerReading,
+				"power_microwatts", power.MicroWatts())
 		}
+
 		activeEnergy := Energy(float64(energy) * nodeCPUUsageRatio)
 		idleEnergy := energy - activeEnergy
 
@@ -123,7 +242,9 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 			ActiveEnergyTotal: activeEnergy,
 			IdleEnergyTotal:   idleEnergy,
 			activeEnergy:      activeEnergy,
-			// Power can't be calculated in the first read since we need Δt
+			Power:             power, // Will be 0 for energy zones on first read
+			// Power can't be calculated for energy zones in the first read since we need Δt
+			// For power zones, we set it immediately
 		}
 	}
 
