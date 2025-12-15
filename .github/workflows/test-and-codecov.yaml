@@ -30,7 +30,7 @@ jobs:
         run: make test
 
       - name: Upload coverage report as artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: coverage.out # The file name of the coverage report should be same as what make target uses
@@ -45,12 +45,12 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download coverage report artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: coverage-report
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v5.5.2
         with:
           fail_ci_if_error: true
           files: ./coverage.out
