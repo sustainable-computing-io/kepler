@@ -65,7 +65,7 @@ func (z *fakeEnergyZone) MaxEnergy() Energy {
 }
 
 // Power for fake zones implemented to satisfy interface.
-func (z *fakeEnergyZone) Power() (float64, error) {
+func (z *fakeEnergyZone) Power() (Power, error) {
 	// Fake zones don't provide power, only energy
 	return 0, fmt.Errorf("fake zones do not provide power readings")
 }

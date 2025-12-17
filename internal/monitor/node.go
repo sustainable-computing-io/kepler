@@ -42,6 +42,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 
 		// Try to read energy first (for RAPL zones)
 		energyReading, energyErr := zone.Energy()
+		powerReading, powerErr := zone.Power()
 
 		// Detect zone type based on MaxEnergy and energy reading
 		// hwmon zones have MaxEnergy() == 0 and Energy() returns 0
@@ -64,20 +65,19 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 				"max_energy", zone.MaxEnergy())
 		} else {
 			// power sensor
-			powerReading, powerErr := zone.Power()
 			if powerErr != nil {
 				retErr = errors.Join(powerErr)
 				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
 				continue
 			}
 
-			// Convert watts to microwatts for consistency
-			power = Power(powerReading * 1000000.0)
+			// Power is already in microwatts
+			power = powerReading
 
 			pm.logger.Debug("Processing power zone",
 				"zone", zone.Name(),
 				"type", "power",
-				"power_watts", powerReading,
+				"power_watts", powerReading.Watts(),
 				"power_microwatts", power.MicroWatts())
 
 			// For power zones, we don't have absolute energy
@@ -139,6 +139,12 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 
 			activePower = Power(float64(power) * nodeCPUUsageRatio)
 			idlePower = power - activePower
+			pm.logger.Debug("Active and idle power/energy",
+				"active_power", activePower,
+				"idle_power", idlePower,
+				"active_energy", activeEnergy,
+				"idle_energy", idleEnergy,
+			)
 		} else {
 			// initial reading
 			pm.logger.Debug("First reading for zone",
@@ -196,8 +202,8 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 		var energy Energy
 		var power Power
 
-		// Try to read energy first
 		energyReading, energyErr := zone.Energy()
+		powerReading, powerErr := zone.Power()
 
 		// Detect if this is an energy zone or power zone
 		isEnergySensor := zone.MaxEnergy() > 0 || energyReading > 0
@@ -216,7 +222,6 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 				"energy", energy)
 		} else {
 			// power sensor
-			powerReading, powerErr := zone.Power()
 			if powerErr != nil {
 				retErr = errors.Join(powerErr)
 				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
@@ -226,11 +231,11 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 			// For first reading, we start with 0 accumulated energy
 			// Next reading will integrate power over time
 			energy = 0
-			power = Power(powerReading * 1000000.0) // Convert W to µW
+			power = powerReading
 
 			pm.logger.Info("First read - power zone",
 				"zone", zone.Name(),
-				"power_watts", powerReading,
+				"power_watts", powerReading.Watts(),
 				"power_microwatts", power.MicroWatts())
 		}
 

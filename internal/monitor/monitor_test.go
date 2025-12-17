@@ -74,6 +74,7 @@ func TestPowerMonitor_Init(t *testing.T) {
 	pkg.On("Path").Return("")
 	pkg.On("Energy").Return(Energy(100_000), nil)
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 	energyZones := []device.EnergyZone{
 		pkg,
 	}
@@ -141,6 +142,7 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 	pkg.On("Path").Return("")
 	pkg.On("Energy").Return(Energy(100_000), nil)
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	energyZones := []device.EnergyZone{
 		pkg,
@@ -272,6 +274,7 @@ func TestPowerMonitor_Run(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -321,6 +324,7 @@ func TestPowerMonitor_Run_WithTimeout(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 
@@ -357,6 +361,7 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	zone := &MockEnergyZone{}
 	zone.On("Name").Return("test-zone")
 	zone.On("MaxEnergy").Return(Energy(1000 * Joule))
+	zone.On("Power").Return(Power(0), assert.AnError)
 	zone.On("Energy").Return(Energy(100*Joule), nil)
 	mockMeter.On("Zones").Return([]EnergyZone{zone}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(zone, nil)

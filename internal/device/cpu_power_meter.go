@@ -27,7 +27,7 @@ type EnergyZone interface {
 
 	// Power() returns the current power consumption by the zone.
 	// This method is used for zones that provide instantaneous power readings.
-	Power() (float64, error)
+	Power() (Power, error)
 }
 
 // CPUPowerMeter implements powerMeter

@@ -153,12 +153,12 @@ func (az *AggregatedZone) MaxEnergy() Energy {
 	return az.maxEnergy
 }
 
-// Power returns the total power consumption across all aggregated zones
-func (az *AggregatedZone) Power() (float64, error) {
+// Power returns the total power consumption across all aggregated zones in microwatts
+func (az *AggregatedZone) Power() (Power, error) {
 	az.mu.RLock()
 	defer az.mu.RUnlock()
 
-	var totalPower float64
+	var totalPower Power
 	for _, zone := range az.zones {
 		power, err := zone.Power()
 		if err != nil {

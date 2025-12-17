@@ -32,7 +32,7 @@ type (
 	}
 
 	MockPowerZone struct {
-		power    float64
+		power    Power
 		powerErr error
 
 		name  string
@@ -70,7 +70,7 @@ func (m MockRaplZone) MaxEnergy() Energy {
 	return m.maxMicroJoules
 }
 
-func (m MockRaplZone) Power() (float64, error) {
+func (m MockRaplZone) Power() (Power, error) {
 	// Mock RAPL zones don't provide power
 	return 0, fmt.Errorf("mock rapl zones do not provide power readings")
 }
@@ -114,17 +114,17 @@ func (m MockPowerZone) MaxEnergy() Energy {
 	return 0
 }
 
-func (m MockPowerZone) Power() (float64, error) {
+func (m MockPowerZone) Power() (Power, error) {
 	return m.power, m.powerErr
 }
 
-func (m *MockPowerZone) OnPower(watts float64, err error) {
-	m.power = watts
+func (m *MockPowerZone) OnPower(power Power, err error) {
+	m.power = power
 	m.powerErr = err
 }
 
-func (m *MockPowerZone) SetPower(watts float64) {
-	m.power = watts
+func (m *MockPowerZone) SetPower(power Power) {
+	m.power = power
 }
 
 func validSysFSFixtures(t *testing.T) sysfs.FS {

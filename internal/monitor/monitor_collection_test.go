@@ -22,6 +22,8 @@ func TestCollectionLoop(t *testing.T) {
 	pkg.On("Energy").Return(Energy(100*Joule), nil)
 	// NOTE: MaxEnergy is now called during first read for zone type detection
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	// Power() is called during first read for zone type detection - should return error for energy zones
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -72,6 +74,7 @@ func TestPeriodicCollection(t *testing.T) {
 	}).Return(Energy(100*Joule), nil)
 
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -138,6 +141,7 @@ func TestCollectionCancellation(t *testing.T) {
 	}).Return(Energy(100*Joule), nil)
 
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter := &MockCPUPowerMeter{}
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
@@ -221,6 +225,7 @@ func TestScheduleNextCollection(t *testing.T) {
 		collectionCount.Add(1)
 	}).Return(Energy(100*Joule), nil).Maybe()
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
@@ -276,6 +281,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	pkg.On("Name").Return("package")
 	pkg.On("Energy").Return(Energy(100*Joule), nil).Twice()
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
@@ -328,6 +334,7 @@ func TestCollectionErrorHandling(t *testing.T) {
 	pkg.On("Energy").Return(Energy(200*Joule), nil).Maybe()
 
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
 	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)

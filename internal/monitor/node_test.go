@@ -698,8 +698,8 @@ func TestPowerSensorCollection(t *testing.T) {
 
 		t.Run("First Collection", func(t *testing.T) {
 			// Set power readings (in watts)
-			hwmon0.SetPower(50.0) // 50W
-			hwmon1.SetPower(25.0) // 25W
+			hwmon0.SetPower(50.0 * Watt) // 50W
+			hwmon1.SetPower(25.0 * Watt) // 25W
 
 			current := NewSnapshot()
 			err := pm.firstNodeRead(current.Node)
@@ -733,8 +733,8 @@ func TestPowerSensorCollection(t *testing.T) {
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 			// Keep same power readings
-			hwmon0.SetPower(50.0) // 50W
-			hwmon1.SetPower(25.0) // 25W
+			hwmon0.SetPower(50.0 * Watt) // 50W
+			hwmon1.SetPower(25.0 * Watt) // 25W
 
 			prev := pm.snapshot.Load()
 			current := NewSnapshot()
@@ -767,8 +767,8 @@ func TestPowerSensorCollection(t *testing.T) {
 			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 			// Change power readings
-			hwmon0.SetPower(40.0) // 40W (decreased)
-			hwmon1.SetPower(30.0) // 30W (increased)
+			hwmon0.SetPower(40.0 * Watt) // 40W (decreased)
+			hwmon1.SetPower(30.0 * Watt) // 30W (increased)
 
 			prev := pm.snapshot.Load()
 			current := NewSnapshot()
@@ -827,8 +827,8 @@ func TestMixedSensorCollection(t *testing.T) {
 	t.Run("First Read - Mixed Sensors", func(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
-		raplPkg.Inc(50 * Joule) // RAPL starts at 50J
-		hwmon0.SetPower(30.0)   // hwmon reads 30W
+		raplPkg.Inc(50 * Joule)      // RAPL starts at 50J
+		hwmon0.SetPower(30.0 * Watt) // hwmon reads 30W
 
 		current := NewSnapshot()
 		err := pm.firstNodeRead(current.Node)
@@ -854,8 +854,8 @@ func TestMixedSensorCollection(t *testing.T) {
 		mockCPUPowerMeter.ExpectedCalls = nil
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
-		raplPkg.Inc(40 * Joule) // RAPL: 50J -> 90J (delta: 40J)
-		hwmon0.SetPower(30.0)   // hwmon: still 30W
+		raplPkg.Inc(40 * Joule)      // RAPL: 50J -> 90J (delta: 40J)
+		hwmon0.SetPower(30.0 * Watt) // hwmon: still 30W
 
 		prev := pm.snapshot.Load()
 		current := NewSnapshot()
@@ -911,7 +911,7 @@ func TestPowerSensorErrorHandling(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
 		hwmon0.OnPower(0, assert.AnError) // Error reading power
-		hwmon1.SetPower(25.0)             // Success
+		hwmon1.SetPower(25.0 * Watt)      // Success
 
 		current := NewSnapshot()
 		err := pm.firstNodeRead(current.Node)
@@ -934,8 +934,8 @@ func TestPowerSensorErrorHandling(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Times(2)
 
 		// First reading: both zones work (clear any previous errors)
-		hwmon0.OnPower(50.0, nil)
-		hwmon1.OnPower(25.0, nil)
+		hwmon0.OnPower(50.0*Watt, nil)
+		hwmon1.OnPower(25.0*Watt, nil)
 
 		initial := NewSnapshot()
 		err := pm.firstNodeRead(initial.Node)
@@ -950,7 +950,7 @@ func TestPowerSensorErrorHandling(t *testing.T) {
 		// Second reading: hwmon0 fails, hwmon1 succeeds
 		mockClock.Step(1 * time.Second)
 		hwmon0.OnPower(0, assert.AnError) // Simulate sensor failure
-		hwmon1.SetPower(30.0)             // Success
+		hwmon1.SetPower(30.0 * Watt)      // Success
 
 		prev := pm.snapshot.Load()
 		current := NewSnapshot()
@@ -998,7 +998,7 @@ func TestPowerSensorActiveIdleSplit(t *testing.T) {
 
 	t.Run("Initial measurement", func(t *testing.T) {
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
-		hwmon0.SetPower(100.0) // 100W
+		hwmon0.SetPower(100.0 * Watt) // 100W
 
 		snapshot := NewSnapshot()
 		err := pm.firstNodeRead(snapshot.Node)
@@ -1018,7 +1018,7 @@ func TestPowerSensorActiveIdleSplit(t *testing.T) {
 		mockCPUPowerMeter.ExpectedCalls = nil
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
-		hwmon0.SetPower(100.0) // Still 100W
+		hwmon0.SetPower(100.0 * Watt) // Still 100W
 
 		prev := pm.snapshot.Load()
 		current := NewSnapshot()
@@ -1052,7 +1052,7 @@ func TestPowerSensorActiveIdleSplit(t *testing.T) {
 		mockCPUPowerMeter.ExpectedCalls = nil
 		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
 
-		hwmon0.SetPower(100.0) // Still 100W
+		hwmon0.SetPower(100.0 * Watt) // Still 100W
 
 		prev := pm.snapshot.Load()
 		current := NewSnapshot()

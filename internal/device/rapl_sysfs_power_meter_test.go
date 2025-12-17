@@ -92,7 +92,7 @@ func TestSysFSRaplZone_Power(t *testing.T) {
 	// Test that Power() returns an error for RAPL zones
 	power, err := zone.Power()
 	assert.Error(t, err, "Power() should return an error for RAPL zones")
-	assert.Equal(t, 0.0, power, "Power() should return 0 when error occurs")
+	assert.Equal(t, Power(0), power, "Power() should return 0 when error occurs")
 	assert.Contains(t, err.Error(), "RAPL zones do not provide instantaneous power readings",
 		"Error message should explain that RAPL zones don't provide power readings")
 }
@@ -151,7 +151,7 @@ func TestSysFSRaplZone_Power_AllZones(t *testing.T) {
 			// All RAPL zones should return an error for Power()
 			power, err := zone.Power()
 			assert.Error(t, err, "%s should return error for Power()", tc.zoneName)
-			assert.Equal(t, 0.0, power, "%s should return 0.0 for power", tc.zoneName)
+			assert.Equal(t, Power(0), power, "%s should return 0 for power", tc.zoneName)
 			assert.Contains(t, err.Error(), "RAPL zones do not provide instantaneous power readings",
 				"%s error message should be correct", tc.zoneName)
 		})
@@ -286,7 +286,7 @@ func (m mockZone) Index() int              { return m.index }
 func (m mockZone) Path() string            { return m.path }
 func (m mockZone) Energy() (Energy, error) { return m.energy, nil }
 func (m mockZone) MaxEnergy() Energy       { return m.maxEnergy }
-func (m mockZone) Power() (float64, error) {
+func (m mockZone) Power() (Power, error) {
 	return 0, fmt.Errorf("rapl zones do not provide power readings")
 }
 

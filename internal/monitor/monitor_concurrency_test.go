@@ -78,6 +78,7 @@ func TestFreshSnapshotCaching(t *testing.T) {
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	var computationCount atomic.Int32
 	pkg.On("Energy").Run(func(args mock.Arguments) {
@@ -202,6 +203,7 @@ func TestSingleflightSnapshot(t *testing.T) {
 	}).Return(Energy(100_000), nil)
 
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	energyZones := []device.EnergyZone{pkg}
 	mockMeter.On("Zones").Return(energyZones, nil)
@@ -287,6 +289,7 @@ func TestSnapshot_ComputeFailures(t *testing.T) {
 	pkg.On("Name").Return("package")
 	pkg.On("Index").Return(0)
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	// first call to Energy succeeds, second fails
 	pkg.On("Energy").Return(Energy(100_000), nil).Once()
@@ -359,6 +362,7 @@ func TestSnapshot_ConcurrentAfterError(t *testing.T) {
 	}).Return(Energy(200_000), nil).Times(numGoroutines)
 
 	pkg.On("MaxEnergy").Return(Energy(1_000_000))
+	pkg.On("Power").Return(Power(0), assert.AnError)
 
 	mockMeter.On("Name").Return("mock-cpu")
 	mockMeter.On("Init", mock.Anything).Return(nil)
@@ -455,6 +459,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 		pkg := &MockEnergyZone{}
 		pkg.On("Name").Return("package")
 		pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+		pkg.On("Power").Return(Power(0), assert.AnError)
 
 		// Energy reads will return increasing values with artificial delay
 		var energyVal atomic.Uint64
@@ -566,6 +571,7 @@ func TestPowerMonitor_ConcurrentCollection(t *testing.T) {
 		pkg := &MockEnergyZone{}
 		pkg.On("Name").Return("package")
 		pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+		pkg.On("Power").Return(Power(0), assert.AnError)
 
 		// Track the number of collections by tracking energy reads
 		var computeCount atomic.Int32
