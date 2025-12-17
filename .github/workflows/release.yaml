@@ -83,7 +83,7 @@ jobs:
           tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
 
       - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-artifacts
           retention-days: 1 # Keep the artifacts for 1 day
@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Release Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: release-artifacts
 
