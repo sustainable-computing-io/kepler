@@ -259,6 +259,26 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
 	}
 
+	// Launch hwmon if enabled (experimental feature)
+	if cfg.IsFeatureEnabled(config.ExperimentalHwmonFeature) {
+		hwmon := cfg.Experimental.Hwmon
+
+		if len(hwmon.Zones) > 0 {
+			logger.Info("hwmon zones are filtered", "zones-enabled", hwmon.Zones)
+		}
+
+		if len(hwmon.Chips) > 0 {
+			logger.Info("hwmon chips/sensors are filtered", "sensors-enabled", hwmon.Chips)
+		}
+
+		return device.NewHwmonPowerMeter(
+			cfg.Host.SysFS,
+			device.WithHwmonLogger(logger),
+			device.WithChipFilter(hwmon.Chips),
+			device.WithHwmonZoneFilter(hwmon.Zones),
+		)
+	}
+
 	if len(cfg.Rapl.Zones) > 0 {
 		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
 	}
