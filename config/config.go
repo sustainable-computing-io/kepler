@@ -22,6 +22,9 @@ import (
 type Feature string
 
 const (
+	// ExperimentalHwmonFeature represents the hwmon power monitoring feature
+	ExperimentalHwmonFeature Feature = "hwmon"
+
 	// ExperimentalRedfishFeature represents the Redfish BMC power monitoring feature
 	ExperimentalRedfishFeature Feature = "redfish"
 
@@ -49,6 +52,12 @@ type (
 	// Rapl configuration
 	Rapl struct {
 		Zones []string `yaml:"zones"`
+	}
+
+	// Hwmon configuration (Set in Experimental)
+	Hwmon struct {
+		Enabled *bool    `yaml:"enabled"` // Development mode settings (sensor detection should be set based on architecture in future)
+		Zones   []string `yaml:"zones"`
 	}
 
 	// Development mode settings; disabled by default
@@ -127,6 +136,7 @@ type (
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
 		Platform Platform `yaml:"platform"`
+		Hwmon    Hwmon    `yaml:"hwmon"`
 	}
 
 	Config struct {
@@ -230,6 +240,10 @@ const (
 	ExperimentalPlatformRedfishEnabledFlag  = "experimental.platform.redfish.enabled"
 	ExperimentalPlatformRedfishNodeNameFlag = "experimental.platform.redfish.node-name"
 	ExperimentalPlatformRedfishConfigFlag   = "experimental.platform.redfish.config-file"
+
+	// Experimental Hwmon flags
+	ExperimentalHwmonEnabledFlag = "experimental.hwmon.enabled"
+	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -381,6 +395,10 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	redfishNodeName := app.Flag(ExperimentalPlatformRedfishNodeNameFlag, "Node name for experimental Redfish platform power monitoring").String()
 	redfishConfig := app.Flag(ExperimentalPlatformRedfishConfigFlag, "Path to experimental Redfish BMC configuration file").String()
 
+	// experimental hwmon
+	hwmonEnabled := app.Flag(ExperimentalHwmonEnabledFlag, "Enable experimental hwmon power monitoring").Default("false").Bool()
+	hwmonZones := app.Flag(ExperimentalHwmonZonesFlag, "Hwmon zone filter (power labels to monitor)").Strings()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -445,6 +463,11 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		// Apply experimental platform settings
 		if err := applyRedfishConfig(cfg, flagsSet, redfishEnabled, redfishNodeName, redfishConfig); err != nil {
+			return err
+		}
+
+		// Apply experimental hwmon settings
+		if err := applyHwmonConfig(cfg, flagsSet, hwmonEnabled, hwmonZones); err != nil {
 			return err
 		}
 
@@ -524,6 +547,53 @@ func resolveRedfishNodeName(redfish *Redfish, kubeNodeName string) error {
 	return nil
 }
 
+// applyHwmonConfig applies Hwmon configuration flags
+func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, zones *[]string) error {
+	// Early exit if no hwmon flags are set and config file does not have experimental section
+	if !hasHwmonFlags(flagsSet) && cfg.Experimental == nil {
+		return nil
+	}
+
+	// At this point, either hwmon flags are set or config file has experimental section
+	// so ensure experimental section exists
+	if cfg.Experimental == nil {
+		cfg.Experimental = &Experimental{
+			Hwmon: defaultHwmonConfig(),
+		}
+	}
+
+	hwmon := &cfg.Experimental.Hwmon
+
+	// Apply flag values
+	applyHwmonFlags(hwmon, flagsSet, enabled, zones)
+
+	return nil
+}
+
+// hasHwmonFlags returns true if any hwmon experimental flags are set
+func hasHwmonFlags(flagsSet map[string]bool) bool {
+	return flagsSet[ExperimentalHwmonEnabledFlag] ||
+		flagsSet[ExperimentalHwmonZonesFlag]
+}
+
+func defaultHwmonConfig() Hwmon {
+	return Hwmon{
+		Enabled: ptr.To(false),
+		Zones:   []string{},
+	}
+}
+
+// applyHwmonFlags applies flag values to hwmon config
+func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, enabled *bool, zones *[]string) {
+	if flagsSet[ExperimentalHwmonEnabledFlag] {
+		hwmon.Enabled = enabled
+	}
+
+	if flagsSet[ExperimentalHwmonZonesFlag] {
+		hwmon.Zones = *zones
+	}
+}
+
 // resolveNodeName resolves the node name using the following precedence:
 // 1. CLI flag / config.yaml (--experimental.platform.redfish.node-name)
 // 2. Kubernetes node name
@@ -556,6 +626,11 @@ func (c *Config) IsFeatureEnabled(feature Feature) bool {
 			return false
 		}
 		return ptr.Deref(c.Experimental.Platform.Redfish.Enabled, false)
+	case ExperimentalHwmonFeature:
+		if c.Experimental == nil {
+			return false
+		}
+		return ptr.Deref(c.Experimental.Hwmon.Enabled, false)
 	case PrometheusFeature:
 		return ptr.Deref(c.Exporter.Prometheus.Enabled, false)
 	case StdoutFeature:
@@ -575,6 +650,11 @@ func (c *Config) experimentalFeatureEnabled() bool {
 
 	// Check if Redfish is enabled
 	if ptr.Deref(c.Experimental.Platform.Redfish.Enabled, false) {
+		return true
+	}
+
+	// Check if Hwmon is enabled
+	if ptr.Deref(c.Experimental.Hwmon.Enabled, false) {
 		return true
 	}
 
@@ -608,6 +688,11 @@ func (c *Config) sanitize() {
 
 	c.Experimental.Platform.Redfish.NodeName = strings.TrimSpace(c.Experimental.Platform.Redfish.NodeName)
 	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
+
+	// Sanitize Hwmon fields
+	for i := range c.Experimental.Hwmon.Zones {
+		c.Experimental.Hwmon.Zones[i] = strings.TrimSpace(c.Experimental.Hwmon.Zones[i])
+	}
 
 	// If all experimental features are disabled, set experimental to nil to hide it
 	if !c.experimentalFeatureEnabled() {
