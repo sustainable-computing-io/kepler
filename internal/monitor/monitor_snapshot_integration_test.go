@@ -90,6 +90,7 @@ func TestIntegration_Monitor_Snapshot(t *testing.T) {
 	pkg.On("Name").Return("package").Maybe()
 	pkg.On("Index").Return(0).Maybe()
 	pkg.On("MaxEnergy").Return(1000 * Joule).Maybe()
+	pkg.On("Power").Return(Power(0), assert.AnError).Maybe()
 
 	// Energy readings show consumption over time
 	pkg.On("Energy").Return(100*Joule, nil).Once() // Initial: 100J
