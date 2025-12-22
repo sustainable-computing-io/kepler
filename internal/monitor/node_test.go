@@ -18,7 +18,8 @@ import (
 )
 
 type (
-	MockRaplZone = device.MockRaplZone
+	MockRaplZone  = device.MockRaplZone
+	MockPowerZone = device.MockPowerZone
 )
 
 // TestNodePowerCollection tests the PowerMonitor.collectNodePower method
@@ -661,5 +662,419 @@ func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
 	})
 
 	mockCPUPowerMeter.AssertExpectations(t)
+	mockResourceInformer.AssertExpectations(t)
+}
+
+// TestPowerSensorCollection tests power sensor zones (like hwmon)
+func TestPowerSensorCollection(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Create test power zones (hwmon-style)
+	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	hwmon1 := device.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
+
+	testZones := []EnergyZone{hwmon0, hwmon1}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	t.Run("Power Sensor Collection", func(t *testing.T) {
+		startTime := time.Date(2025, 4, 14, 5, 40, 0, 0, time.UTC)
+		mockClock := test_clock.NewFakeClock(startTime)
+
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		mockResourceInformer := &MockResourceInformer{}
+		mockNode := &resource.Node{
+			CPUUsageRatio:            0.5,
+			ProcessTotalCPUTimeDelta: 100.0,
+		}
+		mockResourceInformer.On("Node").Return(mockNode)
+
+		pm := NewPowerMonitor(
+			mockCPUPowerMeter,
+			WithLogger(logger),
+			WithClock(mockClock),
+			WithResourceInformer(mockResourceInformer))
+		assert.NotNil(t, pm)
+
+		t.Run("First Collection", func(t *testing.T) {
+			// Set power readings (in watts)
+			hwmon0.SetPower(50.0 * Watt) // 50W
+			hwmon1.SetPower(25.0 * Watt) // 25W
+
+			current := NewSnapshot()
+			err := pm.firstNodeRead(current.Node)
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Check that both zones have data
+			assert.Contains(t, current.Node.Zones, hwmon0)
+			assert.Contains(t, current.Node.Zones, hwmon1)
+
+			// For first reading of power zones:
+			// - EnergyTotal should be 0 (no accumulated energy yet)
+			// - Power should be set immediately
+			hwmon0Zone := current.Node.Zones[hwmon0]
+			assert.Equal(t, Energy(0), hwmon0Zone.EnergyTotal)
+			assert.InDelta(t, 50.0, hwmon0Zone.Power.Watts(), 0.001)
+
+			hwmon1Zone := current.Node.Zones[hwmon1]
+			assert.Equal(t, Energy(0), hwmon1Zone.EnergyTotal)
+			assert.InDelta(t, 25.0, hwmon1Zone.Power.Watts(), 0.001)
+
+			pm.snapshot.Store(current)
+		})
+
+		t.Run("Second Collection - Energy Integration", func(t *testing.T) {
+			// Advance clock by 2 seconds
+			mockClock.Step(2 * time.Second)
+
+			mockCPUPowerMeter.ExpectedCalls = nil
+			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+			// Keep same power readings
+			hwmon0.SetPower(50.0 * Watt) // 50W
+			hwmon1.SetPower(25.0 * Watt) // 25W
+
+			prev := pm.snapshot.Load()
+			current := NewSnapshot()
+			err := pm.calculateNodePower(prev.Node, current.Node)
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// For power zones, energy is integrated: E = P * t
+			// hwmon0: 50W * 2s = 100J
+			// hwmon1: 25W * 2s = 50J
+			hwmon0Zone := current.Node.Zones[hwmon0]
+			expectedEnergy0 := Energy(50.0 * 2.0 * 1_000_000) // 50W * 2s = 100J in microjoules
+			assert.Equal(t, expectedEnergy0, hwmon0Zone.EnergyTotal)
+			assert.InDelta(t, 50.0, hwmon0Zone.Power.Watts(), 0.001)
+
+			hwmon1Zone := current.Node.Zones[hwmon1]
+			expectedEnergy1 := Energy(25.0 * 2.0 * 1_000_000) // 25W * 2s = 50J in microjoules
+			assert.Equal(t, expectedEnergy1, hwmon1Zone.EnergyTotal)
+			assert.InDelta(t, 25.0, hwmon1Zone.Power.Watts(), 0.001)
+
+			pm.snapshot.Store(current)
+		})
+
+		t.Run("Third Collection - Accumulated Energy", func(t *testing.T) {
+			// Advance clock by 3 seconds
+			mockClock.Step(3 * time.Second)
+
+			mockCPUPowerMeter.ExpectedCalls = nil
+			mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+			// Change power readings
+			hwmon0.SetPower(40.0 * Watt) // 40W (decreased)
+			hwmon1.SetPower(30.0 * Watt) // 30W (increased)
+
+			prev := pm.snapshot.Load()
+			current := NewSnapshot()
+			err := pm.calculateNodePower(prev.Node, current.Node)
+			assert.NoError(t, err)
+
+			mockCPUPowerMeter.AssertExpectations(t)
+
+			// Energy should accumulate from previous reading
+			// hwmon0: previous 100J + (40W * 3s) = 100J + 120J = 220J
+			// hwmon1: previous 50J + (30W * 3s) = 50J + 90J = 140J
+			hwmon0Zone := current.Node.Zones[hwmon0]
+			expectedEnergy0 := Energy(100*1_000_000 + 40.0*3.0*1_000_000)
+			assert.Equal(t, expectedEnergy0, hwmon0Zone.EnergyTotal)
+			assert.InDelta(t, 40.0, hwmon0Zone.Power.Watts(), 0.001)
+
+			hwmon1Zone := current.Node.Zones[hwmon1]
+			expectedEnergy1 := Energy(50*1_000_000 + 30.0*3.0*1_000_000)
+			assert.Equal(t, expectedEnergy1, hwmon1Zone.EnergyTotal)
+			assert.InDelta(t, 30.0, hwmon1Zone.Power.Watts(), 0.001)
+
+			pm.snapshot.Store(current)
+		})
+
+		mockResourceInformer.AssertExpectations(t)
+	})
+}
+
+// TestMixedSensorCollection tests both energy and power sensors together
+func TestMixedSensorCollection(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Create mixed zones: RAPL (energy) and hwmon (power)
+	raplPkg := device.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+
+	testZones := []EnergyZone{raplPkg, hwmon0}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	startTime := time.Date(2025, 4, 14, 10, 0, 0, 0, time.UTC)
+	mockClock := test_clock.NewFakeClock(startTime)
+
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio:            0.6,
+		ProcessTotalCPUTimeDelta: 120.0,
+	}
+	mockResourceInformer.On("Node").Return(mockNode)
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(mockResourceInformer))
+
+	t.Run("First Read - Mixed Sensors", func(t *testing.T) {
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		raplPkg.Inc(50 * Joule)      // RAPL starts at 50J
+		hwmon0.SetPower(30.0 * Watt) // hwmon reads 30W
+
+		current := NewSnapshot()
+		err := pm.firstNodeRead(current.Node)
+		assert.NoError(t, err)
+
+		// RAPL zone should have energy, no power yet
+		raplZone := current.Node.Zones[raplPkg]
+		assert.Equal(t, Energy(50*Joule), raplZone.EnergyTotal)
+		assert.Equal(t, Power(0), raplZone.Power)
+
+		// Power zone should have power immediately, no energy
+		hwmonZone := current.Node.Zones[hwmon0]
+		assert.Equal(t, Energy(0), hwmonZone.EnergyTotal)
+		assert.InDelta(t, 30.0, hwmonZone.Power.Watts(), 0.001)
+
+		pm.snapshot.Store(current)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Second Read - Both Sensors Working", func(t *testing.T) {
+		mockClock.Step(2 * time.Second)
+
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		raplPkg.Inc(40 * Joule)      // RAPL: 50J -> 90J (delta: 40J)
+		hwmon0.SetPower(30.0 * Watt) // hwmon: still 30W
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		// RAPL zone: power derived from energy delta
+		raplZone := current.Node.Zones[raplPkg]
+		assert.Equal(t, Energy(90*Joule), raplZone.EnergyTotal)
+		assert.InDelta(t, 20.0, raplZone.Power.Watts(), 0.001) // 40J / 2s = 20W
+
+		// Power zone: energy integrated from power
+		hwmonZone := current.Node.Zones[hwmon0]
+		expectedEnergy := Energy(30.0 * 2.0 * 1_000_000) // 30W * 2s = 60J
+		assert.Equal(t, expectedEnergy, hwmonZone.EnergyTotal)
+		assert.InDelta(t, 30.0, hwmonZone.Power.Watts(), 0.001)
+
+		pm.snapshot.Store(current)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	mockResourceInformer.AssertExpectations(t)
+}
+
+// TestPowerSensorErrorHandling tests error scenarios for power sensors
+func TestPowerSensorErrorHandling(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	hwmon1 := device.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
+
+	testZones := []EnergyZone{hwmon0, hwmon1}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	startTime := time.Date(2025, 4, 14, 12, 0, 0, 0, time.UTC)
+	mockClock := test_clock.NewFakeClock(startTime)
+
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio:            0.5,
+		ProcessTotalCPUTimeDelta: 100.0,
+	}
+	// Allow multiple calls to Node() across subtests
+	mockResourceInformer.On("Node").Return(mockNode).Maybe()
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(mockResourceInformer))
+
+	t.Run("Power Read Error in firstNodeRead", func(t *testing.T) {
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		hwmon0.OnPower(0, assert.AnError) // Error reading power
+		hwmon1.SetPower(25.0 * Watt)      // Success
+
+		current := NewSnapshot()
+		err := pm.firstNodeRead(current.Node)
+		assert.Error(t, err, "power read error must be propagated")
+
+		// hwmon0 should not be in zones due to error
+		assert.NotContains(t, current.Node.Zones, hwmon0)
+		// hwmon1 should be present
+		assert.Contains(t, current.Node.Zones, hwmon1)
+
+		hwmon1Zone := current.Node.Zones[hwmon1]
+		assert.InDelta(t, 25.0, hwmon1Zone.Power.Watts(), 0.001)
+
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Power Read Error in calculateNodePower", func(t *testing.T) {
+		// Clear previous expectations
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil).Times(2)
+
+		// First reading: both zones work (clear any previous errors)
+		hwmon0.OnPower(50.0*Watt, nil)
+		hwmon1.OnPower(25.0*Watt, nil)
+
+		initial := NewSnapshot()
+		err := pm.firstNodeRead(initial.Node)
+		assert.NoError(t, err)
+
+		// Verify initial state
+		assert.Contains(t, initial.Node.Zones, hwmon0)
+		assert.Contains(t, initial.Node.Zones, hwmon1)
+
+		pm.snapshot.Store(initial)
+
+		// Second reading: hwmon0 fails, hwmon1 succeeds
+		mockClock.Step(1 * time.Second)
+		hwmon0.OnPower(0, assert.AnError) // Simulate sensor failure
+		hwmon1.SetPower(30.0 * Watt)      // Success
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err = pm.calculateNodePower(prev.Node, current.Node)
+		assert.Error(t, err, "power read error in calculateNodePower must be propagated")
+
+		// hwmon0 should not be in current zones due to error
+		assert.NotContains(t, current.Node.Zones, hwmon0)
+		// hwmon1 should be present with updated values
+		assert.Contains(t, current.Node.Zones, hwmon1)
+
+		hwmon1Zone := current.Node.Zones[hwmon1]
+		assert.InDelta(t, 30.0, hwmon1Zone.Power.Watts(), 0.001)
+
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	// Note: Not asserting mockResourceInformer expectations since it's shared across subtests
+}
+
+// TestPowerSensorActiveIdleSplit tests active/idle energy split for power sensors
+func TestPowerSensorActiveIdleSplit(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+
+	testZones := []EnergyZone{hwmon0}
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+
+	startTime := time.Date(2025, 4, 14, 14, 0, 0, 0, time.UTC)
+	mockClock := test_clock.NewFakeClock(startTime)
+
+	mockResourceInformer := &MockResourceInformer{}
+	mockNode := &resource.Node{
+		CPUUsageRatio:            0.7, // 70% active
+		ProcessTotalCPUTimeDelta: 140.0,
+	}
+	mockResourceInformer.On("Node").Return(mockNode)
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(mockResourceInformer))
+
+	t.Run("Initial measurement", func(t *testing.T) {
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+		hwmon0.SetPower(100.0 * Watt) // 100W
+
+		snapshot := NewSnapshot()
+		err := pm.firstNodeRead(snapshot.Node)
+		assert.NoError(t, err)
+
+		hwmon0Zone := snapshot.Node.Zones[hwmon0]
+		assert.Equal(t, Energy(0), hwmon0Zone.EnergyTotal)
+		assert.Equal(t, Energy(0), hwmon0Zone.ActiveEnergyTotal)
+		assert.Equal(t, Energy(0), hwmon0Zone.IdleEnergyTotal)
+
+		pm.snapshot.Store(snapshot)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Second measurement - verify active/idle split", func(t *testing.T) {
+		mockClock.Step(1 * time.Second)
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		hwmon0.SetPower(100.0 * Watt) // Still 100W
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		hwmon0Zone := current.Node.Zones[hwmon0]
+
+		// Total energy: 100W * 1s = 100J
+		expectedTotalEnergy := Energy(100.0 * 1.0 * 1_000_000)
+		assert.Equal(t, expectedTotalEnergy, hwmon0Zone.EnergyTotal)
+
+		// Active energy: 100J * 0.7 = 70J
+		expectedActiveEnergy := Energy(float64(expectedTotalEnergy) * 0.7)
+		assert.Equal(t, expectedActiveEnergy, hwmon0Zone.ActiveEnergyTotal)
+
+		// Idle energy: 100J * 0.3 = 30J
+		expectedIdleEnergy := Energy(float64(expectedTotalEnergy) * 0.3)
+		assert.Equal(t, expectedIdleEnergy, hwmon0Zone.IdleEnergyTotal)
+
+		// Power split
+		assert.InDelta(t, 70.0, hwmon0Zone.ActivePower.Watts(), 0.001) // 100W * 0.7
+		assert.InDelta(t, 30.0, hwmon0Zone.IdlePower.Watts(), 0.001)   // 100W * 0.3
+
+		pm.snapshot.Store(current)
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
+	t.Run("Third measurement - accumulation", func(t *testing.T) {
+		mockClock.Step(2 * time.Second)
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		hwmon0.SetPower(100.0 * Watt) // Still 100W
+
+		prev := pm.snapshot.Load()
+		current := NewSnapshot()
+		err := pm.calculateNodePower(prev.Node, current.Node)
+		assert.NoError(t, err)
+
+		hwmon0Zone := current.Node.Zones[hwmon0]
+
+		// Total accumulated energy: 100J (previous) + 200J (current interval)
+		expectedTotalEnergy := Energy(100.0*1_000_000 + 100.0*2.0*1_000_000)
+		assert.Equal(t, expectedTotalEnergy, hwmon0Zone.EnergyTotal)
+
+		// Active accumulated: 70J (previous) + 140J (current)
+		expectedActiveTotal := Energy(70.0*1_000_000 + 100.0*2.0*0.7*1_000_000)
+		assert.Equal(t, expectedActiveTotal, hwmon0Zone.ActiveEnergyTotal)
+
+		// Idle accumulated: 30J (previous) + 60J (current)
+		expectedIdleTotal := Energy(30.0*1_000_000 + 100.0*2.0*0.3*1_000_000)
+		assert.Equal(t, expectedIdleTotal, hwmon0Zone.IdleEnergyTotal)
+
+		mockCPUPowerMeter.AssertExpectations(t)
+	})
+
 	mockResourceInformer.AssertExpectations(t)
 }

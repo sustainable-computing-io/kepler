@@ -83,7 +83,7 @@ jobs:
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
       # add comment on PR with the message.
       - name: Upload message
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: message
           path: /tmp/message-${{ github.event.pull_request.number }}.txt

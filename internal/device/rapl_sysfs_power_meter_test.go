@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"fmt"
+
 	"github.com/prometheus/procfs/sysfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -74,6 +76,86 @@ func TestSysFSRaplZoneInterface(t *testing.T) {
 	assert.Equal(t, "/sys/class/powercap/intel-rapl/intel-rapl:0", zone.Path())
 	assert.Equal(t, "package", zone.Name())
 	assert.Equal(t, 1.0, zone.MaxEnergy().Joules())
+}
+
+// TestSysFSRaplZone_Power tests that sysfsRaplZone.Power() returns an error
+func TestSysFSRaplZone_Power(t *testing.T) {
+	pkg := sysfs.RaplZone{
+		Name:           "package",
+		Index:          0,
+		Path:           "/sys/class/powercap/intel-rapl/intel-rapl:0",
+		MaxMicrojoules: 1_000_000,
+	}
+
+	zone := sysfsRaplZone{zone: pkg}
+
+	// Test that Power() returns an error for RAPL zones
+	power, err := zone.Power()
+	assert.Error(t, err, "Power() should return an error for RAPL zones")
+	assert.Equal(t, Power(0), power, "Power() should return 0 when error occurs")
+	assert.Contains(t, err.Error(), "RAPL zones do not provide instantaneous power readings",
+		"Error message should explain that RAPL zones don't provide power readings")
+}
+
+// TestSysFSRaplZone_Power_AllZones tests Power() for multiple RAPL zone types
+func TestSysFSRaplZone_Power_AllZones(t *testing.T) {
+	testCases := []struct {
+		name     string
+		zoneName string
+		index    int
+		path     string
+	}{
+		{
+			name:     "package zone",
+			zoneName: "package",
+			index:    0,
+			path:     "/sys/class/powercap/intel-rapl/intel-rapl:0",
+		},
+		{
+			name:     "core zone",
+			zoneName: "core",
+			index:    0,
+			path:     "/sys/class/powercap/intel-rapl/intel-rapl:0:0",
+		},
+		{
+			name:     "dram zone",
+			zoneName: "dram",
+			index:    0,
+			path:     "/sys/class/powercap/intel-rapl/intel-rapl:0:1",
+		},
+		{
+			name:     "uncore zone",
+			zoneName: "uncore",
+			index:    0,
+			path:     "/sys/class/powercap/intel-rapl/intel-rapl:0:2",
+		},
+		{
+			name:     "psys zone",
+			zoneName: "psys",
+			index:    1,
+			path:     "/sys/class/powercap/intel-rapl/intel-rapl:1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			raplZone := sysfs.RaplZone{
+				Name:           tc.zoneName,
+				Index:          tc.index,
+				Path:           tc.path,
+				MaxMicrojoules: 1_000_000,
+			}
+
+			zone := sysfsRaplZone{zone: raplZone}
+
+			// All RAPL zones should return an error for Power()
+			power, err := zone.Power()
+			assert.Error(t, err, "%s should return error for Power()", tc.zoneName)
+			assert.Equal(t, Power(0), power, "%s should return 0 for power", tc.zoneName)
+			assert.Contains(t, err.Error(), "RAPL zones do not provide instantaneous power readings",
+				"%s error message should be correct", tc.zoneName)
+		})
+	}
 }
 
 func TestSysFSRaplPowerMeterInit(t *testing.T) {
@@ -204,6 +286,9 @@ func (m mockZone) Index() int              { return m.index }
 func (m mockZone) Path() string            { return m.path }
 func (m mockZone) Energy() (Energy, error) { return m.energy, nil }
 func (m mockZone) MaxEnergy() Energy       { return m.maxEnergy }
+func (m mockZone) Power() (Power, error) {
+	return 0, fmt.Errorf("rapl zones do not provide power readings")
+}
 
 type mockSysFSReader struct {
 	response []EnergyZone

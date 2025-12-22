@@ -67,6 +67,11 @@ func (m *MockEnergyZone) MaxEnergy() Energy {
 	return args.Get(0).(Energy)
 }
 
+func (m *MockEnergyZone) Power() (Power, error) {
+	args := m.Called()
+	return args.Get(0).(Power), args.Error(1)
+}
+
 // MockResourceInformer is a mock implementation of resource.Informer
 type MockResourceInformer struct {
 	mock.Mock

@@ -9,6 +9,8 @@ import (
 	"slices"
 	"testing"
 
+	"fmt"
+
 	"github.com/prometheus/procfs/sysfs"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,15 @@ type (
 		index          int
 		path           string
 		maxMicroJoules Energy
+	}
+
+	MockPowerZone struct {
+		power    Power
+		powerErr error
+
+		name  string
+		index int
+		path  string
 	}
 )
 
@@ -59,6 +70,11 @@ func (m MockRaplZone) MaxEnergy() Energy {
 	return m.maxMicroJoules
 }
 
+func (m MockRaplZone) Power() (Power, error) {
+	// Mock RAPL zones don't provide power
+	return 0, fmt.Errorf("mock rapl zones do not provide power readings")
+}
+
 func (m *MockRaplZone) OnEnergy(j Energy, err error) {
 	m.energy = j
 	m.energyErr = err
@@ -66,6 +82,49 @@ func (m *MockRaplZone) OnEnergy(j Energy, err error) {
 
 func (m *MockRaplZone) Inc(delta Energy) {
 	m.energy = (m.energy + delta) % m.maxMicroJoules
+}
+
+func NewMockPowerZone(name string, index int, path string) *MockPowerZone {
+	return &MockPowerZone{
+		name:  name,
+		index: index,
+		path:  path,
+	}
+}
+
+func (m MockPowerZone) Index() int {
+	return m.index
+}
+
+func (m MockPowerZone) Path() string {
+	return m.path
+}
+
+func (m MockPowerZone) Name() string {
+	return m.name
+}
+
+func (m MockPowerZone) Energy() (Energy, error) {
+	// Power zones don't provide energy readings
+	return 0, nil
+}
+
+func (m MockPowerZone) MaxEnergy() Energy {
+	// Power zones don't have max energy
+	return 0
+}
+
+func (m MockPowerZone) Power() (Power, error) {
+	return m.power, m.powerErr
+}
+
+func (m *MockPowerZone) OnPower(power Power, err error) {
+	m.power = power
+	m.powerErr = err
+}
+
+func (m *MockPowerZone) SetPower(power Power) {
+	m.power = power
 }
 
 func validSysFSFixtures(t *testing.T) sysfs.FS {
