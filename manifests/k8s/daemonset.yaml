@@ -18,6 +18,7 @@ spec:
     spec:
       serviceAccountName: kepler
       hostPID: true
+      hostUsers: true
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
@@ -31,6 +32,7 @@ spec:
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
+            runAsNonRoot: false
           command:
             - /usr/bin/kepler
           args:

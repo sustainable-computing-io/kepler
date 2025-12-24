@@ -27,6 +27,7 @@ spec:
     spec:
       serviceAccountName: {{ include "kepler.serviceAccountName" . }}
       hostPID: {{ .Values.daemonset.hostPID }}
+      hostUsers: {{ .Values.daemonset.hostUsers }}
       {{- with .Values.daemonset.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
