@@ -65,6 +65,10 @@ spec:
               readOnly: true
             - name: cfm
               mountPath: /etc/kepler
+          {{- with .Values.daemonset.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.daemonset.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

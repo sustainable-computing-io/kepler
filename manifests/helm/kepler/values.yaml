@@ -61,6 +61,8 @@ daemonset:
     initialDelaySeconds: 10
     periodSeconds: 60
 
+  startupProbe: {}
+
   readinessProbe: {}
 
 config:
