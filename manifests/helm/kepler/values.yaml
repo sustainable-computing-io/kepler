@@ -116,6 +116,15 @@ serviceMonitor:
   labels: {}
   annotations: {}
 
+# A networkPolicy for Kepler
+networkPolicy:
+  enabled: false
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 28282
+  egress: []
+
 # Additional labels to add to all resources
 labels: {}
 
