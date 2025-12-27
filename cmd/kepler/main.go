@@ -167,11 +167,15 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		server.WithWebConfig(cfg.Web.Config),
 	)
 
+	// Create health probe service
+	healthProbeService := server.NewHealthProbeService(apiServer, pm, pm, logger)
+
 	services = append(services,
 		resourceInformer,
 		cpuPowerMeter,
 		apiServer,
 		pm,
+		healthProbeService,
 	)
 
 	// Add Redfish service if enabled

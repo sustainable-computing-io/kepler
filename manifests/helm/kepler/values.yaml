@@ -56,12 +56,21 @@ daemonset:
 
   livenessProbe:
     httpGet:
-      path: /metrics
+      path: /probe/livez
       port: http
     initialDelaySeconds: 10
-    periodSeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
 
-  readinessProbe: {}
+  readinessProbe:
+    httpGet:
+      path: /probe/readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
 
 config:
   log:
