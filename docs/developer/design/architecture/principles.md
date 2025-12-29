@@ -218,7 +218,7 @@ Users can configure exactly what metrics to collect and expose:
 ```yaml
 exporter:
   prometheus:
-    metricsLevel: "container"  # node|process|container|vm|pod|all
+    metricsLevel: "container"  # node|process|container|vm|pod
 ```
 
 ### Current Support Matrix
