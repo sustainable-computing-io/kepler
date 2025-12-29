@@ -25,6 +25,7 @@ This section contains documentation for developers working on Kepler.
 ## Development Workflow
 
 - [Pre-commit Setup](pre-commit.md) - Setting up pre-commit hooks for code quality
+- [E2E Testing Guide](e2e-testing.md) - Running and writing end-to-end tests
 
 ## Release Management
 
