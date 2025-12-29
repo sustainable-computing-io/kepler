@@ -136,6 +136,24 @@ test: ## Test with race detection and coverage
 coverage: test ## Coverage report generation (HTML)
 	$(GOCMD) tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
 
+# Build e2e test binary
+.PHONY: test-e2e
+test-e2e: build ## Build e2e test binary (run with sudo separately)
+	@echo "Building e2e test binary..."
+	CGO_ENABLED=1 $(GOTEST) -race -c -o $(BINARY_DIR)/kepler-e2e.test ./test/e2e
+	@echo ""
+	@echo "E2E test binary built: $(BINARY_DIR)/kepler-e2e.test"
+	@echo ""
+	@echo "To run (requires root for RAPL access):"
+	@echo "  sudo ./$(BINARY_DIR)/kepler-e2e.test -test.v"
+	@echo ""
+	@echo "Optional flags:"
+	@echo "  -kepler.binary=/path/to/kepler"
+	@echo "  -kepler.port=9999"
+	@echo "  -kepler.config=/path/to/config"
+	@echo ""
+	@echo "Prerequisites: Intel RAPL, stress-ng (for workload tests)"
+
 # Generate metrics documentation
 .PHONY: gen-metrics-docs
 gen-metrics-docs: ## Documentation generation for metrics
