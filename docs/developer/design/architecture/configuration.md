@@ -530,7 +530,7 @@ exporter:
   prometheus:
     enabled: true
     debugCollectors: ["go", "process"]
-    metricsLevel: "all"
+    metricsLevel: ["node", "process", "container", "vm", "pod"]
 
 monitor:
   interval: 1s
