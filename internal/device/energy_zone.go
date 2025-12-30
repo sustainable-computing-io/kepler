@@ -152,3 +152,20 @@ func (az *AggregatedZone) Energy() (Energy, error) {
 func (az *AggregatedZone) MaxEnergy() Energy {
 	return az.maxEnergy
 }
+
+// Power returns the total power consumption across all aggregated zones in microwatts
+func (az *AggregatedZone) Power() (Power, error) {
+	az.mu.RLock()
+	defer az.mu.RUnlock()
+
+	var totalPower Power
+	for _, zone := range az.zones {
+		power, err := zone.Power()
+		if err != nil {
+			return 0, fmt.Errorf("failed to read power from zone %s: %w", zone.Name(), err)
+		}
+		totalPower += power
+	}
+
+	return totalPower, nil
+}

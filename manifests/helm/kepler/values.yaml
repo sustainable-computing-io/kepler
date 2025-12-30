@@ -40,8 +40,10 @@ daemonset:
   nodeSelector: {}
   affinity: {}
 
+  hostUsers: true
   securityContext:
     privileged: true
+    runAsNonRoot: false
 
   resources:
     {}

@@ -54,6 +54,7 @@ jobs:
         working-directory: compose/dev
         run: |
           # Build and start kepler-dev and kepler-latest services in detach mode
+          # NOTE: sushy-static service will also be started as kepler-dev service has dependency on it
           docker compose up kepler-dev kepler-latest --build -d --wait --wait-timeout 300
 
       - name: Run must gather
@@ -99,27 +100,39 @@ jobs:
           ./hack/reports/profiling.sh compare
 
       - name: Upload profiling artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp/*
           retention-days: 5 # Keep artifact for 5 days
 
-      # NOTE: Ensure that all deployments, built images and cluster are properly cleaned up
+      # NOTE: Ensure that all deployments, built images and docker system are properly cleaned up
       # to prevent residual resources
       - name: Shutdown Docker Compose services
         if: always()
         shell: bash
         working-directory: compose/dev
         run: |
-          # Stop kepler-dev and kepler-latest services
-          docker compose down kepler-dev kepler-latest --volumes
+          # Stop all the services
+          docker compose down --volumes
 
-      - name: Cleanup Docker images
+      - name: Cleanup Docker system
         if: always()
         shell: bash
         run: |
-          docker image prune -af
+          docker system prune -a -f --volumes
+
+      - name: Cleanup Build cache
+        if: always()
+        shell: bash
+        run: |
+          docker builder prune -a -f
+
+      - name: Show Docker usage
+        if: always()
+        shell: bash
+        run: |
+          docker system df
 
   generate-comment-message:
     needs: profiling
@@ -141,7 +154,7 @@ jobs:
         run: go install github.com/google/pprof@6e76a2b096b5fa52e4bb3f7f7a357bd6e6b3b7b1
 
       - name: Download profiling artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp
@@ -164,7 +177,7 @@ jobs:
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
       # add comment on PR with the message.
       - name: Upload message
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: message
           path: /tmp/message-${{ github.event.pull_request.number }}.txt
