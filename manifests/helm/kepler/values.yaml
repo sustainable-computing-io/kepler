@@ -109,6 +109,9 @@ config:
         enabled: false  # Enable experimental Redfish BMC power monitoring
         configFile: /etc/kepler/redfish.yaml  # Path to Redfish BMC configuration file
         nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
+    hwmon:
+      enabled: false # Enable experimental hwmon power monitoring
+      zones: [] # List of zones to enable (default enable all)
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
