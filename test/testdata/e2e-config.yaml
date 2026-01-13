@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2025 The Kepler Authors
+# SPDX-License-Identifier: Apache-2.0
+# Kepler configuration for e2e tests
+# This configuration is optimized for testing on bare-metal systems
+log:
+  level: debug
+  format: text
+monitor:
+  interval: 3s
+  staleness: 10s
+  maxTerminated: 100
+  minTerminatedEnergyThreshold: 1 # Low threshold to catch more processes in tests
+host:
+  procfs: /proc
+  sysfs: /sys
+exporter:
+  prometheus:
+    enabled: true
+    metricsLevel:
+      - node
+      - process
+      - container
+      - vm
+      - pod
+web:
+  listenAddresses:
+    - :28282
+# Disable Kubernetes integration for bare-metal testing
+kube:
+  enabled: false
