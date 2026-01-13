@@ -80,3 +80,6 @@ experimental:
       configFile: /etc/kepler/redfish.yaml # Path to Redfish BMC configuration file
       nodeName: kepler-dev # Node name to use (overrides Kubernetes node name and hostname fallback)
       httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)
+  hwmon:
+    enabled: false # Enable experimental hwmon power monitoring
+    zones: [] # List of zones to enable (default enable all)

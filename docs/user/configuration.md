@@ -36,6 +36,8 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
+| `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
+| `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 
 ### 💡 Examples
 
@@ -62,6 +64,14 @@ kepler --kube.enable=true --kube.config=/path/to/kubeconfig --kube.node-name=my-
 kepler --experimental.platform.redfish.enabled=true \
        --experimental.platform.redfish.config-file=/path/to/redfish-config.yaml \
        --experimental.platform.redfish.node-name=worker-node-1
+
+# Enable experimental hwmon power monitoring
+kepler --experimental.hwmon.enabled=true
+
+# Enable experimental hwmon power monitoring with specific zones
+kepler --experimental.hwmon.enabled=true \
+       --experimental.hwmon.zones=power1 \
+       --experimental.hwmon.zones=power2
 
 # Export only node and container level metrics
 kepler --metrics=node --metrics=container
@@ -140,6 +150,9 @@ experimental:   # experimental features (no stability guarantees)
       configFile: ""                  # Path to BMC configuration file (required when enabled)
       staleness: 30s                  # Cache duration for power readings (default: 30s)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
+  hwmon:        # hwmon power monitoring
+    enabled: false                    # Enable hwmon power monitoring (default: false)
+    zones: []                         # hwmon zones to be enabled, empty enables all available zones
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -312,6 +325,9 @@ experimental:
       configFile: ""
       staleness: 30s
       httpTimeout: 5s
+  hwmon:
+    enabled: false
+    zones: []
 ```
 
 ⚠️ **WARNING**: This section contains experimental features with no stability guarantees.
@@ -356,6 +372,26 @@ bmcs:
     username: admin
     password: secret456
     insecure: true
+```
+
+#### hwmon Power Monitoring
+
+- **enabled**: Enable experimental hwmon power monitoring (default: false)
+  - When enabled, Kepler will collect power metrics from hwmon sensors
+  - Available on architectures with hwmon power sensors
+  - Error will be returned if hwmon is not available
+
+- **zones**: List of hwmon zones to enable (default: all available power zones)
+  - By default, Kepler enables all available hwmon power zones
+  - You can restrict to specific zones by listing them
+
+**Example with specific zones:**
+
+```yaml
+experimental:
+  hwmon:
+    enabled: true
+    zones: ["power1", "power2"]
 ```
 
 ### 🧑‍🔬 Development Configuration
