@@ -24,6 +24,13 @@ rules:
       - get
       - list
       - watch
+  # Required for kubelet /pods endpoint access (kubelet uses webhook authorization)
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/proxy
+    verbs:
+      - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

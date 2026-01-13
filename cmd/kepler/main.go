@@ -133,11 +133,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	var podInformer pod.Informer
 	if *cfg.Kube.Enabled {
-		podInformer = pod.NewInformer(
-			pod.WithLogger(logger),
-			pod.WithKubeConfig(cfg.Kube.Config),
-			pod.WithNodeName(cfg.Kube.Node),
-		)
+		podInformer = createPodInformer(cfg, logger)
 		services = append(services, podInformer)
 	}
 	resourceInformer, err := resource.NewInformer(
@@ -207,6 +203,30 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	}
 
 	return services, nil
+}
+
+func createPodInformer(cfg *config.Config, logger *slog.Logger) pod.Informer {
+	if cfg.Kube.PodInformer.Mode == "apiserver" {
+		logger.Info("using API server pod informer")
+		return pod.NewInformer(
+			pod.WithLogger(logger),
+			pod.WithKubeConfig(cfg.Kube.Config),
+			pod.WithNodeName(cfg.Kube.Node),
+		)
+	}
+
+	// Default: kubelet-based informer
+	logger.Info("using kubelet pod informer",
+		"host", cfg.Kube.PodInformer.KubeletHost,
+		"port", cfg.Kube.PodInformer.KubeletPort,
+		"pollInterval", cfg.Kube.PodInformer.PollInterval)
+	return pod.NewKubeletInformer(
+		pod.WithLogger(logger),
+		pod.WithNodeName(cfg.Kube.Node),
+		pod.WithKubeletHost(cfg.Kube.PodInformer.KubeletHost),
+		pod.WithKubeletPort(cfg.Kube.PodInformer.KubeletPort),
+		pod.WithPollInterval(cfg.Kube.PodInformer.PollInterval),
+	)
 }
 
 func createRedfishService(logger *slog.Logger, cfg *config.Config) (*redfish.Service, error) {
