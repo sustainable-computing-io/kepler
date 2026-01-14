@@ -209,7 +209,7 @@ func TestServiceInitSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestServiceInitConnectionFailure(t *testing.T) {
+func TestServiceInitConnectionFailure_GracefulDegradation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	scenario := testutil.TestScenario{
 		Config: testutil.ServerConfig{
@@ -227,11 +227,21 @@ func TestServiceInitConnectionFailure(t *testing.T) {
 	// Create service with failing mock server
 	service := createTestService(t, server, logger)
 
-	// Test initialization failure
+	// Test initialization - should NOT return error (graceful degradation)
 	err := service.Init()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to connect to BMC")
-	// Client connection failure is now handled internally by PowerReader
+	assert.NoError(t, err, "Init should not return error for BMC connection failures (graceful degradation)")
+
+	// Service should be marked as unavailable
+	assert.False(t, service.IsAvailable(), "Service should be marked as unavailable after BMC connection failure")
+
+	// Power() should return an error indicating service is unavailable
+	_, err = service.Power()
+	assert.Error(t, err, "Power() should return error when service is unavailable")
+	assert.Contains(t, err.Error(), "redfish service unavailable")
+
+	// Shutdown should still work
+	err = service.Shutdown()
+	assert.NoError(t, err)
 }
 
 func TestServicePowerDataCollection(t *testing.T) {
@@ -298,7 +308,7 @@ func TestServicePowerDataCollection(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestServiceCollectionErrors(t *testing.T) {
+func TestServiceCollectionErrors_GracefulDegradation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	scenario := testutil.TestScenario{
 		Config: testutil.ServerConfig{
@@ -316,15 +326,22 @@ func TestServiceCollectionErrors(t *testing.T) {
 	// Create service
 	service := createTestService(t, server, logger)
 
-	// Initialize service (should fail due to missing chassis during PowerReader initialization)
+	// Initialize service - should NOT return error (graceful degradation)
+	// even when chassis collection fails during PowerReader initialization
 	err := service.Init()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to initialize power reader")
-	assert.Contains(t, err.Error(), "failed to get chassis collection")
+	assert.NoError(t, err, "Init should not return error for BMC issues (graceful degradation)")
 
-	// Since initialization failed, we can still test shutdown
+	// Service should be marked as unavailable
+	assert.False(t, service.IsAvailable(), "Service should be marked as unavailable")
+
+	// Power() should return error when service is unavailable
+	_, err = service.Power()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "redfish service unavailable")
+
+	// Shutdown should still work
 	err = service.Shutdown()
-	assert.NoError(t, err) // Shutdown should not fail even if initialization failed
+	assert.NoError(t, err)
 }
 
 func TestServiceConcurrentAccessPowerSubsystem(t *testing.T) {
@@ -847,6 +864,108 @@ bmcs:
 	// Test 5: Nil cached data - should not be fresh
 	service.cachedReading = nil
 	assert.False(t, service.isFresh())
+}
+
+func TestServiceIsAvailable(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	t.Run("Available after successful init", func(t *testing.T) {
+		server := testutil.NewServer(testutil.ServerConfig{
+			Username:   "admin",
+			Password:   "password",
+			PowerWatts: 150.0,
+			EnableAuth: true,
+		})
+		defer server.Close()
+
+		service := createTestService(t, server, logger)
+		err := service.Init()
+		require.NoError(t, err)
+
+		assert.True(t, service.IsAvailable(), "Service should be available after successful init")
+
+		err = service.Shutdown()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Unavailable after BMC connection failure", func(t *testing.T) {
+		server := testutil.NewServer(testutil.ServerConfig{
+			Username:   "admin",
+			Password:   "password",
+			PowerWatts: 150.0,
+			EnableAuth: true,
+			ForceError: testutil.ErrorAuth,
+		})
+		defer server.Close()
+
+		service := createTestService(t, server, logger)
+		err := service.Init()
+		require.NoError(t, err, "Init should succeed with graceful degradation")
+
+		assert.False(t, service.IsAvailable(), "Service should be unavailable after BMC failure")
+	})
+}
+
+func TestServiceGracefulDegradation(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	t.Run("Kepler continues when BMC is unreachable", func(t *testing.T) {
+		// Simulate a BMC that rejects authentication (common scenario)
+		server := testutil.NewServer(testutil.ServerConfig{
+			Username:   "admin",
+			Password:   "password",
+			PowerWatts: 150.0,
+			EnableAuth: true,
+			ForceError: testutil.ErrorAuth,
+		})
+		defer server.Close()
+
+		service := createTestService(t, server, logger)
+
+		// Init should NOT fail - graceful degradation
+		err := service.Init()
+		assert.NoError(t, err, "Init should not fail for BMC connection issues")
+
+		// Service should be marked unavailable
+		assert.False(t, service.IsAvailable())
+
+		// Power() should return informative error
+		_, err = service.Power()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "BMC was unreachable during initialization")
+
+		// Shutdown should work normally
+		err = service.Shutdown()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Service works normally when BMC is reachable", func(t *testing.T) {
+		server := testutil.NewServer(testutil.ServerConfig{
+			Username:   "admin",
+			Password:   "password",
+			PowerWatts: 200.0,
+			EnableAuth: true,
+		})
+		defer server.Close()
+
+		service := createTestService(t, server, logger)
+
+		// Init should succeed
+		err := service.Init()
+		require.NoError(t, err)
+
+		// Service should be available
+		assert.True(t, service.IsAvailable())
+
+		// Power() should return data
+		readings, err := service.Power()
+		require.NoError(t, err)
+		require.NotNil(t, readings)
+		require.NotEmpty(t, readings.Chassis)
+
+		err = service.Shutdown()
+		assert.NoError(t, err)
+	})
 }
 
 func TestServiceRun(t *testing.T) {
