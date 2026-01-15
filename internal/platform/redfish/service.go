@@ -30,6 +30,8 @@ type Service struct {
 	// Simplified caching for staleness support
 	mu            sync.RWMutex  // Protects cached readings
 	cachedReading *PowerReading // Last reading from all chassis
+
+	unavailable bool // unavailable indicates the service failed to initialize
 }
 
 // Ensure Service implements the required interfaces
@@ -111,6 +113,8 @@ func (s *Service) Name() string {
 }
 
 // Init initializes the service by connecting to the BMC
+// If BMC is unreachable after retries, the service marks itself as unavailable
+// and returns nil to allow Kepler to continue with other power sources
 func (s *Service) Init() error {
 	s.logger.Info("Initializing Redfish power monitoring service",
 		"node_name", s.nodeName,
@@ -126,7 +130,7 @@ func (s *Service) Init() error {
 			s.logger.Info("Successfully initialized power reader",
 				"node_name", s.nodeName, "attempt", attempt)
 			s.logger.Info("Successfully connected to BMC", "node_name", s.nodeName)
-			break
+			return nil
 		}
 
 		s.logger.Info("Power reader initialization failed, will retry",
@@ -138,9 +142,11 @@ func (s *Service) Init() error {
 		}
 	}
 
-	if initErr != nil {
-		return fmt.Errorf("failed to initialize power reader after %d attempts for node %s: %w", maxRetries, s.nodeName, initErr)
-	}
+	s.unavailable = true
+	s.logger.Warn("BMC unreachable after retries, Redfish power monitoring unavailable",
+		"node_name", s.nodeName,
+		"max_retries", maxRetries,
+		"error", initErr)
 	return nil
 }
 
@@ -175,6 +181,11 @@ func (s *Service) BMCID() string {
 	return s.bmcID
 }
 
+// IsAvailable returns true if the service initialized successfully
+func (s *Service) IsAvailable() bool {
+	return !s.unavailable
+}
+
 // isFresh checks if the cached reading is still within the staleness threshold
 func (s *Service) isFresh() bool {
 	s.mu.RLock()
@@ -190,6 +201,10 @@ func (s *Service) isFresh() bool {
 
 // Power returns power readings from all chassis with power data
 func (s *Service) Power() (*PowerReading, error) {
+	if s.unavailable {
+		return nil, fmt.Errorf("redfish service unavailable: BMC was unreachable during initialization")
+	}
+
 	if s.powerReader == nil {
 		return nil, fmt.Errorf("power reader is not initialized")
 	}

@@ -179,10 +179,12 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if cfg.IsFeatureEnabled(config.ExperimentalRedfishFeature) {
 		rs, err := createRedfishService(logger, cfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create Redfish service: %w", err)
+			logger.Warn("Redfish service unavailable, continuing without platform power monitoring",
+				"error", err)
+		} else {
+			services = append(services, rs)
+			redfishService = rs
 		}
-		services = append(services, rs)
-		redfishService = rs
 	}
 
 	// Add Prometheus exporter if enabled
