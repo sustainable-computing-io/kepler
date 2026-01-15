@@ -36,6 +36,9 @@ const (
 
 	// PprofFeature represents the pprof debug endpoints feature
 	PprofFeature Feature = "pprof"
+
+	// ExperimentalGPUFeature represents GPU power monitoring (experimental)
+	ExperimentalGPUFeature Feature = "gpu"
 )
 
 // Config represents the complete application configuration
@@ -133,10 +136,17 @@ type (
 		HTTPTimeout time.Duration `yaml:"httpTimeout"` // HTTP client timeout for BMC requests
 	}
 
+	// ExperimentalGPU contains GPU power monitoring settings
+	ExperimentalGPU struct {
+		// Enabled controls whether GPU power monitoring is enabled
+		Enabled *bool `yaml:"enabled"`
+	}
+
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
-		Platform Platform `yaml:"platform"`
-		Hwmon    Hwmon    `yaml:"hwmon"`
+		Platform Platform        `yaml:"platform"`
+		Hwmon    Hwmon           `yaml:"hwmon"`
+		GPU      ExperimentalGPU `yaml:"gpu"`
 	}
 
 	Config struct {
@@ -637,6 +647,11 @@ func (c *Config) IsFeatureEnabled(feature Feature) bool {
 		return ptr.Deref(c.Exporter.Stdout.Enabled, false)
 	case PprofFeature:
 		return ptr.Deref(c.Debug.Pprof.Enabled, false)
+	case ExperimentalGPUFeature:
+		if c.Experimental == nil {
+			return false
+		}
+		return ptr.Deref(c.Experimental.GPU.Enabled, false)
 	default:
 		return false
 	}
@@ -658,6 +673,10 @@ func (c *Config) experimentalFeatureEnabled() bool {
 		return true
 	}
 
+	// Check if GPU is enabled
+	if ptr.Deref(c.Experimental.GPU.Enabled, false) {
+		return true
+	}
 	// Add checks for future experimental features here
 
 	return false

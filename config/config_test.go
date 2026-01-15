@@ -2170,6 +2170,44 @@ func TestIsFeatureEnabled(t *testing.T) {
 		feature:  ExperimentalRedfishFeature,
 		expected: false,
 	}, {
+		name: "gpu feature enabled",
+		config: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+		feature:  ExperimentalGPUFeature,
+		expected: true,
+	}, {
+		name: "gpu feature disabled",
+		config: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled: ptr.To(false),
+				},
+			},
+		},
+		feature:  ExperimentalGPUFeature,
+		expected: false,
+	}, {
+		name:     "gpu feature nil experimental",
+		config:   &Config{},
+		feature:  ExperimentalGPUFeature,
+		expected: false,
+	}, {
+		name: "gpu feature nil enabled",
+		config: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled: nil,
+				},
+			},
+		},
+		feature:  ExperimentalGPUFeature,
+		expected: false,
+	}, {
 		name: "prometheus feature enabled",
 		config: &Config{
 			Exporter: Exporter{
@@ -2292,6 +2330,68 @@ func TestApplyRedfishConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGPUConfigYAML(t *testing.T) {
+	t.Run("gpu enabled via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		// Use IsFeatureEnabled which handles nil Experimental safely
+		assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+	})
+
+	t.Run("gpu disabled via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: false
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		// Use IsFeatureEnabled which handles nil Experimental safely
+		assert.False(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+	})
+
+	t.Run("gpu not specified defaults to disabled", func(t *testing.T) {
+		yamlData := `
+log:
+  level: debug
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		// GPU should default to disabled when not specified
+		assert.False(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+	})
+
+	t.Run("gpu feature enabled via IsFeatureEnabled", func(t *testing.T) {
+		cfg := &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled: ptr.To(true),
+				},
+			},
+		}
+		assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+	})
+
+	t.Run("gpu feature disabled via IsFeatureEnabled", func(t *testing.T) {
+		cfg := &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled: ptr.To(false),
+				},
+			},
+		}
+		assert.False(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+	})
 }
 
 func TestValidateExperimentalConfig(t *testing.T) {
