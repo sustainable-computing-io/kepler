@@ -14,6 +14,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -24,6 +25,9 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"github.com/sustainable-computing-io/kepler/internal/version"
+
+	// Register GPU backends via init()
+	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
 )
 
 func main() {
@@ -184,6 +188,22 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		} else {
 			services = append(services, rs)
 			redfishService = rs
+		}
+	}
+
+	// Discover GPU devices if enabled (experimental feature)
+	if cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
+		gpuMeters := gpu.DiscoverAll(logger)
+		if len(gpuMeters) > 0 {
+			logger.Info("GPU power monitoring enabled",
+				"vendors", len(gpuMeters),
+				"registered_vendors", gpu.RegisteredVendors())
+			// GPU meters are initialized by DiscoverAll, store for future use
+			// TODO: integrate with monitor for per-process power attribution
+			_ = gpuMeters
+		} else {
+			logger.Warn("GPU power monitoring enabled but no GPUs discovered",
+				"registered_vendors", gpu.RegisteredVendors())
 		}
 	}
 
