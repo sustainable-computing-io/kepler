@@ -208,6 +208,10 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		services = append(services, stdoutExporter)
 	}
 
+	// Add health probe endpoints
+	healthProbe := server.NewHealthProbe(apiServer, services, logger)
+	services = append(services, healthProbe)
+
 	return services, nil
 }
 

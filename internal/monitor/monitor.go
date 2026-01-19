@@ -78,6 +78,10 @@ type PowerMonitor struct {
 	// For managing the collection loop
 	collectionCtx    context.Context
 	collectionCancel context.CancelFunc
+
+	// Health tracking
+	initialized atomic.Bool
+	fatalError  atomic.Bool
 }
 
 var _ Service = (*PowerMonitor)(nil)
@@ -145,6 +149,9 @@ func (pm *PowerMonitor) Init() error {
 
 	// signal now so that exporters can construct descriptors
 	pm.signalNewData()
+
+	// Mark as initialized for health checks
+	pm.initialized.Store(true)
 
 	return nil
 }
@@ -428,4 +435,26 @@ func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
 	}
 
 	return nil
+}
+
+// IsLive returns true if the monitor is initialized and has not encountered fatal errors
+func (pm *PowerMonitor) IsLive() bool {
+	return pm.initialized.Load() && !pm.fatalError.Load()
+}
+
+// IsReady returns true if the monitor is live and has collected at least one valid snapshot
+// that is not stale
+func (pm *PowerMonitor) IsReady() bool {
+	if !pm.IsLive() {
+		return false
+	}
+
+	snapshot := pm.snapshot.Load()
+	if snapshot == nil || snapshot.Timestamp.IsZero() {
+		return false
+	}
+
+	// Check if data is fresh (not stale)
+	age := pm.clock.Now().Sub(snapshot.Timestamp)
+	return age <= pm.maxStaleness
 }
