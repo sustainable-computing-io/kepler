@@ -11,6 +11,7 @@ WORKDIR /workspace
 COPY . .
 
 RUN make build \
+  CGO_ENABLED=1 \
   PRODUCTION=1 \
   VERSION=${VERSION} \
   GIT_COMMIT=${GIT_COMMIT} \

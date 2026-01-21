@@ -255,6 +255,9 @@ const (
 	ExperimentalHwmonEnabledFlag = "experimental.hwmon.enabled"
 	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
 
+	// Experimental GPU flags
+	ExperimentalGPUEnabledFlag = "experimental.gpu.enabled"
+
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
 
@@ -409,6 +412,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	hwmonEnabled := app.Flag(ExperimentalHwmonEnabledFlag, "Enable experimental hwmon power monitoring").Default("false").Bool()
 	hwmonZones := app.Flag(ExperimentalHwmonZonesFlag, "Hwmon zone filter (power labels to monitor)").Strings()
 
+	// experimental GPU
+	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -480,6 +486,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		if err := applyHwmonConfig(cfg, flagsSet, hwmonEnabled, hwmonZones); err != nil {
 			return err
 		}
+
+		// Apply experimental GPU settings
+		applyGPUConfig(cfg, flagsSet, gpuEnabled)
 
 		cfg.sanitize()
 		return cfg.Validate()
@@ -602,6 +611,28 @@ func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, enabled *bool, zone
 	if flagsSet[ExperimentalHwmonZonesFlag] {
 		hwmon.Zones = *zones
 	}
+}
+
+// applyGPUConfig applies GPU configuration from flags
+func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool) {
+	// Early exit if no GPU flags are set and config file does not have experimental section
+	if !hasGPUFlags(flagsSet) && cfg.Experimental == nil {
+		return
+	}
+
+	// Initialize experimental section if needed
+	if cfg.Experimental == nil {
+		cfg.Experimental = &Experimental{}
+	}
+
+	if flagsSet[ExperimentalGPUEnabledFlag] {
+		cfg.Experimental.GPU.Enabled = enabled
+	}
+}
+
+// hasGPUFlags returns true if any GPU experimental flags are set
+func hasGPUFlags(flagsSet map[string]bool) bool {
+	return flagsSet[ExperimentalGPUEnabledFlag]
 }
 
 // resolveNodeName resolves the node name using the following precedence:
