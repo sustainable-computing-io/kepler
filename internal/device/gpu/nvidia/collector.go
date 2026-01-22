@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"sync"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 )
@@ -30,10 +32,12 @@ type GPUPowerCollector struct {
 	// minObservedPower tracks minimum power per device for idle detection
 	minObservedPower map[string]float64
 
-	// lastSeenTimestamp for GetProcessUtilization calls
-	lastSeenTimestamp map[int]uint64
-
 	mu sync.RWMutex
+
+	// Singleflight to coalesce concurrent GetProcessPower calls.
+	// Prometheus scrapes can overlap - this ensures only one NVML collection
+	// runs at a time, preventing contention and gaps in metrics.
+	processPowerGroup singleflight.Group
 }
 
 // NewGPUPowerCollector creates a new NVIDIA GPU power collector.
@@ -45,11 +49,10 @@ func NewGPUPowerCollector(logger *slog.Logger) (*GPUPowerCollector, error) {
 	nvmlBackend := NewNVMLBackend(logger)
 
 	return &GPUPowerCollector{
-		logger:            logger.With("component", "nvidia-gpu-collector"),
-		nvml:              nvmlBackend,
-		minObservedPower:  make(map[string]float64),
-		lastSeenTimestamp: make(map[int]uint64),
-		sharingModes:      make(map[int]gpu.SharingMode),
+		logger:           logger.With("component", "nvidia-gpu-collector"),
+		nvml:             nvmlBackend,
+		minObservedPower: make(map[string]float64),
+		sharingModes:     make(map[int]gpu.SharingMode),
 	}, nil
 }
 
@@ -186,8 +189,26 @@ func (c *GPUPowerCollector) getDevicePowerStatsLocked(deviceIndex int) (gpu.GPUP
 	}, nil
 }
 
+// processPowerResult wraps the result for singleflight (which only returns interface{})
+type processPowerResult struct {
+	power map[uint32]float64
+	err   error
+}
+
 // GetProcessPower returns power attribution per process.
+// Uses singleflight to coalesce concurrent Prometheus scrape calls - only one
+// NVML collection runs at a time, preventing contention and gaps in metrics.
 func (c *GPUPowerCollector) GetProcessPower() (map[uint32]float64, error) {
+	result, _, _ := c.processPowerGroup.Do("process-power", func() (interface{}, error) {
+		return c.collectProcessPower(), nil
+	})
+
+	r := result.(processPowerResult)
+	return r.power, r.err
+}
+
+// collectProcessPower is the internal implementation called via singleflight.
+func (c *GPUPowerCollector) collectProcessPower() processPowerResult {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -217,7 +238,7 @@ func (c *GPUPowerCollector) GetProcessPower() (map[uint32]float64, error) {
 		}
 	}
 
-	return result, nil
+	return processPowerResult{power: result, err: nil}
 }
 
 // attributeExclusive assigns 100% of active power to the single process
@@ -268,48 +289,74 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 		return err
 	}
 
-	if stats.ActivePower <= 0 {
+	// Step 1: Get list of running processes (authoritative list)
+	runningProcs, err := nvmlDev.GetComputeRunningProcesses()
+	if err != nil {
+		c.logger.Debug("GetComputeRunningProcesses failed", "device", deviceIndex, "error", err)
+		return err
+	}
+
+	if len(runningProcs) == 0 {
 		return nil
 	}
 
-	// Get process utilization
-	lastSeen := c.lastSeenTimestamp[deviceIndex]
-	utils, err := nvmlDev.GetProcessUtilization(lastSeen)
+	// Step 2: Get process utilization samples (always pass 0 to get latest samples)
+	utils, err := nvmlDev.GetProcessUtilization(0)
 	if err != nil {
 		// Fall back to equal distribution among running processes
 		c.logger.Debug("GetProcessUtilization unavailable, using equal distribution",
 			"device", deviceIndex, "error", err)
-		return c.attributeExclusive(deviceIndex, result)
-	}
-
-	if len(utils) == 0 {
+		powerPerProc := stats.ActivePower / float64(len(runningProcs))
+		for _, p := range runningProcs {
+			result[p.PID] += powerPerProc
+		}
 		return nil
 	}
 
-	// Update lastSeen timestamp
-	var maxTimestamp uint64
-	for _, u := range utils {
-		if u.Timestamp > maxTimestamp {
-			maxTimestamp = u.Timestamp
+	// Step 3: Build utilization map by PID
+	utilMap := make(map[uint32]uint32) // PID -> ComputeUtil
+	for _, pu := range utils {
+		// Keep the highest utilization for each PID (samples may have duplicates)
+		if existing, ok := utilMap[pu.PID]; !ok || pu.ComputeUtil > existing {
+			utilMap[pu.PID] = pu.ComputeUtil
 		}
 	}
-	c.lastSeenTimestamp[deviceIndex] = maxTimestamp
 
-	// Calculate total compute utilization
-	// Safe: max ~43M processes needed to overflow
-	var totalComputeUtil uint32
-	for _, u := range utils {
-		totalComputeUtil += u.ComputeUtil
+	c.logger.Debug("GetProcessUtilization result",
+		"device", deviceIndex,
+		"runningProcs", len(runningProcs),
+		"utilSamples", len(utils),
+		"utilMapSize", len(utilMap),
+		"totalPower", stats.TotalPower,
+		"idlePower", stats.IdlePower,
+		"activePower", stats.ActivePower)
+
+	// Step 4: Calculate total SM utilization across running processes
+	var totalSmUtil uint32
+	for _, proc := range runningProcs {
+		if smUtil, ok := utilMap[proc.PID]; ok {
+			totalSmUtil += smUtil
+		}
 	}
 
-	if totalComputeUtil == 0 {
+	// If no utilization data, distribute equally among running processes
+	if totalSmUtil == 0 {
+		powerPerProc := stats.ActivePower / float64(len(runningProcs))
+		for _, proc := range runningProcs {
+			result[proc.PID] += powerPerProc
+		}
+		c.logger.Debug("no utilization data, using equal distribution",
+			"device", deviceIndex,
+			"processes", len(runningProcs),
+			"powerPerProcess", powerPerProc)
 		return nil
 	}
 
-	// Distribute active power proportionally to compute utilization
-	for _, u := range utils {
-		fraction := float64(u.ComputeUtil) / float64(totalComputeUtil)
-		result[u.PID] += stats.ActivePower * fraction
+	// Step 5: Distribute active power proportionally to SM utilization
+	for _, proc := range runningProcs {
+		smUtil := utilMap[proc.PID] // 0 if not in map
+		fraction := float64(smUtil) / float64(totalSmUtil)
+		result[proc.PID] += stats.ActivePower * fraction
 	}
 
 	return nil

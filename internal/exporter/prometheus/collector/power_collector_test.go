@@ -271,6 +271,19 @@ func TestPowerCollector(t *testing.T) {
 		},
 	}
 
+	// Create test GPU stats
+	testGPUStats := []monitor.GPUDeviceStats{
+		{
+			DeviceIndex: 0,
+			UUID:        "GPU-12345678-1234-1234-1234-123456789abc",
+			Name:        "NVIDIA A100-SXM4-40GB",
+			Vendor:      "nvidia",
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		},
+	}
+
 	// Create test Snapshot
 	testData := &monitor.Snapshot{
 		Timestamp:       time.Now(),
@@ -279,6 +292,7 @@ func TestPowerCollector(t *testing.T) {
 		Containers:      testContainers,
 		VirtualMachines: testVMs,
 		Pods:            testPods,
+		GPUStats:        testGPUStats,
 	}
 
 	// Mock Snapshot method
@@ -325,6 +339,10 @@ func TestPowerCollector(t *testing.T) {
 
 			"kepler_pod_cpu_joules_total",
 			"kepler_pod_cpu_watts",
+
+			"kepler_node_gpu_watts",
+			"kepler_node_gpu_idle_watts",
+			"kepler_node_gpu_active_watts",
 		}
 
 		assert.ElementsMatch(t, expectedMetricNames, metricNames(metrics))
@@ -481,6 +499,19 @@ func TestPowerCollector(t *testing.T) {
 		}
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
+	})
+
+	t.Run("GPU Metrics Labels", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name": "test-node",
+			"gpu":       "0",
+			"gpu_uuid":  "GPU-12345678-1234-1234-1234-123456789abc",
+			"gpu_name":  "NVIDIA A100-SXM4-40GB",
+			"vendor":    "nvidia",
+		}
+		assertMetricLabelValues(t, registry, "kepler_node_gpu_watts", expectedLabels, 150.5)
+		assertMetricLabelValues(t, registry, "kepler_node_gpu_idle_watts", expectedLabels, 25.0)
+		assertMetricLabelValues(t, registry, "kepler_node_gpu_active_watts", expectedLabels, 125.5)
 	})
 
 	// Verify mock expectations
