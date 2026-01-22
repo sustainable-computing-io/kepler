@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	testingclock "k8s.io/utils/clock/testing"
 )
@@ -869,5 +870,178 @@ func TestTerminatedProcessTracking(t *testing.T) {
 		}
 
 		resInformer.AssertExpectations(t)
+	})
+}
+
+func TestProcessPowerWithGPU(t *testing.T) {
+	t.Run("firstProcessRead_with_GPU", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		gpuDevices := []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return(gpuDevices)
+		mockGPUMeter.On("GetDevicePowerStats", 0).Return(gpu.GPUPowerStats{
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		}, nil)
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		snapshot := NewSnapshot()
+		err = monitor.firstNodeRead(snapshot.Node)
+		require.NoError(t, err)
+
+		err = monitor.firstProcessRead(snapshot)
+		require.NoError(t, err)
+
+		// Verify GPU stats were collected
+		assert.Len(t, snapshot.GPUStats, 1)
+		assert.Equal(t, 0, snapshot.GPUStats[0].DeviceIndex)
+		assert.Equal(t, "GPU-1234", snapshot.GPUStats[0].UUID)
+		assert.Equal(t, 150.5, snapshot.GPUStats[0].TotalPower)
+		assert.Equal(t, 25.0, snapshot.GPUStats[0].IdlePower)
+		assert.Equal(t, 125.5, snapshot.GPUStats[0].ActivePower)
+	})
+
+	t.Run("calculateProcessPower_with_GPU", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		gpuDevices := []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return(gpuDevices)
+		mockGPUMeter.On("GetDevicePowerStats", 0).Return(gpu.GPUPowerStats{
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		}, nil)
+
+		// Setup GPU process power - process 123 uses GPU
+		gpuProcessPower := map[uint32]float64{
+			123: 50.5, // Process 123 uses 50.5W of GPU power
+		}
+		mockGPUMeter.On("GetProcessPower").Return(gpuProcessPower, nil)
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// Verify GPU power was attributed to process 123
+		proc123, exists := newSnapshot.Processes["123"]
+		require.True(t, exists)
+		assert.Equal(t, 50.5, proc123.GPUPower)
+
+		// Verify GPU stats were collected
+		assert.Len(t, newSnapshot.GPUStats, 1)
+
+		// Verify process without GPU has zero GPU power
+		proc456, exists := newSnapshot.Processes["456"]
+		require.True(t, exists)
+		assert.Equal(t, 0.0, proc456.GPUPower)
+	})
+
+	t.Run("calculateProcessPower_GPU_error_continues", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return([]gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		})
+		// GPU returns error
+		mockGPUMeter.On("GetProcessPower").Return(map[uint32]float64(nil), fmt.Errorf("GPU error"))
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// Verify processes are still calculated without GPU power (error should not fail)
+		assert.NotEmpty(t, newSnapshot.Processes)
 	})
 }

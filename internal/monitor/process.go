@@ -11,6 +11,35 @@ import (
 
 // firstProcessRead initializes process power data for the first time
 func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
+	// Collect GPU device stats on first read from all GPU meters
+	if len(pm.gpuMeters) > 0 {
+		var gpuStats []GPUDeviceStats
+		for _, meter := range pm.gpuMeters {
+			devices := meter.Devices()
+			for _, dev := range devices {
+				stats, err := meter.GetDevicePowerStats(dev.Index)
+				if err != nil {
+					pm.logger.Debug("Failed to get GPU device stats", "device", dev.Index, "error", err)
+					continue
+				}
+				gpuStats = append(gpuStats, GPUDeviceStats{
+					DeviceIndex: dev.Index,
+					UUID:        dev.UUID,
+					Name:        dev.Name,
+					Vendor:      string(dev.Vendor),
+					TotalPower:  stats.TotalPower,
+					IdlePower:   stats.IdlePower,
+					ActivePower: stats.ActivePower,
+				})
+			}
+		}
+		snapshot.GPUStats = gpuStats
+		pm.logger.Info("GPU stats collected on first read", "devices", len(gpuStats))
+		for _, s := range gpuStats {
+			pm.logger.Debug("GPU device stats", "device", s.DeviceIndex, "uuid", s.UUID, "total", s.TotalPower, "idle", s.IdlePower, "active", s.ActivePower)
+		}
+	}
+
 	running := pm.resources.Processes().Running
 	processes := make(Processes, len(running))
 
@@ -83,6 +112,47 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		pm.terminatedProcessesTracker.Clear()
 	}
 
+	// Get GPU power attribution from all GPU meters
+	gpuPowerByPID := make(map[uint32]float64)
+	if len(pm.gpuMeters) > 0 {
+		var gpuStats []GPUDeviceStats
+		for _, meter := range pm.gpuMeters {
+			// Get process power from this meter
+			power, err := meter.GetProcessPower()
+			if err != nil {
+				pm.logger.Warn("Failed to get GPU process power", "vendor", meter.Vendor(), "error", err)
+				continue
+			}
+			// Collect power from this meter. In practice, nodes have homogeneous GPUs
+			// (single vendor), and a process uses only one GPU type (CUDA or ROCm),
+			// so there's no PID overlap between meters.
+			for pid, watts := range power {
+				gpuPowerByPID[pid] = watts
+			}
+
+			// Collect GPU device stats for debugging/monitoring
+			devices := meter.Devices()
+			for _, dev := range devices {
+				stats, err := meter.GetDevicePowerStats(dev.Index)
+				if err != nil {
+					pm.logger.Debug("Failed to get GPU device stats", "device", dev.Index, "error", err)
+					continue
+				}
+				gpuStats = append(gpuStats, GPUDeviceStats{
+					DeviceIndex: dev.Index,
+					UUID:        dev.UUID,
+					Name:        dev.Name,
+					Vendor:      string(dev.Vendor),
+					TotalPower:  stats.TotalPower,
+					IdlePower:   stats.IdlePower,
+					ActivePower: stats.ActivePower,
+				})
+			}
+		}
+		newSnapshot.GPUStats = gpuStats
+		pm.logger.Debug("GPU process power", "gpu_processes", len(gpuPowerByPID))
+	}
+
 	procs := pm.resources.Processes()
 
 	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
@@ -142,6 +212,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
 				EnergyTotal: absoluteEnergy,
 			}
+		}
+
+		// Add GPU power attribution if available
+		if gpuPower, hasGPU := gpuPowerByPID[uint32(proc.PID)]; hasGPU {
+			process.GPUPower = gpuPower
 		}
 
 		processMap[process.StringID()] = process
