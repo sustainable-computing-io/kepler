@@ -272,21 +272,31 @@ func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]EnergyZone, error)
 	// Get human-readable chip name
 	humanName, _ := r.getHumanReadableChipName(hwmonPath)
 
-	// Scan for power sensors
+	// Scan for sensors
 	files, err := os.ReadDir(hwmonPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve power sensor files: %w", err)
+		return nil, fmt.Errorf("failed to retrieve sensor files: %w", err)
 	}
 
 	var zones []EnergyZone
 
-	// Look for power sensors only
+	// First, look for direct power sensors (preferred)
 	powerSensors := r.findSensorsByType(files, "power")
 	for sensorNum, sensorFiles := range powerSensors {
 		zone, err := r.createPowerZone(hwmonPath, chipName, humanName, sensorNum, sensorFiles)
 		if err == nil {
 			zones = append(zones, zone)
 		}
+	}
+
+	// If no direct power sensors found, try voltage/current pairs as fallback
+	if len(zones) == 0 {
+		calculatedZones, err := r.discoverVoltageCurrentZones(hwmonPath, chipName, humanName, files)
+		if err != nil {
+			// Return the error (e.g., ErrVoltageCurrentNoLabels)
+			return nil, err
+		}
+		zones = append(zones, calculatedZones...)
 	}
 
 	return zones, nil
@@ -359,6 +369,142 @@ func (r *sysfsHwmonReader) createPowerZone(
 		chipName:  chipName,
 		humanName: humanName,
 	}, nil
+}
+
+// ErrVoltageCurrentNoLabels is returned when voltage and current sensors exist
+// but cannot be matched because they lack labels
+var ErrVoltageCurrentNoLabels = fmt.Errorf("voltage and current sensors found but no matching labels available for power calculation")
+
+// discoverVoltageCurrentZones finds voltage/current sensor pairs that can be used
+// to calculate power when direct power sensors are not available.
+// Matching is done by label only - sensors must have matching labels to be paired.
+// Returns ErrVoltageCurrentNoLabels if sensors exist but lack labels for matching.
+func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
+	hwmonPath, chipName, humanName string,
+	files []os.DirEntry,
+) ([]EnergyZone, error) {
+	// Find voltage sensors (in*) and current sensors (curr*)
+	voltageSensors := r.findSensorsByType(files, "in")
+	currentSensors := r.findSensorsByType(files, "curr")
+
+	if len(voltageSensors) == 0 || len(currentSensors) == 0 {
+		return nil, nil
+	}
+
+	// Build label -> voltage sensor mapping
+	// Only include sensors that have labels and at least one value file (input or average)
+	voltageLabelMap := make(map[string]voltageSensorInfo)
+	for sensorNum, sensorFiles := range voltageSensors {
+		labelFile, hasLabel := sensorFiles["label"]
+		if !hasLabel {
+			continue
+		}
+
+		// Need at least input file
+		inputFile, hasInput := sensorFiles["input"]
+		if !hasInput {
+			continue
+		}
+
+		labelData, err := os.ReadFile(filepath.Join(hwmonPath, labelFile))
+		if err != nil {
+			continue
+		}
+
+		label := strings.TrimSpace(string(labelData))
+		cleanLabel := cleanMetricName(label)
+		if cleanLabel == "" {
+			continue
+		}
+
+		info := voltageSensorInfo{
+			index:     sensorNum,
+			inputPath: filepath.Join(hwmonPath, inputFile),
+			label:     cleanLabel,
+		}
+
+		// Store average path if available
+		if averageFile, hasAverage := sensorFiles["average"]; hasAverage {
+			info.averagePath = filepath.Join(hwmonPath, averageFile)
+		}
+
+		voltageLabelMap[cleanLabel] = info
+	}
+
+	// Match current sensors by label
+	var zones []EnergyZone
+	for sensorNum, sensorFiles := range currentSensors {
+		labelFile, hasLabel := sensorFiles["label"]
+		if !hasLabel {
+			continue
+		}
+
+		// Need at least input file for current
+		currentInputFile, hasInput := sensorFiles["input"]
+		if !hasInput {
+			continue
+		}
+
+		labelData, err := os.ReadFile(filepath.Join(hwmonPath, labelFile))
+		if err != nil {
+			continue
+		}
+
+		label := strings.TrimSpace(string(labelData))
+		cleanLabel := cleanMetricName(label)
+		if cleanLabel == "" {
+			continue
+		}
+
+		// Look for matching voltage sensor
+		voltageInfo, found := voltageLabelMap[cleanLabel]
+		if !found {
+			continue
+		}
+
+		// Determine which file type to use for both sensors
+		// Use "average" only if BOTH voltage and current have it, otherwise use "input" for both
+		var voltagePath, currentPath string
+		currentAverageFile, currentHasAverage := sensorFiles["average"]
+		voltageHasAverage := voltageInfo.averagePath != ""
+
+		if voltageHasAverage && currentHasAverage {
+			// Both have average - use average for both
+			voltagePath = voltageInfo.averagePath
+			currentPath = filepath.Join(hwmonPath, currentAverageFile)
+		} else {
+			// Use input for both (consistent readings)
+			voltagePath = voltageInfo.inputPath
+			currentPath = filepath.Join(hwmonPath, currentInputFile)
+		}
+
+		// Create calculated power zone
+		zone := &hwmonCalculatedPowerZone{
+			name:        cleanLabel,
+			index:       sensorNum,
+			voltagePath: voltagePath,
+			currentPath: currentPath,
+			chipName:    chipName,
+			humanName:   humanName,
+		}
+		zones = append(zones, zone)
+	}
+
+	// If we found voltage and current sensors but couldn't match any,
+	// return an error indicating labels are missing
+	if len(zones) == 0 {
+		return nil, ErrVoltageCurrentNoLabels
+	}
+
+	return zones, nil
+}
+
+// voltageSensorInfo holds information about a voltage sensor for label matching
+type voltageSensorInfo struct {
+	index       int
+	inputPath   string // in*_input path
+	averagePath string // in*_average path (may be empty)
+	label       string
 }
 
 func (r *sysfsHwmonReader) getChipName(hwmonPath string) (string, error) {
@@ -474,6 +620,18 @@ type hwmonPowerZone struct {
 	humanName string
 }
 
+// hwmonCalculatedPowerZone implements EnergyZone by calculating power from
+// voltage and current sensors when direct power readings are not available.
+// Power is calculated as: voltage (mV) × current (mA) = power (µW)
+type hwmonCalculatedPowerZone struct {
+	name        string
+	index       int
+	voltagePath string // Path to in*_input file (millivolts)
+	currentPath string // Path to curr*_input file (milliamperes)
+	chipName    string
+	humanName   string
+}
+
 func (z *hwmonPowerZone) Name() string {
 	return z.name
 }
@@ -511,5 +669,60 @@ func (z *hwmonPowerZone) Power() (Power, error) {
 	}
 
 	// Power type represents microwatts
+	return Power(powerMicrowatts), nil
+}
+
+func (z *hwmonCalculatedPowerZone) Name() string {
+	return z.name
+}
+
+func (z *hwmonCalculatedPowerZone) Index() int {
+	return z.index
+}
+
+func (z *hwmonCalculatedPowerZone) Path() string {
+	// Return voltage path as the primary identifier
+	return z.voltagePath
+}
+
+func (z *hwmonCalculatedPowerZone) Energy() (Energy, error) {
+	// Calculated power zones do not provide energy readings
+	return 0, fmt.Errorf("hwmon calculated power zones do not provide energy readings")
+}
+
+func (z *hwmonCalculatedPowerZone) MaxEnergy() Energy {
+	// No maximum for calculated power zones
+	return 0
+}
+
+func (z *hwmonCalculatedPowerZone) Power() (Power, error) {
+	// Read voltage in millivolts
+	voltageData, err := sysReadFile(z.voltagePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read voltage from %s: %w", z.voltagePath, err)
+	}
+
+	voltageStr := strings.TrimSpace(string(voltageData))
+	voltageMV, err := strconv.ParseUint(voltageStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse voltage value from %s: %w", z.voltagePath, err)
+	}
+
+	// Read current in milliamperes
+	currentData, err := sysReadFile(z.currentPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read current from %s: %w", z.currentPath, err)
+	}
+
+	currentStr := strings.TrimSpace(string(currentData))
+	currentMA, err := strconv.ParseUint(currentStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse current value from %s: %w", z.currentPath, err)
+	}
+
+	// Calculate power: voltage (mV) × current (mA) = power (µW)
+	// Example: 12000 mV × 5000 mA = 60,000,000 µW = 60 W
+	powerMicrowatts := voltageMV * currentMA
+
 	return Power(powerMicrowatts), nil
 }
