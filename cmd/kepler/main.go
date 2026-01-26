@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"syscall"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/alecthomas/kingpin/v2"
 
@@ -257,6 +260,23 @@ func createPrometheusExporter(
 }
 
 func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
+	// Experimental: Prometheus/VictoriaMetrics based node power input
+	if cfg.Experimental != nil && ptr.Deref(cfg.Experimental.PrometheusPower.Enabled, false) {
+		pp := cfg.Experimental.PrometheusPower
+
+		if strings.TrimSpace(pp.BaseURL) == "" || strings.TrimSpace(pp.Query) == "" {
+			return nil, fmt.Errorf("experimental.prometheus-power enabled but baseURL or query is empty")
+		}
+
+		logger.Info("Using Prometheus-based node power input",
+			"baseURL", pp.BaseURL,
+			"query", pp.Query,
+		)
+
+		client := device.NewPrometheusClient(pp.BaseURL, pp.Query)
+		return device.NewPrometheusPowerMeter("node", client.QueryPowerWatt)
+	}
+
 	if fake := cfg.Dev.FakeCpuMeter; *fake.Enabled {
 		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
 	}
