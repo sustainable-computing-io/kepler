@@ -21,7 +21,6 @@ func TestNewGPUPowerCollector(t *testing.T) {
 		assert.NotNil(t, collector)
 		assert.NotNil(t, collector.nvml)
 		assert.NotNil(t, collector.minObservedPower)
-		assert.NotNil(t, collector.lastSeenTimestamp)
 		assert.NotNil(t, collector.sharingModes)
 	})
 
@@ -58,11 +57,11 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 		mockDevice.On("GetComputeMode").Return(ComputeModeDefault, nil)
 
 		collector := &GPUPowerCollector{
-			logger:            slog.Default(),
-			nvml:              mockBackend,
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
-			sharingModes:      make(map[int]gpu.SharingMode),
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+
+			sharingModes: make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -80,10 +79,10 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 		mockBackend.On("Init").Return(gpu.ErrGPUNotInitialized{})
 
 		collector := &GPUPowerCollector{
-			nvml:              mockBackend,
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
-			sharingModes:      make(map[int]gpu.SharingMode),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+
+			sharingModes: make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -99,11 +98,11 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 		mockBackend.On("DiscoverDevices").Return(nil, gpu.ErrGPUNotInitialized{})
 
 		collector := &GPUPowerCollector{
-			logger:            slog.Default(),
-			nvml:              mockBackend,
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
-			sharingModes:      make(map[int]gpu.SharingMode),
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+
+			sharingModes: make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -124,11 +123,11 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 		mockBackend.On("GetDevice", 0).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 0})
 
 		collector := &GPUPowerCollector{
-			logger:            slog.Default(),
-			nvml:              mockBackend,
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
-			sharingModes:      make(map[int]gpu.SharingMode),
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+
+			sharingModes: make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -395,7 +394,6 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -431,12 +429,15 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1001},
+			{PID: 1002},
+		}, nil)
 		mockDevice.On("GetProcessUtilization", mock.Anything).Return([]gpu.ProcessUtilization{
 			{PID: 1001, ComputeUtil: 60, Timestamp: 100}, // 60% SM util
 			{PID: 1002, ComputeUtil: 40, Timestamp: 100}, // 40% SM util
@@ -470,7 +471,6 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -495,7 +495,7 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 		mockDevice.AssertExpectations(t)
 	})
 
-	t.Run("no active power returns empty result", func(t *testing.T) {
+	t.Run("no active power returns empty result when no processes", func(t *testing.T) {
 		mockBackend := new(MockNVMLBackend)
 		mockDevice := new(MockNVMLDevice)
 
@@ -512,19 +512,18 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 100.0, // Same as total
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
-		// Note: GetProcessUtilization is NOT called when active power is 0
-		// because attributeTimeSlicing returns early
+		// Even with activePower=0, we still check for running processes
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{}, nil)
 
 		result, err := collector.GetProcessPower()
 
 		assert.NoError(t, err)
-		assert.Empty(t, result) // No power to attribute
+		assert.Empty(t, result) // No processes to attribute power to
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -546,7 +545,6 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -579,12 +577,15 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1001},
+			{PID: 1002},
+		}, nil)
 		mockDevice.On("GetProcessUtilization", mock.Anything).Return([]gpu.ProcessUtilization{
 			{PID: 1001, ComputeUtil: 0, Timestamp: 100}, // 0% SM util
 			{PID: 1002, ComputeUtil: 0, Timestamp: 100}, // 0% SM util
@@ -593,7 +594,10 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 		result, err := collector.GetProcessPower()
 
 		assert.NoError(t, err)
-		assert.Empty(t, result) // Zero utilization means no power to attribute
+		// Zero utilization falls back to equal distribution: 60W / 2 = 30W each
+		assert.Len(t, result, 2)
+		assert.Equal(t, 30.0, result[1001])
+		assert.Equal(t, 30.0, result[1002])
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -615,18 +619,24 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1001},
+			{PID: 1002},
+		}, nil)
 		mockDevice.On("GetProcessUtilization", mock.Anything).Return([]gpu.ProcessUtilization{}, nil)
 
 		result, err := collector.GetProcessPower()
 
 		assert.NoError(t, err)
-		assert.Empty(t, result)
+		// Empty utilization falls back to equal distribution: 60W / 2 = 30W each
+		assert.Len(t, result, 2)
+		assert.Equal(t, 30.0, result[1001])
+		assert.Equal(t, 30.0, result[1002])
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -644,8 +654,7 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModePartitioned,
 			},
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
+			minObservedPower: make(map[string]float64),
 		}
 
 		result, err := collector.GetProcessPower()
@@ -778,8 +787,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModeExclusive,
 			},
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
+			minObservedPower: make(map[string]float64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 0})
@@ -809,7 +817,6 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -840,8 +847,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModeExclusive,
 			},
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
+			minObservedPower: make(map[string]float64),
 		}
 
 		// GetDevice succeeds but GetPowerUsage fails
@@ -870,8 +876,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModeTimeSlicing,
 			},
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
+			minObservedPower: make(map[string]float64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 0})
@@ -897,8 +902,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModeTimeSlicing,
 			},
-			minObservedPower:  make(map[string]float64),
-			lastSeenTimestamp: make(map[int]uint64),
+			minObservedPower: make(map[string]float64),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -932,7 +936,6 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				"GPU-0": 40.0,
 				"GPU-1": 50.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		// Device 0 fails
@@ -976,7 +979,6 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				"GPU-0": 40.0,
 				"GPU-1": 40.0,
 			},
-			lastSeenTimestamp: make(map[int]uint64),
 		}
 
 		// Both devices have same PID (process using multiple GPUs)
@@ -1094,11 +1096,11 @@ func TestGPUPowerCollector_Init_DetectAllModesErrorPath(t *testing.T) {
 	mockBackend.On("GetDevice", 0).Return(nil, errors.New("device error"))
 
 	collector := &GPUPowerCollector{
-		logger:            slog.Default(),
-		nvml:              mockBackend,
-		minObservedPower:  make(map[string]float64),
-		lastSeenTimestamp: make(map[int]uint64),
-		sharingModes:      make(map[int]gpu.SharingMode),
+		logger:           slog.Default(),
+		nvml:             mockBackend,
+		minObservedPower: make(map[string]float64),
+
+		sharingModes: make(map[int]gpu.SharingMode),
 	}
 
 	err := collector.Init()

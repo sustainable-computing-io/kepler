@@ -6,7 +6,8 @@ Kepler (Kubernetes Efficient Power Level Exporter) is a Prometheus exporter that
 
 **Key Capabilities:**
 
-- Hardware sensor-based energy measurement (Intel RAPL)
+- Hardware sensor-based energy measurement (Intel RAPL, NVIDIA NVML)
+- GPU power monitoring with per-process attribution
 - Multi-level power attribution (node → process → container/VM → pod)
 - Real-time power monitoring with configurable intervals
 - Prometheus metrics export with multiple collectors
@@ -28,10 +29,11 @@ This section provides comprehensive documentation of Kepler's architecture, desi
 
 ### Implementation Details
 
-| Document                                     | Description                                           |
-|----------------------------------------------|-------------------------------------------------------|
-| **[Interfaces & Contracts](interfaces.md)**  | Key interfaces, service contracts, and API boundaries |
-| **[Configuration System](configuration.md)** | Hierarchical configuration and option management      |
+| Document                                            | Description                                           |
+|-----------------------------------------------------|-------------------------------------------------------|
+| **[Interfaces & Contracts](interfaces.md)**         | Key interfaces, service contracts, and API boundaries |
+| **[Configuration System](configuration.md)**        | Hierarchical configuration and option management      |
+| **[GPU Power Monitoring](gpu-power-monitoring.md)** | NVIDIA GPU power monitoring via NVML                  |
 
 ## Quick Reference
 
@@ -42,9 +44,9 @@ This section provides comprehensive documentation of Kepler's architecture, desi
 **High-Level Data Flow:**
 
 ```text
-Hardware (RAPL) → Device Layer → Monitor (Attribution) → Exporters
-    ↑                                ↑
-/proc filesystem → Resource Layer ----┘
+Hardware (RAPL) ──→ Device Layer ──→ Monitor (Attribution) → Exporters
+Hardware (NVML) ──↗                        ↑
+/proc filesystem → Resource Layer ─────────┘
 ```
 
 ### Power Attribution Flow
@@ -80,6 +82,7 @@ For specific implementation work:
 - **Adding new exporters**: See [Interfaces](interfaces.md#power-data-provider-contract)
 - **Modifying power attribution**: See [Data Flow](data-flow.md#power-attribution-algorithm)
 - **Configuration changes**: See [Configuration System](configuration.md)
+- **GPU power monitoring**: See [GPU Power Monitoring](gpu-power-monitoring.md)
 
 ## Related Documentation
 
