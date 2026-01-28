@@ -117,10 +117,18 @@ type (
 		Pprof PprofDebug `yaml:"pprof"`
 	}
 
+	PodInformer struct {
+		Mode         string        `yaml:"mode"`         // "kubelet" (default) or "apiserver"
+		PollInterval time.Duration `yaml:"pollInterval"` // Poll interval for kubelet mode
+		KubeletHost  string        `yaml:"kubeletHost"`  // Kubelet host (default: localhost)
+		KubeletPort  int           `yaml:"kubeletPort"`  // Kubelet port (default: 10250)
+	}
+
 	Kube struct {
-		Enabled *bool  `yaml:"enabled"`
-		Config  string `yaml:"config"`
-		Node    string `yaml:"nodeName"`
+		Enabled     *bool       `yaml:"enabled"`
+		Config      string      `yaml:"config"`
+		Node        string      `yaml:"nodeName"`
+		PodInformer PodInformer `yaml:"podInformer"`
 	}
 
 	// Platform contains settings for platform power monitoring
@@ -302,6 +310,12 @@ func DefaultConfig() *Config {
 		},
 		Kube: Kube{
 			Enabled: ptr.To(false),
+			PodInformer: PodInformer{
+				Mode:         "kubelet",
+				PollInterval: 15 * time.Second,
+				KubeletHost:  "", // resolved at runtime via NODE_IP env var
+				KubeletPort:  10250,
+			},
 		},
 
 		// NOTE: Experimental config will be nil by default and only allocated when needed
@@ -833,6 +847,14 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 			if c.Kube.Node == "" {
 				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", KubeNodeNameFlag, KubernetesFlag))
+			}
+
+			// Validate PodInformer mode
+			switch c.Kube.PodInformer.Mode {
+			case "kubelet", "apiserver":
+				// valid
+			default:
+				errs = append(errs, fmt.Sprintf("invalid kube.podInformer.mode: %q, must be \"kubelet\" or \"apiserver\"", c.Kube.PodInformer.Mode))
 			}
 		}
 	}
