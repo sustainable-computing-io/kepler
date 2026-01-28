@@ -83,6 +83,11 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
           {{- with .Values.daemonset.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
