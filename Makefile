@@ -12,7 +12,7 @@ GOFMT=$(GOCMD) fmt
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 
-CGO_ENABLED ?= 0
+CGO_ENABLED ?= 1
 
 # Project parameters
 BINARY_NAME=kepler
