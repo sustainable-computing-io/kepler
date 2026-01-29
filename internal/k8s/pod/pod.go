@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/logger"
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -59,6 +60,7 @@ type (
 		logger         *slog.Logger
 		kubeConfigPath string
 		nodeName       string
+		pollInterval   time.Duration
 	}
 
 	OptFn func(*Option)
@@ -67,7 +69,8 @@ type (
 // DefaultOpts() returns a new Opts with defaults set
 func DefaultOpts() Option {
 	return Option{
-		logger: slog.Default(),
+		logger:       slog.Default(),
+		pollInterval: defaultPollInterval,
 	}
 }
 
@@ -86,6 +89,12 @@ func WithKubeConfig(path string) OptFn {
 func WithNodeName(nodeName string) OptFn {
 	return func(o *Option) {
 		o.nodeName = nodeName
+	}
+}
+
+func WithPollInterval(d time.Duration) OptFn {
+	return func(o *Option) {
+		o.pollInterval = d
 	}
 }
 

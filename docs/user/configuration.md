@@ -149,6 +149,9 @@ kube:           # kubernetes related config
   enabled: false    # Enable kubernetes monitoring (default: false)
   config: ""        # Path to kubeconfig file (optional if running in-cluster)
   nodeName: ""      # Name of the kubernetes node (required when enabled)
+  podInformer:      # Pod informer configuration
+    mode: kubelet          # "kubelet" (default) or "apiserver"
+    pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
 
 experimental:   # experimental features (no stability guarantees)
   platform:     # platform power monitoring
@@ -310,6 +313,9 @@ kube:
   enabled: false    # Enable kubernetes monitoring
   config: ""        # Path to kubeconfig file
   nodeName: ""      # Name of the kubernetes node
+  podInformer:
+    mode: kubelet          # "kubelet" or "apiserver"
+    pollInterval: 15s      # Poll interval for kubelet mode
 ```
 
 - **enabled**: Enable or disable Kubernetes monitoring (default: false)
@@ -324,6 +330,12 @@ kube:
   - This helps Kepler identify which node it's monitoring
   - Must match the actual node name in the Kubernetes cluster
   - Required when `enabled` is set to `true`
+
+- **podInformer**: Configuration for how Kepler discovers pod metadata
+  - **mode**: Pod informer mode (default: `kubelet`)
+    - `kubelet`: Polls the local kubelet `/pods` endpoint. Reduces API server load. The kubelet host and port are auto-discovered from the Node object at startup.
+    - `apiserver`: Watches the kube-apiserver for pod events via a shared informer cache.
+  - **pollInterval**: How often to poll kubelet for pod data (default: `15s`, kubelet mode only)
 
 ### 🧪 Experimental Configuration
 

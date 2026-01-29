@@ -39,6 +39,9 @@ data:
       enabled: false
       config: ""
       nodeName: ""
+      podInformer:
+        mode: kubelet          # "kubelet" (default) or "apiserver"
+        pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
     dev:
       fake-cpu-meter:
         enabled: false
