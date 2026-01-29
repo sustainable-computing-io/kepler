@@ -64,6 +64,9 @@ kube: # kubernetes related config
   enabled: false # enable kubernetes monitoring (default: false)
   config: /host/kube/kubeconfig # path to kubeconfig file (optional if running in-cluster)
   nodeName: kind-control-plane # name of the kubernetes node (required when enabled)
+  podInformer:
+    mode: kubelet          # "kubelet" (default) or "apiserver"
+    pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
 
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
