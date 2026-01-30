@@ -5,13 +5,21 @@
 
 ## Overview
 
-End-to-end (e2e) tests verify that Kepler works correctly as a complete system on real hardware. Unlike unit tests that mock dependencies, e2e tests run the actual Kepler binary against real Intel RAPL power meters and verify that metrics are correctly exposed via the Prometheus endpoint.
+End-to-end (e2e) tests verify that Kepler works correctly as a complete system. Kepler has two types of e2e tests:
+
+| Type           | Location        | Purpose                                   | Requirements                     |
+|----------------|-----------------|-------------------------------------------|----------------------------------|
+| **Bare-metal** | `test/e2e/`     | Node and process metrics on real hardware | Intel RAPL, root access          |
+| **Kubernetes** | `test/e2e-k8s/` | Pod and container metrics in a cluster    | K8s cluster with Kepler deployed |
+
+Unlike unit tests that mock dependencies, e2e tests run the actual Kepler binary and verify metrics are correctly exposed.
 
 **When to run e2e tests:**
 
 - Before submitting code changes that affect power monitoring, metrics export, or core functionality
 - When modifying the monitor, exporter, or device packages
-- To verify Kepler works correctly on a new hardware platform
+- **Bare-metal**: To verify Kepler works correctly on a new hardware platform
+- **Kubernetes**: To verify pod/container attribution works correctly
 
 ## Prerequisites
 
@@ -146,14 +154,14 @@ monitor:
 
 ## What Is NOT Covered (and Why)
 
-| Feature                                  | Reason Not Tested in E2E                                                                    | Where It's Tested                                        |
-|------------------------------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| Container metrics (`kepler_container_*`) | Requires container runtime (Docker/containerd) not available in bare-metal test environment | Unit tests in `internal/monitor/container_power_test.go` |
-| VM metrics (`kepler_vm_*`)               | Requires libvirt/hypervisor not available in test environment                               | Unit tests in `internal/monitor/vm_test.go`              |
-| Pod metrics (`kepler_pod_*`)             | Requires Kubernetes cluster; e2e runs with `kube.enabled: false`                            | Integration tests with Kind cluster                      |
-| Redfish platform metrics                 | Requires BMC hardware access not available in CI/dev environments                           | Unit tests in `internal/platform/redfish/`               |
-| Metrics level filtering                  | Low priority; config parsing is unit tested; e2e uses full metrics level                    | Unit tests in `config/`                                  |
-| pprof debug endpoints                    | Debug feature with low e2e value                                                            | Unit tests in `internal/server/pprof_test.go`            |
+| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                             |
+|----------------------------|--------------------------------------------------------------------------|-----------------------------------------------|
+| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`   |
+| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`    |
+| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                       |
+| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go` |
+
+> **Note**: Container and Pod metrics are tested in the [Kubernetes E2E tests](#kubernetes-e2e-tests) which run against a real cluster.
 
 ## CI Workflow
 
@@ -179,6 +187,89 @@ Standard GitHub-hosted runners use virtualized environments without access to ha
 1. Physical Intel CPU with RAPL support
 2. Root access to read `/sys/class/powercap/`
 3. Kernel support for powercap subsystem
+
+## Kubernetes E2E Tests
+
+In addition to bare-metal e2e tests, Kepler has Kubernetes-specific e2e tests that verify pod and container metrics work correctly in a real cluster environment.
+
+### Location
+
+Kubernetes e2e tests are located in `test/e2e-k8s/` and use the [sigs.k8s.io/e2e-framework](https://github.com/kubernetes-sigs/e2e-framework) testing framework.
+
+### K8s Prerequisites
+
+- **Kubernetes cluster**: A running cluster with Kepler deployed (Kind, minikube, or real cluster)
+- **Kepler DaemonSet**: Kepler must be deployed and running in the `kepler` namespace
+- **kubectl access**: Valid kubeconfig with cluster access
+
+### Running K8s E2E Tests
+
+**Important**: Kepler must be deployed and running in your cluster before running K8s e2e tests.
+
+```bash
+# Option 1: Local Kind cluster (recommended for development)
+make cluster-up                    # Create Kind cluster
+make image deploy                  # Build and deploy Kepler with default image
+
+# Option 2: Existing cluster with custom image
+make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
+
+# Verify Kepler is running
+kubectl get pods -n kepler
+# Wait until kepler pods are Running
+
+# Run the tests
+make test-e2e-k8s
+```
+
+### K8s Test Files
+
+| File                 | Purpose                                                               |
+|----------------------|-----------------------------------------------------------------------|
+| `main_test.go`       | TestMain setup: environment, port-forwarding, namespace management    |
+| `helpers_test.go`    | Test utilities: workload deployment, metric waiting, snapshot helpers |
+| `node_test.go`       | Node-level metrics presence and labels                                |
+| `pod_test.go`        | Pod metrics presence, labels, and non-negative values                 |
+| `container_test.go`  | Container metrics presence, labels, and non-negative values           |
+| `workload_test.go`   | Workload detection, power attribution, energy accumulation            |
+| `terminated_test.go` | Terminated pod/container tracking                                     |
+| `invariants_test.go` | Power attribution invariants (pod=Σcontainers, container=Σprocesses)  |
+
+### K8s Test Coverage
+
+#### Pod and Container Metrics
+
+- `kepler_pod_cpu_watts` / `kepler_pod_cpu_joules_total` - Pod power metrics
+- `kepler_container_cpu_watts` / `kepler_container_cpu_joules_total` - Container power metrics
+- Required labels: `pod_name`, `pod_namespace`, `container_name`, `container_id`, etc.
+
+#### K8s-Specific Invariants
+
+- **Pod = Σ(Containers)**: Pod power equals sum of its container powers (per zone)
+- **Container = Σ(Processes)**: Container power equals sum of its process powers (per zone)
+
+#### Workload Lifecycle
+
+- Deployed workloads appear in metrics
+- Power is attributed to running pods/containers
+- Terminated workloads tracked with `state=terminated`
+
+### Local Development with Kind
+
+```bash
+# Create Kind cluster and deploy Kepler
+make cluster-up
+make image deploy
+
+# Verify Kepler is running
+kubectl get pods -n kepler -w
+
+# Run the K8s e2e tests
+make test-e2e-k8s
+
+# Cleanup
+make undeploy cluster-down
+```
 
 ## Troubleshooting
 

@@ -172,6 +172,10 @@ kepler/
 make test                                             # All tests with race detection
 make coverage                                         # Generate coverage.html
 CGO_ENABLED=1 go test -v -race ./internal/monitor/... # Specific package
+
+# E2E tests (see docs/developer/e2e-testing.md for details)
+make test-e2e && sudo ./bin/kepler-e2e.test -test.v   # Bare-metal e2e (requires RAPL)
+make test-e2e-k8s                                     # Kubernetes e2e (requires: make cluster-up image deploy)
 ```
 
 ### Test Requirements
