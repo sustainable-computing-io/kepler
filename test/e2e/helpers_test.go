@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,8 +16,7 @@ import (
 	"testing"
 	"time"
 
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
+	"github.com/sustainable-computing-io/kepler/test/common"
 )
 
 const (
@@ -181,14 +179,10 @@ func (k *KeplerInstance) waitForReady(timeout time.Duration) error {
 
 	url := fmt.Sprintf("http://localhost:%d/metrics", k.port)
 
-	return waitForCondition(ctx, 500*time.Millisecond, func() bool {
-		resp, err := http.Get(url)
-		if err != nil {
-			return false
-		}
-		status := resp.StatusCode
-		_ = resp.Body.Close()
-		return status == http.StatusOK
+	return common.WaitForCondition(ctx, 500*time.Millisecond, func() bool {
+		scraper := common.NewMetricsScraper(url)
+		_, err := scraper.Scrape()
+		return err == nil
 	})
 }
 
@@ -244,236 +238,6 @@ func (k *KeplerInstance) IsRunning() bool {
 // Stop stops Kepler
 func (k *KeplerInstance) Stop() error {
 	return k.stop()
-}
-
-// Metric represents a parsed Prometheus metric
-type Metric struct {
-	Name   string
-	Labels map[string]string
-	Value  float64
-}
-
-// MetricFamily represents a group of metrics with the same name
-type MetricFamily struct {
-	Name    string
-	Metrics []Metric
-}
-
-// MetricsScraper scrapes Prometheus metrics
-type MetricsScraper struct {
-	url    string
-	client *http.Client
-}
-
-// NewMetricsScraper creates a new scraper
-func NewMetricsScraper(url string) *MetricsScraper {
-	return &MetricsScraper{
-		url:    url,
-		client: &http.Client{Timeout: 10 * time.Second},
-	}
-}
-
-// Scrape fetches all metrics
-func (s *MetricsScraper) Scrape() (map[string]*MetricFamily, error) {
-	resp, err := s.client.Get(s.url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch metrics: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-
-	return parseMetrics(resp.Body, resp.Header)
-}
-
-// ScrapeMetric fetches a specific metric
-func (s *MetricsScraper) ScrapeMetric(name string) ([]Metric, error) {
-	families, err := s.Scrape()
-	if err != nil {
-		return nil, err
-	}
-
-	family, ok := families[name]
-	if !ok {
-		return nil, fmt.Errorf("metric %s not found", name)
-	}
-	return family.Metrics, nil
-}
-
-// ScrapeMetricWithLabels fetches metrics matching labels
-func (s *MetricsScraper) ScrapeMetricWithLabels(name string, labels map[string]string) ([]Metric, error) {
-	metrics, err := s.ScrapeMetric(name)
-	if err != nil {
-		return nil, err
-	}
-
-	var matched []Metric
-	for _, m := range metrics {
-		if matchLabels(m.Labels, labels) {
-			matched = append(matched, m)
-		}
-	}
-	return matched, nil
-}
-
-// GetMetricValue returns a single metric value
-func (s *MetricsScraper) GetMetricValue(name string, labels map[string]string) (float64, error) {
-	metrics, err := s.ScrapeMetricWithLabels(name, labels)
-	if err != nil {
-		return 0, err
-	}
-	if len(metrics) == 0 {
-		return 0, fmt.Errorf("no metrics found for %s", name)
-	}
-	if len(metrics) > 1 {
-		return 0, fmt.Errorf("multiple metrics found for %s", name)
-	}
-	return metrics[0].Value, nil
-}
-
-// SumMetricValues returns sum of matching metrics
-func (s *MetricsScraper) SumMetricValues(name string, labels map[string]string) (float64, error) {
-	metrics, err := s.ScrapeMetricWithLabels(name, labels)
-	if err != nil {
-		return 0, err
-	}
-
-	var sum float64
-	for _, m := range metrics {
-		sum += m.Value
-	}
-	return sum, nil
-}
-
-func matchLabels(metricLabels, expected map[string]string) bool {
-	for k, v := range expected {
-		if metricLabels[k] != v {
-			return false
-		}
-	}
-	return true
-}
-
-// parseMetrics parses Prometheus metrics
-func parseMetrics(r io.Reader, header http.Header) (map[string]*MetricFamily, error) {
-	families := make(map[string]*MetricFamily)
-
-	// Determine format from response header
-	format := expfmt.ResponseFormat(header)
-
-	decoder := expfmt.NewDecoder(r, format)
-	for {
-		var mf dto.MetricFamily
-		if err := decoder.Decode(&mf); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, fmt.Errorf("failed to decode metrics: %w", err)
-		}
-
-		name := mf.GetName()
-		family := &MetricFamily{Name: name}
-
-		for _, m := range mf.GetMetric() {
-			labels := make(map[string]string)
-			for _, lp := range m.GetLabel() {
-				labels[lp.GetName()] = lp.GetValue()
-			}
-
-			value := extractMetricValue(m)
-			family.Metrics = append(family.Metrics, Metric{
-				Name:   name,
-				Labels: labels,
-				Value:  value,
-			})
-		}
-
-		families[name] = family
-	}
-
-	return families, nil
-}
-
-// extractMetricValue extracts the numeric value from a metric based on its type
-func extractMetricValue(m *dto.Metric) float64 {
-	if g := m.GetGauge(); g != nil {
-		return g.GetValue()
-	}
-	if c := m.GetCounter(); c != nil {
-		return c.GetValue()
-	}
-	if u := m.GetUntyped(); u != nil {
-		return u.GetValue()
-	}
-	// For histograms and summaries, return the sample count as a reasonable default
-	if h := m.GetHistogram(); h != nil {
-		return float64(h.GetSampleCount())
-	}
-	if s := m.GetSummary(); s != nil {
-		return float64(s.GetSampleCount())
-	}
-	return 0
-}
-
-// MetricsSnapshot is a point-in-time capture
-type MetricsSnapshot struct {
-	Timestamp time.Time
-	Families  map[string]*MetricFamily
-}
-
-// TakeSnapshot captures current metrics
-func (s *MetricsScraper) TakeSnapshot() (*MetricsSnapshot, error) {
-	families, err := s.Scrape()
-	if err != nil {
-		return nil, err
-	}
-	return &MetricsSnapshot{Timestamp: time.Now(), Families: families}, nil
-}
-
-// GetValue returns a metric value from snapshot
-func (ms *MetricsSnapshot) GetValue(name string, labels map[string]string) (float64, bool) {
-	family, ok := ms.Families[name]
-	if !ok {
-		return 0, false
-	}
-	for _, m := range family.Metrics {
-		if matchLabels(m.Labels, labels) {
-			return m.Value, true
-		}
-	}
-	return 0, false
-}
-
-// SumValues returns sum of matching metrics
-func (ms *MetricsSnapshot) SumValues(name string, labels map[string]string) float64 {
-	family, ok := ms.Families[name]
-	if !ok {
-		return 0
-	}
-	var sum float64
-	for _, m := range family.Metrics {
-		if matchLabels(m.Labels, labels) {
-			sum += m.Value
-		}
-	}
-	return sum
-}
-
-// HasMetric returns true if metric exists
-func (ms *MetricsSnapshot) HasMetric(name string) bool {
-	_, ok := ms.Families[name]
-	return ok
-}
-
-// GetAllWithName returns all metrics with the name
-func (ms *MetricsSnapshot) GetAllWithName(name string) []Metric {
-	family, ok := ms.Families[name]
-	if !ok {
-		return nil
-	}
-	return family.Metrics
 }
 
 // Workload represents a stress-ng workload
@@ -617,28 +381,8 @@ func (w *Workload) ParentPID() int {
 	return w.cmd.Process.Pid
 }
 
-// waitForCondition is a generic helper that waits for a condition to become true.
-// It returns nil if the condition is met, or an error if the context is cancelled.
-func waitForCondition(ctx context.Context, interval time.Duration, check func() bool) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if check() {
-				return nil
-			}
-		}
-	}
-}
-
 // WaitForValidCPUMetrics waits for Kepler to have valid CPU metrics.
-// Returns true when both kepler_node_cpu_usage_ratio AND kepler_node_cpu_watts
-// are present with valid (non-zero) values.
-func WaitForValidCPUMetrics(t *testing.T, scraper *MetricsScraper, timeout time.Duration) bool {
+func WaitForValidCPUMetrics(t *testing.T, scraper *common.MetricsScraper, timeout time.Duration) bool {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -647,15 +391,13 @@ func WaitForValidCPUMetrics(t *testing.T, scraper *MetricsScraper, timeout time.
 	var usageRatio float64
 	var powerValue float64
 
-	err := waitForCondition(ctx, 2*time.Second, func() bool {
-		// Check for usage ratio
+	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
 		usageMetrics, err := scraper.ScrapeMetric("kepler_node_cpu_usage_ratio")
 		if err != nil || len(usageMetrics) == 0 || usageMetrics[0].Value <= 0 {
 			return false
 		}
 		usageRatio = usageMetrics[0].Value
 
-		// Check for power watts
 		powerMetrics, err := scraper.ScrapeMetric("kepler_node_cpu_watts")
 		if err != nil || len(powerMetrics) == 0 {
 			return false
@@ -678,7 +420,7 @@ func WaitForValidCPUMetrics(t *testing.T, scraper *MetricsScraper, timeout time.
 }
 
 // WaitForProcessInMetrics waits for a process to appear in metrics
-func WaitForProcessInMetrics(t *testing.T, scraper *MetricsScraper, pid int, timeout time.Duration) bool {
+func WaitForProcessInMetrics(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) bool {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -686,7 +428,7 @@ func WaitForProcessInMetrics(t *testing.T, scraper *MetricsScraper, pid int, tim
 
 	pidStr := strconv.Itoa(pid)
 
-	err := waitForCondition(ctx, 1*time.Second, func() bool {
+	err := common.WaitForCondition(ctx, 1*time.Second, func() bool {
 		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_watts")
 		if err != nil {
 			return false
@@ -707,7 +449,7 @@ func WaitForProcessInMetrics(t *testing.T, scraper *MetricsScraper, pid int, tim
 }
 
 // WaitForNonZeroProcessPower waits for a process to show non-zero power
-func WaitForNonZeroProcessPower(t *testing.T, scraper *MetricsScraper, pid int, timeout time.Duration) (float64, bool) {
+func WaitForNonZeroProcessPower(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) (float64, bool) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -716,7 +458,7 @@ func WaitForNonZeroProcessPower(t *testing.T, scraper *MetricsScraper, pid int, 
 	pidStr := strconv.Itoa(pid)
 	var foundPower float64
 
-	err := waitForCondition(ctx, 1*time.Second, func() bool {
+	err := common.WaitForCondition(ctx, 1*time.Second, func() bool {
 		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_watts")
 		if err != nil {
 			return false
@@ -737,12 +479,9 @@ func WaitForNonZeroProcessPower(t *testing.T, scraper *MetricsScraper, pid int, 
 }
 
 // FindWorkloadPower searches for a workload's power in a metrics snapshot.
-// It checks the parent PID first, then aggregates power from all worker PIDs.
-// Returns the total power and whether the workload was found.
-func FindWorkloadPower(snapshot *MetricsSnapshot, w *Workload) (power float64, found bool) {
+func FindWorkloadPower(snapshot *common.MetricsSnapshot, w *Workload) (power float64, found bool) {
 	processMetrics := snapshot.GetAllWithName("kepler_process_cpu_watts")
 
-	// Check parent PID first (only return if it has actual power and is running)
 	parentPIDStr := strconv.Itoa(w.ParentPID())
 	for _, m := range processMetrics {
 		if m.Labels["pid"] == parentPIDStr && m.Labels["state"] == "running" && m.Value > 0 {
@@ -750,7 +489,6 @@ func FindWorkloadPower(snapshot *MetricsSnapshot, w *Workload) (power float64, f
 		}
 	}
 
-	// Check worker PIDs and aggregate their power (only running processes)
 	for _, pid := range w.PIDs() {
 		pidStr := strconv.Itoa(pid)
 		for _, m := range processMetrics {
@@ -764,7 +502,7 @@ func FindWorkloadPower(snapshot *MetricsSnapshot, w *Workload) (power float64, f
 }
 
 // WaitForTerminatedProcess waits for a process to appear in metrics with state=terminated
-func WaitForTerminatedProcess(t *testing.T, scraper *MetricsScraper, pid int, timeout time.Duration) (energy float64, found bool) {
+func WaitForTerminatedProcess(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) (energy float64, found bool) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -772,7 +510,7 @@ func WaitForTerminatedProcess(t *testing.T, scraper *MetricsScraper, pid int, ti
 
 	pidStr := strconv.Itoa(pid)
 
-	err := waitForCondition(ctx, 2*time.Second, func() bool {
+	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
 		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_joules_total")
 		if err != nil {
 			return false
