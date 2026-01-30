@@ -38,6 +38,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
 | `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
+| `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 
 ### 💡 Examples
 
@@ -72,6 +73,9 @@ kepler --experimental.hwmon.enabled=true
 kepler --experimental.hwmon.enabled=true \
        --experimental.hwmon.zones=power1 \
        --experimental.hwmon.zones=power2
+
+# Enable experimental GPU power monitoring
+kepler --experimental.gpu.enabled=true
 
 # Export only node and container level metrics
 kepler --metrics=node --metrics=container
@@ -153,6 +157,8 @@ experimental:   # experimental features (no stability guarantees)
   hwmon:        # hwmon power monitoring
     enabled: false                    # Enable hwmon power monitoring (default: false)
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
+  gpu:          # GPU power monitoring
+    enabled: false                    # Enable GPU power monitoring (default: false)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -328,6 +334,8 @@ experimental:
   hwmon:
     enabled: false
     zones: []
+  gpu:
+    enabled: false
 ```
 
 ⚠️ **WARNING**: This section contains experimental features with no stability guarantees.
@@ -392,6 +400,21 @@ experimental:
   hwmon:
     enabled: true
     zones: ["power1", "power2"]
+```
+
+#### GPU Power Monitoring
+
+- **enabled**: Enable experimental GPU power monitoring (default: false)
+  - When enabled, Kepler will collect power metrics from NVIDIA GPUs using NVML
+  - Requires NVIDIA drivers and NVML library to be available
+  - Supports per-process power attribution based on GPU compute utilization
+
+**Example:**
+
+```yaml
+experimental:
+  gpu:
+    enabled: true
 ```
 
 ### 🧑‍🔬 Development Configuration

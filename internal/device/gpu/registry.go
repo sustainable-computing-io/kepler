@@ -57,21 +57,21 @@ func Discover(vendor Vendor, logger *slog.Logger) GPUPowerMeter {
 
 	meter, err := factory(logger)
 	if err != nil {
-		logger.Debug("GPU vendor factory failed",
+		logger.Warn("GPU vendor factory failed",
 			"vendor", vendor,
 			"error", err)
 		return nil
 	}
 
 	if err := meter.Init(); err != nil {
-		logger.Debug("GPU vendor init failed",
+		logger.Warn("GPU vendor init failed",
 			"vendor", vendor,
 			"error", err)
 		return nil
 	}
 
 	if len(meter.Devices()) == 0 {
-		logger.Debug("GPU vendor has no devices", "vendor", vendor)
+		logger.Info("GPU vendor has no devices", "vendor", vendor)
 		_ = meter.Shutdown()
 		return nil
 	}
