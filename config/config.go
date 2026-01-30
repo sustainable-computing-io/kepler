@@ -140,6 +140,12 @@ type (
 	ExperimentalGPU struct {
 		// Enabled controls whether GPU power monitoring is enabled
 		Enabled *bool `yaml:"enabled"`
+
+		// IdlePower is the GPU idle power in Watts. When set (> 0), this value
+		// is used instead of auto-detected idle power. Useful when Kepler cannot
+		// observe true idle (e.g. GPUs always under load).
+		// 0 means auto-detect (track minimum power when no compute processes are running).
+		IdlePower float64 `yaml:"idlePower"`
 	}
 
 	// Experimental contains experimental features (no stability guarantees)
@@ -256,7 +262,8 @@ const (
 	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
 
 	// Experimental GPU flags
-	ExperimentalGPUEnabledFlag = "experimental.gpu.enabled"
+	ExperimentalGPUEnabledFlag   = "experimental.gpu.enabled"
+	ExperimentalGPUIdlePowerFlag = "experimental.gpu.idle-power"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -414,6 +421,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	// experimental GPU
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
+	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -488,7 +496,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		// Apply experimental GPU settings
-		applyGPUConfig(cfg, flagsSet, gpuEnabled)
+		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower)
 
 		cfg.sanitize()
 		return cfg.Validate()
@@ -614,7 +622,7 @@ func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, enabled *bool, zone
 }
 
 // applyGPUConfig applies GPU configuration from flags
-func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool) {
+func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64) {
 	// Early exit if no GPU flags are set and config file does not have experimental section
 	if !hasGPUFlags(flagsSet) && cfg.Experimental == nil {
 		return
@@ -628,11 +636,16 @@ func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool) {
 	if flagsSet[ExperimentalGPUEnabledFlag] {
 		cfg.Experimental.GPU.Enabled = enabled
 	}
+
+	if flagsSet[ExperimentalGPUIdlePowerFlag] {
+		cfg.Experimental.GPU.IdlePower = *idlePower
+	}
 }
 
 // hasGPUFlags returns true if any GPU experimental flags are set
 func hasGPUFlags(flagsSet map[string]bool) bool {
-	return flagsSet[ExperimentalGPUEnabledFlag]
+	return flagsSet[ExperimentalGPUEnabledFlag] ||
+		flagsSet[ExperimentalGPUIdlePowerFlag]
 }
 
 // resolveNodeName resolves the node name using the following precedence:
