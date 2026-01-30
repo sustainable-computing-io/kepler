@@ -39,6 +39,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
+| `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 
 ### 💡 Examples
 
@@ -76,6 +77,9 @@ kepler --experimental.hwmon.enabled=true \
 
 # Enable experimental GPU power monitoring
 kepler --experimental.gpu.enabled=true
+
+# Enable GPU monitoring with configured idle power (e.g. when GPUs are always under load)
+kepler --experimental.gpu.enabled=true --experimental.gpu.idle-power=17.5
 
 # Export only node and container level metrics
 kepler --metrics=node --metrics=container
@@ -159,6 +163,7 @@ experimental:   # experimental features (no stability guarantees)
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
   gpu:          # GPU power monitoring
     enabled: false                    # Enable GPU power monitoring (default: false)
+    idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -408,6 +413,9 @@ experimental:
   - When enabled, Kepler will collect power metrics from NVIDIA GPUs using NVML
   - Requires NVIDIA drivers and NVML library to be available
   - Supports per-process power attribution based on GPU compute utilization
+- **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
+  - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
+  - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
 
 **Example:**
 
@@ -415,6 +423,7 @@ experimental:
 experimental:
   gpu:
     enabled: true
+    idlePower: 17.5  # Override idle power to 17.5W (0 = auto-detect)
 ```
 
 ### 🧑‍🔬 Development Configuration

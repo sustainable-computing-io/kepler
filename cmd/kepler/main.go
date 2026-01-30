@@ -135,6 +135,17 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	// GPU meters are optional - returns empty slice if not available
 	gpuMeters := createGPUMeters(logger, cfg)
 
+	// Inject configured idle power into GPU meters that support it
+	if cfg.Experimental != nil && cfg.Experimental.GPU.IdlePower > 0 {
+		for _, m := range gpuMeters {
+			if c, ok := m.(gpu.IdlePowerConfigurable); ok {
+				c.SetIdlePower(cfg.Experimental.GPU.IdlePower)
+				logger.Info("configured GPU idle power",
+					"watts", cfg.Experimental.GPU.IdlePower)
+			}
+		}
+	}
+
 	var services []service.Service
 
 	var podInformer pod.Informer

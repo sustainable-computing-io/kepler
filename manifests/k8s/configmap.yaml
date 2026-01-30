@@ -57,3 +57,4 @@ data:
         zones: [] # List of zones to enable (default enable all)
       gpu:
         enabled: false
+        idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
