@@ -1,0 +1,62 @@
+# Example Kepler configuration for "Prometheus-based node power input"
+# Use this when an external system (e.g., PDU + exporter + recording rules)
+# already provides a power metric (watts), and Kepler should attribute it to processes.
+
+log:
+  level: info           # debug, info, warn, error
+  format: text          # text or json
+
+host:
+  sysfs: /sys
+  procfs: /proc
+
+monitor:
+  interval: 5s
+  staleness: 30s        # how long samples may be considered valid
+
+exporter:
+  prometheus:
+    enabled: true
+    metricsLevel:
+      - node
+      - process
+      # - container
+      # - vm
+      # - pod
+
+web:
+  listenAddresses:
+    - :28282
+
+kube:
+  enabled: false
+  # config: ""
+  # nodeName: ""
+
+dev:
+  fake-cpu-meter:
+    enabled: false
+
+# Disable RAPL zones in this example, because node power comes from Prometheus.
+rapl:
+  zones: []
+
+experimental:
+  # Prometheus/VictoriaMetrics based power input.
+  # Kepler queries an external Prometheus-compatible API endpoint for a single power time series (watts).
+  prometheus-power:
+    enabled: true
+    baseURL: http://<PROMETHEUS_OR_VICTORIAMETRICS_HOST>:8428
+    # The query must return exactly one time series (one sample).
+    # Example: device_power_watts_avg{rack="R3.033",device="kub01"}
+    query: <PROMQL_QUERY_RETURNING_SINGLE_WATTS_SERIES>
+
+  platform:
+    redfish:
+      enabled: false
+
+  hwmon:
+    enabled: false
+    
+  gpu:
+    enabled: false

@@ -18,3 +18,7 @@ go.work.sum
 tmp
 
 coverage.*
+
+# build output
+kepler
+
