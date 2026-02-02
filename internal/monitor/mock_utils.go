@@ -77,6 +77,14 @@ type MockResourceInformer struct {
 	mock.Mock
 }
 
+// ClearExpectations removes all expectations from the mock.
+// Call this at the start of a subtest to ensure test isolation when
+// fine-grained control over expectations is needed and the mock is shared
+// across subtests.
+func (m *MockResourceInformer) ClearExpectations() {
+	m.ExpectedCalls = nil
+}
+
 func (m *MockResourceInformer) SetExpectations(t *testing.T, tr *TestResource) {
 	t.Helper()
 	if tr.Node != nil {
@@ -94,9 +102,6 @@ func (m *MockResourceInformer) SetExpectations(t *testing.T, tr *TestResource) {
 	if tr.Pods != nil {
 		m.On("Pods").Return(tr.Pods, nil)
 	}
-	t.Cleanup(func() {
-		m.ExpectedCalls = nil
-	})
 }
 
 func (m *MockResourceInformer) Name() string {

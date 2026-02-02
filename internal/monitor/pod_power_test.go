@@ -84,6 +84,8 @@ func TestPodPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculatePodPower", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create previous snapshot with realistic node data and manually add pod data
 		prevSnapshot := NewSnapshot()
 		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -171,6 +173,8 @@ func TestPodPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculatePodPower_without_pods", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create empty pods
 		emptyPods := &resource.Pods{
 			Running:    make(map[string]*resource.Pod),
