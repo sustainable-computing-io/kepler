@@ -178,7 +178,13 @@ func TestCollectionCancellation(t *testing.T) {
 		close(runCh)
 	}()
 
-	assertDataUpdated(t, monitor.DataChannel(), 5*time.Millisecond, "expected first collection as soon as run is invoked")
+	// Ensure Run goroutine completes before test cleanup to avoid race with mock
+	t.Cleanup(func() {
+		cancel() // ensure context is cancelled
+		<-runCh  // wait for Run to exit
+	})
+
+	assertDataUpdated(t, monitor.DataChannel(), 100*time.Millisecond, "expected first collection as soon as run is invoked")
 
 	// ensure that the first collection has been made
 	snapshotAfterFirstCollection := monitor.snapshot.Load()

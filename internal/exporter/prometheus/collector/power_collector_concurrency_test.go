@@ -358,6 +358,12 @@ func TestConcurrentRegistration(t *testing.T) {
 		monitorWg.Wait()
 	})
 
+	// Wait for monitor to produce first snapshot
+	assert.Eventually(t, func() bool {
+		_, err := fakeMonitor.Snapshot()
+		return err == nil
+	}, 2*time.Second, 10*time.Millisecond)
+
 	// Create registries
 	registries := make([]*prometheus.Registry, numRegistries)
 	for i := range numRegistries {
