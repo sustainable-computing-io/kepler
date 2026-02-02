@@ -77,6 +77,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateContainerPower", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Setup previous snapshot with process data
 		prevSnapshot := NewSnapshot()
 		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -190,6 +192,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateContainerPower without containers", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)

@@ -171,6 +171,8 @@ func TestPodPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculatePodPower_without_pods", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create empty pods
 		emptyPods := &resource.Pods{
 			Running:    make(map[string]*resource.Pod),
