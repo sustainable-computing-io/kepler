@@ -231,6 +231,7 @@ make test-e2e-k8s
 | `node_test.go`       | Node-level metrics presence and labels                                |
 | `pod_test.go`        | Pod metrics presence, labels, and non-negative values                 |
 | `container_test.go`  | Container metrics presence, labels, and non-negative values           |
+| `hierarchy_test.go`  | Pod-container hierarchy validation (pod_id linkage)                   |
 | `workload_test.go`   | Workload detection, power attribution, energy accumulation            |
 | `terminated_test.go` | Terminated pod/container tracking                                     |
 | `invariants_test.go` | Power attribution invariants (pod=Σcontainers, container=Σprocesses)  |
