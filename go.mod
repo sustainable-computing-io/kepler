@@ -15,7 +15,7 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/exporter-toolkit v0.14.0
 	github.com/prometheus/procfs v0.15.1
-	github.com/stmcginnis/gofish v0.20.0
+	github.com/stmcginnis/gofish v0.20.1-0.20260203173523-22b2013b7c28
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.17.0
