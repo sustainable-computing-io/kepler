@@ -29,7 +29,7 @@ spec:
       containers:
         - name: kepler
           image: <KEPLER_IMAGE>
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             privileged: true
             runAsNonRoot: false
@@ -54,6 +54,9 @@ spec:
               mountPath: /etc/kepler/config.yaml
               subPath: config.yaml
               readOnly: true
+            - name: nvidia-driver
+              mountPath: /run/nvidia/driver
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /metrics
@@ -66,6 +69,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: LD_LIBRARY_PATH
+              value: /run/nvidia/driver/usr/lib64
       volumes:
         - name: sysfs
           hostPath:
@@ -76,3 +81,7 @@ spec:
         - name: cfm
           configMap:
             name: kepler
+        - name: nvidia-driver
+          hostPath:
+            path: /run/nvidia/driver
+            type: DirectoryOrCreate

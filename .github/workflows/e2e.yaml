@@ -1,0 +1,59 @@
+name: Build and run e2e tests
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+
+# default permissions as read only
+permissions: read-all
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.filter.outputs.changes }}
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v6
+
+      - name: filter changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'cmd/**/*.go'
+              - 'internal/**/*.go'
+              - 'config/**/*.go'
+              - 'test/**/*'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/k8s-bm.yaml'
+
+  build-and-deploy:
+    needs: [check-changes]
+    if: needs.check-changes.outputs.changes == 'true' && github.repository_owner == 'sustainable-computing-io'
+    runs-on: self-hosted
+    steps:
+      # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
+      # Hence, we don't need to install them as part of the job.
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6.2.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build Kepler and e2e binary
+        shell: bash
+        run: |
+          CGO_ENABLED=1 make test-e2e
+
+      - name: Run e2e tests
+        shell: bash
+        run: |
+          sudo ./bin/kepler-e2e.test -test.v -test.timeout=15m

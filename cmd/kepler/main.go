@@ -17,6 +17,8 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
+	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -132,6 +134,10 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
+
+	// GPU meters are optional - returns empty slice if not available
+	gpuMeters := createGPUMeters(logger, cfg)
+
 	var services []service.Service
 
 	var podInformer pod.Informer
@@ -152,15 +158,20 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		return nil, fmt.Errorf("failed to create resource informer: %w", err)
 	}
 
-	pm := monitor.NewPowerMonitor(
-		cpuPowerMeter,
+	// Build monitor options
+	pmOpts := []monitor.OptionFn{
 		monitor.WithLogger(logger),
 		monitor.WithResourceInformer(resourceInformer),
 		monitor.WithInterval(cfg.Monitor.Interval),
 		monitor.WithMaxStaleness(cfg.Monitor.Staleness),
 		monitor.WithMaxTerminated(cfg.Monitor.MaxTerminated),
-		monitor.WithMinTerminatedEnergyThreshold(monitor.Energy(cfg.Monitor.MinTerminatedEnergyThreshold)*monitor.Joule),
-	)
+		monitor.WithMinTerminatedEnergyThreshold(monitor.Energy(cfg.Monitor.MinTerminatedEnergyThreshold) * monitor.Joule),
+	}
+	if len(gpuMeters) > 0 {
+		pmOpts = append(pmOpts, monitor.WithGPUPowerMeters(gpuMeters))
+	}
+
+	pm := monitor.NewPowerMonitor(cpuPowerMeter, pmOpts...)
 
 	// Create Redfish service if enabled (experimental feature)
 
@@ -176,6 +187,11 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		apiServer,
 		pm,
 	)
+
+	// Add GPU meters to services for lifecycle management (Init/Shutdown)
+	for _, m := range gpuMeters {
+		services = append(services, m)
+	}
 
 	// Add Redfish service if enabled
 	var redfishService *redfish.Service
@@ -305,4 +321,30 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		device.WithRaplLogger(logger),
 		device.WithZoneFilter(cfg.Rapl.Zones),
 	)
+}
+
+// createGPUMeters discovers and initializes GPU power meters for all vendors.
+// Uses the registry pattern to support multiple GPU vendors (NVIDIA, AMD, Intel).
+// Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
+func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
+	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
+		logger.Info("GPU feature disabled")
+		return nil
+	}
+
+	// DiscoverAll probes all registered GPU backends and returns initialized meters
+	meters := gpu.DiscoverAll(logger)
+	if len(meters) == 0 {
+		logger.Info("no GPUs discovered on this node")
+		return nil
+	}
+
+	// Log all discovered GPUs
+	for _, m := range meters {
+		logger.Info("GPU discovered",
+			"vendor", m.Vendor(),
+			"devices", len(m.Devices()))
+	}
+
+	return meters
 }

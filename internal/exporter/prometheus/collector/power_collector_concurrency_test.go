@@ -45,12 +45,20 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 
 	assert.NoError(t, fakeMonitor.Init())
 
+	// Start monitor in background and ensure it completes before test cleanup
+	var monitorWg sync.WaitGroup
+	monitorWg.Add(1)
 	go func() {
+		defer monitorWg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
+	// Ensure monitor completes before test ends to avoid data races in cleanup
+	t.Cleanup(func() {
+		monitorWg.Wait()
+	})
 
 	t.Run("Concurrent Describe", func(t *testing.T) {
 		numGoroutines := runtime.NumCPU() * 3
@@ -400,12 +408,20 @@ func TestFastCollectAndDescribe(t *testing.T) {
 
 	assert.NoError(t, fakeMonitor.Init())
 
+	// Start monitor in background and ensure it completes before test cleanup
+	var monitorWg sync.WaitGroup
+	monitorWg.Add(1)
 	go func() {
+		defer monitorWg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		err := fakeMonitor.Run(ctx)
 		assert.NoError(t, err)
 	}()
+	// Ensure monitor completes before test ends to avoid data races in cleanup
+	t.Cleanup(func() {
+		monitorWg.Wait()
+	})
 
 	// Test rapid Collect calls
 	const iterations = 100

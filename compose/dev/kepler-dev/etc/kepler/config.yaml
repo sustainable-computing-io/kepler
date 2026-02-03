@@ -83,3 +83,5 @@ experimental:
   hwmon:
     enabled: false # Enable experimental hwmon power monitoring
     zones: [] # List of zones to enable (default enable all)
+  gpu:
+    enabled: false # Enable experimental GPU power monitoring

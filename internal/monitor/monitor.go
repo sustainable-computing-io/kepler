@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"golang.org/x/sync/singleflight"
@@ -37,8 +38,9 @@ type Service interface {
 // PowerMonitor is the default implementation of the monitoring service
 type PowerMonitor struct {
 	// passed externally
-	logger *slog.Logger
-	cpu    device.CPUPowerMeter
+	logger    *slog.Logger
+	cpu       device.CPUPowerMeter
+	gpuMeters []gpu.GPUPowerMeter // optional, empty if no GPUs available
 
 	interval time.Duration
 	clock    clock.WithTicker
@@ -94,6 +96,7 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 	monitor := &PowerMonitor{
 		logger:    opts.logger.With("service", "monitor"),
 		cpu:       meter,
+		gpuMeters: opts.gpuMeters,
 		clock:     opts.clock,
 		interval:  opts.interval,
 		resources: opts.resources,
@@ -128,6 +131,15 @@ func (pm *PowerMonitor) Init() error {
 
 	pm.logger.Info("Using primary energy zone for terminated workload tracking",
 		"zone", primaryEnergyZone.Name())
+
+	// Log GPU meter status
+	if len(pm.gpuMeters) > 0 {
+		for _, m := range pm.gpuMeters {
+			pm.logger.Info("GPU meter configured", "vendor", m.Vendor(), "devices", len(m.Devices()))
+		}
+	} else {
+		pm.logger.Info("No GPU meters configured")
+	}
 
 	// Initialize terminated workload trackers with the primary energy zone and minimum energy threshold
 	pm.terminatedProcessesTracker = NewTerminatedResourceTracker[*Process](

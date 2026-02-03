@@ -12,7 +12,7 @@ GOFMT=$(GOCMD) fmt
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 
-CGO_ENABLED ?= 0
+CGO_ENABLED ?= 1
 
 # Project parameters
 BINARY_NAME=kepler
@@ -84,7 +84,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*Build/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ''
 	@echo '  Development & Testing:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Test|Quality|Format|Lint|Vet|Clean|Coverage|Dependencies)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## .*(Test|Quality|Format|Lint|Vet|Clean|Coverage|Dependencies)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ''
 	@echo '  Docker & Container:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Docker|Container|Image|Push)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -135,6 +135,24 @@ test: ## Test with race detection and coverage
 .PHONY: coverage
 coverage: test ## Coverage report generation (HTML)
 	$(GOCMD) tool cover -html=$(COVER_PROFILE) -o $(COVER_HTML)
+
+# Build e2e test binary
+.PHONY: test-e2e
+test-e2e: build ## Test e2e binary build (requires sudo to run)
+	@echo "Building e2e test binary..."
+	cd test/e2e && CGO_ENABLED=1 $(GOTEST) -race -c -o ../../$(BINARY_DIR)/kepler-e2e.test .
+	@echo ""
+	@echo "E2E test binary built: $(BINARY_DIR)/kepler-e2e.test"
+	@echo ""
+	@echo "To run (requires root for RAPL access):"
+	@echo "  sudo ./$(BINARY_DIR)/kepler-e2e.test -test.v"
+	@echo ""
+	@echo "Optional flags:"
+	@echo "  -kepler.binary=/path/to/kepler"
+	@echo "  -kepler.port=9999"
+	@echo "  -kepler.config=/path/to/config"
+	@echo ""
+	@echo "Prerequisites: Intel RAPL, stress-ng (for workload tests)"
 
 # Generate metrics documentation
 .PHONY: gen-metrics-docs

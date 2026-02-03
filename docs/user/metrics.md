@@ -95,6 +95,42 @@ These metrics provide energy and power information at the node level.
 - **Constant Labels**:
   - `node_name`
 
+#### kepler_node_gpu_active_watts
+
+- **Type**: GAUGE
+- **Description**: GPU active power (total - idle) in watts
+- **Labels**:
+  - `gpu`
+  - `gpu_uuid`
+  - `gpu_name`
+  - `vendor`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_node_gpu_idle_watts
+
+- **Type**: GAUGE
+- **Description**: GPU idle power (auto-detected minimum) in watts
+- **Labels**:
+  - `gpu`
+  - `gpu_uuid`
+  - `gpu_name`
+  - `vendor`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_node_gpu_watts
+
+- **Type**: GAUGE
+- **Description**: Total GPU power consumption in watts
+- **Labels**:
+  - `gpu`
+  - `gpu_uuid`
+  - `gpu_name`
+  - `vendor`
+- **Constant Labels**:
+  - `node_name`
+
 ### Container Metrics
 
 These metrics provide energy and power information for containers.
@@ -174,6 +210,21 @@ These metrics provide energy and power information for individual processes.
   - `container_id`
   - `vm_id`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_process_gpu_watts
+
+- **Type**: GAUGE
+- **Description**: Power consumption of gpu at process level in watts
+- **Labels**:
+  - `pid`
+  - `comm`
+  - `exe`
+  - `type`
+  - `state`
+  - `container_id`
+  - `vm_id`
 - **Constant Labels**:
   - `node_name`
 
