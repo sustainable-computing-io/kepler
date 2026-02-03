@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	redfishcfg "github.com/sustainable-computing-io/kepler/config/redfish"
@@ -358,18 +358,18 @@ func TestPowerReader_determineStrategy_EdgeCases(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		chassis []*redfish.Chassis
+		chassis []*schemas.Chassis
 		expect  expectation
 	}{{
 		name:    "empty chassis list",
-		chassis: []*redfish.Chassis{},
+		chassis: []*schemas.Chassis{},
 		expect: expectation{
 			error:    true,
 			errorMsg: "no chassis available for testing",
 		},
 	}, {
 		name:    "nil chassis in list",
-		chassis: []*redfish.Chassis{nil, nil},
+		chassis: []*schemas.Chassis{nil, nil},
 		expect: expectation{
 			error:    true,
 			errorMsg: "neither PowerSubsystem nor Power API is available",
