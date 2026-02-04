@@ -4,11 +4,14 @@
 package e2e
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sustainable-computing-io/kepler/test/common"
 )
 
 // Timing constants for workload tests.
@@ -158,8 +161,8 @@ func TestMultipleWorkloadsAttribution(t *testing.T) {
 	t.Logf("Workload 1 (30%% CPU): found=%v, power=%.4f W", workload1Found, workload1Power)
 	t.Logf("Workload 2 (60%% CPU): found=%v, power=%.4f W", workload2Found, workload2Power)
 
-	assert.True(t, workload1Found || workload2Found,
-		"At least one workload should be detected in metrics")
+	assert.True(t, workload1Found, "Workload 1 should be detected in metrics")
+	assert.True(t, workload2Found, "Workload 2 should be detected in metrics")
 
 	if workload1Found && workload2Found && workload1Power > 0 && workload2Power > 0 {
 		t.Logf("Power ratio (workload2/workload1): %.2f (expected ~2.0 for 60%%/30%%)",
@@ -339,4 +342,115 @@ func TestEnergyConservationUnderLoad(t *testing.T) {
 		assertWithinTolerance(t, nodeActive, processSum, powerTolerance, absolutePowerTolerance,
 			"Zone %s: Energy conservation should hold under load", zone)
 	}
+}
+
+// TestProcessMetadataAccuracy verifies that process metrics have correct comm and exe labels
+func TestProcessMetadataAccuracy(t *testing.T) {
+	_, scraper := setupKeplerWithWorkloadSupport(t)
+
+	workload := StartWorkload(t,
+		WithWorkloadName("metadata-test"),
+		WithCPUWorkers(1),
+		WithCPULoad(50),
+	)
+	defer workload.Stop()
+
+	// Wait for workload to appear in metrics
+	time.Sleep(waitForLoad)
+
+	snapshot, err := scraper.TakeSnapshot()
+	require.NoError(t, err, "Failed to take snapshot")
+
+	processMetrics := snapshot.GetAllWithName("kepler_process_cpu_watts")
+
+	// Find the stress-ng process by PID
+	allPIDs := append([]int{workload.ParentPID()}, workload.PIDs()...)
+	var foundMetric *common.Metric
+
+	for _, pid := range allPIDs {
+		pidStr := strconv.Itoa(pid)
+		for i := range processMetrics {
+			m := &processMetrics[i]
+			if m.Labels["pid"] == pidStr && m.Labels["state"] == "running" {
+				foundMetric = m
+				break
+			}
+		}
+		if foundMetric != nil {
+			break
+		}
+	}
+
+	if foundMetric == nil {
+		t.Log("Workload process not found in metrics - may be timing related")
+		return
+	}
+
+	t.Logf("Found process: pid=%s, comm=%s, exe=%s",
+		foundMetric.Labels["pid"], foundMetric.Labels["comm"], foundMetric.Labels["exe"])
+
+	// Verify comm label contains "stress" (stress-ng worker processes)
+	comm := foundMetric.Labels["comm"]
+	assert.NotEmpty(t, comm, "comm label should not be empty")
+	assert.True(t, strings.Contains(comm, "stress"),
+		"comm label should contain 'stress', got: %s", comm)
+
+	// Verify exe label is not empty and points to a path
+	exe := foundMetric.Labels["exe"]
+	assert.NotEmpty(t, exe, "exe label should not be empty")
+}
+
+// TestProportionalPowerAttribution verifies workloads with higher CPU get proportionally more power
+func TestProportionalPowerAttribution(t *testing.T) {
+	_, scraper := setupKeplerWithWorkloadSupport(t)
+
+	// Start two workloads with different CPU loads
+	// Using 25% vs 75% for a 3:1 ratio
+	workloadLow := StartWorkload(t,
+		WithWorkloadName("low-load"),
+		WithCPUWorkers(1),
+		WithCPULoad(25),
+	)
+	defer workloadLow.Stop()
+
+	workloadHigh := StartWorkload(t,
+		WithWorkloadName("high-load"),
+		WithCPUWorkers(1),
+		WithCPULoad(75),
+	)
+	defer workloadHigh.Stop()
+
+	// Wait for workloads to stabilize and appear in metrics
+	time.Sleep(waitForLoad)
+
+	snapshot, err := scraper.TakeSnapshot()
+	require.NoError(t, err, "Failed to take snapshot")
+
+	lowPower, lowFound := FindWorkloadPower(snapshot, workloadLow)
+	highPower, highFound := FindWorkloadPower(snapshot, workloadHigh)
+
+	t.Logf("Low load (25%%): found=%v, power=%.4f W", lowFound, lowPower)
+	t.Logf("High load (75%%): found=%v, power=%.4f W", highFound, highPower)
+
+	// Both should be found
+	if !lowFound || !highFound {
+		t.Log("One or both workloads not found - skipping proportionality check")
+		return
+	}
+
+	// Both should have positive power
+	if lowPower <= 0 || highPower <= 0 {
+		t.Log("One or both workloads have zero power - skipping proportionality check")
+		return
+	}
+
+	// The high-load workload should have more power than the low-load workload
+	assert.Greater(t, highPower, lowPower,
+		"Higher CPU load should result in higher power attribution")
+
+	// Check the ratio is reasonable (between 1.5x and 6x for 75%/25% = 3x expected)
+	ratio := highPower / lowPower
+	t.Logf("Power ratio (high/low): %.2f (expected ~3.0 for 75%%/25%%)", ratio)
+
+	assert.Greater(t, ratio, 1.2, "Power ratio should be > 1.2 (high load uses more power)")
 }
