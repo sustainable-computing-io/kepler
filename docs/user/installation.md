@@ -158,6 +158,8 @@ sudo ./bin/kepler --log.level=debug --exporter.stdout
 
 The Docker Compose setup provides a complete monitoring stack with Kepler, Prometheus, and Grafana:
 
+#### Docker Compose
+
 ```bash
 cd compose/dev
 
@@ -170,6 +172,25 @@ docker compose logs -f kepler-dev
 # Stop the stack
 docker compose down --volumes
 ```
+
+#### Podman Compose
+
+For Podman users (especially on macOS/ARM), use the podman-compatible version:
+
+```bash
+cd compose/dev
+
+# Start the complete stack
+podman-compose -f compose-podman.yaml up --build -d
+
+# View logs
+podman-compose -f compose-podman.yaml logs -f kepler-dev
+
+# Stop the stack
+podman-compose -f compose-podman.yaml down --volumes
+```
+
+> **Note for ARM/Apple Silicon users**: The Scaphandre service is not available for ARM architecture. See [compose/dev/README-podman.md](../../compose/dev/README-podman.md) for platform-specific notes and workarounds.
 
 **Access Points:**
 

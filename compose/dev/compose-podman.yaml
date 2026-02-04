@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: 2025 The Kepler Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# Podman-compose compatible version (without 'include' directive)
+# All services from compose.yaml, monitoring/compose.yaml, and override.yaml are merged here
+
+name: dev
+
+services:
+  ### 📦 kepler created from the current repo (local development)
+  kepler-dev:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      args:
+        VERSION: 0.0.0-dev
+        GIT_COMMIT: dev
+        GIT_BRANCH: dev
+
+    ports:
+      # NOTE: Use 28282 for host
+      - 28283:28282
+    privileged: true
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+      - type: bind
+        source: ./kepler-dev/etc/kepler/
+        target: /etc/kepler
+        read_only: true
+
+      # NOTE: place kubeconfig here
+      # e.g. cp $KUBECONFIG ./shared/kube/kubeconfig
+      # for kind cluster, rename host in kubeconfig to kind-control-plane:6443
+      - type: bind
+        source: ./shared/kube
+        target: /host/kube
+        read_only: true
+
+    command:
+      - --config.file=/etc/kepler/config.yaml
+
+    depends_on:
+      - sushy-static
+
+    networks:
+      - kepler-dev
+      - sushy-network
+      - monitoring
+      # - kind  # NOTE: uncomment to use kind
+
+  scaphandre:
+    image: hubblo/scaphandre
+    privileged: true
+    ports:
+      - 28880:8080
+    volumes:
+      - type: bind
+        source: /proc
+        target: /proc
+      - type: bind
+        source: /sys/class/powercap
+        target: /sys/class/powercap
+    command: [prometheus]
+    networks:
+      - scaph-network
+      - monitoring
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    pid: host
+    ports:
+      - 29100:9100
+    volumes:
+      - type: bind
+        source: /proc
+        target: /host/proc
+      - type: bind
+        source: /sys
+        target: /host/sys
+      - type: bind
+        source: /
+        target: /rootfs
+    command:
+      # - --log.level=debug
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.cpufreq
+      - --collector.perf
+      - --collector.perf.cpus=0-19 # specify range of all cpus
+      - --collector.perf.software-profilers=ContextSwitch
+      - --collector.meminfo
+      - --collector.rapl
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    user: root
+    cap_add: # Add capabilities for perf collection.
+      - SYS_ADMIN
+      - SYS_PTRACE
+    networks:
+      - node-exporter-network
+      - monitoring
+
+  sushy-static:
+    image: quay.io/metal3-io/sushy-tools:latest
+    ports:
+      - 28001:8001
+    volumes:
+      - type: bind
+        source: ../../hack/mockups
+        target: /mockups
+    command:
+      - sushy-static
+      - -m
+      - /mockups/public-rackmount
+      - -i
+      - 0.0.0.0
+      - -p
+      - "8001"
+    networks:
+      - sushy-network
+
+  # Monitoring stack services (from ../monitoring/compose.yaml + override.yaml)
+  prometheus:
+    build:
+      context: ../monitoring/prometheus
+    ports:
+      - 29090:9090
+    volumes:
+      - prom-data:/prometheus
+      - type: bind
+        source: ../monitoring/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+      - type: bind
+        source: ./prometheus/scrape-configs/dev.yaml
+        target: /etc/prometheus/scrape-configs/dev.yaml
+    networks:
+      - monitoring
+      - kepler-dev
+      - scaph-network
+      - node-exporter-network
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-admin-api
+
+    healthcheck:
+      test: wget -q --spider http://localhost:9090/ -O /dev/null || exit 1
+      interval: 50s
+      timeout: 30s
+      retries: 3
+      start_period: 1m
+
+  grafana:
+    build:
+      context: ../monitoring/grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/dev/dashboard.json
+
+    user: "1000" # NOTE: change this to your `id -u`
+    depends_on:
+      - prometheus
+    ports:
+      - 23000:3000
+    volumes:
+      - type: bind
+        source: ./grafana/dashboards/dev
+        target: /var/lib/grafana/dashboards/dev
+    networks:
+      - monitoring
+
+    healthcheck:
+      test: curl -f http://localhost:3000/ || exit 1
+      interval: 50s
+      timeout: 30s
+      retries: 3
+      start_period: 1m
+
+volumes:
+  # volume for holding prometheus (ts)db
+  prom-data:
+
+networks:
+  kepler-dev:
+  scaph-network:
+  node-exporter-network:
+  sushy-network:
+  monitoring:
+  # NOTE: uncomment to use kind
+  # kind:
+  #   external: true
+
+# Made with Bob
