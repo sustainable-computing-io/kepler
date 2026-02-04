@@ -261,23 +261,41 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 			continue
 		}
 
-		hwmonZone, ok := zone.(*hwmonPowerZone)
-		require.True(t, ok, "Non-aggregated zone should be *hwmonPowerZone type")
+		// Handle both direct power zones and calculated power zones
+		if hwmonZone, ok := zone.(*hwmonPowerZone); ok {
+			t.Logf("\nChip: %s", hwmonZone.chipName)
+			t.Logf("  Human Name: %s", hwmonZone.humanName)
+			t.Logf("  Zone Name: %s", hwmonZone.Name())
+			t.Logf("  Sensor Index: %d", hwmonZone.Index())
+			t.Logf("  Sysfs Path: %s", hwmonZone.Path())
 
-		t.Logf("\nChip: %s", hwmonZone.chipName)
-		t.Logf("  Human Name: %s", hwmonZone.humanName)
-		t.Logf("  Zone Name: %s", hwmonZone.Name())
-		t.Logf("  Sensor Index: %d", hwmonZone.Index())
-		t.Logf("  Sysfs Path: %s", hwmonZone.Path())
+			// Read and display actual power value
+			power, err := hwmonZone.Power()
+			require.NoError(t, err)
+			t.Logf("  Current Power: %.3f W (%.0f µW)", power.Watts(), power.MicroWatts())
 
-		// Read and display actual power value
-		power, err := hwmonZone.Power()
-		require.NoError(t, err)
-		t.Logf("  Current Power: %.3f W (%.0f µW)", power.Watts(), power.MicroWatts())
+			// Verify power is reasonable (between 0 and 500W for test data)
+			assert.GreaterOrEqual(t, power.Watts(), 0.0, "Power should be non-negative")
+			assert.LessOrEqual(t, power.Watts(), 500.0, "Power should be reasonable for test data")
+		} else if calcZone, ok := zone.(*hwmonCalculatedPowerZone); ok {
+			t.Logf("\nCalculated Power Zone: %s", calcZone.chipName)
+			t.Logf("  Human Name: %s", calcZone.humanName)
+			t.Logf("  Zone Name: %s", calcZone.Name())
+			t.Logf("  Sensor Index: %d", calcZone.Index())
+			t.Logf("  Voltage Path: %s", calcZone.voltagePath)
+			t.Logf("  Current Path: %s", calcZone.currentPath)
 
-		// Verify power is reasonable (between 0 and 500W for test data)
-		assert.GreaterOrEqual(t, power.Watts(), 0.0, "Power should be non-negative")
-		assert.LessOrEqual(t, power.Watts(), 500.0, "Power should be reasonable for test data")
+			// Read and display actual power value
+			power, err := calcZone.Power()
+			require.NoError(t, err)
+			t.Logf("  Current Power: %.3f W (%.0f µW)", power.Watts(), power.MicroWatts())
+
+			// Verify power is reasonable (between 0 and 500W for test data)
+			assert.GreaterOrEqual(t, power.Watts(), 0.0, "Power should be non-negative")
+			assert.LessOrEqual(t, power.Watts(), 500.0, "Power should be reasonable for test data")
+		} else {
+			t.Fatalf("Unknown zone type: %T", zone)
+		}
 	}
 }
 
@@ -1478,4 +1496,880 @@ func TestDiscoverZones_GetChipNameError(t *testing.T) {
 	assert.Error(t, err, "discoverZones should fail when getChipName fails")
 	assert.Nil(t, zones, "Zones should be nil on error")
 	t.Logf("✓ discoverZones correctly handled getChipName error: %v", err)
+}
+
+// =============================================================================
+// Tests for hwmonCalculatedPowerZone (voltage/current based power calculation)
+// =============================================================================
+
+// TestHwmonCalculatedPowerZoneInterface ensures hwmonCalculatedPowerZone implements EnergyZone
+func TestHwmonCalculatedPowerZoneInterface(t *testing.T) {
+	var _ EnergyZone = (*hwmonCalculatedPowerZone)(nil)
+	t.Log("✓ hwmonCalculatedPowerZone implements EnergyZone interface")
+}
+
+// TestHwmonCalculatedPowerZone_Power tests power calculation from voltage and current
+func TestHwmonCalculatedPowerZone_Power(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone.Power() ===")
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "vdd_cpu",
+		index:       1,
+		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		chipName:    "ina3221",
+		humanName:   "ina3221",
+	}
+
+	power, err := zone.Power()
+	require.NoError(t, err, "Power() should not return error")
+
+	// Expected: 12000 mV × 5000 mA = 60,000,000 µW = 60 W
+	expectedPowerMicrowatts := float64(12000 * 5000)
+	assert.InDelta(t, expectedPowerMicrowatts, float64(power), 0.01,
+		"Power should be voltage × current in microwatts")
+	assert.InDelta(t, 60.0, power.Watts(), 0.01,
+		"Power should be 60 W (12V × 5A)")
+
+	t.Logf("✓ Calculated power: %.2f W (%.0f µW)", power.Watts(), power.MicroWatts())
+	t.Logf("  Voltage: 12000 mV (12 V)")
+	t.Logf("  Current: 5000 mA (5 A)")
+}
+
+// TestHwmonCalculatedPowerZone_Methods tests all interface methods
+func TestHwmonCalculatedPowerZone_Methods(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone Interface Methods ===")
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "test_zone",
+		index:       2,
+		voltagePath: "/path/to/voltage",
+		currentPath: "/path/to/current",
+		chipName:    "test_chip",
+		humanName:   "test_human",
+	}
+
+	// Test Name()
+	assert.Equal(t, "test_zone", zone.Name())
+	t.Logf("✓ Name() = %s", zone.Name())
+
+	// Test Index()
+	assert.Equal(t, 2, zone.Index())
+	t.Logf("✓ Index() = %d", zone.Index())
+
+	// Test Path() - returns voltage path
+	assert.Equal(t, "/path/to/voltage", zone.Path())
+	t.Logf("✓ Path() = %s", zone.Path())
+
+	// Test Energy() - returns error
+	energy, err := zone.Energy()
+	assert.Error(t, err, "Energy() should return error for calculated power zones")
+	assert.Equal(t, Energy(0), energy)
+	t.Logf("✓ Energy() correctly returns error: %v", err)
+
+	// Test MaxEnergy() - returns 0
+	maxEnergy := zone.MaxEnergy()
+	assert.Equal(t, Energy(0), maxEnergy)
+	t.Logf("✓ MaxEnergy() = %d", maxEnergy)
+}
+
+// TestHwmonCalculatedPowerZone_Power_VoltageReadError tests error handling for voltage read failure
+func TestHwmonCalculatedPowerZone_Power_VoltageReadError(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone.Power() Voltage Read Error ===")
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "test_zone",
+		index:       1,
+		voltagePath: "testdata/nonexistent_voltage_file",
+		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		chipName:    "test_chip",
+		humanName:   "test_human",
+	}
+
+	power, err := zone.Power()
+	assert.Error(t, err, "Power() should fail when voltage file doesn't exist")
+	assert.Contains(t, err.Error(), "failed to read voltage")
+	assert.Equal(t, Power(0), power)
+	t.Logf("✓ Correctly returned error: %v", err)
+}
+
+// TestHwmonCalculatedPowerZone_Power_CurrentReadError tests error handling for current read failure
+func TestHwmonCalculatedPowerZone_Power_CurrentReadError(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone.Power() Current Read Error ===")
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "test_zone",
+		index:       1,
+		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "testdata/nonexistent_current_file",
+		chipName:    "test_chip",
+		humanName:   "test_human",
+	}
+
+	power, err := zone.Power()
+	assert.Error(t, err, "Power() should fail when current file doesn't exist")
+	assert.Contains(t, err.Error(), "failed to read current")
+	assert.Equal(t, Power(0), power)
+	t.Logf("✓ Correctly returned error: %v", err)
+}
+
+// TestHwmonCalculatedPowerZone_Power_InvalidVoltageContent tests error handling for invalid voltage
+func TestHwmonCalculatedPowerZone_Power_InvalidVoltageContent(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone.Power() Invalid Voltage Content ===")
+
+	// Create temporary file with invalid content
+	tmpDir := t.TempDir()
+	invalidFile := filepath.Join(tmpDir, "invalid_voltage")
+	err := os.WriteFile(invalidFile, []byte("not_a_number"), 0644)
+	require.NoError(t, err)
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "test_zone",
+		index:       1,
+		voltagePath: invalidFile,
+		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		chipName:    "test_chip",
+		humanName:   "test_human",
+	}
+
+	power, err := zone.Power()
+	assert.Error(t, err, "Power() should fail for invalid voltage content")
+	assert.Contains(t, err.Error(), "failed to parse voltage")
+	assert.Equal(t, Power(0), power)
+	t.Logf("✓ Correctly returned error: %v", err)
+}
+
+// TestHwmonCalculatedPowerZone_Power_InvalidCurrentContent tests error handling for invalid current
+func TestHwmonCalculatedPowerZone_Power_InvalidCurrentContent(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone.Power() Invalid Current Content ===")
+
+	// Create temporary file with invalid content
+	tmpDir := t.TempDir()
+	invalidFile := filepath.Join(tmpDir, "invalid_current")
+	err := os.WriteFile(invalidFile, []byte("not_a_number"), 0644)
+	require.NoError(t, err)
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "test_zone",
+		index:       1,
+		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: invalidFile,
+		chipName:    "test_chip",
+		humanName:   "test_human",
+	}
+
+	power, err := zone.Power()
+	assert.Error(t, err, "Power() should fail for invalid current content")
+	assert.Contains(t, err.Error(), "failed to parse current")
+	assert.Equal(t, Power(0), power)
+	t.Logf("✓ Correctly returned error: %v", err)
+}
+
+// TestDiscoverVoltageCurrentZones_MatchByLabel tests voltage/current discovery with label matching
+func TestDiscoverVoltageCurrentZones_MatchByLabel(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery with Label Matching ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// Read files from the test fixture
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+	require.NoError(t, err, "Should not return error when labels match")
+
+	require.NotEmpty(t, zones, "Should discover voltage/current zones")
+	assert.Equal(t, 1, len(zones), "Should find 1 matched pair")
+
+	zone := zones[0]
+	assert.Equal(t, "vdd_cpu", zone.Name(), "Zone name should be the cleaned label")
+
+	// Verify it's a calculated power zone
+	calcZone, ok := zone.(*hwmonCalculatedPowerZone)
+	require.True(t, ok, "Zone should be *hwmonCalculatedPowerZone type")
+	assert.Contains(t, calcZone.voltagePath, "in1_input")
+	assert.Contains(t, calcZone.currentPath, "curr1_input")
+
+	// Test power calculation
+	power, err := zone.Power()
+	require.NoError(t, err)
+	assert.InDelta(t, 60.0, power.Watts(), 0.01,
+		"Power should be 60 W (12V × 5A)")
+
+	t.Logf("✓ Found zone: %s", zone.Name())
+	t.Logf("  Voltage path: %s", calcZone.voltagePath)
+	t.Logf("  Current path: %s", calcZone.currentPath)
+	t.Logf("  Power: %.2f W", power.Watts())
+}
+
+// TestDiscoverVoltageCurrentZones_NoLabels tests that sensors without labels return an error
+func TestDiscoverVoltageCurrentZones_NoLabels(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery Without Labels ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// This fixture has voltage and current but no labels
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_no_labels"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina226", "ina226", files)
+
+	assert.Empty(t, zones, "Should not discover zones without labels")
+	assert.Error(t, err, "Should return error when voltage/current exist but no labels")
+	assert.ErrorIs(t, err, ErrVoltageCurrentNoLabels,
+		"Error should be ErrVoltageCurrentNoLabels")
+	t.Logf("✓ Correctly returned error: %v", err)
+}
+
+// TestDiscoverVoltageCurrentZones_MultiplePairs tests discovery with multiple labeled pairs
+func TestDiscoverVoltageCurrentZones_MultiplePairs(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery with Multiple Pairs ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_multi"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+	require.NoError(t, err, "Should not return error when labels match")
+
+	// Should find 2 zones (VDD_CPU and VDD_GPU have matching pairs)
+	// VDD_SOC has only voltage, no matching current
+	assert.Equal(t, 2, len(zones), "Should find 2 matched pairs")
+
+	// Create a map of zone names for verification
+	zoneNames := make(map[string]EnergyZone)
+	for _, zone := range zones {
+		zoneNames[zone.Name()] = zone
+	}
+
+	t.Logf("Found %d zones:", len(zones))
+	for _, zone := range zones {
+		power, err := zone.Power()
+		require.NoError(t, err)
+		t.Logf("  - %s: %.2f W", zone.Name(), power.Watts())
+	}
+
+	// Verify VDD_CPU zone
+	cpuZone, found := zoneNames["vdd_cpu"]
+	assert.True(t, found, "Should find vdd_cpu zone")
+	if found {
+		power, _ := cpuZone.Power()
+		// 12000 mV × 5000 mA = 60 W
+		assert.InDelta(t, 60.0, power.Watts(), 0.01)
+	}
+
+	// Verify VDD_GPU zone
+	gpuZone, found := zoneNames["vdd_gpu"]
+	assert.True(t, found, "Should find vdd_gpu zone")
+	if found {
+		power, _ := gpuZone.Power()
+		// 3300 mV × 10000 mA = 33 W
+		assert.InDelta(t, 33.0, power.Watts(), 0.01)
+	}
+
+	// Verify VDD_SOC is NOT found (no matching current)
+	_, found = zoneNames["vdd_soc"]
+	assert.False(t, found, "Should NOT find vdd_soc zone (no matching current)")
+	t.Logf("✓ Correctly matched only voltage/current pairs with matching labels")
+}
+
+// TestDiscoverVoltageCurrentZones_PrefersAverageOverInput tests that _average files are preferred
+func TestDiscoverVoltageCurrentZones_PrefersAverageOverInput(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery Prefers _average Over _input ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// This fixture has both _input and _average files with different values
+	// in1_input: 12000 mV, in1_average: 11800 mV
+	// curr1_input: 5000 mA, curr1_average: 4900 mA
+	// If _average is preferred: Power = 11800 × 4900 = 57,820,000 µW = 57.82 W
+	// If _input was used: Power = 12000 × 5000 = 60,000,000 µW = 60 W
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_average"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+	require.NoError(t, err, "Should not return error when labels match")
+	require.Equal(t, 1, len(zones), "Should find 1 matched pair")
+
+	zone := zones[0]
+	power, err := zone.Power()
+	require.NoError(t, err)
+
+	// Verify _average values are used (57.82 W), not _input values (60 W)
+	expectedPowerFromAverage := 11800.0 * 4900.0 / 1_000_000.0 // 57.82 W
+	expectedPowerFromInput := 12000.0 * 5000.0 / 1_000_000.0   // 60.0 W
+
+	assert.InDelta(t, expectedPowerFromAverage, power.Watts(), 0.01,
+		"Power should use _average values (57.82 W), not _input values (60 W)")
+	// Verify we're NOT using _input values (there's a ~2W difference)
+	assert.Greater(t, expectedPowerFromInput-power.Watts(), 2.0,
+		"Power should NOT be using _input values - should differ by more than 2W")
+
+	t.Logf("✓ _average files are preferred over _input")
+	t.Logf("  Power from _average: %.2f W (expected)", expectedPowerFromAverage)
+	t.Logf("  Power from _input: %.2f W (not used)", expectedPowerFromInput)
+	t.Logf("  Actual power: %.2f W", power.Watts())
+}
+
+// TestDiscoverVoltageCurrentZones_PartialAverageFallsBackToInput tests that when only one
+// sensor has _average, both fall back to _input for consistency
+func TestDiscoverVoltageCurrentZones_PartialAverageFallsBackToInput(t *testing.T) {
+	t.Logf("\n=== Testing Partial _average Falls Back to _input for Both ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// This fixture has:
+	// - Voltage: in1_input (12000), in1_average (11800) - has both
+	// - Current: curr1_input (5000) only - no average
+	// Since current lacks _average, both should use _input:
+	// Power = 12000 × 5000 = 60,000,000 µW = 60 W
+	// NOT: 11800 × 5000 = 59 W (which would be mixing average/input)
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_partial_average"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+	require.NoError(t, err, "Should not return error when labels match")
+	require.Equal(t, 1, len(zones), "Should find 1 matched pair")
+
+	zone := zones[0]
+	power, err := zone.Power()
+	require.NoError(t, err)
+
+	// Verify _input values are used for BOTH (60 W), not mixed (59 W)
+	expectedPowerFromInput := 12000.0 * 5000.0 / 1_000_000.0 // 60.0 W
+	expectedPowerFromMixed := 11800.0 * 5000.0 / 1_000_000.0 // 59.0 W (voltage average × current input)
+
+	assert.InDelta(t, expectedPowerFromInput, power.Watts(), 0.01,
+		"Power should use _input for both when only one has _average")
+	assert.Greater(t, power.Watts()-expectedPowerFromMixed, 0.5,
+		"Power should NOT be using mixed average/input values")
+
+	t.Logf("✓ Correctly fell back to _input for both when only voltage has _average")
+	t.Logf("  Power from _input (both): %.2f W (expected)", expectedPowerFromInput)
+	t.Logf("  Power from mixed (wrong): %.2f W (not used)", expectedPowerFromMixed)
+	t.Logf("  Actual power: %.2f W", power.Watts())
+}
+
+// TestDiscoverZones_FallbackToVoltageCurrentWhenNoPower tests the fallback behavior
+func TestDiscoverZones_FallbackToVoltageCurrentWhenNoPower(t *testing.T) {
+	t.Logf("\n=== Testing discoverZones() Fallback to Voltage/Current ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// hwmon_voltage_current has no power sensors, only voltage/current pairs
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_voltage_current")
+	require.NoError(t, err, "discoverZones should succeed with voltage/current fallback")
+	require.NotEmpty(t, zones, "Should find zones via voltage/current fallback")
+
+	t.Logf("Found %d zone(s) via voltage/current fallback:", len(zones))
+	for i, zone := range zones {
+		power, err := zone.Power()
+		require.NoError(t, err)
+		t.Logf("  [%d] %s: %.2f W", i, zone.Name(), power.Watts())
+
+		// Verify it's a calculated power zone
+		_, ok := zone.(*hwmonCalculatedPowerZone)
+		assert.True(t, ok, "Zone should be *hwmonCalculatedPowerZone type")
+	}
+
+	t.Logf("✓ Successfully fell back to voltage/current when no power sensors found")
+}
+
+// TestDiscoverZones_PreferDirectPowerOverCalculated tests that direct power is preferred
+func TestDiscoverZones_PreferDirectPowerOverCalculated(t *testing.T) {
+	t.Logf("\n=== Testing discoverZones() Prefers Direct Power ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// hwmon0 has direct power sensors
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon0")
+	require.NoError(t, err)
+	require.NotEmpty(t, zones)
+
+	// All zones should be direct power zones
+	for _, zone := range zones {
+		_, ok := zone.(*hwmonPowerZone)
+		assert.True(t, ok, "Zone should be *hwmonPowerZone type when direct power is available")
+	}
+
+	t.Logf("✓ Direct power sensors are preferred over voltage/current calculation")
+}
+
+// TestHwmonPowerMeter_WithVoltageCurrentZones tests full integration with voltage/current zones
+func TestHwmonPowerMeter_WithVoltageCurrentZones(t *testing.T) {
+	t.Logf("\n=== Testing hwmonPowerMeter with Voltage/Current Zones ===")
+
+	// Create a meter using only the voltage/current fixture
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "class", "hwmon", "hwmon0")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	// Copy voltage/current fixture files
+	srcDir := "testdata/sys/class/hwmon/hwmon_voltage_current"
+	files := []string{"name", "in1_input", "in1_label", "curr1_input", "curr1_label"}
+	for _, f := range files {
+		srcData, err := os.ReadFile(filepath.Join(srcDir, f))
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(hwmonDir, f), srcData, 0644)
+		require.NoError(t, err)
+	}
+
+	meter, err := NewHwmonPowerMeter(tmpDir)
+	require.NoError(t, err)
+
+	// Init should succeed
+	err = meter.Init()
+	require.NoError(t, err, "Init() should succeed with voltage/current zones")
+
+	// Get zones
+	zones, err := meter.Zones()
+	require.NoError(t, err)
+	require.NotEmpty(t, zones)
+
+	t.Logf("Found %d zone(s):", len(zones))
+	for _, zone := range zones {
+		power, err := zone.Power()
+		require.NoError(t, err)
+		t.Logf("  - %s: %.2f W", zone.Name(), power.Watts())
+	}
+
+	// Get primary zone
+	primaryZone, err := meter.PrimaryEnergyZone()
+	require.NoError(t, err)
+	t.Logf("Primary zone: %s", primaryZone.Name())
+
+	power, err := primaryZone.Power()
+	require.NoError(t, err)
+	assert.InDelta(t, 60.0, power.Watts(), 0.01,
+		"Power should be 60 W (12V × 5A)")
+
+	t.Logf("✓ hwmonPowerMeter works correctly with voltage/current zones")
+}
+
+// TestDiscoverVoltageCurrentZones_EmptySensors tests with no voltage or current sensors
+func TestDiscoverVoltageCurrentZones_EmptySensors(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery with No Sensors ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// Create temporary directory with only temperature sensors
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "hwmon_temp_only")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(hwmonDir, "name"), []byte("temp_sensor"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "temp1_input"), []byte("50000"), 0644)
+	require.NoError(t, err)
+
+	files, err := os.ReadDir(hwmonDir)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonDir, "temp_sensor", "temp_sensor", files)
+	assert.NoError(t, err, "Should not return error when no voltage/current sensors exist")
+	assert.Empty(t, zones, "Should return empty when no voltage/current sensors exist")
+	t.Logf("✓ Correctly returned empty for no voltage/current sensors")
+}
+
+// TestDiscoverVoltageCurrentZones_VoltageOnly tests with only voltage sensors
+func TestDiscoverVoltageCurrentZones_VoltageOnly(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery with Voltage Only ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "hwmon_voltage_only")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(hwmonDir, "name"), []byte("voltage_sensor"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "in1_input"), []byte("12000"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "in1_label"), []byte("VDD"), 0644)
+	require.NoError(t, err)
+
+	files, err := os.ReadDir(hwmonDir)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonDir, "voltage_sensor", "voltage_sensor", files)
+	assert.NoError(t, err, "Should not return error when only voltage sensors exist (no current)")
+	assert.Empty(t, zones, "Should return empty when only voltage sensors exist")
+	t.Logf("✓ Correctly returned empty for voltage-only sensors")
+}
+
+// TestDiscoverVoltageCurrentZones_CurrentOnly tests with only current sensors
+func TestDiscoverVoltageCurrentZones_CurrentOnly(t *testing.T) {
+	t.Logf("\n=== Testing Voltage/Current Discovery with Current Only ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "hwmon_current_only")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(hwmonDir, "name"), []byte("current_sensor"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "curr1_input"), []byte("5000"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "curr1_label"), []byte("VDD"), 0644)
+	require.NoError(t, err)
+
+	files, err := os.ReadDir(hwmonDir)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonDir, "current_sensor", "current_sensor", files)
+	assert.NoError(t, err, "Should not return error when only current sensors exist (no voltage)")
+	assert.Empty(t, zones, "Should return empty when only current sensors exist")
+	t.Logf("✓ Correctly returned empty for current-only sensors")
+}
+
+// TestHwmonCalculatedPowerZone_MultipleReadings tests reading power multiple times
+func TestHwmonCalculatedPowerZone_MultipleReadings(t *testing.T) {
+	t.Logf("\n=== Testing hwmonCalculatedPowerZone Multiple Readings ===")
+
+	zone := &hwmonCalculatedPowerZone{
+		name:        "vdd_cpu",
+		index:       1,
+		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		chipName:    "ina3221",
+		humanName:   "ina3221",
+	}
+
+	t.Logf("Reading power 5 times:")
+	for i := 0; i < 5; i++ {
+		power, err := zone.Power()
+		require.NoError(t, err)
+		assert.InDelta(t, 60.0, power.Watts(), 0.01)
+		t.Logf("  Reading %d: %.2f W", i+1, power.Watts())
+	}
+
+	t.Logf("✓ Multiple readings are consistent")
+}
+
+// =============================================================================
+// Tests for Known-Chip Lookup and Same-Index Fallback
+// =============================================================================
+
+// TestGetChipPairingRule tests the chip pairing rule lookup
+func TestGetChipPairingRule(t *testing.T) {
+	t.Logf("\n=== Testing Chip Pairing Rule Lookup ===")
+
+	testCases := []struct {
+		chipName     string
+		expectRule   bool
+		useSameIndex bool
+		hasPairings  bool
+	}{
+		{"ina226", true, false, true},
+		{"ina3221", true, true, false},
+		{"max20730", true, false, true},
+		{"adm1275", true, false, true},
+		{"pmbus", true, true, false},
+		{"unknown_chip", false, false, false},
+		{"INA226", true, false, true},     // Case insensitive
+		{"  ina226  ", true, false, true}, // Whitespace trimmed
+	}
+
+	for _, tc := range testCases {
+		rule := getChipPairingRule(tc.chipName)
+		if tc.expectRule {
+			require.NotNil(t, rule, "Should find rule for %q", tc.chipName)
+			assert.Equal(t, tc.useSameIndex, rule.useSameIndex,
+				"useSameIndex should match for %q", tc.chipName)
+			if tc.hasPairings {
+				assert.NotEmpty(t, rule.pairings, "Should have pairings for %q", tc.chipName)
+			}
+			t.Logf("✓ Found rule for %q: useSameIndex=%v, pairings=%v",
+				tc.chipName, rule.useSameIndex, rule.pairings)
+		} else {
+			assert.Nil(t, rule, "Should not find rule for %q", tc.chipName)
+			t.Logf("✓ No rule found for unknown chip %q", tc.chipName)
+		}
+	}
+}
+
+// TestChipPairingRule_SkipVoltage tests the shouldSkipVoltage method
+func TestChipPairingRule_SkipVoltage(t *testing.T) {
+	t.Logf("\n=== Testing Voltage Skip Rules ===")
+
+	// INA3221 should skip in4, in5, in6, in7 (shunt voltages and sum)
+	rule := getChipPairingRule("ina3221")
+	require.NotNil(t, rule)
+
+	skipTests := []struct {
+		idx    int
+		should bool
+	}{
+		{1, false}, {2, false}, {3, false}, // Bus voltages - don't skip
+		{4, true}, {5, true}, {6, true}, {7, true}, // Shunt/sum - skip
+	}
+
+	for _, tc := range skipTests {
+		result := rule.shouldSkipVoltage(tc.idx)
+		assert.Equal(t, tc.should, result,
+			"shouldSkipVoltage(%d) should be %v", tc.idx, tc.should)
+	}
+
+	t.Logf("✓ INA3221 correctly skips in4-in7 (shunt voltages)")
+}
+
+// TestChipPairingRule_SkipCurrent tests the shouldSkipCurrent method
+func TestChipPairingRule_SkipCurrent(t *testing.T) {
+	t.Logf("\n=== Testing Current Skip Rules ===")
+
+	// MAX34440 should skip curr7 and curr8 (current-only channels)
+	rule := getChipPairingRule("max34440")
+	require.NotNil(t, rule)
+
+	skipTests := []struct {
+		idx    int
+		should bool
+	}{
+		{1, false}, {2, false}, {6, false}, // Normal currents - don't skip
+		{7, true}, {8, true}, // Current-only channels - skip
+	}
+
+	for _, tc := range skipTests {
+		result := rule.shouldSkipCurrent(tc.idx)
+		assert.Equal(t, tc.should, result,
+			"shouldSkipCurrent(%d) should be %v", tc.idx, tc.should)
+	}
+
+	t.Logf("✓ MAX34440 correctly skips curr7-curr8 (current-only)")
+}
+
+// TestDiscoverVoltageCurrentZones_INA226ChipRule tests INA226 chip-specific pairing
+func TestDiscoverVoltageCurrentZones_INA226ChipRule(t *testing.T) {
+	t.Logf("\n=== Testing INA226 Chip-Specific Pairing ===")
+	t.Logf("INA226 has: in0 (shunt), in1 (bus), curr1 - rule: in1 ↔ curr1, skip in0")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_ina226"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina226", "ina226", files)
+	require.NoError(t, err, "Should find zones using chip rule")
+	require.Len(t, zones, 1, "Should find exactly 1 zone (in1 ↔ curr1)")
+
+	zone := zones[0].(*hwmonCalculatedPowerZone)
+	power, err := zone.Power()
+	require.NoError(t, err)
+
+	// Power = 12000 mV × 5000 mA = 60,000,000 µW = 60 W
+	expectedWatts := 12000.0 * 5000.0 / 1_000_000.0
+	assert.InDelta(t, expectedWatts, power.Watts(), 0.01,
+		"Power should be from in1 (12V) × curr1 (5A) = 60W")
+
+	t.Logf("✓ INA226 correctly paired in1 with curr1: %.2f W", power.Watts())
+	t.Logf("✓ INA226 correctly skipped in0 (shunt voltage)")
+}
+
+// TestDiscoverVoltageCurrentZones_INA3221ChipRule tests INA3221 chip-specific pairing
+func TestDiscoverVoltageCurrentZones_INA3221ChipRule(t *testing.T) {
+	t.Logf("\n=== Testing INA3221 Chip-Specific Pairing ===")
+	t.Logf("INA3221 has: in1-3 (bus), in4-6 (shunt), in7 (sum), curr1-3")
+	t.Logf("Rule: in{N} ↔ curr{N} for N=1..3, skip in4-7")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_ina3221"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+	require.NoError(t, err, "Should find zones using chip rule")
+	require.Len(t, zones, 3, "Should find 3 zones (in1↔curr1, in2↔curr2, in3↔curr3)")
+
+	t.Logf("Found %d zones:", len(zones))
+	for _, z := range zones {
+		zone := z.(*hwmonCalculatedPowerZone)
+		power, err := zone.Power()
+		require.NoError(t, err)
+		t.Logf("  Zone %q (index %d): %.2f W", zone.Name(), zone.Index(), power.Watts())
+	}
+
+	t.Logf("✓ INA3221 correctly paired 3 bus voltage/current pairs")
+	t.Logf("✓ INA3221 correctly skipped in4-in7 (shunt voltages and sum)")
+}
+
+// TestDiscoverVoltageCurrentZones_MAX20730ExceptionRule tests MAX20730 exception
+func TestDiscoverVoltageCurrentZones_MAX20730ExceptionRule(t *testing.T) {
+	t.Logf("\n=== Testing MAX20730 Exception Rule ===")
+	t.Logf("MAX20730 EXCEPTION: curr1 is output current, pairs with in2 (VOUT), not in1")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_max20730"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "max20730", "max20730", files)
+	require.NoError(t, err, "Should find zones using chip rule")
+	require.Len(t, zones, 1, "Should find 1 zone (in2 ↔ curr1)")
+
+	zone := zones[0].(*hwmonCalculatedPowerZone)
+	power, err := zone.Power()
+	require.NoError(t, err)
+
+	// Power = 12000 mV (in2=VOUT) × 10000 mA (curr1=IOUT) = 120,000,000 µW = 120 W
+	expectedWatts := 12000.0 * 10000.0 / 1_000_000.0
+	assert.InDelta(t, expectedWatts, power.Watts(), 0.01,
+		"Power should be from in2 (12V VOUT) × curr1 (10A IOUT) = 120W")
+
+	// NOT from in1 (48V VIN) which would give 480W
+	wrongWatts := 48000.0 * 10000.0 / 1_000_000.0
+	assert.True(t, power.Watts() < wrongWatts-1.0,
+		"Power should NOT be from in1 (VIN @ 48V) which would give %.2fW", wrongWatts)
+
+	t.Logf("✓ MAX20730 correctly paired in2 (VOUT) with curr1 (IOUT): %.2f W", power.Watts())
+	t.Logf("✓ MAX20730 correctly ignored in1 (VIN @ 48V)")
+}
+
+// TestDiscoverVoltageCurrentZones_SameIndexFallback tests same-index fallback for unknown chips
+func TestDiscoverVoltageCurrentZones_SameIndexFallback(t *testing.T) {
+	t.Logf("\n=== Testing Same-Index Fallback for Unknown Chips ===")
+	t.Logf("When chip is unknown, fall back to same-index matching: in{N} ↔ curr{N}")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_same_index"
+	files, err := os.ReadDir(hwmonPath)
+	require.NoError(t, err)
+
+	zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "unknown_chip", "unknown_chip", files)
+	require.NoError(t, err, "Should find zones using same-index fallback")
+	require.Len(t, zones, 2, "Should find 2 zones (in1↔curr1, in2↔curr2)")
+
+	t.Logf("Found %d zones using same-index fallback:", len(zones))
+	for _, z := range zones {
+		zone := z.(*hwmonCalculatedPowerZone)
+		power, err := zone.Power()
+		require.NoError(t, err)
+		t.Logf("  Zone %q (index %d): %.2f W", zone.Name(), zone.Index(), power.Watts())
+	}
+
+	t.Logf("✓ Same-index fallback correctly paired in1↔curr1 and in2↔curr2")
+}
+
+// TestDiscoverVoltageCurrentZones_PriorityOrder tests that label > chip rule > same-index
+func TestDiscoverVoltageCurrentZones_PriorityOrder(t *testing.T) {
+	t.Logf("\n=== Testing Priority Order: Label > Chip Rule > Same-Index ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	// Test 1: Label matching takes priority
+	// hwmon_voltage_current has labels, should use label matching even for known chip
+	t.Run("LabelMatchingTakesPriority", func(t *testing.T) {
+		hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current"
+		files, err := os.ReadDir(hwmonPath)
+		require.NoError(t, err)
+
+		// Pass ina3221 (known chip) but it has labels, so label matching should be used
+		zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina3221", "ina3221", files)
+		require.NoError(t, err)
+		require.NotEmpty(t, zones)
+
+		// Zone should have the label name, not a generated name
+		zone := zones[0].(*hwmonCalculatedPowerZone)
+		assert.NotContains(t, zone.Name(), "power",
+			"Zone name should be from label, not generated")
+		t.Logf("✓ Label matching used: zone named %q", zone.Name())
+	})
+
+	// Test 2: Chip rule used when no labels
+	t.Run("ChipRuleWhenNoLabels", func(t *testing.T) {
+		hwmonPath := "testdata/sys/class/hwmon/hwmon_ina226"
+		files, err := os.ReadDir(hwmonPath)
+		require.NoError(t, err)
+
+		zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "ina226", "ina226", files)
+		require.NoError(t, err)
+		require.Len(t, zones, 1, "Should find 1 zone via chip rule")
+		t.Logf("✓ Chip rule used for INA226")
+	})
+
+	// Test 3: Same-index used when no labels and unknown chip
+	t.Run("SameIndexWhenUnknownChip", func(t *testing.T) {
+		hwmonPath := "testdata/sys/class/hwmon/hwmon_same_index"
+		files, err := os.ReadDir(hwmonPath)
+		require.NoError(t, err)
+
+		zones, err := reader.discoverVoltageCurrentZones(hwmonPath, "unknown", "unknown", files)
+		require.NoError(t, err)
+		require.Len(t, zones, 2, "Should find 2 zones via same-index")
+		t.Logf("✓ Same-index fallback used for unknown chip")
+	})
+}
+
+// TestKnownChipPairings_Coverage tests that the chip table has expected entries
+func TestKnownChipPairings_Coverage(t *testing.T) {
+	t.Logf("\n=== Testing Known Chip Pairings Coverage ===")
+
+	// Verify key chips from the Linux hwmon Power Sensor Reference document
+	expectedChips := []string{
+		// INA Family
+		"ina3221", "ina226", "ina219", "ina209", "ina238", "ina260", "ina233",
+		// LTC Family
+		"ltc2945", "ltc2947", "ltc4260", "ltc4261", "ltc2992", "ltc4282",
+		// ADM Family
+		"adm1275", "adm1276", "adm1278", "adm1293",
+		// MAX Family
+		"max20730", "max20751", "max34440", "max34451",
+		// TPS Family
+		"tps40422", "tps53679", "tps546d24",
+		// Other PMBus
+		"ir35221", "xdpe12284", "mp2975", "pmbus",
+	}
+
+	for _, chip := range expectedChips {
+		rule := getChipPairingRule(chip)
+		assert.NotNil(t, rule, "Should have pairing rule for %q", chip)
+		t.Logf("✓ %s: useSameIndex=%v, pairings=%v, skipV=%v, skipC=%v",
+			chip, rule.useSameIndex, rule.pairings, rule.skipVoltages, rule.skipCurrents)
+	}
+
+	t.Logf("\n✓ All %d expected chips have pairing rules", len(expectedChips))
 }

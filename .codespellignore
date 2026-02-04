@@ -7,3 +7,6 @@ govet
 inout
 syscall
 thay
+
+# Hardware technical terms
+ADIN
