@@ -148,11 +148,18 @@ type (
 		IdlePower float64 `yaml:"idlePower"`
 	}
 
+	PrometheusPower struct {
+		Enabled *bool  `yaml:"enabled"`
+		BaseURL string `yaml:"baseURL"`
+		Query   string `yaml:"query"`
+	}
+
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
-		Platform Platform        `yaml:"platform"`
-		Hwmon    Hwmon           `yaml:"hwmon"`
-		GPU      ExperimentalGPU `yaml:"gpu"`
+		Platform        Platform        `yaml:"platform"`
+		Hwmon           Hwmon           `yaml:"hwmon"`
+		GPU             ExperimentalGPU `yaml:"gpu"`
+		PrometheusPower PrometheusPower `yaml:"prometheus-power"`
 	}
 
 	Config struct {
@@ -518,6 +525,7 @@ func applyRedfishConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, no
 			Platform: Platform{
 				Redfish: defaultRedfishConfig(),
 			},
+			PrometheusPower: defaultPrometheusPowerConfig(),
 		}
 	}
 
@@ -546,6 +554,14 @@ func defaultRedfishConfig() Redfish {
 	return Redfish{
 		Enabled:     ptr.To(false),
 		HTTPTimeout: 5 * time.Second,
+	}
+}
+
+func defaultPrometheusPowerConfig() PrometheusPower {
+	return PrometheusPower{
+		Enabled: ptr.To(false),
+		BaseURL: "",
+		Query:   "",
 	}
 }
 
@@ -585,7 +601,8 @@ func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, zone
 	// so ensure experimental section exists
 	if cfg.Experimental == nil {
 		cfg.Experimental = &Experimental{
-			Hwmon: defaultHwmonConfig(),
+			Hwmon:           defaultHwmonConfig(),
+			PrometheusPower: defaultPrometheusPowerConfig(),
 		}
 	}
 
@@ -718,6 +735,10 @@ func (c *Config) experimentalFeatureEnabled() bool {
 	}
 	// Add checks for future experimental features here
 
+	if ptr.Deref(c.Experimental.PrometheusPower.Enabled, false) {
+		return true
+	}
+
 	return false
 }
 
@@ -743,6 +764,9 @@ func (c *Config) sanitize() {
 	if c.Experimental == nil {
 		return
 	}
+
+	c.Experimental.PrometheusPower.BaseURL = strings.TrimSpace(c.Experimental.PrometheusPower.BaseURL)
+	c.Experimental.PrometheusPower.Query = strings.TrimSpace(c.Experimental.PrometheusPower.Query)
 
 	c.Experimental.Platform.Redfish.NodeName = strings.TrimSpace(c.Experimental.Platform.Redfish.NodeName)
 	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
