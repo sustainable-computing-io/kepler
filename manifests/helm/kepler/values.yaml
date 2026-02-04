@@ -114,6 +114,7 @@ config:
       zones: [] # List of zones to enable (default enable all)
     gpu:
       enabled: false # Enable experimental GPU power monitoring
+      idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
