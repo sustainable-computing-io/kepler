@@ -232,9 +232,11 @@ func TestPowerCollector(t *testing.T) {
 
 	testContainers := monitor.Containers{
 		"abcd-efgh": {
-			ID:      "abcd-efgh",
-			Name:    "test-container",
-			Runtime: resource.PodmanRuntime,
+			ID:       "abcd-efgh",
+			Name:     "test-container",
+			Runtime:  resource.PodmanRuntime,
+			GPUPower: 42.5,
+			PodID:    "test-pod",
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -262,6 +264,7 @@ func TestPowerCollector(t *testing.T) {
 		"test-pod": {
 			Name:      "test-pod",
 			Namespace: "default",
+			GPUPower:  42.5,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -333,12 +336,14 @@ func TestPowerCollector(t *testing.T) {
 
 			"kepler_container_cpu_joules_total",
 			"kepler_container_cpu_watts",
+			"kepler_container_gpu_watts",
 
 			"kepler_vm_cpu_joules_total",
 			"kepler_vm_cpu_watts",
 
 			"kepler_pod_cpu_joules_total",
 			"kepler_pod_cpu_watts",
+			"kepler_pod_gpu_watts",
 
 			"kepler_node_gpu_watts",
 			"kepler_node_gpu_idle_watts",
@@ -499,6 +504,29 @@ func TestPowerCollector(t *testing.T) {
 		}
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
+	})
+
+	t.Run("Container GPU Metrics", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":      "test-node",
+			"container_id":   "abcd-efgh",
+			"container_name": "test-container",
+			"runtime":        "podman",
+			"state":          "running",
+			"pod_id":         "test-pod",
+		}
+		assertMetricLabelValues(t, registry, "kepler_container_gpu_watts", expectedLabels, 42.5)
+	})
+
+	t.Run("Pod GPU Metrics", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":     "test-node",
+			"pod_id":        "test-pod",
+			"pod_name":      "test-pod",
+			"pod_namespace": "default",
+			"state":         "running",
+		}
+		assertMetricLabelValues(t, registry, "kepler_pod_gpu_watts", expectedLabels, 42.5)
 	})
 
 	t.Run("GPU Metrics Labels", func(t *testing.T) {

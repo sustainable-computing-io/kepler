@@ -163,6 +163,19 @@ These metrics provide energy and power information for containers.
 - **Constant Labels**:
   - `node_name`
 
+#### kepler_container_gpu_watts
+
+- **Type**: GAUGE
+- **Description**: Power consumption of gpu at container level in watts
+- **Labels**:
+  - `container_id`
+  - `container_name`
+  - `runtime`
+  - `state`
+  - `pod_id`
+- **Constant Labels**:
+  - `node_name`
+
 ### Process Metrics
 
 These metrics provide energy and power information for individual processes.
@@ -285,6 +298,18 @@ These metrics provide energy and power information for pods.
   - `pod_namespace`
   - `state`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_pod_gpu_watts
+
+- **Type**: GAUGE
+- **Description**: Power consumption of gpu at pod level in watts
+- **Labels**:
+  - `pod_id`
+  - `pod_name`
+  - `pod_namespace`
+  - `state`
 - **Constant Labels**:
   - `node_name`
 
