@@ -904,6 +904,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 			IdlePower:   25.0,
 			ActivePower: 125.5,
 		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
 
 		resInformer := &MockResourceInformer{}
 
@@ -937,6 +938,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 		assert.Equal(t, 150.5, snapshot.GPUStats[0].TotalPower)
 		assert.Equal(t, 25.0, snapshot.GPUStats[0].IdlePower)
 		assert.Equal(t, 125.5, snapshot.GPUStats[0].ActivePower)
+		assert.Equal(t, 500*Joule, snapshot.GPUStats[0].EnergyTotal)
 	})
 
 	t.Run("calculateProcessPower_with_GPU", func(t *testing.T) {
@@ -959,6 +961,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 			IdlePower:   25.0,
 			ActivePower: 125.5,
 		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
 
 		// Setup GPU process power - process 123 uses GPU
 		gpuProcessPower := map[uint32]float64{
@@ -1000,11 +1003,92 @@ func TestProcessPowerWithGPU(t *testing.T) {
 
 		// Verify GPU stats were collected
 		assert.Len(t, newSnapshot.GPUStats, 1)
+		assert.Equal(t, 500*Joule, newSnapshot.GPUStats[0].EnergyTotal)
 
 		// Verify process without GPU has zero GPU power
 		proc456, exists := newSnapshot.Processes["456"]
 		require.True(t, exists)
 		assert.Equal(t, 0.0, proc456.GPUPower)
+	})
+
+	t.Run("calculateProcessPower_GPU_energy_accumulation", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		gpuDevices := []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return(gpuDevices)
+		mockGPUMeter.On("GetDevicePowerStats", 0).Return(gpu.GPUPowerStats{
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
+
+		// Setup GPU process power - process 123 uses 50.5W
+		gpuProcessPower := map[uint32]float64{
+			123: 50.5,
+		}
+		mockGPUMeter.On("GetProcessPower").Return(gpuProcessPower, nil)
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		// Previous snapshot with existing GPU energy for process 123
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		prevSnapshot.Processes["123"] = &Process{
+			PID:            123,
+			GPUPower:       50.5,
+			GPUEnergyTotal: 100 * Joule, // 100 joules accumulated already
+			Zones:          make(ZoneUsageMap),
+		}
+
+		// New snapshot 5 seconds later
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(5*time.Second), 0.5)
+
+		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// Verify GPU energy was accumulated
+		proc123, exists := newSnapshot.Processes["123"]
+		require.True(t, exists)
+		assert.Equal(t, 50.5, proc123.GPUPower)
+
+		// Energy = prevEnergy + (power × timeDelta × Joule)
+		// = 100J + (50.5W × 5s) = 100J + 252.5J = 352.5J
+		expectedEnergy := 100*Joule + Energy(50.5*5.0*float64(Joule))
+		assert.Equal(t, expectedEnergy, proc123.GPUEnergyTotal,
+			"GPU energy should accumulate: prev + power × time")
+
+		// Process 456 (no GPU) should have zero GPU energy
+		proc456, exists := newSnapshot.Processes["456"]
+		require.True(t, exists)
+		assert.Equal(t, Energy(0), proc456.GPUEnergyTotal)
 	})
 
 	t.Run("calculateProcessPower_GPU_error_continues", func(t *testing.T) {

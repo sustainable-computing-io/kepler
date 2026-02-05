@@ -216,11 +216,13 @@ func TestPowerCollector(t *testing.T) {
 
 	testProcesses := monitor.Processes{
 		"123": {
-			PID:          123,
-			Comm:         "test-process",
-			Exe:          "/usr/bin/123",
-			Type:         resource.RegularProcess,
-			CPUTotalTime: 100,
+			PID:            123,
+			Comm:           "test-process",
+			Exe:            "/usr/bin/123",
+			Type:           resource.RegularProcess,
+			CPUTotalTime:   100,
+			GPUPower:       50.5,
+			GPUEnergyTotal: 250 * device.Joule,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -232,11 +234,12 @@ func TestPowerCollector(t *testing.T) {
 
 	testContainers := monitor.Containers{
 		"abcd-efgh": {
-			ID:       "abcd-efgh",
-			Name:     "test-container",
-			Runtime:  resource.PodmanRuntime,
-			GPUPower: 42.5,
-			PodID:    "test-pod",
+			ID:             "abcd-efgh",
+			Name:           "test-container",
+			Runtime:        resource.PodmanRuntime,
+			GPUPower:       42.5,
+			GPUEnergyTotal: 250 * device.Joule,
+			PodID:          "test-pod",
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -262,9 +265,10 @@ func TestPowerCollector(t *testing.T) {
 
 	testPods := monitor.Pods{
 		"test-pod": {
-			Name:      "test-pod",
-			Namespace: "default",
-			GPUPower:  42.5,
+			Name:           "test-pod",
+			Namespace:      "default",
+			GPUPower:       42.5,
+			GPUEnergyTotal: 250 * device.Joule,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -284,6 +288,7 @@ func TestPowerCollector(t *testing.T) {
 			TotalPower:  150.5,
 			IdlePower:   25.0,
 			ActivePower: 125.5,
+			EnergyTotal: 5000 * device.Joule,
 		},
 	}
 
@@ -333,10 +338,13 @@ func TestPowerCollector(t *testing.T) {
 			"kepler_process_cpu_joules_total",
 			"kepler_process_cpu_watts",
 			"kepler_process_cpu_seconds_total",
+			"kepler_process_gpu_watts",
+			"kepler_process_gpu_joules_total",
 
 			"kepler_container_cpu_joules_total",
 			"kepler_container_cpu_watts",
 			"kepler_container_gpu_watts",
+			"kepler_container_gpu_joules_total",
 
 			"kepler_vm_cpu_joules_total",
 			"kepler_vm_cpu_watts",
@@ -344,10 +352,12 @@ func TestPowerCollector(t *testing.T) {
 			"kepler_pod_cpu_joules_total",
 			"kepler_pod_cpu_watts",
 			"kepler_pod_gpu_watts",
+			"kepler_pod_gpu_joules_total",
 
 			"kepler_node_gpu_watts",
 			"kepler_node_gpu_idle_watts",
 			"kepler_node_gpu_active_watts",
+			"kepler_node_gpu_joules_total",
 		}
 
 		assert.ElementsMatch(t, expectedMetricNames, metricNames(metrics))
@@ -506,6 +516,19 @@ func TestPowerCollector(t *testing.T) {
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
 	})
 
+	t.Run("Process GPU Metrics", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name": "test-node",
+			"pid":       "123",
+			"comm":      "test-process",
+			"exe":       "/usr/bin/123",
+			"type":      "regular",
+			"state":     "running",
+		}
+		assertMetricLabelValues(t, registry, "kepler_process_gpu_watts", expectedLabels, 50.5)
+		assertMetricLabelValues(t, registry, "kepler_process_gpu_joules_total", expectedLabels, 250.0)
+	})
+
 	t.Run("Container GPU Metrics", func(t *testing.T) {
 		expectedLabels := map[string]string{
 			"node_name":      "test-node",
@@ -516,6 +539,7 @@ func TestPowerCollector(t *testing.T) {
 			"pod_id":         "test-pod",
 		}
 		assertMetricLabelValues(t, registry, "kepler_container_gpu_watts", expectedLabels, 42.5)
+		assertMetricLabelValues(t, registry, "kepler_container_gpu_joules_total", expectedLabels, 250.0)
 	})
 
 	t.Run("Pod GPU Metrics", func(t *testing.T) {
@@ -527,6 +551,7 @@ func TestPowerCollector(t *testing.T) {
 			"state":         "running",
 		}
 		assertMetricLabelValues(t, registry, "kepler_pod_gpu_watts", expectedLabels, 42.5)
+		assertMetricLabelValues(t, registry, "kepler_pod_gpu_joules_total", expectedLabels, 250.0)
 	})
 
 	t.Run("GPU Metrics Labels", func(t *testing.T) {
@@ -540,6 +565,7 @@ func TestPowerCollector(t *testing.T) {
 		assertMetricLabelValues(t, registry, "kepler_node_gpu_watts", expectedLabels, 150.5)
 		assertMetricLabelValues(t, registry, "kepler_node_gpu_idle_watts", expectedLabels, 25.0)
 		assertMetricLabelValues(t, registry, "kepler_node_gpu_active_watts", expectedLabels, 125.5)
+		assertMetricLabelValues(t, registry, "kepler_node_gpu_joules_total", expectedLabels, 5000.0)
 	})
 
 	// Verify mock expectations

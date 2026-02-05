@@ -35,13 +35,14 @@ func (pm *PowerMonitor) firstPodRead(snapshot *Snapshot) error {
 
 		pods[id] = pod
 	}
-	// Aggregate GPU power from containers into pods
+	// Aggregate GPU power and energy from containers into pods
 	for _, container := range snapshot.Containers {
-		if container.PodID == "" || container.GPUPower == 0 {
+		if container.PodID == "" {
 			continue
 		}
 		if pod, ok := pods[container.PodID]; ok {
 			pod.GPUPower += container.GPUPower
+			pod.GPUEnergyTotal += container.GPUEnergyTotal
 		}
 	}
 
@@ -127,13 +128,14 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		podMap[id] = pod
 	}
 
-	// Aggregate GPU power from containers into pods
+	// Aggregate GPU power and energy from containers into pods
 	for _, container := range newSnapshot.Containers {
-		if container.PodID == "" || container.GPUPower == 0 {
+		if container.PodID == "" {
 			continue
 		}
 		if pod, ok := podMap[container.PodID]; ok {
 			pod.GPUPower += container.GPUPower
+			pod.GPUEnergyTotal += container.GPUEnergyTotal
 		}
 	}
 

@@ -22,6 +22,10 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 					pm.logger.Debug("Failed to get GPU device stats", "device", dev.Index, "error", err)
 					continue
 				}
+				energy, energyErr := meter.GetTotalEnergy(dev.Index)
+				if energyErr != nil {
+					pm.logger.Debug("Failed to get GPU energy", "device", dev.Index, "error", energyErr)
+				}
 				gpuStats = append(gpuStats, GPUDeviceStats{
 					DeviceIndex: dev.Index,
 					UUID:        dev.UUID,
@@ -30,6 +34,7 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 					TotalPower:  stats.TotalPower,
 					IdlePower:   stats.IdlePower,
 					ActivePower: stats.ActivePower,
+					EnergyTotal: energy,
 				})
 			}
 		}
@@ -138,6 +143,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 					pm.logger.Debug("Failed to get GPU device stats", "device", dev.Index, "error", err)
 					continue
 				}
+				energy, energyErr := meter.GetTotalEnergy(dev.Index)
+				if energyErr != nil {
+					pm.logger.Debug("Failed to get GPU energy", "device", dev.Index, "error", energyErr)
+				}
 				gpuStats = append(gpuStats, GPUDeviceStats{
 					DeviceIndex: dev.Index,
 					UUID:        dev.UUID,
@@ -146,6 +155,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 					TotalPower:  stats.TotalPower,
 					IdlePower:   stats.IdlePower,
 					ActivePower: stats.ActivePower,
+					EnergyTotal: energy,
 				})
 			}
 		}
@@ -217,6 +227,17 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		// Add GPU power attribution if available
 		if gpuPower, hasGPU := gpuPowerByPID[uint32(proc.PID)]; hasGPU {
 			process.GPUPower = gpuPower
+		}
+
+		// Accumulate GPU energy: energy = power × time
+		if prevProc, exists := prev.Processes[pid]; exists {
+			process.GPUEnergyTotal = prevProc.GPUEnergyTotal
+			if process.GPUPower > 0 {
+				timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
+				if timeDelta > 0 {
+					process.GPUEnergyTotal += Energy(process.GPUPower * timeDelta * float64(Joule))
+				}
+			}
 		}
 
 		processMap[process.StringID()] = process

@@ -119,6 +119,18 @@ These metrics provide energy and power information at the node level.
 - **Constant Labels**:
   - `node_name`
 
+#### kepler_node_gpu_joules_total
+
+- **Type**: COUNTER
+- **Description**: Energy consumption of gpu at node level in joules
+- **Labels**:
+  - `gpu`
+  - `gpu_uuid`
+  - `gpu_name`
+  - `vendor`
+- **Constant Labels**:
+  - `node_name`
+
 #### kepler_node_gpu_watts
 
 - **Type**: GAUGE
@@ -159,6 +171,19 @@ These metrics provide energy and power information for containers.
   - `runtime`
   - `state`
   - `zone`
+  - `pod_id`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_container_gpu_joules_total
+
+- **Type**: COUNTER
+- **Description**: Energy consumption of gpu at container level in joules
+- **Labels**:
+  - `container_id`
+  - `container_name`
+  - `runtime`
+  - `state`
   - `pod_id`
 - **Constant Labels**:
   - `node_name`
@@ -223,6 +248,21 @@ These metrics provide energy and power information for individual processes.
   - `container_id`
   - `vm_id`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_process_gpu_joules_total
+
+- **Type**: COUNTER
+- **Description**: Energy consumption of gpu at process level in joules
+- **Labels**:
+  - `pid`
+  - `comm`
+  - `exe`
+  - `type`
+  - `state`
+  - `container_id`
+  - `vm_id`
 - **Constant Labels**:
   - `node_name`
 
@@ -298,6 +338,18 @@ These metrics provide energy and power information for pods.
   - `pod_namespace`
   - `state`
   - `zone`
+- **Constant Labels**:
+  - `node_name`
+
+#### kepler_pod_gpu_joules_total
+
+- **Type**: COUNTER
+- **Description**: Energy consumption of gpu at pod level in joules
+- **Labels**:
+  - `pod_id`
+  - `pod_name`
+  - `pod_namespace`
+  - `state`
 - **Constant Labels**:
   - `node_name`
 
