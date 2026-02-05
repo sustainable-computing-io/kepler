@@ -84,7 +84,8 @@ type Process struct {
 	Zones ZoneUsageMap
 
 	// GPU power attribution (in Watts). Only set if GPU is available and process uses GPU.
-	GPUPower float64
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy in microjoules
 
 	ContainerID      string // empty if not a container
 	VirtualMachineID string // empty if not a virtual machine
@@ -123,6 +124,10 @@ type Container struct {
 	CPUTotalTime float64 // CPU time in seconds
 
 	Zones ZoneUsageMap
+
+	// GPU power attribution (in Watts). Aggregated from process-level GPU power.
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy, aggregated from processes
 
 	// pod id is empty if the container is not a pod
 	PodID string
@@ -193,6 +198,10 @@ type Pod struct {
 
 	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
+
+	// GPU power attribution (in Watts). Aggregated from container-level GPU power.
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy, aggregated from containers
 }
 
 func (p *Pod) Clone() *Pod {
@@ -236,6 +245,7 @@ type GPUDeviceStats struct {
 	TotalPower  float64 // Current total power in Watts
 	IdlePower   float64 // Detected idle power in Watts
 	ActivePower float64 // Active power (Total - Idle) in Watts
+	EnergyTotal Energy  // Cumulative GPU energy from hardware counter
 }
 
 // Snapshot encapsulates power monitoring data

@@ -199,6 +199,132 @@ func TestPodPowerCalculation(t *testing.T) {
 	})
 }
 
+func TestPodGPUPowerAggregation(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+	resInformer := &MockResourceInformer{}
+
+	monitor := &PowerMonitor{
+		logger:        logger,
+		cpu:           mockMeter,
+		clock:         fakeClock,
+		resources:     resInformer,
+		maxTerminated: 500,
+	}
+
+	err := monitor.Init()
+	require.NoError(t, err)
+
+	t.Run("GPU power aggregated from containers to pods", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		prevSnapshot := NewSnapshot()
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Populate containers with GPU power and energy in the new snapshot
+		newSnapshot.Containers = Containers{
+			"container-1": &Container{
+				ID:             "container-1",
+				Name:           "cont1",
+				PodID:          "pod-1",
+				GPUPower:       80.0,
+				GPUEnergyTotal: 400 * Joule,
+				Zones:          make(ZoneUsageMap),
+			},
+			"container-2": &Container{
+				ID:             "container-2",
+				Name:           "cont2",
+				PodID:          "pod-1",
+				GPUPower:       20.0,
+				GPUEnergyTotal: 100 * Joule,
+				Zones:          make(ZoneUsageMap),
+			},
+			"container-3": &Container{
+				ID:             "container-3",
+				Name:           "cont3",
+				PodID:          "pod-2",
+				GPUPower:       45.0,
+				GPUEnergyTotal: 225 * Joule,
+				Zones:          make(ZoneUsageMap),
+			},
+			"container-4": &Container{
+				ID:             "container-4",
+				Name:           "cont4",
+				GPUPower:       10.0, // no pod
+				GPUEnergyTotal: 50 * Joule,
+				Zones:          make(ZoneUsageMap),
+			},
+		}
+
+		pods := &resource.Pods{
+			Running: map[string]*resource.Pod{
+				"pod-1": {ID: "pod-1", Name: "test-pod-1", Namespace: "default", CPUTimeDelta: 30.0},
+				"pod-2": {ID: "pod-2", Name: "test-pod-2", Namespace: "default", CPUTimeDelta: 20.0},
+			},
+			Terminated: map[string]*resource.Pod{},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Pods").Return(pods)
+
+		err := monitor.calculatePodPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// pod-1 should have 80 + 20 = 100W GPU power
+		assert.Equal(t, 100.0, newSnapshot.Pods["pod-1"].GPUPower)
+		// pod-1 should have 400 + 100 = 500J GPU energy
+		assert.Equal(t, 500*Joule, newSnapshot.Pods["pod-1"].GPUEnergyTotal)
+
+		// pod-2 should have 45W GPU power
+		assert.Equal(t, 45.0, newSnapshot.Pods["pod-2"].GPUPower)
+		// pod-2 should have 225J GPU energy
+		assert.Equal(t, 225*Joule, newSnapshot.Pods["pod-2"].GPUEnergyTotal)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("firstPodRead aggregates GPU power and energy", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testPods, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		snapshot := NewSnapshot()
+		err := monitor.firstNodeRead(snapshot.Node)
+		require.NoError(t, err)
+
+		// Add containers with GPU power and energy before calling firstPodRead
+		snapshot.Containers = Containers{
+			"container-1": &Container{
+				ID:             "container-1",
+				Name:           "cont1",
+				PodID:          "pod-id-1",
+				GPUPower:       60.0,
+				GPUEnergyTotal: 300 * Joule,
+				Zones:          make(ZoneUsageMap),
+			},
+		}
+
+		err = monitor.firstPodRead(snapshot)
+		require.NoError(t, err)
+
+		assert.Equal(t, 60.0, snapshot.Pods["pod-id-1"].GPUPower)
+		assert.Equal(t, 300*Joule, snapshot.Pods["pod-id-1"].GPUEnergyTotal)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	mockMeter.AssertExpectations(t)
+}
+
 func TestPodPowerConsistency(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	fakeClock := testingclock.NewFakeClock(time.Now())

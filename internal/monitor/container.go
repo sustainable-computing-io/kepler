@@ -35,6 +35,17 @@ func (pm *PowerMonitor) firstContainerRead(snapshot *Snapshot) error {
 
 		containers[id] = container
 	}
+	// Aggregate GPU power and energy from processes into containers
+	for _, proc := range snapshot.Processes {
+		if proc.ContainerID == "" {
+			continue
+		}
+		if container, ok := containers[proc.ContainerID]; ok {
+			container.GPUPower += proc.GPUPower
+			container.GPUEnergyTotal += proc.GPUEnergyTotal
+		}
+	}
+
 	snapshot.Containers = containers
 
 	pm.logger.Debug("Initialized container power tracking",
@@ -137,6 +148,17 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		}
 
 		containerMap[id] = container
+	}
+
+	// Aggregate GPU power and energy from processes into containers
+	for _, proc := range newSnapshot.Processes {
+		if proc.ContainerID == "" {
+			continue
+		}
+		if container, ok := containerMap[proc.ContainerID]; ok {
+			container.GPUPower += proc.GPUPower
+			container.GPUEnergyTotal += proc.GPUEnergyTotal
+		}
 	}
 
 	// Update the snapshot
