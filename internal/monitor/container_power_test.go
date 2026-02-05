@@ -219,6 +219,130 @@ func TestContainerPowerCalculation(t *testing.T) {
 	mockMeter.AssertExpectations(t)
 }
 
+func TestContainerGPUPowerAggregation(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+	resInformer := &MockResourceInformer{}
+
+	monitor := &PowerMonitor{
+		logger:    logger,
+		cpu:       mockMeter,
+		clock:     fakeClock,
+		resources: resInformer,
+	}
+
+	err := monitor.Init()
+	require.NoError(t, err)
+
+	t.Run("GPU power aggregated from processes to containers", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		prevSnapshot := NewSnapshot()
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Populate processes with GPU power in the new snapshot
+		// Two processes in container-1, one with GPU power
+		newSnapshot.Processes = Processes{
+			"123": &Process{
+				PID:         123,
+				Comm:        "gpu-proc-1",
+				ContainerID: "container-1",
+				GPUPower:    50.0, // 50W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"124": &Process{
+				PID:         124,
+				Comm:        "gpu-proc-2",
+				ContainerID: "container-1",
+				GPUPower:    30.0, // 30W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"125": &Process{
+				PID:         125,
+				Comm:        "gpu-proc-3",
+				ContainerID: "container-2",
+				GPUPower:    20.0, // 20W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"126": &Process{
+				PID:         126,
+				Comm:        "no-gpu-proc",
+				ContainerID: "container-2",
+				GPUPower:    0, // no GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"127": &Process{
+				PID:      127,
+				Comm:     "orphan-gpu-proc",
+				GPUPower: 10.0, // GPU but no container
+				Zones:    make(ZoneUsageMap),
+			},
+		}
+
+		containers := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "cont1", Runtime: resource.DockerRuntime, CPUTimeDelta: 30.0},
+				"container-2": {ID: "container-2", Name: "cont2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[string]*resource.Container{},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Containers").Return(containers)
+
+		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// container-1 should have 50 + 30 = 80W GPU power
+		assert.Equal(t, 80.0, newSnapshot.Containers["container-1"].GPUPower)
+
+		// container-2 should have 20W GPU power (proc 126 has 0 GPU)
+		assert.Equal(t, 20.0, newSnapshot.Containers["container-2"].GPUPower)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("firstContainerRead aggregates GPU power", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testContainers, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		snapshot := NewSnapshot()
+		err := monitor.firstNodeRead(snapshot.Node)
+		require.NoError(t, err)
+
+		// Add GPU-using processes to the snapshot before calling firstContainerRead
+		snapshot.Processes = Processes{
+			"123": &Process{
+				PID:         123,
+				Comm:        "gpu-proc",
+				ContainerID: "container-1",
+				GPUPower:    75.0,
+				Zones:       make(ZoneUsageMap),
+			},
+		}
+
+		err = monitor.firstContainerRead(snapshot)
+		require.NoError(t, err)
+
+		assert.Equal(t, 75.0, snapshot.Containers["container-1"].GPUPower)
+		assert.Equal(t, 0.0, snapshot.Containers["container-2"].GPUPower)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	mockMeter.AssertExpectations(t)
+}
+
 func TestContainerPowerConsistency(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	fakeClock := testingclock.NewFakeClock(time.Now())
