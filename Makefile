@@ -103,7 +103,7 @@ help: ## Show this help message
 
 # Build the application
 .PHONY: build
-build: ## Build production binary
+build: ## Build binary
 	mkdir -p $(BINARY_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
