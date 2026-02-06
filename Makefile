@@ -96,14 +96,14 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## .*(Documentation|Generate|Run|Help)/ {printf "    %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ''
 	@echo 'Examples:'
-	@echo '  make build           # Build production binary'
+	@echo '  make build           # Build binary (set PRODUCTION=1 to build production binary, ./bin/kepler-release)'
 	@echo '  make test            # Run tests with coverage'
 	@echo '  make cluster-up      # Setup local k8s cluster'
 	@echo '  make deploy          # Deploy to k8s cluster'
 
 # Build the application
 .PHONY: build
-build: ## Build production binary
+build: ## Build binary
 	mkdir -p $(BINARY_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
