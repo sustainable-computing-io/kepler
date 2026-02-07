@@ -24,6 +24,10 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "info", cfg.Log.Level)
 	assert.Equal(t, "text", cfg.Log.Format)
 	assert.Equal(t, "", cfg.Web.Config)
+
+	// Assert default PodInformer values
+	assert.Equal(t, "kubelet", cfg.Kube.PodInformer.Mode)
+	assert.Equal(t, 15*time.Second, cfg.Kube.PodInformer.PollInterval)
 }
 
 func TestLoadFromYAML(t *testing.T) {
@@ -310,6 +314,18 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			},
 		},
 		error: "kube.node-name not supplied but kube.enable set to true",
+	}, {
+		name: "invalid podInformer mode",
+		config: &Config{
+			Kube: Kube{
+				Enabled: ptr.To(true),
+				Node:    "test-node",
+				PodInformer: PodInformer{
+					Mode: "invalid",
+				},
+			},
+		},
+		error: `invalid kube.podInformer.mode: "invalid"`,
 	}}
 
 	// test yaml marshall
@@ -806,6 +822,85 @@ monitor:
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid monitor min terminated energy threshold")
 	})
+}
+
+func TestPodInformerYAML(t *testing.T) {
+	t.Run("yaml-config-podInformer-kubelet", func(t *testing.T) {
+		yamlData := `
+kube:
+  podInformer:
+    mode: kubelet
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, "kubelet", cfg.Kube.PodInformer.Mode)
+	})
+
+	t.Run("yaml-config-podInformer-apiserver", func(t *testing.T) {
+		yamlData := `
+kube:
+  podInformer:
+    mode: apiserver
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, "apiserver", cfg.Kube.PodInformer.Mode)
+	})
+
+	t.Run("yaml-config-podInformer-custom-pollInterval", func(t *testing.T) {
+		yamlData := `
+kube:
+  podInformer:
+    pollInterval: 30s
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, 30*time.Second, cfg.Kube.PodInformer.PollInterval)
+	})
+
+	t.Run("yaml-config-podInformer-default-when-unspecified", func(t *testing.T) {
+		yamlData := `
+log:
+  level: debug
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, "kubelet", cfg.Kube.PodInformer.Mode)
+		assert.Equal(t, 15*time.Second, cfg.Kube.PodInformer.PollInterval)
+	})
+
+	t.Run("yaml-config-podInformer-valid-mode-kube-enabled", func(t *testing.T) {
+		yamlData := `
+kube:
+  enabled: true
+  nodeName: test-node
+  podInformer:
+    mode: apiserver
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.Equal(t, "apiserver", cfg.Kube.PodInformer.Mode)
+	})
+
+	t.Run("yaml-config-podInformer-invalid-mode-kube-enabled", func(t *testing.T) {
+		yamlData := `
+kube:
+  enabled: true
+  nodeName: test-node
+  podInformer:
+    mode: invalid
+`
+		reader := strings.NewReader(yamlData)
+		_, err := Load(reader)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid kube.podInformer.mode")
+	})
+
 }
 
 func TestConfigDefault(t *testing.T) {
