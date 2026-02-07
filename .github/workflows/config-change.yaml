@@ -25,9 +25,11 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          predicate-quantifier: every
           filters: |
             config:
               - 'config/**/*.go'
+              - '!config/**/*_test.go'
             doc:
               - 'docs/user/configuration.md'
             compose_dev:
