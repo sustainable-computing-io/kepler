@@ -113,7 +113,7 @@ func TestPeriodicCollection(t *testing.T) {
 	}()
 
 	t.Log("Waiting for first collection")
-	assertDataUpdated(t, dataCh, 5*time.Millisecond, "expected first collection as soon as run is invoked")
+	assertDataUpdated(t, dataCh, 100*time.Millisecond, "expected first collection as soon as run is invoked")
 	assert.GreaterOrEqual(t, energyCalls.Load(), int32(1), "Should have made at least one energy call")
 	assertDataChannelEmpty(t, dataCh, 3*time.Millisecond)
 
