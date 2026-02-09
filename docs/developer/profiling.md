@@ -17,19 +17,14 @@ The profiling workflow serves several critical purposes:
 
 ## 🏗️ Workflow Structure
 
-The profiling workflow consists of three main jobs:
+The profiling workflow is triggered on pull requests that modify relevant source files (non-test Go files, `go.mod`, `go.sum`, the profiling workflow, or the profiling script). It consists of two main jobs:
 
-### 1. 🔍 Check Changes Job
-
-- **🎯 Purpose**: Determines if profiling should run based on file changes
-- **⚡ Trigger**: Runs on every pull request
-
-### 2. 📊 Profiling Job
+### 1. 📊 Profiling Job
 
 - **🎯 Purpose**: Executes the actual profiling process
-- **⚠️ Conditions**: Only runs if relevant changes are detected
+- **⚠️ Conditions**: Only runs for the `sustainable-computing-io` organization
 
-### 3. 💬 Generate Comment Message Job
+### 2. 💬 Generate Comment Message Job
 
 - **🎯 Purpose**: Creates a formatted comment message with profiling results
 - **⚠️ Conditions**: Only runs if profiling job succeeds

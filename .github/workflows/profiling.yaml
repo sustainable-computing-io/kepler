@@ -1,34 +1,20 @@
 name: Profiling Report
 on: # yamllint disable-line rule:truthy
   pull_request:
+    paths:
+      - "**/*.go"
+      - "!**/*_test.go"
+      - go.mod
+      - go.sum
+      - .github/workflows/profiling.yaml
+      - hack/reports/profiling.sh
 
 # default permissions as read only
 permissions: read-all
 
 jobs:
-  check-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      changes: ${{ steps.filter.outputs.changes }}
-    steps:
-      - name: checkout source
-        uses: actions/checkout@v6
-
-      - name: filter changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changes:
-              - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
-              - '.github/workflows/profiling.yaml'
-              - 'hack/reports/profiling.sh'
-
   profiling:
-    needs: check-changes
-    if: needs.check-changes.outputs.changes == 'true' && github.repository_owner == 'sustainable-computing-io'
+    if: github.repository_owner == 'sustainable-computing-io'
     runs-on: self-hosted
     steps:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
