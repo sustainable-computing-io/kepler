@@ -81,38 +81,10 @@ jobs:
         run: |
           kubectl rollout status daemonset/kepler -n kepler --timeout=5m
 
-      # TODO: Move this once we add validator tool to the repo
-      - name: Validate metric endpoint
-        id: validate
+      - name: Run k8s e2e tests
         shell: bash
         run: |
-          kubectl port-forward service/kepler 28282:28282 -n kepler &
-          sleep 20 # sleep for 20 seconds to give the service time to start
-
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:28282/metrics)
-          [[ $HTTP_STATUS -ne 200 ]] && echo "HTTP status code is not 200" && exit 1
-
-          curl -s -o /tmp/metrics.txt http://localhost:28282/metrics
-
-          for metric in kepler_process_cpu_watts \
-            kepler_node_cpu_info \
-            kepler_node_cpu_watts \
-            kepler_node_cpu_joules_total \
-            kepler_node_cpu_active_joules_total \
-            kepler_node_cpu_idle_joules_total \
-            kepler_node_cpu_active_watts \
-            kepler_node_cpu_idle_watts \
-            kepler_process_cpu_joules_total \
-            kepler_container_cpu_joules_total \
-            kepler_container_cpu_watts \
-            kepler_pod_cpu_joules_total \
-            kepler_pod_cpu_watts; do
-            echo "Checking metric: $metric"
-            if ! grep -q "$metric" /tmp/metrics.txt; then
-              echo "Metric $metric not found"
-              exit 1
-            fi
-          done
+          make test-e2e-k8s
 
       - name: Run must gather
         if: always()

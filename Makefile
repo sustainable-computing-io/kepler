@@ -154,6 +154,18 @@ test-e2e: build ## Test e2e binary build (requires sudo to run)
 	@echo ""
 	@echo "Prerequisites: Intel RAPL, stress-ng (for workload tests)"
 
+# Build and run k8s e2e tests
+.PHONY: test-e2e-k8s
+test-e2e-k8s: ## Test K8s e2e (requires: make cluster-up image deploy)
+	@echo "Running K8s e2e tests..."
+	@echo "Optional flags:"
+	@echo "  -kepler.namespace=kepler"
+	@echo "  -kepler.service=kepler"
+	@echo "  -kepler.metrics-port=8888"
+	@echo "  -kepler.local-port=28282"
+	@echo ""
+	cd test/e2e-k8s && $(GOTEST) -v -timeout=15m .
+
 # Generate metrics documentation
 .PHONY: gen-metrics-docs
 gen-metrics-docs: ## Documentation generation for metrics

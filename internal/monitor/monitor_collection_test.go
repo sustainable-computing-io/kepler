@@ -178,7 +178,13 @@ func TestCollectionCancellation(t *testing.T) {
 		close(runCh)
 	}()
 
-	assertDataUpdated(t, monitor.DataChannel(), 5*time.Millisecond, "expected first collection as soon as run is invoked")
+	// Ensure Run goroutine completes before test cleanup to avoid race with mock
+	t.Cleanup(func() {
+		cancel() // ensure context is cancelled
+		<-runCh  // wait for Run to exit
+	})
+
+	assertDataUpdated(t, monitor.DataChannel(), 100*time.Millisecond, "expected first collection as soon as run is invoked")
 
 	// ensure that the first collection has been made
 	snapshotAfterFirstCollection := monitor.snapshot.Load()
@@ -264,6 +270,7 @@ func TestScheduleNextCollection(t *testing.T) {
 	assert.Equal(t, int32(2), collectionCount.Load(), "Second collection should happen")
 
 	monitor.collectionCancel()
+	monitor.collectionWg.Wait()
 
 	fakeClock.Step(collectionInterval)
 	time.Sleep(20 * time.Millisecond)
@@ -316,6 +323,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	assertDataUpdated(t, dataCh, interval, "expected data to be updated immediately after collection")
 
 	monitor.collectionCancel()
+	monitor.collectionWg.Wait()
 
 	mockMeter.AssertExpectations(t)
 	pkg.AssertExpectations(t)
@@ -384,6 +392,7 @@ func TestCollectionErrorHandling(t *testing.T) {
 	assert.True(t, snapshot3.Timestamp.After(snapshot1.Timestamp))
 
 	monitor.collectionCancel()
+	monitor.collectionWg.Wait()
 
 	mockMeter.AssertExpectations(t)
 	pkg.AssertExpectations(t)

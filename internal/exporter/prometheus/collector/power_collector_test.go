@@ -232,9 +232,11 @@ func TestPowerCollector(t *testing.T) {
 
 	testContainers := monitor.Containers{
 		"abcd-efgh": {
-			ID:      "abcd-efgh",
-			Name:    "test-container",
-			Runtime: resource.PodmanRuntime,
+			ID:       "abcd-efgh",
+			Name:     "test-container",
+			Runtime:  resource.PodmanRuntime,
+			GPUPower: 42.5,
+			PodID:    "test-pod",
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -262,6 +264,7 @@ func TestPowerCollector(t *testing.T) {
 		"test-pod": {
 			Name:      "test-pod",
 			Namespace: "default",
+			GPUPower:  42.5,
 			Zones: monitor.ZoneUsageMap{
 				packageZone: {
 					EnergyTotal: 100 * device.Joule,
@@ -333,12 +336,14 @@ func TestPowerCollector(t *testing.T) {
 
 			"kepler_container_cpu_joules_total",
 			"kepler_container_cpu_watts",
+			"kepler_container_gpu_watts",
 
 			"kepler_vm_cpu_joules_total",
 			"kepler_vm_cpu_watts",
 
 			"kepler_pod_cpu_joules_total",
 			"kepler_pod_cpu_watts",
+			"kepler_pod_gpu_watts",
 
 			"kepler_node_gpu_watts",
 			"kepler_node_gpu_idle_watts",
@@ -499,6 +504,29 @@ func TestPowerCollector(t *testing.T) {
 		}
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts", expectedLabels, 5.0)
+	})
+
+	t.Run("Container GPU Metrics", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":      "test-node",
+			"container_id":   "abcd-efgh",
+			"container_name": "test-container",
+			"runtime":        "podman",
+			"state":          "running",
+			"pod_id":         "test-pod",
+		}
+		assertMetricLabelValues(t, registry, "kepler_container_gpu_watts", expectedLabels, 42.5)
+	})
+
+	t.Run("Pod GPU Metrics", func(t *testing.T) {
+		expectedLabels := map[string]string{
+			"node_name":     "test-node",
+			"pod_id":        "test-pod",
+			"pod_name":      "test-pod",
+			"pod_namespace": "default",
+			"state":         "running",
+		}
+		assertMetricLabelValues(t, registry, "kepler_pod_gpu_watts", expectedLabels, 42.5)
 	})
 
 	t.Run("GPU Metrics Labels", func(t *testing.T) {
@@ -925,9 +953,11 @@ func TestTerminatedContainerExport(t *testing.T) {
 		},
 		TerminatedContainers: monitor.Containers{
 			"terminated-container": &monitor.Container{
-				ID:      "terminated-container",
-				Name:    "terminated-cont",
-				Runtime: resource.PodmanRuntime,
+				ID:       "terminated-container",
+				Name:     "terminated-cont",
+				Runtime:  resource.PodmanRuntime,
+				GPUPower: 55.0,
+				PodID:    "terminated-pod",
 				Zones: monitor.ZoneUsageMap{
 					packageZone: monitor.Usage{
 						EnergyTotal: 300 * device.Joule,
@@ -938,6 +968,20 @@ func TestTerminatedContainerExport(t *testing.T) {
 		},
 		VirtualMachines: monitor.VirtualMachines{},
 		Pods:            monitor.Pods{},
+		TerminatedPods: monitor.Pods{
+			"terminated-pod": &monitor.Pod{
+				ID:        "terminated-pod",
+				Name:      "terminated-pod-name",
+				Namespace: "default",
+				GPUPower:  55.0,
+				Zones: monitor.ZoneUsageMap{
+					packageZone: monitor.Usage{
+						EnergyTotal: 300 * device.Joule,
+						Power:       30 * device.Watt,
+					},
+				},
+			},
+		},
 	}
 
 	mockMonitor.On("Snapshot").Return(testSnapshot, nil)
@@ -985,6 +1029,27 @@ func TestTerminatedContainerExport(t *testing.T) {
 			map[string]string{"state": "running"})
 		assertMetricExists(t, registry, "kepler_container_cpu_watts",
 			map[string]string{"state": "terminated"})
+	})
+
+	t.Run("Terminated Container GPU Metrics", func(t *testing.T) {
+		assertMetricLabelValues(t, registry, "kepler_container_gpu_watts",
+			map[string]string{
+				"container_id":   "terminated-container",
+				"container_name": "terminated-cont",
+				"runtime":        "podman",
+				"state":          "terminated",
+				"pod_id":         "terminated-pod",
+			}, 55.0)
+	})
+
+	t.Run("Terminated Pod GPU Metrics", func(t *testing.T) {
+		assertMetricLabelValues(t, registry, "kepler_pod_gpu_watts",
+			map[string]string{
+				"pod_id":        "terminated-pod",
+				"pod_name":      "terminated-pod-name",
+				"pod_namespace": "default",
+				"state":         "terminated",
+			}, 55.0)
 	})
 
 	mockMonitor.AssertExpectations(t)

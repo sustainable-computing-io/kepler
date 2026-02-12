@@ -21,6 +21,7 @@ func TestNewGPUPowerCollector(t *testing.T) {
 		assert.NotNil(t, collector)
 		assert.NotNil(t, collector.nvml)
 		assert.NotNil(t, collector.minObservedPower)
+		assert.NotNil(t, collector.idleObserved)
 		assert.NotNil(t, collector.sharingModes)
 	})
 
@@ -60,8 +61,8 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 			logger:           slog.Default(),
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
-
-			sharingModes: make(map[int]gpu.SharingMode),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -81,8 +82,8 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 		collector := &GPUPowerCollector{
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
-
-			sharingModes: make(map[int]gpu.SharingMode),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -101,8 +102,8 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 			logger:           slog.Default(),
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
-
-			sharingModes: make(map[int]gpu.SharingMode),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -126,8 +127,8 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 			logger:           slog.Default(),
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
-
-			sharingModes: make(map[int]gpu.SharingMode),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
 		}
 
 		err := collector.Init()
@@ -178,18 +179,15 @@ func TestGPUPowerCollector_GetPowerUsage(t *testing.T) {
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(expectedPower, nil)
-		mockDevice.On("UUID").Return("GPU-123")
 
 		collector := &GPUPowerCollector{
-			nvml:             mockBackend,
-			minObservedPower: make(map[string]float64),
+			nvml: mockBackend,
 		}
 
 		power, err := collector.GetPowerUsage(0)
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPower, power)
-		assert.Equal(t, 100.0, collector.minObservedPower["GPU-123"])
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -200,8 +198,7 @@ func TestGPUPowerCollector_GetPowerUsage(t *testing.T) {
 		mockBackend.On("GetDevice", 99).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 99})
 
 		collector := &GPUPowerCollector{
-			nvml:             mockBackend,
-			minObservedPower: make(map[string]float64),
+			nvml: mockBackend,
 		}
 
 		_, err := collector.GetPowerUsage(99)
@@ -219,47 +216,12 @@ func TestGPUPowerCollector_GetPowerUsage(t *testing.T) {
 		mockDevice.On("GetPowerUsage").Return(device.Power(0), errors.New("NVML error"))
 
 		collector := &GPUPowerCollector{
-			nvml:             mockBackend,
-			minObservedPower: make(map[string]float64),
+			nvml: mockBackend,
 		}
 
 		_, err := collector.GetPowerUsage(0)
 
 		assert.Error(t, err)
-
-		mockBackend.AssertExpectations(t)
-		mockDevice.AssertExpectations(t)
-	})
-
-	t.Run("updates minimum observed power", func(t *testing.T) {
-		mockBackend := new(MockNVMLBackend)
-		mockDevice := new(MockNVMLDevice)
-
-		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
-		mockDevice.On("UUID").Return("GPU-123")
-
-		// First call: 100W
-		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil).Once()
-
-		collector := &GPUPowerCollector{
-			nvml:             mockBackend,
-			minObservedPower: make(map[string]float64),
-		}
-
-		_, _ = collector.GetPowerUsage(0)
-		assert.Equal(t, 100.0, collector.minObservedPower["GPU-123"])
-
-		// Second call: 80W (lower)
-		mockDevice.On("GetPowerUsage").Return(device.Power(80*device.Watt), nil).Once()
-
-		_, _ = collector.GetPowerUsage(0)
-		assert.Equal(t, 80.0, collector.minObservedPower["GPU-123"])
-
-		// Third call: 120W (higher, should not update min)
-		mockDevice.On("GetPowerUsage").Return(device.Power(120*device.Watt), nil).Once()
-
-		_, _ = collector.GetPowerUsage(0)
-		assert.Equal(t, 80.0, collector.minObservedPower["GPU-123"])
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -306,21 +268,29 @@ func TestGPUPowerCollector_GetTotalEnergy(t *testing.T) {
 }
 
 func TestGPUPowerCollector_GetDevicePowerStats(t *testing.T) {
-	t.Run("calculates idle and active power", func(t *testing.T) {
+	t.Run("calculates idle and active power when idle observed", func(t *testing.T) {
 		mockBackend := new(MockNVMLBackend)
 		mockDevice := new(MockNVMLDevice)
 
-		// Pre-populate minimum observed power (idle power)
+		// Pre-populate minimum observed power and mark idle as observed
 		collector := &GPUPowerCollector{
-			nvml: mockBackend,
+			logger: slog.Default(),
+			nvml:   mockBackend,
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0, // 40W idle
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
 			},
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		// Processes running — min should not update
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil)
 
 		stats, err := collector.GetDevicePowerStats(0)
 
@@ -333,28 +303,180 @@ func TestGPUPowerCollector_GetDevicePowerStats(t *testing.T) {
 		mockDevice.AssertExpectations(t)
 	})
 
-	t.Run("active power cannot be negative", func(t *testing.T) {
+	t.Run("idle power only updated when no processes running", func(t *testing.T) {
 		mockBackend := new(MockNVMLBackend)
 		mockDevice := new(MockNVMLDevice)
 
-		// Min power higher than current (edge case)
 		collector := &GPUPowerCollector{
-			nvml: mockBackend,
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("UUID").Return("GPU-123")
+
+		// First call: 100W with processes running — should NOT set idle
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil).Once()
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil).Once()
+
+		stats, err := collector.GetDevicePowerStats(0)
+		assert.NoError(t, err)
+		assert.Equal(t, 100.0, stats.TotalPower)
+		assert.Equal(t, 0.0, stats.IdlePower) // No idle observed yet
+		assert.Equal(t, 100.0, stats.ActivePower)
+		assert.False(t, collector.idleObserved["GPU-123"])
+
+		// Second call: 50W with NO processes — should set idle baseline
+		mockDevice.On("GetPowerUsage").Return(device.Power(50*device.Watt), nil).Once()
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{}, nil).Once()
+
+		stats, err = collector.GetDevicePowerStats(0)
+		assert.NoError(t, err)
+		assert.Equal(t, 50.0, stats.TotalPower)
+		assert.Equal(t, 50.0, stats.IdlePower)
+		assert.Equal(t, 0.0, stats.ActivePower)
+		assert.True(t, collector.idleObserved["GPU-123"])
+		assert.Equal(t, 50.0, collector.minObservedPower["GPU-123"])
+
+		// Third call: 120W with processes — idle baseline stays at 50W
+		mockDevice.On("GetPowerUsage").Return(device.Power(120*device.Watt), nil).Once()
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 5678},
+		}, nil).Once()
+
+		stats, err = collector.GetDevicePowerStats(0)
+		assert.NoError(t, err)
+		assert.Equal(t, 120.0, stats.TotalPower)
+		assert.Equal(t, 50.0, stats.IdlePower)
+		assert.Equal(t, 70.0, stats.ActivePower)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("default idle power used before true idle observed", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			idlePower:        30.0, // User configured 30W default
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil)
+
+		stats, err := collector.GetDevicePowerStats(0)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 100.0, stats.TotalPower)
+		assert.Equal(t, 30.0, stats.IdlePower) // Uses configured default
+		assert.Equal(t, 70.0, stats.ActivePower)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("default idle power takes precedence over observed", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
 			minObservedPower: map[string]float64{
-				"GPU-123": 100.0,
+				"GPU-123": 40.0,
 			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
+			idlePower: 30.0, // User configured default takes precedence
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil)
+
+		stats, err := collector.GetDevicePowerStats(0)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 30.0, stats.IdlePower) // Configured default, not observed 40W
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("GetComputeRunningProcesses error is non-fatal", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			minObservedPower: map[string]float64{
+				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return(nil, errors.New("NVML error"))
+
+		stats, err := collector.GetDevicePowerStats(0)
+
+		// Should still succeed — just skip idle detection this round
+		assert.NoError(t, err)
+		assert.Equal(t, 100.0, stats.TotalPower)
+		assert.Equal(t, 40.0, stats.IdlePower) // Uses previously observed
+		assert.Equal(t, 60.0, stats.ActivePower)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("active power clamped to zero", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			idlePower:        100.0, // Default higher than actual reading
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(80*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil)
 
 		stats, err := collector.GetDevicePowerStats(0)
 
 		assert.NoError(t, err)
 		assert.Equal(t, 80.0, stats.TotalPower)
-		assert.Equal(t, 80.0, stats.IdlePower) // Updated to new minimum
-		assert.Equal(t, 0.0, stats.ActivePower)
+		assert.Equal(t, 100.0, stats.IdlePower)
+		assert.Equal(t, 0.0, stats.ActivePower) // Clamped to 0
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
@@ -367,6 +489,7 @@ func TestGPUPowerCollector_GetDevicePowerStats(t *testing.T) {
 		collector := &GPUPowerCollector{
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		_, err := collector.GetDevicePowerStats(99)
@@ -393,6 +516,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			},
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
 			},
 		}
 
@@ -428,6 +554,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			},
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
 			},
 		}
 
@@ -471,6 +600,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -512,6 +644,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 100.0, // Same as total
 			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -545,6 +680,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -576,6 +714,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			},
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
 			},
 		}
 
@@ -619,6 +760,9 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
 			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -655,6 +799,7 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 				0: gpu.SharingModePartitioned,
 			},
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		result, err := collector.GetProcessPower()
@@ -788,6 +933,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				0: gpu.SharingModeExclusive,
 			},
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 0})
@@ -816,6 +962,9 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			},
 			minObservedPower: map[string]float64{
 				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
 			},
 		}
 
@@ -848,6 +997,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				0: gpu.SharingModeExclusive,
 			},
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		// GetDevice succeeds but GetPowerUsage fails
@@ -877,6 +1027,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				0: gpu.SharingModeTimeSlicing,
 			},
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(nil, gpu.ErrGPUNotFound{DeviceIndex: 0})
@@ -903,6 +1054,7 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				0: gpu.SharingModeTimeSlicing,
 			},
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -935,6 +1087,10 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 			minObservedPower: map[string]float64{
 				"GPU-0": 40.0,
 				"GPU-1": 50.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-0": true,
+				"GPU-1": true,
 			},
 		}
 
@@ -979,6 +1135,10 @@ func TestGPUPowerCollector_GetProcessPower_ErrorPaths(t *testing.T) {
 				"GPU-0": 40.0,
 				"GPU-1": 40.0,
 			},
+			idleObserved: map[string]bool{
+				"GPU-0": true,
+				"GPU-1": true,
+			},
 		}
 
 		// Both devices have same PID (process using multiple GPUs)
@@ -1017,6 +1177,7 @@ func TestGPUPowerCollector_GetDevicePowerStats_ErrorPaths(t *testing.T) {
 		collector := &GPUPowerCollector{
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
@@ -1030,34 +1191,92 @@ func TestGPUPowerCollector_GetDevicePowerStats_ErrorPaths(t *testing.T) {
 		mockDevice.AssertExpectations(t)
 	})
 
-	t.Run("first observation sets idle power", func(t *testing.T) {
+	t.Run("first idle observation sets baseline", func(t *testing.T) {
 		mockBackend := new(MockNVMLBackend)
 		mockDevice := new(MockNVMLDevice)
 
-		// Empty minObservedPower - first observation
 		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
 			nvml:             mockBackend,
 			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
 		}
 
 		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 		mockDevice.On("UUID").Return("GPU-123")
+		// No processes running — truly idle
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{}, nil)
 
 		stats, err := collector.GetDevicePowerStats(0)
 
 		assert.NoError(t, err)
 		assert.Equal(t, 100.0, stats.TotalPower)
-		assert.Equal(t, 100.0, stats.IdlePower) // First reading becomes idle
+		assert.Equal(t, 100.0, stats.IdlePower) // First idle reading becomes baseline
 		assert.Equal(t, 0.0, stats.ActivePower)
 
-		// Verify min was set
+		// Verify idle state
 		assert.Equal(t, 100.0, collector.minObservedPower["GPU-123"])
+		assert.True(t, collector.idleObserved["GPU-123"])
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("first reading under load does not set idle baseline", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(200*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		// Processes running — NOT idle
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1234},
+		}, nil)
+
+		stats, err := collector.GetDevicePowerStats(0)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 200.0, stats.TotalPower)
+		assert.Equal(t, 0.0, stats.IdlePower) // No idle observed, no default
+		assert.Equal(t, 200.0, stats.ActivePower)
+
+		// Verify idle NOT set
+		assert.Empty(t, collector.minObservedPower)
+		assert.False(t, collector.idleObserved["GPU-123"])
 
 		mockBackend.AssertExpectations(t)
 		mockDevice.AssertExpectations(t)
 	})
 }
+
+func TestGPUPowerCollector_SetIdlePower(t *testing.T) {
+	collector := &GPUPowerCollector{
+		minObservedPower: make(map[string]float64),
+		idleObserved:     make(map[string]bool),
+	}
+
+	collector.SetIdlePower(50.0)
+	assert.Equal(t, 50.0, collector.idlePower)
+
+	collector.SetIdlePower(0)
+	assert.Equal(t, 0.0, collector.idlePower)
+
+	// Negative values are clamped to 0
+	collector.SetIdlePower(-10.0)
+	assert.Equal(t, 0.0, collector.idlePower)
+}
+
+// Verify IdlePowerConfigurable interface implementation
+var _ gpu.IdlePowerConfigurable = (*GPUPowerCollector)(nil)
 
 func TestGPUPowerCollector_GetTotalEnergy_ErrorPaths(t *testing.T) {
 	t.Run("GetTotalEnergy error", func(t *testing.T) {
@@ -1099,8 +1318,8 @@ func TestGPUPowerCollector_Init_DetectAllModesErrorPath(t *testing.T) {
 		logger:           slog.Default(),
 		nvml:             mockBackend,
 		minObservedPower: make(map[string]float64),
-
-		sharingModes: make(map[int]gpu.SharingMode),
+		idleObserved:     make(map[string]bool),
+		sharingModes:     make(map[int]gpu.SharingMode),
 	}
 
 	err := collector.Init()

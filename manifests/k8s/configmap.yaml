@@ -39,6 +39,9 @@ data:
       enabled: false
       config: ""
       nodeName: ""
+      podInformer:
+        mode: kubelet          # "kubelet" (default) or "apiserver"
+        pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
     dev:
       fake-cpu-meter:
         enabled: false
@@ -57,3 +60,4 @@ data:
         zones: [] # List of zones to enable (default enable all)
       gpu:
         enabled: false
+        idlePower: 0 # GPU idle power in Watts (0 = auto-detect)

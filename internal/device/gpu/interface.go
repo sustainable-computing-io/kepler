@@ -71,6 +71,13 @@ type GPUPowerMeter interface {
 	GetProcessInfo() ([]ProcessGPUInfo, error)
 }
 
+// IdlePowerConfigurable is an optional interface for GPU meters that support
+// configuring a static idle power value. This avoids polluting the core
+// GPUPowerMeter interface.
+type IdlePowerConfigurable interface {
+	SetIdlePower(watts float64)
+}
+
 // ProcessGPUInfo contains per-process GPU metrics collected from the device.
 // This struct is vendor-agnostic.
 type ProcessGPUInfo struct {
