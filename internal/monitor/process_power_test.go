@@ -904,6 +904,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 			IdlePower:   25.0,
 			ActivePower: 125.5,
 		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
 
 		resInformer := &MockResourceInformer{}
 
@@ -937,6 +938,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 		assert.Equal(t, 150.5, snapshot.GPUStats[0].TotalPower)
 		assert.Equal(t, 25.0, snapshot.GPUStats[0].IdlePower)
 		assert.Equal(t, 125.5, snapshot.GPUStats[0].ActivePower)
+		assert.Equal(t, 500*Joule, snapshot.GPUStats[0].EnergyTotal)
 	})
 
 	t.Run("calculateProcessPower_with_GPU", func(t *testing.T) {
@@ -959,6 +961,7 @@ func TestProcessPowerWithGPU(t *testing.T) {
 			IdlePower:   25.0,
 			ActivePower: 125.5,
 		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
 
 		// Setup GPU process power - process 123 uses GPU
 		gpuProcessPower := map[uint32]float64{
@@ -1000,11 +1003,95 @@ func TestProcessPowerWithGPU(t *testing.T) {
 
 		// Verify GPU stats were collected
 		assert.Len(t, newSnapshot.GPUStats, 1)
+		assert.Equal(t, 500*Joule, newSnapshot.GPUStats[0].EnergyTotal)
+		// First calculation with no previous GPU stats - active/idle energy should be zero
+		assert.Equal(t, Energy(0), newSnapshot.GPUStats[0].ActiveEnergyTotal)
+		assert.Equal(t, Energy(0), newSnapshot.GPUStats[0].IdleEnergyTotal)
 
 		// Verify process without GPU has zero GPU power
 		proc456, exists := newSnapshot.Processes["456"]
 		require.True(t, exists)
 		assert.Equal(t, 0.0, proc456.GPUPower)
+	})
+
+	t.Run("calculateProcessPower_GPU_energy_accumulation", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		gpuDevices := []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return(gpuDevices)
+		mockGPUMeter.On("GetDevicePowerStats", 0).Return(gpu.GPUPowerStats{
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
+
+		// Setup GPU process power - process 123 uses 50.5W
+		gpuProcessPower := map[uint32]float64{
+			123: 50.5,
+		}
+		mockGPUMeter.On("GetProcessPower").Return(gpuProcessPower, nil)
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		// Previous snapshot with existing GPU energy for process 123
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		prevSnapshot.Processes["123"] = &Process{
+			PID:            123,
+			GPUPower:       50.5,
+			GPUEnergyTotal: 100 * Joule, // 100 joules accumulated already
+			Zones:          make(ZoneUsageMap),
+		}
+
+		// New snapshot 5 seconds later
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(5*time.Second), 0.5)
+
+		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// Verify GPU energy was accumulated
+		proc123, exists := newSnapshot.Processes["123"]
+		require.True(t, exists)
+		assert.Equal(t, 50.5, proc123.GPUPower)
+
+		// Energy = prevEnergy + (power × timeDelta × Joule)
+		// = 100J + (50.5W × 5s) = 100J + 252.5J = 352.5J
+		expectedEnergy := 100*Joule + Energy(50.5*5.0*float64(Joule))
+		assert.Equal(t, expectedEnergy, proc123.GPUEnergyTotal,
+			"GPU energy should accumulate: prev + power × time")
+
+		// Process 456 (no GPU) should have zero GPU energy
+		proc456, exists := newSnapshot.Processes["456"]
+		require.True(t, exists)
+		assert.Equal(t, Energy(0), proc456.GPUEnergyTotal)
 	})
 
 	t.Run("calculateProcessPower_GPU_error_continues", func(t *testing.T) {
@@ -1053,5 +1140,97 @@ func TestProcessPowerWithGPU(t *testing.T) {
 
 		// Verify processes are still calculated without GPU power (error should not fail)
 		assert.NotEmpty(t, newSnapshot.Processes)
+	})
+}
+
+func TestComputeGPUActiveIdleEnergy(t *testing.T) {
+	t.Run("basic split", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{
+				UUID:              "GPU-1234",
+				TotalPower:        200.0,
+				ActivePower:       150.0,
+				IdlePower:         50.0,
+				EnergyTotal:       500 * Joule,
+				ActiveEnergyTotal: 300 * Joule,
+				IdleEnergyTotal:   200 * Joule,
+			},
+		}
+		current := []GPUDeviceStats{
+			{
+				UUID:        "GPU-1234",
+				TotalPower:  200.0,
+				ActivePower: 150.0,
+				IdlePower:   50.0,
+				EnergyTotal: 1000 * Joule, // delta = 500J
+			},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev)
+
+		// activeRatio = 150/200 = 0.75
+		// deltaActive = 500J * 0.75 = 375J, deltaIdle = 500J - 375J = 125J
+		assert.Equal(t, 300*Joule+Energy(float64(500*Joule)*0.75), result[0].ActiveEnergyTotal)
+		assert.Equal(t, 200*Joule+(500*Joule-Energy(float64(500*Joule)*0.75)), result[0].IdleEnergyTotal)
+		// Verify conservation: active + idle delta = total delta
+		activeDelta := result[0].ActiveEnergyTotal - 300*Joule
+		idleDelta := result[0].IdleEnergyTotal - 200*Joule
+		assert.Equal(t, 500*Joule, activeDelta+idleDelta)
+	})
+
+	t.Run("no previous data", func(t *testing.T) {
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 1000 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, nil)
+
+		assert.Equal(t, Energy(0), result[0].ActiveEnergyTotal)
+		assert.Equal(t, Energy(0), result[0].IdleEnergyTotal)
+	})
+
+	t.Run("zero total power - all goes to idle", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-1234", EnergyTotal: 500 * Joule, ActiveEnergyTotal: 100 * Joule, IdleEnergyTotal: 400 * Joule},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 0, ActivePower: 0, IdlePower: 0, EnergyTotal: 700 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev)
+
+		// activeRatio = 0, so all 200J delta goes to idle
+		assert.Equal(t, 100*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 600*Joule, result[0].IdleEnergyTotal)
+	})
+
+	t.Run("new device not in previous", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-OLD", EnergyTotal: 500 * Joule},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-NEW", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 1000 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev)
+
+		// No match, so active/idle stay zero
+		assert.Equal(t, Energy(0), result[0].ActiveEnergyTotal)
+		assert.Equal(t, Energy(0), result[0].IdleEnergyTotal)
+	})
+
+	t.Run("energy counter decrease - skip delta", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-1234", EnergyTotal: 1000 * Joule, ActiveEnergyTotal: 500 * Joule, IdleEnergyTotal: 500 * Joule},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 500 * Joule}, // decreased!
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev)
+
+		// Delta is 0 (skip decrease), so values stay the same as previous
+		assert.Equal(t, 500*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 500*Joule, result[0].IdleEnergyTotal)
 	})
 }
