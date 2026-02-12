@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -276,12 +277,15 @@ func assertWithinTolerance(t *testing.T, expected, actual, percentTolerance, abs
 	tolerance := math.Max(math.Abs(expected)*percentTolerance, absTolerance)
 
 	if diff > tolerance {
+		prefix := ""
 		if len(msgAndArgs) > 0 {
-			t.Errorf("%s: expected %.6f, got %.6f (diff: %.6f, tolerance: %.6f)",
-				msgAndArgs[0], expected, actual, diff, tolerance)
-		} else {
-			t.Errorf("expected %.6f, got %.6f (diff: %.6f, tolerance: %.6f)",
-				expected, actual, diff, tolerance)
+			if format, ok := msgAndArgs[0].(string); ok && len(msgAndArgs) > 1 {
+				prefix = fmt.Sprintf(format, msgAndArgs[1:]...) + ": "
+			} else if s, ok := msgAndArgs[0].(string); ok {
+				prefix = s + ": "
+			}
 		}
+		t.Errorf("%sexpected %.6f, got %.6f (diff: %.6f, tolerance: %.6f)",
+			prefix, expected, actual, diff, tolerance)
 	}
 }

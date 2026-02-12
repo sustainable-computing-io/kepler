@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -172,6 +173,11 @@ func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
 			"name", name,
 			"zone_count", len(zones))
 	}
+
+	// Sort by name for deterministic ordering
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name() < result[j].Name()
+	})
 
 	return result
 }

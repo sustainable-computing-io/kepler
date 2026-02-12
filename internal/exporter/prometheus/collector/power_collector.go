@@ -51,6 +51,7 @@ type PowerCollector struct {
 	// Container power metrics
 	containerCPUJoulesDescriptor *prometheus.Desc
 	containerCPUWattsDescriptor  *prometheus.Desc
+	containerGPUWattsDescriptor  *prometheus.Desc
 
 	// Virtual Machine power metrics
 	vmCPUJoulesDescriptor *prometheus.Desc
@@ -59,6 +60,7 @@ type PowerCollector struct {
 	// Pod power metrics
 	podCPUJoulesDescriptor *prometheus.Desc
 	podCPUWattsDescriptor  *prometheus.Desc
+	podGPUWattsDescriptor  *prometheus.Desc
 
 	// GPU device power metrics
 	gpuTotalWattsDescriptor  *prometheus.Desc
@@ -138,12 +140,14 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 
 		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
 		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
+		containerGPUWattsDescriptor:  wattsDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 
 		vmCPUJoulesDescriptor: joulesDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", "state", zone}),
 		vmCPUWattsDescriptor:  wattsDesc("vm", "cpu", nodeName, []string{vmID, "vm_name", "hypervisor", "state", zone}),
 
 		podCPUJoulesDescriptor: joulesDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", "state", zone}),
 		podCPUWattsDescriptor:  wattsDesc("pod", "cpu", nodeName, []string{podID, "pod_name", "pod_namespace", "state", zone}),
+		podGPUWattsDescriptor:  wattsDesc("pod", "gpu", nodeName, []string{podID, "pod_name", "pod_namespace", "state"}),
 
 		// GPU device power metrics (node-level)
 		gpuTotalWattsDescriptor: prometheus.NewDesc(
@@ -199,6 +203,7 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	if c.metricsLevel.IsContainerEnabled() {
 		ch <- c.containerCPUJoulesDescriptor
 		ch <- c.containerCPUWattsDescriptor
+		ch <- c.containerGPUWattsDescriptor
 		// ch <- c.containerCPUTimeDescriptor // TODO: add conntainerCPUTimeDescriptor
 	}
 
@@ -212,6 +217,7 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	if c.metricsLevel.IsPodEnabled() {
 		ch <- c.podCPUJoulesDescriptor
 		ch <- c.podCPUWattsDescriptor
+		ch <- c.podGPUWattsDescriptor
 	}
 
 	// GPU device power metrics (node-level)
@@ -418,6 +424,17 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, st
 				container.PodID,
 			)
 		}
+
+		// GPU power metric (only for containers with GPU-using processes)
+		if container.GPUPower > 0 {
+			ch <- prometheus.MustNewConstMetric(
+				c.containerGPUWattsDescriptor,
+				prometheus.GaugeValue,
+				container.GPUPower,
+				id, container.Name, string(container.Runtime), state,
+				container.PodID,
+			)
+		}
 	}
 }
 
@@ -475,6 +492,16 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, state st
 				usage.Power.Watts(),
 				id, pod.Name, pod.Namespace, state,
 				zoneName,
+			)
+		}
+
+		// GPU power metric (only for pods with GPU-using containers)
+		if pod.GPUPower > 0 {
+			ch <- prometheus.MustNewConstMetric(
+				c.podGPUWattsDescriptor,
+				prometheus.GaugeValue,
+				pod.GPUPower,
+				id, pod.Name, pod.Namespace, state,
 			)
 		}
 	}

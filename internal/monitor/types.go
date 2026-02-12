@@ -124,6 +124,9 @@ type Container struct {
 
 	Zones ZoneUsageMap
 
+	// GPU power attribution (in Watts). Aggregated from process-level GPU power.
+	GPUPower float64
+
 	// pod id is empty if the container is not a pod
 	PodID string
 }
@@ -193,6 +196,9 @@ type Pod struct {
 
 	// Replace single Usage with ZoneUsageMap
 	Zones ZoneUsageMap
+
+	// GPU power attribution (in Watts). Aggregated from container-level GPU power.
+	GPUPower float64
 }
 
 func (p *Pod) Clone() *Pod {

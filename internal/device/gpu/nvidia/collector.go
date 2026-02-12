@@ -29,8 +29,17 @@ type GPUPowerCollector struct {
 	devices      []gpu.GPUDevice
 	sharingModes map[int]gpu.SharingMode
 
-	// minObservedPower tracks minimum power per device for idle detection
+	// minObservedPower tracks minimum power per device UUID, updated only when
+	// no compute processes are running (true idle).
 	minObservedPower map[string]float64
+
+	// idleObserved tracks whether we have seen a true idle reading per GPU UUID.
+	// Until true idle is observed, we use idlePower (if configured) or 0.
+	idleObserved map[string]bool
+
+	// idlePower is a user-configured idle power in Watts.
+	// When set (> 0), always used instead of observed idle power. 0 means auto-detect.
+	idlePower float64
 
 	mu sync.RWMutex
 
@@ -52,6 +61,7 @@ func NewGPUPowerCollector(logger *slog.Logger) (*GPUPowerCollector, error) {
 		logger:           logger.With("component", "nvidia-gpu-collector"),
 		nvml:             nvmlBackend,
 		minObservedPower: make(map[string]float64),
+		idleObserved:     make(map[string]bool),
 		sharingModes:     make(map[int]gpu.SharingMode),
 	}, nil
 }
@@ -122,21 +132,7 @@ func (c *GPUPowerCollector) GetPowerUsage(deviceIndex int) (device.Power, error)
 		return 0, err
 	}
 
-	power, err := dev.GetPowerUsage()
-	if err != nil {
-		return 0, err
-	}
-
-	// Track minimum observed power for idle detection
-	c.mu.Lock()
-	uuid := dev.UUID()
-	powerWatts := power.Watts()
-	if min, exists := c.minObservedPower[uuid]; !exists || powerWatts < min {
-		c.minObservedPower[uuid] = powerWatts
-	}
-	c.mu.Unlock()
-
-	return power, nil
+	return dev.GetPowerUsage()
 }
 
 // GetTotalEnergy returns cumulative energy consumption for a device
@@ -156,7 +152,9 @@ func (c *GPUPowerCollector) GetDevicePowerStats(deviceIndex int) (gpu.GPUPowerSt
 	return c.getDevicePowerStatsLocked(deviceIndex)
 }
 
-// getDevicePowerStatsLocked is the internal version that assumes the lock is already held
+// getDevicePowerStatsLocked is the internal version that assumes the lock is already held.
+// It only updates minObservedPower when no compute processes are running (true idle),
+// preventing false baselines when Kepler starts under GPU load.
 func (c *GPUPowerCollector) getDevicePowerStatsLocked(deviceIndex int) (gpu.GPUPowerStats, error) {
 	dev, err := c.nvml.GetDevice(deviceIndex)
 	if err != nil {
@@ -169,13 +167,37 @@ func (c *GPUPowerCollector) getDevicePowerStatsLocked(deviceIndex int) (gpu.GPUP
 	}
 
 	totalPower := power.Watts()
-
-	// Update minimum observed power
 	uuid := dev.UUID()
-	if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
-		c.minObservedPower[uuid] = totalPower
+
+	// Check if the GPU is truly idle (no compute processes running)
+	procs, err := dev.GetComputeRunningProcesses()
+	if err != nil {
+		// Non-fatal: log and skip idle detection for this reading
+		c.logger.Debug("GetComputeRunningProcesses failed, skipping idle detection",
+			"device", deviceIndex, "error", err)
+	} else if len(procs) == 0 {
+		// GPU is truly idle — update minimum observed power
+		if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
+			c.minObservedPower[uuid] = totalPower
+			c.logger.Debug("updated idle power baseline",
+				"device", deviceIndex, "uuid", uuid, "idlePower", totalPower)
+		}
+		c.idleObserved[uuid] = true
 	}
-	idlePower := c.minObservedPower[uuid]
+
+	// Determine idle power:
+	// 1. User-configured default (if > 0)
+	// 2. Observed idle power (if we've seen true idle)
+	// 3. Conservative fallback: 0 (all power attributed as active)
+	var idlePower float64
+	switch {
+	case c.idlePower > 0:
+		idlePower = c.idlePower
+	case c.idleObserved[uuid]:
+		idlePower = c.minObservedPower[uuid]
+	default:
+		idlePower = 0
+	}
 
 	activePower := totalPower - idlePower
 	if activePower < 0 {
@@ -187,6 +209,18 @@ func (c *GPUPowerCollector) getDevicePowerStatsLocked(deviceIndex int) (gpu.GPUP
 		IdlePower:   idlePower,
 		ActivePower: activePower,
 	}, nil
+}
+
+// SetIdlePower sets the configured idle power in Watts.
+// When set (> 0), this value always takes precedence over observed idle power.
+// Set to 0 to use auto-detected idle power. Negative values are clamped to 0.
+func (c *GPUPowerCollector) SetIdlePower(watts float64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if watts < 0 {
+		watts = 0
+	}
+	c.idlePower = watts
 }
 
 // processPowerResult wraps the result for singleflight (which only returns interface{})

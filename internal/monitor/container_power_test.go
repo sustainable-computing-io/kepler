@@ -77,6 +77,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateContainerPower", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Setup previous snapshot with process data
 		prevSnapshot := NewSnapshot()
 		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -149,6 +151,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateContainerPower with zero node power", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create node with zero power
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
@@ -190,6 +194,8 @@ func TestContainerPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateContainerPower without containers", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -210,6 +216,130 @@ func TestContainerPowerCalculation(t *testing.T) {
 
 		resInformer.AssertExpectations(t)
 	})
+	mockMeter.AssertExpectations(t)
+}
+
+func TestContainerGPUPowerAggregation(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	fakeClock := testingclock.NewFakeClock(time.Now())
+
+	zones := CreateTestZones()
+	mockMeter := &MockCPUPowerMeter{}
+	mockMeter.On("Zones").Return(zones, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+	resInformer := &MockResourceInformer{}
+
+	monitor := &PowerMonitor{
+		logger:    logger,
+		cpu:       mockMeter,
+		clock:     fakeClock,
+		resources: resInformer,
+	}
+
+	err := monitor.Init()
+	require.NoError(t, err)
+
+	t.Run("GPU power aggregated from processes to containers", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		prevSnapshot := NewSnapshot()
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Populate processes with GPU power in the new snapshot
+		// Two processes in container-1, one with GPU power
+		newSnapshot.Processes = Processes{
+			"123": &Process{
+				PID:         123,
+				Comm:        "gpu-proc-1",
+				ContainerID: "container-1",
+				GPUPower:    50.0, // 50W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"124": &Process{
+				PID:         124,
+				Comm:        "gpu-proc-2",
+				ContainerID: "container-1",
+				GPUPower:    30.0, // 30W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"125": &Process{
+				PID:         125,
+				Comm:        "gpu-proc-3",
+				ContainerID: "container-2",
+				GPUPower:    20.0, // 20W GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"126": &Process{
+				PID:         126,
+				Comm:        "no-gpu-proc",
+				ContainerID: "container-2",
+				GPUPower:    0, // no GPU
+				Zones:       make(ZoneUsageMap),
+			},
+			"127": &Process{
+				PID:      127,
+				Comm:     "orphan-gpu-proc",
+				GPUPower: 10.0, // GPU but no container
+				Zones:    make(ZoneUsageMap),
+			},
+		}
+
+		containers := &resource.Containers{
+			Running: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "cont1", Runtime: resource.DockerRuntime, CPUTimeDelta: 30.0},
+				"container-2": {ID: "container-2", Name: "cont2", Runtime: resource.PodmanRuntime, CPUTimeDelta: 20.0},
+			},
+			Terminated: map[string]*resource.Container{},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Containers").Return(containers)
+
+		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// container-1 should have 50 + 30 = 80W GPU power
+		assert.Equal(t, 80.0, newSnapshot.Containers["container-1"].GPUPower)
+
+		// container-2 should have 20W GPU power (proc 126 has 0 GPU)
+		assert.Equal(t, 20.0, newSnapshot.Containers["container-2"].GPUPower)
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("firstContainerRead aggregates GPU power", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testContainers, testNode))
+		resInformer.SetExpectations(t, tr)
+
+		snapshot := NewSnapshot()
+		err := monitor.firstNodeRead(snapshot.Node)
+		require.NoError(t, err)
+
+		// Add GPU-using processes to the snapshot before calling firstContainerRead
+		snapshot.Processes = Processes{
+			"123": &Process{
+				PID:         123,
+				Comm:        "gpu-proc",
+				ContainerID: "container-1",
+				GPUPower:    75.0,
+				Zones:       make(ZoneUsageMap),
+			},
+		}
+
+		err = monitor.firstContainerRead(snapshot)
+		require.NoError(t, err)
+
+		assert.Equal(t, 75.0, snapshot.Containers["container-1"].GPUPower)
+		assert.Equal(t, 0.0, snapshot.Containers["container-2"].GPUPower)
+
+		resInformer.AssertExpectations(t)
+	})
+
 	mockMeter.AssertExpectations(t)
 }
 
@@ -644,6 +774,90 @@ func TestTerminatedContainerTracking(t *testing.T) {
 
 		assert.Len(t, snapshot3.Containers, 1, "Should have 1 running container")
 		assert.Contains(t, snapshot3.Containers, "container-3")
+
+		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated container preserves GPU power", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// Create previous snapshot with a container that has GPU power
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(-time.Second), 0.5)
+
+		prevSnapshot.Containers["container-1"] = &Container{
+			ID:           "container-1",
+			Name:         "gpu-container",
+			Runtime:      resource.DockerRuntime,
+			CPUTotalTime: 50.0,
+			GPUPower:     75.0,
+			Zones:        make(ZoneUsageMap, len(zones)),
+		}
+		for _, zone := range zones {
+			prevSnapshot.Containers["container-1"].Zones[zone] = Usage{
+				EnergyTotal: 20 * Joule,
+				Power:       10 * Watt,
+			}
+		}
+
+		// Create new snapshot where container-1 terminates
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		// Populate processes with GPU power so aggregation assigns GPUPower
+		newSnapshot.Processes = Processes{
+			"200": &Process{
+				PID:         200,
+				Comm:        "gpu-proc",
+				ContainerID: "container-1",
+				GPUPower:    75.0,
+				Zones:       make(ZoneUsageMap),
+			},
+		}
+
+		containers := &resource.Containers{
+			Running: map[string]*resource.Container{},
+			Terminated: map[string]*resource.Container{
+				"container-1": {ID: "container-1", Name: "gpu-container", Runtime: resource.DockerRuntime, CPUTotalTime: 80.0, CPUTimeDelta: 30.0},
+			},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Containers").Return(containers).Once()
+
+		err = monitor.calculateContainerPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// Populate terminated from tracker
+		newSnapshot.TerminatedContainers = monitor.terminatedContainersTracker.Items()
+
+		// Verify the terminated container preserves GPU power
+		assert.Len(t, newSnapshot.TerminatedContainers, 1, "Should have 1 terminated container")
+
+		var terminatedCntr1 *Container
+		for _, cntr := range newSnapshot.TerminatedContainers {
+			if cntr.ID == "container-1" {
+				terminatedCntr1 = cntr
+				break
+			}
+		}
+		require.NotNil(t, terminatedCntr1, "container-1 should exist in terminated containers")
+		assert.Equal(t, 75.0, terminatedCntr1.GPUPower, "Terminated container should preserve GPU power")
 
 		resInformer.AssertExpectations(t)
 	})

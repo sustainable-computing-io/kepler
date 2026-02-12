@@ -86,6 +86,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateProcessPower", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Setup previous snapshot with process data
 		prevSnapshot := NewSnapshot()
 		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -167,6 +169,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateProcessPower with zero node power", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create node with zero power
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
@@ -210,6 +214,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("calculateProcessPower with no processes", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -233,6 +239,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("zero CPU time delta", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
@@ -275,6 +283,8 @@ func TestProcessPowerCalculation(t *testing.T) {
 	})
 
 	t.Run("new zone missing in previous snapshot", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
 		// Create snapshots where previous doesn't have zone data for a process
 		prevSnapshot := NewSnapshot()
 		now := fakeClock.Now()

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/sustainable-computing-io/kepler/test/common"
 )
 
 // Timing constants for e2e tests.
@@ -77,19 +79,19 @@ func findConfigFile() string {
 }
 
 // setupKeplerForTest starts Kepler for a test
-func setupKeplerForTest(t *testing.T) (*KeplerInstance, *MetricsScraper) {
+func setupKeplerForTest(t *testing.T) (*KeplerInstance, *common.MetricsScraper) {
 	t.Helper()
 	requireE2EPrerequisites(t)
 
 	k := startKepler(t, withLogOutput(os.Stderr))
-	return k, NewMetricsScraper(k.MetricsURL())
+	return k, common.NewMetricsScraper(k.MetricsURL())
 }
 
 // setupKeplerWithWorkloadSupport starts Kepler with workload prerequisites
-func setupKeplerWithWorkloadSupport(t *testing.T) (*KeplerInstance, *MetricsScraper) {
+func setupKeplerWithWorkloadSupport(t *testing.T) (*KeplerInstance, *common.MetricsScraper) {
 	t.Helper()
 	requireWorkloadPrerequisites(t)
 
 	k := startKepler(t, withLogOutput(os.Stderr))
-	return k, NewMetricsScraper(k.MetricsURL())
+	return k, common.NewMetricsScraper(k.MetricsURL())
 }

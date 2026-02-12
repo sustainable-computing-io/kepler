@@ -39,6 +39,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
+| `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 
 ### 💡 Examples
 
@@ -76,6 +77,9 @@ kepler --experimental.hwmon.enabled=true \
 
 # Enable experimental GPU power monitoring
 kepler --experimental.gpu.enabled=true
+
+# Enable GPU monitoring with configured idle power (e.g. when GPUs are always under load)
+kepler --experimental.gpu.enabled=true --experimental.gpu.idle-power=17.5
 
 # Export only node and container level metrics
 kepler --metrics=node --metrics=container
@@ -145,6 +149,9 @@ kube:           # kubernetes related config
   enabled: false    # Enable kubernetes monitoring (default: false)
   config: ""        # Path to kubeconfig file (optional if running in-cluster)
   nodeName: ""      # Name of the kubernetes node (required when enabled)
+  podInformer:      # Pod informer configuration
+    mode: kubelet          # "kubelet" (default) or "apiserver"
+    pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
 
 experimental:   # experimental features (no stability guarantees)
   platform:     # platform power monitoring
@@ -159,6 +166,7 @@ experimental:   # experimental features (no stability guarantees)
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
   gpu:          # GPU power monitoring
     enabled: false                    # Enable GPU power monitoring (default: false)
+    idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -305,6 +313,9 @@ kube:
   enabled: false    # Enable kubernetes monitoring
   config: ""        # Path to kubeconfig file
   nodeName: ""      # Name of the kubernetes node
+  podInformer:
+    mode: kubelet          # "kubelet" or "apiserver"
+    pollInterval: 15s      # Poll interval for kubelet mode
 ```
 
 - **enabled**: Enable or disable Kubernetes monitoring (default: false)
@@ -319,6 +330,12 @@ kube:
   - This helps Kepler identify which node it's monitoring
   - Must match the actual node name in the Kubernetes cluster
   - Required when `enabled` is set to `true`
+
+- **podInformer**: Configuration for how Kepler discovers pod metadata
+  - **mode**: Pod informer mode (default: `kubelet`)
+    - `kubelet`: Polls the local kubelet `/pods` endpoint. Reduces API server load. The kubelet host and port are auto-discovered from the Node object at startup.
+    - `apiserver`: Watches the kube-apiserver for pod events via a shared informer cache.
+  - **pollInterval**: How often to poll kubelet for pod data (default: `15s`, kubelet mode only)
 
 ### 🧪 Experimental Configuration
 
@@ -408,6 +425,9 @@ experimental:
   - When enabled, Kepler will collect power metrics from NVIDIA GPUs using NVML
   - Requires NVIDIA drivers and NVML library to be available
   - Supports per-process power attribution based on GPU compute utilization
+- **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
+  - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
+  - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
 
 **Example:**
 
@@ -415,6 +435,7 @@ experimental:
 experimental:
   gpu:
     enabled: true
+    idlePower: 17.5  # Override idle power to 17.5W (0 = auto-detect)
 ```
 
 ### 🧑‍🔬 Development Configuration

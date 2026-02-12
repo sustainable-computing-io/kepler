@@ -2392,6 +2392,21 @@ log:
 		}
 		assert.False(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
 	})
+
+	t.Run("gpu enabled with idle power via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+    idlePower: 45.5
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+		assert.NotNil(t, cfg.Experimental)
+		assert.Equal(t, 45.5, cfg.Experimental.GPU.IdlePower)
+	})
 }
 
 func TestValidateExperimentalConfig(t *testing.T) {

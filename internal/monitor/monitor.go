@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -80,6 +81,7 @@ type PowerMonitor struct {
 	// For managing the collection loop
 	collectionCtx    context.Context
 	collectionCancel context.CancelFunc
+	collectionWg     sync.WaitGroup
 }
 
 var _ Service = (*PowerMonitor)(nil)
@@ -175,6 +177,7 @@ func (pm *PowerMonitor) Run(ctx context.Context) error {
 	pm.collectionLoop()
 	<-ctx.Done()
 	pm.collectionCancel()
+	pm.collectionWg.Wait()
 	pm.logger.Info("Monitor has terminated.")
 	return nil
 }
@@ -182,6 +185,7 @@ func (pm *PowerMonitor) Run(ctx context.Context) error {
 func (pm *PowerMonitor) Shutdown() error {
 	pm.logger.Info("shutting down monitor")
 	pm.collectionCancel()
+	pm.collectionWg.Wait()
 	return nil
 }
 
@@ -240,7 +244,9 @@ func (pm *PowerMonitor) collectionLoop() {
 // scheduleNextCollection schedules the next data collection
 func (pm *PowerMonitor) scheduleNextCollection() {
 	timer := pm.clock.After(pm.interval)
+	pm.collectionWg.Add(1)
 	go func() {
+		defer pm.collectionWg.Done()
 		select {
 		case <-timer:
 			// Check if context is cancelled before doing any work to avoid a race condition
