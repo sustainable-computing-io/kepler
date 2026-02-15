@@ -28,3 +28,9 @@ web:
 # Disable Kubernetes integration for bare-metal testing
 kube:
   enabled: false
+# Enable fake GPU meter for e2e testing without GPU hardware
+dev:
+  fake-gpu-meter:
+    enabled: true
+    deviceCount: 1
+    sharingMode: time-slicing
