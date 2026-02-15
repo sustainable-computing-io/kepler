@@ -11,11 +11,12 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"k8s.io/utils/ptr"
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
-	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -319,6 +320,10 @@ func createPrometheusExporter(
 // Uses the registry pattern to support multiple GPU vendors (NVIDIA, AMD, Intel).
 // Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
 func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
+	if fake := cfg.Dev.FakeGPUMeter; ptr.Deref(fake.Enabled, false) {
+		return createFakeGPUMeter(logger, fake.DeviceCount, fake.SharingMode)
+	}
+
 	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
 		return nil
 	}
@@ -338,4 +343,57 @@ func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMete
 	}
 
 	return meters
+}
+
+// createFakeGPUMeter creates a GPU meter backed by FakeNVMLBackend for
+// development and testing. Not for production use.
+func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode string) []gpu.GPUPowerMeter {
+	if deviceCount <= 0 {
+		logger.Error("invalid fake GPU device count", "deviceCount", deviceCount)
+		return nil
+	}
+
+	var mode nvidia.ComputeMode
+	switch sharingMode {
+	case "exclusive":
+		mode = nvidia.ComputeModeExclusiveProcess
+	case "time-slicing":
+		mode = nvidia.ComputeModeDefault
+	default:
+		logger.Error("invalid fake GPU sharing mode", "sharingMode", sharingMode)
+		return nil
+	}
+
+	logger.Warn("using FAKE NVML backend (dev/testing mode)",
+		"deviceCount", deviceCount,
+		"sharingMode", sharingMode)
+
+	devices := make([]*nvidia.FakeNVMLDevice, deviceCount)
+	for i := range devices {
+		devices[i] = &nvidia.FakeNVMLDevice{
+			Idx:         i,
+			DeviceUUID:  fmt.Sprintf("FAKE-GPU-%04d", i),
+			DeviceName:  "Fake NVIDIA GPU",
+			DevicePower: 225 * device.Watt,
+			Mode:        mode,
+		}
+	}
+	// TODO: Add fake GPU processes when e2e workloads can supply stable PIDs.
+
+	backend := nvidia.NewFakeNVMLBackend(devices...)
+	collector, err := nvidia.NewGPUPowerCollector(logger, nvidia.WithNVMLBackend(backend))
+	if err != nil {
+		logger.Error("failed to create GPU collector with fake backend", "error", err)
+		return nil
+	}
+
+	// Init must be called before returning, matching the real path (gpu.Discover
+	// calls Init before returning the meter). This ensures Devices() is populated
+	// when the monitor logs GPU meter info during its own Init.
+	if err := collector.Init(); err != nil {
+		logger.Error("failed to initialize fake GPU collector", "error", err)
+		return nil
+	}
+
+	return []gpu.GPUPowerMeter{collector}
 }
