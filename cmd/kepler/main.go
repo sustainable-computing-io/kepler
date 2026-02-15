@@ -333,10 +333,27 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 			logger.Info("hwmon zones are filtered", "zones-enabled", hwmon.Zones)
 		}
 
+		// Convert config chip rules to device chip rules
+		var chipRules []device.ConfigChipRule
+		for _, cr := range hwmon.ChipRules {
+			chipRules = append(chipRules, device.ConfigChipRule{
+				Name:         cr.Name,
+				Pairings:     cr.Pairings,
+				SkipVoltages: cr.SkipVoltages,
+				SkipCurrents: cr.SkipCurrents,
+				UseSameIndex: cr.UseSameIndex,
+			})
+		}
+
+		if len(chipRules) > 0 {
+			logger.Info("hwmon chip rules configured", "count", len(chipRules))
+		}
+
 		return device.NewHwmonPowerMeter(
 			cfg.Host.SysFS,
 			device.WithHwmonLogger(logger),
 			device.WithHwmonZoneFilter(hwmon.Zones),
+			device.WithHwmonChipRules(chipRules),
 		)
 	}
 

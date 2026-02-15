@@ -164,6 +164,7 @@ experimental:   # experimental features (no stability guarantees)
   hwmon:        # hwmon power monitoring
     enabled: false                    # Enable hwmon power monitoring (default: false)
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
+    chipRules: []                     # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:          # GPU power monitoring
     enabled: false                    # Enable GPU power monitoring (default: false)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
@@ -351,6 +352,7 @@ experimental:
   hwmon:
     enabled: false
     zones: []
+    chipRules: []
   gpu:
     enabled: false
 ```
@@ -410,6 +412,21 @@ bmcs:
   - By default, Kepler enables all available hwmon power zones
   - You can restrict to specific zones by listing them
 
+- **chipRules**: User-defined chip pairing rules for voltage/current sensors (default: empty)
+  - Allows overriding hardcoded chip rules or adding support for new chips
+  - Useful when Kepler doesn't recognize your power monitoring chip or when default pairings are incorrect
+  - Config rules take precedence over hardcoded defaults
+
+**Chip Rule Fields:**
+
+| Field          | Description                                                               |
+|----------------|---------------------------------------------------------------------------|
+| `name`         | Chip driver name from hwmon "name" file (e.g., "ina3221", "ltc2945")      |
+| `pairings`     | Map of voltage index to current index (e.g., `{1: 1}` means in1↔curr1)    |
+| `skipVoltages` | List of voltage indices to skip (shunt voltages, aux inputs)              |
+| `skipCurrents` | List of current indices to skip (per-phase currents, diagnostic channels) |
+| `useSameIndex` | If true, automatically pair in{N} with curr{N} (ignores pairings)         |
+
 **Example with specific zones:**
 
 ```yaml
@@ -417,6 +434,27 @@ experimental:
   hwmon:
     enabled: true
     zones: ["power1", "power2"]
+```
+
+**Example with chip rules (override and add new chips):**
+
+```yaml
+experimental:
+  hwmon:
+    enabled: true
+    zones: []
+    chipRules:
+      # Override existing chip rule (replaces hardcoded default)
+      - name: "ina3221"
+        useSameIndex: true
+        skipVoltages: [4, 5, 6, 7]  # Skip shunt voltages and sum
+
+      # Add support for a new chip not in hardcoded list
+      - name: "my_custom_sensor"
+        pairings:
+          1: 1  # in1 pairs with curr1
+          2: 2  # in2 pairs with curr2
+        skipVoltages: [0]  # Skip shunt voltage at in0
 ```
 
 #### GPU Power Monitoring

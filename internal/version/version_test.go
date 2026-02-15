@@ -9,7 +9,6 @@ import (
 )
 
 func TestInfo(t *testing.T) {
-	// Get version info
 	info := Info()
 
 	// Check that runtime fields are properly set

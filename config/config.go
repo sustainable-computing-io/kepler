@@ -57,10 +57,31 @@ type (
 		Zones []string `yaml:"zones"`
 	}
 
+	// ChipPairingRule defines how voltage and current sensors should be paired for a specific chip.
+	// This allows users to override hardcoded chip rules or add new chips via configuration.
+	ChipPairingRule struct {
+		// Name is the chip driver name (from hwmon "name" file), e.g., "ina3221", "ltc2945"
+		Name string `yaml:"name"`
+		// Pairings maps voltage sensor index to current sensor index for explicit pairings
+		// Key: voltage sensor index (in{N}), Value: current sensor index (curr{N})
+		// Example: {1: 1, 2: 2} means in1↔curr1 and in2↔curr2
+		Pairings map[int]int `yaml:"pairings,omitempty"`
+		// SkipVoltages lists voltage indices to skip (shunt voltages, aux inputs, etc.)
+		SkipVoltages []int `yaml:"skipVoltages,omitempty"`
+		// SkipCurrents lists current indices to skip (current-only channels, per-phase, etc.)
+		SkipCurrents []int `yaml:"skipCurrents,omitempty"`
+		// UseSameIndex indicates this chip uses same-index pairing (in{N} ↔ curr{N})
+		// If true, Pairings map is ignored and same-index matching is used
+		UseSameIndex bool `yaml:"useSameIndex,omitempty"`
+	}
+
 	// Hwmon configuration (Set in Experimental)
 	Hwmon struct {
 		Enabled *bool    `yaml:"enabled"` // Development mode settings (sensor detection should be set based on architecture in future)
 		Zones   []string `yaml:"zones"`
+		// ChipRules allows users to override or add chip pairing rules via configuration.
+		// Rules defined here take precedence over hardcoded defaults.
+		ChipRules []ChipPairingRule `yaml:"chipRules,omitempty"`
 	}
 
 	// Development mode settings; disabled by default
@@ -632,8 +653,9 @@ func hasHwmonFlags(flagsSet map[string]bool) bool {
 
 func defaultHwmonConfig() Hwmon {
 	return Hwmon{
-		Enabled: ptr.To(false),
-		Zones:   []string{},
+		Enabled:   ptr.To(false),
+		Zones:     []string{},
+		ChipRules: []ChipPairingRule{},
 	}
 }
 

@@ -86,6 +86,21 @@ experimental:
   hwmon:
     enabled: false # Enable experimental hwmon power monitoring
     zones: [] # List of zones to enable (default enable all)
+    # chipRules allows overriding or adding chip pairing rules via configuration.
+    # These rules take precedence over hardcoded defaults in the code.
+    # Example:
+    # chipRules:
+    #   # Override an existing chip (replaces hardcoded rule)
+    #   - name: "ina3221"
+    #     useSameIndex: true
+    #     skipVoltages: [4, 5, 6, 7]
+    #   # Add a new chip not in the hardcoded list
+    #   - name: "my_custom_chip"
+    #     pairings:
+    #       1: 1  # in1 pairs with curr1
+    #       2: 2  # in2 pairs with curr2
+    #     skipVoltages: [0]  # Skip shunt voltage
+    chipRules: []
   gpu:
     enabled: false # Enable experimental GPU power monitoring
     idlePower: 0 # GPU idle power in Watts (0 = auto-detect)

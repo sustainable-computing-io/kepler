@@ -165,7 +165,7 @@ jobs:
           registry: localhost:5001
 
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
