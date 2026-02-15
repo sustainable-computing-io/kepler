@@ -104,6 +104,16 @@ func TestVMInfoFromCmdLine(t *testing.T) {
 			vmID:       "instance-0000008b",
 		},
 	}, {
+		name: "KVM with name",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-name", "test-vm",
+		},
+		expected: expect{
+			hypervisor: KVMHypervisor,
+			vmID:       "test-vm",
+		},
+	}, {
 		name: "Not a VM process",
 		cmdline: []string{
 			"/usr/bin/firefox",
