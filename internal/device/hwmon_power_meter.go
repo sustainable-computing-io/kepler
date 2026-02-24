@@ -4,6 +4,7 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -294,7 +295,7 @@ func (r *sysfsHwmonReader) Zones() ([]EnergyZone, error) {
 		if err != nil {
 			// Log but continue with other hwmon devices
 			if r.logger != nil {
-				r.logger.Error("failed to discover zones for hwmon device", "path", hwmonPath, "error", err)
+				r.logger.Warn("failed to discover zones for hwmon device", "path", hwmonPath, "error", err)
 			}
 			continue
 		}
@@ -329,6 +330,14 @@ func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]EnergyZone, error)
 	// First, look for direct power sensors (preferred)
 	powerSensors := r.findSensorsByType(files, "power")
 	for sensorNum, sensorFiles := range powerSensors {
+		// Skip disabled power channels (power*_enable = 0)
+		if !isSensorEnabled(hwmonPath, "power", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled power channel", "index", sensorNum)
+			}
+			continue
+		}
+
 		zone, err := r.createPowerZone(hwmonPath, chipName, humanName, sensorNum, sensorFiles)
 		if err == nil {
 			zones = append(zones, zone)
@@ -457,6 +466,14 @@ func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 			continue
 		}
 
+		// Skip disabled voltage channels (in*_enable = 0)
+		if !isSensorEnabled(hwmonPath, "in", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled voltage channel", "index", sensorNum)
+			}
+			continue
+		}
+
 		info := voltageSensorInfo{
 			index:     sensorNum,
 			inputPath: filepath.Join(hwmonPath, inputFile),
@@ -491,6 +508,14 @@ func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 		// Need at least input file
 		inputFile, hasInput := sensorFiles["input"]
 		if !hasInput {
+			continue
+		}
+
+		// Skip disabled current channels (curr*_enable = 0)
+		if !isSensorEnabled(hwmonPath, "curr", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled current channel", "index", sensorNum)
+			}
 			continue
 		}
 
@@ -713,6 +738,37 @@ type voltageSensorInfo struct {
 	inputPath   string // in*_input path
 	averagePath string // in*_average path (may be empty)
 	label       string
+}
+
+// isSensorEnabled checks if a sensor channel is enabled.
+// Returns true if:
+// - The enable file doesn't exist (followup check of the channel will confirm if it is accessible)
+// - The enable file exists and contains "1"
+// - The enable file exists but cannot be read (continue to test if the channel itself can be accessed)
+// Returns false if the enable file exists and contains "0" (disabled)
+func isSensorEnabled(hwmonPath, sensorType string, sensorNum int, logger *slog.Logger) bool {
+	enableFile := filepath.Join(hwmonPath, fmt.Sprintf("%s%d_enable", sensorType, sensorNum))
+	data, err := os.ReadFile(enableFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if logger != nil {
+				logger.Warn("enable file not present, assuming sensor is enabled",
+					"path", enableFile)
+			}
+			return true
+		}
+		// File exists but cannot be read (e.g., permission denied)
+		// Fail open: assume enabled so the downstream data read can be attempted
+		if logger != nil {
+			logger.Warn("could not read enable file, assuming sensor is enabled",
+				"path", enableFile, "error", err)
+		}
+		return true
+	}
+
+	value := strings.TrimSpace(string(data))
+	// Channel is enabled if value is "1", disabled if "0"
+	return value != "0"
 }
 
 // currentSensorInfo holds information about a current sensor for matching
