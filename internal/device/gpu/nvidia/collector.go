@@ -4,6 +4,7 @@
 package nvidia
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -40,6 +41,11 @@ type GPUPowerCollector struct {
 	// idlePower is a user-configured idle power in Watts.
 	// When set (> 0), always used instead of observed idle power. 0 means auto-detect.
 	idlePower float64
+
+	// MIG support
+	dcgm                 DCGMBackend
+	dcgmEndpoint         string // pre-configured endpoint, set before Init()
+	migInstancesByDevice map[int][]MIGGPUInstance
 
 	mu sync.RWMutex
 
@@ -94,20 +100,52 @@ func (c *GPUPowerCollector) Init() error {
 	}
 	c.sharingModes = modes
 
-	// Log detected modes
+	// Log detected modes and check for MIG
+	hasMIG := false
 	for idx, mode := range modes {
 		c.logger.Info("GPU sharing mode detected",
 			"device", idx,
 			"mode", mode.String())
+		if mode == gpu.SharingModePartitioned {
+			hasMIG = true
+		}
+	}
+
+	// Initialize DCGM backend if MIG is detected
+	if hasMIG {
+		dcgm := NewDCGMExporterBackend(c.logger)
+
+		// If endpoint was pre-configured via SetDCGMEndpoint, it's already set
+		if c.dcgmEndpoint != "" {
+			dcgm.SetEndpoint(c.dcgmEndpoint)
+		}
+
+		if err := dcgm.Init(context.Background()); err != nil {
+			c.logger.Warn("DCGM backend initialization failed, MIG power attribution will use fallback",
+				"error", err)
+		} else {
+			c.dcgm = dcgm
+		}
+
+		// Cache MIG hierarchy from NVML (static topology)
+		if err := c.cacheMIGHierarchy(); err != nil {
+			c.logger.Warn("failed to cache MIG hierarchy", "error", err)
+		}
 	}
 
 	return nil
 }
 
-// Shutdown cleans up NVML resources
+// Shutdown cleans up NVML and DCGM resources
 func (c *GPUPowerCollector) Shutdown() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.dcgm != nil && c.dcgm.IsInitialized() {
+		if err := c.dcgm.Shutdown(); err != nil {
+			c.logger.Warn("DCGM shutdown error", "error", err)
+		}
+	}
 
 	return c.nvml.Shutdown()
 }
@@ -253,10 +291,10 @@ func (c *GPUPowerCollector) collectProcessPower() processPowerResult {
 
 		switch mode {
 		case gpu.SharingModePartitioned:
-			// Partitioned (MIG) support will be added in PR-3
-			c.logger.Debug("partitioned mode detected, skipping (not yet implemented)",
-				"device", dev.Index)
-			continue
+			if err := c.attributePartitioned(dev.Index, result); err != nil {
+				c.logger.Debug("MIG attribution failed",
+					"device", dev.Index, "error", err)
+			}
 
 		case gpu.SharingModeExclusive:
 			if err := c.attributeExclusive(dev.Index, result); err != nil {
@@ -394,6 +432,206 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 	}
 
 	return nil
+}
+
+// SetDCGMEndpoint sets the dcgm-exporter endpoint URL.
+// Must be called before Init() to take effect.
+func (c *GPUPowerCollector) SetDCGMEndpoint(endpoint string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.dcgmEndpoint = endpoint
+}
+
+// cacheMIGHierarchy enumerates all MIG instances from NVML at startup.
+// This is static data — MIG topology doesn't change without admin action.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) cacheMIGHierarchy() error {
+	c.migInstancesByDevice = make(map[int][]MIGGPUInstance)
+	var totalInstances int
+
+	for deviceIndex, mode := range c.sharingModes {
+		if mode != gpu.SharingModePartitioned {
+			continue
+		}
+
+		dev, err := c.nvml.GetDevice(deviceIndex)
+		if err != nil {
+			c.logger.Warn("failed to get device for MIG enumeration",
+				"device", deviceIndex, "error", err)
+			continue
+		}
+
+		// Enumerate MIG instances from NVML (finds ALL instances, not just active ones)
+		nvmlInstances, err := dev.GetMIGInstances()
+		if err != nil {
+			c.logger.Warn("failed to enumerate MIG instances",
+				"device", deviceIndex, "error", err)
+			continue
+		}
+
+		for _, inst := range nvmlInstances {
+			c.migInstancesByDevice[deviceIndex] = append(c.migInstancesByDevice[deviceIndex],
+				MIGGPUInstance{
+					ParentGPUIndex: deviceIndex,
+					GPUInstanceID:  inst.GPUInstanceID,
+				})
+			totalInstances++
+		}
+
+		c.logger.Debug("enumerated MIG instances for device",
+			"device", deviceIndex, "instances", len(nvmlInstances))
+	}
+
+	c.logger.Info("cached MIG hierarchy from NVML",
+		"totalInstances", totalInstances)
+	return nil
+}
+
+// attributePartitioned handles power attribution for MIG (partitioned) mode.
+//
+// Uses DCGM GR_ENGINE_ACTIVE metric per MIG instance to distribute the parent
+// GPU's active power, then within each MIG instance distributes to processes
+// using NVML's per-process utilization.
+//
+// Falls back to equal distribution among all running processes if DCGM is unavailable.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uint32]float64) error {
+	nvmlDev, err := c.nvml.GetDevice(deviceIndex)
+	if err != nil {
+		return err
+	}
+
+	// Get active power (reuses idle detection logic)
+	stats, err := c.getDevicePowerStatsLocked(deviceIndex)
+	if err != nil {
+		return err
+	}
+
+	// Use cached MIG hierarchy from NVML
+	instances := c.migInstancesByDevice[deviceIndex]
+
+	// Fallback to equal distribution among running processes when DCGM is
+	// unavailable (not deployed, unreachable, or initialization failed).
+	if c.dcgm == nil || !c.dcgm.IsInitialized() || len(instances) == 0 {
+		c.logger.Debug("DCGM not available or no MIG instances, using fallback",
+			"dcgm_available", c.dcgm != nil && c.dcgm.IsInitialized(),
+			"instances", len(instances))
+		return c.attributePartitionedFallback(nvmlDev, stats.ActivePower, result)
+	}
+
+	// Collect activity and process data for each MIG instance
+	type instanceData struct {
+		activity    float64
+		processUtil map[uint32]uint32 // PID -> SmUtil (0 if unavailable)
+	}
+	var data []instanceData
+	var totalActivity float64
+
+	for _, gi := range instances {
+		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
+		if err != nil {
+			c.logger.Debug("GetMIGInstanceActivity failed",
+				"device", deviceIndex,
+				"gpuInstanceID", gi.GPUInstanceID,
+				"error", err)
+			continue
+		}
+
+		// Skip NVML calls for idle MIG instances (major optimization).
+		// Activity from dcgm-exporter is cached and cheap to query.
+		// NVML calls (GetMIGDeviceByInstanceID, GetProcessUtilization) are slow.
+		if activity == 0 {
+			continue
+		}
+
+		migDevice, err := nvmlDev.GetMIGDeviceByInstanceID(gi.GPUInstanceID)
+		if err != nil {
+			c.logger.Debug("GetMIGDeviceByInstanceID failed",
+				"device", deviceIndex,
+				"gpuInstanceID", gi.GPUInstanceID,
+				"error", err)
+			continue
+		}
+
+		// Try GetProcessUtilization first (includes PIDs + utilization)
+		processUtil := make(map[uint32]uint32)
+		if utils, err := migDevice.GetProcessUtilization(0); err == nil && len(utils) > 0 {
+			for _, u := range utils {
+				processUtil[u.PID] = u.ComputeUtil
+			}
+		} else {
+			// Fallback: get PIDs from GetComputeRunningProcesses (equal distribution)
+			procs, err := migDevice.GetComputeRunningProcesses()
+			if err != nil || len(procs) == 0 {
+				continue
+			}
+			for _, p := range procs {
+				processUtil[p.PID] = 0
+			}
+		}
+
+		if len(processUtil) == 0 {
+			continue
+		}
+
+		data = append(data, instanceData{activity: activity, processUtil: processUtil})
+		totalActivity += activity
+	}
+
+	if len(data) == 0 || totalActivity == 0 {
+		return nil
+	}
+
+	// Distribute active power based on activity ratio per MIG instance,
+	// then within each instance by process utilization
+	for _, d := range data {
+		migPower := stats.ActivePower * (d.activity / totalActivity)
+		distributeByUtilization(result, d.processUtil, migPower)
+	}
+
+	return nil
+}
+
+// attributePartitionedFallback distributes power equally among all running processes
+// across all MIG instances when DCGM is not available.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) attributePartitionedFallback(nvmlDev NVMLDevice, activePower float64, result map[uint32]float64) error {
+	// Get all running processes from the parent device
+	procs, err := nvmlDev.GetComputeRunningProcesses()
+	if err != nil {
+		return err
+	}
+
+	if len(procs) == 0 {
+		return nil
+	}
+
+	powerPerProc := activePower / float64(len(procs))
+	for _, p := range procs {
+		result[p.PID] += powerPerProc
+	}
+
+	return nil
+}
+
+// distributeByUtilization distributes power among processes based on SM utilization.
+// Falls back to equal distribution if all utilization values are zero.
+func distributeByUtilization(result map[uint32]float64, processUtil map[uint32]uint32, power float64) {
+	var totalUtil uint32
+	for _, util := range processUtil {
+		totalUtil += util
+	}
+
+	if totalUtil > 0 {
+		for pid, util := range processUtil {
+			result[pid] += power * float64(util) / float64(totalUtil)
+		}
+	} else {
+		powerPerProcess := power / float64(len(processUtil))
+		for pid := range processUtil {
+			result[pid] += powerPerProcess
+		}
+	}
 }
 
 // GetProcessInfo returns detailed GPU metrics per process

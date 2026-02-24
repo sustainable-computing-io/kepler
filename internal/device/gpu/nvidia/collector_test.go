@@ -5,7 +5,10 @@ package nvidia
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -786,8 +789,12 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 		mockDevice.AssertExpectations(t)
 	})
 
-	t.Run("partitioned mode skipped", func(t *testing.T) {
+	t.Run("partitioned mode with DCGM", func(t *testing.T) {
 		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+		mockMIGDev1 := new(MockNVMLDevice)
+		mockMIGDev2 := new(MockNVMLDevice)
 
 		collector := &GPUPowerCollector{
 			logger: slog.Default(),
@@ -798,16 +805,100 @@ func TestGPUPowerCollector_GetProcessPower(t *testing.T) {
 			sharingModes: map[int]gpu.SharingMode{
 				0: gpu.SharingModePartitioned,
 			},
-			minObservedPower: make(map[string]float64),
-			idleObserved:     make(map[string]bool),
+			minObservedPower: map[string]float64{
+				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
+			dcgm: mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {
+					{ParentGPUIndex: 0, GPUInstanceID: 1},
+					{ParentGPUIndex: 0, GPUInstanceID: 2},
+				},
+			},
 		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1001},
+		}, nil)
+
+		// Instance 1: activity 0.6, has process 1001 with SmUtil 80
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.6, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIGDev1, nil)
+		mockMIGDev1.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+			{PID: 1001, ComputeUtil: 80},
+		}, nil)
+
+		// Instance 2: activity 0.4, has process 2001 with SmUtil 50
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.4, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(2)).Return(mockMIGDev2, nil)
+		mockMIGDev2.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+			{PID: 2001, ComputeUtil: 50},
+		}, nil)
 
 		result, err := collector.GetProcessPower()
 
 		assert.NoError(t, err)
-		assert.Empty(t, result) // Partitioned mode not yet implemented
+		assert.Len(t, result, 2)
+		// Active power = 100 - 40 = 60W
+		// Instance 1 gets 60 * (0.6/1.0) = 36W → PID 1001 gets 36W
+		// Instance 2 gets 60 * (0.4/1.0) = 24W → PID 2001 gets 24W
+		assert.InDelta(t, 36.0, result[1001], 0.01)
+		assert.InDelta(t, 24.0, result[2001], 0.01)
 
 		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+		mockDCGM.AssertExpectations(t)
+	})
+
+	t.Run("partitioned mode fallback without DCGM", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{
+				"GPU-123": 40.0,
+			},
+			idleObserved: map[string]bool{
+				"GPU-123": true,
+			},
+			dcgm:                 nil, // No DCGM
+			migInstancesByDevice: map[int][]MIGGPUInstance{},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 1001},
+			{PID: 2001},
+		}, nil)
+
+		result, err := collector.GetProcessPower()
+
+		assert.NoError(t, err)
+		assert.Len(t, result, 2)
+		// Fallback: equal distribution of 60W among 2 processes
+		assert.Equal(t, 30.0, result[1001])
+		assert.Equal(t, 30.0, result[2001])
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
 	})
 }
 
@@ -1346,6 +1437,866 @@ func TestRegistration(t *testing.T) {
 	}
 
 	assert.True(t, found, "NVIDIA vendor should be registered")
+}
+
+func TestDistributeByUtilization(t *testing.T) {
+	t.Run("proportional distribution", func(t *testing.T) {
+		result := make(map[uint32]float64)
+		processUtil := map[uint32]uint32{
+			1001: 60,
+			1002: 40,
+		}
+		distributeByUtilization(result, processUtil, 100.0)
+
+		assert.InDelta(t, 60.0, result[1001], 0.01)
+		assert.InDelta(t, 40.0, result[1002], 0.01)
+	})
+
+	t.Run("equal distribution when zero utilization", func(t *testing.T) {
+		result := make(map[uint32]float64)
+		processUtil := map[uint32]uint32{
+			1001: 0,
+			1002: 0,
+		}
+		distributeByUtilization(result, processUtil, 100.0)
+
+		assert.InDelta(t, 50.0, result[1001], 0.01)
+		assert.InDelta(t, 50.0, result[1002], 0.01)
+	})
+
+	t.Run("single process gets all power", func(t *testing.T) {
+		result := make(map[uint32]float64)
+		processUtil := map[uint32]uint32{
+			1001: 80,
+		}
+		distributeByUtilization(result, processUtil, 100.0)
+
+		assert.Equal(t, 100.0, result[1001])
+	})
+
+	t.Run("accumulates across calls", func(t *testing.T) {
+		result := map[uint32]float64{
+			1001: 10.0, // pre-existing
+		}
+		processUtil := map[uint32]uint32{
+			1001: 100,
+		}
+		distributeByUtilization(result, processUtil, 50.0)
+
+		assert.Equal(t, 60.0, result[1001]) // 10 + 50
+	})
+}
+
+func TestGPUPowerCollector_cacheMIGHierarchy(t *testing.T) {
+	t.Run("caches MIG instances from NVML", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetMIGInstances").Return([]MIGInstance{
+			{GPUInstanceID: 1, ProfileSlices: 3},
+			{GPUInstanceID: 2, ProfileSlices: 3},
+		}, nil)
+
+		err := collector.cacheMIGHierarchy()
+		assert.NoError(t, err)
+
+		assert.Len(t, collector.migInstancesByDevice[0], 2)
+
+		inst := collector.migInstancesByDevice[0][0]
+		assert.Equal(t, 0, inst.ParentGPUIndex)
+		assert.Equal(t, uint(1), inst.GPUInstanceID)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("skips non-MIG devices", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModeTimeSlicing,
+			},
+		}
+
+		err := collector.cacheMIGHierarchy()
+		assert.NoError(t, err)
+
+		assert.Empty(t, collector.migInstancesByDevice)
+	})
+
+	t.Run("handles GetMIGInstances failure", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetMIGInstances").Return([]MIGInstance(nil), errors.New("unsupported"))
+
+		err := collector.cacheMIGHierarchy()
+		assert.NoError(t, err)
+
+		// Device skipped, no instances cached
+		assert.Empty(t, collector.migInstancesByDevice[0])
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+}
+
+func TestGPUPowerCollector_SetDCGMEndpoint(t *testing.T) {
+	collector := &GPUPowerCollector{}
+
+	collector.SetDCGMEndpoint("http://localhost:9400/metrics")
+	assert.Equal(t, "http://localhost:9400/metrics", collector.dcgmEndpoint)
+
+	collector.SetDCGMEndpoint("")
+	assert.Equal(t, "", collector.dcgmEndpoint)
+}
+
+// Verify DCGMEndpointConfigurable interface implementation
+var _ gpu.DCGMEndpointConfigurable = (*GPUPowerCollector)(nil)
+
+func TestGPUPowerCollector_attributePartitioned_idleInstances(t *testing.T) {
+	mockBackend := new(MockNVMLBackend)
+	mockDevice := new(MockNVMLDevice)
+	mockDCGM := new(MockDCGMBackend)
+	mockMIGDev1 := new(MockNVMLDevice)
+
+	collector := &GPUPowerCollector{
+		logger: slog.Default(),
+		nvml:   mockBackend,
+		devices: []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-123"},
+		},
+		sharingModes: map[int]gpu.SharingMode{
+			0: gpu.SharingModePartitioned,
+		},
+		minObservedPower: map[string]float64{
+			"GPU-123": 40.0,
+		},
+		idleObserved: map[string]bool{
+			"GPU-123": true,
+		},
+		dcgm: mockDCGM,
+		migInstancesByDevice: map[int][]MIGGPUInstance{
+			0: {
+				{ParentGPUIndex: 0, GPUInstanceID: 1},
+				{ParentGPUIndex: 0, GPUInstanceID: 2},
+			},
+		},
+	}
+
+	mockDCGM.On("IsInitialized").Return(true)
+
+	mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+	mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+	mockDevice.On("UUID").Return("GPU-123")
+	mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+		{PID: 1001},
+	}, nil)
+
+	// Instance 1: active with process
+	mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.5, nil)
+	mockDevice.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIGDev1, nil)
+	mockMIGDev1.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+		{PID: 1001, ComputeUtil: 80},
+	}, nil)
+
+	// Instance 2: idle (activity = 0) — should be skipped entirely
+	mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.0, nil)
+	// No GetMIGDeviceByInstanceID call expected for idle instance
+
+	result, err := collector.GetProcessPower()
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	// Active power = 60W, only instance 1 is active
+	// Instance 1 gets 60 * (0.5/0.5) = 60W → PID 1001 gets 60W
+	assert.Equal(t, 60.0, result[1001])
+
+	mockBackend.AssertExpectations(t)
+	mockDevice.AssertExpectations(t)
+	mockDCGM.AssertExpectations(t)
+	mockMIGDev1.AssertExpectations(t)
+}
+
+func TestGPUPowerCollector_attributePartitioned_multiGPU(t *testing.T) {
+	// Two physical GPUs both in MIG mode, each with their own instances and processes.
+	// Verifies power is attributed independently per GPU.
+	mockBackend := new(MockNVMLBackend)
+	mockDevice0 := new(MockNVMLDevice)
+	mockDevice1 := new(MockNVMLDevice)
+	mockDCGM := new(MockDCGMBackend)
+	mockMIG0_1 := new(MockNVMLDevice) // GPU 0, instance 1
+	mockMIG0_2 := new(MockNVMLDevice) // GPU 0, instance 2
+	mockMIG1_1 := new(MockNVMLDevice) // GPU 1, instance 1
+
+	collector := &GPUPowerCollector{
+		logger: slog.Default(),
+		nvml:   mockBackend,
+		devices: []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-AAA"},
+			{Index: 1, UUID: "GPU-BBB"},
+		},
+		sharingModes: map[int]gpu.SharingMode{
+			0: gpu.SharingModePartitioned,
+			1: gpu.SharingModePartitioned,
+		},
+		minObservedPower: map[string]float64{
+			"GPU-AAA": 50.0,
+			"GPU-BBB": 30.0,
+		},
+		idleObserved: map[string]bool{
+			"GPU-AAA": true,
+			"GPU-BBB": true,
+		},
+		dcgm: mockDCGM,
+		migInstancesByDevice: map[int][]MIGGPUInstance{
+			0: {
+				{ParentGPUIndex: 0, GPUInstanceID: 1},
+				{ParentGPUIndex: 0, GPUInstanceID: 2},
+			},
+			1: {
+				{ParentGPUIndex: 1, GPUInstanceID: 1},
+			},
+		},
+	}
+
+	mockDCGM.On("IsInitialized").Return(true)
+
+	// --- GPU 0: 200W total, 50W idle → 150W active ---
+	mockBackend.On("GetDevice", 0).Return(mockDevice0, nil)
+	mockDevice0.On("GetPowerUsage").Return(device.Power(200*device.Watt), nil)
+	mockDevice0.On("UUID").Return("GPU-AAA")
+	mockDevice0.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+		{PID: 1001}, {PID: 1002},
+	}, nil)
+
+	// GPU 0, instance 1: activity 0.6, PID 1001
+	mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.6, nil)
+	mockDevice0.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIG0_1, nil)
+	mockMIG0_1.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+		{PID: 1001, ComputeUtil: 100},
+	}, nil)
+
+	// GPU 0, instance 2: activity 0.4, PID 1002
+	mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.4, nil)
+	mockDevice0.On("GetMIGDeviceByInstanceID", uint(2)).Return(mockMIG0_2, nil)
+	mockMIG0_2.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+		{PID: 1002, ComputeUtil: 100},
+	}, nil)
+
+	// --- GPU 1: 100W total, 30W idle → 70W active ---
+	mockBackend.On("GetDevice", 1).Return(mockDevice1, nil)
+	mockDevice1.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+	mockDevice1.On("UUID").Return("GPU-BBB")
+	mockDevice1.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+		{PID: 2001},
+	}, nil)
+
+	// GPU 1, instance 1: activity 1.0, PID 2001
+	mockDCGM.On("GetMIGInstanceActivity", 1, uint(1)).Return(1.0, nil)
+	mockDevice1.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIG1_1, nil)
+	mockMIG1_1.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+		{PID: 2001, ComputeUtil: 80},
+	}, nil)
+
+	result, err := collector.GetProcessPower()
+	assert.NoError(t, err)
+	assert.Len(t, result, 3)
+
+	// GPU 0 active = 150W, total activity = 0.6+0.4 = 1.0
+	// PID 1001: 150 * (0.6/1.0) = 90W
+	// PID 1002: 150 * (0.4/1.0) = 60W
+	assert.InDelta(t, 90.0, result[1001], 0.01)
+	assert.InDelta(t, 60.0, result[1002], 0.01)
+
+	// GPU 1 active = 70W, total activity = 1.0
+	// PID 2001: 70 * (1.0/1.0) = 70W
+	assert.InDelta(t, 70.0, result[2001], 0.01)
+
+	mockBackend.AssertExpectations(t)
+	mockDevice0.AssertExpectations(t)
+	mockDevice1.AssertExpectations(t)
+	mockDCGM.AssertExpectations(t)
+	mockMIG0_1.AssertExpectations(t)
+	mockMIG0_2.AssertExpectations(t)
+	mockMIG1_1.AssertExpectations(t)
+}
+
+func TestGPUPowerCollector_Shutdown_withDCGM(t *testing.T) {
+	mockBackend := new(MockNVMLBackend)
+	mockDCGM := new(MockDCGMBackend)
+
+	mockBackend.On("Shutdown").Return(nil)
+	mockDCGM.On("IsInitialized").Return(true)
+	mockDCGM.On("Shutdown").Return(nil)
+
+	collector := &GPUPowerCollector{
+		nvml: mockBackend,
+		dcgm: mockDCGM,
+	}
+
+	err := collector.Shutdown()
+
+	assert.NoError(t, err)
+	mockBackend.AssertExpectations(t)
+	mockDCGM.AssertExpectations(t)
+}
+
+func TestGPUPowerCollector_Init_withMIG(t *testing.T) {
+	mockBackend := new(MockNVMLBackend)
+	mockDevice := new(MockNVMLDevice)
+
+	mockBackend.On("Init").Return(nil)
+	mockBackend.On("DiscoverDevices").Return([]gpu.GPUDevice{
+		{Index: 0, UUID: "GPU-123", Name: "A100"},
+	}, nil)
+	mockBackend.On("DeviceCount").Return(1)
+	mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+	mockDevice.On("IsMIGEnabled").Return(true, nil)
+	// MIG enumeration calls
+	mockDevice.On("GetMIGInstances").Return([]MIGInstance{
+		{GPUInstanceID: 1, ProfileSlices: 3},
+	}, nil)
+
+	collector := &GPUPowerCollector{
+		logger:           slog.Default(),
+		nvml:             mockBackend,
+		minObservedPower: make(map[string]float64),
+		idleObserved:     make(map[string]bool),
+		sharingModes:     make(map[int]gpu.SharingMode),
+	}
+
+	// Init will detect MIG, try to create a real DCGMExporterBackend (which will fail
+	// to init since there's no real dcgm-exporter), and cache MIG hierarchy
+	err := collector.Init()
+
+	assert.NoError(t, err)
+	assert.Equal(t, gpu.SharingModePartitioned, collector.sharingModes[0])
+	// MIG hierarchy should be cached even if DCGM init fails
+	assert.Len(t, collector.migInstancesByDevice[0], 1)
+
+	mockBackend.AssertExpectations(t)
+	mockDevice.AssertExpectations(t)
+}
+
+func TestGPUPowerCollector_attributePartitioned_errorPaths(t *testing.T) {
+	t.Run("GetDevice error", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDCGM := new(MockDCGMBackend)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {{ParentGPUIndex: 0, GPUInstanceID: 1}},
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(nil, errors.New("device error"))
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err) // error is logged, not returned
+		assert.Empty(t, result)
+		mockBackend.AssertExpectations(t)
+	})
+
+	t.Run("power stats error", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {{ParentGPUIndex: 0, GPUInstanceID: 1}},
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(0), errors.New("power error"))
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("DCGM activity error skips instance", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+		mockMIGDev := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{"GPU-123": 40.0},
+			idleObserved:     map[string]bool{"GPU-123": true},
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {
+					{ParentGPUIndex: 0, GPUInstanceID: 1},
+					{ParentGPUIndex: 0, GPUInstanceID: 2},
+				},
+			},
+		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+
+		// Instance 1: DCGM error → skipped
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.0, errors.New("dcgm error"))
+		// Instance 2: succeeds
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.5, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(2)).Return(mockMIGDev, nil)
+		mockMIGDev.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+			{PID: 2001, ComputeUtil: 80},
+		}, nil)
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.InDelta(t, 60.0, result[2001], 0.01) // 100-40=60W, only instance 2 active
+		mockDCGM.AssertExpectations(t)
+	})
+
+	t.Run("MIG device error skips instance", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+		mockMIGDev := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{"GPU-123": 40.0},
+			idleObserved:     map[string]bool{"GPU-123": true},
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {
+					{ParentGPUIndex: 0, GPUInstanceID: 1},
+					{ParentGPUIndex: 0, GPUInstanceID: 2},
+				},
+			},
+		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+
+		// Instance 1: active but GetMIGDeviceByInstanceID fails → skipped
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.8, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(1)).Return(nil, errors.New("mig device error"))
+		// Instance 2: succeeds
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.5, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(2)).Return(mockMIGDev, nil)
+		mockMIGDev.On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{
+			{PID: 2001, ComputeUtil: 50},
+		}, nil)
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.InDelta(t, 60.0, result[2001], 0.01) // Only instance 2 in data
+		mockDCGM.AssertExpectations(t)
+	})
+
+	t.Run("process util fallback to GetComputeRunningProcesses", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+		mockMIGDev := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{"GPU-123": 40.0},
+			idleObserved:     map[string]bool{"GPU-123": true},
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {{ParentGPUIndex: 0, GPUInstanceID: 1}},
+			},
+		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.5, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIGDev, nil)
+		// GetProcessUtilization fails → falls back to GetComputeRunningProcesses
+		mockMIGDev.On("GetProcessUtilization", uint64(0)).Return(nil, errors.New("not supported"))
+		mockMIGDev.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+			{PID: 3001},
+			{PID: 3002},
+		}, nil)
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Len(t, result, 2)
+		// Equal distribution: 60W / 2 = 30W each (utilization is 0 for both)
+		assert.InDelta(t, 30.0, result[3001], 0.01)
+		assert.InDelta(t, 30.0, result[3002], 0.01)
+		mockMIGDev.AssertExpectations(t)
+	})
+
+	t.Run("GetComputeRunningProcesses error in fallback skips instance", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+		mockMIGDev := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{"GPU-123": 40.0},
+			idleObserved:     map[string]bool{"GPU-123": true},
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {{ParentGPUIndex: 0, GPUInstanceID: 1}},
+			},
+		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.5, nil)
+		mockDevice.On("GetMIGDeviceByInstanceID", uint(1)).Return(mockMIGDev, nil)
+		mockMIGDev.On("GetProcessUtilization", uint64(0)).Return(nil, errors.New("not supported"))
+		mockMIGDev.On("GetComputeRunningProcesses").Return(nil, errors.New("proc error"))
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Empty(t, result) // Instance skipped, no data
+		mockMIGDev.AssertExpectations(t)
+	})
+
+	t.Run("all DCGM instances fail returns empty", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+		mockDCGM := new(MockDCGMBackend)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower: map[string]float64{"GPU-123": 40.0},
+			idleObserved:     map[string]bool{"GPU-123": true},
+			dcgm:             mockDCGM,
+			migInstancesByDevice: map[int][]MIGGPUInstance{
+				0: {
+					{ParentGPUIndex: 0, GPUInstanceID: 1},
+					{ParentGPUIndex: 0, GPUInstanceID: 2},
+				},
+			},
+		}
+
+		mockDCGM.On("IsInitialized").Return(true)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+
+		// Both instances fail
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.0, errors.New("error"))
+		mockDCGM.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.0, errors.New("error"))
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+		mockDCGM.AssertExpectations(t)
+	})
+}
+
+func TestGPUPowerCollector_attributePartitionedFallback_errorPaths(t *testing.T) {
+	t.Run("GetComputeRunningProcesses error", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower:     map[string]float64{"GPU-123": 40.0},
+			idleObserved:         map[string]bool{"GPU-123": true},
+			dcgm:                 nil, // no DCGM → uses fallback
+			migInstancesByDevice: map[int][]MIGGPUInstance{},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		// First call in getDevicePowerStatsLocked
+		mockDevice.On("GetComputeRunningProcesses").Return(nil, errors.New("proc error"))
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+		mockBackend.AssertExpectations(t)
+	})
+
+	t.Run("no processes returns empty", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			devices: []gpu.GPUDevice{
+				{Index: 0, UUID: "GPU-123"},
+			},
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+			minObservedPower:     map[string]float64{"GPU-123": 40.0},
+			idleObserved:         map[string]bool{"GPU-123": true},
+			dcgm:                 nil, // no DCGM → uses fallback
+			migInstancesByDevice: map[int][]MIGGPUInstance{},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+		mockDevice.On("UUID").Return("GPU-123")
+		mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{}, nil)
+
+		result, err := collector.GetProcessPower()
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+		mockBackend.AssertExpectations(t)
+	})
+}
+
+func TestGPUPowerCollector_cacheMIGHierarchy_errorPaths(t *testing.T) {
+	t.Run("GetDevice error continues to next device", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(nil, errors.New("device gone"))
+
+		err := collector.cacheMIGHierarchy()
+		assert.NoError(t, err)
+		assert.Empty(t, collector.migInstancesByDevice)
+		mockBackend.AssertExpectations(t)
+	})
+
+	t.Run("GetMIGInstances error continues to next device", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		collector := &GPUPowerCollector{
+			logger: slog.Default(),
+			nvml:   mockBackend,
+			sharingModes: map[int]gpu.SharingMode{
+				0: gpu.SharingModePartitioned,
+			},
+		}
+
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("GetMIGInstances").Return(nil, errors.New("mig error"))
+
+		err := collector.cacheMIGHierarchy()
+		assert.NoError(t, err)
+		assert.Empty(t, collector.migInstancesByDevice)
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+}
+
+func TestGPUPowerCollector_Init_dcgmEndpoint(t *testing.T) {
+	t.Run("pre-configured endpoint unreachable", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		mockBackend.On("Init").Return(nil)
+		mockBackend.On("DiscoverDevices").Return([]gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-123", Name: "A100"},
+		}, nil)
+		mockBackend.On("DeviceCount").Return(1)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("IsMIGEnabled").Return(true, nil)
+		mockDevice.On("GetMIGInstances").Return([]MIGInstance{
+			{GPUInstanceID: 1, ProfileSlices: 3},
+		}, nil)
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
+			dcgmEndpoint:     "http://10.0.0.1:9400/metrics", // pre-configured
+		}
+
+		err := collector.Init()
+		assert.NoError(t, err)
+		assert.Equal(t, gpu.SharingModePartitioned, collector.sharingModes[0])
+		assert.Nil(t, collector.dcgm) // DCGM failed to init
+		assert.Len(t, collector.migInstancesByDevice[0], 1)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+
+	t.Run("pre-configured endpoint reachable", func(t *testing.T) {
+		// Set up a real HTTP server that serves DCGM metrics
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "# HELP DCGM_FI_PROF_GR_ENGINE_ACTIVE\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
+		}))
+		defer ts.Close()
+
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		mockBackend.On("Init").Return(nil)
+		mockBackend.On("DiscoverDevices").Return([]gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-123", Name: "A100"},
+		}, nil)
+		mockBackend.On("DeviceCount").Return(1)
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+		mockDevice.On("IsMIGEnabled").Return(true, nil)
+		mockDevice.On("GetMIGInstances").Return([]MIGInstance{
+			{GPUInstanceID: 1, ProfileSlices: 3},
+		}, nil)
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
+			dcgmEndpoint:     ts.URL + "/metrics", // reachable endpoint
+		}
+
+		err := collector.Init()
+		assert.NoError(t, err)
+		assert.Equal(t, gpu.SharingModePartitioned, collector.sharingModes[0])
+		assert.NotNil(t, collector.dcgm) // DCGM init succeeds
+		assert.True(t, collector.dcgm.IsInitialized())
+		assert.Len(t, collector.migInstancesByDevice[0], 1)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
+}
+
+func TestGPUPowerCollector_Shutdown_dcgmError(t *testing.T) {
+	mockBackend := new(MockNVMLBackend)
+	mockDCGM := new(MockDCGMBackend)
+
+	mockBackend.On("Shutdown").Return(nil)
+	mockDCGM.On("IsInitialized").Return(true)
+	mockDCGM.On("Shutdown").Return(errors.New("dcgm shutdown error"))
+
+	collector := &GPUPowerCollector{
+		logger: slog.Default(),
+		nvml:   mockBackend,
+		dcgm:   mockDCGM,
+	}
+
+	err := collector.Shutdown()
+	// DCGM error is logged, not returned; NVML shutdown succeeds
+	assert.NoError(t, err)
+	mockBackend.AssertExpectations(t)
+	mockDCGM.AssertExpectations(t)
 }
 
 // Ensure interface implementation

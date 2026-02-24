@@ -295,6 +295,14 @@ gpu:
 3. **MIG profile slice ratios**: Currently equal distribution within MIG
    instance. Could use slice ratio for more accurate attribution
 
+### MIG GPU Slice Reference
+
+| GPU Model | Max MIG Slices | Common Profiles                             |
+|-----------|----------------|---------------------------------------------|
+| A100      | 7              | 1g.5gb, 2g.10gb, 3g.20gb, 4g.20gb, 7g.40gb  |
+| H100      | 7              | 1g.10gb, 2g.20gb, 3g.40gb, 4g.40gb, 7g.80gb |
+| A30       | 4              | 1g.6gb, 2g.12gb, 4g.24gb                    |
+
 ## References
 
 - [NVIDIA MIG User Guide](https://docs.nvidia.com/datacenter/tesla/mig-user-guide/)
