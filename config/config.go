@@ -173,6 +173,11 @@ type (
 		// observe true idle (e.g. GPUs always under load).
 		// 0 means auto-detect (track minimum power when no compute processes are running).
 		IdlePower float64 `yaml:"idlePower"`
+
+		// DCGMEndpoint is the URL of the dcgm-exporter Prometheus metrics endpoint.
+		// Required for MIG power attribution. If empty, auto-discovered via K8s API.
+		// Example: "http://10.131.2.22:9400/metrics"
+		DCGMEndpoint string `yaml:"dcgmEndpoint"`
 	}
 
 	// Experimental contains experimental features (no stability guarantees)
@@ -289,8 +294,9 @@ const (
 	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
 
 	// Experimental GPU flags
-	ExperimentalGPUEnabledFlag   = "experimental.gpu.enabled"
-	ExperimentalGPUIdlePowerFlag = "experimental.gpu.idle-power"
+	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
+	ExperimentalGPUIdlePowerFlag    = "experimental.gpu.idle-power"
+	ExperimentalGPUDCGMEndpointFlag = "experimental.gpu.dcgm-endpoint"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -453,6 +459,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	// experimental GPU
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
+	gpuDCGMEndpoint := app.Flag(ExperimentalGPUDCGMEndpointFlag, "dcgm-exporter metrics endpoint URL for MIG power attribution (auto-discovered if empty)").Default("").String()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -527,7 +534,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		// Apply experimental GPU settings
-		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower)
+		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint)
 
 		cfg.sanitize()
 		return cfg.Validate()
@@ -654,7 +661,7 @@ func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, enabled *bool, zone
 }
 
 // applyGPUConfig applies GPU configuration from flags
-func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64) {
+func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64, dcgmEndpoint *string) {
 	// Early exit if GPU enabled flag is not set and config file does not have experimental section
 	if !flagsSet[ExperimentalGPUEnabledFlag] && cfg.Experimental == nil {
 		return
@@ -669,9 +676,14 @@ func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePo
 		cfg.Experimental.GPU.Enabled = enabled
 	}
 
-	// Only apply idle power if GPU is enabled
-	if cfg.IsFeatureEnabled(ExperimentalGPUFeature) && flagsSet[ExperimentalGPUIdlePowerFlag] {
-		cfg.Experimental.GPU.IdlePower = *idlePower
+	// Only apply GPU-specific settings if GPU is enabled
+	if cfg.IsFeatureEnabled(ExperimentalGPUFeature) {
+		if flagsSet[ExperimentalGPUIdlePowerFlag] {
+			cfg.Experimental.GPU.IdlePower = *idlePower
+		}
+		if flagsSet[ExperimentalGPUDCGMEndpointFlag] {
+			cfg.Experimental.GPU.DCGMEndpoint = *dcgmEndpoint
+		}
 	}
 }
 

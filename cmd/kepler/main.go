@@ -146,6 +146,17 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		}
 	}
 
+	// Inject configured DCGM endpoint for MIG power attribution
+	if cfg.Experimental != nil && cfg.Experimental.GPU.DCGMEndpoint != "" {
+		for _, m := range gpuMeters {
+			if c, ok := m.(gpu.DCGMEndpointConfigurable); ok {
+				c.SetDCGMEndpoint(cfg.Experimental.GPU.DCGMEndpoint)
+				logger.Info("configured GPU DCGM endpoint",
+					"endpoint", cfg.Experimental.GPU.DCGMEndpoint)
+			}
+		}
+	}
+
 	var services []service.Service
 
 	var podInformer pod.Informer

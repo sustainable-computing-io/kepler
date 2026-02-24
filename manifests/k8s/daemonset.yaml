@@ -71,6 +71,11 @@ spec:
                   fieldPath: spec.nodeName
             - name: LD_LIBRARY_PATH
               value: /run/nvidia/driver/usr/lib64
+            # Required for NVML to see all MIG devices when running in a container
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_MIG_MONITOR_DEVICES
+              value: all
       volumes:
         - name: sysfs
           hostPath:

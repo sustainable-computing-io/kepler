@@ -124,6 +124,81 @@ func (m *mockDeviceHandle) GetAccountingMode() (nvml.EnableState, nvml.Return) {
 	return args.Get(0).(nvml.EnableState), args.Get(1).(nvml.Return)
 }
 
+func (m *mockDeviceHandle) GetGpuInstanceProfileInfo(profileID int) (nvml.GpuInstanceProfileInfo, nvml.Return) {
+	args := m.Called(profileID)
+	return args.Get(0).(nvml.GpuInstanceProfileInfo), args.Get(1).(nvml.Return)
+}
+
+func (m *mockDeviceHandle) GetGpuInstances(profileInfo *nvml.GpuInstanceProfileInfo) ([]nvml.GpuInstance, nvml.Return) {
+	args := m.Called(profileInfo)
+	instances := args.Get(0)
+	if instances == nil {
+		return nil, args.Get(1).(nvml.Return)
+	}
+	return instances.([]nvml.GpuInstance), args.Get(1).(nvml.Return)
+}
+
+// mockGpuInstance implements nvml.GpuInstance for testing
+type mockGpuInstance struct {
+	mock.Mock
+}
+
+func (m *mockGpuInstance) GetInfo() (nvml.GpuInstanceInfo, nvml.Return) {
+	args := m.Called()
+	return args.Get(0).(nvml.GpuInstanceInfo), args.Get(1).(nvml.Return)
+}
+
+// Stub all other GpuInstance interface methods (unused in tests)
+func (m *mockGpuInstance) CreateComputeInstance(*nvml.ComputeInstanceProfileInfo) (nvml.ComputeInstance, nvml.Return) {
+	return nil, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) CreateComputeInstanceWithPlacement(*nvml.ComputeInstanceProfileInfo, *nvml.ComputeInstancePlacement) (nvml.ComputeInstance, nvml.Return) {
+	return nil, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) Destroy() nvml.Return { return nvml.ERROR_NOT_SUPPORTED }
+func (m *mockGpuInstance) GetActiveVgpus() (nvml.ActiveVgpuInstanceInfo, nvml.Return) {
+	return nvml.ActiveVgpuInstanceInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetComputeInstanceById(int) (nvml.ComputeInstance, nvml.Return) {
+	return nil, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetComputeInstancePossiblePlacements(*nvml.ComputeInstanceProfileInfo) ([]nvml.ComputeInstancePlacement, nvml.Return) {
+	return nil, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetComputeInstanceProfileInfo(int, int) (nvml.ComputeInstanceProfileInfo, nvml.Return) {
+	return nvml.ComputeInstanceProfileInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetComputeInstanceProfileInfoV(int, int) nvml.ComputeInstanceProfileInfoHandler {
+	return nvml.ComputeInstanceProfileInfoHandler{}
+}
+func (m *mockGpuInstance) GetComputeInstanceRemainingCapacity(*nvml.ComputeInstanceProfileInfo) (int, nvml.Return) {
+	return 0, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetComputeInstances(*nvml.ComputeInstanceProfileInfo) ([]nvml.ComputeInstance, nvml.Return) {
+	return nil, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetCreatableVgpus() (nvml.VgpuTypeIdInfo, nvml.Return) {
+	return nvml.VgpuTypeIdInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetVgpuHeterogeneousMode() (nvml.VgpuHeterogeneousMode, nvml.Return) {
+	return nvml.VgpuHeterogeneousMode{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetVgpuSchedulerLog() (nvml.VgpuSchedulerLogInfo, nvml.Return) {
+	return nvml.VgpuSchedulerLogInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetVgpuSchedulerState() (nvml.VgpuSchedulerStateInfo, nvml.Return) {
+	return nvml.VgpuSchedulerStateInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetVgpuTypeCreatablePlacements() (nvml.VgpuCreatablePlacementInfo, nvml.Return) {
+	return nvml.VgpuCreatablePlacementInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) SetVgpuHeterogeneousMode(*nvml.VgpuHeterogeneousMode) nvml.Return {
+	return nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) SetVgpuSchedulerState(*nvml.VgpuSchedulerState) nvml.Return {
+	return nvml.ERROR_NOT_SUPPORTED
+}
+
 func TestNewNVMLBackend(t *testing.T) {
 	t.Run("with logger", func(t *testing.T) {
 		logger := slog.Default()
@@ -735,18 +810,25 @@ func TestNVMLDevice_GetMIGInstances(t *testing.T) {
 	t.Run("MIG enabled with instances", func(t *testing.T) {
 		mockLib := new(mockNvmlLib)
 		mockHandle := new(mockDeviceHandle)
-		mockMigHandle := new(mockDeviceHandle)
+		mockGI := new(mockGpuInstance)
 
 		mockHandle.On("GetMigMode").Return(nvml.DEVICE_MIG_ENABLE, 0, nvml.SUCCESS)
-		mockHandle.On("GetMaxMigDeviceCount").Return(7, nvml.SUCCESS)
-		mockHandle.On("GetMigDeviceHandleByIndex", 0).Return(mockMigHandle, nvml.SUCCESS)
-		mockHandle.On("GetMigDeviceHandleByIndex", 1).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockHandle.On("GetMigDeviceHandleByIndex", 2).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockHandle.On("GetMigDeviceHandleByIndex", 3).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockHandle.On("GetMigDeviceHandleByIndex", 4).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockHandle.On("GetMigDeviceHandleByIndex", 5).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockHandle.On("GetMigDeviceHandleByIndex", 6).Return(nil, nvml.ERROR_NOT_FOUND)
-		mockMigHandle.On("GetGpuInstanceId").Return(1, nvml.SUCCESS)
+
+		// Profile 0 (1g.5gb) returns not supported
+		for profileID := 0; profileID < 15; profileID++ {
+			if profileID == 2 {
+				// Profile 2 (3g.20gb) has one instance
+				mockHandle.On("GetGpuInstanceProfileInfo", profileID).Return(
+					nvml.GpuInstanceProfileInfo{SliceCount: 3}, nvml.SUCCESS)
+				mockHandle.On("GetGpuInstances", mock.AnythingOfType("*nvml.GpuInstanceProfileInfo")).Return(
+					[]nvml.GpuInstance{mockGI}, nvml.SUCCESS).Once()
+			} else {
+				mockHandle.On("GetGpuInstanceProfileInfo", profileID).Return(
+					nvml.GpuInstanceProfileInfo{}, nvml.ERROR_INVALID_ARGUMENT)
+			}
+		}
+
+		mockGI.On("GetInfo").Return(nvml.GpuInstanceInfo{Id: 1}, nvml.SUCCESS)
 
 		dev := &nvmlDevice{index: 0, handle: mockHandle, lib: mockLib}
 		instances, err := dev.GetMIGInstances()
@@ -754,9 +836,10 @@ func TestNVMLDevice_GetMIGInstances(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, instances, 1)
 		assert.Equal(t, uint(1), instances[0].GPUInstanceID)
+		assert.Equal(t, uint(3), instances[0].ProfileSlices)
 
 		mockHandle.AssertExpectations(t)
-		mockMigHandle.AssertExpectations(t)
+		mockGI.AssertExpectations(t)
 	})
 
 	t.Run("no MIG instances found", func(t *testing.T) {
@@ -764,9 +847,11 @@ func TestNVMLDevice_GetMIGInstances(t *testing.T) {
 		mockHandle := new(mockDeviceHandle)
 
 		mockHandle.On("GetMigMode").Return(nvml.DEVICE_MIG_ENABLE, 0, nvml.SUCCESS)
-		mockHandle.On("GetMaxMigDeviceCount").Return(7, nvml.SUCCESS)
-		for i := 0; i < 7; i++ {
-			mockHandle.On("GetMigDeviceHandleByIndex", i).Return(nil, nvml.ERROR_NOT_FOUND)
+
+		// All profiles return invalid argument — no instances
+		for profileID := 0; profileID < 15; profileID++ {
+			mockHandle.On("GetGpuInstanceProfileInfo", profileID).Return(
+				nvml.GpuInstanceProfileInfo{}, nvml.ERROR_INVALID_ARGUMENT)
 		}
 
 		dev := &nvmlDevice{index: 0, handle: mockHandle, lib: mockLib}

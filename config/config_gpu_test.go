@@ -105,7 +105,8 @@ func TestApplyGPUConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower)
+			dcgmEndpoint := ""
+			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower, &dcgmEndpoint)
 
 			if tc.wantExpNil {
 				assert.Nil(t, tc.cfg.Experimental)

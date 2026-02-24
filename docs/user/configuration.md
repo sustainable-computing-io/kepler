@@ -40,6 +40,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
+| `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
 
 ### 💡 Examples
 
@@ -168,6 +169,7 @@ experimental:   # experimental features (no stability guarantees)
   gpu:          # GPU power monitoring
     enabled: false                    # Enable GPU power monitoring (default: false)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
+    dcgmEndpoint: ""                  # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -466,6 +468,10 @@ experimental:
 - **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
   - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
   - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
+- **dcgmEndpoint**: dcgm-exporter Prometheus metrics URL for MIG power attribution (default: auto-discover)
+  - Required when GPUs are in MIG mode — NVML cannot provide per-instance utilization in MIG mode
+  - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API
+  - **Note**: When deploying with MIG, the Kepler container must have `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_MIG_MONITOR_DEVICES=all` environment variables set for NVML to see all MIG devices. These are included in the default manifests and Helm chart.
 
 **Example:**
 

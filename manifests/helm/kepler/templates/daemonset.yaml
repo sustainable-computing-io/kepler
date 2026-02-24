@@ -84,6 +84,11 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            # Required for NVML to see all MIG devices when running in a container
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_MIG_MONITOR_DEVICES
+              value: "all"
           {{- with .Values.daemonset.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
