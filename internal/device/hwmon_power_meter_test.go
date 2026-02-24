@@ -2423,3 +2423,105 @@ func TestKnownChipPairings_Coverage(t *testing.T) {
 
 	t.Logf("\n✓ All %d expected chips have pairing rules", len(expectedChips))
 }
+
+// TestIsSensorEnabled tests the isSensorEnabled helper function
+func TestIsSensorEnabled(t *testing.T) {
+	t.Logf("\n=== Testing isSensorEnabled Function ===")
+
+	t.Run("enabled_channel", func(t *testing.T) {
+		// in1_enable = 1 in the disabled_channel test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 1, nil)
+		assert.True(t, result, "Channel with enable=1 should be enabled")
+		t.Logf("✓ Channel with enable=1 correctly identified as enabled")
+	})
+
+	t.Run("disabled_channel", func(t *testing.T) {
+		// in3_enable = 0 in the disabled_channel test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 3, nil)
+		assert.False(t, result, "Channel with enable=0 should be disabled")
+		t.Logf("✓ Channel with enable=0 correctly identified as disabled")
+	})
+
+	t.Run("no_enable_file", func(t *testing.T) {
+		// hwmon0 doesn't have enable files - should default to enabled
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon0", "power", 1, nil)
+		assert.True(t, result, "Channel without enable file should be considered enabled")
+		t.Logf("✓ Channel without enable file correctly defaults to enabled")
+	})
+
+	t.Run("enabled_power_channel", func(t *testing.T) {
+		// power1_enable = 1 in the disabled_power test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 1, nil)
+		assert.True(t, result, "Power channel with enable=1 should be enabled")
+	})
+
+	t.Run("disabled_power_channel", func(t *testing.T) {
+		// power3_enable = 0 in the disabled_power test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 3, nil)
+		assert.False(t, result, "Power channel with enable=0 should be disabled")
+	})
+}
+
+// TestDisabledChannelSkipping tests that disabled voltage/current channels are skipped during discovery
+func TestDisabledChannelSkipping(t *testing.T) {
+	t.Logf("\n=== Testing Disabled Channel Skipping ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_channel"
+	zones, err := reader.discoverZones(hwmonPath)
+
+	require.NoError(t, err, "discoverZones should not fail")
+	require.NotEmpty(t, zones, "Should find some zones")
+
+	// Check that we only have 2 zones (channels 1 and 2), not 3
+	// because channel 3 is disabled (in3_enable = 0)
+	assert.Equal(t, 2, len(zones), "Should have 2 zones (channel 3 is disabled)")
+
+	// Verify the zone names
+	zoneNames := make(map[string]bool)
+	for _, zone := range zones {
+		zoneNames[zone.Name()] = true
+		t.Logf("  Found zone: %s", zone.Name())
+	}
+
+	assert.True(t, zoneNames["channel_1"], "Should have channel_1 zone")
+	assert.True(t, zoneNames["channel_2"], "Should have channel_2 zone")
+	assert.False(t, zoneNames["channel_3"], "Should NOT have channel_3 zone (disabled)")
+
+	t.Logf("✓ Disabled channel (in3_enable=0) correctly skipped during discovery")
+}
+
+// TestDisabledPowerChannelSkipping tests that disabled power channels are skipped during discovery
+func TestDisabledPowerChannelSkipping(t *testing.T) {
+	t.Logf("\n=== Testing Disabled Power Channel Skipping ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_power"
+	zones, err := reader.discoverZones(hwmonPath)
+
+	require.NoError(t, err, "discoverZones should not fail")
+	require.NotEmpty(t, zones, "Should find some zones")
+
+	// Check that we only have 2 zones (power1 and power2), not 3
+	// because power3 is disabled (power3_enable = 0)
+	assert.Equal(t, 2, len(zones), "Should have 2 zones (power3 is disabled)")
+
+	// Verify the zone names
+	zoneNames := make(map[string]bool)
+	for _, zone := range zones {
+		zoneNames[zone.Name()] = true
+		t.Logf("  Found zone: %s", zone.Name())
+	}
+
+	assert.True(t, zoneNames["psu_rail_a"], "Should have psu_rail_a zone (power1)")
+	assert.True(t, zoneNames["psu_rail_b"], "Should have psu_rail_b zone (power2)")
+	assert.False(t, zoneNames["psu_rail_c"], "Should NOT have psu_rail_c zone (power3 disabled)")
+
+	t.Logf("✓ Disabled power channel (power3_enable=0) correctly skipped during discovery")
+}
