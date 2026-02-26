@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -104,6 +105,9 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
+		// Fallback endpoints use the default dcgm-exporter port (9400).
+		// Pod discovery reads the actual port from the container spec;
+		// these are only tried when pod discovery fails entirely.
 		fallbackEndpoints: []string{
 			"http://localhost:9400/metrics",
 			"http://nvidia-dcgm-exporter.nvidia-gpu-operator.svc:9400/metrics",
@@ -123,7 +127,8 @@ func (d *DCGMExporterBackend) SetEndpoint(endpoint string) {
 	defer d.mu.Unlock()
 
 	// Ensure endpoint has /metrics suffix
-	endpoint = strings.TrimSuffix(endpoint, "/")
+	endpoint = strings.TrimSpace(endpoint)
+	endpoint = strings.TrimRight(endpoint, "/")
 	if !strings.HasSuffix(endpoint, "/metrics") {
 		endpoint += "/metrics"
 	}
@@ -244,16 +249,37 @@ func (d *DCGMExporterBackend) discoverLocalDCGMExporter() string {
 			if pod.Status.PodIP == "" {
 				continue
 			}
-			endpoint := fmt.Sprintf("http://%s:9400/metrics", pod.Status.PodIP)
+			port := dcgmExporterPort(pod)
+			endpoint := fmt.Sprintf("http://%s:%d/metrics", pod.Status.PodIP, port)
 			d.logger.Debug("discovered local dcgm-exporter",
 				"pod", pod.Name, "namespace", pod.Namespace,
-				"ip", pod.Status.PodIP, "node", nodeName)
+				"ip", pod.Status.PodIP, "port", port, "node", nodeName)
 			return endpoint
 		}
 	}
 
 	d.logger.Debug("no dcgm-exporter pod found on node", "node", nodeName)
 	return ""
+}
+
+// dcgmExporterPort returns the metrics port from the pod's container spec.
+// Priority: port named "metrics" > port 9400 > single port > fallback 9400.
+func dcgmExporterPort(pod *corev1.Pod) int32 {
+	// First pass: look for a port named "metrics" or port 9400 across all containers
+	for _, c := range pod.Spec.Containers {
+		for _, p := range c.Ports {
+			if p.Name == "metrics" || p.ContainerPort == 9400 {
+				return p.ContainerPort
+			}
+		}
+	}
+	// Second pass: if a container has exactly one port, use it
+	for _, c := range pod.Spec.Containers {
+		if len(c.Ports) == 1 {
+			return c.Ports[0].ContainerPort
+		}
+	}
+	return 9400
 }
 
 // testEndpoint checks if an endpoint is reachable and returns valid metrics

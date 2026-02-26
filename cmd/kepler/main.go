@@ -151,8 +151,6 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		for _, m := range gpuMeters {
 			if c, ok := m.(gpu.DCGMEndpointConfigurable); ok {
 				c.SetDCGMEndpoint(cfg.Experimental.GPU.DCGMEndpoint)
-				logger.Info("configured GPU DCGM endpoint",
-					"endpoint", cfg.Experimental.GPU.DCGMEndpoint)
 			}
 		}
 	}

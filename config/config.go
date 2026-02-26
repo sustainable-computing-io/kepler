@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -926,6 +927,8 @@ func (c *Config) validateExperimentalConfig(validationSkipped map[SkipValidation
 				}
 			}
 		}
+
+		errs = append(errs, validateDCGMEndpoint(c.Experimental.GPU.DCGMEndpoint)...)
 	}
 
 	return errs
@@ -998,6 +1001,47 @@ func validatePort(port string) error {
 		return fmt.Errorf("port must be between 1 and 65535, got %d", portNum)
 	}
 	return nil
+}
+
+// validateDCGMEndpoint validates the DCGM endpoint URL if set.
+// Empty endpoint is valid (auto-discovery will be used).
+func validateDCGMEndpoint(endpoint string) []string {
+	if endpoint == "" {
+		return nil
+	}
+
+	var errs []string
+	ep := strings.TrimSpace(endpoint)
+
+	u, err := url.Parse(ep)
+	if err != nil {
+		return []string{fmt.Sprintf("invalid dcgmEndpoint: %s", err)}
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		errs = append(errs, fmt.Sprintf("dcgmEndpoint scheme must be http or https, got %q", u.Scheme))
+	}
+	if u.Host == "" {
+		errs = append(errs, "dcgmEndpoint must include a host")
+	}
+	if u.User != nil {
+		errs = append(errs, "dcgmEndpoint must not contain credentials")
+	}
+	if strings.ContainsRune(ep, '\\') {
+		errs = append(errs, "dcgmEndpoint must not contain backslashes")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		errs = append(errs, "dcgmEndpoint must not contain query string or fragment")
+	}
+
+	// Validate port if present
+	if _, port, err := net.SplitHostPort(u.Host); err == nil {
+		if err := validatePort(port); err != nil {
+			errs = append(errs, fmt.Sprintf("dcgmEndpoint: %s", err))
+		}
+	}
+
+	return errs
 }
 
 func (c *Config) String() string {

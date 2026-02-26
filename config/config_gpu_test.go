@@ -10,6 +10,36 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+func TestValidateDCGMEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		wantErrs int
+	}{
+		{"empty is valid", "", 0},
+		{"valid http endpoint", "http://localhost:9400", 0},
+		{"valid https endpoint", "https://dcgm-exporter.monitoring:9400", 0},
+		{"valid with path", "http://10.0.0.1:9400/metrics", 0},
+		{"missing scheme", "localhost:9400", 2},            // no scheme + no host (parsed as scheme:opaque)
+		{"ftp scheme rejected", "ftp://localhost:9400", 1}, // wrong scheme
+		{"no host", "http://", 1},
+		{"with credentials", "http://user:pass@localhost:9400", 1},
+		{"whitespace trimmed", "  http://localhost:9400  ", 0},
+		{"backslashes rejected", `http:\\localhost:9400\metrics`, 2}, // no host + backslashes
+		{"query string rejected", "http://localhost:9400/metrics?timeout=5s", 1},
+		{"fragment rejected", "http://localhost:9400/metrics#section", 1},
+		{"port out of range", "http://localhost:99999", 1},
+		{"port non-numeric", "http://localhost:abc", 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := validateDCGMEndpoint(tc.endpoint)
+			assert.Len(t, errs, tc.wantErrs, "endpoint=%q errs=%v", tc.endpoint, errs)
+		})
+	}
+}
+
 func TestApplyGPUConfig(t *testing.T) {
 	tests := []struct {
 		name       string
