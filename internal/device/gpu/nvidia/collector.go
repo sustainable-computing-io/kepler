@@ -44,8 +44,10 @@ type GPUPowerCollector struct {
 
 	// MIG support
 	dcgm                 DCGMBackend
-	dcgmEndpoint         string // pre-configured endpoint, set before Init()
+	dcgmEndpoint         string // pre-configured endpoint, applied during Init() or SetDCGMEndpoint()
 	migInstancesByDevice map[int][]MIGGPUInstance
+
+	initialized bool
 
 	mu sync.RWMutex
 
@@ -77,10 +79,15 @@ func (c *GPUPowerCollector) Name() string {
 	return "nvidia-gpu-power-collector"
 }
 
-// Init initializes the NVML backend and discovers devices
+// Init initializes the NVML backend and discovers devices.
+// Idempotent: subsequent calls after the first are no-ops.
 func (c *GPUPowerCollector) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.initialized {
+		return nil
+	}
 
 	if err := c.nvml.Init(); err != nil {
 		return err
@@ -101,31 +108,15 @@ func (c *GPUPowerCollector) Init() error {
 	c.sharingModes = modes
 
 	// Log detected modes and check for MIG
-	hasMIG := false
 	for idx, mode := range modes {
 		c.logger.Info("GPU sharing mode detected",
 			"device", idx,
 			"mode", mode.String())
-		if mode == gpu.SharingModePartitioned {
-			hasMIG = true
-		}
 	}
 
 	// Initialize DCGM backend if MIG is detected
-	if hasMIG {
-		dcgm := NewDCGMExporterBackend(c.logger)
-
-		// If endpoint was pre-configured via SetDCGMEndpoint, it's already set
-		if c.dcgmEndpoint != "" {
-			dcgm.SetEndpoint(c.dcgmEndpoint)
-		}
-
-		if err := dcgm.Init(context.Background()); err != nil {
-			c.logger.Warn("DCGM backend initialization failed, MIG power attribution will use fallback",
-				"error", err)
-		} else {
-			c.dcgm = dcgm
-		}
+	if c.hasMIG() {
+		c.initDCGM()
 
 		// Cache MIG hierarchy from NVML (static topology)
 		if err := c.cacheMIGHierarchy(); err != nil {
@@ -133,7 +124,40 @@ func (c *GPUPowerCollector) Init() error {
 		}
 	}
 
+	c.initialized = true
 	return nil
+}
+
+// hasMIG returns true if any GPU is in MIG (partitioned) mode.
+// Caller must hold c.mu.
+func (c *GPUPowerCollector) hasMIG() bool {
+	for _, mode := range c.sharingModes {
+		if mode == gpu.SharingModePartitioned {
+			return true
+		}
+	}
+	return false
+}
+
+// initDCGM initializes (or reinitializes) the DCGM exporter backend.
+// Shuts down the existing backend if replacing. Caller must hold c.mu.
+func (c *GPUPowerCollector) initDCGM() {
+	if c.dcgm != nil {
+		_ = c.dcgm.Shutdown()
+		c.dcgm = nil
+	}
+
+	dcgm := NewDCGMExporterBackend(c.logger)
+	if c.dcgmEndpoint != "" {
+		dcgm.SetEndpoint(c.dcgmEndpoint)
+	}
+
+	if err := dcgm.Init(context.Background()); err != nil {
+		c.logger.Warn("DCGM backend initialization failed, MIG power attribution will use fallback",
+			"error", err)
+	} else {
+		c.dcgm = dcgm
+	}
 }
 
 // Shutdown cleans up NVML and DCGM resources
@@ -435,11 +459,18 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 }
 
 // SetDCGMEndpoint sets the dcgm-exporter endpoint URL.
-// Must be called before Init() to take effect.
+// Can be called before or after Init(). If called after Init() on a system
+// with MIG GPUs, reinitializes the DCGM backend with the new endpoint.
 func (c *GPUPowerCollector) SetDCGMEndpoint(endpoint string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.dcgmEndpoint = endpoint
+
+	if c.initialized && c.hasMIG() {
+		c.logger.Info("reinitializing DCGM backend with configured endpoint",
+			"endpoint", endpoint)
+		c.initDCGM()
+	}
 }
 
 // cacheMIGHierarchy enumerates all MIG instances from NVML at startup.
@@ -513,9 +544,11 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// Fallback to equal distribution among running processes when DCGM is
 	// unavailable (not deployed, unreachable, or initialization failed).
 	if c.dcgm == nil || !c.dcgm.IsInitialized() || len(instances) == 0 {
-		c.logger.Debug("DCGM not available or no MIG instances, using fallback",
-			"dcgm_available", c.dcgm != nil && c.dcgm.IsInitialized(),
-			"instances", len(instances))
+		c.logger.Warn("DCGM not available, using fallback attribution",
+			"dcgm_nil", c.dcgm == nil,
+			"dcgm_initialized", c.dcgm != nil && c.dcgm.IsInitialized(),
+			"instances", len(instances),
+			"device", deviceIndex)
 		return c.attributePartitionedFallback(nvmlDev, stats.ActivePower, result)
 	}
 
@@ -530,7 +563,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
 		if err != nil {
-			c.logger.Debug("GetMIGInstanceActivity failed",
+			c.logger.Warn("failed to get MIG instance activity",
 				"device", deviceIndex,
 				"gpuInstanceID", gi.GPUInstanceID,
 				"error", err)
@@ -546,7 +579,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 
 		migDevice, err := nvmlDev.GetMIGDeviceByInstanceID(gi.GPUInstanceID)
 		if err != nil {
-			c.logger.Debug("GetMIGDeviceByInstanceID failed",
+			c.logger.Warn("failed to get MIG device handle",
 				"device", deviceIndex,
 				"gpuInstanceID", gi.GPUInstanceID,
 				"error", err)
@@ -579,6 +612,11 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	}
 
 	if len(data) == 0 || totalActivity == 0 {
+		c.logger.Warn("no active MIG instances found, skipping power attribution",
+			"device", deviceIndex,
+			"instances_checked", len(instances),
+			"data_collected", len(data),
+			"total_activity", totalActivity)
 		return nil
 	}
 

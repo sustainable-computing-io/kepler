@@ -675,3 +675,118 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 		assert.Equal(t, server.URL+"/metrics", backend.endpoint)
 	})
 }
+
+func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
+	t.Run("trips after consecutive failures", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.endpoint = server.URL + "/metrics"
+		backend.initialized = true
+
+		// Make maxConsecutiveFailures calls — should trip on the last one
+		for i := 0; i < maxConsecutiveFailures; i++ {
+			_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+			assert.Error(t, err)
+		}
+
+		assert.False(t, backend.IsInitialized(), "circuit breaker should trip")
+		assert.False(t, backend.circuitOpenTime.IsZero(), "circuitOpenTime should be set")
+	})
+
+	t.Run("resets on success", func(t *testing.T) {
+		callCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			callCount++
+			if callCount <= 2 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.endpoint = server.URL + "/metrics"
+		backend.initialized = true
+
+		// Two failures (below threshold)
+		_, _ = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		_, _ = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.True(t, backend.IsInitialized(), "should still be initialized")
+		assert.Equal(t, 2, backend.consecutiveFailures)
+
+		// Success resets counter
+		activity, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 0.75, activity)
+		assert.Equal(t, 0, backend.consecutiveFailures)
+	})
+
+	t.Run("re-init after interval", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.endpoint = server.URL + "/metrics"
+		// Simulate tripped circuit breaker
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		// Should attempt re-init and succeed
+		activity, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 0.75, activity)
+		assert.True(t, backend.IsInitialized(), "should be re-initialized")
+		assert.Equal(t, 0, backend.consecutiveFailures)
+	})
+
+	t.Run("no re-init before interval", func(t *testing.T) {
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.endpoint = "http://127.0.0.1:1/metrics"
+		// Simulate recently tripped circuit breaker
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now()
+
+		_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "circuit breaker open")
+		assert.False(t, backend.IsInitialized())
+	})
+
+	t.Run("re-init fails resets timer", func(t *testing.T) {
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.endpoint = "http://127.0.0.1:1/metrics"
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "re-init failed")
+		assert.False(t, backend.IsInitialized())
+		// Timer should be reset
+		assert.True(t, time.Since(backend.circuitOpenTime) < time.Second)
+	})
+
+	t.Run("shutdown resets circuit breaker", func(t *testing.T) {
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.initialized = true
+		backend.consecutiveFailures = 5
+		backend.circuitOpenTime = time.Now()
+
+		err := backend.Shutdown()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, backend.consecutiveFailures)
+		assert.True(t, backend.circuitOpenTime.IsZero())
+	})
+}
