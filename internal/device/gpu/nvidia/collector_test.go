@@ -142,6 +142,40 @@ func TestGPUPowerCollector_Init(t *testing.T) {
 
 		mockBackend.AssertExpectations(t)
 	})
+
+	t.Run("idempotent - second Init is no-op", func(t *testing.T) {
+		mockBackend := new(MockNVMLBackend)
+		mockDevice := new(MockNVMLDevice)
+
+		// Only expect one call to each — second Init should be a no-op
+		mockBackend.On("Init").Return(nil).Once()
+		mockBackend.On("DiscoverDevices").Return([]gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-123", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}, nil).Once()
+		mockBackend.On("DeviceCount").Return(1).Once()
+		mockBackend.On("GetDevice", 0).Return(mockDevice, nil).Once()
+		mockDevice.On("IsMIGEnabled").Return(false, nil).Once()
+		mockDevice.On("GetComputeMode").Return(ComputeModeDefault, nil).Once()
+
+		collector := &GPUPowerCollector{
+			logger:           slog.Default(),
+			nvml:             mockBackend,
+			minObservedPower: make(map[string]float64),
+			idleObserved:     make(map[string]bool),
+			sharingModes:     make(map[int]gpu.SharingMode),
+		}
+
+		err := collector.Init()
+		assert.NoError(t, err)
+		assert.True(t, collector.initialized)
+
+		// Second call should be a no-op
+		err = collector.Init()
+		assert.NoError(t, err)
+
+		mockBackend.AssertExpectations(t)
+		mockDevice.AssertExpectations(t)
+	})
 }
 
 func TestGPUPowerCollector_Shutdown(t *testing.T) {
@@ -1569,13 +1603,45 @@ func TestGPUPowerCollector_cacheMIGHierarchy(t *testing.T) {
 }
 
 func TestGPUPowerCollector_SetDCGMEndpoint(t *testing.T) {
-	collector := &GPUPowerCollector{}
+	t.Run("before init stores endpoint", func(t *testing.T) {
+		collector := &GPUPowerCollector{}
 
-	collector.SetDCGMEndpoint("http://localhost:9400/metrics")
-	assert.Equal(t, "http://localhost:9400/metrics", collector.dcgmEndpoint)
+		collector.SetDCGMEndpoint("http://localhost:9400/metrics")
+		assert.Equal(t, "http://localhost:9400/metrics", collector.dcgmEndpoint)
 
-	collector.SetDCGMEndpoint("")
-	assert.Equal(t, "", collector.dcgmEndpoint)
+		collector.SetDCGMEndpoint("")
+		assert.Equal(t, "", collector.dcgmEndpoint)
+	})
+
+	t.Run("after init with MIG reinitializes DCGM", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
+		}))
+		defer ts.Close()
+
+		collector := &GPUPowerCollector{
+			logger:       slog.Default(),
+			initialized:  true,
+			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModePartitioned},
+		}
+
+		// SetDCGMEndpoint after Init triggers DCGM reinit
+		collector.SetDCGMEndpoint(ts.URL + "/metrics")
+		assert.NotNil(t, collector.dcgm, "DCGM should be initialized after SetDCGMEndpoint")
+		assert.True(t, collector.dcgm.IsInitialized())
+	})
+
+	t.Run("after init without MIG does not init DCGM", func(t *testing.T) {
+		collector := &GPUPowerCollector{
+			logger:       slog.Default(),
+			initialized:  true,
+			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModeTimeSlicing},
+		}
+
+		collector.SetDCGMEndpoint("http://localhost:9400/metrics")
+		assert.Nil(t, collector.dcgm, "DCGM should not be initialized for non-MIG GPUs")
+	})
 }
 
 // Verify DCGMEndpointConfigurable interface implementation

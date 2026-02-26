@@ -22,9 +22,18 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// metricsCacheTTL is how long cached metrics are valid before refetching.
-// This prevents HTTP request storms when querying multiple MIG instances.
-const metricsCacheTTL = 2 * time.Second
+const (
+	// metricsCacheTTL is how long cached metrics are valid before refetching.
+	// This prevents HTTP request storms when querying multiple MIG instances.
+	metricsCacheTTL = 2 * time.Second
+
+	// maxConsecutiveFailures is how many HTTP failures before the circuit breaker trips.
+	maxConsecutiveFailures = 3
+
+	// reInitInterval is how long to wait before re-attempting initialization
+	// after the circuit breaker has tripped.
+	reInitInterval = 30 * time.Second
+)
 
 // DCGMExporterBackend provides MIG metrics by querying dcgm-exporter's Prometheus endpoint.
 // This is an alternative to the go-dcgm library that doesn't require libdcgm.so.
@@ -43,6 +52,11 @@ type DCGMExporterBackend struct {
 
 	// Cached metrics with TTL to avoid HTTP request storms
 	cachedMetrics *dcgmMetrics
+
+	// Circuit breaker: tracks consecutive failures and disables the backend
+	// after maxConsecutiveFailures. Re-initialization is attempted after reInitInterval.
+	consecutiveFailures int
+	circuitOpenTime     time.Time
 
 	// discoverEndpoint discovers the local dcgm-exporter endpoint.
 	// Defaults to discoverLocalDCGMExporter. Overridable for testing.
@@ -126,12 +140,18 @@ func (d *DCGMExporterBackend) Init(ctx context.Context) error {
 		return nil
 	}
 
+	return d.initLocked(ctx)
+}
+
+// initLocked performs endpoint discovery and initialization.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 	// If endpoint is already set, use it
 	if d.endpoint != "" {
 		if err := d.testEndpoint(ctx, d.endpoint); err != nil {
 			return fmt.Errorf("configured endpoint %s not reachable: %w", d.endpoint, err)
 		}
-		d.initialized = true
+		d.markInitialized()
 		d.logger.Info("DCGM exporter backend initialized", "endpoint", d.endpoint)
 		return nil
 	}
@@ -146,11 +166,11 @@ func (d *DCGMExporterBackend) Init(ctx context.Context) error {
 	if localEndpoint := d.discoverEndpoint(); localEndpoint != "" {
 		if err := d.testEndpoint(ctx, localEndpoint); err == nil {
 			d.endpoint = localEndpoint
-			d.initialized = true
+			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", localEndpoint, "discovery", "local-pod")
 			return nil
 		}
-		d.logger.Debug("local dcgm-exporter not reachable", "endpoint", localEndpoint)
+		d.logger.Warn("local dcgm-exporter not reachable", "endpoint", localEndpoint)
 	}
 
 	// Fallback to static endpoints. This covers cases where K8s API discovery
@@ -159,7 +179,7 @@ func (d *DCGMExporterBackend) Init(ctx context.Context) error {
 	for _, ep := range d.fallbackEndpoints {
 		if err := d.testEndpoint(ctx, ep); err == nil {
 			d.endpoint = ep
-			d.initialized = true
+			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", ep, "discovery", "fallback")
 			return nil
 		}
@@ -167,6 +187,14 @@ func (d *DCGMExporterBackend) Init(ctx context.Context) error {
 	}
 
 	return fmt.Errorf("no reachable dcgm-exporter endpoint found")
+}
+
+// markInitialized resets circuit breaker state and marks the backend as ready.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) markInitialized() {
+	d.initialized = true
+	d.consecutiveFailures = 0
+	d.circuitOpenTime = time.Time{}
 }
 
 // discoverLocalDCGMExporter finds the dcgm-exporter pod IP on the same node
@@ -258,6 +286,8 @@ func (d *DCGMExporterBackend) Shutdown() error {
 
 	d.initialized = false
 	d.cachedMetrics = nil
+	d.consecutiveFailures = 0
+	d.circuitOpenTime = time.Time{}
 	d.logger.Info("DCGM exporter backend shutdown")
 	return nil
 }
@@ -275,7 +305,23 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 	defer d.mu.Unlock()
 
 	if !d.initialized {
-		return 0, fmt.Errorf("DCGM exporter backend not initialized")
+		// If circuit breaker hasn't tripped (never initialized), return error
+		if d.circuitOpenTime.IsZero() {
+			return 0, fmt.Errorf("DCGM exporter backend not initialized")
+		}
+		// If not enough time has passed, don't retry
+		if time.Since(d.circuitOpenTime) < reInitInterval {
+			return 0, fmt.Errorf("DCGM circuit breaker open, retry in %v",
+				reInitInterval-time.Since(d.circuitOpenTime))
+		}
+		// Attempt re-initialization
+		d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
+		if err := d.initLocked(ctx); err != nil {
+			d.circuitOpenTime = time.Now()
+			d.logger.Warn("DCGM re-initialization failed", "error", err)
+			return 0, fmt.Errorf("DCGM re-init failed: %w", err)
+		}
+		d.logger.Info("DCGM backend re-initialized successfully", "endpoint", d.endpoint)
 	}
 
 	metrics, err := d.fetchMetrics(ctx)
@@ -294,6 +340,7 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 // fetchMetrics returns cached metrics if still valid, otherwise fetches fresh data.
 // Caller must hold d.mu. On cache miss (every ~2s per metricsCacheTTL), performs
 // an HTTP GET to dcgm-exporter and writes d.cachedMetrics with parsed results.
+// Tracks consecutive failures and trips the circuit breaker after maxConsecutiveFailures.
 func (d *DCGMExporterBackend) fetchMetrics(ctx context.Context) (*dcgmMetrics, error) {
 	// Return cached metrics if still valid
 	if d.cachedMetrics != nil && time.Since(d.cachedMetrics.timestamp) < metricsCacheTTL {
@@ -302,27 +349,47 @@ func (d *DCGMExporterBackend) fetchMetrics(ctx context.Context) (*dcgmMetrics, e
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.endpoint, nil)
 	if err != nil {
+		d.recordFailure()
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		d.recordFailure()
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
+		d.recordFailure()
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
 	metrics, err := d.parseMetrics(resp.Body)
 	if err != nil {
+		d.recordFailure()
 		return nil, err
 	}
 
+	d.consecutiveFailures = 0
 	d.cachedMetrics = metrics
 	return metrics, nil
+}
+
+// recordFailure increments the failure counter and trips the circuit breaker
+// if the threshold is reached. Caller must hold d.mu.
+func (d *DCGMExporterBackend) recordFailure() {
+	d.consecutiveFailures++
+	if d.consecutiveFailures >= maxConsecutiveFailures {
+		d.initialized = false
+		d.circuitOpenTime = time.Now()
+		d.cachedMetrics = nil
+		d.logger.Warn("DCGM circuit breaker tripped, disabling backend",
+			"consecutive_failures", d.consecutiveFailures,
+			"endpoint", d.endpoint,
+			"retry_after", reInitInterval)
+	}
 }
 
 // metricRegex parses Prometheus metric lines.
