@@ -171,6 +171,14 @@ func TestDCGMExporterBackend_SetEndpoint(t *testing.T) {
 	// Should handle trailing slash on base URL
 	backend.SetEndpoint("http://localhost:9400/")
 	assert.Equal(t, "http://localhost:9400/metrics", backend.endpoint)
+
+	// Should handle multiple trailing slashes
+	backend.SetEndpoint("http://localhost:9400///")
+	assert.Equal(t, "http://localhost:9400/metrics", backend.endpoint)
+
+	// Should handle whitespace
+	backend.SetEndpoint("  http://localhost:9400  ")
+	assert.Equal(t, "http://localhost:9400/metrics", backend.endpoint)
 }
 
 func TestDCGMExporterBackend_cacheExpiry(t *testing.T) {
@@ -457,8 +465,8 @@ func TestParseLabels_edgeCases(t *testing.T) {
 }
 
 // dcgmExporterPod creates a pod that looks like a dcgm-exporter pod.
-func dcgmExporterPod(name, namespace, nodeName, podIP string, labels map[string]string) *corev1.Pod {
-	return &corev1.Pod{
+func dcgmExporterPod(name, namespace, nodeName, podIP string, labels map[string]string, ports ...corev1.ContainerPort) *corev1.Pod {
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -471,6 +479,13 @@ func dcgmExporterPod(name, namespace, nodeName, podIP string, labels map[string]
 			PodIP: podIP,
 		},
 	}
+	if len(ports) > 0 {
+		pod.Spec.Containers = []corev1.Container{{
+			Name:  "dcgm-exporter",
+			Ports: ports,
+		}}
+	}
+	return pod
 }
 
 func TestDiscoverLocalDCGMExporter(t *testing.T) {
@@ -587,6 +602,113 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		endpoint := backend.discoverLocalDCGMExporter()
 		assert.Equal(t, "http://10.0.0.10:9400/metrics", endpoint)
 	})
+
+	t.Run("uses named metrics port", func(t *testing.T) {
+		client := fake.NewSimpleClientset(
+			dcgmExporterPod("dcgm-custom-port", "nvidia-gpu-operator", nodeName, "10.0.0.20",
+				map[string]string{"app": "nvidia-dcgm-exporter"},
+				corev1.ContainerPort{Name: "metrics", ContainerPort: 9500}),
+		)
+
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.kubeClient = client
+		t.Setenv("NODE_NAME", nodeName)
+
+		endpoint := backend.discoverLocalDCGMExporter()
+		assert.Equal(t, "http://10.0.0.20:9500/metrics", endpoint)
+	})
+
+	t.Run("uses single container port", func(t *testing.T) {
+		client := fake.NewSimpleClientset(
+			dcgmExporterPod("dcgm-single-port", "nvidia-gpu-operator", nodeName, "10.0.0.21",
+				map[string]string{"app": "nvidia-dcgm-exporter"},
+				corev1.ContainerPort{Name: "http", ContainerPort: 8080}),
+		)
+
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.kubeClient = client
+		t.Setenv("NODE_NAME", nodeName)
+
+		endpoint := backend.discoverLocalDCGMExporter()
+		assert.Equal(t, "http://10.0.0.21:8080/metrics", endpoint)
+	})
+
+	t.Run("falls back to 9400 with no ports", func(t *testing.T) {
+		client := fake.NewSimpleClientset(
+			dcgmExporterPod("dcgm-no-ports", "nvidia-gpu-operator", nodeName, "10.0.0.22",
+				map[string]string{"app": "nvidia-dcgm-exporter"}),
+		)
+
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.kubeClient = client
+		t.Setenv("NODE_NAME", nodeName)
+
+		endpoint := backend.discoverLocalDCGMExporter()
+		assert.Equal(t, "http://10.0.0.22:9400/metrics", endpoint)
+	})
+}
+
+func TestDCGMExporterPort(t *testing.T) {
+	tests := []struct {
+		name string
+		pod  *corev1.Pod
+		want int32
+	}{
+		{
+			name: "named metrics port",
+			pod:  dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil, corev1.ContainerPort{Name: "metrics", ContainerPort: 9500}),
+			want: 9500,
+		},
+		{
+			name: "default port 9400",
+			pod:  dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil, corev1.ContainerPort{Name: "http", ContainerPort: 9400}),
+			want: 9400,
+		},
+		{
+			name: "single non-standard port",
+			pod:  dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil, corev1.ContainerPort{Name: "custom", ContainerPort: 8080}),
+			want: 8080,
+		},
+		{
+			name: "metrics port preferred over others",
+			pod: dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil,
+				corev1.ContainerPort{Name: "health", ContainerPort: 8080},
+				corev1.ContainerPort{Name: "metrics", ContainerPort: 9500},
+			),
+			want: 9500,
+		},
+		{
+			name: "no containers - fallback",
+			pod:  dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil),
+			want: 9400,
+		},
+		{
+			name: "multiple ports no match - fallback",
+			pod: dcgmExporterPod("p", "ns", "n", "1.2.3.4", nil,
+				corev1.ContainerPort{Name: "health", ContainerPort: 8080},
+				corev1.ContainerPort{Name: "grpc", ContainerPort: 50051},
+			),
+			want: 9400,
+		},
+		{
+			name: "metrics port in second container wins over single port in first",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar", Ports: []corev1.ContainerPort{{Name: "health", ContainerPort: 8080}}},
+						{Name: "dcgm-exporter", Ports: []corev1.ContainerPort{{Name: "metrics", ContainerPort: 9500}}},
+					},
+				},
+			},
+			want: 9500,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, dcgmExporterPort(tc.pod))
+		})
+	}
 }
 
 func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
