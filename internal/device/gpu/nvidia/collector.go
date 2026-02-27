@@ -57,21 +57,36 @@ type GPUPowerCollector struct {
 	processPowerGroup singleflight.Group
 }
 
+// CollectorOption configures the GPUPowerCollector.
+type CollectorOption func(*GPUPowerCollector)
+
+func WithNVMLBackend(backend NVMLBackend) CollectorOption {
+	return func(c *GPUPowerCollector) {
+		c.nvml = backend
+	}
+}
+
 // NewGPUPowerCollector creates a new NVIDIA GPU power collector.
-func NewGPUPowerCollector(logger *slog.Logger) (*GPUPowerCollector, error) {
+func NewGPUPowerCollector(logger *slog.Logger, opts ...CollectorOption) (*GPUPowerCollector, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
 	nvmlBackend := NewNVMLBackend(logger)
 
-	return &GPUPowerCollector{
+	c := &GPUPowerCollector{
 		logger:           logger.With("component", "nvidia-gpu-collector"),
 		nvml:             nvmlBackend,
 		minObservedPower: make(map[string]float64),
 		idleObserved:     make(map[string]bool),
 		sharingModes:     make(map[int]gpu.SharingMode),
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c, nil
 }
 
 // Name returns the service name

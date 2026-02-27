@@ -176,6 +176,10 @@ dev:
   fake-cpu-meter:
     enabled: false
     zones: []  # Zones to be enabled, empty enables all default zones
+  fake-gpu-meter:
+    enabled: false
+    deviceCount: 1            # Number of fake GPUs to simulate (default: 1)
+    sharingMode: time-slicing # GPU sharing mode: "exclusive" or "time-slicing" (default: "time-slicing")
 ```
 
 ## 🧩 Configuration Options in Detail
@@ -489,6 +493,10 @@ dev:
   fake-cpu-meter:
     enabled: false
     zones: []
+  fake-gpu-meter:
+    enabled: false
+    deviceCount: 1
+    sharingMode: time-slicing
 ```
 
 ⚠️ **WARNING**: This section is for development and testing only. Do not enable in production.
@@ -496,6 +504,10 @@ dev:
 - **fake-cpu-meter**: When enabled, uses a fake CPU meter instead of real hardware metrics
   - `enabled`: Set to `true` to enable fake CPU meter
   - `zones`: Specific zones to enable, empty enables all
+- **fake-gpu-meter**: When enabled, uses a fake GPU backend instead of real NVIDIA hardware
+  - `enabled`: Set to `true` to enable fake GPU meter
+  - `deviceCount`: Number of simulated GPUs (default: 1)
+  - `sharingMode`: GPU sharing mode — `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`)
 
 ## 📖 Further Reading
 

@@ -46,6 +46,10 @@ data:
       fake-cpu-meter:
         enabled: false
         zones: []
+      fake-gpu-meter:
+        enabled: false
+        deviceCount: 1
+        sharingMode: time-slicing
     # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
     # and are disabled by default
     experimental:
