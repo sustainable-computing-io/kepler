@@ -247,29 +247,32 @@ func TestContainerGPUPowerAggregation(t *testing.T) {
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
-		// Populate processes with GPU power in the new snapshot
+		// Populate processes with GPU power and energy in the new snapshot
 		// Two processes in container-1, one with GPU power
 		newSnapshot.Processes = Processes{
 			"123": &Process{
-				PID:         123,
-				Comm:        "gpu-proc-1",
-				ContainerID: "container-1",
-				GPUPower:    50.0, // 50W GPU
-				Zones:       make(ZoneUsageMap),
+				PID:            123,
+				Comm:           "gpu-proc-1",
+				ContainerID:    "container-1",
+				GPUPower:       50.0,        // 50W GPU
+				GPUEnergyTotal: 200 * Joule, // 200J accumulated
+				Zones:          make(ZoneUsageMap),
 			},
 			"124": &Process{
-				PID:         124,
-				Comm:        "gpu-proc-2",
-				ContainerID: "container-1",
-				GPUPower:    30.0, // 30W GPU
-				Zones:       make(ZoneUsageMap),
+				PID:            124,
+				Comm:           "gpu-proc-2",
+				ContainerID:    "container-1",
+				GPUPower:       30.0,        // 30W GPU
+				GPUEnergyTotal: 100 * Joule, // 100J accumulated
+				Zones:          make(ZoneUsageMap),
 			},
 			"125": &Process{
-				PID:         125,
-				Comm:        "gpu-proc-3",
-				ContainerID: "container-2",
-				GPUPower:    20.0, // 20W GPU
-				Zones:       make(ZoneUsageMap),
+				PID:            125,
+				Comm:           "gpu-proc-3",
+				ContainerID:    "container-2",
+				GPUPower:       20.0,       // 20W GPU
+				GPUEnergyTotal: 50 * Joule, // 50J accumulated
+				Zones:          make(ZoneUsageMap),
 			},
 			"126": &Process{
 				PID:         126,
@@ -279,10 +282,11 @@ func TestContainerGPUPowerAggregation(t *testing.T) {
 				Zones:       make(ZoneUsageMap),
 			},
 			"127": &Process{
-				PID:      127,
-				Comm:     "orphan-gpu-proc",
-				GPUPower: 10.0, // GPU but no container
-				Zones:    make(ZoneUsageMap),
+				PID:            127,
+				Comm:           "orphan-gpu-proc",
+				GPUPower:       10.0, // GPU but no container
+				GPUEnergyTotal: 30 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 		}
 
@@ -303,14 +307,18 @@ func TestContainerGPUPowerAggregation(t *testing.T) {
 
 		// container-1 should have 50 + 30 = 80W GPU power
 		assert.Equal(t, 80.0, newSnapshot.Containers["container-1"].GPUPower)
+		// container-1 should have 200 + 100 = 300J GPU energy
+		assert.Equal(t, 300*Joule, newSnapshot.Containers["container-1"].GPUEnergyTotal)
 
 		// container-2 should have 20W GPU power (proc 126 has 0 GPU)
 		assert.Equal(t, 20.0, newSnapshot.Containers["container-2"].GPUPower)
+		// container-2 should have 50J GPU energy
+		assert.Equal(t, 50*Joule, newSnapshot.Containers["container-2"].GPUEnergyTotal)
 
 		resInformer.AssertExpectations(t)
 	})
 
-	t.Run("firstContainerRead aggregates GPU power", func(t *testing.T) {
+	t.Run("firstContainerRead aggregates GPU power and energy", func(t *testing.T) {
 		resInformer.ClearExpectations()
 
 		tr := CreateTestResources(createOnly(testContainers, testNode))
@@ -323,11 +331,12 @@ func TestContainerGPUPowerAggregation(t *testing.T) {
 		// Add GPU-using processes to the snapshot before calling firstContainerRead
 		snapshot.Processes = Processes{
 			"123": &Process{
-				PID:         123,
-				Comm:        "gpu-proc",
-				ContainerID: "container-1",
-				GPUPower:    75.0,
-				Zones:       make(ZoneUsageMap),
+				PID:            123,
+				Comm:           "gpu-proc",
+				ContainerID:    "container-1",
+				GPUPower:       75.0,
+				GPUEnergyTotal: 150 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 		}
 
@@ -335,7 +344,9 @@ func TestContainerGPUPowerAggregation(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 75.0, snapshot.Containers["container-1"].GPUPower)
+		assert.Equal(t, 150*Joule, snapshot.Containers["container-1"].GPUEnergyTotal)
 		assert.Equal(t, 0.0, snapshot.Containers["container-2"].GPUPower)
+		assert.Equal(t, Energy(0), snapshot.Containers["container-2"].GPUEnergyTotal)
 
 		resInformer.AssertExpectations(t)
 	})
