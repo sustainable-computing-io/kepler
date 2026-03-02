@@ -4,6 +4,8 @@
 package nvidia
 
 import (
+	"context"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
@@ -122,6 +124,32 @@ func (m *MockNVMLDevice) GetMaxMigDeviceCount() (int, error) {
 	return args.Int(0), args.Error(1)
 }
 
+// MockDCGMBackend is a mock implementation of DCGMBackend for testing
+type MockDCGMBackend struct {
+	mock.Mock
+}
+
+func (m *MockDCGMBackend) Init(_ context.Context) error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockDCGMBackend) Shutdown() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockDCGMBackend) IsInitialized() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockDCGMBackend) GetMIGInstanceActivity(_ context.Context, gpuIndex int, gpuInstanceID uint) (float64, error) {
+	args := m.Called(gpuIndex, gpuInstanceID)
+	return args.Get(0).(float64), args.Error(1)
+}
+
 // Verify interface implementations
 var _ NVMLBackend = (*MockNVMLBackend)(nil)
 var _ NVMLDevice = (*MockNVMLDevice)(nil)
+var _ DCGMBackend = (*MockDCGMBackend)(nil)

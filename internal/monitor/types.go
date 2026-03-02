@@ -84,7 +84,8 @@ type Process struct {
 	Zones ZoneUsageMap
 
 	// GPU power attribution (in Watts). Only set if GPU is available and process uses GPU.
-	GPUPower float64
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy in microjoules
 
 	ContainerID      string // empty if not a container
 	VirtualMachineID string // empty if not a virtual machine
@@ -125,7 +126,8 @@ type Container struct {
 	Zones ZoneUsageMap
 
 	// GPU power attribution (in Watts). Aggregated from process-level GPU power.
-	GPUPower float64
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy, aggregated from processes
 
 	// pod id is empty if the container is not a pod
 	PodID string
@@ -198,7 +200,8 @@ type Pod struct {
 	Zones ZoneUsageMap
 
 	// GPU power attribution (in Watts). Aggregated from container-level GPU power.
-	GPUPower float64
+	GPUPower       float64
+	GPUEnergyTotal Energy // Cumulative GPU energy, aggregated from containers
 }
 
 func (p *Pod) Clone() *Pod {
@@ -235,13 +238,16 @@ type GPUDeviceStats struct {
 	// DeviceIndex is the GPU index as reported by the driver (0, 1, 2...).
 	// Corresponds to nvidia-smi output for easy correlation during debugging.
 	// Note: not persistent across reboots; use UUID for unique identification.
-	DeviceIndex int
-	UUID        string  // GPU UUID - globally unique, persistent identifier
-	Name        string  // GPU product name (e.g., "NVIDIA A100-SXM4-40GB")
-	Vendor      string  // GPU vendor (nvidia, amd, intel)
-	TotalPower  float64 // Current total power in Watts
-	IdlePower   float64 // Detected idle power in Watts
-	ActivePower float64 // Active power (Total - Idle) in Watts
+	DeviceIndex       int
+	UUID              string  // GPU UUID - globally unique, persistent identifier
+	Name              string  // GPU product name (e.g., "NVIDIA A100-SXM4-40GB")
+	Vendor            string  // GPU vendor (nvidia, amd, intel)
+	TotalPower        float64 // Current total power in Watts
+	IdlePower         float64 // Detected idle power in Watts
+	ActivePower       float64 // Active power (Total - Idle) in Watts
+	EnergyTotal       Energy  // Cumulative GPU energy from hardware counter
+	ActiveEnergyTotal Energy  // Cumulative active GPU energy (split from EnergyTotal using power ratio)
+	IdleEnergyTotal   Energy  // Cumulative idle GPU energy (split from EnergyTotal using power ratio)
 }
 
 // Snapshot encapsulates power monitoring data

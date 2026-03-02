@@ -78,6 +78,12 @@ type IdlePowerConfigurable interface {
 	SetIdlePower(watts float64)
 }
 
+// DCGMEndpointConfigurable is an optional interface for GPU meters that support
+// configuring a dcgm-exporter endpoint for MIG power attribution.
+type DCGMEndpointConfigurable interface {
+	SetDCGMEndpoint(endpoint string)
+}
+
 // ProcessGPUInfo contains per-process GPU metrics collected from the device.
 // This struct is vendor-agnostic.
 type ProcessGPUInfo struct {

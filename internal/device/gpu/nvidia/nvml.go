@@ -368,32 +368,50 @@ func (d *nvmlDevice) GetMIGInstances() ([]MIGInstance, error) {
 	return d.enumerateMIGInstances()
 }
 
-// enumerateMIGInstances discovers MIG instances by iterating through possible indices
+// enumerateMIGInstances discovers MIG instances by iterating through GPU instance profiles.
+// This uses GetGpuInstances() which enumerates ALL GPU Instances on the physical GPU,
+// not just those visible to the container (unlike GetMigDeviceHandleByIndex).
 func (d *nvmlDevice) enumerateMIGInstances() ([]MIGInstance, error) {
-	maxCount, err := d.GetMaxMigDeviceCount()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get max MIG device count: %w", err)
-	}
-	if maxCount == 0 {
-		return nil, fmt.Errorf("MIG not supported on this device")
-	}
-
 	var instances []MIGInstance
-	for i := 0; i < maxCount; i++ {
-		migDevice, ret := d.handle.GetMigDeviceHandleByIndex(i)
+	seenIDs := make(map[uint]bool) // Deduplicate by GPU Instance ID
+
+	// Iterate through all possible MIG profile types.
+	// NVML defines profile IDs 0-14 (NVML_GPU_INSTANCE_PROFILE_* in nvml.h).
+	// Each profile type defines a slice size (e.g., 1g.5gb, 2g.10gb, 3g.20gb).
+	const maxMIGProfiles = 15
+	for profileID := 0; profileID < maxMIGProfiles; profileID++ {
+		profileInfo, ret := d.handle.GetGpuInstanceProfileInfo(profileID)
+		if ret == nvml.ERROR_INVALID_ARGUMENT || ret == nvml.ERROR_NOT_SUPPORTED {
+			continue
+		}
 		if ret != nvml.SUCCESS {
 			continue
 		}
 
-		giID, ret := migDevice.GetGpuInstanceId()
+		// Get all GPU instances for this profile type
+		gpuInstances, ret := d.handle.GetGpuInstances(&profileInfo)
 		if ret != nvml.SUCCESS {
 			continue
 		}
 
-		instances = append(instances, MIGInstance{
-			GPUInstanceID: uint(giID),
-			EntityID:      uint(i),
-		})
+		for _, gi := range gpuInstances {
+			info, ret := gi.GetInfo()
+			if ret != nvml.SUCCESS {
+				continue
+			}
+
+			// Deduplicate (same instance might appear in multiple profile queries)
+			if seenIDs[uint(info.Id)] {
+				continue
+			}
+			seenIDs[uint(info.Id)] = true
+
+			instances = append(instances, MIGInstance{
+				GPUInstanceID: uint(info.Id),
+				EntityID:      uint(info.Id),
+				ProfileSlices: uint(profileInfo.SliceCount),
+			})
+		}
 	}
 
 	if len(instances) == 0 {

@@ -31,6 +31,12 @@ type nvmlDeviceHandle interface {
 	GetGpuInstanceId() (int, nvml.Return)
 	GetMaxMigDeviceCount() (int, nvml.Return)
 	GetAccountingMode() (nvml.EnableState, nvml.Return)
+	// GetGpuInstanceProfileInfo returns the profile info for a given MIG profile ID.
+	// Profile IDs: 0=1g.5gb, 1=2g.10gb, 2=3g.20gb, etc.
+	GetGpuInstanceProfileInfo(profileID int) (nvml.GpuInstanceProfileInfo, nvml.Return)
+	// GetGpuInstances returns all GPU instances for a given profile.
+	// Unlike GetMigDeviceHandleByIndex, this enumerates ALL instances on the physical GPU.
+	GetGpuInstances(profileInfo *nvml.GpuInstanceProfileInfo) ([]nvml.GpuInstance, nvml.Return)
 }
 
 // realNvmlLib is the production implementation that calls the actual NVML library.
@@ -120,4 +126,12 @@ func (h *realDeviceHandle) GetMaxMigDeviceCount() (int, nvml.Return) {
 
 func (h *realDeviceHandle) GetAccountingMode() (nvml.EnableState, nvml.Return) {
 	return h.device.GetAccountingMode()
+}
+
+func (h *realDeviceHandle) GetGpuInstanceProfileInfo(profileID int) (nvml.GpuInstanceProfileInfo, nvml.Return) {
+	return h.device.GetGpuInstanceProfileInfo(profileID)
+}
+
+func (h *realDeviceHandle) GetGpuInstances(profileInfo *nvml.GpuInstanceProfileInfo) ([]nvml.GpuInstance, nvml.Return) {
+	return h.device.GetGpuInstances(profileInfo)
 }

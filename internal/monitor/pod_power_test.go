@@ -228,34 +228,38 @@ func TestPodGPUPowerAggregation(t *testing.T) {
 		newSnapshot := NewSnapshot()
 		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
 
-		// Populate containers with GPU power in the new snapshot
+		// Populate containers with GPU power and energy in the new snapshot
 		newSnapshot.Containers = Containers{
 			"container-1": &Container{
-				ID:       "container-1",
-				Name:     "cont1",
-				PodID:    "pod-1",
-				GPUPower: 80.0,
-				Zones:    make(ZoneUsageMap),
+				ID:             "container-1",
+				Name:           "cont1",
+				PodID:          "pod-1",
+				GPUPower:       80.0,
+				GPUEnergyTotal: 400 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 			"container-2": &Container{
-				ID:       "container-2",
-				Name:     "cont2",
-				PodID:    "pod-1",
-				GPUPower: 20.0,
-				Zones:    make(ZoneUsageMap),
+				ID:             "container-2",
+				Name:           "cont2",
+				PodID:          "pod-1",
+				GPUPower:       20.0,
+				GPUEnergyTotal: 100 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 			"container-3": &Container{
-				ID:       "container-3",
-				Name:     "cont3",
-				PodID:    "pod-2",
-				GPUPower: 45.0,
-				Zones:    make(ZoneUsageMap),
+				ID:             "container-3",
+				Name:           "cont3",
+				PodID:          "pod-2",
+				GPUPower:       45.0,
+				GPUEnergyTotal: 225 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 			"container-4": &Container{
-				ID:       "container-4",
-				Name:     "cont4",
-				GPUPower: 10.0, // no pod
-				Zones:    make(ZoneUsageMap),
+				ID:             "container-4",
+				Name:           "cont4",
+				GPUPower:       10.0, // no pod
+				GPUEnergyTotal: 50 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 		}
 
@@ -276,14 +280,18 @@ func TestPodGPUPowerAggregation(t *testing.T) {
 
 		// pod-1 should have 80 + 20 = 100W GPU power
 		assert.Equal(t, 100.0, newSnapshot.Pods["pod-1"].GPUPower)
+		// pod-1 should have 400 + 100 = 500J GPU energy
+		assert.Equal(t, 500*Joule, newSnapshot.Pods["pod-1"].GPUEnergyTotal)
 
 		// pod-2 should have 45W GPU power
 		assert.Equal(t, 45.0, newSnapshot.Pods["pod-2"].GPUPower)
+		// pod-2 should have 225J GPU energy
+		assert.Equal(t, 225*Joule, newSnapshot.Pods["pod-2"].GPUEnergyTotal)
 
 		resInformer.AssertExpectations(t)
 	})
 
-	t.Run("firstPodRead aggregates GPU power", func(t *testing.T) {
+	t.Run("firstPodRead aggregates GPU power and energy", func(t *testing.T) {
 		resInformer.ClearExpectations()
 
 		tr := CreateTestResources(createOnly(testPods, testNode))
@@ -293,14 +301,15 @@ func TestPodGPUPowerAggregation(t *testing.T) {
 		err := monitor.firstNodeRead(snapshot.Node)
 		require.NoError(t, err)
 
-		// Add containers with GPU power before calling firstPodRead
+		// Add containers with GPU power and energy before calling firstPodRead
 		snapshot.Containers = Containers{
 			"container-1": &Container{
-				ID:       "container-1",
-				Name:     "cont1",
-				PodID:    "pod-id-1",
-				GPUPower: 60.0,
-				Zones:    make(ZoneUsageMap),
+				ID:             "container-1",
+				Name:           "cont1",
+				PodID:          "pod-id-1",
+				GPUPower:       60.0,
+				GPUEnergyTotal: 300 * Joule,
+				Zones:          make(ZoneUsageMap),
 			},
 		}
 
@@ -308,6 +317,7 @@ func TestPodGPUPowerAggregation(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 60.0, snapshot.Pods["pod-id-1"].GPUPower)
+		assert.Equal(t, 300*Joule, snapshot.Pods["pod-id-1"].GPUEnergyTotal)
 
 		resInformer.AssertExpectations(t)
 	})

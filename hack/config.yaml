@@ -104,3 +104,4 @@ experimental:
   gpu:
     enabled: false # Enable experimental GPU power monitoring
     idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
+    dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/stmcginnis/gofish"
-	"github.com/stmcginnis/gofish/redfish"
+	"github.com/stmcginnis/gofish/schemas"
 	redfishcfg "github.com/sustainable-computing-io/kepler/config/redfish"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 )
@@ -123,7 +123,7 @@ func (pr *PowerReader) Close() {
 }
 
 // determineStrategy tests chassis until it finds one with a supported API that has data
-func (pr *PowerReader) determineStrategy(chassis []*redfish.Chassis) (PowerAPIStrategy, error) {
+func (pr *PowerReader) determineStrategy(chassis []*schemas.Chassis) (PowerAPIStrategy, error) {
 	if len(chassis) == 0 {
 		return "", fmt.Errorf("no chassis available for testing")
 	}
@@ -231,7 +231,7 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 }
 
 // readPowerSubsystem attempts to read power data via PowerSubsystem API (modern approach)
-func (pr *PowerReader) readPowerSubsystem(chassis *redfish.Chassis) ([]Reading, error) {
+func (pr *PowerReader) readPowerSubsystem(chassis *schemas.Chassis) ([]Reading, error) {
 	// Get PowerSubsystem for this chassis
 	powerSubsystem, err := chassis.PowerSubsystem()
 	if err != nil {
@@ -256,7 +256,7 @@ func (pr *PowerReader) readPowerSubsystem(chassis *redfish.Chassis) ([]Reading, 
 	var readings []Reading
 	for j, powerSupply := range powerSupplies {
 		// Skip power supplies with zero power output
-		if powerSupply.PowerOutputWatts == 0 {
+		if gofish.Deref(powerSupply.PowerOutputWatts) == 0 {
 			pr.logger.Debug("Power output reading is zero for power supply",
 				"chassis_id", chassis.ID, "power_supply_index", j, "member_id", powerSupply.ID)
 			continue
@@ -266,7 +266,7 @@ func (pr *PowerReader) readPowerSubsystem(chassis *redfish.Chassis) ([]Reading, 
 			SourceID:   powerSupply.ID,
 			SourceName: powerSupply.Name,
 			SourceType: PowerSupplySource,
-			Power:      Power(powerSupply.PowerOutputWatts) * device.Watt,
+			Power:      Power(gofish.Deref(powerSupply.PowerOutputWatts)) * device.Watt,
 		}
 
 		readings = append(readings, reading)
@@ -290,7 +290,7 @@ func (pr *PowerReader) readPowerSubsystem(chassis *redfish.Chassis) ([]Reading, 
 }
 
 // readPower attempts to read power data via deprecated Power API (fallback)
-func (pr *PowerReader) readPower(chassis *redfish.Chassis) ([]Reading, error) {
+func (pr *PowerReader) readPower(chassis *schemas.Chassis) ([]Reading, error) {
 	power, err := chassis.Power()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get power information: %w", err)
@@ -304,7 +304,7 @@ func (pr *PowerReader) readPower(chassis *redfish.Chassis) ([]Reading, error) {
 	var readings []Reading
 	for j, powerControl := range power.PowerControl {
 		// Skip entries with zero power consumption
-		if powerControl.PowerConsumedWatts == 0 {
+		if gofish.Deref(powerControl.PowerConsumedWatts) == 0 {
 			pr.logger.Debug("Power consumption reading is zero for PowerControl entry",
 				"chassis_id", chassis.ID, "power_control_index", j, "member_id", powerControl.MemberID)
 			continue
@@ -314,7 +314,7 @@ func (pr *PowerReader) readPower(chassis *redfish.Chassis) ([]Reading, error) {
 			SourceID:   powerControl.MemberID,
 			SourceName: powerControl.Name,
 			SourceType: PowerControlSource,
-			Power:      Power(powerControl.PowerConsumedWatts) * device.Watt,
+			Power:      Power(gofish.Deref(powerControl.PowerConsumedWatts)) * device.Watt,
 		}
 
 		readings = append(readings, reading)

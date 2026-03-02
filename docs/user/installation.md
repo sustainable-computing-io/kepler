@@ -207,6 +207,32 @@ kubectl get pods -n kepler
 kubectl port-forward -n kepler svc/kepler 28282:28282
 ```
 
+#### Minimal Kubernetes Deployment (No Prometheus Operator)
+
+If you only need the Kepler exporter and do not have Prometheus Operator
+installed, deploy the core resources directly and skip Prometheus-specific
+manifests.
+
+```bash
+# Create namespace and core RBAC/config
+kubectl apply -f manifests/k8s/namespace.yaml
+kubectl apply -f manifests/k8s/rbac.yaml
+kubectl apply -f manifests/k8s/configmap.yaml
+
+# Deploy DaemonSet with your desired image
+sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" \
+  manifests/k8s/daemonset.yaml | \
+  kubectl apply --server-side --force-conflicts -f -
+
+# Expose Kepler metrics service
+kubectl apply -f manifests/k8s/service.yaml
+```
+
+This minimal path intentionally skips:
+
+- `manifests/k8s/servicemonitor.yaml`
+- `manifests/k8s/prometheus-rbac.yaml`
+
 #### Custom Image Deployment
 
 ```bash
@@ -308,7 +334,8 @@ serviceMonitor:
 1. **Permission Denied**: Ensure privileged security context is enabled
 2. **No Metrics**: Check if nodes support Intel RAPL sensors
 3. **Pod Crashes**: Review logs for hardware access issues
-4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed
+4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
+   or use the minimal deployment section above
 
 ### Debug Commands
 
