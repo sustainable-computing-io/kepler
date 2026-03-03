@@ -36,9 +36,7 @@ accurate energy consumption monitoring for cloud-native workloads.
 
 **Current Limitations:**
 
-- Only supports Baremetal (platform power support in roadmap)
-- Supports only RAPL/powercap framework
-- No GPU power support yet
+- Supports RAPL/powercap framework, with experimental support for HWMon, GPU (NVIDIA), and platform power (Redfish BMC)
 
 ### 📚 Migration & Legacy Support
 

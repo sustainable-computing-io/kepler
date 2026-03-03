@@ -111,7 +111,7 @@ log:
 
 monitor:
   interval: 5s        # Monitor refresh interval (default: 5s)
-  staleness: 1000ms   # Duration after which data is considered stale (default: 1000ms)
+  staleness: 500ms    # Duration after which data is considered stale (default: 500ms)
   maxTerminated: 500  # Maximum number of terminated workloads to keep in memory (default: 500)
   minTerminatedEnergyThreshold: 10  # Minimum energy threshold for terminated workloads (default: 10)
 
@@ -158,9 +158,8 @@ experimental:   # experimental features (no stability guarantees)
   platform:     # platform power monitoring
     redfish:    # redfish BMC power monitoring
       enabled: false                  # Enable Redfish BMC monitoring (default: false)
-      nodeID: ""                      # Node identifier (auto-resolved if empty)
+      nodeName: ""                    # Node identifier (auto-resolved if empty)
       configFile: ""                  # Path to BMC configuration file (required when enabled)
-      staleness: 30s                  # Cache duration for power readings (default: 30s)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
   hwmon:        # hwmon power monitoring
     enabled: false                    # Enable hwmon power monitoring (default: false)
@@ -203,7 +202,7 @@ log:
 ```yaml
 monitor:
   interval: 5s
-  staleness: 1000ms
+  staleness: 500ms
   maxTerminated: 500
   minTerminatedEnergyThreshold: 10
 ```
@@ -347,9 +346,8 @@ experimental:
   platform:
     redfish:
       enabled: false
-      nodeID: ""
+      nodeName: ""
       configFile: ""
-      staleness: 30s
       httpTimeout: 5s
   hwmon:
     enabled: false
@@ -367,17 +365,13 @@ experimental:
   - When enabled, Kepler will collect platform-level power metrics from BMC via Redfish API
   - Requires a valid BMC configuration file
 
-- **nodeID**: Node identifier for power monitoring (auto-resolved if empty)
+- **nodeName**: Node identifier for power monitoring (auto-resolved if empty)
   - Priority: CLI flag → Kubernetes node name → hostname fallback
   - Must match the node identifier in your BMC configuration
 
 - **configFile**: Path to BMC configuration file (required when enabled)
   - YAML file containing BMC endpoints, credentials, and node mappings
   - See [hack/redfish.yaml](../../hack/redfish.yaml) for example configuration
-
-- **staleness**: Cache duration for power readings (default: 30s)
-  - How long to cache BMC power readings before fetching new data
-  - Reduces BMC load by serving cached data for repeated requests
 
 - **httpTimeout**: HTTP timeout for BMC requests (default: 5s)
   - Maximum time to wait for BMC HTTP responses
