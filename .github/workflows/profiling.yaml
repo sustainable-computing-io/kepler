@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6.2.0
+        uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go.mod
           cache: false
@@ -86,7 +86,7 @@ jobs:
           ./hack/reports/profiling.sh compare
 
       - name: Upload profiling artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp/*
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Go
-        uses: actions/setup-go@v6.2.0
+        uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go.mod
           cache: false
@@ -140,7 +140,7 @@ jobs:
         run: go install github.com/google/pprof@6e76a2b096b5fa52e4bb3f7f7a357bd6e6b3b7b1
 
       - name: Download profiling artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp
@@ -163,7 +163,7 @@ jobs:
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
       # add comment on PR with the message.
       - name: Upload message
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: message
           path: /tmp/message-${{ github.event.pull_request.number }}.txt
