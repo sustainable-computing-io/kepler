@@ -25,12 +25,12 @@ type APIServer struct {
 	// input
 	logger      *slog.Logger
 	listenAddrs []string
+	webCfgPath  string
 
 	// http
 	server              *http.Server
 	mux                 *http.ServeMux
 	endpointDescription string
-	webCfgPath          string
 }
 
 var _ APIService = (*APIServer)(nil)
@@ -58,6 +58,13 @@ func WithListenAddress(addr []string) OptionFn {
 	}
 }
 
+// WithWebConfig sets the path to the exporter-toolkit web configuration file.
+//
+// The web config can be used to enable features such as:
+//   - TLS / HTTPS
+//   - Basic Authentication
+//
+// See: https://github.com/prometheus/exporter-toolkit
 func WithWebConfig(path string) OptionFn {
 	return func(o *Opts) {
 		o.webCfgPath = path
@@ -133,6 +140,10 @@ func (s *APIServer) Init() error {
 	return nil
 }
 
+// Run starts the HTTP server.
+//
+// If webCfgPath is set, exporter-toolkit will be used to apply web server
+// settings from the referenced file, including optional TLS and Basic Auth.
 func (s *APIServer) Run(ctx context.Context) error {
 	s.logger.Info("Running HTTP server", "listening-on", s.listenAddrs)
 	errCh := make(chan error)
@@ -167,6 +178,12 @@ func (s *APIServer) Shutdown() error {
 func (s *APIServer) Register(endpoint, summary, description string, handler http.Handler) error {
 	s.logger.Debug("Endpoint Registered", "endpoint", endpoint)
 	s.mux.Handle(endpoint, handler)
-	s.endpointDescription += fmt.Sprintf("<li> <a href=\"%s\"> %s </a> %s </li>\n", endpoint, summary, description)
+	s.endpointDescription += fmt.Sprintf(
+		"<li><a href=\"%s\">%s</a> %s</li>\n",
+		endpoint,
+		summary,
+		description,
+	)
+
 	return nil
 }
