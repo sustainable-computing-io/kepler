@@ -1,10 +1,22 @@
-# Example Kepler configuration for "Prometheus-based node power input"
-# Use this when an external system (e.g., PDU + exporter + recording rules)
-# already provides a power metric (watts), and Kepler should attribute it to processes.
+# Example Kepler configuration for "Prometheus-based node power input".
+#
+# Use this when an external monitoring system (for example:
+# PDU + exporter + recording rules in Prometheus / VictoriaMetrics)
+# already provides a power metric in watts, and Kepler should
+# attribute that node-level power to processes.
+#
+# This example also demonstrates how to enable HTTPS / TLS and
+# Basic Authentication for the Kepler HTTP server via exporter-toolkit.
+#
+# Note:
+# - TLS and Basic Auth are configured via web.configFile
+# - The referenced web-config file is not part of this YAML and must be
+#   created separately by the operator
+# - Replace the example baseURL and query with environment-specific values
 
 log:
-  level: info           # debug, info, warn, error
-  format: text          # text or json
+  level: info
+  format: text
 
 host:
   sysfs: /sys
@@ -12,7 +24,7 @@ host:
 
 monitor:
   interval: 5s
-  staleness: 30s        # how long samples may be considered valid
+  staleness: 30s
 
 exporter:
   prometheus:
@@ -25,8 +37,28 @@ exporter:
       # - pod
 
 web:
+  # Kepler may listen on multiple addresses / ports.
+  # In this example:
+  # - 28282 can be used for plain HTTP if desired
+  # - 28443 is intended for HTTPS when configured via web.configFile
   listenAddresses:
-    - :28282
+    - 0.0.0.0:28282
+    - :28443
+
+  # Path to the exporter-toolkit web configuration file.
+  # This file can enable:
+  # - TLS / HTTPS
+  # - Basic Authentication
+  #
+  # Example contents:
+  #
+  # tls_server_config:
+  #   cert_file: /etc/kepler/tls/server.crt
+  #   key_file: /etc/kepler/tls/server.key
+  #
+  # basic_auth_users:
+  #   kepleruser: "<bcrypt-hash>"
+  configFile: /etc/kepler/web-config.yml
 
 kube:
   enabled: false
@@ -39,17 +71,30 @@ dev:
 
 # Disable RAPL zones in this example, because node power comes from Prometheus.
 rapl:
+  enabled: false
   zones: []
 
 experimental:
-  # Prometheus/VictoriaMetrics based power input.
-  # Kepler queries an external Prometheus-compatible API endpoint for a single power time series (watts).
   prometheus-power:
     enabled: true
-    baseURL: http://<PROMETHEUS_OR_VICTORIAMETRICS_HOST>:8428
-    # The query must return exactly one time series (one sample).
-    # Example: device_power_watts_avg{rack="R3.033",device="kub01"}
-    query: <PROMQL_QUERY_RETURNING_SINGLE_WATTS_SERIES>
+
+    # Replace with your monitoring endpoint.
+    #
+    # Example:
+    #   https://monitoring.example.org:8428
+    #
+    # If authentication is required by the monitoring backend,
+    # credentials must be provided according to the deployment model.
+    # For local testing, credentials may be embedded in the URL,
+    # but in production a more secure mechanism is recommended.
+    baseURL: https://monitoring.example.org:8428
+
+    # Replace with an environment-specific query that returns
+    # the node power in watts for the current machine / target.
+    #
+    # Example:
+    #   node_power_watts{instance="server01"}
+    query: node_power_watts{instance="example-node"}
 
   platform:
     redfish:
@@ -57,6 +102,6 @@ experimental:
 
   hwmon:
     enabled: false
-    
+
   gpu:
     enabled: false
