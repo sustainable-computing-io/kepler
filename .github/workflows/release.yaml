@@ -35,7 +35,7 @@ jobs:
           version: latest
 
       - name: Login to Image Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.IMG_BASE }}
           username: ${{ secrets.BOT_NAME }}
