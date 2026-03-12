@@ -10,6 +10,7 @@ End-to-end (e2e) tests verify that Kepler works correctly as a complete system. 
 | Type           | Location        | Purpose                                   | Requirements                     |
 |----------------|-----------------|-------------------------------------------|----------------------------------|
 | **Bare-metal** | `test/e2e/`     | Node and process metrics on real hardware | Intel RAPL, root access          |
+| **GPU**        | `test/e2e/`     | GPU metrics with fake NVML library        | gcc, root access (no GPU needed) |
 | **Kubernetes** | `test/e2e-k8s/` | Pod and container metrics in a cluster    | K8s cluster with Kepler deployed |
 
 Unlike unit tests that mock dependencies, e2e tests run the actual Kepler binary and verify metrics are correctly exposed.
@@ -357,6 +358,204 @@ func TestNewFeature(t *testing.T) {
     t.Logf("Found metric with value: %v", snapshot.GetAllWithName("kepler_new_metric"))
 }
 ```
+
+## GPU E2E Tests (Fake NVML)
+
+### What It Is
+
+GPU e2e tests verify Kepler's full GPU metrics pipeline — from NVML device discovery through power collection to Prometheus export — without requiring real NVIDIA hardware. They work by replacing the real `libnvidia-ml.so.1` shared library with a fake one that returns canned GPU data read from a JSON config file.
+
+This means the GPU code paths that are normally untestable in CI (because they require physical GPUs) can now be tested on any Linux machine with `gcc` and root access.
+
+### How It Works
+
+Kepler's GPU support relies on [go-nvml](https://github.com/NVIDIA/go-nvml), which loads `libnvidia-ml.so.1` at runtime via `dlopen`. go-nvml then resolves individual NVML functions (e.g. `nvmlDeviceGetPowerUsage`) via `dlsym`. The fake library exploits this dynamic loading:
+
+```text
+┌──────────────────┐     dlopen      ┌─────────────────────┐
+│     go-nvml      │ ──────────────► │  libnvidia-ml.so.1  │
+│  (Kepler's GPU   │     dlsym       │  (FAKE: reads JSON  │
+│   collector)     │ ◄────────────── │   from env var)     │
+└──────────────────┘                 └─────────────────────┘
+         │                                     ▲
+         │  LD_LIBRARY_PATH points             │ FAKE_NVML_CONFIG
+         │  to dir with fake .so               │ points to JSON
+         ▼                                     │
+┌──────────────────┐                 ┌─────────────────────┐
+│  Kepler binary   │                 │  fake_nvml_config   │
+│  exports GPU     │                 │  .json              │
+│  metrics via     │                 │  {"devices": [...]} │
+│  /metrics        │                 └─────────────────────┘
+└──────────────────┘
+```
+
+**Key mechanism**: The test sets `LD_LIBRARY_PATH` to a temp directory containing the fake `.so`, so `dlopen("libnvidia-ml.so.1")` loads the fake instead of looking for a real NVIDIA driver. The fake library reads device configuration from the path in `FAKE_NVML_CONFIG`.
+
+### Main Design Ideas
+
+1. **One fake library, many scenarios**: The same C shared library supports all test scenarios. Different JSON configs produce different GPU topologies (single GPU, multiple GPUs, with/without processes, idle vs. loaded).
+
+2. **Real PIDs for process attribution**: Tests start actual `sleep infinity` processes and use their real PIDs in the fake NVML config. This lets Kepler find them in `/proc`, exercising the full process-to-GPU attribution path.
+
+3. **Accurate C ABI compatibility**: The fake implements the exact C struct layouts and calling conventions from `nvml.h` that go-nvml expects, including version-negotiation symbols (v1/v2/v3 variants) and the two-call pattern for `GetProcessUtilization` (first call returns count, second fills buffer).
+
+4. **Simulated energy counters**: `nvmlDeviceGetTotalEnergyConsumption` returns `powerUsageMilliWatts × elapsed_seconds` since init using `CLOCK_MONOTONIC`, so energy increases monotonically just like real hardware.
+
+5. **No build tags or special flags**: GPU tests live in the same `test/e2e/` package as bare-metal tests and are selected via `-test.run TestGPU`.
+
+### File Layout
+
+```text
+test/e2e/
+├── fake_nvml/
+│   ├── fake_nvml.c          # Fake NVML C library (~420 lines, 44 exported symbols)
+│   ├── cJSON.c              # Vendored MIT-licensed JSON parser (github.com/DaveGamble/cJSON)
+│   └── cJSON.h
+├── gpu_helpers_test.go       # Build helpers, config presets, setup functions
+└── gpu_fake_test.go          # 7 GPU test cases
+```
+
+### JSON Config Format
+
+The fake NVML library reads configuration from the file pointed to by `FAKE_NVML_CONFIG`:
+
+```json
+{
+  "devices": [
+    {
+      "uuid": "GPU-FAKE-0000-0001",
+      "name": "NVIDIA Fake A100",
+      "powerUsageMilliWatts": 150000,
+      "computeMode": 0,
+      "migEnabled": false,
+      "maxMigDevices": 0,
+      "processes": [
+        {
+          "pid": 12345,
+          "memoryUsed": 1073741824,
+          "smUtil": 60
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field                  | Description                                               |
+|------------------------|-----------------------------------------------------------|
+| `uuid`                 | GPU UUID reported to Kepler                               |
+| `name`                 | GPU model name                                            |
+| `powerUsageMilliWatts` | Constant power draw in milliwatts                         |
+| `computeMode`          | 0=default (time-slicing), 1=exclusive thread, 3=exclusive |
+| `migEnabled`           | Whether MIG mode is active                                |
+| `maxMigDevices`        | Number of MIG device slots                                |
+| `processes`            | Array of GPU processes (use real PIDs from running procs) |
+
+### Test Cases
+
+| Test                                | What It Verifies                                                   |
+|-------------------------------------|--------------------------------------------------------------------|
+| `TestGPU_DeviceDiscovered`          | `kepler_node_gpu_info` exists with correct uuid/name/vendor labels |
+| `TestGPU_NodePowerMetrics`          | `kepler_node_gpu_watts` > 0 for the fake GPU                       |
+| `TestGPU_IdlePower`                 | No processes → active power ≈ 0, total power = idle power          |
+| `TestGPU_ProcessPowerAttribution`   | Real PID in fake config → `kepler_node_gpu_active_watts` > 0       |
+| `TestGPU_MultipleDevices`           | Two fake GPUs both appear in `kepler_node_gpu_info`                |
+| `TestGPU_EnergyIncreases`           | GPU power is consistently positive across two scrapes              |
+| `TestGPU_GracefulStartupWithoutGPU` | Kepler starts and serves CPU metrics even when NVML init fails     |
+
+### GPU Prerequisites
+
+- **gcc**: Required to compile `fake_nvml.c` at test time
+- **Root access**: Kepler needs root to read `/proc/*/exe` for all processes
+
+No GPU hardware, NVIDIA drivers, or CUDA toolkit required.
+
+### Running GPU E2E Tests
+
+```bash
+# Build Kepler binary + GPU e2e test binary
+make test-e2e-gpu
+
+# Run all GPU tests (requires root)
+sudo ./bin/kepler-e2e-gpu.test -test.v -test.run TestGPU
+
+# Run a single test
+sudo ./bin/kepler-e2e-gpu.test -test.v -test.run TestGPU_DeviceDiscovered
+
+# With timeout
+sudo ./bin/kepler-e2e-gpu.test -test.v -test.run TestGPU -test.timeout=3m
+```
+
+### GPU Metrics Tested
+
+| Metric                         | Type  | Labels                                  |
+|--------------------------------|-------|-----------------------------------------|
+| `kepler_node_gpu_info`         | Gauge | `gpu`, `gpu_uuid`, `gpu_name`, `vendor` |
+| `kepler_node_gpu_watts`        | Gauge | `gpu_uuid`                              |
+| `kepler_node_gpu_active_watts` | Gauge | `gpu_uuid`                              |
+
+### GPU Troubleshooting
+
+#### gcc Not Found
+
+**Error**: `Skipping GPU e2e test: gcc not found`
+
+**Solution**: Install gcc (`sudo dnf install gcc` or `sudo apt install gcc`)
+
+#### GPU Metrics Not Appearing
+
+If GPU metrics don't show up in scrapes, check the Kepler stderr output for:
+
+- `fake_nvml: loaded N device(s)` — confirms the fake library loaded the config
+- `discovered GPU` — confirms go-nvml found the fake device
+- `Exporting GPU metrics` — confirms the power collector is emitting GPU metrics
+- `Failed to collect power data` — indicates a Snapshot error (usually means not running as root)
+
+#### Port Conflict
+
+GPU tests use port **28283** (vs. 28282 for bare-metal tests) to avoid conflicts. If you see `bind: address already in use`, kill stale processes: `sudo pkill -f kepler-e2e`
+
+### Writing New GPU Tests
+
+```go
+func TestGPU_NewScenario(t *testing.T) {
+    skipIfNoGCC(t)
+
+    // Define GPU topology via JSON config
+    config := fakeNVMLConfig{
+        Devices: []fakeNVMLDevice{{
+            UUID:                 "GPU-FAKE-0000-0001",
+            Name:                 "NVIDIA Fake A100",
+            PowerUsageMilliWatts: 75000,
+        }},
+    }
+
+    // Start Kepler with fake NVML wired up
+    _, scraper := setupKeplerWithFakeGPU(t, config)
+
+    // Wait for GPU metrics to appear
+    require.True(t, waitForGPUMetrics(t, scraper, "kepler_node_gpu_watts", 30*time.Second))
+
+    // Scrape and assert
+    snapshot, err := scraper.TakeSnapshot()
+    require.NoError(t, err)
+
+    power := snapshot.SumValues("kepler_node_gpu_watts", nil)
+    assert.Greater(t, power, 0.0)
+}
+```
+
+Available helpers in `gpu_helpers_test.go`:
+
+| Helper                        | Purpose                                              |
+|-------------------------------|------------------------------------------------------|
+| `buildFakeNVML(t)`            | Compiles fake `.so`, returns directory path          |
+| `writeFakeNVMLConfig(t,c)`    | Writes JSON config, returns file path                |
+| `writeGPUKeplerConfig(t)`     | Writes Kepler YAML with GPU enabled + fake CPU meter |
+| `setupKeplerWithFakeGPU(t,c)` | One-call setup: build + config + start Kepler        |
+| `singleGPUIdle()`             | Preset: 1 GPU at 40W, no processes                   |
+| `singleGPUWithProcesses(p)`   | Preset: 1 GPU at 150W with given processes           |
+| `waitForGPUMetrics(t,s,m,d)`  | Polls until a named GPU metric appears               |
 
 ## Related Documentation
 
