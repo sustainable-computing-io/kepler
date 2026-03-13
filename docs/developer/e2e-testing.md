@@ -209,7 +209,7 @@ Kubernetes e2e tests are located in `test/e2e-k8s/` and use the [sigs.k8s.io/e2e
 ```bash
 # Option 1: Local Kind cluster (recommended for development)
 make cluster-up                    # Create Kind cluster
-make image deploy                  # Build and deploy Kepler with default image
+make image-local deploy                  # Build and deploy Kepler with default image
 
 # Option 2: Existing cluster with custom image
 make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
@@ -260,7 +260,7 @@ make test-e2e-k8s
 ```bash
 # Create Kind cluster and deploy Kepler
 make cluster-up
-make image deploy
+make image-local deploy
 
 # Verify Kepler is running
 kubectl get pods -n kepler -w

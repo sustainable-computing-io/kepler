@@ -1,16 +1,29 @@
 # Build the binary
-FROM golang:1.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
 
 # Build arguments for binary
 ARG VERSION
 ARG GIT_COMMIT
 ARG GIT_BRANCH
+ARG TARGETARCH
+
+# Install cross-compilation toolchains for CGo (needed by go-nvml where CGo is enabled)
+RUN dpkg --add-architecture arm64 && dpkg --add-architecture amd64 && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    gcc-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    gcc-x86-64-linux-gnu \
+    libc6-dev-amd64-cross && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 COPY . .
 
-RUN make build \
+# Select the cross-compiler based on target architecture
+RUN if [ "$TARGETARCH" = "arm64" ]; then export CC=aarch64-linux-gnu-gcc; \
+    elif [ "$TARGETARCH" = "amd64" ]; then export CC=x86_64-linux-gnu-gcc; fi && \
+    GOARCH=${TARGETARCH} make build \
   CGO_ENABLED=1 \
   PRODUCTION=1 \
   VERSION=${VERSION} \
