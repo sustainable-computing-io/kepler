@@ -193,15 +193,30 @@ deps: ## Dependencies management (tidy and verify)
 	$(GOMOD) verify
 
 # Build Docker image
+IMAGE_PLATFORMS ?= linux/amd64,linux/arm64
+
 .PHONY: image
-image: ## Docker image build
-	docker build -t \
+image: ## Docker image build (multi-arch)
+	docker buildx build -t \
 		$(KEPLER_IMAGE) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
 		--build-arg GIT_BRANCH=$(GIT_BRANCH) \
-		--platform=linux/$(GOARCH) .
+		--platform=$(IMAGE_PLATFORMS) \
+		--push .
+	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
+
+.PHONY: image-local
+image-local: ## Docker image build (local architecture only)
+	docker buildx build -t \
+		$(KEPLER_IMAGE) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg GIT_BRANCH=$(GIT_BRANCH) \
+		--platform=linux/$(GOARCH) \
+		--load .
 	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
 # Push Docker image

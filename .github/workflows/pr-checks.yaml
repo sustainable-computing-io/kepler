@@ -160,9 +160,10 @@ jobs:
           cache: false
 
       - name: build images for PR checks
-        uses: ./.github/publish-image
-        with:
-          registry: localhost:5001
+        shell: bash
+        run: make image-local
+        env:
+          IMG_BASE: localhost:5001
 
   build-and-deploy:
     runs-on: ubuntu-latest-8-cores

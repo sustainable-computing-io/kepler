@@ -29,6 +29,12 @@ jobs:
           cache: true
           check-latest: true
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.9.0
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
@@ -45,7 +51,7 @@ jobs:
         shell: bash
         run: make deps
 
-      - name: Build Image
+      - name: Build and push image
         shell: bash
         run: |
           make image VERSION=${{ github.ref_name }}

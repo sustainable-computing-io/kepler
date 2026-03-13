@@ -69,7 +69,7 @@ runs:
     - name: Build image
       shell: bash
       run: |
-        make image
+        make image-local
       env:
         IMG_BASE: localhost:5001
         VERSION: dev
