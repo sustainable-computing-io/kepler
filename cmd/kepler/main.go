@@ -15,7 +15,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
-	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -361,6 +361,10 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 // Uses the registry pattern to support multiple GPU vendors (NVIDIA, AMD, Intel).
 // Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
 func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
+	if fake := cfg.Dev.FakeGpuMeter; *fake.Enabled {
+		return createFakeGPUMeter(logger, fake.DeviceCount, fake.SharingMode)
+	}
+
 	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
 		logger.Info("GPU feature disabled")
 		return nil
@@ -381,4 +385,49 @@ func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMete
 	}
 
 	return meters
+}
+
+// createFakeGPUMeter creates a GPU meter backed by FakeNVMLBackend for
+// development and testing. Not for production use.
+func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode string) []gpu.GPUPowerMeter {
+	logger.Warn("using FAKE NVML backend (dev/testing mode)",
+		"deviceCount", deviceCount,
+		"sharingMode", sharingMode)
+
+	if deviceCount <= 0 {
+		deviceCount = 1
+	}
+
+	mode := nvidia.ComputeModeDefault
+	if sharingMode == "exclusive" {
+		mode = nvidia.ComputeModeExclusiveProcess
+	}
+
+	devices := make([]*nvidia.FakeNVMLDevice, deviceCount)
+	for i := range devices {
+		devices[i] = &nvidia.FakeNVMLDevice{
+			Idx:         i,
+			DeviceUUID:  fmt.Sprintf("FAKE-GPU-%04d", i),
+			DeviceName:  "Fake NVIDIA GPU",
+			DevicePower: 225 * device.Watt,
+			Mode:        mode,
+		}
+	}
+
+	backend := nvidia.NewFakeNVMLBackend(devices...)
+	collector, err := nvidia.NewGPUPowerCollector(logger, nvidia.WithNVMLBackend(backend))
+	if err != nil {
+		logger.Error("failed to create GPU collector with fake backend", "error", err)
+		return nil
+	}
+
+	// Init must be called before returning, matching the real path (gpu.Discover
+	// calls Init before returning the meter). This ensures Devices() is populated
+	// when the monitor logs GPU meter info during its own Init.
+	if err := collector.Init(); err != nil {
+		logger.Error("failed to initialize fake GPU collector", "error", err)
+		return nil
+	}
+
+	return []gpu.GPUPowerMeter{collector}
 }
