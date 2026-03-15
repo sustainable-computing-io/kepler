@@ -84,7 +84,7 @@ experimental:
       nodeName: kepler-dev # Node name to use (overrides Kubernetes node name and hostname fallback)
       httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)
   hwmon:
-    enabled: false # Enable experimental hwmon power monitoring
+    forceEnabled: false # Force hwmon as the power meter, skipping RAPL auto-detection
     zones: [] # List of zones to enable (default enable all)
     chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:

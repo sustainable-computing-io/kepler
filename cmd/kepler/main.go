@@ -310,20 +310,54 @@ func createPrometheusExporter(
 }
 
 func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
+	// If fake meter is explicitly enabled, use it directly
 	if fake := cfg.Dev.FakeCpuMeter; *fake.Enabled {
 		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
 	}
 
-	// Launch hwmon if enabled (experimental feature)
+	// If hwmon is explicitly enabled, use it directly
 	if cfg.IsFeatureEnabled(config.ExperimentalHwmonFeature) {
+		logger.Info("hwmon explicitly enabled via config")
+		return createHwmonMeter(logger, cfg)
+	}
+
+	// Try RAPL first (default logic -> attempt RAPL, then attempt HWMON)
+	if len(cfg.Rapl.Zones) > 0 {
+		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
+	}
+
+	raplMeter, err := device.NewCPUPowerMeter(
+		cfg.Host.SysFS,
+		device.WithRaplLogger(logger),
+		device.WithZoneFilter(cfg.Rapl.Zones),
+	)
+	if err != nil {
+		logger.Warn("RAPL not available, falling back to hwmon", "error", err)
+		return createHwmonMeter(logger, cfg)
+	}
+
+	// Verify RAPL can actually read energy data
+	if initErr := raplMeter.Init(); initErr != nil {
+		logger.Warn("RAPL initialization failed, falling back to hwmon", "error", initErr)
+		return createHwmonMeter(logger, cfg)
+	}
+
+	logger.Info("using RAPL power meter")
+	return raplMeter, nil
+}
+
+func createHwmonMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
+	var hwmonZones []string
+	var chipRules []device.ConfigChipRule
+
+	if cfg.Experimental != nil {
 		hwmon := cfg.Experimental.Hwmon
 
 		if len(hwmon.Zones) > 0 {
 			logger.Info("hwmon zones are filtered", "zones-enabled", hwmon.Zones)
+			hwmonZones = hwmon.Zones
 		}
 
-		// Convert config chip rules to device chip rules
-		var chipRules []device.ConfigChipRule
 		for _, cr := range hwmon.ChipRules {
 			chipRules = append(chipRules, device.ConfigChipRule{
 				Name:         cr.Name,
@@ -337,23 +371,14 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		if len(chipRules) > 0 {
 			logger.Info("hwmon chip rules configured", "count", len(chipRules))
 		}
-
-		return device.NewHwmonPowerMeter(
-			cfg.Host.SysFS,
-			device.WithHwmonLogger(logger),
-			device.WithHwmonZoneFilter(hwmon.Zones),
-			device.WithHwmonChipRules(chipRules),
-		)
 	}
 
-	if len(cfg.Rapl.Zones) > 0 {
-		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
-	}
-
-	return device.NewCPUPowerMeter(
+	logger.Info("using hwmon power meter")
+	return device.NewHwmonPowerMeter(
 		cfg.Host.SysFS,
-		device.WithRaplLogger(logger),
-		device.WithZoneFilter(cfg.Rapl.Zones),
+		device.WithHwmonLogger(logger),
+		device.WithHwmonZoneFilter(hwmonZones),
+		device.WithHwmonChipRules(chipRules),
 	)
 }
 

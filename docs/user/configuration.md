@@ -36,7 +36,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
-| `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
+| `--experimental.hwmon.force-enabled`          | Force hwmon as power meter, skipping RAPL auto-detection                | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
@@ -68,11 +68,11 @@ kepler --experimental.platform.redfish.enabled=true \
        --experimental.platform.redfish.config-file=/path/to/redfish-config.yaml \
        --experimental.platform.redfish.node-name=worker-node-1
 
-# Enable experimental hwmon power monitoring
-kepler --experimental.hwmon.enabled=true
+# Force hwmon as power meter (skipping RAPL auto-detection)
+kepler --experimental.hwmon.force-enabled=true
 
-# Enable experimental hwmon power monitoring with specific zones
-kepler --experimental.hwmon.enabled=true \
+# Force hwmon with specific zones
+kepler --experimental.hwmon.force-enabled=true \
        --experimental.hwmon.zones=power1 \
        --experimental.hwmon.zones=power2
 
@@ -162,7 +162,7 @@ experimental:   # experimental features (no stability guarantees)
       configFile: ""                  # Path to BMC configuration file (required when enabled)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
   hwmon:        # hwmon power monitoring
-    enabled: false                    # Enable hwmon power monitoring (default: false)
+    forceEnabled: false               # Force hwmon as power meter, skipping RAPL auto-detection (default: false)
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
     chipRules: []                     # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:          # GPU power monitoring
@@ -350,7 +350,7 @@ experimental:
       configFile: ""
       httpTimeout: 5s
   hwmon:
-    enabled: false
+    forceEnabled: false
     zones: []
     chipRules: []
   gpu:
@@ -428,7 +428,7 @@ bmcs:
 ```yaml
 experimental:
   hwmon:
-    enabled: true
+    forceEnabled: true
     zones: ["power1", "power2"]
 ```
 
@@ -437,7 +437,7 @@ experimental:
 ```yaml
 experimental:
   hwmon:
-    enabled: true
+    forceEnabled: true
     zones: []
     chipRules:
       # Override existing chip rule (replaces hardcoded default)
