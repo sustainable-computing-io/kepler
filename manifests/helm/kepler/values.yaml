@@ -113,7 +113,7 @@ config:
         configFile: /etc/kepler/redfish.yaml  # Path to Redfish BMC configuration file
         nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
     hwmon:
-      enabled: false # Enable experimental hwmon power monitoring
+      forceEnabled: false # Force hwmon as the power meter, skipping RAPL auto-detection
       zones: [] # List of zones to enable (default enable all)
       chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
     gpu:
