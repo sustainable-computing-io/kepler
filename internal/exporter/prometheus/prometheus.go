@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -83,9 +84,22 @@ func WithCollectors(c map[string]prom.Collector) OptionFn {
 	}
 }
 
+// This function sets either the Redfish or the K8S 'node_name'
+// as fallback uses the machine's hostname (reported by the kernel)
+// in order to avoid exporting an empty string.
 func WithNodeName(nodeName string) OptionFn {
-	return func(o *Opts) {
-		o.nodeName = nodeName
+	if nodeName != "" {
+		return func(o *Opts) {
+			o.nodeName = nodeName
+		}
+	} else {
+		nodeName_fallback, err := os.Hostname()
+		if err != nil {
+			fmt.Errorf("not possible to set fallback node_name: %s", err)
+		}
+		return func(o *Opts) {
+			o.nodeName = nodeName_fallback
+		}
 	}
 }
 
