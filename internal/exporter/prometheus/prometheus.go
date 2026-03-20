@@ -93,12 +93,8 @@ func WithNodeName(nodeName string) OptionFn {
 			o.nodeName = nodeName
 		}
 	} else {
-		nodeName_fallback, err := os.Hostname()
-		if err != nil {
-			fmt.Errorf("not possible to set fallback node_name: %s", err)
-		}
 		return func(o *Opts) {
-			o.nodeName = nodeName_fallback
+			o.nodeName, _ = os.Hostname()
 		}
 	}
 }
