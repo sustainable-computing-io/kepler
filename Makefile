@@ -9,10 +9,28 @@ GOLINT=golangci-lint
 GOVET=$(GOCMD) vet
 GOFMT=$(GOCMD) fmt
 
-GOOS=$(shell go env GOOS)
-GOARCH=$(shell go env GOARCH)
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 
 CGO_ENABLED ?= 1
+
+# Cross-compilation sysroot auto-detection
+# On Fedora, the cross-compiler's default sysroot lacks headers.
+# This detects the correct sysroot (e.g. /usr/aarch64-redhat-linux/sys-root/fc43).
+NATIVE_GOARCH := $(shell go env GOHOSTARCH)
+SYSROOT ?=
+ifeq ($(SYSROOT),)
+  ifneq ($(GOARCH),$(NATIVE_GOARCH))
+    _CC_SYSROOT := $(shell $(CC) --print-sysroot 2>/dev/null)
+    ifeq ($(wildcard $(_CC_SYSROOT)/usr/include/stdlib.h),)
+      SYSROOT := $(patsubst %/usr/include/stdlib.h,%,$(firstword $(wildcard /usr/*/sys-root/*/usr/include/stdlib.h)))
+    endif
+  endif
+endif
+ifneq ($(SYSROOT),)
+  export CGO_CFLAGS += --sysroot=$(SYSROOT)
+  export CGO_LDFLAGS += --sysroot=$(SYSROOT)
+endif
 
 # Project parameters
 BINARY_NAME=kepler
@@ -62,6 +80,7 @@ BUILD_DEBUG_ARGS ?=
 IMG_BASE ?= quay.io/sustainable_computing_io
 KEPLER_IMAGE ?= $(IMG_BASE)/kepler:$(VERSION)
 ADDITIONAL_TAGS ?=
+IMAGE_ARCHES ?= amd64 arm64
 
 # Test parameters
 TEST_PKGS:= $(shell go list ./... | grep -vE '(cmd|testutil)')
@@ -100,12 +119,19 @@ help: ## Show this help message
 	@echo '  make test            # Run tests with coverage'
 	@echo '  make cluster-up      # Setup local k8s cluster'
 	@echo '  make deploy          # Deploy to k8s cluster'
+	@echo ''
+	@echo 'Cross-compilation (requires C cross-compiler for CGO):'
+	@echo '  make build GOARCH=arm64 CC=aarch64-linux-gnu-gcc   # Build ARM64 binary'
+	@echo '  make image GOARCH=arm64                            # Build ARM64 container image'
+	@echo '  make image-multi                                   # Build multi-arch images locally (amd64+arm64)'
+	@echo '  make push-multi                                    # Push multi-arch images and create manifest'
 
 # Build the application
 .PHONY: build
 build: ## Build binary
 	mkdir -p $(BINARY_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) $(GOBUILD) $(BUILD_ARGS) \
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CC=$(CC) \
+		$(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
 		-o $(BINARY_DIR)/$(BINARY_NAME) \
 		$(MAIN_GO_PATH)
@@ -204,10 +230,27 @@ image: ## Docker image build
 		--platform=linux/$(GOARCH) .
 	$(call docker_tag,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
 
+# Build multi-architecture Docker images (local, no push)
+.PHONY: image-multi
+image-multi: ## Docker multi-arch image build (local)
+	@for arch in $(IMAGE_ARCHES); do \
+		$(MAKE) image GOARCH=$$arch KEPLER_IMAGE=$(KEPLER_IMAGE)-$$arch; \
+	done
+
 # Push Docker image
 .PHONY: push
 push: ## Docker image push to registry
 	$(call docker_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS))
+
+# Push multi-architecture Docker images and create manifest
+.PHONY: push-multi
+push-multi: ## Docker multi-arch manifest push
+	@for arch in $(IMAGE_ARCHES); do \
+		docker push $(KEPLER_IMAGE)-$$arch; \
+	done
+	docker manifest create --amend $(KEPLER_IMAGE) \
+		$(foreach arch,$(IMAGE_ARCHES),$(KEPLER_IMAGE)-$(arch))
+	docker manifest push $(KEPLER_IMAGE)
 
 # Run the application
 .PHONY: run

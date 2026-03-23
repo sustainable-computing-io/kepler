@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6.2.0
+        uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go.mod
           cache: true
@@ -35,7 +35,7 @@ jobs:
           version: latest
 
       - name: Login to Image Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.IMG_BASE }}
           username: ${{ secrets.BOT_NAME }}
@@ -83,7 +83,7 @@ jobs:
           tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
 
       - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifacts
           retention-days: 1 # Keep the artifacts for 1 day
@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Release Artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-artifacts
 

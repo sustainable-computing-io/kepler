@@ -4,6 +4,7 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -118,9 +119,19 @@ func (h *hwmonPowerMeter) Init() error {
 		return fmt.Errorf("no hwmon power zones found")
 	}
 
-	// try reading power from the first zone and return any error
-	_, err = zones[0].Power()
-	return err
+	// try reading from the first zone — try Power() first, then Energy()
+	// Energy-only zones (like hwmon energy sensors) return error from Power()
+	_, powerErr := zones[0].Power()
+	if powerErr == nil {
+		return nil
+	}
+
+	_, energyErr := zones[0].Energy()
+	if energyErr == nil {
+		return nil
+	}
+
+	return fmt.Errorf("first zone is not readable: power: %w, energy: %v", powerErr, energyErr)
 }
 
 func (h *hwmonPowerMeter) needsZoneFiltering() bool {
@@ -294,7 +305,7 @@ func (r *sysfsHwmonReader) Zones() ([]EnergyZone, error) {
 		if err != nil {
 			// Log but continue with other hwmon devices
 			if r.logger != nil {
-				r.logger.Error("failed to discover zones for hwmon device", "path", hwmonPath, "error", err)
+				r.logger.Warn("failed to discover zones for hwmon device", "path", hwmonPath, "error", err)
 			}
 			continue
 		}
@@ -326,16 +337,41 @@ func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]EnergyZone, error)
 
 	var zones []EnergyZone
 
-	// First, look for direct power sensors (preferred)
-	powerSensors := r.findSensorsByType(files, "power")
-	for sensorNum, sensorFiles := range powerSensors {
-		zone, err := r.createPowerZone(hwmonPath, chipName, humanName, sensorNum, sensorFiles)
+	// Tier 1: Energy sensors (preferred — cumulative µJ, like RAPL)
+	energySensors := r.findSensorsByType(files, "energy")
+	for sensorNum, sensorFiles := range energySensors {
+		if !isSensorEnabled(hwmonPath, "energy", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled energy sensor", "chip", chipName, "sensor", sensorNum)
+			}
+			continue
+		}
+		zone, err := r.createEnergyZone(hwmonPath, chipName, humanName, sensorNum, sensorFiles)
 		if err == nil {
 			zones = append(zones, zone)
 		}
 	}
 
-	// If no direct power sensors found, try voltage/current pairs as fallback
+	// Tier 2: Direct power sensors (instantaneous µW)
+	if len(zones) == 0 {
+		powerSensors := r.findSensorsByType(files, "power")
+		for sensorNum, sensorFiles := range powerSensors {
+			// Skip disabled power channels (power*_enable = 0)
+			if !isSensorEnabled(hwmonPath, "power", sensorNum, r.logger) {
+				if r.logger != nil {
+					r.logger.Debug("skipping disabled power channel", "index", sensorNum)
+				}
+				continue
+			}
+
+			zone, err := r.createPowerZone(hwmonPath, chipName, humanName, sensorNum, sensorFiles)
+			if err == nil {
+				zones = append(zones, zone)
+			}
+		}
+	}
+
+	// Tier 3: Voltage × current calculated power (fallback)
 	if len(zones) == 0 {
 		if r.logger != nil {
 			r.logger.Info("trying current,voltage sensors", "chip", chipName)
@@ -420,6 +456,43 @@ func (r *sysfsHwmonReader) createPowerZone(
 	}, nil
 }
 
+func (r *sysfsHwmonReader) createEnergyZone(
+	hwmonPath, chipName, humanName string,
+	sensorNum int,
+	sensorFiles map[string]string,
+) (EnergyZone, error) {
+	// Determine the zone name from label or generate one
+	var zoneName string
+	if labelFile, hasLabel := sensorFiles["label"]; hasLabel {
+		labelData, err := os.ReadFile(filepath.Join(hwmonPath, labelFile))
+		if err == nil {
+			zoneName = strings.TrimSpace(string(labelData))
+			zoneName = cleanMetricName(zoneName)
+		}
+	}
+
+	// Fallback to chip name + energy + sensor number
+	if zoneName == "" {
+		zoneName = fmt.Sprintf("%s_energy%d", chipName, sensorNum)
+	}
+
+	// Require energy*_input file
+	inputFile, hasInput := sensorFiles["input"]
+	if !hasInput {
+		return nil, fmt.Errorf("no input file for energy sensor")
+	}
+
+	inputPath := filepath.Join(hwmonPath, inputFile)
+
+	return &hwmonEnergyZone{
+		name:      zoneName,
+		index:     sensorNum,
+		path:      inputPath,
+		chipName:  chipName,
+		humanName: humanName,
+	}, nil
+}
+
 // ErrVoltageCurrentNoLabels is returned when voltage and current sensors exist
 // but cannot be matched because they lack labels
 var ErrVoltageCurrentNoLabels = fmt.Errorf("voltage and current sensors found but no matching labels available for power calculation")
@@ -457,6 +530,14 @@ func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 			continue
 		}
 
+		// Skip disabled voltage channels (in*_enable = 0)
+		if !isSensorEnabled(hwmonPath, "in", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled voltage channel", "index", sensorNum)
+			}
+			continue
+		}
+
 		info := voltageSensorInfo{
 			index:     sensorNum,
 			inputPath: filepath.Join(hwmonPath, inputFile),
@@ -491,6 +572,14 @@ func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 		// Need at least input file
 		inputFile, hasInput := sensorFiles["input"]
 		if !hasInput {
+			continue
+		}
+
+		// Skip disabled current channels (curr*_enable = 0)
+		if !isSensorEnabled(hwmonPath, "curr", sensorNum, r.logger) {
+			if r.logger != nil {
+				r.logger.Debug("skipping disabled current channel", "index", sensorNum)
+			}
 			continue
 		}
 
@@ -715,6 +804,37 @@ type voltageSensorInfo struct {
 	label       string
 }
 
+// isSensorEnabled checks if a sensor channel is enabled.
+// Returns true if:
+// - The enable file doesn't exist (followup check of the channel will confirm if it is accessible)
+// - The enable file exists and contains "1"
+// - The enable file exists but cannot be read (continue to test if the channel itself can be accessed)
+// Returns false if the enable file exists and contains "0" (disabled)
+func isSensorEnabled(hwmonPath, sensorType string, sensorNum int, logger *slog.Logger) bool {
+	enableFile := filepath.Join(hwmonPath, fmt.Sprintf("%s%d_enable", sensorType, sensorNum))
+	data, err := os.ReadFile(enableFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if logger != nil {
+				logger.Warn("enable file not present, assuming sensor is enabled",
+					"path", enableFile)
+			}
+			return true
+		}
+		// File exists but cannot be read (e.g., permission denied)
+		// Fail open: assume enabled so the downstream data read can be attempted
+		if logger != nil {
+			logger.Warn("could not read enable file, assuming sensor is enabled",
+				"path", enableFile, "error", err)
+		}
+		return true
+	}
+
+	value := strings.TrimSpace(string(data))
+	// Channel is enabled if value is "1", disabled if "0"
+	return value != "0"
+}
+
 // currentSensorInfo holds information about a current sensor for matching
 type currentSensorInfo struct {
 	index       int
@@ -909,6 +1029,55 @@ func (z *hwmonVoltageCurrentZone) Energy() (Energy, error) {
 func (z *hwmonVoltageCurrentZone) MaxEnergy() Energy {
 	// No maximum for calculated power zones
 	return 0
+}
+
+// hwmonEnergyZone implements EnergyZone for hwmon energy sensors.
+// These provide cumulative energy readings (energy*_input in microjoules),
+// functionally identical to RAPL energy counters.
+type hwmonEnergyZone struct {
+	name      string
+	index     int
+	path      string // energy*_input file path
+	chipName  string
+	humanName string
+}
+
+func (z *hwmonEnergyZone) Name() string {
+	return z.name
+}
+
+func (z *hwmonEnergyZone) Index() int {
+	return z.index
+}
+
+func (z *hwmonEnergyZone) Path() string {
+	return z.path
+}
+
+func (z *hwmonEnergyZone) Energy() (Energy, error) {
+	data, err := sysReadFile(z.path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read energy from %s: %w", z.path, err)
+	}
+
+	valueStr := strings.TrimSpace(string(data))
+	microjoules, err := strconv.ParseUint(valueStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse energy value from %s: %w", z.path, err)
+	}
+
+	return Energy(microjoules), nil
+}
+
+func (z *hwmonEnergyZone) MaxEnergy() Energy {
+	// hwmon energy sensors have no max_energy_range equivalent.
+	// The monitor detects energy zones via energyReading > 0 as fallback.
+	return 0
+}
+
+func (z *hwmonEnergyZone) Power() (Power, error) {
+	// Energy zones provide cumulative energy, not instantaneous power
+	return 0, fmt.Errorf("hwmon energy zones do not provide instantaneous power readings")
 }
 
 func (z *hwmonVoltageCurrentZone) Power() (Power, error) {
