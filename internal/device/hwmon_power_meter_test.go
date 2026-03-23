@@ -211,20 +211,20 @@ func TestHwmonPowerMeter_Zones(t *testing.T) {
 		t.Logf("      Index: %d", zone.Index())
 		t.Logf("      Path: %s", zone.Path())
 
-		// Test Power() method
-		power, err := zone.Power()
-		if assert.NoError(t, err, "Power() should not return error for zone %s", zone.Name()) {
+		// Test reading capability - zones provide either Power() or Energy()
+		power, powerErr := zone.Power()
+		energy, energyErr := zone.Energy()
+
+		if _, ok := zone.(*hwmonEnergyZone); ok {
+			// Energy zones: Energy() succeeds, Power() fails
+			assert.NoError(t, energyErr, "Energy() should succeed for energy zone %s", zone.Name())
+			assert.Error(t, powerErr, "Power() should return error for energy zone %s", zone.Name())
+			t.Logf("      Energy: %d µJ", energy)
+		} else {
+			// Power zones: Power() succeeds, Energy() fails
+			assert.NoError(t, powerErr, "Power() should not return error for zone %s", zone.Name())
 			t.Logf("      Power: %.2f W", power.Watts())
 		}
-
-		// Test Energy() method (should return error for hwmon)
-		energy, err := zone.Energy()
-		assert.Error(t, err, "Energy() should return error for hwmon zones")
-		assert.Equal(t, Energy(0), energy, "Energy() should return 0 for hwmon zones")
-
-		// Test MaxEnergy() method
-		maxEnergy := zone.MaxEnergy()
-		assert.Equal(t, Energy(0), maxEnergy, "MaxEnergy() should return 0 for hwmon zones")
 	}
 
 	// Verify we found expected zones
@@ -293,6 +293,20 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 			// Verify power is reasonable (between 0 and 500W for test data)
 			assert.GreaterOrEqual(t, power.Watts(), 0.0, "Power should be non-negative")
 			assert.LessOrEqual(t, power.Watts(), 500.0, "Power should be reasonable for test data")
+		} else if energyZone, ok := zone.(*hwmonEnergyZone); ok {
+			t.Logf("\nEnergy Zone: %s", energyZone.chipName)
+			t.Logf("  Human Name: %s", energyZone.humanName)
+			t.Logf("  Zone Name: %s", energyZone.Name())
+			t.Logf("  Sensor Index: %d", energyZone.Index())
+			t.Logf("  Sysfs Path: %s", energyZone.Path())
+
+			// Read and display actual energy value
+			energy, err := energyZone.Energy()
+			require.NoError(t, err)
+			t.Logf("  Current Energy: %d µJ", energy)
+
+			// Verify energy is non-negative
+			assert.GreaterOrEqual(t, uint64(energy), uint64(0), "Energy should be non-negative")
 		} else {
 			t.Fatalf("Unknown zone type: %T", zone)
 		}
@@ -318,6 +332,14 @@ func TestHwmonPowerMeter_PowerReadings(t *testing.T) {
 	}
 
 	for _, zone := range zones {
+		// Skip energy-only zones (they don't provide Power())
+		if _, ok := zone.(*hwmonEnergyZone); ok {
+			energy, err := zone.Energy()
+			require.NoError(t, err, "Failed to read energy for zone %s", zone.Name())
+			t.Logf("  Zone '%s': %d µJ (energy zone)", zone.Name(), energy)
+			continue
+		}
+
 		power, err := zone.Power()
 		require.NoError(t, err, "Failed to read power for zone %s", zone.Name())
 
@@ -1151,12 +1173,13 @@ func (m *mockHwmonReader) Zones() ([]EnergyZone, error) {
 func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 	t.Logf("\n=== Testing Init() Error Path: Power Read Failure ===")
 
-	// Create a mock zone that fails on Power() call
+	// Create a mock zone that fails on both Power() and Energy() calls
 	mockZone := &mockEnergyZone{
 		name:     "test_zone",
 		index:    0,
 		path:     "/fake/path",
 		powerErr: assert.AnError,
+		err:      assert.AnError,
 		power:    0,
 	}
 
@@ -1170,9 +1193,9 @@ func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
-	// Init should fail when trying to read power from first zone
+	// Init should fail when both Power() and Energy() fail on first zone
 	err = meter.Init()
-	assert.Error(t, err, "Init() should fail when Power() fails on first zone")
+	assert.Error(t, err, "Init() should fail when both Power() and Energy() fail on first zone")
 	t.Logf("✓ Init() correctly failed with error: %v", err)
 }
 
@@ -2422,4 +2445,358 @@ func TestKnownChipPairings_Coverage(t *testing.T) {
 	}
 
 	t.Logf("\n✓ All %d expected chips have pairing rules", len(expectedChips))
+}
+
+// TestIsSensorEnabled tests the isSensorEnabled helper function
+func TestIsSensorEnabled(t *testing.T) {
+	t.Logf("\n=== Testing isSensorEnabled Function ===")
+
+	t.Run("enabled_channel", func(t *testing.T) {
+		// in1_enable = 1 in the disabled_channel test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 1, nil)
+		assert.True(t, result, "Channel with enable=1 should be enabled")
+		t.Logf("✓ Channel with enable=1 correctly identified as enabled")
+	})
+
+	t.Run("disabled_channel", func(t *testing.T) {
+		// in3_enable = 0 in the disabled_channel test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 3, nil)
+		assert.False(t, result, "Channel with enable=0 should be disabled")
+		t.Logf("✓ Channel with enable=0 correctly identified as disabled")
+	})
+
+	t.Run("no_enable_file", func(t *testing.T) {
+		// hwmon0 doesn't have enable files - should default to enabled
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon0", "power", 1, nil)
+		assert.True(t, result, "Channel without enable file should be considered enabled")
+		t.Logf("✓ Channel without enable file correctly defaults to enabled")
+	})
+
+	t.Run("enabled_power_channel", func(t *testing.T) {
+		// power1_enable = 1 in the disabled_power test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 1, nil)
+		assert.True(t, result, "Power channel with enable=1 should be enabled")
+	})
+
+	t.Run("disabled_power_channel", func(t *testing.T) {
+		// power3_enable = 0 in the disabled_power test directory
+		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 3, nil)
+		assert.False(t, result, "Power channel with enable=0 should be disabled")
+	})
+}
+
+// TestDisabledChannelSkipping tests that disabled voltage/current channels are skipped during discovery
+func TestDisabledChannelSkipping(t *testing.T) {
+	t.Logf("\n=== Testing Disabled Channel Skipping ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_channel"
+	zones, err := reader.discoverZones(hwmonPath)
+
+	require.NoError(t, err, "discoverZones should not fail")
+	require.NotEmpty(t, zones, "Should find some zones")
+
+	// Check that we only have 2 zones (channels 1 and 2), not 3
+	// because channel 3 is disabled (in3_enable = 0)
+	assert.Equal(t, 2, len(zones), "Should have 2 zones (channel 3 is disabled)")
+
+	// Verify the zone names
+	zoneNames := make(map[string]bool)
+	for _, zone := range zones {
+		zoneNames[zone.Name()] = true
+		t.Logf("  Found zone: %s", zone.Name())
+	}
+
+	assert.True(t, zoneNames["channel_1"], "Should have channel_1 zone")
+	assert.True(t, zoneNames["channel_2"], "Should have channel_2 zone")
+	assert.False(t, zoneNames["channel_3"], "Should NOT have channel_3 zone (disabled)")
+
+	t.Logf("✓ Disabled channel (in3_enable=0) correctly skipped during discovery")
+}
+
+// TestDisabledPowerChannelSkipping tests that disabled power channels are skipped during discovery
+func TestDisabledPowerChannelSkipping(t *testing.T) {
+	t.Logf("\n=== Testing Disabled Power Channel Skipping ===")
+
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_power"
+	zones, err := reader.discoverZones(hwmonPath)
+
+	require.NoError(t, err, "discoverZones should not fail")
+	require.NotEmpty(t, zones, "Should find some zones")
+
+	// Check that we only have 2 zones (power1 and power2), not 3
+	// because power3 is disabled (power3_enable = 0)
+	assert.Equal(t, 2, len(zones), "Should have 2 zones (power3 is disabled)")
+
+	// Verify the zone names
+	zoneNames := make(map[string]bool)
+	for _, zone := range zones {
+		zoneNames[zone.Name()] = true
+		t.Logf("  Found zone: %s", zone.Name())
+	}
+
+	assert.True(t, zoneNames["psu_rail_a"], "Should have psu_rail_a zone (power1)")
+	assert.True(t, zoneNames["psu_rail_b"], "Should have psu_rail_b zone (power2)")
+	assert.False(t, zoneNames["psu_rail_c"], "Should NOT have psu_rail_c zone (power3 disabled)")
+
+	t.Logf("✓ Disabled power channel (power3_enable=0) correctly skipped during discovery")
+}
+
+// --- hwmon Energy Zone Tests ---
+
+// TestHwmonEnergyZone_Energy tests reading energy value from an energy zone
+func TestHwmonEnergyZone_Energy(t *testing.T) {
+	zone := &hwmonEnergyZone{
+		name:  "total",
+		index: 1,
+		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+	}
+
+	energy, err := zone.Energy()
+	require.NoError(t, err)
+	assert.Equal(t, Energy(500000000), energy, "Should read 500000000 microjoules")
+}
+
+// TestHwmonEnergyZone_MaxEnergy tests that MaxEnergy returns 0 for energy zones
+func TestHwmonEnergyZone_MaxEnergy(t *testing.T) {
+	zone := &hwmonEnergyZone{
+		name:  "total",
+		index: 1,
+		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+	}
+
+	assert.Equal(t, Energy(0), zone.MaxEnergy(), "MaxEnergy should return 0 for hwmon energy zones")
+}
+
+// TestHwmonEnergyZone_Power tests that Power returns error for energy zones
+func TestHwmonEnergyZone_Power(t *testing.T) {
+	zone := &hwmonEnergyZone{
+		name:  "total",
+		index: 1,
+		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+	}
+
+	_, err := zone.Power()
+	assert.Error(t, err, "Power() should return error for energy zones")
+}
+
+// TestHwmonEnergyZone_Methods tests Name, Index, Path accessors
+func TestHwmonEnergyZone_Methods(t *testing.T) {
+	zone := &hwmonEnergyZone{
+		name:      "total",
+		index:     1,
+		path:      "/sys/class/hwmon/hwmon0/energy1_input",
+		chipName:  "energy_meter",
+		humanName: "energy_meter",
+	}
+
+	assert.Equal(t, "total", zone.Name())
+	assert.Equal(t, 1, zone.Index())
+	assert.Equal(t, "/sys/class/hwmon/hwmon0/energy1_input", zone.Path())
+}
+
+// TestHwmonEnergyZone_Energy_ReadError tests Energy() when the input file is unreadable
+func TestHwmonEnergyZone_Energy_ReadError(t *testing.T) {
+	zone := &hwmonEnergyZone{
+		name:  "total",
+		index: 1,
+		path:  "/nonexistent/path/energy1_input",
+	}
+
+	energy, err := zone.Energy()
+	assert.Error(t, err, "Energy() should return error for unreadable file")
+	assert.Equal(t, Energy(0), energy, "Energy should be 0 on error")
+}
+
+// TestHwmonEnergyZone_Energy_InvalidContent tests Energy() when the input file contains non-numeric data
+func TestHwmonEnergyZone_Energy_InvalidContent(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := filepath.Join(tmpDir, "energy1_input")
+	err := os.WriteFile(inputFile, []byte("not_a_number\n"), 0644)
+	require.NoError(t, err)
+
+	zone := &hwmonEnergyZone{
+		name:  "total",
+		index: 1,
+		path:  inputFile,
+	}
+
+	energy, err := zone.Energy()
+	assert.Error(t, err, "Energy() should return error for non-numeric content")
+	assert.Equal(t, Energy(0), energy, "Energy should be 0 on parse error")
+}
+
+// TestDiscoverZones_EnergySensors tests discovery of a single energy sensor
+func TestDiscoverZones_EnergySensors(t *testing.T) {
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy")
+	require.NoError(t, err)
+	require.Len(t, zones, 1, "Should find 1 energy zone")
+
+	zone := zones[0]
+	_, ok := zone.(*hwmonEnergyZone)
+	assert.True(t, ok, "Zone should be *hwmonEnergyZone type")
+	assert.Equal(t, "total", zone.Name(), "Should use cleaned label as name")
+
+	energy, err := zone.Energy()
+	require.NoError(t, err)
+	assert.Equal(t, Energy(500000000), energy)
+}
+
+// TestDiscoverZones_EnergySensorsMultiple tests discovery of multiple energy sensors
+func TestDiscoverZones_EnergySensorsMultiple(t *testing.T) {
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_multi")
+	require.NoError(t, err)
+	require.Len(t, zones, 3, "Should find 3 energy zones")
+
+	// Collect zone names
+	names := make(map[string]bool)
+	for _, zone := range zones {
+		names[zone.Name()] = true
+		_, ok := zone.(*hwmonEnergyZone)
+		assert.True(t, ok, "Zone should be *hwmonEnergyZone type")
+	}
+
+	assert.True(t, names["sensor_a"], "Should have sensor_a zone")
+	assert.True(t, names["sensor_b"], "Should have sensor_b zone")
+	assert.True(t, names["sensor_c"], "Should have sensor_c zone")
+}
+
+// TestDiscoverZones_EnergySensorNoLabel tests fallback naming when no label is present
+func TestDiscoverZones_EnergySensorNoLabel(t *testing.T) {
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_no_label")
+	require.NoError(t, err)
+	require.Len(t, zones, 1, "Should find 1 energy zone")
+
+	zone := zones[0]
+	// Name should be chipName_energy{N} when no label
+	assert.Contains(t, zone.Name(), "energy1", "Fallback name should contain energy and sensor number")
+}
+
+// TestDiscoverZones_EnergySensorDisabled tests that disabled energy channels are skipped
+func TestDiscoverZones_EnergySensorDisabled(t *testing.T) {
+	reader := &sysfsHwmonReader{
+		basePath: "testdata/sys/class/hwmon",
+	}
+
+	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_disabled")
+	require.NoError(t, err)
+	require.Len(t, zones, 2, "Should find 2 enabled energy zones (energy3 is disabled)")
+
+	// Verify the disabled zone (Rail_C / energy3) is not present
+	for _, zone := range zones {
+		assert.NotEqual(t, "rail_c", zone.Name(), "Disabled zone rail_c should not be discovered")
+	}
+}
+
+// TestDiscoverZones_EnergyPreferredOverPower tests that energy sensors take priority over power sensors
+func TestDiscoverZones_EnergyPreferredOverPower(t *testing.T) {
+	// Create a temp dir with both power and energy sensors
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "class", "hwmon", "hwmon0")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	// Write chip name
+	err = os.WriteFile(filepath.Join(hwmonDir, "name"), []byte("test_chip\n"), 0644)
+	require.NoError(t, err)
+
+	// Write power sensor
+	err = os.WriteFile(filepath.Join(hwmonDir, "power1_input"), []byte("50000000\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "power1_label"), []byte("CPU\n"), 0644)
+	require.NoError(t, err)
+
+	// Write energy sensor
+	err = os.WriteFile(filepath.Join(hwmonDir, "energy1_input"), []byte("500000000\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "energy1_label"), []byte("Total\n"), 0644)
+	require.NoError(t, err)
+
+	reader := &sysfsHwmonReader{basePath: filepath.Join(tmpDir, "class", "hwmon")}
+	zones, err := reader.discoverZones(hwmonDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, zones)
+
+	// All zones should be energy zones, not power zones
+	for _, zone := range zones {
+		_, ok := zone.(*hwmonEnergyZone)
+		assert.True(t, ok, "Energy sensors should be preferred over power sensors")
+	}
+}
+
+// TestDiscoverZones_EnergyPreferredOverVoltCurr tests that energy sensors are used before V×I fallback
+func TestDiscoverZones_EnergyPreferredOverVoltCurr(t *testing.T) {
+	// Create a temp dir with both energy and voltage/current sensors but no power sensors
+	tmpDir := t.TempDir()
+	hwmonDir := filepath.Join(tmpDir, "class", "hwmon", "hwmon0")
+	err := os.MkdirAll(hwmonDir, 0755)
+	require.NoError(t, err)
+
+	// Write chip name
+	err = os.WriteFile(filepath.Join(hwmonDir, "name"), []byte("test_chip\n"), 0644)
+	require.NoError(t, err)
+
+	// Write energy sensor
+	err = os.WriteFile(filepath.Join(hwmonDir, "energy1_input"), []byte("500000000\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "energy1_label"), []byte("Total\n"), 0644)
+	require.NoError(t, err)
+
+	// Write voltage/current sensors
+	err = os.WriteFile(filepath.Join(hwmonDir, "in1_input"), []byte("12000\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "in1_label"), []byte("VCC\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "curr1_input"), []byte("5000\n"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(hwmonDir, "curr1_label"), []byte("VCC\n"), 0644)
+	require.NoError(t, err)
+
+	reader := &sysfsHwmonReader{basePath: filepath.Join(tmpDir, "class", "hwmon")}
+	zones, err := reader.discoverZones(hwmonDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, zones)
+
+	// All zones should be energy zones, not voltage/current zones
+	for _, zone := range zones {
+		_, ok := zone.(*hwmonEnergyZone)
+		assert.True(t, ok, "Energy sensors should be preferred over voltage/current calculation")
+	}
+}
+
+// TestIsSensorEnabled_Energy tests isSensorEnabled with energy sensor enable files
+func TestIsSensorEnabled_Energy(t *testing.T) {
+	hwmonPath := "testdata/sys/class/hwmon/hwmon_energy_disabled"
+
+	// energy1 has enable=1 → enabled
+	assert.True(t, isSensorEnabled(hwmonPath, "energy", 1, nil), "energy1 should be enabled (enable=1)")
+
+	// energy2 has enable=1 → enabled
+	assert.True(t, isSensorEnabled(hwmonPath, "energy", 2, nil), "energy2 should be enabled (enable=1)")
+
+	// energy3 has enable=0 → disabled
+	assert.False(t, isSensorEnabled(hwmonPath, "energy", 3, nil), "energy3 should be disabled (enable=0)")
+
+	// No enable file → enabled by default
+	assert.True(t, isSensorEnabled("testdata/sys/class/hwmon/hwmon_energy", "energy", 1, nil),
+		"Should be enabled when no enable file exists")
 }

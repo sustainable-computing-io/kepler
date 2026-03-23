@@ -1,21 +1,42 @@
 # Build the binary
-FROM golang:1.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
 
 # Build arguments for binary
 ARG VERSION
 ARG GIT_COMMIT
 ARG GIT_BRANCH
+ARG TARGETARCH
+ARG BUILDARCH
+
+# Install cross-compiler if building for a different architecture
+RUN if [ "$BUILDARCH" = "$TARGETARCH" ]; then \
+      echo "Native build, no cross-compiler needed"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu libc6-dev-arm64-cross && rm -rf /var/lib/apt/lists/*; \
+    elif [ "$TARGETARCH" = "amd64" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+        gcc-x86-64-linux-gnu libc6-dev-amd64-cross && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 WORKDIR /workspace
 
 COPY . .
 
-RUN make build \
-  CGO_ENABLED=1 \
-  PRODUCTION=1 \
-  VERSION=${VERSION} \
-  GIT_COMMIT=${GIT_COMMIT} \
-  GIT_BRANCH=${GIT_BRANCH}
+RUN CROSS_CC=""; \
+    if [ "$TARGETARCH" = "arm64" ] && [ "$BUILDARCH" != "arm64" ]; then \
+      CROSS_CC=aarch64-linux-gnu-gcc; \
+    elif [ "$TARGETARCH" = "amd64" ] && [ "$BUILDARCH" != "amd64" ]; then \
+      CROSS_CC=x86_64-linux-gnu-gcc; \
+    fi; \
+    make build \
+      CGO_ENABLED=1 \
+      PRODUCTION=1 \
+      GOARCH=${TARGETARCH} \
+      ${CROSS_CC:+CC=${CROSS_CC}} \
+      VERSION=${VERSION} \
+      GIT_COMMIT=${GIT_COMMIT} \
+      GIT_BRANCH=${GIT_BRANCH}
 
 FROM registry.access.redhat.com/ubi9:latest
 

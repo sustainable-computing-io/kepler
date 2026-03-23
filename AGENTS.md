@@ -30,6 +30,12 @@ CGO_ENABLED=1 go test -v -race ./internal/monitor/...
 CGO_ENABLED=1 go test -v -race ./internal/device/...
 CGO_ENABLED=1 go test -v -race ./config/...
 
+# Cross-compilation (CGO required by go-nvml, needs C cross-compiler)
+make build GOARCH=arm64 CC=aarch64-linux-gnu-gcc  # ARM64 binary
+make image GOARCH=arm64                           # ARM64 container image
+make image-multi                                  # Multi-arch image build (amd64+arm64), local only
+make push-multi                                   # Push multi-arch images and create manifest
+
 # Local integration testing
 cd compose/dev && docker compose up --build -d   # Kepler + Prometheus + Grafana
 cd compose/dev && docker compose down --volumes   # cleanup
