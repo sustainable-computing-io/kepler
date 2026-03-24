@@ -382,7 +382,6 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 // Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
 func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
 	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
-		logger.Info("GPU feature disabled")
 		return nil
 	}
 
