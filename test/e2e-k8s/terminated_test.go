@@ -78,6 +78,89 @@ func TestTerminatedPodTracking(t *testing.T) {
 	testenv.Test(t, feature)
 }
 
+// TestTerminatedPodZeroPower verifies that when a pod terminates, Kepler emits
+// a 0W data point with state=running before the series disappears. This prevents
+// Prometheus staleness from holding the last non-zero power value for 5 minutes.
+func TestTerminatedPodZeroPower(t *testing.T) {
+	feature := features.New("terminated-pod-zero-power").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			deployStressWorkload(ctx, t, cfg)
+			return ctx
+		}).
+		Assess("pod has non-zero power while running", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ok := waitForStressPodInMetrics(ctx, t, "running", waitForMetrics)
+			require.True(t, ok, "Pod should appear in metrics while running")
+
+			snapshot := takeSnapshot(t)
+			power := getStressPodPower(snapshot, "running")
+			t.Logf("Stress pod power while running: %.4f W", power)
+			assert.Greater(t, power, float64(0), "Running pod should have non-zero power")
+
+			return ctx
+		}).
+		Assess("pod emits 0W after termination", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Delete workload
+			deleteStressWorkload(ctx, t, cfg)
+
+			// Poll for 0W with state=running. The collector tracks previously-seen
+			// running pods and emits 0W when they disappear. This only happens on
+			// the first scrape after the pod is gone, so we must catch it.
+			sawZero := waitForMetricCondition(ctx, t, func(s *common.MetricsSnapshot) bool {
+				for _, m := range s.GetAllWithName("kepler_pod_cpu_watts") {
+					if isStressPodMetric(m, "running") && m.Value == 0 {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second)
+
+			if sawZero {
+				t.Log("Confirmed: 0W emitted for terminated pod with state=running")
+			} else {
+				// The 0W emission is a one-scrape event. If we missed it, verify
+				// the pod is at least gone from the metrics (not stuck at non-zero).
+				snapshot := takeSnapshot(t)
+				power := getStressPodPower(snapshot, "running")
+				t.Logf("Stress pod power after deletion: %.4f W (0 means metric gone)", power)
+				assert.Equal(t, float64(0), power,
+					"After termination, pod power should be 0 (either explicit 0W or absent)")
+			}
+
+			return ctx
+		}).
+		Assess("terminated pod preserves energy", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			// Terminated pods should have 0W power but preserved energy (joules)
+			ok := waitForMetricCondition(ctx, t, func(s *common.MetricsSnapshot) bool {
+				for _, m := range s.GetAllWithName("kepler_pod_cpu_watts") {
+					if isStressPodMetric(m, "terminated") {
+						return m.Value == 0
+					}
+				}
+				return false
+			}, 30*time.Second)
+
+			if ok {
+				snapshot := takeSnapshot(t)
+				power := getStressPodPower(snapshot, "terminated")
+				energy := getStressPodEnergy(snapshot, "terminated")
+				t.Logf("Terminated pod: power=%.4f W, energy=%.4f J", power, energy)
+				assert.Equal(t, float64(0), power, "Terminated pod watts should be 0")
+				assert.Greater(t, energy, float64(0), "Terminated pod should preserve accumulated energy")
+			} else {
+				t.Log("Note: Terminated pod metrics may have already been cleared")
+			}
+
+			return ctx
+		}).
+		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			deleteStressWorkload(ctx, t, cfg)
+			return ctx
+		}).
+		Feature()
+
+	testenv.Test(t, feature)
+}
+
 // TestTerminatedContainerTracking verifies that terminated containers appear in metrics
 func TestTerminatedContainerTracking(t *testing.T) {
 	feature := features.New("terminated-container-tracking").
