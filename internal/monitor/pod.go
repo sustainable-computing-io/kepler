@@ -65,6 +65,21 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 	pods := pm.resources.Pods()
 
 	// Handle terminated pods
+	//
+	// When a pod terminates, its processes are gone from /proc and it no longer
+	// consumes CPU. However, the resource layer preserves the pod's last non-zero
+	// CPUTimeDelta (frozen at termination), so we cannot simply re-run the power
+	// formula to get zero — it would compute a stale non-zero value.
+	//
+	// We explicitly zero the instantaneous power (watts) because:
+	//   1. The pod has no running processes, so its real power consumption is 0W.
+	//   2. The cumulative energy (joules) is preserved — it represents total
+	//      energy consumed over the pod's lifetime and must not be lost.
+	//   3. When Prometheus scrapes this zero value before the series goes stale,
+	//      the staleness marker holds 0W instead of the last non-zero power,
+	//      preventing phantom power readings in dashboards.
+	//
+	// GPU power is also zeroed for the same reason — the GPU workload has ended.
 	pm.logger.Debug("Processing terminated pods", "terminated", len(pods.Terminated))
 	for id := range pods.Terminated {
 		prevPod, exists := prev.Pods[id]
@@ -72,9 +87,20 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 			continue
 		}
 
-		// Add to internal tracker (which will handle priority-based retention)
-		// NOTE: Each terminated pod is only added once since a pod cannot be terminated twice
-		pm.terminatedPodsTracker.Add(prevPod.Clone())
+		clone := prevPod.Clone()
+
+		// Zero instantaneous power: the pod is no longer running, so its
+		// real-time power draw is 0W. We preserve EnergyTotal (cumulative
+		// joules) since that represents the pod's historical consumption.
+		for zone, usage := range clone.Zones {
+			clone.Zones[zone] = Usage{
+				EnergyTotal: usage.EnergyTotal,
+				Power:       Power(0),
+			}
+		}
+		clone.GPUPower = 0
+
+		pm.terminatedPodsTracker.Add(clone)
 	}
 
 	// Skip if no running pods

@@ -477,23 +477,23 @@ func TestTerminatedPodTracking(t *testing.T) {
 		require.NotNil(t, terminatedPod, "Pod pod-1 should exist in terminated pods")
 		originalPod := prevSnapshot.Pods["pod-1"]
 
-		// Verify terminated pod preserves energy and power from last running state
+		// Verify terminated pod preserves energy but zeroes power
+		// Power is 0W because the pod is no longer running (no processes in /proc).
+		// Energy is preserved because it's cumulative (total joules over lifetime).
 		assert.Equal(t, originalPod.ID, terminatedPod.ID)
 		assert.Equal(t, originalPod.Name, terminatedPod.Name)
 		assert.Equal(t, originalPod.Namespace, terminatedPod.Namespace)
 
 		expectedEnergy := make(map[string]Energy)
-		expectedPower := make(map[string]Power)
 		for zoneName, usage := range originalPod.Zones {
 			expectedEnergy[zoneName.Name()] = usage.EnergyTotal
-			expectedPower[zoneName.Name()] = usage.Power
 		}
 
 		for zoneName, terminatedUsage := range terminatedPod.Zones {
 			assert.Equal(t, expectedEnergy[zoneName.Name()], terminatedUsage.EnergyTotal,
 				"Terminated pod energy should be preserved from last running state for zone %s", zoneName.Name())
-			assert.Equal(t, expectedPower[zoneName.Name()], terminatedUsage.Power,
-				"Terminated pod power should be preserved from last running state for zone %s", zoneName.Name())
+			assert.Equal(t, Power(0), terminatedUsage.Power,
+				"Terminated pod power should be zero (pod no longer running) for zone %s", zoneName.Name())
 		}
 
 		// Verify running pods still exist
@@ -691,7 +691,7 @@ func TestTerminatedPodTracking(t *testing.T) {
 		assert.Contains(t, snapshot3.Pods, "pod-3")
 	})
 
-	t.Run("terminated pod preserves GPU power", func(t *testing.T) {
+	t.Run("terminated pod zeroes GPU power", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
 		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
@@ -759,7 +759,7 @@ func TestTerminatedPodTracking(t *testing.T) {
 		// Populate terminated from tracker
 		newSnapshot.TerminatedPods = monitor.terminatedPodsTracker.Items()
 
-		// Verify the terminated pod preserves GPU power
+		// Verify the terminated pod zeroes GPU power (pod is no longer running)
 		assert.Len(t, newSnapshot.TerminatedPods, 1, "Should have 1 terminated pod")
 
 		var terminatedPod1 *Pod
@@ -770,9 +770,94 @@ func TestTerminatedPodTracking(t *testing.T) {
 			}
 		}
 		require.NotNil(t, terminatedPod1, "pod-1 should exist in terminated pods")
-		assert.Equal(t, 100.0, terminatedPod1.GPUPower, "Terminated pod should preserve GPU power")
+		assert.Equal(t, 0.0, terminatedPod1.GPUPower, "Terminated pod GPU power should be zero (no running workload)")
 
 		resInformer.AssertExpectations(t)
+	})
+
+	t.Run("terminated_pod_reports_zero_power_with_preserved_energy", func(t *testing.T) {
+		// Regression test: when a pod terminates, its instantaneous power must
+		// be 0W (it has no running processes) while cumulative energy (joules)
+		// is preserved. Without this, Prometheus staleness holds the last non-zero
+		// power value for ~5 minutes, causing phantom power readings in dashboards.
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// Create previous snapshot with a pod that has significant power and energy
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		const knownPower = Power(42 * Watt)
+		const knownEnergy = Energy(200 * Joule)
+		const knownGPUPower = 75.0
+
+		prevSnapshot.Pods["pod-1"] = &Pod{
+			ID:           "pod-1",
+			Name:         "busy-pod",
+			Namespace:    "workload",
+			CPUTotalTime: 100.0,
+			GPUPower:     knownGPUPower,
+			Zones:        make(ZoneUsageMap, len(zones)),
+		}
+		for _, zone := range zones {
+			prevSnapshot.Pods["pod-1"].Zones[zone] = Usage{
+				EnergyTotal: knownEnergy,
+				Power:       knownPower,
+			}
+		}
+
+		// Pod terminates
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		pods := &resource.Pods{
+			Running: map[string]*resource.Pod{},
+			Terminated: map[string]*resource.Pod{
+				"pod-1": {ID: "pod-1", Name: "busy-pod", Namespace: "workload", CPUTimeDelta: 50.0},
+			},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Pods").Return(pods).Once()
+
+		err = monitor.calculatePodPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		newSnapshot.TerminatedPods = monitor.terminatedPodsTracker.Items()
+		require.Len(t, newSnapshot.TerminatedPods, 1)
+
+		var terminated *Pod
+		for _, pod := range newSnapshot.TerminatedPods {
+			if pod.ID == "pod-1" {
+				terminated = pod
+				break
+			}
+		}
+		require.NotNil(t, terminated, "pod-1 should exist in terminated pods")
+
+		// Power must be zero — pod is not running
+		for zone, usage := range terminated.Zones {
+			assert.Equal(t, Power(0), usage.Power,
+				"Terminated pod power must be 0W for zone %s", zone.Name())
+			assert.Equal(t, knownEnergy, usage.EnergyTotal,
+				"Terminated pod energy must be preserved for zone %s", zone.Name())
+		}
+		assert.Equal(t, 0.0, terminated.GPUPower,
+			"Terminated pod GPU power must be 0W")
 	})
 
 	t.Run("terminated_pod_with_zero_energy_filtering", func(t *testing.T) {

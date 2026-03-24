@@ -1084,6 +1084,21 @@ func TestTerminatedContainerExport(t *testing.T) {
 			}, 55.0)
 	})
 
+	t.Run("Terminated Pod Emits Zero Watts With State Running", func(t *testing.T) {
+		// When a pod terminates, we emit a 0W data point on the state=running
+		// series so Prometheus records a clean zero before the series goes stale.
+		// Without this, Prometheus staleness holds the last non-zero power value
+		// for up to 5 minutes, causing phantom power readings in dashboards.
+		assertMetricLabelValues(t, registry, "kepler_pod_cpu_watts",
+			map[string]string{
+				"pod_id":        "terminated-pod",
+				"pod_name":      "terminated-pod-name",
+				"pod_namespace": "default",
+				"state":         "running",
+				"zone":          "package",
+			}, 0.0)
+	})
+
 	mockMonitor.AssertExpectations(t)
 }
 

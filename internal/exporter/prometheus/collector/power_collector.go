@@ -72,6 +72,18 @@ type PowerCollector struct {
 	gpuJoulesDescriptor       *prometheus.Desc
 	gpuActiveJoulesDescriptor *prometheus.Desc
 	gpuIdleJoulesDescriptor   *prometheus.Desc
+
+	// Track previously running pods to emit 0W when they disappear.
+	// This ensures Prometheus gets a clean zero data point instead of
+	// holding the last non-zero value via staleness for up to 5 minutes.
+	prevRunningPods map[string]podInfo
+}
+
+// podInfo stores minimal pod metadata needed to emit a 0W metric.
+type podInfo struct {
+	Name      string
+	Namespace string
+	Zones     []string
 }
 
 func joulesDesc(level, device, nodeName string, labels []string) *prometheus.Desc {
@@ -174,6 +186,8 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 		gpuJoulesDescriptor:       joulesDesc("node", "gpu", nodeName, []string{"gpu", "gpu_uuid", "gpu_name", "vendor"}),
 		gpuActiveJoulesDescriptor: deviceStateJoulesDesc("node", "gpu", "active", nodeName, []string{"gpu", "gpu_uuid", "gpu_name", "vendor"}),
 		gpuIdleJoulesDescriptor:   deviceStateJoulesDesc("node", "gpu", "idle", nodeName, []string{"gpu", "gpu_uuid", "gpu_name", "vendor"}),
+
+		prevRunningPods: make(map[string]podInfo),
 	}
 
 	go c.waitForData()
@@ -293,6 +307,12 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	if c.metricsLevel.IsPodEnabled() {
 		c.collectPodMetrics(ch, "running", snapshot.Pods)
 		c.collectPodMetrics(ch, "terminated", snapshot.TerminatedPods)
+
+		// Emit 0W with state=running for pods that were running on the previous
+		// scrape but are now gone. This gives Prometheus a clean zero on the same
+		// series, preventing staleness from holding a stale non-zero value for
+		// up to 5 minutes after pod termination.
+		c.emitZeroForDisappearedPods(ch, snapshot.Pods)
 	}
 
 	// Collect GPU device stats (node-level)
@@ -553,6 +573,43 @@ func (c *PowerCollector) collectPodMetrics(ch chan<- prometheus.Metric, state st
 				pod.GPUEnergyTotal.Joules(),
 				id, pod.Name, pod.Namespace, state,
 			)
+		}
+	}
+}
+
+// emitZeroForDisappearedPods compares the current running pods against the
+// previous scrape's running pods. For any pod that was running before but is
+// now gone, it emits a 0W gauge with state=running. This gives Prometheus a
+// clean zero data point on the same series, so staleness holds 0W instead of
+// the last non-zero value for up to 5 minutes.
+func (c *PowerCollector) emitZeroForDisappearedPods(ch chan<- prometheus.Metric, currentPods monitor.Pods) {
+	// Find pods that were in prevRunningPods but are not in currentPods
+	for id, prev := range c.prevRunningPods {
+		if _, stillRunning := currentPods[id]; !stillRunning {
+			c.logger.Debug("Emitting 0W for disappeared pod", "pod", prev.Name)
+			for _, zoneName := range prev.Zones {
+				ch <- prometheus.MustNewConstMetric(
+					c.podCPUWattsDescriptor,
+					prometheus.GaugeValue,
+					0.0,
+					id, prev.Name, prev.Namespace, "running",
+					zoneName,
+				)
+			}
+		}
+	}
+
+	// Update prevRunningPods with current running pods
+	c.prevRunningPods = make(map[string]podInfo, len(currentPods))
+	for id, pod := range currentPods {
+		zones := make([]string, 0, len(pod.Zones))
+		for zone := range pod.Zones {
+			zones = append(zones, zone.Name())
+		}
+		c.prevRunningPods[id] = podInfo{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			Zones:     zones,
 		}
 	}
 }
