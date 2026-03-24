@@ -135,12 +135,8 @@ func (pm *PowerMonitor) Init() error {
 		"zone", primaryEnergyZone.Name())
 
 	// Log GPU meter status
-	if len(pm.gpuMeters) > 0 {
-		for _, m := range pm.gpuMeters {
-			pm.logger.Info("GPU meter configured", "vendor", m.Vendor(), "devices", len(m.Devices()))
-		}
-	} else {
-		pm.logger.Info("No GPU meters configured")
+	for _, m := range pm.gpuMeters {
+		pm.logger.Info("GPU meter configured", "vendor", m.Vendor(), "devices", len(m.Devices()))
 	}
 
 	// Initialize terminated workload trackers with the primary energy zone and minimum energy threshold
