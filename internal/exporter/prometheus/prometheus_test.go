@@ -99,13 +99,7 @@ func TestNewExporter(t *testing.T) {
 		},
 		expectService: "prometheus",
 	}, {
-		name: "with node name set as empty string",
-		opts: []OptionFn{
-			WithNodeName(""),
-		},
-		expectService: "prometheus",
-	}, {
-		name: "with node name set passing string as input parameter",
+		name: "with node name",
 		opts: []OptionFn{
 			WithNodeName("myNodeName"),
 		},

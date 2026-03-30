@@ -2227,6 +2227,39 @@ func TestResolveRedfishNodeName(t *testing.T) {
 	}
 }
 
+func TestNodeNameFallbackToHostname(t *testing.T) {
+	hostname, err := os.Hostname()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		args       []string
+		expectNode string
+	}{{
+		name:       "no flags uses hostname fallback",
+		args:       []string{},
+		expectNode: hostname,
+	}, {
+		name:       "explicit node name is preserved",
+		args:       []string{"--kube.node-name", "my-node"},
+		expectNode: "my-node",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := kingpin.New("test", "Test application")
+			updateConfig := RegisterFlags(app)
+			_, err := app.Parse(tc.args)
+			assert.NoError(t, err)
+
+			cfg := DefaultConfig()
+			err = updateConfig(cfg)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectNode, cfg.Kube.Node)
+		})
+	}
+}
+
 func TestIsFeatureEnabled(t *testing.T) {
 	tests := []struct {
 		name     string
