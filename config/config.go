@@ -537,6 +537,16 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		// Apply experimental GPU settings
 		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint)
 
+		// Resolve Kube.Node fallback to hostname when Kubernetes is not enabled
+		// and no node name was set by flags or YAML
+		if cfg.Kube.Node == "" && !ptr.Deref(cfg.Kube.Enabled, false) {
+			hostname, err := os.Hostname()
+			if err != nil {
+				return fmt.Errorf("failed to resolve node name: %w", err)
+			}
+			cfg.Kube.Node = hostname
+		}
+
 		cfg.sanitize()
 		return cfg.Validate()
 	}
