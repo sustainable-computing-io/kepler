@@ -399,3 +399,53 @@ func CreateTestResources(opts ...resOptFn) *TestResource {
 
 	return &TestResource{node, processes, containers, vms, pods}
 }
+
+type SwitchingResourceInformer struct {
+	current      *TestResource
+	low          *TestResource
+	high         *TestResource
+	refreshCount int
+}
+
+// Implement resource.Informer
+func (s *SwitchingResourceInformer) Name() string {
+	return "switching-resource-informer"
+}
+
+func (s *SwitchingResourceInformer) Init() error {
+	return nil
+}
+
+func (s *SwitchingResourceInformer) Refresh() error {
+	s.refreshCount++
+	// Keep low on first refresh, switch to high on second refresh.
+	// This gives:
+	//   init/first snapshot -> low
+	//   second snapshot      -> high
+	if s.refreshCount >= 2 {
+		s.current = s.high
+	} else {
+		s.current = s.low
+	}
+	return nil
+}
+
+func (s *SwitchingResourceInformer) Node() *resource.Node {
+	return s.current.Node
+}
+
+func (s *SwitchingResourceInformer) Processes() *resource.Processes {
+	return s.current.Processes
+}
+
+func (s *SwitchingResourceInformer) Containers() *resource.Containers {
+	return s.current.Containers
+}
+
+func (s *SwitchingResourceInformer) VirtualMachines() *resource.VirtualMachines {
+	return s.current.VirtualMachines
+}
+
+func (s *SwitchingResourceInformer) Pods() *resource.Pods {
+	return s.current.Pods
+}
