@@ -1,17 +1,16 @@
 # Maintainers
 
-- **Cycle:** Fall 2025
-- **Period:** October 1, 2025 – March 31, 2026
+- **Cycle:** Spring 2026
+- **Period:** April 1, 2026 – September 30, 2026
 
 | Name                  | Company | Github ID    | Email                            | Role                                                          |
 |-----------------------|---------|--------------|----------------------------------|---------------------------------------------------------------|
-| Sunil Thaha           | Red Hat | sthaha       | <gh.dev@thaha.me>                | Project Lead                                                  |
-| Vimal Kumar           | Red Hat | vimalk78     | <vimal78@gmail.com>              | Technical Committee, Release Management, Repository Oversight |
+| Vimal Kumar           | Red Hat | vimalk78     | <vimal78@gmail.com>              | Project Lead                                                  |
 | Vibhu Prashar         | Red Hat | vprashar2929 | <vibhu.sharma2929@gmail.com>     | Technical Committee, Release Management, Repository Oversight |
 | Kaiyi Liu             | Red Hat | KaiyiLiu1234 | <kaliu@redhat.com>               | Technical Committee                                           |
+| Sunil Thaha           | Red Hat | sthaha       | <gh.dev@thaha.me>                | Technical Committee                                           |
 | Peng Hui Jiang        | cogiot  | jiangphcn    | <jiangphcn@apache.org>           | Technical Committee                                           |
 | Brad McCoy            | Basiq   | bradmccoydev | <bradmccoydev@gmail.com>         | Technical Committee                                           |
-| Qi Feng Huo           | IBM     | huoqifeng    | <huoqif@cn.ibm.com>              | Technical Committee                                           |
 | Yi Yuan               |         | SamYuan1990  | <yy19902439@126.com>             | Community Engagement                                          |
 | Sunyanan Choochotkaew | IBM     | sunya-ch     | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
 | Vasco Gervasi         |         | yellowhat    | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
@@ -40,3 +39,4 @@ They may return to active status in a future cycle by reaffirming their commitme
 | Jie Ren         | Intel        | jiere          | <jie.ren@intel.com>           | Spring 2025 |
 | Dave Tucker     | Red Hat      | dave-tucker    | <datucker@redhat.com>         | Spring 2025 |
 | Maryam Tahhan   | Red Hat      | maryamtahhan   | <mtahhan@redhat.com>          | Spring 2025 |
+| Qi Feng Huo     | IBM          | huoqifeng      | <huoqif@cn.ibm.com>           | Fall 2025   |
