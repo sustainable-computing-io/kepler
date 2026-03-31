@@ -464,3 +464,135 @@ func TestIntegration_Monitor_Snapshot(t *testing.T) {
 		snapshot1.Node.Zones[pkg].EnergyTotal.Joules(),
 		snapshot3.Node.Zones[pkg].EnergyTotal.Joules())
 }
+
+func TestIntegration_Monitor_Snapshot_UsesRefreshedUtilizationInSameCycle(t *testing.T) {
+
+	// Create low-utilization resources for first snapshot
+	trLow := CreateTestResources(
+		withNodeCpuUsage(0.1),        // 10% CPU usage
+		withNodeCpuTimeDelta(2000.0), // enough CPU time for attribution
+	)
+
+	// Create high-utilization resources for second snapshot
+	trHigh := CreateTestResources(
+		withNodeCpuUsage(0.8), // 80% CPU usage
+		withNodeCpuTimeDelta(2000.0),
+	)
+
+	// Deterministic power meter
+	mockPowerMeter := &MockCPUPowerMeter{}
+	pkg := &MockEnergyZone{}
+	pkg.On("Name").Return("package").Maybe()
+	pkg.On("Index").Return(0).Maybe()
+	pkg.On("MaxEnergy").Return(1000 * Joule).Maybe()
+	pkg.On("Power").Return(Power(0), assert.AnError).Maybe()
+
+	// Energy progression:
+	// snapshot1 total = 100J
+	// snapshot2 total = 150J => delta = 50J over 5s => 10W average
+	pkg.On("Energy").Return(100*Joule, nil).Once()
+	pkg.On("Energy").Return(150*Joule, nil).Once()
+
+	energyZones := []EnergyZone{pkg}
+	mockPowerMeter.On("Zones").Return(energyZones, nil).Maybe()
+	mockPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil).Maybe()
+	mockPowerMeter.On("Name").Return("mock-cpu").Maybe()
+
+	resourceInformer := &SwitchingResourceInformer{
+		current: trLow,
+		low:     trLow,
+		high:    trHigh,
+	}
+
+	startTime := time.Date(2025, 7, 10, 12, 0, 0, 0, time.UTC)
+	fakeClock := testingclock.NewFakeClock(startTime)
+
+	monitor := NewPowerMonitor(
+		mockPowerMeter,
+		WithResourceInformer(resourceInformer),
+		WithClock(fakeClock),
+		WithLogger(slog.Default().With("test", "refresh-ordering")),
+	)
+
+	err := monitor.Init()
+	require.NoError(t, err)
+
+	// Snapshot 1
+	snapshot1, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, snapshot1)
+
+	t.Logf("snapshot1 refreshCount=%d cpu=%.2f",
+		resourceInformer.refreshCount,
+		resourceInformer.current.Node.CPUUsageRatio,
+	)
+
+	// First reading uses low utilization: 100J * 10% = 10J active, 90J idle
+	assert.Equal(t, 10*Joule, snapshot1.Node.Zones[pkg].ActiveEnergyTotal)
+	assert.Equal(t, 90*Joule, snapshot1.Node.Zones[pkg].IdleEnergyTotal)
+
+	// Advance time so second snapshot computes power from delta
+	fakeClock.Step(5 * time.Second)
+
+	// Snapshot 2
+	snapshot2, err := monitor.Snapshot()
+	require.NoError(t, err)
+	require.NotNil(t, snapshot2)
+
+	t.Logf("snapshot2 refreshCount=%d cpu=%.2f",
+		resourceInformer.refreshCount,
+		resourceInformer.current.Node.CPUUsageRatio,
+	)
+	t.Logf("snapshot2 total energy: %.0f J", snapshot2.Node.Zones[pkg].EnergyTotal.Joules())
+	t.Logf("snapshot2 active total: %.0f J", snapshot2.Node.Zones[pkg].ActiveEnergyTotal.Joules())
+	t.Logf("snapshot2 idle total: %.0f J", snapshot2.Node.Zones[pkg].IdleEnergyTotal.Joules())
+	t.Logf("snapshot2 power: %.0f W", snapshot2.Node.Zones[pkg].Power.Watts())
+	t.Logf("snapshot2 active power: %.0f W", snapshot2.Node.Zones[pkg].ActivePower.Watts())
+	t.Logf("snapshot2 idle power: %.0f W", snapshot2.Node.Zones[pkg].IdlePower.Watts())
+
+	// Delta is 50J.
+	// If refresh happens before node power calculation on snapshot2,
+	// the active split should use HIGH utilization (80%):
+	//   active delta = 40J
+	//   idle delta   = 10J
+	expectedActiveDelta := 40 * Joule
+	expectedIdleDelta := 10 * Joule
+
+	expectedActiveTotal2 := 10*Joule + expectedActiveDelta // 10 + 40 = 50J
+	expectedIdleTotal2 := 90*Joule + expectedIdleDelta     // 90 + 10 = 100J
+
+	t.Logf("expected active delta: %.0f J, snapshot2.Node.Zones[pkg].ActiveEnergyTotal: %.0f J",
+		expectedActiveDelta.Joules(),
+		snapshot2.Node.Zones[pkg].ActiveEnergyTotal.Joules(),
+	)
+
+	assert.Equal(t, expectedActiveTotal2,
+		snapshot2.Node.Zones[pkg].ActiveEnergyTotal,
+		"second snapshot must use refreshed/current CPU usage for active energy split",
+	)
+
+	assert.Equal(t, expectedIdleTotal2,
+		snapshot2.Node.Zones[pkg].IdleEnergyTotal,
+		"second snapshot must use refreshed/current CPU usage for idle energy split",
+	)
+
+	// Total power from 50J / 5s = 10W
+	// With 80% usage:
+	//   active power = 8W
+	//   idle power   = 2W
+	totalPower := snapshot2.Node.Zones[pkg].Power
+	expectedActivePower := Power(float64(totalPower) * 0.8)
+	expectedIdlePower := totalPower - expectedActivePower
+
+	assert.Equal(t, expectedActivePower, snapshot2.Node.Zones[pkg].ActivePower)
+	assert.Equal(t, expectedIdlePower, snapshot2.Node.Zones[pkg].IdlePower)
+
+	// Strong anti-regression check:
+	// stale behavior would keep using 10% on snapshot2:
+	//   active total = 10J + 5J = 15J
+	staleActiveTotal := 15 * Joule
+	assert.NotEqual(t, staleActiveTotal,
+		snapshot2.Node.Zones[pkg].ActiveEnergyTotal,
+		"active energy must not lag by one snapshot",
+	)
+}
