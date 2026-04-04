@@ -15,7 +15,7 @@ import (
 
 func TestDefaultHwmonConfig(t *testing.T) {
 	hwmon := defaultHwmonConfig()
-	assert.Equal(t, ptr.To(false), hwmon.Enabled)
+	assert.Equal(t, ptr.To(false), hwmon.ForceEnabled)
 	assert.Empty(t, hwmon.Zones)
 }
 
@@ -38,12 +38,12 @@ func TestApplyHwmonFlags(t *testing.T) {
 		name:  "enabled flag set",
 		hwmon: &Hwmon{},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
+			ExperimentalHwmonForceEnabledFlag: true,
 		},
 		enabled: ptr.To(true),
 		zones:   &[]string{"package", "core"},
 		expected: &Hwmon{
-			Enabled: ptr.To(true),
+			ForceEnabled: ptr.To(true),
 		},
 	}, {
 		name:  "zones flag set",
@@ -60,25 +60,25 @@ func TestApplyHwmonFlags(t *testing.T) {
 		name:  "all flags set",
 		hwmon: &Hwmon{},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
-			ExperimentalHwmonZonesFlag:   true,
+			ExperimentalHwmonForceEnabledFlag: true,
+			ExperimentalHwmonZonesFlag:        true,
 		},
 		enabled: ptr.To(true),
 		zones:   &[]string{"package", "core"},
 		expected: &Hwmon{
-			Enabled: ptr.To(true),
-			Zones:   []string{"package", "core"},
+			ForceEnabled: ptr.To(true),
+			Zones:        []string{"package", "core"},
 		},
 	}, {
 		name:  "enabled false flag",
 		hwmon: &Hwmon{},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
+			ExperimentalHwmonForceEnabledFlag: true,
 		},
 		enabled: ptr.To(false),
 		zones:   &[]string{},
 		expected: &Hwmon{
-			Enabled: ptr.To(false),
+			ForceEnabled: ptr.To(false),
 		},
 	}, {
 		name:  "empty zones",
@@ -113,7 +113,7 @@ func TestHasHwmonFlags(t *testing.T) {
 	}, {
 		name: "enabled flag set",
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
+			ExperimentalHwmonForceEnabledFlag: true,
 		},
 		expected: true,
 	}, {
@@ -125,8 +125,8 @@ func TestHasHwmonFlags(t *testing.T) {
 	}, {
 		name: "multiple hwmon flags set",
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
-			ExperimentalHwmonZonesFlag:   true,
+			ExperimentalHwmonForceEnabledFlag: true,
+			ExperimentalHwmonZonesFlag:        true,
 		},
 		expected: true,
 	}, {
@@ -163,7 +163,7 @@ func TestApplyHwmonConfig(t *testing.T) {
 		name: "has hwmon flags",
 		cfg:  &Config{},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
+			ExperimentalHwmonForceEnabledFlag: true,
 		},
 		enabled: ptr.To(true),
 		zones:   &[]string{"package"},
@@ -172,13 +172,13 @@ func TestApplyHwmonConfig(t *testing.T) {
 		cfg: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
-					Zones:   []string{"core"},
+					ForceEnabled: ptr.To(false),
+					Zones:        []string{"core"},
 				},
 			},
 		},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
+			ExperimentalHwmonForceEnabledFlag: true,
 		},
 		enabled: ptr.To(true),
 		zones:   &[]string{"package"},
@@ -201,14 +201,14 @@ func TestApplyHwmonConfig(t *testing.T) {
 		cfg: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
-					Zones:   []string{"old-zone"},
+					ForceEnabled: ptr.To(false),
+					Zones:        []string{"old-zone"},
 				},
 			},
 		},
 		flagsSet: map[string]bool{
-			ExperimentalHwmonEnabledFlag: true,
-			ExperimentalHwmonZonesFlag:   true,
+			ExperimentalHwmonForceEnabledFlag: true,
+			ExperimentalHwmonZonesFlag:        true,
 		},
 		enabled: ptr.To(true),
 		zones:   &[]string{"package", "core"},
@@ -230,8 +230,8 @@ func TestApplyHwmonConfig(t *testing.T) {
 				assert.NotNil(t, tc.cfg.Experimental)
 
 				// Verify enabled flag was applied if set
-				if tc.flagsSet[ExperimentalHwmonEnabledFlag] {
-					assert.Equal(t, tc.enabled, tc.cfg.Experimental.Hwmon.Enabled)
+				if tc.flagsSet[ExperimentalHwmonForceEnabledFlag] {
+					assert.Equal(t, tc.enabled, tc.cfg.Experimental.Hwmon.ForceEnabled)
 				}
 
 				// Verify zones were applied if set
@@ -253,7 +253,7 @@ func TestIsFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
+					ForceEnabled: ptr.To(true),
 				},
 			},
 		},
@@ -263,7 +263,7 @@ func TestIsFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
+					ForceEnabled: ptr.To(false),
 				},
 			},
 		},
@@ -277,7 +277,7 @@ func TestIsFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: nil,
+					ForceEnabled: nil,
 				},
 			},
 		},
@@ -287,8 +287,8 @@ func TestIsFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
-					Zones:   []string{"package", "core"},
+					ForceEnabled: ptr.To(false),
+					Zones:        []string{"package", "core"},
 				},
 			},
 		},
@@ -298,8 +298,8 @@ func TestIsFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
-					Zones:   []string{"package", "core"},
+					ForceEnabled: ptr.To(true),
+					Zones:        []string{"package", "core"},
 				},
 			},
 		},
@@ -324,7 +324,7 @@ func TestExperimentalFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
+					ForceEnabled: ptr.To(true),
 				},
 			},
 		},
@@ -334,7 +334,7 @@ func TestExperimentalFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
+					ForceEnabled: ptr.To(false),
 				},
 			},
 		},
@@ -348,7 +348,7 @@ func TestExperimentalFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
+					ForceEnabled: ptr.To(true),
 				},
 				Platform: Platform{
 					Redfish: Redfish{
@@ -363,7 +363,7 @@ func TestExperimentalFeatureEnabled_Hwmon(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
+					ForceEnabled: ptr.To(false),
 				},
 				Platform: Platform{
 					Redfish: Redfish{
@@ -394,8 +394,8 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
-					Zones:   []string{" package ", "  core  ", "ppt"},
+					ForceEnabled: ptr.To(true),
+					Zones:        []string{" package ", "  core  ", "ppt"},
 				},
 			},
 		},
@@ -405,8 +405,8 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
-					Zones:   []string{},
+					ForceEnabled: ptr.To(true),
+					Zones:        []string{},
 				},
 			},
 		},
@@ -416,8 +416,8 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
-					Zones:   []string{"\tpackage\n", "core\t"},
+					ForceEnabled: ptr.To(true),
+					Zones:        []string{"\tpackage\n", "core\t"},
 				},
 			},
 		},
@@ -427,8 +427,8 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(true),
-					Zones:   nil,
+					ForceEnabled: ptr.To(true),
+					Zones:        nil,
 				},
 			},
 		},
@@ -438,8 +438,8 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
-					Enabled: ptr.To(false),
-					Zones:   []string{" zone1 "},
+					ForceEnabled: ptr.To(false),
+					Zones:        []string{" zone1 "},
 				},
 				Platform: Platform{
 					Redfish: Redfish{
@@ -473,11 +473,11 @@ func TestHwmonConfig_YAMLParsing(t *testing.T) {
 		expectError  bool
 		validateFunc func(*testing.T, *Config)
 	}{{
-		name: "hwmon enabled in yaml",
+		name: "hwmon force-enabled in yaml",
 		yamlContent: `
 experimental:
   hwmon:
-    enabled: true
+    forceEnabled: true
     zones:
       - package
       - core
@@ -485,22 +485,22 @@ experimental:
 		expectError: false,
 		validateFunc: func(t *testing.T, cfg *Config) {
 			assert.NotNil(t, cfg.Experimental)
-			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.Enabled)
+			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.ForceEnabled)
 			assert.Equal(t, []string{"package", "core"}, cfg.Experimental.Hwmon.Zones)
 		},
 	}, {
-		name: "hwmon disabled in yaml",
+		name: "hwmon not force-enabled in yaml",
 		yamlContent: `
 experimental:
   hwmon:
-    enabled: false
+    forceEnabled: false
 `,
 		expectError: false,
 		validateFunc: func(t *testing.T, cfg *Config) {
 			// When all experimental features are disabled, Experimental is set to nil by sanitize()
 			// This test verifies that hwmon can be disabled
 			if cfg.Experimental != nil {
-				assert.Equal(t, ptr.To(false), cfg.Experimental.Hwmon.Enabled)
+				assert.Equal(t, ptr.To(false), cfg.Experimental.Hwmon.ForceEnabled)
 			}
 			// The fact that IsFeatureEnabled returns false is what matters
 			assert.False(t, cfg.IsFeatureEnabled(ExperimentalHwmonFeature))
@@ -510,13 +510,13 @@ experimental:
 		yamlContent: `
 experimental:
   hwmon:
-    enabled: true
+    forceEnabled: true
     zones: []
 `,
 		expectError: false,
 		validateFunc: func(t *testing.T, cfg *Config) {
 			assert.NotNil(t, cfg.Experimental)
-			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.Enabled)
+			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.ForceEnabled)
 			assert.Empty(t, cfg.Experimental.Hwmon.Zones)
 		},
 	}, {
@@ -524,7 +524,7 @@ experimental:
 		yamlContent: `
 experimental:
   hwmon:
-    enabled: true
+    forceEnabled: true
     zones:
       - package
   platform:
@@ -534,7 +534,7 @@ experimental:
 		expectError: false,
 		validateFunc: func(t *testing.T, cfg *Config) {
 			assert.NotNil(t, cfg.Experimental)
-			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.Enabled)
+			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.ForceEnabled)
 			assert.Equal(t, []string{"package"}, cfg.Experimental.Hwmon.Zones)
 			assert.Equal(t, ptr.To(false), cfg.Experimental.Platform.Redfish.Enabled)
 		},
