@@ -50,6 +50,17 @@ jobs:
           #     of the value entered here.
           publish_results: true
 
+      # Filter out Pinned-Dependencies findings from SARIF.
+      # We intentionally use tagged versions (e.g. @v6) instead of commit
+      # SHAs for readability and Dependabot compatibility. The scorecard-action
+      # has no option to exclude individual checks, so we strip these results
+      # from the SARIF before uploading to code scanning.
+      - name: Filter Pinned-Dependencies from SARIF
+        run: |
+          jq '(.runs[].results) |= map(select(.ruleId != "PinnedDependenciesID"))' \
+            scorecard-results.sarif > scorecard-filtered.sarif
+          mv scorecard-filtered.sarif scorecard-results.sarif
+
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: Upload artifact
@@ -61,6 +72,6 @@ jobs:
 
       # Upload the results to GitHub's code scanning dashboard.
       - name: Upload to code-scanning
-        uses: github/codeql-action/upload-sarif@v4 # commit hash will make dep bot in error hance use version instead
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scorecard-results.sarif
