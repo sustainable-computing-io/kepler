@@ -180,6 +180,19 @@ test-e2e: build ## Test e2e binary build (requires sudo to run)
 	@echo ""
 	@echo "Prerequisites: Intel RAPL, stress-ng (for workload tests)"
 
+# Build GPU e2e test binary (uses fake libnvidia-ml.so.1)
+.PHONY: test-e2e-gpu
+test-e2e-gpu: build ## Test GPU e2e binary build (no real GPU needed)
+	@echo "Building GPU e2e test binary..."
+	cd test/e2e && CGO_ENABLED=1 $(GOTEST) -race -c -o ../../$(BINARY_DIR)/kepler-e2e-gpu.test .
+	@echo ""
+	@echo "GPU e2e test binary built: $(BINARY_DIR)/kepler-e2e-gpu.test"
+	@echo ""
+	@echo "To run (requires root for RAPL access, no GPU needed):"
+	@echo "  sudo ./$(BINARY_DIR)/kepler-e2e-gpu.test -test.v -test.run TestGPU"
+	@echo ""
+	@echo "Prerequisites: Intel RAPL, gcc (for fake NVML build)"
+
 # Build and run k8s e2e tests
 .PHONY: test-e2e-k8s
 test-e2e-k8s: ## Test K8s e2e (requires: make cluster-up image deploy)
