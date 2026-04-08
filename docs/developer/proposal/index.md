@@ -19,15 +19,20 @@ This directory contains Enhancement Proposals (EPs) for major features and chang
 - **Rejected**: Proposal was not accepted
 - **Superseded**: Proposal replaced by a newer one
 
-## Creating a New Proposal
+## Creating a New EP
 
-To create a new enhancement proposal:
+To create a new EP, start with a draft:
 
 1. Copy the [EP_TEMPLATE.md](EP_TEMPLATE.md) template
-2. Name your file `EP_XXX-short-title.md` where XXX is the next available number
-3. Fill out all sections of the template
-4. Update this index with your proposal
+2. Name your file `draft-YYYYMMDD-short-title.md` (e.g., `draft-20260408-vm-power-models.md`), following the [KEP naming convention](https://github.com/kubernetes/enhancements/blob/master/keps/sig-architecture/0000-kep-process/README.md#git-and-github-implementation)
+3. Optionally, drafts can be checked into Git.
+4. Fill out all sections of the template
 5. Submit a pull request for review
+
+A proposal starts as a **draft** and does not receive a number until the PR is approved.
+If a new EP supersedes a draft, reference the closed PR in the new proposal for context.
+
+Once it is approved, assign the next available `EP-XXX` number, rename the file prefix to `EP-XXX-<title>`, and update the index table above.
 
 ## Proposal Template
 
