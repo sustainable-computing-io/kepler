@@ -91,6 +91,11 @@ type (
 			Enabled *bool    `yaml:"enabled"`
 			Zones   []string `yaml:"zones"`
 		} `yaml:"fake-cpu-meter"`
+		FakeGpuMeter struct {
+			Enabled     *bool  `yaml:"enabled"`
+			DeviceCount int    `yaml:"deviceCount"` // number of fake GPUs (default: 1)
+			SharingMode string `yaml:"sharingMode"` // "exclusive" or "time-slicing" (default: "time-slicing")
+		} `yaml:"fake-gpu-meter"`
 	}
 	Web struct {
 		Config          string   `yaml:"configFile"`
@@ -355,6 +360,9 @@ func DefaultConfig() *Config {
 	}
 
 	cfg.Dev.FakeCpuMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGpuMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGpuMeter.DeviceCount = 1
+	cfg.Dev.FakeGpuMeter.SharingMode = "time-slicing"
 	return cfg
 }
 
