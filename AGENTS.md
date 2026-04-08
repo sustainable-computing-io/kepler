@@ -68,7 +68,7 @@ cd compose/dev && docker compose down --volumes   # cleanup
 - Modifying CI/CD configs (`.github/`, Makefile)
 - Modifying `AGENTS.md`, `CLAUDE.md`, or `GOVERNANCE.md`
 - Deploying to clusters (`make deploy`, `kubectl apply`)
-- Architectural changes (create Enhancement Proposal first; see `docs/developer/proposal/EP_TEMPLATE.md`)
+- Architectural changes (create Enhancement Proposal first; see `docs/developer/proposal/EP-TEMPLATE.md`)
 
 ### Never allowed
 
@@ -251,7 +251,7 @@ When making design decisions, follow these architectural principles
 
 ### Enhancement Proposals
 
-For significant changes, use the template at `docs/developer/proposal/EP_TEMPLATE.md`.
+For significant changes, use the template at `docs/developer/proposal/EP-TEMPLATE.md`.
 Required sections: Problem Statement, Goals/Non-Goals, Detailed Design, Testing Plan,
 Migration Strategy.
 
@@ -272,7 +272,7 @@ Migration Strategy.
 - Installation: `docs/user/installation.md`
 - Configuration: `docs/user/configuration.md`
 - Metrics catalog: `docs/user/metrics.md` (auto-generated)
-- Enhancement Proposals: `docs/developer/proposal/EP_TEMPLATE.md`
+- Enhancement Proposals: `docs/developer/proposal/EP-TEMPLATE.md`
 - Governance: `GOVERNANCE.md`
 - Security: `SECURITY.md`
 - Issues: `github.com/sustainable-computing-io/kepler/issues`
