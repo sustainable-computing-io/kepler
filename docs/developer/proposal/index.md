@@ -19,7 +19,7 @@ This directory contains Enhancement Proposals (EPs) for major features and chang
 - **Rejected**: Proposal was not accepted
 - **Superseded**: Proposal replaced by a newer one
 
-## Creating a New EP
+## Creating a New Enhancement Proposal (EP)
 
 To create a new EP, copy the template: [EP-TEMPLATE.md](EP-TEMPLATE.md).
 
