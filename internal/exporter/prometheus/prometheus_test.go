@@ -98,6 +98,18 @@ func TestNewExporter(t *testing.T) {
 			WithDebugCollectors([]string{"process"}),
 		},
 		expectService: "prometheus",
+	}, {
+		name: "with node name set as empty string",
+		opts: []OptionFn{
+			WithNodeName(""),
+		},
+		expectService: "prometheus",
+	}, {
+		name: "with node name set passing string as input parameter",
+		opts: []OptionFn{
+			WithNodeName("myNodeName"),
+		},
+		expectService: "prometheus",
 	}}
 
 	for _, tt := range tests {
