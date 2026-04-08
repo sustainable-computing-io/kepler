@@ -35,15 +35,16 @@ kepler --config=production.yaml --log.level=debug --monitor.interval=5s
 
 ```go
 type Config struct {
-    Log      Log      `yaml:"log"`      // Logging configuration
-    Host     Host     `yaml:"host"`     // System paths
-    Monitor  Monitor  `yaml:"monitor"`  // Collection behavior
-    Rapl     Rapl     `yaml:"rapl"`     // Hardware filtering
-    Exporter Exporter `yaml:"exporter"` // Export configuration
-    Web      Web      `yaml:"web"`      // HTTP server
-    Kube     Kube     `yaml:"kube"`     // Kubernetes integration
-    Debug    Debug    `yaml:"debug"`    // Debug features
-    Dev      Dev      `yaml:"dev"`      // Development options (no CLI flags)
+    Log          Log           `yaml:"log"`          // Logging configuration
+    Host         Host          `yaml:"host"`         // System paths
+    Monitor      Monitor       `yaml:"monitor"`      // Collection behavior
+    Rapl         Rapl          `yaml:"rapl"`         // Hardware filtering
+    Exporter     Exporter      `yaml:"exporter"`     // Export configuration
+    Web          Web           `yaml:"web"`          // HTTP server
+    Debug        Debug         `yaml:"debug"`        // Debug features
+    Dev          Dev           `yaml:"dev"`          // Development options (no CLI flags)
+    Kube         Kube          `yaml:"kube"`         // Kubernetes integration
+    Experimental *Experimental `yaml:"experimental"` // Experimental features (nil when unused)
 }
 ```
 
@@ -94,11 +95,11 @@ type Host struct {
 ```go
 type Monitor struct {
     // Collection timing
-    Interval  time.Duration `yaml:"interval"`   // How often to collect (default: 3s)
-    Staleness time.Duration `yaml:"staleness"`  // Data freshness threshold (default: 10s)
+    Interval  time.Duration `yaml:"interval"`   // How often to collect (default: 5s)
+    Staleness time.Duration `yaml:"staleness"`  // Data freshness threshold (default: 500ms)
 
     // Terminated workload tracking
-    MaxTerminated int   `yaml:"maxTerminated"`  // Capacity limit (default: 100)
+    MaxTerminated int   `yaml:"maxTerminated"`  // Capacity limit (default: 500)
     MinTerminatedEnergyThreshold int64 `yaml:"minTerminatedEnergyThreshold"` // Joules (default: 10)
 }
 ```
@@ -106,17 +107,17 @@ type Monitor struct {
 **CLI Flags:**
 
 - `--monitor.interval`: Collection frequency
-- `--monitor.staleness`: Data freshness threshold
 - `--monitor.max-terminated`: Terminated workload limit
-- `--monitor.min-terminated-energy-threshold`: Energy threshold
+
+Note: `staleness` and `minTerminatedEnergyThreshold` are config-file only (no CLI flags).
 
 **YAML Example:**
 
 ```yaml
 monitor:
-  interval: 3s
-  staleness: 10s
-  maxTerminated: 100
+  interval: 5s
+  staleness: 500ms
+  maxTerminated: 500
   minTerminatedEnergyThreshold: 10
 ```
 
@@ -128,9 +129,7 @@ type Rapl struct {
 }
 ```
 
-**CLI Flags:**
-
-- `--rapl.zones`: Comma-separated zone list
+Note: `rapl.zones` is config-file only (no CLI flag).
 
 **YAML Example:**
 
@@ -168,10 +167,11 @@ type PrometheusExporter struct {
 
 **CLI Flags:**
 
-- `--exporter.stdout.enabled`: Enable stdout exporter
-- `--exporter.prometheus.enabled`: Enable Prometheus exporter
-- `--exporter.prometheus.debug-collectors`: Debug collector list
-- `--exporter.prometheus.metrics-level`: Metrics granularity
+- `--exporter.stdout`: Enable stdout exporter
+- `--exporter.prometheus`: Enable Prometheus exporter
+- `--metrics`: Metrics granularity level
+
+Note: `debugCollectors` is config-file only (no CLI flag).
 
 **YAML Example:**
 
@@ -196,14 +196,14 @@ type Web struct {
 
 **CLI Flags:**
 
-- `--web.config.file`: TLS/auth configuration
+- `--web.config-file`: TLS/auth configuration
 - `--web.listen-address`: HTTP listen addresses (can be repeated)
 
 **YAML Example:**
 
 ```yaml
 web:
-  listenAddresses: ["0.0.0.0:8080", "[::]:8080"]
+  listenAddresses: [":28282"]
   configFile: "/etc/kepler/web-config.yaml"
 ```
 
@@ -211,15 +211,21 @@ web:
 
 ```go
 type Kube struct {
-    Enabled *bool  `yaml:"enabled"`   // Enable Kubernetes features
-    Config  string `yaml:"config"`    // Kubeconfig path (empty = in-cluster)
-    Node    string `yaml:"nodeName"`  // Node name for metrics labels
+    Enabled     *bool       `yaml:"enabled"`      // Enable Kubernetes features
+    Config      string      `yaml:"config"`       // Kubeconfig path (empty = in-cluster)
+    Node        string      `yaml:"nodeName"`     // Node name for metrics labels
+    PodInformer PodInformer `yaml:"podInformer"`  // Pod informer settings
+}
+
+type PodInformer struct {
+    Mode         string        `yaml:"mode"`         // "kubelet" (default) or "apiserver"
+    PollInterval time.Duration `yaml:"pollInterval"` // Poll interval for kubelet mode (default: 15s)
 }
 ```
 
 **CLI Flags:**
 
-- `--kube.enabled`: Enable Kubernetes integration
+- `--kube.enable`: Enable Kubernetes integration
 - `--kube.config`: Kubeconfig file path
 - `--kube.node-name`: Node name override
 
@@ -246,7 +252,7 @@ type PprofDebug struct {
 
 **CLI Flags:**
 
-- `--debug.pprof.enabled`: Enable pprof endpoints
+- `--debug.pprof`: Enable pprof endpoints
 
 **YAML Example:**
 
@@ -275,7 +281,7 @@ type Dev struct {
 dev:
   fake-cpu-meter:
     enabled: true
-    zones: ["package", "core", "dram"]
+    zones: ["package", "core", "dram"]  # zones must be specified when enabled
 ```
 
 ## Configuration Loading Process
@@ -295,10 +301,13 @@ func DefaultConfig() *Config {
             SysFS:  "/sys",
             ProcFS: "/proc",
         },
+        Rapl: Rapl{
+            Zones: []string{},
+        },
         Monitor: Monitor{
-            Interval:  3 * time.Second,
-            Staleness: 10 * time.Second,
-            MaxTerminated: 100,
+            Interval:                     5 * time.Second,
+            Staleness:                    500 * time.Millisecond,
+            MaxTerminated:                500,
             MinTerminatedEnergyThreshold: 10,
         },
         Exporter: Exporter{
@@ -312,25 +321,21 @@ func DefaultConfig() *Config {
             },
         },
         Web: Web{
-            ListenAddresses: []string{"0.0.0.0:8080", "[::]:8080"},
+            ListenAddresses: []string{":28282"},
         },
         Kube: Kube{
             Enabled: ptr.To(false),
+            PodInformer: PodInformer{
+                Mode:         "kubelet",
+                PollInterval: 15 * time.Second,
+            },
         },
         Debug: Debug{
             Pprof: PprofDebug{
                 Enabled: ptr.To(false),
             },
         },
-        Dev: Dev{
-            FakeCpuMeter: struct {
-                Enabled *bool    `yaml:"enabled"`
-                Zones   []string `yaml:"zones"`
-            }{
-                Enabled: ptr.To(false),
-                Zones:   []string{"package", "core", "dram"},
-            },
-        },
+        // Experimental is nil by default (allocated on demand)
     }
 }
 ```
@@ -361,39 +366,30 @@ CLI flags are registered with kingpin and applied last:
 
 ```go
 func RegisterFlags(app *kingpin.Application) func(*Config) error {
-    // Register all flags
-    logLevel := app.Flag("log.level", "Log level (debug, info, warn, error)").String()
-    logFormat := app.Flag("log.format", "Log format (text, json)").String()
+    // Register all flags (only explicitly set flags override config)
+    logLevel := app.Flag("log.level", "Log level").String()
+    logFormat := app.Flag("log.format", "Log format").String()
 
     monitorInterval := app.Flag("monitor.interval", "Collection interval").Duration()
-    monitorStaleness := app.Flag("monitor.staleness", "Data staleness threshold").Duration()
 
-    exporterPrometheusEnabled := app.Flag("exporter.prometheus.enabled", "Enable Prometheus exporter").Bool()
-    exporterStdoutEnabled := app.Flag("exporter.stdout.enabled", "Enable stdout exporter").Bool()
+    exporterPrometheus := app.Flag("exporter.prometheus", "Enable Prometheus exporter").Bool()
+    exporterStdout := app.Flag("exporter.stdout", "Enable stdout exporter").Bool()
 
     // ... more flags
 
-    // Return function that applies flags to config
+    // Return function that applies only flags the user explicitly set
     return func(cfg *Config) error {
-        if *logLevel != "" {
+        if flagsSet["log.level"] {
             cfg.Log.Level = *logLevel
         }
-        if *logFormat != "" {
-            cfg.Log.Format = *logFormat
-        }
-
-        if *monitorInterval != 0 {
+        if flagsSet["monitor.interval"] {
             cfg.Monitor.Interval = *monitorInterval
         }
-        if *monitorStaleness != 0 {
-            cfg.Monitor.Staleness = *monitorStaleness
+        if flagsSet["exporter.prometheus"] {
+            cfg.Exporter.Prometheus.Enabled = exporterPrometheus
         }
-
-        if *exporterPrometheusEnabled {
-            cfg.Exporter.Prometheus.Enabled = ptr.To(true)
-        }
-        if *exporterStdoutEnabled {
-            cfg.Exporter.Stdout.Enabled = ptr.To(true)
+        if flagsSet["exporter.stdout"] {
+            cfg.Exporter.Stdout.Enabled = exporterStdout
         }
 
         return nil
@@ -497,12 +493,12 @@ func (cfg *Config) Validate() error {
     }
 
     // Validate intervals
-    if cfg.Monitor.Interval <= 0 {
-        errs = append(errs, fmt.Errorf("monitor interval must be positive"))
+    if cfg.Monitor.Interval < 0 {
+        errs = append(errs, fmt.Errorf("invalid monitor interval: can't be negative"))
     }
 
-    if cfg.Monitor.Staleness < cfg.Monitor.Interval {
-        errs = append(errs, fmt.Errorf("staleness must be >= interval"))
+    if cfg.Monitor.Staleness < 0 {
+        errs = append(errs, fmt.Errorf("invalid monitor staleness: can't be negative"))
     }
 
     return errors.Join(errs...)
@@ -530,7 +526,7 @@ exporter:
   prometheus:
     enabled: true
     debugCollectors: ["go", "process"]
-    metricsLevel: ["node", "process", "container", "vm", "pod"]
+    metricsLevel: "all"
 
 monitor:
   interval: 1s
@@ -567,12 +563,12 @@ exporter:
     metricsLevel: "container"
 
 monitor:
-  interval: 3s
-  staleness: 10s
+  interval: 5s
+  staleness: 500ms
   maxTerminated: 50
 
 web:
-  listenAddresses: ["0.0.0.0:8080"]
+  listenAddresses: [":28282"]
   configFile: "/etc/kepler/web-config.yaml"
 
 rapl:
@@ -616,7 +612,7 @@ kube:
   nodeName: "${NODE_NAME}"  # From downward API
 
 web:
-  listenAddresses: ["0.0.0.0:8080"]
+  listenAddresses: [":28282"]
 ```
 
 ### Kubernetes DaemonSet
@@ -694,7 +690,7 @@ kepler --config=production.yaml --monitor.interval=1s
 ```yaml
 # production.yaml - persistent settings
 monitor:
-  interval: 3s
+  interval: 5s
   maxTerminated: 50
 ```
 
@@ -748,8 +744,8 @@ log:
   level: debug
   format: text
 monitor:
-  interval: 3s
-  staleness: 10s
+  interval: 5s
+  staleness: 500ms
 ...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```

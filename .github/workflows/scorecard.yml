@@ -17,8 +17,6 @@ jobs:
     permissions:
       # Needed to checkout code.
       contents: read
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
@@ -55,12 +53,39 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: SARIF file
+          name: scorecard-sarif-raw
           path: scorecard-results.sarif
           retention-days: 1 # Keeping the results for 1 day
 
+  upload-sarif:
+    name: Filter and upload SARIF
+    needs: analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to upload the results to code-scanning dashboard.
+      security-events: write
+      # Needed to download workflow artifacts.
+      actions: read
+
+    steps:
+      - name: Download raw SARIF artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: scorecard-sarif-raw
+
+      # Filter out Pinned-Dependencies findings from SARIF.
+      # We intentionally use tagged versions (e.g. @v6) instead of commit
+      # SHAs for readability and Dependabot compatibility. The scorecard-action
+      # has no option to exclude individual checks, so we strip these results
+      # from the SARIF before uploading to code scanning.
+      - name: Filter Pinned-Dependencies from SARIF
+        run: |
+          jq '(.runs[].results) |= map(select(.ruleId != "PinnedDependenciesID"))' \
+            scorecard-results.sarif > scorecard-filtered.sarif
+          mv scorecard-filtered.sarif scorecard-results.sarif
+
       # Upload the results to GitHub's code scanning dashboard.
       - name: Upload to code-scanning
-        uses: github/codeql-action/upload-sarif@v4 # commit hash will make dep bot in error hance use version instead
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scorecard-results.sarif
