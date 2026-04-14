@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
-import "strings"
-
+import (
+        "strings"
+)
 // chipPairingRule defines how voltage and current sensors should be paired for a specific chip.
 // The hwmon ABI defines sensor types independently - index numbers are per-type.
 // Whether in{N} pairs with curr{N} depends on how the chip driver registers its channels.

@@ -5,7 +5,7 @@ package device
 
 // powerMeter is a generic interface for power meters which reads energy
 // or power readings from hardware devices like CPU/GPU/DRAM etc
-type powerMeter interface {
+type PowerMeter interface {
 	// Name() returns a string identifying the power meter
 	Name() string
 }

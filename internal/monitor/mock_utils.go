@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -149,14 +150,14 @@ var _ resource.Informer = (*MockResourceInformer)(nil)
 // Helper functions for creating test data
 
 // CreateTestZones creates mock energy zones for testing
-func CreateTestZones() []EnergyZone {
-	pkg := device.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
-	core := device.NewMockRaplZone("core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
-	return []EnergyZone{pkg, core}
+func CreateTestZones() []device.EnergyZone {
+	pkg := cpu.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+	core := cpu.NewMockRaplZone("core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
+	return []device.EnergyZone{pkg, core}
 }
 
 // createNodeSnapshot creates a node snapshot with realistic power values
-func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio float64) *Node {
+func createNodeSnapshot(zones []device.EnergyZone, timestamp time.Time, usageRatio float64) *Node {
 	node := &Node{
 		Timestamp:  timestamp,
 		UsageRatio: usageRatio,
@@ -166,13 +167,13 @@ func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio floa
 	for _, zone := range zones {
 		node.Zones[zone] = NodeUsage{
 			EnergyTotal:       200 * Joule,
-			activeEnergy:      Energy(usageRatio * float64(100*Joule)),
-			ActiveEnergyTotal: Energy(usageRatio * float64(100*Joule)),
-			IdleEnergyTotal:   Energy((1 - usageRatio) * float64(100*Joule)),
+			activeEnergy:      device.Energy(usageRatio * float64(100*Joule)),
+			ActiveEnergyTotal: device.Energy(usageRatio * float64(100*Joule)),
+			IdleEnergyTotal:   device.Energy((1 - usageRatio) * float64(100*Joule)),
 
 			Power:       50 * Watt,
-			ActivePower: Power(usageRatio * float64(50*Watt)),
-			IdlePower:   Power((1 - usageRatio) * float64(50*Watt)),
+			ActivePower: device.Power(usageRatio * float64(50*Watt)),
+			IdlePower:   device.Power((1 - usageRatio) * float64(50*Watt)),
 		}
 	}
 

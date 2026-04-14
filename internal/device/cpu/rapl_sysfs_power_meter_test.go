@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"errors"
@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+        "github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 // TestCPUPowerMeterInterface ensures that raplPowerMeter properly implements the CPUPowerMeter interface

@@ -22,9 +22,36 @@ const (
 )
 
 // zoneKey uniquely identifies a zone by name and index
-type zoneKey struct {
-	name  string
-	index int
+type ZoneKey struct {
+	Name  string
+	Index int
+}
+
+// EnergyZone represents a measurable energy or power zone/domain exposed by a power meter.
+// An EnergyZone typically represents a logical zone of the hardware unit, e.g. cpu core, cpu package
+// dram, uncore etc.
+// Reference: https://firefox-source-docs.mozilla.org/performance/power_profiling_overview.html
+type EnergyZone interface {
+        // Name() returns the zone name
+        Name() string
+
+        // Index() returns the index of the zone
+        Index() int
+
+        // Path() returns the path from which the energy usage value ie being read
+        Path() string
+
+        // Energy() returns energy consumed by the zone.
+        Energy() (Energy, error)
+
+        // MaxEnergy returns  the maximum value of energy usage that can be read.
+        // When energy usage reaches this value, the energy value returned by Energy()
+        // will wrap around and start again from zero.
+        MaxEnergy() Energy
+
+        // Power() returns the current power consumption by the zone.
+        // This method is used for zones that provide instantaneous power readings.
+        Power() (Power, error)
 }
 
 // AggregatedZone implements EnergyZone interface by aggregating multiple zones
@@ -35,7 +62,7 @@ type AggregatedZone struct {
 	name          string
 	index         int
 	zones         []EnergyZone
-	lastReadings  map[zoneKey]Energy
+	lastReadings  map[ZoneKey]Energy
 	currentEnergy Energy // Aggregated energy counter
 	maxEnergy     Energy // Cached sum of all zone MaxEnergy values
 	mu            sync.RWMutex
@@ -70,7 +97,7 @@ func NewAggregatedZone(zones []EnergyZone) *AggregatedZone {
 		name:          name,
 		index:         -1, // Indicates this is an aggregated zone
 		zones:         zones,
-		lastReadings:  make(map[zoneKey]Energy),
+		lastReadings:  make(map[ZoneKey]Energy),
 		currentEnergy: 0,
 		maxEnergy:     totalMax, // Cache the combined MaxEnergy
 	}
@@ -106,7 +133,7 @@ func (az *AggregatedZone) Energy() (Energy, error) {
 			return 0, fmt.Errorf("no valid energy readings from aggregated zones - %s: %w", zone.Name(), err)
 		}
 
-		zoneID := zoneKey{zone.Name(), zone.Index()}
+		zoneID := ZoneKey{zone.Name(), zone.Index()}
 
 		if lastReading, exists := az.lastReadings[zoneID]; exists {
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"errors"
@@ -15,15 +15,16 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+        "github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 // hwmonPowerMeter implements CPUPowerMeter using hwmon sysfs
 type hwmonPowerMeter struct {
 	reader      hwmonReader
-	cachedZones []EnergyZone
+	cachedZones []device.EnergyZone
 	logger      *slog.Logger
 	zoneFilter  []string
-	topZone     EnergyZone
+	topZone     device.EnergyZone
 }
 
 // HwmonOptionFn is a function that configures hwmonPowerMeter options
@@ -31,7 +32,7 @@ type HwmonOptionFn func(*hwmonPowerMeter)
 
 // hwmonReader is an interface for reading hwmon data, used for mocking in tests
 type hwmonReader interface {
-	Zones() ([]EnergyZone, error)
+	Zones() ([]device.EnergyZone, error)
 }
 
 // WithHwmonReader sets the hwmonReader to be used by hwmonPowerMeter
@@ -138,7 +139,7 @@ func (h *hwmonPowerMeter) needsZoneFiltering() bool {
 	return len(h.zoneFilter) != 0
 }
 
-func (h *hwmonPowerMeter) Zones() ([]EnergyZone, error) {
+func (h *hwmonPowerMeter) Zones() ([]device.EnergyZone, error) {
 	// Return cached zones if already initialized
 	if len(h.cachedZones) != 0 {
 		return h.cachedZones, nil
@@ -162,7 +163,7 @@ func (h *hwmonPowerMeter) Zones() ([]EnergyZone, error) {
 }
 
 // filterZones applies zone filters
-func (h *hwmonPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
+func (h *hwmonPowerMeter) filterZones(zones []device.EnergyZone) []device.EnergyZone {
 	if !h.needsZoneFiltering() {
 		return zones
 	}
@@ -173,7 +174,7 @@ func (h *hwmonPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
 	}
 
 	var included, excluded []string
-	filtered := make([]EnergyZone, 0, len(zones))
+	filtered := make([]device.EnergyZone, 0, len(zones))
 
 	for _, zone := range zones {
 		// Check zone filter
@@ -192,9 +193,9 @@ func (h *hwmonPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
 
 // groupZonesByName groups zones by their base name and creates AggregatedZone
 // instances when multiple zones share the same name
-func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
+func (h *hwmonPowerMeter) groupZonesByName(zones []device.EnergyZone) []device.EnergyZone {
 	// Group zones by base name
-	zoneGroups := make(map[string][]EnergyZone)
+	zoneGroups := make(map[string][]device.EnergyZone)
 
 	for _, zone := range zones {
 		name := zone.Name()
@@ -202,7 +203,7 @@ func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
 	}
 
 	// Create aggregated zones for duplicates, keep single zones as-is
-	var result []EnergyZone
+	var result []device.EnergyZone
 	for name, zones := range zoneGroups {
 		if len(zones) == 1 {
 			result = append(result, zones[0])
@@ -213,7 +214,7 @@ func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
 		// LIMITATION: aggregation occurs when the devices are different with coincidentally
 		// the same labels. This should not happen. Ideally, Kepler identifies whether the zones with same
 		// name occur due to multi-socket CPU or independent devices.
-		aggregated := NewAggregatedZone(zones)
+		aggregated := device.NewAggregatedZone(zones)
 		result = append(result, aggregated)
 		h.logger.Debug("Created aggregated zone",
 			"name", name,
@@ -229,7 +230,7 @@ func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
 }
 
 // PrimaryEnergyZone returns the zone with the highest energy coverage/priority
-func (h *hwmonPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
+func (h *hwmonPowerMeter) PrimaryEnergyZone() (device.EnergyZone, error) {
 	// Return cached zone if already initialized
 	if h.topZone != nil {
 		return h.topZone, nil
@@ -244,7 +245,7 @@ func (h *hwmonPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
 		return nil, fmt.Errorf("no energy zones available")
 	}
 
-	zoneMap := map[string]EnergyZone{}
+	zoneMap := map[string]device.EnergyZone{}
 	for _, zone := range zones {
 		zoneMap[strings.ToLower(zone.Name())] = zone
 	}
@@ -284,7 +285,7 @@ var (
 	hwmonInvalidMetricChars = regexp.MustCompile("[^a-z0-9:_]")
 )
 
-func (r *sysfsHwmonReader) Zones() ([]EnergyZone, error) {
+func (r *sysfsHwmonReader) Zones() ([]device.EnergyZone, error) {
 	hwmonDirs, err := os.ReadDir(r.basePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -293,7 +294,7 @@ func (r *sysfsHwmonReader) Zones() ([]EnergyZone, error) {
 		return nil, fmt.Errorf("failed to read hwmon directory: %w", err)
 	}
 
-	var zones []EnergyZone
+	var zones []device.EnergyZone
 	for _, entry := range hwmonDirs {
 		// check for valid hwmon devices
 		if !entry.IsDir() && !isSymlink(filepath.Join(r.basePath, entry.Name())) {
@@ -319,7 +320,7 @@ func (r *sysfsHwmonReader) Zones() ([]EnergyZone, error) {
 	return zones, nil
 }
 
-func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]EnergyZone, error) {
+func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]device.EnergyZone, error) {
 	// Get chip name
 	chipName, err := r.getChipName(hwmonPath)
 	if err != nil {
@@ -335,7 +336,7 @@ func (r *sysfsHwmonReader) discoverZones(hwmonPath string) ([]EnergyZone, error)
 		return nil, fmt.Errorf("failed to retrieve sensor files: %w", err)
 	}
 
-	var zones []EnergyZone
+	var zones []device.EnergyZone
 
 	// Tier 1: Energy sensors (preferred — cumulative µJ, like RAPL)
 	energySensors := r.findSensorsByType(files, "energy")
@@ -419,7 +420,7 @@ func (r *sysfsHwmonReader) createPowerZone(
 	hwmonPath, chipName, humanName string,
 	sensorNum int,
 	sensorFiles map[string]string,
-) (EnergyZone, error) {
+) (device.EnergyZone, error) {
 	// Determine the zone name from label or generate one
 	var zoneName string
 	if labelFile, hasLabel := sensorFiles["label"]; hasLabel {
@@ -460,7 +461,7 @@ func (r *sysfsHwmonReader) createEnergyZone(
 	hwmonPath, chipName, humanName string,
 	sensorNum int,
 	sensorFiles map[string]string,
-) (EnergyZone, error) {
+) (device.EnergyZone, error) {
 	// Determine the zone name from label or generate one
 	var zoneName string
 	if labelFile, hasLabel := sensorFiles["label"]; hasLabel {
@@ -510,7 +511,7 @@ var ErrVoltageCurrentNoLabels = fmt.Errorf("voltage and current sensors found bu
 func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 	hwmonPath, chipName, humanName string,
 	files []os.DirEntry,
-) ([]EnergyZone, error) {
+) ([]device.EnergyZone, error) {
 	// Find voltage sensors (in*) and current sensors (curr*)
 	voltageSensors := r.findSensorsByType(files, "in")
 	currentSensors := r.findSensorsByType(files, "curr")
@@ -609,7 +610,7 @@ func (r *sysfsHwmonReader) discoverVoltageCurrentZones(
 		currentByIndex[sensorNum] = info
 	}
 
-	var zones []EnergyZone
+	var zones []device.EnergyZone
 
 	// PRIORITY 1: Label-based matching
 	// This is the most robust method - labels explicitly identify matching sensors
@@ -642,8 +643,8 @@ func (r *sysfsHwmonReader) matchByLabel(
 	chipName, humanName string,
 	voltageLabelMap map[string]voltageSensorInfo,
 	currentLabelMap map[string]currentSensorInfo,
-) []EnergyZone {
-	var zones []EnergyZone
+) []device.EnergyZone {
+	var zones []device.EnergyZone
 
 	for label, voltageInfo := range voltageLabelMap {
 		currentInfo, found := currentLabelMap[label]
@@ -668,14 +669,14 @@ func (r *sysfsHwmonReader) matchByChipRule(
 	chipName, humanName string,
 	voltageByIndex map[int]voltageSensorInfo,
 	currentByIndex map[int]currentSensorInfo,
-) []EnergyZone {
+) []device.EnergyZone {
 	// Get the pairing rule for this chip (config rules take precedence over hardcoded)
 	rule := getChipPairingRule(humanName, r.configChipRules)
 	if rule == nil {
 		return nil
 	}
 
-	var zones []EnergyZone
+	var zones []device.EnergyZone
 
 	if rule.useSameIndex {
 		// Same-index pairing with skip rules
@@ -733,8 +734,8 @@ func (r *sysfsHwmonReader) matchBySameIndex(
 	chipName, humanName string,
 	voltageByIndex map[int]voltageSensorInfo,
 	currentByIndex map[int]currentSensorInfo,
-) []EnergyZone {
-	var zones []EnergyZone
+) []device.EnergyZone {
+	var zones []device.EnergyZone
 
 	for idx, voltageInfo := range voltageByIndex {
 		currentInfo, found := currentByIndex[idx]
@@ -980,18 +981,18 @@ func (z *hwmonPowerZone) Path() string {
 	return z.path
 }
 
-func (z *hwmonPowerZone) Energy() (Energy, error) {
+func (z *hwmonPowerZone) Energy() (device.Energy, error) {
 	// hwmon provides power, not energy
 	// Return 0 for interface compatibility
 	return 0, fmt.Errorf("hwmon zones do not provide energy readings")
 }
 
-func (z *hwmonPowerZone) MaxEnergy() Energy {
+func (z *hwmonPowerZone) MaxEnergy() device.Energy {
 	// No maximum for power sensors
 	return 0
 }
 
-func (z *hwmonPowerZone) Power() (Power, error) {
+func (z *hwmonPowerZone) Power() (device.Power, error) {
 	// Read current power value using direct syscall to avoid EAGAIN polling issues
 	data, err := sysReadFile(z.path)
 	if err != nil {
@@ -1005,7 +1006,7 @@ func (z *hwmonPowerZone) Power() (Power, error) {
 	}
 
 	// Power type represents microwatts
-	return Power(powerMicrowatts), nil
+	return device.Power(powerMicrowatts), nil
 }
 
 func (z *hwmonVoltageCurrentZone) Name() string {
@@ -1021,12 +1022,12 @@ func (z *hwmonVoltageCurrentZone) Path() string {
 	return z.voltagePath
 }
 
-func (z *hwmonVoltageCurrentZone) Energy() (Energy, error) {
+func (z *hwmonVoltageCurrentZone) Energy() (device.Energy, error) {
 	// Calculated power zones do not provide energy readings
 	return 0, fmt.Errorf("hwmon calculated power zones do not provide energy readings")
 }
 
-func (z *hwmonVoltageCurrentZone) MaxEnergy() Energy {
+func (z *hwmonVoltageCurrentZone) MaxEnergy() device.Energy {
 	// No maximum for calculated power zones
 	return 0
 }
@@ -1054,7 +1055,7 @@ func (z *hwmonEnergyZone) Path() string {
 	return z.path
 }
 
-func (z *hwmonEnergyZone) Energy() (Energy, error) {
+func (z *hwmonEnergyZone) Energy() (device.Energy, error) {
 	data, err := sysReadFile(z.path)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read energy from %s: %w", z.path, err)
@@ -1066,21 +1067,21 @@ func (z *hwmonEnergyZone) Energy() (Energy, error) {
 		return 0, fmt.Errorf("failed to parse energy value from %s: %w", z.path, err)
 	}
 
-	return Energy(microjoules), nil
+	return device.Energy(microjoules), nil
 }
 
-func (z *hwmonEnergyZone) MaxEnergy() Energy {
+func (z *hwmonEnergyZone) MaxEnergy() device.Energy {
 	// hwmon energy sensors have no max_energy_range equivalent.
 	// The monitor detects energy zones via energyReading > 0 as fallback.
 	return 0
 }
 
-func (z *hwmonEnergyZone) Power() (Power, error) {
+func (z *hwmonEnergyZone) Power() (device.Power, error) {
 	// Energy zones provide cumulative energy, not instantaneous power
 	return 0, fmt.Errorf("hwmon energy zones do not provide instantaneous power readings")
 }
 
-func (z *hwmonVoltageCurrentZone) Power() (Power, error) {
+func (z *hwmonVoltageCurrentZone) Power() (device.Power, error) {
 	// Read voltage in millivolts
 	voltageData, err := sysReadFile(z.voltagePath)
 	if err != nil {
@@ -1109,5 +1110,5 @@ func (z *hwmonVoltageCurrentZone) Power() (Power, error) {
 	// Example: 12000 mV × 5000 mA = 60,000,000 µW = 60 W
 	powerMicrowatts := voltageMV * currentMA
 
-	return Power(powerMicrowatts), nil
+	return device.Power(powerMicrowatts), nil
 }

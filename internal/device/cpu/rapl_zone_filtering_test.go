@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+        "github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 func TestRaplZoneFiltering(t *testing.T) {

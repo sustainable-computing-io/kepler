@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"fmt"
@@ -10,10 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+        "github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 // NOTE: This fake meter is not intended to be used in production and is for testing only
-var defaultFakeZones = []Zone{ZonePackage, ZoneCore, ZoneDRAM}
+var defaultFakeZones = []device.Zone{device.ZonePackage, device.ZoneCore, device.ZoneDRAM}
 
 const defaultRaplPath = "/sys/class/powercap/intel-rapl"
 
@@ -22,16 +23,16 @@ type fakeEnergyZone struct {
 	name      string
 	index     int
 	path      string
-	energy    Energy
-	maxEnergy Energy
+	energy    device.Energy
+	maxEnergy device.Energy
 	mu        sync.Mutex
 
 	// For generating fake values
-	increment    Energy
+	increment    device.Energy
 	randomFactor float64
 }
 
-var _ EnergyZone = (*fakeEnergyZone)(nil)
+var _ device.EnergyZone = (*fakeEnergyZone)(nil)
 
 // Name returns the zone name
 func (z *fakeEnergyZone) Name() string {
@@ -49,23 +50,23 @@ func (z *fakeEnergyZone) Path() string {
 }
 
 // Energy returns energy consumed by the zone.
-func (z *fakeEnergyZone) Energy() (Energy, error) {
+func (z *fakeEnergyZone) Energy() (device.Energy, error) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
 
-	randomComponent := Energy(rand.Float64() * float64(z.increment) * z.randomFactor)
+	randomComponent := device.Energy(rand.Float64() * float64(z.increment) * z.randomFactor)
 	z.energy = (z.energy + z.increment + randomComponent) % z.maxEnergy
 
 	return z.energy, nil
 }
 
 // MaxEnergy returns the maximum value of energy usage that can be read.
-func (z *fakeEnergyZone) MaxEnergy() Energy {
+func (z *fakeEnergyZone) MaxEnergy() device.Energy {
 	return z.maxEnergy
 }
 
 // Power for fake zones implemented to satisfy interface.
-func (z *fakeEnergyZone) Power() (Power, error) {
+func (z *fakeEnergyZone) Power() (device.Power, error) {
 	// Fake zones don't provide power, only energy
 	return 0, fmt.Errorf("fake zones do not provide power readings")
 }
@@ -73,7 +74,7 @@ func (z *fakeEnergyZone) Power() (Power, error) {
 // fakeRaplMeter implements the CPUPowerMeter interface
 type fakeRaplMeter struct {
 	logger     *slog.Logger
-	zones      []EnergyZone
+	zones      []device.EnergyZone
 	devicePath string
 }
 
@@ -95,7 +96,7 @@ func WithFakePath(path string) FakeOptFn {
 }
 
 // WithFakeMaxEnergy sets the maximum energy value before wrap-around
-func WithFakeMaxEnergy(e Energy) FakeOptFn {
+func WithFakeMaxEnergy(e device.Energy) FakeOptFn {
 	return func(m *fakeRaplMeter) {
 		for _, z := range m.zones {
 			if fz, ok := z.(*fakeEnergyZone); ok {
@@ -124,14 +125,14 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 		zones = defaultFakeZones
 	}
 
-	zoneIncrementFactor := map[Zone]int{
-		ZonePackage: 12,
-		ZoneCore:    8,
-		ZoneDRAM:    5,
-		ZoneUncore:  2,
+	zoneIncrementFactor := map[device.Zone]int{
+		device.ZonePackage: 12,
+		device.ZoneCore:    8,
+		device.ZoneDRAM:    5,
+		device.ZoneUncore:  2,
 	}
 
-	meter.zones = make([]EnergyZone, 0, len(zones))
+	meter.zones = make([]device.EnergyZone, 0, len(zones))
 
 	for i, zoneName := range zones {
 		meter.zones = append(meter.zones, &fakeEnergyZone{
@@ -139,7 +140,7 @@ func NewFakeCPUMeter(zones []string, opts ...FakeOptFn) (CPUPowerMeter, error) {
 			index:        i,
 			path:         filepath.Join(defaultRaplPath, fmt.Sprintf("energy_%s", zoneName)),
 			maxEnergy:    1000000,
-			increment:    Energy(100 + zoneIncrementFactor[zoneName]),
+			increment:    device.Energy(100 + zoneIncrementFactor[zoneName]),
 			randomFactor: 0.5,
 		})
 	}
@@ -155,12 +156,12 @@ func (m *fakeRaplMeter) Name() string {
 	return "fake-cpu-meter"
 }
 
-func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {
+func (m *fakeRaplMeter) Zones() ([]device.EnergyZone, error) {
 	return m.zones, nil
 }
 
 // PrimaryEnergyZone returns the zone with the highest energy coverage/priority
-func (m *fakeRaplMeter) PrimaryEnergyZone() (EnergyZone, error) {
+func (m *fakeRaplMeter) PrimaryEnergyZone() (device.EnergyZone, error) {
 	zones, err := m.Zones()
 	if err != nil {
 		return nil, err

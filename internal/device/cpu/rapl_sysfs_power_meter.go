@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"fmt"
@@ -9,22 +9,23 @@ import (
 	"strings"
 
 	"github.com/prometheus/procfs/sysfs"
+        "github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 // raplPowerMeter implements CPUPowerMeter using sysfs
 type raplPowerMeter struct {
 	reader      sysfsReader
-	cachedZones []EnergyZone
+	cachedZones []device.EnergyZone
 	logger      *slog.Logger
 	zoneFilter  []string
-	topZone     EnergyZone
+	topZone     device.EnergyZone
 }
 
 type OptionFn func(*raplPowerMeter)
 
 // sysfsReader is an interface for a sysfs filesystem used by raplPowerMeter to mock for testing
 type sysfsReader interface {
-	Zones() ([]EnergyZone, error)
+	Zones() ([]device.EnergyZone, error)
 }
 
 // WithSysFSReader sets the sysfsReader used by raplPowerMeter
@@ -93,7 +94,7 @@ func (r *raplPowerMeter) needsFiltering() bool {
 
 // filterZones applies the configured zone filter
 // If the filter is empty, all zones are returned
-func (r *raplPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
+func (r *raplPowerMeter) filterZones(zones []device.EnergyZone) []device.EnergyZone {
 	if !r.needsFiltering() {
 		return zones
 	}
@@ -103,7 +104,7 @@ func (r *raplPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
 		wanted[strings.ToLower(name)] = true
 	}
 	var included, excluded []string
-	filtered := make([]EnergyZone, 0, len(zones))
+	filtered := make([]device.EnergyZone, 0, len(zones))
 	for _, zone := range zones {
 		if wanted[strings.ToLower(zone.Name())] {
 			filtered = append(filtered, zone)
@@ -116,7 +117,7 @@ func (r *raplPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
 	return filtered
 }
 
-func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
+func (r *raplPowerMeter) Zones() ([]device.EnergyZone, error) {
 	// Return cached zones if already initialized
 	if len(r.cachedZones) != 0 {
 		return r.cachedZones, nil
@@ -136,9 +137,9 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 
 	// filter out non-standard zones
 
-	stdZoneMap := map[zoneKey]EnergyZone{}
+	stdZoneMap := map[device.ZoneKey]device.EnergyZone{}
 	for _, zone := range zones {
-		key := zoneKey{name: zone.Name(), index: zone.Index()}
+		key := device.ZoneKey{Name: zone.Name(), Index: zone.Index()}
 
 		// ignore non-standard zones if a standard zone already exists
 		if existingZone, exists := stdZoneMap[key]; exists && isStandardRaplPath(existingZone.Path()) {
@@ -154,16 +155,16 @@ func (r *raplPowerMeter) Zones() ([]EnergyZone, error) {
 
 // groupZonesByName groups zones by their base name and creates AggregatedZone
 // instances when multiple zones share the same name (multi-socket systems)
-func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[zoneKey]EnergyZone) []EnergyZone {
+func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[device.ZoneKey]device.EnergyZone) []device.EnergyZone {
 	// Group zones by base name (e.g., "package", "dram")
-	zoneGroups := make(map[string][]EnergyZone)
+	zoneGroups := make(map[string][]device.EnergyZone)
 
 	for key, zone := range stdZoneMap {
-		zoneGroups[key.name] = append(zoneGroups[key.name], zone)
+		zoneGroups[key.Name] = append(zoneGroups[key.Name], zone)
 	}
 
 	// Create aggregated zones for duplicates, keep single zones as-is
-	var result []EnergyZone
+	var result []device.EnergyZone
 	for name, zones := range zoneGroups {
 		if len(zones) == 1 {
 			// Single zone - use as-is
@@ -173,7 +174,7 @@ func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[zoneKey]EnergyZone) []E
 		}
 
 		// Multiple zones with same name - create AggregatedZone
-		aggregated := NewAggregatedZone(zones)
+		aggregated := device.NewAggregatedZone(zones)
 		result = append(result, aggregated)
 		r.logger.Debug("Created aggregated zone",
 			"name", name,
@@ -185,7 +186,7 @@ func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[zoneKey]EnergyZone) []E
 }
 
 // zoneNames returns a slice of zone names for logging
-func (r *raplPowerMeter) zoneNames(zones []EnergyZone) []string {
+func (r *raplPowerMeter) zoneNames(zones []device.EnergyZone) []string {
 	names := make([]string, len(zones))
 	for i, zone := range zones {
 		names[i] = fmt.Sprintf("%s-%d", zone.Name(), zone.Index())
@@ -194,7 +195,7 @@ func (r *raplPowerMeter) zoneNames(zones []EnergyZone) []string {
 }
 
 // PrimaryEnergyZone returns the zone with the highest energy coverage/priority
-func (r *raplPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
+func (r *raplPowerMeter) PrimaryEnergyZone() (device.EnergyZone, error) {
 	// Return cached zone if already initialized
 	if r.topZone != nil {
 		return r.topZone, nil
@@ -209,7 +210,7 @@ func (r *raplPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
 		return nil, fmt.Errorf("no energy zones available")
 	}
 
-	zoneMap := map[string]EnergyZone{}
+	zoneMap := map[string]device.EnergyZone{}
 	for _, zone := range zones {
 		zoneMap[strings.ToLower(zone.Name())] = zone
 	}
@@ -239,14 +240,14 @@ type sysfsRaplReader struct {
 	fs sysfs.FS
 }
 
-func (r sysfsRaplReader) Zones() ([]EnergyZone, error) {
+func (r sysfsRaplReader) Zones() ([]device.EnergyZone, error) {
 	raplZones, err := sysfs.GetRaplZones(r.fs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rapl zones: %w", err)
 	}
 
 	// convert sysfs.RaplZones to EnergyZones
-	energyZones := make([]EnergyZone, 0, len(raplZones))
+	energyZones := make([]device.EnergyZone, 0, len(raplZones))
 	for _, zone := range raplZones {
 		energyZones = append(energyZones, sysfsRaplZone{zone})
 	}
@@ -276,18 +277,18 @@ func (s sysfsRaplZone) Path() string {
 }
 
 // Energy returns the current energy value
-func (s sysfsRaplZone) Energy() (Energy, error) {
+func (s sysfsRaplZone) Energy() (device.Energy, error) {
 	mj, err := s.zone.GetEnergyMicrojoules()
-	return Energy(mj), err
+	return device.Energy(mj), err
 }
 
 // MaxEnergy returns the maximum energy value before wraparound
-func (s sysfsRaplZone) MaxEnergy() Energy {
-	return Energy(s.zone.MaxMicrojoules)
+func (s sysfsRaplZone) MaxEnergy() device.Energy {
+	return device.Energy(s.zone.MaxMicrojoules)
 }
 
 // Power returns the current power consumption
 // RAPL zones provide cumulative energy, not instantaneous power
-func (s sysfsRaplZone) Power() (Power, error) {
+func (s sysfsRaplZone) Power() (device.Power, error) {
 	return 0, fmt.Errorf("RAPL zones do not provide instantaneous power readings")
 }

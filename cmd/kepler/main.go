@@ -13,7 +13,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/sustainable-computing-io/kepler/config"
-	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
@@ -309,9 +309,9 @@ func createPrometheusExporter(
 	return promExporter, nil
 }
 
-func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
+func createCPUMeter(logger *slog.Logger, cfg *config.Config) (cpu.CPUPowerMeter, error) {
 	if fake := cfg.Dev.FakeCpuMeter; *fake.Enabled {
-		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
+		return cpu.NewFakeCPUMeter(fake.Zones, cpu.WithFakeLogger(logger))
 	}
 
 	// Launch hwmon if enabled (experimental feature)
@@ -323,9 +323,9 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		}
 
 		// Convert config chip rules to device chip rules
-		var chipRules []device.ConfigChipRule
+		var chipRules []cpu.ConfigChipRule
 		for _, cr := range hwmon.ChipRules {
-			chipRules = append(chipRules, device.ConfigChipRule{
+			chipRules = append(chipRules, cpu.ConfigChipRule{
 				Name:         cr.Name,
 				Pairings:     cr.Pairings,
 				SkipVoltages: cr.SkipVoltages,
@@ -338,11 +338,11 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 			logger.Info("hwmon chip rules configured", "count", len(chipRules))
 		}
 
-		return device.NewHwmonPowerMeter(
+		return cpu.NewHwmonPowerMeter(
 			cfg.Host.SysFS,
-			device.WithHwmonLogger(logger),
-			device.WithHwmonZoneFilter(hwmon.Zones),
-			device.WithHwmonChipRules(chipRules),
+			cpu.WithHwmonLogger(logger),
+			cpu.WithHwmonZoneFilter(hwmon.Zones),
+			cpu.WithHwmonChipRules(chipRules),
 		)
 	}
 
@@ -350,10 +350,10 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMet
 		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
 	}
 
-	return device.NewCPUPowerMeter(
+	return cpu.NewCPUPowerMeter(
 		cfg.Host.SysFS,
-		device.WithRaplLogger(logger),
-		device.WithZoneFilter(cfg.Rapl.Zones),
+		cpu.WithRaplLogger(logger),
+		cpu.WithZoneFilter(cfg.Rapl.Zones),
 	)
 }
 
