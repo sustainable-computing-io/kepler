@@ -40,6 +40,9 @@ const (
 
 	// ExperimentalGPUFeature represents GPU power monitoring (experimental)
 	ExperimentalGPUFeature Feature = "gpu"
+
+	// ExperimentalEsmiFeature represents the CPU ESMI power monitoring feature
+	ExperimentalEsmiFeature Feature = "esmi"
 )
 
 // Config represents the complete application configuration
@@ -181,11 +184,17 @@ type (
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
 	}
 
+	// ESMI configuration (Experimental)
+	Esmi struct {
+		Enabled *bool    `yaml:"enabled"` //Development mode (capability auto detection in future)
+	}
+
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
 		Platform Platform        `yaml:"platform"`
 		Hwmon    Hwmon           `yaml:"hwmon"`
 		GPU      ExperimentalGPU `yaml:"gpu"`
+		Esmi     Esmi            `yaml:"esmi"`
 	}
 
 	Config struct {
@@ -293,6 +302,9 @@ const (
 	// Experimental Hwmon flags
 	ExperimentalHwmonEnabledFlag = "experimental.hwmon.enabled"
 	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
+
+	// Experimental ESMI flags
+	ExperimentalEsmiEnabledFlag      = "experimental.esmi.enabled"
 
 	// Experimental GPU flags
 	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
@@ -462,6 +474,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
 	gpuDCGMEndpoint := app.Flag(ExperimentalGPUDCGMEndpointFlag, "dcgm-exporter metrics endpoint URL for MIG power attribution (auto-discovered if empty)").Default("").String()
 
+	// experimental ESMI
+	esmiEnabled := app.Flag(ExperimentalEsmiEnabledFlag, "Enable experimental ESMI power monitoring").Default("false").Bool()
+
 	return func(cfg *Config) error {
 		// Logging settings
 		if flagsSet[LogLevelFlag] {
@@ -545,6 +560,15 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 				return fmt.Errorf("failed to resolve node name: %w", err)
 			}
 			cfg.Kube.Node = hostname
+		}
+
+		// Apply experimental ESMI settings
+		if flagsSet[ExperimentalEsmiEnabledFlag] {
+			// Initialize experimental section if needed
+			if cfg.Experimental == nil {
+				cfg.Experimental = &Experimental{}
+			}
+			cfg.Experimental.Esmi.Enabled = esmiEnabled
 		}
 
 		cfg.sanitize()
@@ -741,6 +765,11 @@ func (c *Config) IsFeatureEnabled(feature Feature) bool {
 		return ptr.Deref(c.Exporter.Stdout.Enabled, false)
 	case PprofFeature:
 		return ptr.Deref(c.Debug.Pprof.Enabled, false)
+	case ExperimentalEsmiFeature:
+		if c.Experimental == nil {
+			return false
+		}
+		return ptr.Deref(c.Experimental.Esmi.Enabled, false)
 	case ExperimentalGPUFeature:
 		if c.Experimental == nil {
 			return false
@@ -764,6 +793,11 @@ func (c *Config) experimentalFeatureEnabled() bool {
 
 	// Check if Hwmon is enabled
 	if ptr.Deref(c.Experimental.Hwmon.Enabled, false) {
+		return true
+	}
+
+	// Check if ESMI is enabled
+	if ptr.Deref(c.Experimental.Esmi.Enabled, false) {
 		return true
 	}
 

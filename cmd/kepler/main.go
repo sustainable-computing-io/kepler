@@ -14,6 +14,7 @@ import (
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu/esmi"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
@@ -344,8 +345,14 @@ func createCPUMeter(logger *slog.Logger, cfg *config.Config) (cpu.CPUPowerMeter,
 			cpu.WithHwmonZoneFilter(hwmon.Zones),
 			cpu.WithHwmonChipRules(chipRules),
 		)
+	} else if cfg.IsFeatureEnabled(config.ExperimentalEsmiFeature) {
+		// Launch esmi if enabled (experimental feature)
+		return esmi.NewEsmiCPUMeter(nil, esmi.WithEsmiLogger(logger))
 	}
-
+	logger.Info("ESMI config state",
+		"feature_enabled", cfg.IsFeatureEnabled(config.ExperimentalEsmiFeature),
+		"flag_ptr_nil", cfg.Experimental == nil || cfg.Experimental.Esmi.Enabled == nil,
+	)
 	if len(cfg.Rapl.Zones) > 0 {
 		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
 	}
