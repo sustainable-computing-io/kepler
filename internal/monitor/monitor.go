@@ -378,13 +378,14 @@ const (
 )
 
 func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
-	if err := pm.resources.Refresh(); err != nil {
-		pm.logger.Error("snapshot rebuild failed to refresh resources", "error", err)
-		return err
-	}
 	// First read for node
 	if err := pm.firstNodeRead(newSnapshot.Node); err != nil {
 		return fmt.Errorf(nodePowerError, err)
+	}
+
+	if err := pm.resources.Refresh(); err != nil {
+		pm.logger.Error("snapshot rebuild failed to refresh resources", "error", err)
+		return err
 	}
 
 	// First read for processes

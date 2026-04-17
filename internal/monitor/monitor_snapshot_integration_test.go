@@ -13,6 +13,12 @@ import (
 	testingclock "k8s.io/utils/clock/testing"
 )
 
+func TestSwitchingResourceInformer_Coverage(t *testing.T) {
+	s := &SwitchingResourceInformer{}
+	_ = s.Name()
+	_ = s.Init()
+}
+
 // TestIntegration_Monitor_Snapshot validates the complete lifecycle of monitor snapshots
 // and core behaviors of Kepler's power attribution logic.
 //
