@@ -81,7 +81,7 @@ config:
     # Ordered list of CPU power-meter backends. The first backend that
     # initializes successfully and reports zones is used.
     # Built-in backends: rapl, hwmon, fake.
-    meters: ["rapl", "hwmon"]
+    meters: [rapl, hwmon]
   rapl:
     zones: []
   exporter:
@@ -107,9 +107,7 @@ config:
       pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
   dev:
     fake-cpu-meter:
-      # DEPRECATED: set cpu.meters: ["fake"] instead.
-      # When true, this overrides cpu.meters and emits a deprecation warning.
-      enabled: false
+      enabled: false # DEPRECATED: set cpu.meters: ["fake"] instead. Overrides cpu.meters and emits a deprecation warning when true.
       zones: []
   # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
   # and are disabled by default
