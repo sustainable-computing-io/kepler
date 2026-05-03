@@ -107,12 +107,12 @@ As part of this unification, `gpu.Discover` is refactored to split the three fai
 
 Result per scenario at startup:
 
-| Scenario            | Result                   |
-|---------------------|--------------------------|
-| Factory error       | Real failure. Aggregate. |
-| `Init()` error      | Real failure. Aggregate. |
-| Empty `Devices()`   | Soft skip. Not an error. |
-| Success             | Append to result.        |
+| Scenario          | Result                   |
+|-------------------|--------------------------|
+| Factory error     | Real failure. Aggregate. |
+| `Init()` error    | Real failure. Aggregate. |
+| Empty `Devices()` | Soft skip. Not an error. |
+| Success           | Append to result.        |
 
 Error aggregation uses `errors.Join`. `gpu.Discover` returns the joined error only when the GPU feature is explicitly enabled and every registered vendor returned a real failure. "No GPU on this node" stays `(nil, nil)`.
 
@@ -250,7 +250,7 @@ While this solves visibility for transient failures during runtime, it doesn't a
 
 Out of scope for this EP.
 
-### GPU failure-mode split
+### GPU failure-mode split (separate PR)
 
 Refactor `gpu.Discover` to split factory / `Init()` / empty-devices failure modes and return `(meters, error)`. Separate PR; independent of the CPU work.
 
