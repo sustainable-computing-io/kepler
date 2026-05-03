@@ -155,6 +155,12 @@ func (m *fakeRaplMeter) Name() string {
 	return "fake-cpu-meter"
 }
 
+// Init is a no-op for the fake meter — zones are constructed in NewFakeCPUMeter.
+// Required by the PowerMeter interface (service.Initializer).
+func (m *fakeRaplMeter) Init() error {
+	return nil
+}
+
 func (m *fakeRaplMeter) Zones() ([]EnergyZone, error) {
 	return m.zones, nil
 }

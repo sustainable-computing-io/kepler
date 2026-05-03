@@ -3,9 +3,14 @@
 
 package device
 
-// powerMeter is a generic interface for power meters which reads energy
-// or power readings from hardware devices like CPU/GPU/DRAM etc
-type powerMeter interface {
-	// Name() returns a string identifying the power meter
-	Name() string
+import "github.com/sustainable-computing-io/kepler/internal/service"
+
+// PowerMeter is a hardware backend that reads energy or power from a class
+// of hardware (CPU package, GPU device, etc).
+//
+// Many PowerMeters can be selected. Each contributes its own readings.
+// Domain-specific methods live on subinterfaces that embed PowerMeter.
+type PowerMeter interface {
+	service.Service     // Name()
+	service.Initializer // Init()
 }

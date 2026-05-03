@@ -30,9 +30,10 @@ type EnergyZone interface {
 	Power() (Power, error)
 }
 
-// CPUPowerMeter implements powerMeter
+// CPUPowerMeter is the interface for CPU power measurement.
+// It embeds PowerMeter and adds CPU-specific methods.
 type CPUPowerMeter interface {
-	powerMeter
+	PowerMeter
 
 	// Zones() returns a slice of the energy measurement zones
 	Zones() ([]EnergyZone, error)
