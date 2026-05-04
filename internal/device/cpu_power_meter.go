@@ -66,21 +66,21 @@ func CreateCPUMeter(logger *slog.Logger, cfg *config.Config) (CPUPowerMeter, err
 	for _, name := range cfg.Cpu.Meters {
 		meter, err := buildCPUMeter(name, logger, cfg)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("%s not available, trying next backend", name), "error", err)
+			logger.Warn("cpu meter not available, trying next backend", "meter", name, "error", err)
 			errs = append(errs, fmt.Errorf("cpu meter %q: %w", name, err))
 			continue
 		}
 		if err := meter.Init(); err != nil {
-			logger.Warn(fmt.Sprintf("%s not available, trying next backend", name), "error", err)
+			logger.Warn("cpu meter init failed, trying next backend", "meter", name, "error", err)
 			errs = append(errs, fmt.Errorf("cpu meter %q: init: %w", name, err))
 			continue
 		}
 		zones, _ := meter.Zones()
 		if len(zones) == 0 {
-			logger.Info(fmt.Sprintf("%s reports no zones, trying next backend", name))
+			logger.Info("cpu meter reports no zones, trying next backend", "meter", name)
 			continue
 		}
-		logger.Info(fmt.Sprintf("using %s power meter", name))
+		logger.Info("using cpu power meter", "meter", name)
 		return meter, nil
 	}
 

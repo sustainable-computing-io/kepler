@@ -384,14 +384,12 @@ func DefaultConfig() *Config {
 // who set them today expect the legacy behavior. The legacy keys will stop
 // working in a future release.
 func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
-	if ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false) {
-		logger.Warn("dev.fake-cpu-meter.enabled is deprecated; set cpu.meters: [\"fake\"] instead")
+	switch {
+	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
+		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.meters: ["fake"] instead`)
 		c.Cpu.Meters = []string{"fake"}
-		return
-	}
-
-	if c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false) {
-		logger.Warn("experimental.hwmon.forceEnabled is deprecated; set cpu.meters: [\"hwmon\"] instead")
+	case c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false):
+		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.meters: ["hwmon"] instead`)
 		c.Cpu.Meters = []string{"hwmon"}
 	}
 }

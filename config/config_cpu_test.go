@@ -4,7 +4,6 @@
 package config
 
 import (
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -14,99 +13,93 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func TestCpuMetersDefault(t *testing.T) {
-	cfg := DefaultConfig()
-	assert.Equal(t, []string{"rapl", "hwmon"}, cfg.Cpu.Meters,
-		"default cpu.meters should preserve the prior RAPL→hwmon fallback chain")
-}
-
-func TestLoadCpuMetersFromYAML(t *testing.T) {
-	tt := []struct {
-		name     string
-		yamlData string
-		want     []string
-	}{
-		{
-			"explicit hwmon-first",
-			`
-cpu:
-  meters: ["hwmon", "rapl"]
-`,
-			[]string{"hwmon", "rapl"},
-		},
-		{
-			"single backend",
-			`
-cpu:
-  meters: ["fake"]
-`,
-			[]string{"fake"},
-		},
-		{
-			"empty list",
-			`
-cpu:
-  meters: []
-`,
-			[]string{},
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := Load(strings.NewReader(tc.yamlData))
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, cfg.Cpu.Meters)
-		})
-	}
-}
-
-func TestApplyCpuMeterDeprecations(t *testing.T) {
+// TestCpuMeters covers cfg.Cpu.Meters defaults, deprecation translation, and
+// precedence. Each case sets up a Config and asserts the resulting Meters
+// after ApplyCpuMeterDeprecations runs. Log output is discarded; behaviour
+// is verified solely via cfg.Cpu.Meters.
+func TestCpuMeters(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(*Config)
 		want  []string
 	}{
 		{
-			"fake-cpu-meter overrides cpu.meters",
-			func(c *Config) {
-				c.Dev.FakeCpuMeter.Enabled = ptr.To(true)
-			},
-			[]string{"fake"},
+			name:  "default: rapl then hwmon",
+			setup: func(*Config) {},
+			want:  []string{"rapl", "hwmon"},
 		},
 		{
-			"hwmon forceEnabled overrides cpu.meters",
-			func(c *Config) {
+			name: "fake-cpu-meter overrides cpu.meters",
+			setup: func(c *Config) {
+				c.Dev.FakeCpuMeter.Enabled = ptr.To(true)
+			},
+			want: []string{"fake"},
+		},
+		{
+			name: "hwmon forceEnabled overrides cpu.meters",
+			setup: func(c *Config) {
 				c.Experimental = &Experimental{}
 				c.Experimental.Hwmon.ForceEnabled = ptr.To(true)
 			},
-			[]string{"hwmon"},
+			want: []string{"hwmon"},
 		},
 		{
-			"fake wins when both legacy keys are set",
-			func(c *Config) {
+			name: "fake wins when both legacy keys are set",
+			setup: func(c *Config) {
 				c.Dev.FakeCpuMeter.Enabled = ptr.To(true)
 				c.Experimental = &Experimental{}
 				c.Experimental.Hwmon.ForceEnabled = ptr.To(true)
 			},
-			[]string{"fake"},
+			want: []string{"fake"},
 		},
 		{
-			"no legacy: explicit cpu.meters preserved",
-			func(c *Config) {
+			name: "no legacy: explicit cpu.meters preserved",
+			setup: func(c *Config) {
 				c.Cpu.Meters = []string{"rapl"}
 			},
-			[]string{"rapl"},
+			want: []string{"rapl"},
 		},
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := DefaultConfig()
 			tc.setup(cfg)
 			cfg.ApplyCpuMeterDeprecations(logger)
+			assert.Equal(t, tc.want, cfg.Cpu.Meters)
+		})
+	}
+}
+
+func TestLoadCpuMetersFromYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yamlData string
+		want     []string
+	}{
+		{
+			name:     "explicit hwmon-first",
+			yamlData: "cpu:\n  meters: [hwmon, rapl]\n",
+			want:     []string{"hwmon", "rapl"},
+		},
+		{
+			name:     "single backend",
+			yamlData: "cpu:\n  meters: [fake]\n",
+			want:     []string{"fake"},
+		},
+		{
+			name:     "empty list",
+			yamlData: "cpu:\n  meters: []\n",
+			want:     []string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(tc.yamlData))
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, cfg.Cpu.Meters)
 		})
 	}
