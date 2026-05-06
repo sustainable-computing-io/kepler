@@ -915,6 +915,19 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
+	{ // cpu.meters
+		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
+		validCpuMeters := map[string]bool{
+			"rapl":  true,
+			"hwmon": true,
+			"fake":  true,
+		}
+		for _, name := range c.Cpu.Meters {
+			if !validCpuMeters[name] {
+				errs = append(errs, fmt.Sprintf("invalid cpu.meters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
+			}
+		}
+	}
 	{ // Monitor
 		if c.Monitor.Interval < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor interval: %s can't be negative", c.Monitor.Interval))

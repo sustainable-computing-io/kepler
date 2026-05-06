@@ -73,6 +73,47 @@ func TestCpuMeters(t *testing.T) {
 	}
 }
 
+func TestCpuMetersValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		meters  []string
+		wantErr string
+	}{
+		{
+			name:   "all known backends",
+			meters: []string{"rapl", "hwmon", "fake"},
+		},
+		{
+			name:    "unknown backend",
+			meters:  []string{"rappl"},
+			wantErr: `invalid cpu.meters entry "rappl"`,
+		},
+		{
+			name:    "typo before valid backend still rejected",
+			meters:  []string{"rappl", "hwmon"},
+			wantErr: `invalid cpu.meters entry "rappl"`,
+		},
+		{
+			name:   "empty list passes Validate (CreateCPUMeter handles emptiness)",
+			meters: []string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Cpu.Meters = tc.meters
+			err := cfg.Validate(SkipHostValidation)
+			if tc.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
 func TestLoadCpuMetersFromYAML(t *testing.T) {
 	tests := []struct {
 		name     string
