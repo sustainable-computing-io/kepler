@@ -55,13 +55,16 @@ type CPUPowerMeter interface {
 // CreateCPUMeter walks cfg.Cpu.Meters in priority order, builds each backend,
 // runs Init(), and returns the first meter that reports zones.
 //
-// Failure modes per backend:
-//   - factory error or Init() error: real failure, aggregated.
-//   - empty zones: soft skip, not an error.
+// Failure modes per backend (all aggregated into the returned error):
+//   - factory error or Init() error: real failure.
+//   - empty zones: backend ran but found nothing usable on this host.
 //
 // Returns the joined error only if no backend produced a usable meter.
 // CPU is mandatory; callers treat any returned error as fatal.
 func CreateCPUMeter(logger *slog.Logger, cfg *config.Config) (CPUPowerMeter, error) {
+	if len(cfg.Cpu.Meters) == 0 {
+		return nil, errors.New("cpu.meters is empty")
+	}
 	var errs []error
 	for _, name := range cfg.Cpu.Meters {
 		meter, err := buildCPUMeter(name, logger, cfg)
@@ -78,15 +81,13 @@ func CreateCPUMeter(logger *slog.Logger, cfg *config.Config) (CPUPowerMeter, err
 		zones, _ := meter.Zones()
 		if len(zones) == 0 {
 			logger.Info("cpu meter reports no zones, trying next backend", "meter", name)
+			errs = append(errs, fmt.Errorf("cpu meter %q: reported no zones", name))
 			continue
 		}
 		logger.Info("using cpu power meter", "meter", name)
 		return meter, nil
 	}
 
-	if len(errs) == 0 {
-		return nil, errors.New("cpu.meters is empty")
-	}
 	return nil, errors.Join(errs...)
 }
 
