@@ -381,8 +381,9 @@ func DefaultConfig() *Config {
 //   - dev.fake-cpu-meter.enabled=true     → cpu.meters: ["fake"]
 //
 // Legacy selectors win over an explicit cpu.meters when set, since operators
-// who set them today expect the legacy behavior. The legacy keys will stop
-// working in a future release.
+// who set them today expect the legacy behavior. When both legacy keys are set,
+// fake takes precedence over hwmon. The legacy keys will stop working in a
+// future release.
 func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
 	switch {
 	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
