@@ -52,8 +52,8 @@ type CPUPowerMeter interface {
 	PrimaryEnergyZone() (EnergyZone, error)
 }
 
-// CreateCPUMeter walks cfg.Cpu.Meters in priority order, builds each backend,
-// runs Init(), and returns the first meter that reports zones.
+// CreateCPUMeter walks cfg.Cpu.PreferredMeters in preference order, builds
+// each backend, runs Init(), and returns the first meter that reports zones.
 //
 // Failure modes per backend (all aggregated into the returned error):
 //   - factory error or Init() error: real failure.
@@ -62,11 +62,11 @@ type CPUPowerMeter interface {
 // Returns the joined error only if no backend produced a usable meter.
 // CPU is mandatory; callers treat any returned error as fatal.
 func CreateCPUMeter(logger *slog.Logger, cfg *config.Config) (CPUPowerMeter, error) {
-	if len(cfg.Cpu.Meters) == 0 {
-		return nil, errors.New("cpu.meters is empty")
+	if len(cfg.Cpu.PreferredMeters) == 0 {
+		return nil, errors.New("cpu.preferredMeters is empty")
 	}
 	var errs []error
-	for _, name := range cfg.Cpu.Meters {
+	for _, name := range cfg.Cpu.PreferredMeters {
 		meter, err := buildCPUMeter(name, logger, cfg)
 		if err != nil {
 			logger.Warn("cpu meter not available, trying next backend", "meter", name, "error", err)

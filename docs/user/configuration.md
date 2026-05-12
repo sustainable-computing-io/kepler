@@ -167,7 +167,7 @@ experimental:   # experimental features (no stability guarantees)
       configFile: ""                  # Path to BMC configuration file (required when enabled)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
   hwmon:        # hwmon power monitoring
-    forceEnabled: false               # DEPRECATED: set cpu.meters: ["hwmon"] instead. Emits a deprecation warning when true.
+    forceEnabled: false               # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
     chipRules: []                     # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:          # GPU power monitoring
@@ -234,39 +234,39 @@ These settings specify where Kepler should look for system information. In conta
 
 ```yaml
 cpu:
-  meters: ["rapl", "hwmon"]
+  preferredMeters: ["rapl", "hwmon"]
 ```
 
-`cpu.meters` is an ordered priority list. Kepler walks the list, builds each backend, runs `Init()`, and selects the first one that reports zones. If every backend fails, Kepler exits with the aggregated error.
+`cpu.preferredMeters` is an ordered preference list. Kepler walks the list, builds each backend, runs `Init()`, and selects the first one that reports zones. If every backend fails, Kepler exits with the aggregated error.
 
 Built-in backends:
 
 - `rapl`: Intel RAPL via sysfs (default first choice)
-- `hwmon`: hwmon power sensors (default fallback)
+- `hwmon`: hwmon power sensors (default second choice)
 - `fake`: synthetic readings for development and testing
 
 Examples:
 
 ```yaml
-# Default order — RAPL with hwmon fallback
+# Default order — try RAPL first, then hwmon
 cpu:
-  meters: ["rapl", "hwmon"]
+  preferredMeters: ["rapl", "hwmon"]
 
 # Force hwmon, skip RAPL
 cpu:
-  meters: ["hwmon"]
+  preferredMeters: ["hwmon"]
 
 # Development mode
 cpu:
-  meters: ["fake"]
+  preferredMeters: ["fake"]
 ```
 
 Two legacy keys still work but emit a deprecation warning:
 
-- `dev.fake-cpu-meter.enabled: true` → translates to `cpu.meters: ["fake"]`
-- `experimental.hwmon.forceEnabled: true` → translates to `cpu.meters: ["hwmon"]`
+- `dev.fake-cpu-meter.enabled: true` → translates to `cpu.preferredMeters: ["fake"]`
+- `experimental.hwmon.forceEnabled: true` → translates to `cpu.preferredMeters: ["hwmon"]`
 
-The legacy keys override `cpu.meters` when set, since operators who rely on them today expect that behavior. They will stop working in a future release. Per-backend tuning keys (`rapl.zones`, `experimental.hwmon.zones`, `experimental.hwmon.chipRules`, `dev.fake-cpu-meter.zones`) are unchanged.
+The legacy keys override `cpu.preferredMeters` when set, since operators who rely on them today expect that behavior. They will stop working in a future release. Per-backend tuning keys (`rapl.zones`, `experimental.hwmon.zones`, `experimental.hwmon.chipRules`, `dev.fake-cpu-meter.zones`) are unchanged.
 
 ### 🔋 RAPL Zones Configuration
 
@@ -525,7 +525,7 @@ experimental:
 
 ```yaml
 cpu:
-  meters: ["fake"]
+  preferredMeters: ["fake"]
 dev:
   fake-cpu-meter:
     zones: []
@@ -534,8 +534,8 @@ dev:
 ⚠️ **WARNING**: This section is for development and testing only. Do not enable in production.
 
 - **fake-cpu-meter**: Synthesizes CPU power readings instead of reading real hardware
-  - Select via `cpu.meters: ["fake"]` (preferred)
-  - `dev.fake-cpu-meter.enabled: true` is **deprecated**: it overrides `cpu.meters` and emits a deprecation warning
+  - Select via `cpu.preferredMeters: ["fake"]` (preferred)
+  - `dev.fake-cpu-meter.enabled: true` is **deprecated**: it overrides `cpu.preferredMeters` and emits a deprecation warning
   - `zones`: Specific zones to enable, empty enables all
 
 ## 📖 Further Reading
