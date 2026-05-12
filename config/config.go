@@ -55,10 +55,10 @@ type (
 	}
 
 	// Cpu configuration controls how CPU power meters are selected.
-	// Meters lists backends in priority order. The first backend that
-	// initializes successfully and reports zones is used.
+	// PreferredMeters lists backends in preference order. The first backend
+	// that initializes successfully and reports zones is used.
 	Cpu struct {
-		Meters []string `yaml:"meters"`
+		PreferredMeters []string `yaml:"preferredMeters"`
 	}
 
 	// Rapl configuration
@@ -274,7 +274,7 @@ const (
 	MonitorMaxTerminatedFlag = "monitor.max-terminated"
 
 	// CPU
-	CpuMeters = "cpu.meters" // not a flag
+	CpuPreferredMeters = "cpu.preferredMeters" // not a flag
 
 	// RAPL
 	RaplZones = "rapl.zones" // not a flag
@@ -326,7 +326,7 @@ func DefaultConfig() *Config {
 			ProcFS: "/proc",
 		},
 		Cpu: Cpu{
-			Meters: []string{"rapl", "hwmon"},
+			PreferredMeters: []string{"rapl", "hwmon"},
 		},
 		Rapl: Rapl{
 			Zones: []string{},
@@ -374,24 +374,25 @@ func DefaultConfig() *Config {
 }
 
 // ApplyCpuMeterDeprecations translates legacy CPU-meter selectors into an
-// effective cpu.meters value and logs a deprecation warning per translation.
+// effective cpu.preferredMeters value and logs a deprecation warning per
+// translation.
 //
 // Legacy selectors:
-//   - experimental.hwmon.forceEnabled=true → cpu.meters: ["hwmon"]
-//   - dev.fake-cpu-meter.enabled=true     → cpu.meters: ["fake"]
+//   - experimental.hwmon.forceEnabled=true → cpu.preferredMeters: ["hwmon"]
+//   - dev.fake-cpu-meter.enabled=true      → cpu.preferredMeters: ["fake"]
 //
-// Legacy selectors win over an explicit cpu.meters when set, since operators
-// who set them today expect the legacy behavior. When both legacy keys are set,
-// fake takes precedence over hwmon. The legacy keys will stop working in a
-// future release.
+// Legacy selectors win over an explicit cpu.preferredMeters when set, since
+// operators who set them today expect the legacy behavior. When both legacy
+// keys are set, fake takes precedence over hwmon. The legacy keys will stop
+// working in a future release.
 func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
 	switch {
 	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
-		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.meters: ["fake"] instead`)
-		c.Cpu.Meters = []string{"fake"}
+		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.preferredMeters: ["fake"] instead`)
+		c.Cpu.PreferredMeters = []string{"fake"}
 	case c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false):
-		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.meters: ["hwmon"] instead`)
-		c.Cpu.Meters = []string{"hwmon"}
+		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.preferredMeters: ["hwmon"] instead`)
+		c.Cpu.PreferredMeters = []string{"hwmon"}
 	}
 }
 
@@ -823,8 +824,8 @@ func (c *Config) sanitize() {
 		c.Web.ListenAddresses[i] = strings.TrimSpace(c.Web.ListenAddresses[i])
 	}
 
-	for i := range c.Cpu.Meters {
-		c.Cpu.Meters[i] = strings.TrimSpace(c.Cpu.Meters[i])
+	for i := range c.Cpu.PreferredMeters {
+		c.Cpu.PreferredMeters[i] = strings.TrimSpace(c.Cpu.PreferredMeters[i])
 	}
 
 	for i := range c.Rapl.Zones {
@@ -916,16 +917,16 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
-	{ // cpu.meters
+	{ // cpu.preferredMeters
 		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
 		validCpuMeters := map[string]bool{
 			"rapl":  true,
 			"hwmon": true,
 			"fake":  true,
 		}
-		for _, name := range c.Cpu.Meters {
+		for _, name := range c.Cpu.PreferredMeters {
 			if !validCpuMeters[name] {
-				errs = append(errs, fmt.Sprintf("invalid cpu.meters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
+				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
 			}
 		}
 	}
@@ -1130,7 +1131,7 @@ func (c *Config) manualString() string {
 		{MonitorIntervalFlag, c.Monitor.Interval.String()},
 		{MonitorStaleness, c.Monitor.Staleness.String()},
 		{MonitorMaxTerminatedFlag, fmt.Sprintf("%d", c.Monitor.MaxTerminated)},
-		{CpuMeters, strings.Join(c.Cpu.Meters, ", ")},
+		{CpuPreferredMeters, strings.Join(c.Cpu.PreferredMeters, ", ")},
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},
