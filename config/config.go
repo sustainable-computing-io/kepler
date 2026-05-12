@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -51,6 +52,13 @@ type (
 	Host struct {
 		SysFS  string `yaml:"sysfs"`
 		ProcFS string `yaml:"procfs"`
+	}
+
+	// Cpu configuration controls how CPU power meters are selected.
+	// Meters lists backends in priority order. The first backend that
+	// initializes successfully and reports zones is used.
+	Cpu struct {
+		Meters []string `yaml:"meters"`
 	}
 
 	// Rapl configuration
@@ -192,6 +200,7 @@ type (
 		Log      Log      `yaml:"log"`
 		Host     Host     `yaml:"host"`
 		Monitor  Monitor  `yaml:"monitor"`
+		Cpu      Cpu      `yaml:"cpu"`
 		Rapl     Rapl     `yaml:"rapl"`
 		Exporter Exporter `yaml:"exporter"`
 		Web      Web      `yaml:"web"`
@@ -264,6 +273,9 @@ const (
 	MonitorStaleness         = "monitor.staleness" // not a flag
 	MonitorMaxTerminatedFlag = "monitor.max-terminated"
 
+	// CPU
+	CpuMeters = "cpu.meters" // not a flag
+
 	// RAPL
 	RaplZones = "rapl.zones" // not a flag
 
@@ -313,6 +325,9 @@ func DefaultConfig() *Config {
 			SysFS:  "/sys",
 			ProcFS: "/proc",
 		},
+		Cpu: Cpu{
+			Meters: []string{"rapl", "hwmon"},
+		},
 		Rapl: Rapl{
 			Zones: []string{},
 		},
@@ -356,6 +371,28 @@ func DefaultConfig() *Config {
 
 	cfg.Dev.FakeCpuMeter.Enabled = ptr.To(false)
 	return cfg
+}
+
+// ApplyCpuMeterDeprecations translates legacy CPU-meter selectors into an
+// effective cpu.meters value and logs a deprecation warning per translation.
+//
+// Legacy selectors:
+//   - experimental.hwmon.forceEnabled=true → cpu.meters: ["hwmon"]
+//   - dev.fake-cpu-meter.enabled=true     → cpu.meters: ["fake"]
+//
+// Legacy selectors win over an explicit cpu.meters when set, since operators
+// who set them today expect the legacy behavior. When both legacy keys are set,
+// fake takes precedence over hwmon. The legacy keys will stop working in a
+// future release.
+func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
+	switch {
+	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
+		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.meters: ["fake"] instead`)
+		c.Cpu.Meters = []string{"fake"}
+	case c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false):
+		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.meters: ["hwmon"] instead`)
+		c.Cpu.Meters = []string{"hwmon"}
+	}
 }
 
 // Load loads configuration from an io.Reader
@@ -786,6 +823,10 @@ func (c *Config) sanitize() {
 		c.Web.ListenAddresses[i] = strings.TrimSpace(c.Web.ListenAddresses[i])
 	}
 
+	for i := range c.Cpu.Meters {
+		c.Cpu.Meters[i] = strings.TrimSpace(c.Cpu.Meters[i])
+	}
+
 	for i := range c.Rapl.Zones {
 		c.Rapl.Zones[i] = strings.TrimSpace(c.Rapl.Zones[i])
 	}
@@ -872,6 +913,19 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 			if err := validateListenAddress(addr); err != nil {
 				errs = append(errs, fmt.Sprintf("invalid web listen address %q: %s", addr, err.Error()))
+			}
+		}
+	}
+	{ // cpu.meters
+		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
+		validCpuMeters := map[string]bool{
+			"rapl":  true,
+			"hwmon": true,
+			"fake":  true,
+		}
+		for _, name := range c.Cpu.Meters {
+			if !validCpuMeters[name] {
+				errs = append(errs, fmt.Sprintf("invalid cpu.meters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
 			}
 		}
 	}
@@ -1076,6 +1130,7 @@ func (c *Config) manualString() string {
 		{MonitorIntervalFlag, c.Monitor.Interval.String()},
 		{MonitorStaleness, c.Monitor.Staleness.String()},
 		{MonitorMaxTerminatedFlag, fmt.Sprintf("%d", c.Monitor.MaxTerminated)},
+		{CpuMeters, strings.Join(c.Cpu.Meters, ", ")},
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},

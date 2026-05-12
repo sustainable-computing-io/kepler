@@ -32,6 +32,12 @@ host:
   sysfs: /sys # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
 
+cpu:
+  # Ordered list of CPU power-meter backends. The first backend that
+  # initializes successfully and reports zones is used.
+  # Built-in backends: rapl, hwmon, fake.
+  meters: [rapl, hwmon]
+
 rapl:
   zones: [] # zones to be enabled, empty enables all default zones
 
@@ -71,7 +77,7 @@ kube: # kubernetes related config
 # WARN DO NOT ENABLE THIS IN PRODUCTION - for development / testing only
 dev:
   fake-cpu-meter:
-    enabled: false
+    enabled: false # DEPRECATED: set cpu.meters: ["fake"] instead. Overrides cpu.meters and emits a deprecation warning when true.
     zones: [] # zones to be enabled, empty enables all default zones
 
 # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
@@ -84,7 +90,7 @@ experimental:
       nodeName: "" # Node name to use (overrides Kubernetes node name and hostname fallback)
       httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)
   hwmon:
-    forceEnabled: false # Force hwmon as the power meter, skipping RAPL auto-detection
+    forceEnabled: false # DEPRECATED: set cpu.meters: ["hwmon"] instead. Emits a deprecation warning when true.
     zones: [] # List of zones to enable (default enable all)
     # chipRules allows overriding or adding chip pairing rules via configuration.
     # These rules take precedence over hardcoded defaults in the code.

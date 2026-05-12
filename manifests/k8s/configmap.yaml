@@ -19,6 +19,11 @@ data:
       staleness: 500ms
       maxTerminated: 100
       minTerminatedEnergyThreshold: 10
+    cpu:
+      # Ordered list of CPU power-meter backends. The first backend that
+      # initializes successfully and reports zones is used.
+      # Built-in backends: rapl, hwmon, fake.
+      meters: ["rapl", "hwmon"]
     rapl:
       zones: []
     exporter:
@@ -44,7 +49,7 @@ data:
         pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
     dev:
       fake-cpu-meter:
-        enabled: false
+        enabled: false # DEPRECATED: set cpu.meters: ["fake"] instead. Overrides cpu.meters and emits a deprecation warning when true.
         zones: []
     # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
     # and are disabled by default
@@ -56,7 +61,7 @@ data:
           nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
           httpTimeout: 5s  # HTTP client timeout for BMC requests (default: 5s)
       hwmon:
-        forceEnabled: false # Force hwmon as the power meter, skipping RAPL auto-detection
+        forceEnabled: false # DEPRECATED: set cpu.meters: ["hwmon"] instead. Emits a deprecation warning when true.
         zones: [] # List of zones to enable (default enable all)
         chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
       gpu:
