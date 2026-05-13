@@ -1,0 +1,16 @@
+---
+# ConfigMap for GPU Time-Slicing Configuration
+# This enables fractional GPU requests (e.g., 0.5 GPU, 0.25 GPU)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: nvidia-gpu-operator
+data:
+  any: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+        - name: nvidia.com/gpu
+          replicas: 4
