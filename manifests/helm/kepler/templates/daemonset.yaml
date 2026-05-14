@@ -66,6 +66,9 @@ spec:
               readOnly: true
             - name: cfm
               mountPath: /etc/kepler
+            - name: ebpf-nic
+              mountPath: /var/lib/powercap/ebpf-nic
+              readOnly: true
           {{- with .Values.daemonset.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
@@ -103,3 +106,7 @@ spec:
         - name: cfm
           configMap:
             name: {{ include "kepler.fullname" . }}
+        - name: ebpf-nic
+          hostPath:
+            path: /var/lib/powercap/ebpf-nic
+            type: DirectoryOrCreate

@@ -34,6 +34,7 @@ type Opts struct {
 	nodeName             string
 	metricsLevel         config.Level
 	platformDataProvider collector.RedfishDataProvider
+	podIPResolver        collector.PodIPResolver
 }
 
 // DefaultOpts() returns a new Opts with defaults set
@@ -101,6 +102,14 @@ func WithPlatformDataProvider(provider collector.RedfishDataProvider) OptionFn {
 	}
 }
 
+// WithPodIPResolver sets an optional pod IP → pod name/namespace resolver
+// used to enrich per-pod NIC metrics with pod_name/pod_namespace labels.
+func WithPodIPResolver(r collector.PodIPResolver) OptionFn {
+	return func(o *Opts) {
+		o.podIPResolver = r
+	}
+}
+
 // Exporter exports power data to Prometheus
 type Exporter struct {
 	logger          *slog.Logger
@@ -164,6 +173,9 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 
 	// Add GPU info collector
 	collectors["gpu_info"] = collector.NewGPUInfoCollector(pm, opts.nodeName)
+
+	// Add NIC energy collector (node-level and per-pod)
+	collectors["nic"] = collector.NewNICCollector(pm, opts.nodeName, opts.podIPResolver, opts.logger)
 
 	// Add platform collector if platform data provider is available
 	if opts.platformDataProvider != nil {

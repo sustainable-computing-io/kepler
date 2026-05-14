@@ -232,6 +232,22 @@ type (
 	Pods            = map[string]*Pod
 )
 
+// NICStats contains node-level NIC energy statistics read from /var/lib/powercap/ebpf-nic.
+type NICStats struct {
+	EnergyTotal Energy  // Cumulative energy in microjoules
+	Power       Power   // Current power in microwatts (derived from energy delta)
+	Path        string  // Sysfs path of the energy_uj file
+}
+
+// PodNICStats contains per-pod NIC energy attribution.
+// Derived from node NIC watts × (pod bytes / total bytes).
+type PodNICStats struct {
+	PodIP   string
+	TxBytes uint64
+	RxBytes uint64
+	Watts   float64 // Attributed NIC power in watts
+}
+
 // GPUDeviceStats contains power statistics for a single GPU device
 // Used for debugging and monitoring power attribution accuracy
 type GPUDeviceStats struct {
@@ -265,6 +281,12 @@ type Snapshot struct {
 	TerminatedVirtualMachines VirtualMachines // Terminated VMs with highest energy consumption
 	Pods                      Pods            // Pod power data, keyed by pod ID
 	TerminatedPods            Pods            // Terminated pods with highest energy consumption
+
+	// NIC power statistics (optional, nil if no NIC energy source)
+	NICStats *NICStats
+
+	// Per-pod NIC energy attribution (keyed by pod IP)
+	PodNICStats map[string]*PodNICStats
 
 	// GPU power statistics for debugging/monitoring (optional, nil if no GPU)
 	GPUStats []GPUDeviceStats
@@ -337,6 +359,21 @@ func (s *Snapshot) Clone() *Snapshot {
 	// Deep copy terminated pods map
 	for id, src := range s.TerminatedPods {
 		clone.TerminatedPods[id] = src.Clone()
+	}
+
+	// Copy NIC stats (value type, shallow copy is sufficient)
+	if s.NICStats != nil {
+		nicCopy := *s.NICStats
+		clone.NICStats = &nicCopy
+	}
+
+	// Copy per-pod NIC stats
+	if len(s.PodNICStats) > 0 {
+		clone.PodNICStats = make(map[string]*PodNICStats, len(s.PodNICStats))
+		for k, v := range s.PodNICStats {
+			vCopy := *v
+			clone.PodNICStats[k] = &vCopy
+		}
 	}
 
 	// Copy GPU stats (slice of value types, so shallow copy is sufficient)

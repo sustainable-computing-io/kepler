@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
+	"github.com/sustainable-computing-io/kepler/internal/device/network"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"golang.org/x/sync/singleflight"
@@ -39,9 +41,12 @@ type Service interface {
 // PowerMonitor is the default implementation of the monitoring service
 type PowerMonitor struct {
 	// passed externally
-	logger    *slog.Logger
-	cpu       device.CPUPowerMeter
-	gpuMeters []gpu.GPUPowerMeter // optional, empty if no GPUs available
+	logger           *slog.Logger
+	cpu              device.CPUPowerMeter
+	gpuMeters        []gpu.GPUPowerMeter       // optional, empty if no GPUs available
+	nicMeter         network.NICPowerMeter      // optional, nil if no NIC energy available
+	conntrackReader  *network.ConntrackReader   // optional, nil if conntrack unavailable
+	podCIDRs         []*net.IPNet               // pod networks for flow attribution scoping
 
 	interval time.Duration
 	clock    clock.WithTicker
@@ -96,9 +101,12 @@ func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMo
 	ctx, cancel := context.WithCancel(context.Background())
 
 	monitor := &PowerMonitor{
-		logger:    opts.logger.With("service", "monitor"),
-		cpu:       meter,
-		gpuMeters: opts.gpuMeters,
+		logger:          opts.logger.With("service", "monitor"),
+		cpu:             meter,
+		gpuMeters:       opts.gpuMeters,
+		nicMeter:        opts.nicPowerMeter,
+		conntrackReader: opts.conntrackReader,
+		podCIDRs:        opts.podCIDRs,
 		clock:     opts.clock,
 		interval:  opts.interval,
 		resources: opts.resources,
@@ -407,6 +415,9 @@ func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
 		return fmt.Errorf(podPowerError, err)
 	}
 
+	// First read for NIC energy (optional, no error propagation)
+	pm.firstNICRead(newSnapshot)
+
 	return nil
 }
 
@@ -440,6 +451,9 @@ func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
 	if err := pm.calculatePodPower(prev, newSnapshot); err != nil {
 		return fmt.Errorf(podPowerError, err)
 	}
+
+	// Calculate NIC power (optional, no error propagation)
+	pm.calculateNICPower(prev, newSnapshot)
 
 	return nil
 }

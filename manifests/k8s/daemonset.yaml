@@ -57,6 +57,9 @@ spec:
             - name: nvidia-driver
               mountPath: /run/nvidia/driver
               readOnly: true
+            - name: ebpf-nic
+              mountPath: /var/lib/powercap/ebpf-nic
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /metrics
@@ -89,4 +92,8 @@ spec:
         - name: nvidia-driver
           hostPath:
             path: /run/nvidia/driver
+            type: DirectoryOrCreate
+        - name: ebpf-nic
+          hostPath:
+            path: /var/lib/powercap/ebpf-nic
             type: DirectoryOrCreate

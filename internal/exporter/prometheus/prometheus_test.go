@@ -330,5 +330,5 @@ func TestExporter_CreateCollectors(t *testing.T) {
 	mockMonitor.AssertExpectations(t)
 
 	assert.NoError(t, err)
-	assert.Len(t, coll, 4) // build_info, power, cpu_info, gpu_info
+	assert.Len(t, coll, 5) // build_info, power, cpu_info, gpu_info, nic
 }

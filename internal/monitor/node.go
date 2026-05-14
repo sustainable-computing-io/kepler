@@ -146,7 +146,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 				"idle_energy", idleEnergy,
 			)
 		} else {
-			// initial reading
+			// initial readingdis
 			pm.logger.Debug("First reading for zone",
 				"zone", zone.Name(),
 				"type", map[bool]string{true: "energy", false: "power"}[isEnergySensor])

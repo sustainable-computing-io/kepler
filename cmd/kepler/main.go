@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
+	"github.com/sustainable-computing-io/kepler/internal/device/network"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -184,6 +187,51 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		pmOpts = append(pmOpts, monitor.WithGPUPowerMeters(gpuMeters))
 	}
 
+	// NIC power meter is optional — soft-fail if the eBPF energy source is unavailable
+	nicMeter := network.NewNICPowerMeter("")
+	if err := nicMeter.Init(); err != nil {
+		logger.Info("NIC power meter unavailable, continuing without NIC energy", "error", err)
+	} else {
+		logger.Info("NIC power meter enabled", "name", nicMeter.Name())
+		pmOpts = append(pmOpts, monitor.WithNICPowerMeter(nicMeter))
+	}
+
+	// Conntrack NAT reader for per-pod NIC energy attribution
+	ctReader := network.NewConntrackReader()
+	if err := ctReader.Refresh(); err != nil {
+		logger.Info("Conntrack reader unavailable, per-pod NIC attribution disabled", "error", err)
+	} else {
+		logger.Info("Conntrack reader enabled", "nat_entries", len(ctReader.NATEntries()))
+		pmOpts = append(pmOpts, monitor.WithConntrackReader(ctReader))
+	}
+
+	// Pod CIDRs for NIC flow attribution scoping. Defaults to common Kubernetes
+	// pod networks (Flannel/Calico/Kind default).
+	podCIDRStrings := []string{"10.244.0.0/16", "10.42.0.0/16", "192.168.0.0/16"}
+	var podCIDRs []*net.IPNet
+	for _, s := range podCIDRStrings {
+		if _, cidr, err := net.ParseCIDR(s); err == nil {
+			podCIDRs = append(podCIDRs, cidr)
+		}
+	}
+	if len(podCIDRs) > 0 {
+		pmOpts = append(pmOpts, monitor.WithPodCIDRs(podCIDRs))
+	}
+
+	// Pod IP resolver — enriches per-pod NIC metrics with pod_name/pod_namespace
+	// labels by querying the Kubernetes API. Soft-fail if out-of-cluster.
+	var podIPResolver *pod.IPResolver
+	if *cfg.Kube.Enabled {
+		r, err := pod.NewIPResolver(cfg.Kube.Config, 30*time.Second, logger)
+		if err != nil {
+			logger.Info("Pod IP resolver unavailable, pod_name labels disabled", "error", err)
+		} else {
+			r.Start(context.Background())
+			podIPResolver = r
+			logger.Info("Pod IP resolver enabled", "interval", "30s")
+		}
+	}
+
 	pm := monitor.NewPowerMonitor(cpuPowerMeter, pmOpts...)
 
 	// Create Redfish service if enabled (experimental feature)
@@ -221,7 +269,7 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	// Add Prometheus exporter if enabled
 	if cfg.IsFeatureEnabled(config.PrometheusFeature) {
-		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm, redfishService)
+		promExporter, err := createPrometheusExporter(logger, cfg, apiServer, pm, redfishService, podIPResolver)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
 		}
@@ -272,6 +320,7 @@ func createPrometheusExporter(
 	logger *slog.Logger, cfg *config.Config,
 	apiServer *server.APIServer, pm *monitor.PowerMonitor,
 	rs *redfish.Service,
+	podIPResolver *pod.IPResolver,
 ) (*prometheus.Exporter, error) {
 	logger.Debug("Creating Prometheus exporter")
 
@@ -285,6 +334,10 @@ func createPrometheusExporter(
 		prometheus.WithNodeName(cfg.Kube.Node),
 		prometheus.WithMetricsLevel(metricsLevel),
 	)
+
+	if podIPResolver != nil {
+		collectorOpts = append(collectorOpts, prometheus.WithPodIPResolver(podIPResolver))
+	}
 
 	// Add platform data provider if Redfish service is available
 	if rs != nil {
