@@ -19,7 +19,7 @@ func discardLogger() *slog.Logger {
 
 func TestCreateCPUMeter_FakeOnly(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Cpu.Meters = []string{"fake"}
+	cfg.Cpu.PreferredMeters = []string{"fake"}
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestCreateCPUMeter_FakeOnly(t *testing.T) {
 
 func TestCreateCPUMeter_UnknownBackend(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Cpu.Meters = []string{"rappl"}
+	cfg.Cpu.PreferredMeters = []string{"rappl"}
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.Error(t, err)
@@ -41,7 +41,7 @@ func TestCreateCPUMeter_FallthroughToFake(t *testing.T) {
 	// Unknown name, then fake — exercises the factory-error path
 	// and the success-after-continue branch.
 	cfg := config.DefaultConfig()
-	cfg.Cpu.Meters = []string{"rappl", "fake"}
+	cfg.Cpu.PreferredMeters = []string{"rappl", "fake"}
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.NoError(t, err)
@@ -51,12 +51,12 @@ func TestCreateCPUMeter_FallthroughToFake(t *testing.T) {
 
 func TestCreateCPUMeter_EmptyMeters(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Cpu.Meters = nil
+	cfg.Cpu.PreferredMeters = nil
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.Error(t, err)
 	assert.Nil(t, meter)
-	assert.Contains(t, err.Error(), "cpu.meters is empty")
+	assert.Contains(t, err.Error(), "cpu.preferredMeters is empty")
 }
 
 func TestCreateCPUMeter_RaplFactoryError_FallsThroughToFake(t *testing.T) {
@@ -64,7 +64,7 @@ func TestCreateCPUMeter_RaplFactoryError_FallsThroughToFake(t *testing.T) {
 	// because sysfs.NewFS validates the path. Falls through to fake.
 	cfg := config.DefaultConfig()
 	cfg.Host.SysFS = "/nonexistent/sysfs/path"
-	cfg.Cpu.Meters = []string{"rapl", "fake"}
+	cfg.Cpu.PreferredMeters = []string{"rapl", "fake"}
 	cfg.Rapl.Zones = []string{"package"} // exercise the "rapl zones are filtered" log line
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
@@ -80,7 +80,7 @@ func TestCreateCPUMeter_HwmonInitError_FallsThroughToFake(t *testing.T) {
 	// (zones + chip rules).
 	cfg := config.DefaultConfig()
 	cfg.Host.SysFS = "/nonexistent/sysfs/path"
-	cfg.Cpu.Meters = []string{"hwmon", "fake"}
+	cfg.Cpu.PreferredMeters = []string{"hwmon", "fake"}
 	cfg.Experimental = &config.Experimental{}
 	cfg.Experimental.Hwmon.Zones = []string{"power1"}
 	cfg.Experimental.Hwmon.ChipRules = []config.ChipPairingRule{
@@ -97,7 +97,7 @@ func TestCreateCPUMeter_AllFail_AggregatedError(t *testing.T) {
 	// Both rapl and hwmon fail (bogus sysfs); no fallback. Aggregated error.
 	cfg := config.DefaultConfig()
 	cfg.Host.SysFS = "/nonexistent/sysfs/path"
-	cfg.Cpu.Meters = []string{"rapl", "hwmon"}
+	cfg.Cpu.PreferredMeters = []string{"rapl", "hwmon"}
 
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.Error(t, err)
