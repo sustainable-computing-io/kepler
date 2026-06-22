@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Go
         uses: actions/setup-go@v6.4.0

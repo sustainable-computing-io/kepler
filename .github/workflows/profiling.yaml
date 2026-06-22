@@ -20,7 +20,7 @@ jobs:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
       # Hence, we don't need to install them as part of the job.
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -126,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Go
         uses: actions/setup-go@v6.4.0
