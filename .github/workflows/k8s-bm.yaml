@@ -13,7 +13,7 @@ jobs:
       changes: ${{ steps.filter.outputs.changes }}
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: filter changes
         uses: dorny/paths-filter@v4
@@ -36,7 +36,7 @@ jobs:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
       # Hence, we don't need to install them as part of the job.
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
