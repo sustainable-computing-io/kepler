@@ -16,6 +16,14 @@
 | Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
 | Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
 
+## Off-cycle maintainers
+
+An off-cycle maintainer is a contributor granted project write/merge access exceptionally outside the standard governance or scheduled nomination cycle.
+
+| Name           | Company | Github ID  | Email                    | Role                | Date         |
+|----------------|---------|------------|--------------------------|---------------------|--------------|
+| Laura Llinares | CERN    | laurall974 | <llinares.laura@cern.ch> | Technical Committee | July 8, 2026 |
+
 This list must be kept in sync with the
 [CNCF Project Maintainers list](https://github.com/cncf/foundation/blob/master/project-maintainers.csv).
 
