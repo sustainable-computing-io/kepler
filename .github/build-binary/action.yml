@@ -1,0 +1,53 @@
+# ref: https://docs.sigstore.dev/quickstart/quickstart-ci/#signing-a-blob to sign binaries
+# in this reusable action, we make asset as binaries and openSSF recommended metadata
+# for publishing binaries, leave to where invoke this action
+name: Build Binary with SBOM & Cosign
+description: Compile Kepler binary, package, optionally generate SBOM and sign
+
+inputs:
+  version:
+    description: Version tag (e.g., v1.2.3)
+    required: true
+  sign:
+    description: Whether to sign the binary using cosign (keyless)
+    # limit by git token permission, we need id-token: write
+    # but for PR, which is not allowed
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Build Kepler binary
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        VERSION=${VERSION#v}
+        make deps
+        make build PRODUCTION=1
+        mv bin/kepler-release bin/kepler
+        tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
+
+    - name: Generate binary SBOM
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        VERSION=${VERSION#v}
+        syft packages file:bin/kepler -o spdx-json > bin/kepler-${VERSION}.spdx.json
+
+    - name: Sign binary package and SBOM
+      if: ${{ inputs.sign == 'true' }}
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        VERSION=${VERSION#v}
+        BIN_PKG="bin/kepler-${VERSION}.linux-amd64.tar.gz"
+        SBOM_FILE="bin/kepler-${VERSION}.spdx.json"
+
+        cosign sign-blob "${BIN_PKG}" \
+          --bundle "${BIN_PKG}.sigstore.json" \
+          --yes
+
+        cosign sign-blob "${SBOM_FILE}" \
+          --bundle "${SBOM_FILE}.sigstore.json" \
+          --yes

@@ -1,0 +1,51 @@
+# ref: https://docs.sigstore.dev/quickstart/quickstart-ci/#signing-a-blob to sign helm chart package
+# in this reusable action, we make asset as helm chart package and openSSF recommended metadata
+# for push to helm registry, leave to where invoke this action
+name: Build Helm Chart with Signature
+description: Update Chart version, package, optionally sign
+
+inputs:
+  version:
+    description: Release version (e.g., v1.2.3)
+    required: true
+  chart_path:
+    description: Relative path to Helm chart directory
+    required: false
+    default: manifests/helm/kepler
+  sign:
+    description: Whether to sign the packaged Helm chart using cosign (keyless)
+    # limit by git token permission, we need id-token: write
+    # but for PR, which is not allowed
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Update Helm Chart version
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        CHART_VERSION=${VERSION#v}
+        sed -i "s/^version:.*/version: $CHART_VERSION/" ${{ inputs.chart_path }}/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" ${{ inputs.chart_path }}/Chart.yaml
+
+    - name: Package Helm Chart
+      shell: bash
+      run: |
+        mkdir -p helm-releases
+        VERSION=${{ inputs.version }}
+        CHART_VERSION=${VERSION#v}
+        helm package ${{ inputs.chart_path }} -d helm-releases
+        mv helm-releases/kepler-${CHART_VERSION}.tgz helm-releases/kepler-helm-${CHART_VERSION}.tgz
+
+    - name: Sign Helm Chart package
+      if: ${{ inputs.sign == 'true' }}
+      shell: bash
+      run: |
+        VERSION=${{ inputs.version }}
+        CHART_VERSION=${VERSION#v}
+        PKG="helm-releases/kepler-helm-${CHART_VERSION}.tgz"
+        cosign sign-blob "${PKG}" \
+          --bundle "${PKG}.sigstore.json" \
+          --yes

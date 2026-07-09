@@ -1,0 +1,48 @@
+# ref: https://docs.sigstore.dev/quickstart/quickstart-ci/#signing-a-blob to sign container sbom data
+# in this reusable action, we make asset as container image and openSSF recommended metadata
+# for push to container registry, leave to where invoke this action
+
+name: Build Image with SBOM & Cosign
+description: Build container image, generate SBOM and sign it with cosign sign-blob
+
+inputs:
+  version:
+    description: Image version tag (e.g., v1.2.3)
+    required: true
+  image_base:
+    description: Base image registry, e.g., quay.io/myorg
+    required: true
+  sign:
+    description: Whether to sign the SBOM using cosign (keyless)
+    # limit by git token permission, we need id-token: write
+    # but for PR, which is not allowed
+    required: false
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - name: Build image
+      shell: bash
+      run: |
+        make deps
+        make image VERSION=${{ inputs.version }}
+
+    - name: Generate SBOM
+      shell: bash
+      run: |
+        IMAGE="${{ inputs.image_base }}/kepler:${{ inputs.version }}"
+        syft scan "${IMAGE}" -o spdx-json > image-kepler-${{ inputs.version }}.spdx.json
+
+    - name: Sign SBOM with cosign sign-blob
+      if: ${{ inputs.sign == 'true' }}
+      shell: bash
+      run: |
+        cosign sign-blob image-kepler-${{ inputs.version }}.spdx.json \
+          --bundle image-kepler-${{ inputs.version }}.spdx.json.sigstore.json \
+          --yes
+
+    # Image push is intentionally left to the caller workflow.
+    # The caller is expected to:
+    # 1. Log into the container registry (e.g. docker login)
+    # 2. Push the image and optionally attach the signed SBOM or the bundle.
