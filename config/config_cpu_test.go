@@ -13,11 +13,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// TestCpuMeters covers cfg.Cpu.Meters defaults, deprecation translation, and
-// precedence. Each case sets up a Config and asserts the resulting Meters
-// after ApplyCpuMeterDeprecations runs. Log output is discarded; behaviour
-// is verified solely via cfg.Cpu.Meters.
-func TestCpuMeters(t *testing.T) {
+// TestCpuPreferredMeters covers cfg.Cpu.PreferredMeters defaults, deprecation
+// translation, and precedence. Each case sets up a Config and asserts the
+// resulting PreferredMeters after ApplyCpuMeterDeprecations runs. Log output
+// is discarded; behaviour is verified solely via cfg.Cpu.PreferredMeters.
+func TestCpuPreferredMeters(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(*Config)
@@ -29,14 +29,14 @@ func TestCpuMeters(t *testing.T) {
 			want:  []string{"rapl", "hwmon"},
 		},
 		{
-			name: "fake-cpu-meter overrides cpu.meters",
+			name: "fake-cpu-meter overrides cpu.preferredMeters",
 			setup: func(c *Config) {
 				c.Dev.FakeCpuMeter.Enabled = ptr.To(true)
 			},
 			want: []string{"fake"},
 		},
 		{
-			name: "hwmon forceEnabled overrides cpu.meters",
+			name: "hwmon forceEnabled overrides cpu.preferredMeters",
 			setup: func(c *Config) {
 				c.Experimental = &Experimental{}
 				c.Experimental.Hwmon.ForceEnabled = ptr.To(true)
@@ -53,9 +53,9 @@ func TestCpuMeters(t *testing.T) {
 			want: []string{"fake"},
 		},
 		{
-			name: "no legacy: explicit cpu.meters preserved",
+			name: "no legacy: explicit cpu.preferredMeters preserved",
 			setup: func(c *Config) {
-				c.Cpu.Meters = []string{"rapl"}
+				c.Cpu.PreferredMeters = []string{"rapl"}
 			},
 			want: []string{"rapl"},
 		},
@@ -68,12 +68,12 @@ func TestCpuMeters(t *testing.T) {
 			cfg := DefaultConfig()
 			tc.setup(cfg)
 			cfg.ApplyCpuMeterDeprecations(logger)
-			assert.Equal(t, tc.want, cfg.Cpu.Meters)
+			assert.Equal(t, tc.want, cfg.Cpu.PreferredMeters)
 		})
 	}
 }
 
-func TestCpuMetersValidation(t *testing.T) {
+func TestCpuPreferredMetersValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		meters  []string
@@ -86,12 +86,12 @@ func TestCpuMetersValidation(t *testing.T) {
 		{
 			name:    "unknown backend",
 			meters:  []string{"rappl"},
-			wantErr: `invalid cpu.meters entry "rappl"`,
+			wantErr: `invalid cpu.preferredMeters entry "rappl"`,
 		},
 		{
 			name:    "typo before valid backend still rejected",
 			meters:  []string{"rappl", "hwmon"},
-			wantErr: `invalid cpu.meters entry "rappl"`,
+			wantErr: `invalid cpu.preferredMeters entry "rappl"`,
 		},
 		{
 			name:   "empty list passes Validate (CreateCPUMeter handles emptiness)",
@@ -102,7 +102,7 @@ func TestCpuMetersValidation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := DefaultConfig()
-			cfg.Cpu.Meters = tc.meters
+			cfg.Cpu.PreferredMeters = tc.meters
 			err := cfg.Validate(SkipHostValidation)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
@@ -114,7 +114,7 @@ func TestCpuMetersValidation(t *testing.T) {
 	}
 }
 
-func TestLoadCpuMetersFromYAML(t *testing.T) {
+func TestLoadCpuPreferredMetersFromYAML(t *testing.T) {
 	tests := []struct {
 		name     string
 		yamlData string
@@ -122,17 +122,17 @@ func TestLoadCpuMetersFromYAML(t *testing.T) {
 	}{
 		{
 			name:     "explicit hwmon-first",
-			yamlData: "cpu:\n  meters: [hwmon, rapl]\n",
+			yamlData: "cpu:\n  preferredMeters: [hwmon, rapl]\n",
 			want:     []string{"hwmon", "rapl"},
 		},
 		{
 			name:     "single backend",
-			yamlData: "cpu:\n  meters: [fake]\n",
+			yamlData: "cpu:\n  preferredMeters: [fake]\n",
 			want:     []string{"fake"},
 		},
 		{
 			name:     "empty list",
-			yamlData: "cpu:\n  meters: []\n",
+			yamlData: "cpu:\n  preferredMeters: []\n",
 			want:     []string{},
 		},
 	}
@@ -141,7 +141,7 @@ func TestLoadCpuMetersFromYAML(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := Load(strings.NewReader(tc.yamlData))
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, cfg.Cpu.Meters)
+			assert.Equal(t, tc.want, cfg.Cpu.PreferredMeters)
 		})
 	}
 }
