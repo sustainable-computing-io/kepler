@@ -237,6 +237,7 @@ func TestPowerCollector(t *testing.T) {
 			ID:             "abcd-efgh",
 			Name:           "test-container",
 			Runtime:        resource.PodmanRuntime,
+			CPUTotalTime:   10.5,
 			GPUPower:       42.5,
 			GPUEnergyTotal: 250 * device.Joule,
 			PodID:          "test-pod",
@@ -347,6 +348,7 @@ func TestPowerCollector(t *testing.T) {
 			"kepler_container_cpu_watts",
 			"kepler_container_gpu_watts",
 			"kepler_container_gpu_joules_total",
+			"kepler_container_cpu_seconds_total",
 
 			"kepler_vm_cpu_joules_total",
 			"kepler_vm_cpu_watts",
@@ -494,6 +496,16 @@ func TestPowerCollector(t *testing.T) {
 		}
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total", expectedLabels, 100.0)
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts", expectedLabels, 5.0)
+
+		expectedLabelsWithoutZone := map[string]string{
+			"node_name":      "test-node",
+			"container_id":   "abcd-efgh",
+			"container_name": "test-container",
+			"runtime":        "podman",
+			"state":          "running",
+			"pod_id":         "test-pod",
+		}
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_seconds_total", expectedLabelsWithoutZone, 10.5)
 	})
 
 	t.Run("VM Metrics Labels", func(t *testing.T) {
@@ -797,6 +809,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 				"kepler_node_cpu_idle_watts":          true,
 				"kepler_process_cpu_joules_total":     false,
 				"kepler_container_cpu_joules_total":   false,
+				"kepler_container_cpu_seconds_total":  false,
 				"kepler_vm_cpu_joules_total":          false,
 				"kepler_pod_cpu_joules_total":         false,
 			},
@@ -805,37 +818,40 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 			name:         "Only Process metrics",
 			metricsLevel: config.MetricsLevelProcess,
 			expectedMetrics: map[string]bool{
-				"kepler_node_cpu_joules_total":      false,
-				"kepler_process_cpu_joules_total":   true,
-				"kepler_process_cpu_watts":          true,
-				"kepler_process_cpu_seconds_total":  true,
-				"kepler_container_cpu_joules_total": false,
-				"kepler_vm_cpu_joules_total":        false,
-				"kepler_pod_cpu_joules_total":       false,
+				"kepler_node_cpu_joules_total":       false,
+				"kepler_process_cpu_joules_total":    true,
+				"kepler_process_cpu_watts":           true,
+				"kepler_process_cpu_seconds_total":   true,
+				"kepler_container_cpu_joules_total":  false,
+				"kepler_container_cpu_seconds_total": false,
+				"kepler_vm_cpu_joules_total":         false,
+				"kepler_pod_cpu_joules_total":        false,
 			},
 		},
 		{
 			name:         "Node and Container metrics",
 			metricsLevel: config.MetricsLevelNode | config.MetricsLevelContainer,
 			expectedMetrics: map[string]bool{
-				"kepler_node_cpu_joules_total":      true,
-				"kepler_node_cpu_watts":             true,
-				"kepler_process_cpu_joules_total":   false,
-				"kepler_container_cpu_joules_total": true,
-				"kepler_container_cpu_watts":        true,
-				"kepler_vm_cpu_joules_total":        false,
-				"kepler_pod_cpu_joules_total":       false,
+				"kepler_node_cpu_joules_total":       true,
+				"kepler_node_cpu_watts":              true,
+				"kepler_process_cpu_joules_total":    false,
+				"kepler_container_cpu_joules_total":  true,
+				"kepler_container_cpu_watts":         true,
+				"kepler_container_cpu_seconds_total": true,
+				"kepler_vm_cpu_joules_total":         false,
+				"kepler_pod_cpu_joules_total":        false,
 			},
 		},
 		{
 			name:         "No metrics",
 			metricsLevel: config.Level(0),
 			expectedMetrics: map[string]bool{
-				"kepler_node_cpu_joules_total":      false,
-				"kepler_process_cpu_joules_total":   false,
-				"kepler_container_cpu_joules_total": false,
-				"kepler_vm_cpu_joules_total":        false,
-				"kepler_pod_cpu_joules_total":       false,
+				"kepler_node_cpu_joules_total":       false,
+				"kepler_process_cpu_joules_total":    false,
+				"kepler_container_cpu_joules_total":  false,
+				"kepler_container_cpu_seconds_total": false,
+				"kepler_vm_cpu_joules_total":         false,
+				"kepler_pod_cpu_joules_total":        false,
 			},
 		},
 	}
@@ -880,10 +896,11 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 				},
 				Containers: monitor.Containers{
 					"test-container": &monitor.Container{
-						ID:      "test-container",
-						Name:    "test-container",
-						Runtime: resource.PodmanRuntime,
-						PodID:   "test-pod",
+						ID:           "test-container",
+						Name:         "test-container",
+						Runtime:      resource.PodmanRuntime,
+						PodID:        "test-pod",
+						CPUTotalTime: 1.5,
 						Zones: monitor.ZoneUsageMap{
 							packageZone: monitor.Usage{
 								EnergyTotal: 100 * device.Joule,
@@ -972,9 +989,10 @@ func TestTerminatedContainerExport(t *testing.T) {
 		Processes: monitor.Processes{},
 		Containers: monitor.Containers{
 			"running-container": &monitor.Container{
-				ID:      "running-container",
-				Name:    "running-cont",
-				Runtime: resource.DockerRuntime,
+				ID:           "running-container",
+				Name:         "running-cont",
+				Runtime:      resource.DockerRuntime,
+				CPUTotalTime: 150.0,
 				Zones: monitor.ZoneUsageMap{
 					packageZone: monitor.Usage{
 						EnergyTotal: 150 * device.Joule,
@@ -985,11 +1003,12 @@ func TestTerminatedContainerExport(t *testing.T) {
 		},
 		TerminatedContainers: monitor.Containers{
 			"terminated-container": &monitor.Container{
-				ID:       "terminated-container",
-				Name:     "terminated-cont",
-				Runtime:  resource.PodmanRuntime,
-				GPUPower: 55.0,
-				PodID:    "terminated-pod",
+				ID:           "terminated-container",
+				Name:         "terminated-cont",
+				Runtime:      resource.PodmanRuntime,
+				GPUPower:     55.0,
+				PodID:        "terminated-pod",
+				CPUTotalTime: 300.0,
 				Zones: monitor.ZoneUsageMap{
 					packageZone: monitor.Usage{
 						EnergyTotal: 300 * device.Joule,
@@ -1033,19 +1052,27 @@ func TestTerminatedContainerExport(t *testing.T) {
 			map[string]string{"container_id": "running-container", "state": "running"}, 150.0)
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts",
 			map[string]string{"container_id": "running-container", "state": "running"}, 15.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_seconds_total",
+			map[string]string{"container_id": "running-container", "state": "running"}, 150.0)
 
 		// Test terminated container metrics
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
 			map[string]string{"container_id": "terminated-container", "state": "terminated"}, 300.0)
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_watts",
 			map[string]string{"container_id": "terminated-container", "state": "terminated"}, 30.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_seconds_total",
+			map[string]string{"container_id": "terminated-container", "state": "terminated"}, 300.0)
 
 		// Test additional labels for running container
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
 			map[string]string{"container_id": "running-container", "container_name": "running-cont", "runtime": "docker"}, 150.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_seconds_total",
+			map[string]string{"container_id": "running-container", "container_name": "running-cont", "runtime": "docker"}, 150.0)
 
 		// Test additional labels for terminated container
 		assertMetricLabelValues(t, registry, "kepler_container_cpu_joules_total",
+			map[string]string{"container_id": "terminated-container", "container_name": "terminated-cont", "runtime": "podman"}, 300.0)
+		assertMetricLabelValues(t, registry, "kepler_container_cpu_seconds_total",
 			map[string]string{"container_id": "terminated-container", "container_name": "terminated-cont", "runtime": "podman"}, 300.0)
 	})
 
@@ -1060,6 +1087,12 @@ func TestTerminatedContainerExport(t *testing.T) {
 		assertMetricExists(t, registry, "kepler_container_cpu_watts",
 			map[string]string{"state": "running"})
 		assertMetricExists(t, registry, "kepler_container_cpu_watts",
+			map[string]string{"state": "terminated"})
+
+		// Also verify for seconds metrics
+		assertMetricExists(t, registry, "kepler_container_cpu_seconds_total",
+			map[string]string{"state": "running"})
+		assertMetricExists(t, registry, "kepler_container_cpu_seconds_total",
 			map[string]string{"state": "terminated"})
 	})
 

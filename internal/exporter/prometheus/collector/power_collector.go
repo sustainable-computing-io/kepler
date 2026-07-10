@@ -52,6 +52,7 @@ type PowerCollector struct {
 	// Container power metrics
 	containerCPUJoulesDescriptor *prometheus.Desc
 	containerCPUWattsDescriptor  *prometheus.Desc
+	containerCPUTimeDescriptor   *prometheus.Desc
 	containerGPUWattsDescriptor  *prometheus.Desc
 	containerGPUJoulesDescriptor *prometheus.Desc
 
@@ -147,6 +148,10 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 
 		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
 		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
+		// Note: Unlike processCPUTimeDescriptor, containerCPUTimeDescriptor includes the "state" label.
+		// This exports distinct time series for running vs terminated containers, preserving a final
+		// sample for terminated containers to support correct power attribution.
+		containerCPUTimeDescriptor:   timeDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUJoulesDescriptor: joulesDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUWattsDescriptor:  wattsDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 
@@ -216,9 +221,9 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	if c.metricsLevel.IsContainerEnabled() {
 		ch <- c.containerCPUJoulesDescriptor
 		ch <- c.containerCPUWattsDescriptor
+		ch <- c.containerCPUTimeDescriptor
 		ch <- c.containerGPUJoulesDescriptor
 		ch <- c.containerGPUWattsDescriptor
-		// ch <- c.containerCPUTimeDescriptor // TODO: add conntainerCPUTimeDescriptor
 	}
 
 	// vm
@@ -432,6 +437,14 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, st
 
 	// No need to lock, already done by the calling function
 	for id, container := range containers {
+		ch <- prometheus.MustNewConstMetric(
+			c.containerCPUTimeDescriptor,
+			prometheus.CounterValue,
+			container.CPUTotalTime,
+			id, container.Name, string(container.Runtime), state,
+			container.PodID,
+		)
+
 		for zone, usage := range container.Zones {
 			zoneName := zone.Name()
 
