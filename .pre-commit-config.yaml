@@ -54,7 +54,7 @@ repos:
         exclude: go\.(sum|mod)$
 
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.1.6
+    rev: v2.12.2
     hooks:
       - id: golangci-lint
         args: [--timeout=5m]
