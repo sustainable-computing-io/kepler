@@ -26,6 +26,40 @@ spec:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
+      initContainers:
+        - name: nvidia-libs
+          image: busybox:1.36.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            # Root required to read root-owned driver libs; capabilities dropped.
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              # cp -P keeps driver symlink chains (avoids 200Mi emptyDir blowup).
+              # set -e: copy failures fail init; do not mask with || true.
+              found=$(find /run-nvidia -name "libnvidia-ml.so*" 2>/dev/null | wc -l)
+              if [ "$found" -gt 0 ]; then
+                find /run-nvidia -name "libnvidia-ml.so*" -exec cp -P {} /nvml-libs/ \;
+                copied=$(ls /nvml-libs/ 2>/dev/null | wc -l)
+                echo "Copied $copied of $found NVML library file(s) to /nvml-libs"
+              else
+                echo "No NVML libraries found at /run-nvidia — GPU metrics will be unavailable on this node"
+              fi
+          volumeMounts:
+            - name: lib-nvidia
+              mountPath: /run-nvidia
+              readOnly: true
+            - name: nvml-libs
+              mountPath: /nvml-libs
       containers:
         - name: kepler
           image: <KEPLER_IMAGE>
@@ -54,8 +88,9 @@ spec:
               mountPath: /etc/kepler/config.yaml
               subPath: config.yaml
               readOnly: true
-            - name: nvidia-driver
-              mountPath: /run/nvidia/driver
+            # NVML libs only (copied by init); avoids mounting driver glibc.
+            - name: nvml-libs
+              mountPath: /usr/local/nvidia/lib64
               readOnly: true
           livenessProbe:
             httpGet:
@@ -69,8 +104,9 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            # Static path; K8s cannot expand the image's existing LD_LIBRARY_PATH.
             - name: LD_LIBRARY_PATH
-              value: /run/nvidia/driver/usr/lib64
+              value: /usr/local/nvidia/lib64
             # Required for NVML to see all MIG devices when running in a container
             - name: NVIDIA_VISIBLE_DEVICES
               value: all
@@ -86,7 +122,11 @@ spec:
         - name: cfm
           configMap:
             name: kepler
-        - name: nvidia-driver
+        # lib-nvidia: host driver path; nvml-libs: init-populated emptyDir.
+        - name: lib-nvidia
           hostPath:
             path: /run/nvidia/driver
             type: DirectoryOrCreate
+        - name: nvml-libs
+          emptyDir:
+            sizeLimit: 200Mi

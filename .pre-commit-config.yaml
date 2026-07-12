@@ -95,3 +95,16 @@ repos:
       - id: helmlint
         name: helm-lint
         files: ^manifests/helm/[^/]+/(Chart\.yaml|values\.yaml|templates/.*)$
+
+  # GPU-enabled helm-lint: covers variants the helmlint hook above cannot
+  # run (it does not accept --set flags).
+  - repo: local
+    hooks:
+      - id: helm-lint-gpu
+        name: helm-lint (gpu enabled)
+        language: system
+        pass_filenames: false
+        files: ^manifests/helm/[^/]+/(Chart\.yaml|values\.yaml|templates/.*)$
+        entry: >
+          bash -c 'helm lint manifests/helm/kepler
+          --set config.experimental.gpu.enabled=true'
