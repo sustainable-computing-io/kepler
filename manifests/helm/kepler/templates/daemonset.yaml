@@ -41,6 +41,42 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.config.experimental.gpu.enabled }}
+      initContainers:
+        - name: nvidia-libs
+          image: "{{ .Values.daemonset.nvidia.nvmlInitImage.repository }}:{{ .Values.daemonset.nvidia.nvmlInitImage.tag }}"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            # Root required to read root-owned driver libs; capabilities dropped.
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              # cp -P keeps driver symlink chains (avoids 200Mi emptyDir blowup).
+              # set -e: copy failures fail init; do not mask with || true.
+              found=$(find /run-nvidia -name "libnvidia-ml.so*" 2>/dev/null | wc -l)
+              if [ "$found" -gt 0 ]; then
+                find /run-nvidia -name "libnvidia-ml.so*" -exec cp -P {} /nvml-libs/ \;
+                copied=$(ls /nvml-libs/ 2>/dev/null | wc -l)
+                echo "Copied $copied of $found NVML library file(s) to /nvml-libs"
+              else
+                echo "No NVML libraries found at /run-nvidia — GPU metrics will be unavailable on this node"
+              fi
+          volumeMounts:
+            - name: lib-nvidia
+              mountPath: /run-nvidia
+              readOnly: true
+            - name: nvml-libs
+              mountPath: /nvml-libs
+      {{- end }}
       containers:
         - name: kepler
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -66,6 +102,11 @@ spec:
               readOnly: true
             - name: cfm
               mountPath: /etc/kepler
+            {{- if .Values.config.experimental.gpu.enabled }}
+            - name: nvml-libs
+              mountPath: /usr/local/nvidia/lib64
+              readOnly: true
+            {{- end }}
           {{- with .Values.daemonset.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
@@ -84,11 +125,16 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-            # Required for NVML to see all MIG devices when running in a container
+            # Always set (independent of gpu.enabled) for runtimeClassName: nvidia.
             - name: NVIDIA_VISIBLE_DEVICES
               value: "all"
             - name: NVIDIA_MIG_MONITOR_DEVICES
               value: "all"
+            {{- if .Values.config.experimental.gpu.enabled }}
+            # Path for libnvidia-ml.so from the nvidia-libs init container.
+            - name: LD_LIBRARY_PATH
+              value: /usr/local/nvidia/lib64
+            {{- end }}
           {{- with .Values.daemonset.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -103,3 +149,13 @@ spec:
         - name: cfm
           configMap:
             name: {{ include "kepler.fullname" . }}
+        {{- if .Values.config.experimental.gpu.enabled }}
+        - name: lib-nvidia
+          hostPath:
+            path: {{ .Values.daemonset.nvidia.driverPath | quote }}
+            # DirectoryOrCreate so non-GPU nodes still schedule.
+            type: DirectoryOrCreate
+        - name: nvml-libs
+          emptyDir:
+            sizeLimit: 200Mi
+        {{- end }}
