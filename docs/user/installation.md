@@ -100,6 +100,41 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
   --values values.yaml
 ```
 
+#### Enabling GPU Power Monitoring (NVIDIA GPU Operator)
+
+To export GPU power metrics on clusters with the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/overview.html), enable the experimental GPU flag. The chart then adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` from the host driver path into an `emptyDir`, and points `LD_LIBRARY_PATH` at it:
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace \
+  --set config.experimental.gpu.enabled=true
+```
+
+What this changes:
+
+- Adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` into a 200Mi `emptyDir` using `cp -P` (preserves the driver symlink chain; `cp -L` can exceed the size limit when leftover driver versions are present).
+- Mounts that `emptyDir` read-only at `/usr/local/nvidia/lib64` and sets `LD_LIBRARY_PATH=/usr/local/nvidia/lib64`.
+- Mounts the host driver directory (default `/run/nvidia/driver`, overridable via `daemonset.nvidia.driverPath`) with `DirectoryOrCreate` so non-GPU nodes still schedule.
+
+Defaults assume the standard GPU Operator layout. Override via `values.yaml` if needed:
+
+```yaml
+config:
+  experimental:
+    gpu:
+      enabled: true
+
+daemonset:
+  nvidia:
+    driverPath: /run/nvidia/driver
+    nvmlInitImage:
+      repository: busybox
+      tag: 1.36.1
+```
+
+Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart's `daemonset.nvidia.*` plumbing. Enabling the binary flag without the init path (or the reverse) is not a supported split. Leave `enabled: false` if you do not want GPU power monitoring.
+
 #### Helm Management Commands
 
 ```bash
