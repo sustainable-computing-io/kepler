@@ -293,6 +293,22 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		err := backend.Init(ctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no reachable dcgm-exporter endpoint found")
+		// The underlying cause from testEndpoint must be propagated, not swallowed.
+		assert.Contains(t, err.Error(), "tried 1 fallback endpoints")
+	})
+
+	t.Run("all endpoints fail reports count and cause", func(t *testing.T) {
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.discoverEndpoint = func() string { return "" }
+		backend.fallbackEndpoints = []string{
+			"http://127.0.0.1:1/metrics",
+			"http://127.0.0.1:2/metrics",
+		}
+
+		err := backend.Init(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tried 2 fallback endpoints")
+		assert.False(t, backend.IsInitialized())
 	})
 
 	t.Run("discovery succeeds", func(t *testing.T) {
