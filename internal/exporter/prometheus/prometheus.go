@@ -166,8 +166,9 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 	collectors["gpu_info"] = collector.NewGPUInfoCollector(pm, opts.nodeName)
 
 	// Add platform collector if platform data provider is available
-	if opts.platformDataProvider != nil {
-		collectors["platform"] = collector.NewRedfishCollector(opts.platformDataProvider, opts.logger)
+	platformCollector, err := collector.NewRedfishCollector(opts.platformDataProvider, opts.logger)
+	if err == nil {
+		collectors["platform"] = platformCollector
 	}
 
 	return collectors, nil

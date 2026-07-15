@@ -4,6 +4,7 @@
 package collector
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -38,9 +39,9 @@ type PlatformCollector struct {
 }
 
 // NewRedfishCollector creates a new platform collector
-func NewRedfishCollector(redfish RedfishDataProvider, logger *slog.Logger) *PlatformCollector {
+func NewRedfishCollector(redfish RedfishDataProvider, logger *slog.Logger) (*PlatformCollector, error) {
 	if redfish == nil {
-		panic("RedfishDataProvider cannot be nil - platform collector requires a data provider to function")
+		return nil, errors.New("RedfishDataProvider cannot be nil - platform collector requires a data provider to function")
 	}
 	if logger == nil {
 		logger = slog.Default()
@@ -57,7 +58,7 @@ func NewRedfishCollector(redfish RedfishDataProvider, logger *slog.Logger) *Plat
 			[]string{"source", "node_name", "bmc_id", "chassis_id", "source_id", "source_name", "source_type"},
 			nil,
 		),
-	}
+	}, nil
 }
 
 // Describe sends the descriptors of platform metrics to the provided channel

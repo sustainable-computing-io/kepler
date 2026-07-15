@@ -92,7 +92,8 @@ func TestNewRedfishCollector(t *testing.T) {
 		bmcID:    "test-bmc",
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	require.NotNil(t, collector)
 	assert.Equal(t, "test-node", collector.nodeName)
@@ -102,13 +103,14 @@ func TestNewRedfishCollector(t *testing.T) {
 	assert.Equal(t, mockProvider, collector.redfish)
 }
 
-func TestNewRedfishCollector_ValidationPanics(t *testing.T) {
+func TestNewRedfishCollector_ValidationError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	t.Run("Nil data provider panics", func(t *testing.T) {
-		assert.Panics(t, func() {
-			NewRedfishCollector(nil, logger)
-		}, "Should panic when RedfishDataProvider is nil")
+	t.Run("Nil data provider returns error", func(t *testing.T) {
+		collector, err := NewRedfishCollector(nil, logger)
+		require.Error(t, err)
+		assert.Nil(t, collector)
+		assert.Contains(t, err.Error(), "RedfishDataProvider cannot be nil")
 	})
 
 	t.Run("Nil logger uses default", func(t *testing.T) {
@@ -117,7 +119,8 @@ func TestNewRedfishCollector_ValidationPanics(t *testing.T) {
 			bmcID:    "test-bmc",
 		}
 
-		collector := NewRedfishCollector(mockProvider, nil)
+		collector, err := NewRedfishCollector(mockProvider, nil)
+		require.NoError(t, err)
 		require.NotNil(t, collector)
 		assert.NotNil(t, collector.logger, "Should use default logger when nil is passed")
 	})
@@ -131,7 +134,8 @@ func TestPlatformCollector_Describe(t *testing.T) {
 		bmcID:    "test-bmc",
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create a channel to collect descriptors
 	ch := make(chan *prometheus.Desc, 10)
@@ -199,7 +203,8 @@ func TestPlatformCollector_Collect_Success(t *testing.T) {
 		powerReading: powerReading,
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -261,7 +266,8 @@ func TestPlatformCollector_Collect_Error(t *testing.T) {
 		err:      errors.New("BMC connection failed"),
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -284,7 +290,8 @@ func TestPlatformCollector_Collect_NilReading(t *testing.T) {
 		powerReading: nil, // nil reading
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -313,7 +320,8 @@ func TestPlatformCollector_Collect_EmptyReadings(t *testing.T) {
 		powerReading: powerReading,
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -353,7 +361,8 @@ func TestPlatformCollector_Collect_SingleChassis(t *testing.T) {
 		powerReading: powerReading,
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -404,7 +413,8 @@ func TestPlatformCollector_Collect_ParallelCollection(t *testing.T) {
 		powerReading: powerReading,
 	}
 
-	collector := NewRedfishCollector(mockProvider, logger)
+	collector, err := NewRedfishCollector(mockProvider, logger)
+	require.NoError(t, err)
 
 	// Create registry and register collector
 	registry := prometheus.NewRegistry()
@@ -494,7 +504,8 @@ func TestPlatformCollector_Collect_MetricLabelsValidation(t *testing.T) {
 				powerReading: powerReading,
 			}
 
-			collector := NewRedfishCollector(mockProvider, logger)
+			collector, err := NewRedfishCollector(mockProvider, logger)
+			require.NoError(t, err)
 
 			// Create registry and register collector
 			registry := prometheus.NewRegistry()
