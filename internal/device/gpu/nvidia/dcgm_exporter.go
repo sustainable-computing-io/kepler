@@ -6,6 +6,7 @@ package nvidia
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -181,7 +182,7 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 	// Fallback to static endpoints. This covers cases where K8s API discovery
 	// fails (e.g., RBAC issues, dcgm-exporter in a non-standard namespace)
 	// or dcgm-exporter uses hostNetwork (localhost:9400).
-	var lastErr error
+	var errs []error
 	for _, ep := range d.fallbackEndpoints {
 		err := d.testEndpoint(ctx, ep)
 		if err == nil {
@@ -190,12 +191,16 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", ep, "discovery", "fallback")
 			return nil
 		}
-		lastErr = err
+		errs = append(errs, fmt.Errorf("endpoint %s: %w", ep, err))
 		d.logger.Warn("dcgm-exporter endpoint not reachable", "endpoint", ep, "error", err)
 	}
 
-	if lastErr != nil {
-		return fmt.Errorf("no reachable dcgm-exporter endpoint found (tried %d fallback endpoints): %w", len(d.fallbackEndpoints), lastErr)
+	if len(errs) > 0 {
+		// Aggregate every endpoint error, not just the last one: the last
+		// failure may be unfixable (e.g. unsupported hardware) while an
+		// earlier one is actionable (e.g. an RBAC issue on another endpoint).
+		return fmt.Errorf("no reachable dcgm-exporter endpoint found (tried %d fallback endpoints): %w",
+			len(d.fallbackEndpoints), errors.Join(errs...))
 	}
 	return fmt.Errorf("no reachable dcgm-exporter endpoint found")
 }

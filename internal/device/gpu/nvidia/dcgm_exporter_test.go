@@ -308,6 +308,10 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		err := backend.Init(ctx)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "tried 2 fallback endpoints")
+		// Every failed endpoint must be reported, not just the last one, so an
+		// actionable earlier failure isn't hidden behind an unfixable last one.
+		assert.Contains(t, err.Error(), "http://127.0.0.1:1/metrics")
+		assert.Contains(t, err.Error(), "http://127.0.0.1:2/metrics")
 		assert.False(t, backend.IsInitialized())
 	})
 
