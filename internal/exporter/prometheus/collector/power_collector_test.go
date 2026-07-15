@@ -215,7 +215,7 @@ func TestPowerCollector(t *testing.T) {
 	}
 
 	testProcesses := monitor.Processes{
-		"123": {
+		"123": &monitor.Process{
 			PID:            123,
 			Comm:           "test-process",
 			Exe:            "/usr/bin/123",
@@ -224,7 +224,7 @@ func TestPowerCollector(t *testing.T) {
 			GPUPower:       50.5,
 			GPUEnergyTotal: 250 * device.Joule,
 			Zones: monitor.ZoneUsageMap{
-				packageZone: {
+				packageZone: monitor.Usage{
 					EnergyTotal: 100 * device.Joule,
 					Power:       5 * device.Watt,
 				},
@@ -233,7 +233,7 @@ func TestPowerCollector(t *testing.T) {
 	}
 
 	testContainers := monitor.Containers{
-		"abcd-efgh": {
+		"abcd-efgh": &monitor.Container{
 			ID:             "abcd-efgh",
 			Name:           "test-container",
 			Runtime:        resource.PodmanRuntime,
@@ -241,7 +241,7 @@ func TestPowerCollector(t *testing.T) {
 			GPUEnergyTotal: 250 * device.Joule,
 			PodID:          "test-pod",
 			Zones: monitor.ZoneUsageMap{
-				packageZone: {
+				packageZone: monitor.Usage{
 					EnergyTotal: 100 * device.Joule,
 					Power:       5 * device.Watt,
 				},
@@ -250,12 +250,12 @@ func TestPowerCollector(t *testing.T) {
 	}
 
 	testVMs := monitor.VirtualMachines{
-		"abcd-efgh": {
+		"abcd-efgh": &monitor.VirtualMachine{
 			ID:         "abcd-efgh",
 			Name:       "test-vm",
 			Hypervisor: resource.KVMHypervisor,
 			Zones: monitor.ZoneUsageMap{
-				packageZone: {
+				packageZone: monitor.Usage{
 					EnergyTotal: 100 * device.Joule,
 					Power:       5 * device.Watt,
 				},
@@ -264,13 +264,13 @@ func TestPowerCollector(t *testing.T) {
 	}
 
 	testPods := monitor.Pods{
-		"test-pod": {
+		"test-pod": &monitor.Pod{
 			Name:           "test-pod",
 			Namespace:      "default",
 			GPUPower:       42.5,
 			GPUEnergyTotal: 250 * device.Joule,
 			Zones: monitor.ZoneUsageMap{
-				packageZone: {
+				packageZone: monitor.Usage{
 					EnergyTotal: 100 * device.Joule,
 					Power:       5 * device.Watt,
 				},
@@ -345,6 +345,7 @@ func TestPowerCollector(t *testing.T) {
 
 			"kepler_container_cpu_joules_total",
 			"kepler_container_cpu_watts",
+			"kepler_container_cpu_seconds_total",
 			"kepler_container_gpu_watts",
 			"kepler_container_gpu_joules_total",
 
