@@ -411,14 +411,13 @@ func (pm *PowerMonitor) firstReading(newSnapshot *Snapshot) error {
 }
 
 func (pm *PowerMonitor) calculatePower(prev, newSnapshot *Snapshot) error {
-	// Calculate node power
-	if err := pm.calculateNodePower(prev.Node, newSnapshot.Node); err != nil {
-		return fmt.Errorf(nodePowerError, err)
-	}
-
 	if err := pm.resources.Refresh(); err != nil {
 		pm.logger.Error("snapshot rebuild failed to refresh resources", "error", err)
 		return err
+	}
+	// Calculate node power
+	if err := pm.calculateNodePower(prev.Node, newSnapshot.Node); err != nil {
+		return fmt.Errorf(nodePowerError, err)
 	}
 
 	// Calculate process power
