@@ -84,6 +84,12 @@ type DCGMEndpointConfigurable interface {
 	SetDCGMEndpoint(endpoint string)
 }
 
+// DCGMMetricsCacheTTLConfigurable is an optional interface for GPU meters that
+// support configuring the dcgm-exporter metrics cache TTL for MIG attribution.
+type DCGMMetricsCacheTTLConfigurable interface {
+	SetDCGMMetricsCacheTTL(ttl time.Duration)
+}
+
 // ProcessGPUInfo contains per-process GPU metrics collected from the device.
 // This struct is vendor-agnostic.
 type ProcessGPUInfo struct {
