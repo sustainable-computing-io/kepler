@@ -187,6 +187,10 @@ type (
 		// Required for MIG power attribution. If empty, auto-discovered via K8s API.
 		// Example: "http://10.131.2.22:9400/metrics"
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
+
+		// MetricsCacheTTL controls how long dcgm-exporter metrics are cached for MIG
+		// power attribution. If nil, the NVIDIA backend default is used. 0 disables caching.
+		MetricsCacheTTL *time.Duration `yaml:"metricsCacheTTL,omitempty"`
 	}
 
 	// Experimental contains experimental features (no stability guarantees)
@@ -307,9 +311,10 @@ const (
 	ExperimentalHwmonZonesFlag        = "experimental.hwmon.zones"
 
 	// Experimental GPU flags
-	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
-	ExperimentalGPUIdlePowerFlag    = "experimental.gpu.idle-power"
-	ExperimentalGPUDCGMEndpointFlag = "experimental.gpu.dcgm-endpoint"
+	ExperimentalGPUEnabledFlag         = "experimental.gpu.enabled"
+	ExperimentalGPUIdlePowerFlag       = "experimental.gpu.idle-power"
+	ExperimentalGPUDCGMEndpointFlag    = "experimental.gpu.dcgm-endpoint"
+	ExperimentalGPUMetricsCacheTTLFlag = "experimental.gpu.metrics-cache-ttl"
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -498,6 +503,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
 	gpuDCGMEndpoint := app.Flag(ExperimentalGPUDCGMEndpointFlag, "dcgm-exporter metrics endpoint URL for MIG power attribution (auto-discovered if empty)").Default("").String()
+	gpuMetricsCacheTTL := app.Flag(ExperimentalGPUMetricsCacheTTLFlag, "dcgm-exporter metrics cache TTL for MIG power attribution (0 to disable cache)").Default("2s").Duration()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -572,7 +578,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		// Apply experimental GPU settings
-		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint)
+		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint, gpuMetricsCacheTTL)
 
 		// Resolve Kube.Node fallback to hostname when Kubernetes is not enabled
 		// and no node name was set by flags or YAML
@@ -709,7 +715,7 @@ func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, forceEnabled *bool,
 }
 
 // applyGPUConfig applies GPU configuration from flags
-func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64, dcgmEndpoint *string) {
+func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64, dcgmEndpoint *string, metricsCacheTTL *time.Duration) {
 	// Early exit if GPU enabled flag is not set and config file does not have experimental section
 	if !flagsSet[ExperimentalGPUEnabledFlag] && cfg.Experimental == nil {
 		return
@@ -732,6 +738,7 @@ func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePo
 		if flagsSet[ExperimentalGPUDCGMEndpointFlag] {
 			cfg.Experimental.GPU.DCGMEndpoint = *dcgmEndpoint
 		}
+		cfg.Experimental.GPU.MetricsCacheTTL = metricsCacheTTL
 	}
 }
 
@@ -993,6 +1000,9 @@ func (c *Config) validateExperimentalConfig(validationSkipped map[SkipValidation
 		}
 
 		errs = append(errs, validateDCGMEndpoint(c.Experimental.GPU.DCGMEndpoint)...)
+		if c.Experimental.GPU.MetricsCacheTTL != nil && *c.Experimental.GPU.MetricsCacheTTL < 0 {
+			errs = append(errs, fmt.Sprintf("invalid gpu metrics cache TTL: %s can't be negative", *c.Experimental.GPU.MetricsCacheTTL))
+		}
 	}
 
 	return errs
