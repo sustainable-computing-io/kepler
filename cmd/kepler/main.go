@@ -157,6 +157,15 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		}
 	}
 
+	// Inject configured DCGM metrics cache TTL for MIG power attribution
+	if cfg.Experimental != nil {
+		for _, m := range gpuMeters {
+			if c, ok := m.(gpu.DCGMMetricsCacheTTLConfigurable); ok {
+				c.SetDCGMMetricsCacheTTL(*cfg.Experimental.GPU.MetricsCacheTTL)
+			}
+		}
+	}
+
 	var services []service.Service
 
 	var podInformer pod.Informer

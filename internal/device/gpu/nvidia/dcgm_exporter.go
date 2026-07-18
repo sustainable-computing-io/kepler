@@ -25,10 +25,6 @@ import (
 )
 
 const (
-	// metricsCacheTTL is how long cached metrics are valid before refetching.
-	// This prevents HTTP request storms when querying multiple MIG instances.
-	metricsCacheTTL = 2 * time.Second
-
 	// maxConsecutiveFailures is how many HTTP failures before the circuit breaker trips.
 	maxConsecutiveFailures = 3
 
@@ -53,7 +49,8 @@ type DCGMExporterBackend struct {
 	mu          sync.Mutex
 
 	// Cached metrics with TTL to avoid HTTP request storms
-	cachedMetrics *dcgmMetrics
+	cachedMetrics   *dcgmMetrics
+	metricsCacheTTL time.Duration
 
 	// Circuit breaker: tracks consecutive failures and disables the backend
 	// after maxConsecutiveFailures. Re-initialization is attempted after reInitInterval.
@@ -120,6 +117,18 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 	}
 	d.discoverEndpoint = d.discoverLocalDCGMExporter
 	return d
+}
+
+// SetMetricsCacheTTL sets how long fetched metrics are cached.
+// A zero duration disables caching. Negative values are clamped to zero.
+func (d *DCGMExporterBackend) SetMetricsCacheTTL(ttl time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if ttl < 0 {
+		ttl = 0
+	}
+	d.metricsCacheTTL = ttl
+	d.cachedMetrics = nil
 }
 
 // SetEndpoint sets the dcgm-exporter endpoint URL
@@ -375,12 +384,12 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 }
 
 // fetchMetrics returns cached metrics if still valid, otherwise fetches fresh data.
-// Caller must hold d.mu. On cache miss (every ~2s per metricsCacheTTL), performs
+// Caller must hold d.mu. On cache miss (every ~2s by default), performs
 // an HTTP GET to dcgm-exporter and writes d.cachedMetrics with parsed results.
 // Tracks consecutive failures and trips the circuit breaker after maxConsecutiveFailures.
 func (d *DCGMExporterBackend) fetchMetrics(ctx context.Context) (*dcgmMetrics, error) {
 	// Return cached metrics if still valid
-	if d.cachedMetrics != nil && time.Since(d.cachedMetrics.timestamp) < metricsCacheTTL {
+	if d.metricsCacheTTL > 0 && d.cachedMetrics != nil && time.Since(d.cachedMetrics.timestamp) < d.metricsCacheTTL {
 		return d.cachedMetrics, nil
 	}
 
