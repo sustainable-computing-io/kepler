@@ -185,6 +185,19 @@ These metrics provide energy and power information for containers.
 - **Constant Labels**:
   - `node_name`
 
+#### kepler_container_cpu_seconds_total
+
+- **Type**: COUNTER
+- **Description**: Total user and system time of cpu at container level in seconds
+- **Labels**:
+  - `container_id`
+  - `container_name`
+  - `runtime`
+  - `state`
+  - `pod_id`
+- **Constant Labels**:
+  - `node_name`
+
 #### kepler_container_cpu_watts
 
 - **Type**: GAUGE

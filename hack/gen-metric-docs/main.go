@@ -381,7 +381,7 @@ func main() {
 		bmcID:    "test-bmc",
 	}
 	fmt.Println("Creating platform collector...")
-	platformCollector := collector.NewRedfishCollector(mockRedfish, logger)
+	platformCollector, _ := collector.NewRedfishCollector(mockRedfish, logger)
 	fmt.Println("Created platform collector")
 
 	fmt.Println("Extracting metrics from platform collector...")

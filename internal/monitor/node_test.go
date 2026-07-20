@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -274,6 +275,30 @@ func TestNodeErrorHandling(t *testing.T) {
 		// Should have zone info for both
 		assert.NotContains(t, current.Node.Zones, pkg)
 		assert.Contains(t, current.Node.Zones, core)
+	})
+
+	t.Run("Multiple Zone Errors Are Aggregated", func(t *testing.T) {
+		mockCPUPowerMeter.ExpectedCalls = nil
+		mockCPUPowerMeter.On("Zones").Return(testZones, nil)
+
+		pkgErr := errors.New("pkg energy read failed")
+		coreErr := errors.New("core energy read failed")
+		pkg.OnEnergy(0, pkgErr)
+		core.OnEnergy(0, coreErr)
+
+		current := NewSnapshot()
+		err := pm.firstNodeRead(current.Node)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, pkgErr, "pkg error must not be dropped")
+		assert.ErrorIs(t, err, coreErr, "core error must not be dropped")
+
+		prev := NewSnapshot()
+		err = pm.calculateNodePower(prev.Node, current.Node)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, pkgErr, "pkg error must not be dropped")
+		assert.ErrorIs(t, err, coreErr, "core error must not be dropped")
+
+		mockCPUPowerMeter.AssertExpectations(t)
 	})
 
 	mockResourceInformer.AssertExpectations(t)

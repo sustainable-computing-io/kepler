@@ -113,7 +113,7 @@ func TestExporter_InitRunShotdown(t *testing.T) {
 		mockMonitor := &MockMonitor{}
 		mockMonitor.On("Snapshot").Return(&monitor.Snapshot{Node: getTestNodeData()}, nil)
 		out := &dummyWriteCloser{&bytes.Buffer{}}
-		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(1*time.Second))
+		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(100*time.Millisecond))
 		err := exporter.Init()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		go func() {

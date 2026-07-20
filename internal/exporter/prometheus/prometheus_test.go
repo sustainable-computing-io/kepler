@@ -14,7 +14,9 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
+	"github.com/sustainable-computing-io/kepler/internal/platform/redfish"
 )
 
 // MockMonitor mocks the Monitor interface
@@ -280,6 +282,19 @@ func TestWithOptions(t *testing.T) {
 		assert.True(t, opts.debugCollectors["process"])
 		assert.True(t, opts.debugCollectors["custom"])
 	})
+
+	t.Run("WithMetricsLevel", func(t *testing.T) {
+		opts := DefaultOpts()
+		WithMetricsLevel(1)(&opts)
+		assert.Equal(t, config.Level(1), opts.metricsLevel)
+	})
+
+	t.Run("WithPlatformDataProvider", func(t *testing.T) {
+		opts := DefaultOpts()
+		// Any mock struct can be used, nil is fine for this interface check
+		WithPlatformDataProvider(nil)(&opts)
+		assert.Nil(t, opts.platformDataProvider)
+	})
 }
 
 func TestDefaultOpts(t *testing.T) {
@@ -314,6 +329,12 @@ func TestExporter_Integration(t *testing.T) {
 	mockMonitor.AssertExpectations(t)
 }
 
+type mockPlatformProvider struct{}
+
+func (m *mockPlatformProvider) Power() (*redfish.PowerReading, error) { return nil, nil }
+func (m *mockPlatformProvider) NodeName() string                      { return "test-node" }
+func (m *mockPlatformProvider) BMCID() string                         { return "test-bmc" }
+
 func TestExporter_CreateCollectors(t *testing.T) {
 	mockMonitor := &MockMonitor{}
 	mockMonitor.On("DataChannel").Return(make(<-chan struct{}))
@@ -323,6 +344,7 @@ func TestExporter_CreateCollectors(t *testing.T) {
 		mockMonitor,
 		WithLogger(slog.Default()),
 		WithProcFSPath("/proc"),
+		WithPlatformDataProvider(&mockPlatformProvider{}),
 	)
 	time.Sleep(50 * time.Millisecond)
 
@@ -330,5 +352,5 @@ func TestExporter_CreateCollectors(t *testing.T) {
 	mockMonitor.AssertExpectations(t)
 
 	assert.NoError(t, err)
-	assert.Len(t, coll, 4) // build_info, power, cpu_info, gpu_info
+	assert.Len(t, coll, 5) // build_info, power, cpu_info, gpu_info, platform
 }
