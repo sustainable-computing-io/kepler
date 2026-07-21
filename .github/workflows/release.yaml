@@ -1,133 +1,123 @@
 name: Release
 
-on: # yamllint disable-line rule:truthy
+on:
   push:
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
 
-# default permissions as read only
 permissions: read-all
+
 jobs:
-  build:
+  build-image:
     if: github.repository_owner == 'sustainable-computing-io'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       IMG_BASE: quay.io/sustainable_computing_io
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
-          # NOTE: setting fetch-depth to 0 to retrieve the entire history
-          # instead of a shallow -clone so that all tags are fetched as well.
-          # This is necessary for computing the VERSION using `git describe`
           fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v6.5.0
+      - uses: actions/setup-go@v6.4.0
         with:
           go-version-file: go.mod
           cache: true
-          check-latest: true
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - name: Login to registry
+        run: echo "${{ secrets.BOT_TOKEN }}" | docker login -u "${{ secrets.BOT_NAME }}" --password-stdin $IMG_BASE
+      - uses: ./.github/build-image
+        with:
+          version: ${{ github.ref_name }}
+          image_base: ${{ env.IMG_BASE }}
+      - name: Push image
+        shell: bash
+        run: make push VERSION=${{ github.ref_name }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-artifacts
+          retention-days: 1
+          path: |
+            image-kepler-*.spdx.json
+            image-kepler-*.spdx.json.sigstore.json
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v5
+  build-binary:
+    if: github.repository_owner == 'sustainable-computing-io'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - uses: ./.github/build-binary
+        with:
+          version: ${{ github.ref_name }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binary-artifacts
+          retention-days: 1
+          path: |
+            bin/kepler-*.tar.gz
+            bin/kepler-*.tar.gz.cert
+            bin/kepler-*.tar.gz.sig
+            bin/kepler-*.spdx.json
+            bin/kepler-*.spdx.json.cert
+            bin/kepler-*.spdx.json.sig
+
+  build-helm:
+    if: github.repository_owner == 'sustainable-computing-io'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      IMG_BASE: quay.io/sustainable_computing_io
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
         with:
           version: latest
-
-      - name: Login to Image Registry
-        uses: docker/login-action@v4
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - name: Login to registry
+        run: echo "${{ secrets.BOT_TOKEN }}" | docker login -u "${{ secrets.BOT_NAME }}" --password-stdin $IMG_BASE
+      - uses: ./.github/build-helm
         with:
-          registry: ${{ env.IMG_BASE }}
-          username: ${{ secrets.BOT_NAME }}
-          password: ${{ secrets.BOT_TOKEN }}
+          version: ${{ github.ref_name }}
 
-      - name: make deps
-        shell: bash
-        run: make deps
-
-      - name: Build Image
-        shell: bash
-        run: |
-          make image VERSION=${{ github.ref_name }}
-
-      - name: Update Helm Chart Version
-        shell: bash
-        run: |
-          VERSION=${{ github.ref_name }}
-          # Remove 'v' prefix from version
-          CHART_VERSION=${VERSION#v}
-          # Update Chart.yaml with the release version
-          sed -i "s/^version:.*/version: $CHART_VERSION/" manifests/helm/kepler/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" manifests/helm/kepler/Chart.yaml
-
-      - name: Package Helm Chart
-        shell: bash
-        run: |
-          mkdir -p helm-releases
-          VERSION=${{ github.ref_name }}
-          # Remove 'v' prefix from version
-          CHART_VERSION=${VERSION#v}
-          helm package manifests/helm/kepler -d helm-releases
-          # Rename the helm chart to include 'helm' identifier
-          mv helm-releases/kepler-${CHART_VERSION}.tgz helm-releases/kepler-helm-${CHART_VERSION}.tgz
-
-      - name: Build Kepler binary
-        shell: bash
-        run: |
-          VERSION=${{ github.ref_name }}
-          # Remove 'v' prefix from version
-          VERSION=${VERSION#v}
-          make build PRODUCTION=1
-          mv bin/kepler-release bin/kepler
-          # Currently the binary is built for linux-amd64 only
-          tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
-
-      - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7
         with:
-          name: release-artifacts
-          retention-days: 1 # Keep the artifacts for 1 day
+          name: helm-artifacts
+          retention-days: 1
           path: |
-            helm-releases/*.tgz
-            bin/*.tar.gz
-
-      - name: Push Image
-        shell: bash
-        run: |
-          make push VERSION=${{ github.ref_name }}
-
-      - name: Push Helm Chart to OCI registry
-        shell: bash
-        run: |
-          VERSION=${{ github.ref_name }}
-          # Remove 'v' prefix from version
-          CHART_VERSION=${VERSION#v}
-          helm push helm-releases/kepler-helm-${CHART_VERSION}.tgz oci://${{ env.IMG_BASE }}/charts
+            helm-releases/kepler-helm-*.tgz
+            helm-releases/kepler-helm-*.tgz.cert
+            helm-releases/kepler-helm-*.tgz.sig
 
   release:
-    needs: build
-    permissions:
-      # contents: write is required for publishing Github Releases
-      # This follows Github's recommended pattern: top-level read-all with minimal job-level permissions
-      # See: https://github.com/softprops/action-gh-release?tab=readme-ov-file#permissions
-      contents: write
+    needs: [build-image, build-binary, build-helm]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download Release Artifacts
-        uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8
         with:
-          name: release-artifacts
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+          path: artifacts/
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: release-${{ github.ref_name }}
           generate_release_notes: true
           draft: false
           make_latest: true
-          files: |
-            helm-releases/*.tgz
-            bin/*.tar.gz
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

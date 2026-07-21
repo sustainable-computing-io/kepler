@@ -1,51 +1,77 @@
-name: Push
+name: Daily Build Verification
 
-on: # yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: 0 6 * * *  # UTC 6:00 AM
   push:
-    branches: [main]
+    branches: main
+  pull_request:
+    branches: main
 
-# default permissions as read only
-permissions: read-all
+env:
+  # for token permission limits as id-token, just work for push or schedule
+  SIGN: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  test-and-codecov:
-    permissions:
-      contents: read
-    uses: ./.github/workflows/test-and-codecov.yaml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  scorecard:
-    permissions:
-      contents: read
-      security-events: write
-      id-token: write
-      actions: read
-    uses: ./.github/workflows/scorecard.yml
-
-  publish:
-    if: github.repository_owner == 'sustainable-computing-io'
+  verify-image:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v6.5.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6.4.0
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Additional tags
-        id: additional_tags
-        shell: bash
-        run: |
-         echo "result=$(git rev-parse --short HEAD)-$(date +%Y%m%d%H%M%S),latest" >> $GITHUB_OUTPUT
-
-      - name: Build and publish image to external registry
-        uses: ./.github/publish-image
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - uses: ./.github/build-image
         with:
-          registry: quay.io/sustainable_computing_io
-          username: ${{ secrets.BOT_NAME }}
-          password: ${{ secrets.BOT_TOKEN }}
-          additional_tags: ${{ steps.additional_tags.outputs.result }}
+          version: latest
+          image_base: quay.io/sustainable_computing_io
+          sign: ${{ env.SIGN }}
+
+  verify-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - uses: ./.github/build-binary
+        with:
+          version: dev
+          sign: ${{ env.SIGN }}
+
+  verify-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: latest
+      - uses: sigstore/cosign-installer@v3.5.0
+      - uses: anchore/sbom-action/download-syft@v0.18.0
+      - uses: ./.github/build-helm
+        with:
+          version: 0.0.0-dev
+          sign: ${{ env.SIGN }}
+
+      # do we have an helm registry to push to?
+      #- name: Push Helm Chart to OCI
+      #  shell: bash
+      #  run: |
+      #    CHART_VERSION="${VERSION#v}"
+      #    helm push "helm-releases/kepler-helm-${CHART_VERSION}.tgz" "oci://${IMAGE_BASE}/charts"
+
+      #- name: Sign OCI Helm Chart
+      #  shell: bash
+      #  run: |
+      #    CHART_VERSION="${VERSION#v}"
+      #    CHART_REF="${IMAGE_BASE}/charts/kepler-helm:${CHART_VERSION}"
+      #    cosign sign "${CHART_REF}" --yes
