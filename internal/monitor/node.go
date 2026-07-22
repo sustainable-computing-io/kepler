@@ -53,7 +53,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 			absEnergy = energyReading
 
 			if energyErr != nil {
-				retErr = errors.Join(energyErr)
+				retErr = errors.Join(retErr, energyErr)
 				pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", energyErr)
 				continue
 			}
@@ -66,7 +66,7 @@ func (pm *PowerMonitor) calculateNodePower(prevNode, newNode *Node) error {
 		} else {
 			// power sensor
 			if powerErr != nil {
-				retErr = errors.Join(powerErr)
+				retErr = errors.Join(retErr, powerErr)
 				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
 				continue
 			}
@@ -211,7 +211,7 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 		if isEnergySensor {
 			// energy sensor
 			if energyErr != nil {
-				retErr = errors.Join(energyErr)
+				retErr = errors.Join(retErr, energyErr)
 				pm.logger.Warn("Could not read energy for zone", "zone", zone.Name(), "index", zone.Index(), "error", energyErr)
 				continue
 			}
@@ -223,7 +223,7 @@ func (pm *PowerMonitor) firstNodeRead(node *Node) error {
 		} else {
 			// power sensor
 			if powerErr != nil {
-				retErr = errors.Join(powerErr)
+				retErr = errors.Join(retErr, powerErr)
 				pm.logger.Warn("Could not read power for zone", "zone", zone.Name(), "index", zone.Index(), "error", powerErr)
 				continue
 			}

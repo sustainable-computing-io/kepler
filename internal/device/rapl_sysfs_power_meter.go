@@ -158,26 +158,23 @@ func (r *raplPowerMeter) groupZonesByName(stdZoneMap map[zoneKey]EnergyZone) []E
 	// Group zones by base name (e.g., "package", "dram")
 	zoneGroups := make(map[string][]EnergyZone)
 
-	for key, zone := range stdZoneMap {
-		zoneGroups[key.name] = append(zoneGroups[key.name], zone)
+	for _, zone := range stdZoneMap {
+		name := zone.Name()
+		zoneGroups[name] = append(zoneGroups[name], zone)
 	}
 
-	// Create aggregated zones for duplicates, keep single zones as-is
 	var result []EnergyZone
 	for name, zones := range zoneGroups {
 		if len(zones) == 1 {
-			// Single zone - use as-is
 			result = append(result, zones[0])
 			continue
-
 		}
 
 		// Multiple zones with same name - create AggregatedZone
-		aggregated := NewAggregatedZone(zones)
+		aggregated, _ := NewAggregatedZone(zones)
 		result = append(result, aggregated)
 		r.logger.Debug("Created aggregated zone",
 			"name", name,
-			"zone_count", len(zones),
 			"zones", r.zoneNames(zones))
 	}
 

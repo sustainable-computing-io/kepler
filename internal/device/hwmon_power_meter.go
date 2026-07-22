@@ -213,7 +213,7 @@ func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
 		// LIMITATION: aggregation occurs when the devices are different with coincidentally
 		// the same labels. This should not happen. Ideally, Kepler identifies whether the zones with same
 		// name occur due to multi-socket CPU or independent devices.
-		aggregated := NewAggregatedZone(zones)
+		aggregated, _ := NewAggregatedZone(zones)
 		result = append(result, aggregated)
 		h.logger.Debug("Created aggregated zone",
 			"name", name,
