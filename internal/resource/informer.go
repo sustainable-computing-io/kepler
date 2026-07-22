@@ -254,6 +254,10 @@ func (ri *resourceInformer) refreshVMs(vmProcs []*Process) error {
 	// Build running VMs from pre-categorized VM processes
 	for _, proc := range vmProcs {
 		vm := proc.VirtualMachine
+		if vm == nil {
+			ri.logger.Error("process of type VM has nil virtual machine", "pid", proc.PID, "comm", proc.Comm)
+			continue
+		}
 		vmsRunning[vm.ID] = ri.updateVMCache(proc)
 	}
 
@@ -433,7 +437,8 @@ func (ri *resourceInformer) Pods() *Pods {
 func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 	vm := proc.VirtualMachine
 	if vm == nil {
-		panic(fmt.Sprintf("process %d of type %s (%s)  has is nil virtual machine", proc.PID, proc.Type, proc.Comm))
+		ri.logger.Error("process of type VM has nil virtual machine", "pid", proc.PID, "comm", proc.Comm)
+		return nil
 	}
 
 	cached, exists := ri.vmCache[vm.ID]

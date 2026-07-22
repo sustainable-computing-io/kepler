@@ -1101,7 +1101,7 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		mockProcFS.AssertExpectations(t)
 	})
 
-	t.Run("updateVMCache with nil VM panic", func(t *testing.T) {
+	t.Run("updateVMCache with nil VM", func(t *testing.T) {
 		mockProcFS := &MockProcReader{}
 		informer, err := NewInformer(WithProcReader(mockProcFS))
 		require.NoError(t, err)
@@ -1109,12 +1109,11 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		proc := &Process{
 			PID:            123,
 			Type:           VMProcess,
-			VirtualMachine: nil, // This should cause panic
+			VirtualMachine: nil,
 		}
 
-		assert.Panics(t, func() {
-			informer.updateVMCache(proc)
-		})
+		vm := informer.updateVMCache(proc)
+		assert.Nil(t, vm)
 	})
 }
 
