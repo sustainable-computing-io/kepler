@@ -18,7 +18,7 @@ monitor:
   # the same as long as the scrapes happens within the staleness duration.
   #
   # NOTE: Keep staleness shorter than the monitor interval.
-  staleness: 1000ms
+  staleness: 500ms
 
   # maximum number of terminated workloads (process, container, VM, pods)
   # to be kept in memory until the data is exported; 0 disables the limit
