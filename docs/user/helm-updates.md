@@ -97,6 +97,89 @@ helm install kepler-staging oci://quay.io/sustainable_computing_io/charts/kepler
 helm upgrade kepler oci://quay.io/sustainable_computing_io/charts/kepler --version 0.11.2 --namespace kepler
 ```
 
+## GitOps Deployment (Flux / Argo CD)
+
+If you manage clusters declaratively, you can consume the OCI chart from a
+GitOps controller instead of running `helm` imperatively. The chart lives at
+`oci://quay.io/sustainable_computing_io/charts/kepler`; both Flux and Argo CD
+support OCI Helm registries natively, so no separate Helm repository is needed.
+
+### Flux
+
+Flux consumes the OCI registry through a `HelmRepository` of `type: oci`
+referenced by a `HelmRelease`:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: kepler
+  namespace: kepler
+spec:
+  type: oci
+  url: oci://quay.io/sustainable_computing_io/charts
+  interval: 1h
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kepler
+  namespace: kepler
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: kepler
+      version: "0.11.4" # pin to a released version; see "Check for New Versions"
+      sourceRef:
+        kind: HelmRepository
+        name: kepler
+        namespace: kepler
+  install:
+    createNamespace: true
+  # values: # optional, inline chart values
+  #   image:
+  #     tag: latest
+```
+
+Apply the manifests to a Flux-managed path and the controller reconciles the
+release. Bumping `spec.chart.spec.version` in Git triggers the upgrade.
+
+### Argo CD
+
+Argo CD can pull the same OCI chart directly in an `Application`:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kepler
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: quay.io/sustainable_computing_io/charts
+    chart: kepler
+    targetRevision: "0.11.4" # pin to a released version
+    helm:
+      values: |
+        # optional inline chart values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kepler
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+> **Note:** Pin `version` / `targetRevision` to a released chart version rather
+> than tracking a moving tag, and manage the bump through your Git workflow so
+> upgrades stay auditable. See [Check for New Versions](#check-for-new-versions)
+> for how to discover available versions on the OCI registry.
+
 ## Monitoring Updates
 
 ### Check Update Status
