@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"log/slog"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 func TestNewFakeCPUMeter(t *testing.T) {
@@ -52,7 +53,7 @@ func TestFakeEnergyZone_Basics(t *testing.T) {
 	assert.Equal(t, "test-zone", zone.Name())
 	assert.Equal(t, 42, zone.Index())
 	assert.Equal(t, "/fake/path/energy_test-zone", zone.Path())
-	assert.Equal(t, Energy(500000), zone.MaxEnergy())
+	assert.Equal(t, device.Energy(500000), zone.MaxEnergy())
 }
 
 func TestFakeEnergyZone_Energy(t *testing.T) {
@@ -67,18 +68,18 @@ func TestFakeEnergyZone_Energy(t *testing.T) {
 	// First read should return the increment
 	e1, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(100), e1)
+	assert.Equal(t, device.Energy(100), e1)
 
 	// Second read should return double the increment
 	e2, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(200), e2)
+	assert.Equal(t, device.Energy(200), e2)
 
 	// Test wrap-around at maxEnergy
 	zone.energy = 950
 	e3, err := zone.Energy()
 	assert.NoError(t, err)
-	assert.Equal(t, Energy(50), e3) // Wrapped around: 950 + 100 = 1050, but 1050 % 1000 = 50
+	assert.Equal(t, device.Energy(50), e3) // Wrapped around: 950 + 100 = 1050, but 1050 % 1000 = 50
 }
 
 func TestWithFakeZones(t *testing.T) {
@@ -125,7 +126,7 @@ func TestWithFakePath(t *testing.T) {
 }
 
 func TestWithFakeMaxEnergy(t *testing.T) {
-	customMax := Energy(999999)
+	customMax := device.Energy(999999)
 	meter, err := NewFakeCPUMeter(nil, WithFakeMaxEnergy(customMax))
 	assert.NoError(t, err)
 
@@ -151,7 +152,7 @@ func TestWithFakeLogger(t *testing.T) {
 
 func TestMultipleOptions(t *testing.T) {
 	customPath := "/custom/rapl/path"
-	customMax := Energy(888888)
+	customMax := device.Energy(888888)
 	customZones := []string{"custom1", "custom2"}
 	logger := slog.Default().With("test", "logger")
 
@@ -190,7 +191,7 @@ func TestEnergyRandomness(t *testing.T) {
 	}
 
 	// Read energy multiple times
-	var readings []Energy
+	var readings []device.Energy
 	for range 10 {
 		e, err := zone.Energy()
 		assert.NoError(t, err)
