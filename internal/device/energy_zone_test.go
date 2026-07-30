@@ -485,7 +485,7 @@ func TestAggregatedZone_StateManagement(t *testing.T) {
 		_, err = az.Energy()
 		require.NoError(t, err)
 
-		zoneID := zoneKey{"package", 0}
+		zoneID := ZoneKey{"package", 0}
 		lastReading := az.lastReadings[zoneID]
 		assert.Equal(t, Energy(500), lastReading)
 
@@ -509,7 +509,7 @@ func TestAggregatedZone_StateManagement(t *testing.T) {
 		assert.Len(t, az.lastReadings, 1)
 
 		// Verify zone ID format
-		expectedZoneID := zoneKey{"package", 0}
+		expectedZoneID := ZoneKey{"package", 0}
 		_, exists := az.lastReadings[expectedZoneID]
 		assert.True(t, exists, "Expected zone ID %v to exist", expectedZoneID)
 	})
@@ -540,8 +540,8 @@ func TestAggregatedZone_StateManagement(t *testing.T) {
 		assert.Len(t, az.lastReadings, 2)
 
 		// Verify both zone IDs exist
-		zoneKey0 := zoneKey{"package", 0}
-		zoneKey1 := zoneKey{"package", 1}
+		zoneKey0 := ZoneKey{"package", 0}
+		zoneKey1 := ZoneKey{"package", 1}
 
 		_, exists0 := az.lastReadings[zoneKey0]
 		_, exists1 := az.lastReadings[zoneKey1]

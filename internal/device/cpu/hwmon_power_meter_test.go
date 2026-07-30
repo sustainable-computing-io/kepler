@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"log/slog"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 const (
@@ -211,18 +212,18 @@ func TestHwmonPowerMeter_Zones(t *testing.T) {
 		t.Logf("      Index: %d", zone.Index())
 		t.Logf("      Path: %s", zone.Path())
 
-		// Test reading capability - zones provide either Power() or Energy()
+		// Test reading capability - zones provide either device.Power() or device.Energy()
 		power, powerErr := zone.Power()
 		energy, energyErr := zone.Energy()
 
 		if _, ok := zone.(*hwmonEnergyZone); ok {
-			// Energy zones: Energy() succeeds, Power() fails
-			assert.NoError(t, energyErr, "Energy() should succeed for energy zone %s", zone.Name())
-			assert.Error(t, powerErr, "Power() should return error for energy zone %s", zone.Name())
+			// Energy zones: device.Energy() succeeds, device.Power() fails
+			assert.NoError(t, energyErr, "device.Energy() should succeed for energy zone %s", zone.Name())
+			assert.Error(t, powerErr, "device.Power() should return error for energy zone %s", zone.Name())
 			t.Logf("      Energy: %d µJ", energy)
 		} else {
-			// Power zones: Power() succeeds, Energy() fails
-			assert.NoError(t, powerErr, "Power() should not return error for zone %s", zone.Name())
+			// Power zones: device.Power() succeeds, device.Energy() fails
+			assert.NoError(t, powerErr, "device.Power() should not return error for zone %s", zone.Name())
 			t.Logf("      Power: %.2f W", power.Watts())
 		}
 	}
@@ -250,7 +251,7 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 	t.Logf("\n=== Detailed Zone Information ===")
 	for _, zone := range zones {
 		// Check if this is an aggregated zone or regular zone
-		if aggZone, ok := zone.(*AggregatedZone); ok {
+		if aggZone, ok := zone.(*device.AggregatedZone); ok {
 			t.Logf("\nAggregated Zone: %s", zone.Name())
 			t.Logf("  Contains: %d individual zones", len(aggZone.zones))
 			t.Logf("  Index: %d (aggregated)", zone.Index())
@@ -332,7 +333,7 @@ func TestHwmonPowerMeter_PowerReadings(t *testing.T) {
 	}
 
 	for _, zone := range zones {
-		// Skip energy-only zones (they don't provide Power())
+		// Skip energy-only zones (they don't provide device.Power())
 		if _, ok := zone.(*hwmonEnergyZone); ok {
 			energy, err := zone.Energy()
 			require.NoError(t, err, "Failed to read energy for zone %s", zone.Name())
@@ -503,16 +504,16 @@ func TestHwmonPowerZone_Interface(t *testing.T) {
 	assert.Equal(t, 1, zone.Index())
 	assert.Equal(t, "testdata/sys/class/hwmon/hwmon0/power1_input", zone.Path())
 
-	// Test Energy() returns 0
+	// Test device.Energy() returns 0
 	energy, err := zone.Energy()
 	assert.EqualError(t, err, "hwmon zones do not provide energy readings")
-	assert.Equal(t, Energy(0), energy, "Energy() should return 0")
+	assert.Equal(t, device.Energy(0), energy, "device.Energy() should return 0")
 
 	// Test MaxEnergy() returns 0
 	maxEnergy := zone.MaxEnergy()
-	assert.Equal(t, Energy(0), maxEnergy, "MaxEnergy() should return 0")
+	assert.Equal(t, device.Energy(0), maxEnergy, "MaxEnergy() should return 0")
 
-	// Test Power() reads actual value
+	// Test device.Power() reads actual value
 	power, err := zone.Power()
 	assert.NoError(t, err)
 	assert.InDelta(t, 45.0, power.Watts(), 0.01, "Power should be 45W from test file")
@@ -966,20 +967,20 @@ func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
 
 	require.NotNil(t, aggregatedZone, "Should find 'package' zone")
 
-	// Check if it's an AggregatedZone by checking the index
-	// AggregatedZone has index = -1
+	// Check if it's an device.AggregatedZone by checking the index
+	// device.AggregatedZone has index = -1
 	if aggregatedZone.Index() == -1 {
-		t.Logf("✓ Zone 'package' is an AggregatedZone (index=-1)")
+		t.Logf("✓ Zone 'package' is an device.AggregatedZone (index=-1)")
 
-		// Verify it's actually an AggregatedZone type
-		aggZone, ok := aggregatedZone.(*AggregatedZone)
-		require.True(t, ok, "Zone should be *AggregatedZone type")
+		// Verify it's actually an device.AggregatedZone type
+		aggZone, ok := aggregatedZone.(*device.AggregatedZone)
+		require.True(t, ok, "Zone should be *device.AggregatedZone type")
 
 		t.Logf("  Aggregated zone contains %d individual zones", len(aggZone.zones))
 		assert.Equal(t, "package", aggZone.Name())
 		assert.Equal(t, -1, aggZone.Index())
 
-		// Test Power() - should sum power from all package zones
+		// Test device.Power() - should sum power from all package zones
 		totalPower, err := aggZone.Power()
 		require.NoError(t, err)
 
@@ -1010,7 +1011,7 @@ func TestGroupZonesByName(t *testing.T) {
 	}
 
 	t.Run("single_zone_per_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0},
 			&hwmonPowerZone{name: "core", index: 1},
 			&hwmonPowerZone{name: "gpu", index: 2},
@@ -1029,7 +1030,7 @@ func TestGroupZonesByName(t *testing.T) {
 	})
 
 	t.Run("multiple_zones_same_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0, path: "/path1"},
 			&hwmonPowerZone{name: "package", index: 1, path: "/path2"},
 			&hwmonPowerZone{name: "core", index: 2, path: "/path3"},
@@ -1068,7 +1069,7 @@ func TestGroupZonesByName(t *testing.T) {
 	})
 
 	t.Run("all_zones_same_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0},
 			&hwmonPowerZone{name: "package", index: 1},
 			&hwmonPowerZone{name: "package", index: 2},
@@ -1082,8 +1083,8 @@ func TestGroupZonesByName(t *testing.T) {
 		assert.Equal(t, -1, result[0].Index(),
 			"Should be aggregated zone with index=-1")
 
-		aggZone, ok := result[0].(*AggregatedZone)
-		require.True(t, ok, "Should be AggregatedZone type")
+		aggZone, ok := result[0].(*device.AggregatedZone)
+		require.True(t, ok, "Should be device.AggregatedZone type")
 		assert.Equal(t, 3, len(aggZone.zones),
 			"Should aggregate all 3 zones")
 
@@ -1161,19 +1162,19 @@ func TestCleanMetricName(t *testing.T) {
 
 // mockHwmonReader is a mock implementation of hwmonReader for testing error paths
 type mockHwmonReader struct {
-	zones []EnergyZone
+	zones []device.EnergyZone
 	err   error
 }
 
-func (m *mockHwmonReader) Zones() ([]EnergyZone, error) {
+func (m *mockHwmonReader) Zones() ([]device.EnergyZone, error) {
 	return m.zones, m.err
 }
 
-// TestHwmonPowerMeter_Init_PowerReadError tests Init() error path when Power() fails
+// TestHwmonPowerMeter_Init_PowerReadError tests Init() error path when device.Power() fails
 func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 	t.Logf("\n=== Testing Init() Error Path: Power Read Failure ===")
 
-	// Create a mock zone that fails on both Power() and Energy() calls
+	// Create a mock zone that fails on both device.Power() and device.Energy() calls
 	mockZone := &mockEnergyZone{
 		name:     "test_zone",
 		index:    0,
@@ -1185,7 +1186,7 @@ func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 
 	// Create mock reader that returns the failing zone
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{mockZone},
+		zones: []device.EnergyZone{mockZone},
 		err:   nil,
 	}
 
@@ -1193,9 +1194,9 @@ func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
-	// Init should fail when both Power() and Energy() fail on first zone
+	// Init should fail when both device.Power() and device.Energy() fail on first zone
 	err = meter.Init()
-	assert.Error(t, err, "Init() should fail when both Power() and Energy() fail on first zone")
+	assert.Error(t, err, "Init() should fail when both device.Power() and device.Energy() fail on first zone")
 	t.Logf("✓ Init() correctly failed with error: %v", err)
 }
 
@@ -1265,7 +1266,7 @@ func TestHwmonPowerMeter_PrimaryEnergyZone_NoZones(t *testing.T) {
 
 	// Create mock reader that returns empty zones list
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
@@ -1309,7 +1310,7 @@ func TestHwmonPowerMeter_Init_NoZonesFound(t *testing.T) {
 
 	// Create mock reader that returns empty zones
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
@@ -1331,7 +1332,7 @@ func TestHwmonPowerMeter_Zones_ReaderReturnsEmpty(t *testing.T) {
 
 	// Create mock reader that returns empty zones list without error
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
@@ -1348,7 +1349,7 @@ func TestHwmonPowerMeter_Zones_ReaderReturnsEmpty(t *testing.T) {
 	t.Logf("✓ Zones() correctly failed with: %v", err)
 }
 
-// TestHwmonPowerZone_Power_FileReadError tests Power() error when file read fails
+// TestHwmonPowerZone_Power_FileReadError tests device.Power() error when file read fails
 func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 	t.Logf("\n=== Testing hwmonPowerZone.Power() Error Paths ===")
 
@@ -1360,8 +1361,8 @@ func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 		}
 
 		power, err := zone.Power()
-		assert.Error(t, err, "Power() should fail for nonexistent file")
-		assert.Equal(t, Power(0), power, "Power should be 0 on error")
+		assert.Error(t, err, "device.Power() should fail for nonexistent file")
+		assert.Equal(t, device.Power(0), power, "Power should be 0 on error")
 		assert.Contains(t, err.Error(), "failed to read power",
 			"Error should mention power read failure")
 		t.Logf("✓ Nonexistent file error: %v", err)
@@ -1381,8 +1382,8 @@ func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 		}
 
 		power, err := zone.Power()
-		assert.Error(t, err, "Power() should fail for invalid content")
-		assert.Equal(t, Power(0), power, "Power should be 0 on error")
+		assert.Error(t, err, "device.Power() should fail for invalid content")
+		assert.Equal(t, device.Power(0), power, "Power should be 0 on error")
 		assert.Contains(t, err.Error(), "failed to parse power value",
 			"Error should mention parse failure")
 		t.Logf("✓ Invalid content error: %v", err)
@@ -1407,10 +1408,10 @@ func TestSysfsHwmonReader_Zones_HwmonNotAvailable(t *testing.T) {
 
 // TestHwmonPowerMeter_PrimaryEnergyZone_FallbackToFirstZone tests fallback when no priority zones exist
 func TestHwmonPowerMeter_PrimaryEnergyZone_FallbackToFirstZone(t *testing.T) {
-	t.Logf("\n=== Testing PrimaryEnergyZone() Fallback to First Zone ===")
+	t.Logf("\n=== Testing PrimaryEnergyZone() Fallback to Firstdevice.Zone ===")
 
 	// Create zones with names that don't match any priority names
-	mockZones := []EnergyZone{
+	mockZones := []device.EnergyZone{
 		&mockEnergyZone{name: "unknown_sensor_1", index: 0, power: 10.0, maxEnergy: 1000},
 		&mockEnergyZone{name: "unknown_sensor_2", index: 1, power: 20.0, maxEnergy: 1000},
 	}
@@ -1545,7 +1546,7 @@ func TestHwmonCalculatedPowerZone_Power(t *testing.T) {
 	}
 
 	power, err := zone.Power()
-	require.NoError(t, err, "Power() should not return error")
+	require.NoError(t, err, "device.Power() should not return error")
 
 	// Expected: 12000 mV × 5000 mA = 60,000,000 µW = 60 W
 	expectedPowerMicrowatts := float64(12000 * 5000)
@@ -1584,15 +1585,15 @@ func TestHwmonCalculatedPowerZone_Methods(t *testing.T) {
 	assert.Equal(t, "/path/to/voltage", zone.Path())
 	t.Logf("✓ Path() = %s", zone.Path())
 
-	// Test Energy() - returns error
+	// Test device.Energy() - returns error
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for calculated power zones")
-	assert.Equal(t, Energy(0), energy)
-	t.Logf("✓ Energy() correctly returns error: %v", err)
+	assert.Error(t, err, "device.Energy() should return error for calculated power zones")
+	assert.Equal(t, device.Energy(0), energy)
+	t.Logf("✓ device.Energy() correctly returns error: %v", err)
 
 	// Test MaxEnergy() - returns 0
 	maxEnergy := zone.MaxEnergy()
-	assert.Equal(t, Energy(0), maxEnergy)
+	assert.Equal(t, device.Energy(0), maxEnergy)
 	t.Logf("✓ MaxEnergy() = %d", maxEnergy)
 }
 
@@ -1610,9 +1611,9 @@ func TestHwmonCalculatedPowerZone_Power_VoltageReadError(t *testing.T) {
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail when voltage file doesn't exist")
+	assert.Error(t, err, "device.Power() should fail when voltage file doesn't exist")
 	assert.Contains(t, err.Error(), "failed to read voltage")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1630,9 +1631,9 @@ func TestHwmonCalculatedPowerZone_Power_CurrentReadError(t *testing.T) {
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail when current file doesn't exist")
+	assert.Error(t, err, "device.Power() should fail when current file doesn't exist")
 	assert.Contains(t, err.Error(), "failed to read current")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1656,9 +1657,9 @@ func TestHwmonCalculatedPowerZone_Power_InvalidVoltageContent(t *testing.T) {
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail for invalid voltage content")
+	assert.Error(t, err, "device.Power() should fail for invalid voltage content")
 	assert.Contains(t, err.Error(), "failed to parse voltage")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1682,9 +1683,9 @@ func TestHwmonCalculatedPowerZone_Power_InvalidCurrentContent(t *testing.T) {
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail for invalid current content")
+	assert.Error(t, err, "device.Power() should fail for invalid current content")
 	assert.Contains(t, err.Error(), "failed to parse current")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1770,7 +1771,7 @@ func TestDiscoverVoltageCurrentZones_MultiplePairs(t *testing.T) {
 	assert.Equal(t, 2, len(zones), "Should find 2 matched pairs")
 
 	// Create a map of zone names for verification
-	zoneNames := make(map[string]EnergyZone)
+	zoneNames := make(map[string]device.EnergyZone)
 	for _, zone := range zones {
 		zoneNames[zone.Name()] = zone
 	}
@@ -2561,7 +2562,7 @@ func TestHwmonEnergyZone_Energy(t *testing.T) {
 
 	energy, err := zone.Energy()
 	require.NoError(t, err)
-	assert.Equal(t, Energy(500000000), energy, "Should read 500000000 microjoules")
+	assert.Equal(t, device.Energy(500000000), energy, "Should read 500000000 microjoules")
 }
 
 // TestHwmonEnergyZone_MaxEnergy tests that MaxEnergy returns 0 for energy zones
@@ -2572,7 +2573,7 @@ func TestHwmonEnergyZone_MaxEnergy(t *testing.T) {
 		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
 	}
 
-	assert.Equal(t, Energy(0), zone.MaxEnergy(), "MaxEnergy should return 0 for hwmon energy zones")
+	assert.Equal(t, device.Energy(0), zone.MaxEnergy(), "MaxEnergy should return 0 for hwmon energy zones")
 }
 
 // TestHwmonEnergyZone_Power tests that Power returns error for energy zones
@@ -2584,7 +2585,7 @@ func TestHwmonEnergyZone_Power(t *testing.T) {
 	}
 
 	_, err := zone.Power()
-	assert.Error(t, err, "Power() should return error for energy zones")
+	assert.Error(t, err, "device.Power() should return error for energy zones")
 }
 
 // TestHwmonEnergyZone_Methods tests Name, Index, Path accessors
@@ -2602,7 +2603,7 @@ func TestHwmonEnergyZone_Methods(t *testing.T) {
 	assert.Equal(t, "/sys/class/hwmon/hwmon0/energy1_input", zone.Path())
 }
 
-// TestHwmonEnergyZone_Energy_ReadError tests Energy() when the input file is unreadable
+// TestHwmonEnergyZone_Energy_ReadError tests device.Energy() when the input file is unreadable
 func TestHwmonEnergyZone_Energy_ReadError(t *testing.T) {
 	zone := &hwmonEnergyZone{
 		name:  "total",
@@ -2611,11 +2612,11 @@ func TestHwmonEnergyZone_Energy_ReadError(t *testing.T) {
 	}
 
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for unreadable file")
-	assert.Equal(t, Energy(0), energy, "Energy should be 0 on error")
+	assert.Error(t, err, "device.Energy() should return error for unreadable file")
+	assert.Equal(t, device.Energy(0), energy, "Energy should be 0 on error")
 }
 
-// TestHwmonEnergyZone_Energy_InvalidContent tests Energy() when the input file contains non-numeric data
+// TestHwmonEnergyZone_Energy_InvalidContent tests device.Energy() when the input file contains non-numeric data
 func TestHwmonEnergyZone_Energy_InvalidContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "energy1_input")
@@ -2629,8 +2630,8 @@ func TestHwmonEnergyZone_Energy_InvalidContent(t *testing.T) {
 	}
 
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for non-numeric content")
-	assert.Equal(t, Energy(0), energy, "Energy should be 0 on parse error")
+	assert.Error(t, err, "device.Energy() should return error for non-numeric content")
+	assert.Equal(t, device.Energy(0), energy, "Energy should be 0 on parse error")
 }
 
 // TestDiscoverZones_EnergySensors tests discovery of a single energy sensor
@@ -2650,7 +2651,7 @@ func TestDiscoverZones_EnergySensors(t *testing.T) {
 
 	energy, err := zone.Energy()
 	require.NoError(t, err)
-	assert.Equal(t, Energy(500000000), energy)
+	assert.Equal(t, device.Energy(500000000), energy)
 }
 
 // TestDiscoverZones_EnergySensorsMultiple tests discovery of multiple energy sensors

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -18,14 +19,14 @@ type MockCPUPowerMeter struct {
 	mock.Mock
 }
 
-func (m *MockCPUPowerMeter) Zones() ([]EnergyZone, error) {
+func (m *MockCPUPowerMeter) Zones() ([]device.EnergyZone, error) {
 	args := m.Called()
-	return args.Get(0).([]EnergyZone), args.Error(1)
+	return args.Get(0).([]device.EnergyZone), args.Error(1)
 }
 
-func (m *MockCPUPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
+func (m *MockCPUPowerMeter) PrimaryEnergyZone() (device.EnergyZone, error) {
 	args := m.Called()
-	return args.Get(0).(EnergyZone), args.Error(1)
+	return args.Get(0).(device.EnergyZone), args.Error(1)
 }
 
 func (m *MockCPUPowerMeter) Name() string {
@@ -62,17 +63,17 @@ func (m *MockEnergyZone) Path() string {
 	return args.String(0)
 }
 
-func (m *MockEnergyZone) Energy() (Energy, error) {
+func (m *MockEnergyZone) Energy() (device.Energy, error) {
 	args := m.Called()
 	return args.Get(0).(Energy), args.Error(1)
 }
 
-func (m *MockEnergyZone) MaxEnergy() Energy {
+func (m *MockEnergyZone) MaxEnergy() device.Energy {
 	args := m.Called()
 	return args.Get(0).(Energy)
 }
 
-func (m *MockEnergyZone) Power() (Power, error) {
+func (m *MockEnergyZone) Power() (device.Power, error) {
 	args := m.Called()
 	return args.Get(0).(Power), args.Error(1)
 }
@@ -154,14 +155,14 @@ var _ resource.Informer = (*MockResourceInformer)(nil)
 // Helper functions for creating test data
 
 // CreateTestZones creates mock energy zones for testing
-func CreateTestZones() []EnergyZone {
-	pkg := device.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
-	core := device.NewMockRaplZone("core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
-	return []EnergyZone{pkg, core}
+func CreateTestZones() []device.EnergyZone {
+	pkg := cpu.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
+	core := cpu.NewMockRaplZone("core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 500*Joule)
+	return []device.EnergyZone{pkg, core}
 }
 
 // createNodeSnapshot creates a node snapshot with realistic power values
-func createNodeSnapshot(zones []EnergyZone, timestamp time.Time, usageRatio float64) *Node {
+func createNodeSnapshot(zones []device.EnergyZone, timestamp time.Time, usageRatio float64) *Node {
 	node := &Node{
 		Timestamp:  timestamp,
 		UsageRatio: usageRatio,

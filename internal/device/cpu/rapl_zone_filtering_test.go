@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 func TestRaplZoneFiltering(t *testing.T) {
@@ -33,7 +34,7 @@ func TestRaplZoneFiltering(t *testing.T) {
 		index: 3,
 	}
 
-	allZones := []EnergyZone{packageZone, coreZone, dramZone, uncoreZone}
+	allZones := []device.EnergyZone{packageZone, coreZone, dramZone, uncoreZone}
 
 	tests := []struct {
 		name          string
@@ -118,7 +119,7 @@ func TestRaplZoneFiltering_Init(t *testing.T) {
 		energy:         50000,
 	}
 
-	allZones := []EnergyZone{packageZone, coreZone}
+	allZones := []device.EnergyZone{packageZone, coreZone}
 
 	t.Run("Init succeeds with valid filter", func(t *testing.T) {
 		mockReader := &mockRaplReader{}
@@ -166,7 +167,7 @@ func TestRaplZoneFiltering_Zones(t *testing.T) {
 		energy:         50000,
 	}
 
-	allZones := []EnergyZone{packageZone, coreZone}
+	allZones := []device.EnergyZone{packageZone, coreZone}
 
 	tests := []struct {
 		name          string
@@ -239,7 +240,7 @@ func TestRaplZoneFiltering_WithOptions(t *testing.T) {
 		maxMicroJoules: 1000000,
 		energy:         50000,
 	}
-	mockReader.On("Zones").Return([]EnergyZone{packageZone, coreZone}, nil)
+	mockReader.On("Zones").Return([]device.EnergyZone{packageZone, coreZone}, nil)
 
 	// Create meter with WithZoneFilter option
 	meter, err := NewCPUPowerMeter(

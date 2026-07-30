@@ -22,10 +22,10 @@ const (
 	ZonePP1     Zone = "pp1" // Power Plane 1 - uncore (e.g., integrated GPU)
 )
 
-// zoneKey uniquely identifies a zone by name and index
-type zoneKey struct {
-	name  string
-	index int
+// ZoneKey uniquely identifies a zone by name and index
+type ZoneKey struct {
+	Name  string
+	Index int
 }
 
 // AggregatedZone implements EnergyZone interface by aggregating multiple zones
@@ -36,7 +36,7 @@ type AggregatedZone struct {
 	name          string
 	index         int
 	zones         []EnergyZone
-	lastReadings  map[zoneKey]Energy
+	lastReadings  map[ZoneKey]Energy
 	currentEnergy Energy // Aggregated energy counter
 	maxEnergy     Energy // Cached sum of all zone MaxEnergy values
 	mu            sync.RWMutex
@@ -70,7 +70,7 @@ func NewAggregatedZone(zones []EnergyZone) (*AggregatedZone, error) {
 		name:          name,
 		index:         -1, // Indicates this is an aggregated zone
 		zones:         zones,
-		lastReadings:  make(map[zoneKey]Energy),
+		lastReadings:  make(map[ZoneKey]Energy),
 		currentEnergy: 0,
 		maxEnergy:     totalMax, // Cache the combined MaxEnergy
 	}, nil
@@ -106,7 +106,7 @@ func (az *AggregatedZone) Energy() (Energy, error) {
 			return 0, fmt.Errorf("no valid energy readings from aggregated zones - %s: %w", zone.Name(), err)
 		}
 
-		zoneID := zoneKey{zone.Name(), zone.Index()}
+		zoneID := ZoneKey{zone.Name(), zone.Index()}
 
 		if lastReading, exists := az.lastReadings[zoneID]; exists {
 
