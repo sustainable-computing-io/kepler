@@ -128,6 +128,7 @@ func TestDCGMExporterBackend_caching(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
+	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -192,6 +193,7 @@ func TestDCGMExporterBackend_cacheExpiry(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
+	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -211,12 +213,70 @@ func TestDCGMExporterBackend_cacheExpiry(t *testing.T) {
 	assert.Equal(t, initCalls+2, callCount, "should refetch after cache expiry")
 }
 
+func TestDCGMExporterBackend_SetMetricsCacheTTL(t *testing.T) {
+	t.Run("custom TTL controls expiry", func(t *testing.T) {
+		callCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			callCount++
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.SetEndpoint(server.URL)
+		backend.SetMetricsCacheTTL(100 * time.Millisecond)
+
+		err := backend.Init(ctx)
+		require.NoError(t, err)
+		initCalls := callCount
+
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, initCalls+1, callCount)
+
+		backend.mu.Lock()
+		backend.cachedMetrics.timestamp = time.Now().Add(-150 * time.Millisecond)
+		backend.mu.Unlock()
+
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, initCalls+2, callCount, "should refetch after configured cache expiry")
+	})
+
+	t.Run("zero disables cache", func(t *testing.T) {
+		callCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			callCount++
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.SetEndpoint(server.URL)
+		backend.SetMetricsCacheTTL(0)
+
+		err := backend.Init(ctx)
+		require.NoError(t, err)
+		initCalls := callCount
+
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 2)
+		require.NoError(t, err)
+
+		assert.Equal(t, initCalls+2, callCount, "should fetch on every query when cache is disabled")
+	})
+}
+
 func TestNewDCGMExporterBackend(t *testing.T) {
 	t.Run("with nil logger", func(t *testing.T) {
 		backend := NewDCGMExporterBackend(nil)
 		assert.NotNil(t, backend)
 		assert.NotNil(t, backend.logger)
 		assert.NotNil(t, backend.client)
+		assert.Zero(t, backend.metricsCacheTTL)
 	})
 
 	t.Run("with logger", func(t *testing.T) {

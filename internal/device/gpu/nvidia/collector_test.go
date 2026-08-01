@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 )
@@ -1644,8 +1646,59 @@ func TestGPUPowerCollector_SetDCGMEndpoint(t *testing.T) {
 	})
 }
 
+func TestGPUPowerCollector_SetDCGMMetricsCacheTTL(t *testing.T) {
+	t.Run("before init stores TTL", func(t *testing.T) {
+		collector := &GPUPowerCollector{}
+
+		collector.SetDCGMMetricsCacheTTL(500 * time.Millisecond)
+		require.NotNil(t, collector.dcgmMetricsCacheTTL)
+		assert.Equal(t, 500*time.Millisecond, *collector.dcgmMetricsCacheTTL)
+
+		collector.SetDCGMMetricsCacheTTL(-time.Second)
+		require.NotNil(t, collector.dcgmMetricsCacheTTL)
+		assert.Equal(t, time.Duration(0), *collector.dcgmMetricsCacheTTL)
+	})
+
+	t.Run("after init with MIG reinitializes DCGM", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
+		}))
+		defer ts.Close()
+
+		collector := &GPUPowerCollector{
+			logger:       slog.Default(),
+			initialized:  true,
+			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModePartitioned},
+			dcgmEndpoint: ts.URL + "/metrics",
+		}
+
+		collector.SetDCGMMetricsCacheTTL(500 * time.Millisecond)
+		require.NotNil(t, collector.dcgm, "DCGM should be initialized after SetDCGMMetricsCacheTTL")
+		assert.True(t, collector.dcgm.IsInitialized())
+
+		dcgm, ok := collector.dcgm.(*DCGMExporterBackend)
+		require.True(t, ok)
+		assert.Equal(t, 500*time.Millisecond, dcgm.metricsCacheTTL)
+	})
+
+	t.Run("after init without MIG does not init DCGM", func(t *testing.T) {
+		collector := &GPUPowerCollector{
+			logger:       slog.Default(),
+			initialized:  true,
+			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModeTimeSlicing},
+		}
+
+		collector.SetDCGMMetricsCacheTTL(500 * time.Millisecond)
+		assert.Nil(t, collector.dcgm, "DCGM should not be initialized for non-MIG GPUs")
+	})
+}
+
 // Verify DCGMEndpointConfigurable interface implementation
 var _ gpu.DCGMEndpointConfigurable = (*GPUPowerCollector)(nil)
+
+// Verify DCGMMetricsCacheTTLConfigurable interface implementation
+var _ gpu.DCGMMetricsCacheTTLConfigurable = (*GPUPowerCollector)(nil)
 
 func TestGPUPowerCollector_attributePartitioned_idleInstances(t *testing.T) {
 	mockBackend := new(MockNVMLBackend)

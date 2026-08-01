@@ -5,6 +5,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
@@ -47,6 +48,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet   map[string]bool
 		enabled    *bool
 		idlePower  *float64
+		cacheTTL   *time.Duration
 		wantExpNil bool
 		wantGPU    *ExperimentalGPU // nil means don't check GPU fields
 	}{{
@@ -55,6 +57,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:   map[string]bool{},
 		enabled:    ptr.To(false),
 		idlePower:  ptr.To(0.0),
+		cacheTTL:   ptr.To(2 * time.Second),
 		wantExpNil: true,
 	}, {
 		name:      "gpu enabled flag only",
@@ -62,9 +65,11 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUEnabledFlag: true},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 0,
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(2 * time.Second),
 		},
 	}, {
 		name: "gpu enabled and idle power flags",
@@ -75,9 +80,11 @@ func TestApplyGPUConfig(t *testing.T) {
 		},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(50.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 50.0,
+			Enabled:         ptr.To(true),
+			IdlePower:       50.0,
+			MetricsCacheTTL: ptr.To(2 * time.Second),
 		},
 	}, {
 		name: "gpu disabled with idle power flag",
@@ -88,6 +95,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		},
 		enabled:   ptr.To(false),
 		idlePower: ptr.To(50.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
 			Enabled:   ptr.To(false),
 			IdlePower: 0, // idle power not applied when GPU is disabled
@@ -98,6 +106,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:   map[string]bool{ExperimentalGPUIdlePowerFlag: true},
 		enabled:    ptr.To(false),
 		idlePower:  ptr.To(50.0),
+		cacheTTL:   ptr.To(2 * time.Second),
 		wantExpNil: true, // early exit — enabled flag not in flagsSet, Experimental is nil
 	}, {
 		name: "yaml gpu enabled with idle power flag override",
@@ -111,9 +120,11 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUIdlePowerFlag: true},
 		enabled:   ptr.To(false),
 		idlePower: ptr.To(25.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true), // preserved from YAML
-			IdlePower: 25.0,
+			Enabled:         ptr.To(true), // preserved from YAML
+			IdlePower:       25.0,
+			MetricsCacheTTL: ptr.To(2 * time.Second),
 		},
 	}, {
 		name: "enabled flag overrides yaml disabled",
@@ -127,16 +138,33 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUEnabledFlag: true},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 0,
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(2 * time.Second),
+		},
+	}, {
+		name: "gpu enabled and metrics cache TTL flags",
+		cfg:  &Config{},
+		flagsSet: map[string]bool{
+			ExperimentalGPUEnabledFlag:         true,
+			ExperimentalGPUMetricsCacheTTLFlag: true,
+		},
+		enabled:   ptr.To(true),
+		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(500 * time.Millisecond),
+		wantGPU: &ExperimentalGPU{
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(500 * time.Millisecond),
 		},
 	}}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dcgmEndpoint := ""
-			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower, &dcgmEndpoint)
+			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower, &dcgmEndpoint, tc.cacheTTL)
 
 			if tc.wantExpNil {
 				assert.Nil(t, tc.cfg.Experimental)
@@ -146,6 +174,7 @@ func TestApplyGPUConfig(t *testing.T) {
 			assert.NotNil(t, tc.cfg.Experimental)
 			assert.Equal(t, tc.wantGPU.Enabled, tc.cfg.Experimental.GPU.Enabled)
 			assert.Equal(t, tc.wantGPU.IdlePower, tc.cfg.Experimental.GPU.IdlePower)
+			assert.Equal(t, tc.wantGPU.MetricsCacheTTL, tc.cfg.Experimental.GPU.MetricsCacheTTL)
 		})
 	}
 }
