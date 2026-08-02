@@ -133,7 +133,7 @@ func writeNode(out io.Writer, node *monitor.Node) {
 	})
 	table := tablewriter.NewWriter(out)
 	table.Configure(func(cfg *tablewriter.Config) {
-		cfg.Row.Formatting.Alignment = tw.AlignRight
+		cfg.Row.Alignment.Global = tw.AlignRight
 	})
 	table.Header([]string{"Zone", "Power(W)", "Absolute(J)"})
 	_ = table.Bulk(rows)
