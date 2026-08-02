@@ -543,6 +543,51 @@ func TestVMInfoFromProc(t *testing.T) {
 			error: false,
 		},
 	}, {
+		name: "VirtualBox VM with UUID and comment",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment", "ubuntu-server",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+				Name:       "ubuntu-server",
+				Hypervisor: VirtualBoxHypervisor,
+			},
+			error: false,
+		},
+	}, {
+		name: "VMware VM with vmx path",
+		cmdline: []string{
+			"/usr/lib/vmware/bin/vmware-vmx",
+			"-s", "vmx.stdio.keep=TRUE",
+			"/home/user/vmware/UbuntuVM/UbuntuVM.vmx",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "UbuntuVM",
+				Name:       "UbuntuVM",
+				Hypervisor: VMwareHypervisor,
+			},
+			error: false,
+		},
+	}, {
+		name: "Xen VM without name (short domain ID generates name)",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-xen-domid", "5",
+			"-machine", "xenpv",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "5",
+				Name:       "xen-5",
+				Hypervisor: XenHypervisor,
+			},
+			error: false,
+		},
+	}, {
 		name: "Not a VM process",
 		cmdline: []string{
 			"/usr/bin/firefox",
@@ -652,10 +697,25 @@ func TestVMNameFromCmdLine(t *testing.T) {
 		hypervisor: KVMHypervisor,
 		expected:   "",
 	}, {
-		name:       "non-KVM hypervisor returns empty",
+		name:       "unknown hypervisor returns empty",
 		cmdline:    []string{"/usr/bin/qemu-system-x86_64", "-name", "test"},
 		hypervisor: UnknownHypervisor,
 		expected:   "",
+	}, {
+		name:       "VirtualBox name from comment",
+		cmdline:    []string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "vbox-vm"},
+		hypervisor: VirtualBoxHypervisor,
+		expected:   "vbox-vm",
+	}, {
+		name:       "VMware name from vmx path",
+		cmdline:    []string{"/usr/lib/vmware/bin/vmware-vmx", "/vms/TestVM/TestVM.vmx"},
+		hypervisor: VMwareHypervisor,
+		expected:   "TestVM",
+	}, {
+		name:       "Xen name from qemu style name argument",
+		cmdline:    []string{"/usr/local/lib/xen/bin/qemu-system-i386", "-name", "xen-guest"},
+		hypervisor: XenHypervisor,
+		expected:   "xen-guest",
 	}}
 
 	for _, tc := range tests {
