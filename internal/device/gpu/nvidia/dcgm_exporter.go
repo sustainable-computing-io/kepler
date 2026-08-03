@@ -124,9 +124,7 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 func (d *DCGMExporterBackend) SetMetricsCacheTTL(ttl time.Duration) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if ttl < 0 {
-		ttl = 0
-	}
+	ttl = max(ttl, 0)
 	d.metricsCacheTTL = ttl
 	d.cachedMetrics = nil
 }
