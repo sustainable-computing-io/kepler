@@ -112,11 +112,20 @@ while the GPU is truly idle**, i.e. when no compute processes are running.
 Restricting the baseline update to idle periods prevents a false, inflated
 baseline when Kepler starts while the GPU is already under load.
 
+This logic lives in `getDevicePowerStatsLocked`
+([`collector.go`][collector-idle]). A failed
+`GetComputeRunningProcesses()` call is non-fatal: idle detection is skipped
+for that reading rather than corrupting the baseline.
+
 ```go
-// Only update the observed baseline when the GPU is truly idle
-// (no compute processes running).
+// Check if the GPU is truly idle (no compute processes running)
 procs, err := dev.GetComputeRunningProcesses()
-if err == nil && len(procs) == 0 {
+if err != nil {
+    // Non-fatal: log and skip idle detection for this reading
+    c.logger.Debug("GetComputeRunningProcesses failed, skipping idle detection",
+        "device", deviceIndex, "error", err)
+} else if len(procs) == 0 {
+    // GPU is truly idle — update minimum observed power
     if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
         c.minObservedPower[uuid] = totalPower
     }
@@ -136,17 +145,17 @@ Idle power is then resolved with the following precedence:
 ```go
 var idlePower float64
 switch {
-case c.idlePower > 0:        // user-configured
+case c.idlePower > 0:
     idlePower = c.idlePower
-case c.idleObserved[uuid]:   // observed true idle
+case c.idleObserved[uuid]:
     idlePower = c.minObservedPower[uuid]
-default:                     // no baseline yet
+default:
     idlePower = 0
 }
 
 activePower := totalPower - idlePower
 if activePower < 0 {
-    activePower = 0 // clamp: never report negative active power
+    activePower = 0
 }
 ```
 
@@ -234,3 +243,5 @@ The implementation assumes homogeneous GPU nodes (single vendor). While the code
 2. **Idle Power Model**: Linear regression from (utilization, power) pairs for better idle estimation
 3. **AMD ROCm Support**: Implement `GPUPowerMeter` for AMD GPUs using ROCm SMI
 4. **Intel GPU Support**: Implement for Intel discrete GPUs
+
+[collector-idle]: https://github.com/sustainable-computing-io/kepler/blob/7486e93d6793aca66c09fbf590e011493f3db046/internal/device/gpu/nvidia/collector.go#L234-L247
