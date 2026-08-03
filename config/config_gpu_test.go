@@ -69,7 +69,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		wantGPU: &ExperimentalGPU{
 			Enabled:         ptr.To(true),
 			IdlePower:       0,
-			MetricsCacheTTL: ptr.To(2 * time.Second),
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
 		},
 	}, {
 		name: "gpu enabled and idle power flags",
@@ -84,7 +84,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		wantGPU: &ExperimentalGPU{
 			Enabled:         ptr.To(true),
 			IdlePower:       50.0,
-			MetricsCacheTTL: ptr.To(2 * time.Second),
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
 		},
 	}, {
 		name: "gpu disabled with idle power flag",
@@ -124,7 +124,25 @@ func TestApplyGPUConfig(t *testing.T) {
 		wantGPU: &ExperimentalGPU{
 			Enabled:         ptr.To(true), // preserved from YAML
 			IdlePower:       25.0,
-			MetricsCacheTTL: ptr.To(2 * time.Second),
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
+		},
+	}, {
+		name: "yaml metrics cache TTL is preserved without CLI override",
+		cfg: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled:         ptr.To(true),
+					MetricsCacheTTL: ptr.To(time.Second),
+				},
+			},
+		},
+		flagsSet:  map[string]bool{},
+		enabled:   ptr.To(false),
+		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
+		wantGPU: &ExperimentalGPU{
+			Enabled:         ptr.To(true),
+			MetricsCacheTTL: ptr.To(time.Second),
 		},
 	}, {
 		name: "enabled flag overrides yaml disabled",
@@ -142,7 +160,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		wantGPU: &ExperimentalGPU{
 			Enabled:         ptr.To(true),
 			IdlePower:       0,
-			MetricsCacheTTL: ptr.To(2 * time.Second),
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
 		},
 	}, {
 		name: "gpu enabled and metrics cache TTL flags",

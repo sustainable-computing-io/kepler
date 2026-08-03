@@ -98,6 +98,7 @@ func TestDCGMExporterBackend_GetMIGInstanceActivity(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
+	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -234,6 +235,10 @@ func TestDCGMExporterBackend_SetMetricsCacheTTL(t *testing.T) {
 		_, err = backend.GetMIGInstanceActivity(ctx, 0, 1)
 		require.NoError(t, err)
 		assert.Equal(t, initCalls+1, callCount)
+
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 2)
+		require.NoError(t, err)
+		assert.Equal(t, initCalls+1, callCount, "should use the configured cache")
 
 		backend.mu.Lock()
 		backend.cachedMetrics.timestamp = time.Now().Add(-150 * time.Millisecond)

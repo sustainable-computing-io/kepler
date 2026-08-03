@@ -484,14 +484,17 @@ func (c *GPUPowerCollector) SetDCGMEndpoint(endpoint string) {
 func (c *GPUPowerCollector) SetDCGMMetricsCacheTTL(ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if ttl < 0 {
-		ttl = 0
-	}
+	ttl = max(ttl, 0)
 	c.dcgmMetricsCacheTTL = &ttl
 
 	if c.initialized && c.hasMIG() {
-		c.logger.Info("reinitializing DCGM backend with configured metrics cache TTL",
+		c.logger.Info("initializing DCGM backend with configured metrics cache TTL",
 			"ttl", ttl)
+
+		if dcgm, ok := c.dcgm.(*DCGMExporterBackend); ok {
+			dcgm.SetMetricsCacheTTL(ttl)
+			return
+		}
 		c.initDCGM()
 	}
 }

@@ -4,6 +4,7 @@
 package nvidia
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -1615,7 +1616,7 @@ func TestGPUPowerCollector_SetDCGMEndpoint(t *testing.T) {
 		assert.Equal(t, "", collector.dcgmEndpoint)
 	})
 
-	t.Run("after init with MIG reinitializes DCGM", func(t *testing.T) {
+	t.Run("after init with MIG initializes unavailable DCGM", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
@@ -1679,6 +1680,30 @@ func TestGPUPowerCollector_SetDCGMMetricsCacheTTL(t *testing.T) {
 
 		dcgm, ok := collector.dcgm.(*DCGMExporterBackend)
 		require.True(t, ok)
+		assert.Equal(t, 500*time.Millisecond, dcgm.metricsCacheTTL)
+	})
+
+	t.Run("after init with MIG updates DCGM in place", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
+		}))
+		defer ts.Close()
+
+		dcgm := NewDCGMExporterBackend(slog.Default())
+		dcgm.SetEndpoint(ts.URL)
+		require.NoError(t, dcgm.Init(context.Background()))
+
+		collector := &GPUPowerCollector{
+			logger:       slog.Default(),
+			initialized:  true,
+			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModePartitioned},
+			dcgm:         dcgm,
+		}
+
+		collector.SetDCGMMetricsCacheTTL(500 * time.Millisecond)
+
+		assert.Same(t, dcgm, collector.dcgm)
 		assert.Equal(t, 500*time.Millisecond, dcgm.metricsCacheTTL)
 	})
 

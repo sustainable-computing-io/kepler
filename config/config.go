@@ -316,6 +316,8 @@ const (
 	ExperimentalGPUDCGMEndpointFlag    = "experimental.gpu.dcgm-endpoint"
 	ExperimentalGPUMetricsCacheTTLFlag = "experimental.gpu.metrics-cache-ttl"
 
+	defaultGPUMetricsCacheTTL = 2 * time.Second
+
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
 
@@ -504,7 +506,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
 	gpuDCGMEndpoint := app.Flag(ExperimentalGPUDCGMEndpointFlag, "dcgm-exporter metrics endpoint URL for MIG power attribution (auto-discovered if empty)").Default("").String()
-	gpuMetricsCacheTTL := app.Flag(ExperimentalGPUMetricsCacheTTLFlag, "dcgm-exporter metrics cache TTL for MIG power attribution (0 to disable cache)").Default("2s").Duration()
+	gpuMetricsCacheTTL := app.Flag(ExperimentalGPUMetricsCacheTTLFlag, "dcgm-exporter metrics cache TTL for MIG power attribution (0 to disable cache)").Default(defaultGPUMetricsCacheTTL.String()).Duration()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -739,7 +741,11 @@ func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePo
 		if flagsSet[ExperimentalGPUDCGMEndpointFlag] {
 			cfg.Experimental.GPU.DCGMEndpoint = *dcgmEndpoint
 		}
-		cfg.Experimental.GPU.MetricsCacheTTL = metricsCacheTTL
+		if flagsSet[ExperimentalGPUMetricsCacheTTLFlag] {
+			cfg.Experimental.GPU.MetricsCacheTTL = metricsCacheTTL
+		} else if cfg.Experimental.GPU.MetricsCacheTTL == nil {
+			cfg.Experimental.GPU.MetricsCacheTTL = ptr.To(defaultGPUMetricsCacheTTL)
+		}
 	}
 }
 
