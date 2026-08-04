@@ -85,6 +85,7 @@ type KeplerInstance struct {
 	binaryPath string
 	port       int
 	logOutput  io.Writer
+	envVars    []string
 }
 
 // keplerOption configures KeplerInstance
@@ -93,6 +94,23 @@ type keplerOption func(*KeplerInstance)
 // withLogOutput sets where to write logs
 func withLogOutput(w io.Writer) keplerOption {
 	return func(k *KeplerInstance) { k.logOutput = w }
+}
+
+// withEnv adds an environment variable for the Kepler process
+func withEnv(key, value string) keplerOption {
+	return func(k *KeplerInstance) {
+		k.envVars = append(k.envVars, key+"="+value)
+	}
+}
+
+// withConfigFile overrides the config file path
+func withConfigFile(path string) keplerOption {
+	return func(k *KeplerInstance) { k.configPath = path }
+}
+
+// withPort overrides the metrics port
+func withPort(port int) keplerOption {
+	return func(k *KeplerInstance) { k.port = port }
 }
 
 // startKepler starts Kepler and registers cleanup
@@ -140,6 +158,10 @@ func (k *KeplerInstance) start(t *testing.T) error {
 	}
 
 	k.cmd = exec.Command(binaryPath, args...)
+
+	if len(k.envVars) > 0 {
+		k.cmd.Env = append(os.Environ(), k.envVars...)
+	}
 
 	stdout, _ := k.cmd.StdoutPipe()
 	stderr, _ := k.cmd.StderrPipe()
