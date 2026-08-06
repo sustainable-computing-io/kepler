@@ -351,6 +351,48 @@ tls_server_config:
   key_file: /path/to/key.pem    # Path to the key file
 ```
 
+### 🩺 Health Probe Endpoints
+
+Kepler always exposes two health endpoints on the web server, intended for
+Kubernetes [liveness and readiness probes](https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/).
+They require no configuration.
+
+| Endpoint        | Probe     | Healthy response           | Unhealthy response                              |
+|-----------------|-----------|----------------------------|-------------------------------------------------|
+| `/probe/livez`  | Liveness  | `200` `{"status":"alive"}` | `503` `{"status":"unavailable","failures":{…}}` |
+| `/probe/readyz` | Readiness | `200` `{"status":"ok"}`    | `503` `{"status":"unavailable","failures":{…}}` |
+
+Both accept `GET` and `HEAD` and return `405` for any other method. The
+`failures` object maps the name of each unhealthy service to the reason it
+reported.
+
+- **Liveness** succeeds as long as Kepler can answer the request, which proves
+  the process is running and not dead-locked.
+- **Readiness** fails with `503` until every service has been initialized and
+  started, then succeeds.
+
+Use these endpoints instead of `/metrics` for probes: each `/metrics` scrape
+triggers a power computation, whereas the probes do no work beyond answering.
+The shipped Kubernetes manifests and Helm chart are already configured this way:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /probe/livez
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 60
+readinessProbe:
+  httpGet:
+    path: /probe/readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+> **Note**: When TLS is enabled via `web.configFile`, probes must use
+> `scheme: HTTPS`.
+
 ### 🐳 Kubernetes Configuration
 
 ```yaml
