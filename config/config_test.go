@@ -2535,6 +2535,37 @@ experimental:
 		assert.NotNil(t, cfg.Experimental)
 		assert.Equal(t, 45.5, cfg.Experimental.GPU.IdlePower)
 	})
+
+	t.Run("gpu metrics cache TTL via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+    metricsCacheTTL: 500ms
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+		assert.NotNil(t, cfg.Experimental)
+		assert.NotNil(t, cfg.Experimental.GPU.MetricsCacheTTL)
+		assert.Equal(t, 500*time.Millisecond, *cfg.Experimental.GPU.MetricsCacheTTL)
+	})
+
+	t.Run("gpu metrics cache disabled via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+    metricsCacheTTL: 0s
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.Experimental)
+		assert.NotNil(t, cfg.Experimental.GPU.MetricsCacheTTL)
+		assert.Equal(t, time.Duration(0), *cfg.Experimental.GPU.MetricsCacheTTL)
+	})
 }
 
 func TestValidateExperimentalConfig(t *testing.T) {
@@ -2609,6 +2640,17 @@ func TestValidateExperimentalConfig(t *testing.T) {
 			},
 		},
 		expectedErrors: []string{"unreadable Redfish config file"},
+	}, {
+		name: "gpu metrics cache TTL negative",
+		config: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled:         ptr.To(true),
+					MetricsCacheTTL: ptr.To(-time.Second),
+				},
+			},
+		},
+		expectedErrors: []string{"invalid gpu metrics cache TTL"},
 	}}
 
 	for _, tc := range tests {
