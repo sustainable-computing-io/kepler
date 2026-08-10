@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -1115,6 +1116,49 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		assert.Panics(t, func() {
 			informer.updateVMCache(proc)
 		})
+	})
+
+	t.Run("Refresh skips process with unreadable /proc entry", func(t *testing.T) {
+		// A process whose /proc/PID/exe cannot be read (permission denied,
+		// e.g. owned by another user on a shared host) must be skipped
+		// without failing the whole refresh.
+		deniedProc := &MockProcInfo{}
+		deniedProc.On("PID").Return(80)
+		deniedProc.On("Comm").Return("nginx", nil)
+		deniedProc.On("CPUTime").Return(float64(1.0), nil)
+		deniedProc.On("Executable").Return("", &os.PathError{
+			Op:   "readlink",
+			Path: "/proc/80/exe",
+			Err:  os.ErrPermission,
+		})
+
+		okProc := &MockProcInfo{}
+		okProc.On("PID").Return(12345)
+		okProc.On("Comm").Return("test-process", nil)
+		okProc.On("Executable").Return("/usr/bin/test", nil)
+		okProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/test.service"}}, nil)
+		okProc.On("Environ").Return([]string{}, nil).Maybe()
+		okProc.On("CmdLine").Return([]string{"/usr/bin/test"}, nil)
+		okProc.On("CPUTime").Return(float64(10.5), nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{deniedProc, okProc}, nil)
+		mockProcFS.On("CPUUsageRatio").Return(float64(0.25), nil)
+
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		err = informer.Init()
+		require.NoError(t, err)
+
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		processes := informer.Processes()
+		require.NotNil(t, processes)
+		assert.Len(t, processes.Running, 1)
+		assert.Contains(t, processes.Running, 12345)
+		assert.NotContains(t, processes.Running, 80)
 	})
 }
 

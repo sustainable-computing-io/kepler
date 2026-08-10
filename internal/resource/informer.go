@@ -189,6 +189,15 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 				continue
 			}
 
+			if errors.Is(err, os.ErrPermission) {
+				// Processes owned by other users (e.g. in sandboxed or
+				// shared environments) may have unreadable /proc entries.
+				// Skip them instead of failing the whole refresh, which
+				// would block all power metrics from being exported.
+				ri.logger.Debug("Skipping process with unreadable /proc entry", "pid", pid, "error", err)
+				continue
+			}
+
 			ri.logger.Debug("Failed to get process info", "pid", pid, "error", err)
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
