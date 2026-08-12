@@ -15,6 +15,7 @@
 | Sunyanan Choochotkaew | IBM          | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
 | Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
 | Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
+| Ángel Olivares        |              | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
 
 ## Off-cycle maintainers
 
