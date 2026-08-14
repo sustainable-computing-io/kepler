@@ -107,9 +107,9 @@ significant contributions including:
 
 - Core Kepler development and maintenance
 - Test suite maintenance
-- Deployment and integration (including
-  the [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator),
-  [Helm Chart](https://github.com/sustainable-computing-io/kepler-helm-chart))
+- Deployment and integration including
+  - the [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator),
+  - the [Helm Chart](https://github.com/sustainable-computing-io/kepler/tree/main/manifests/helm)
 - [Model server](https://github.com/sustainable-computing-io/kepler-model-server)
   and model development
 - [Continuous integration](https://github.com/sustainable-computing-io/kepler-action)
