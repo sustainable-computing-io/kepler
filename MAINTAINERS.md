@@ -3,19 +3,19 @@
 - **Cycle:** Spring 2026
 - **Period:** April 1, 2026 – September 30, 2026
 
-| Name                  | Company      | Github ID      | Email                                      | Role                                                          |
-|-----------------------|--------------|----------------|--------------------------------------------|---------------------------------------------------------------|
-| Vimal Kumar           | Red Hat      | vimalk78       | <vimal78@gmail.com>                        | Project Lead                                                  |
-| Vibhu Prashar         | Red Hat      | vprashar2929   | <vibhu.sharma2929@gmail.com>               | Technical Committee, Release Management, Repository Oversight |
-| Kaiyi Liu             | Red Hat      | KaiyiLiu1234   | <kaliu@redhat.com>                         | Technical Committee                                           |
-| Sunil Thaha           | Red Hat      | sthaha         | <gh.dev@thaha.me>                          | Technical Committee                                           |
-| Peng Hui Jiang        | cogiot       | jiangphcn      | <jiangphcn@apache.org>                     | Technical Committee                                           |
-| Brad McCoy            | Basiq        | bradmccoydev   | <bradmccoydev@gmail.com>                   | Technical Committee                                           |
-| Yi Yuan               |              | SamYuan1990    | <yy19902439@126.com>                       | Community Engagement                                          |
-| Sunyanan Choochotkaew | IBM          | sunya-ch       | <sunyanan.choochotkaew1@ibm.com>           | Community Engagement                                          |
-| Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>              | Community Engagement                                          |
-| Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>                    | Helm Chart Maintainer                                         |
-| Erwan Billard         |              | iacker         | <82095453+iacker@users.noreply.github.com> | Technical Committee, Repository Oversight                     |
+| Name                  | Company      | Github ID      | Email                            | Role                                                          |
+|-----------------------|--------------|----------------|----------------------------------|---------------------------------------------------------------|
+| Vimal Kumar           | Red Hat      | vimalk78       | <vimal78@gmail.com>              | Project Lead                                                  |
+| Vibhu Prashar         | Red Hat      | vprashar2929   | <vibhu.sharma2929@gmail.com>     | Technical Committee, Release Management, Repository Oversight |
+| Kaiyi Liu             | Red Hat      | KaiyiLiu1234   | <kaliu@redhat.com>               | Technical Committee                                           |
+| Sunil Thaha           | Red Hat      | sthaha         | <gh.dev@thaha.me>                | Technical Committee                                           |
+| Peng Hui Jiang        | cogiot       | jiangphcn      | <jiangphcn@apache.org>           | Technical Committee                                           |
+| Brad McCoy            | Basiq        | bradmccoydev   | <bradmccoydev@gmail.com>         | Technical Committee                                           |
+| Yi Yuan               |              | SamYuan1990    | <yy19902439@126.com>             | Community Engagement                                          |
+| Sunyanan Choochotkaew | IBM          | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
+| Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
+| Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
+| Erwan Billard         |              | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 
 ## Off-cycle maintainers
 
