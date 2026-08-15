@@ -1159,6 +1159,15 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		assert.Len(t, processes.Running, 1)
 		assert.Contains(t, processes.Running, 12345)
 		assert.NotContains(t, processes.Running, 80)
+
+		// Refresh runs every few seconds and an unreadable entry is usually a
+		// steady state, so a repeated refresh with the same count must not warn
+		// again.
+		assert.Equal(t, 1, informer.lastUnreadableCount)
+
+		err = informer.Refresh()
+		require.NoError(t, err)
+		assert.Equal(t, 1, informer.lastUnreadableCount)
 	})
 }
 

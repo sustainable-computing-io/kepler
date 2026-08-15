@@ -91,6 +91,10 @@ type resourceInformer struct {
 	pods        *Pods
 
 	lastScanTime time.Time // Time of the last full scan
+
+	// Number of processes skipped for unreadable /proc entries in the previous
+	// refresh, used to warn on transitions only instead of on every refresh.
+	lastUnreadableCount int
 }
 
 var _ Informer = (*resourceInformer)(nil)
@@ -218,9 +222,17 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	// Surface permission-skipped processes: they are excluded from
 	// attribution, so an operator needs more than a debug line to notice
 	// that a subset of the node's power is being redistributed.
-	if unreadable > 0 {
-		ri.logger.Warn("Skipped processes with unreadable /proc entries; their power will be attributed to the remaining processes",
-			"count", unreadable, "total", len(procs))
+	// Refresh runs on a short interval and unreadable entries are usually a
+	// steady state, so only warn when the count changes.
+	if unreadable != ri.lastUnreadableCount {
+		if unreadable > 0 {
+			ri.logger.Warn("Skipping processes with unreadable /proc entries; their power will be attributed to the remaining processes",
+				"count", unreadable, "total", len(procs))
+		} else {
+			ri.logger.Info("All /proc entries readable again; no processes skipped")
+		}
+
+		ri.lastUnreadableCount = unreadable
 	}
 
 	// Find terminated processes
