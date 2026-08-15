@@ -179,6 +179,7 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 
 	// Refresh process cache and update running processes
 	var refreshErrs error
+	unreadable := 0
 	for _, p := range procs {
 		pid := p.PID()
 		// start by updating the process
@@ -194,6 +195,7 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 				// shared environments) may have unreadable /proc entries.
 				// Skip them instead of failing the whole refresh, which
 				// would block all power metrics from being exported.
+				unreadable++
 				ri.logger.Debug("Skipping process with unreadable /proc entry", "pid", pid, "error", err)
 				continue
 			}
@@ -211,6 +213,14 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 		case VMProcess:
 			vmProcs = append(vmProcs, proc)
 		}
+	}
+
+	// Surface permission-skipped processes: they are excluded from
+	// attribution, so an operator needs more than a debug line to notice
+	// that a subset of the node's power is being redistributed.
+	if unreadable > 0 {
+		ri.logger.Warn("Skipped processes with unreadable /proc entries; their power will be attributed to the remaining processes",
+			"count", unreadable, "total", len(procs))
 	}
 
 	// Find terminated processes
