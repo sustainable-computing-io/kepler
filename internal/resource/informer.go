@@ -254,6 +254,14 @@ func (ri *resourceInformer) refreshVMs(vmProcs []*Process) error {
 	// Build running VMs from pre-categorized VM processes
 	for _, proc := range vmProcs {
 		vm := proc.VirtualMachine
+		if vm == nil {
+			// A malformed process should not bring the whole informer down.
+			// Containers are already skipped this way in updateContainerCache.
+			ri.logger.Error("Skipping VM process with no virtual machine metadata",
+				"pid", proc.PID, "comm", proc.Comm, "type", proc.Type)
+			continue
+		}
+
 		vmsRunning[vm.ID] = ri.updateVMCache(proc)
 	}
 
@@ -433,7 +441,7 @@ func (ri *resourceInformer) Pods() *Pods {
 func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 	vm := proc.VirtualMachine
 	if vm == nil {
-		panic(fmt.Sprintf("process %d of type %s (%s)  has is nil virtual machine", proc.PID, proc.Type, proc.Comm))
+		return nil
 	}
 
 	cached, exists := ri.vmCache[vm.ID]

@@ -1101,7 +1101,7 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		mockProcFS.AssertExpectations(t)
 	})
 
-	t.Run("updateVMCache with nil VM panic", func(t *testing.T) {
+	t.Run("updateVMCache with nil VM returns nil instead of panicking", func(t *testing.T) {
 		mockProcFS := &MockProcReader{}
 		informer, err := NewInformer(WithProcReader(mockProcFS))
 		require.NoError(t, err)
@@ -1109,12 +1109,31 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		proc := &Process{
 			PID:            123,
 			Type:           VMProcess,
-			VirtualMachine: nil, // This should cause panic
+			VirtualMachine: nil,
 		}
 
-		assert.Panics(t, func() {
-			informer.updateVMCache(proc)
+		assert.NotPanics(t, func() {
+			assert.Nil(t, informer.updateVMCache(proc))
 		})
+	})
+
+	t.Run("Refresh skips VM process with no virtual machine metadata", func(t *testing.T) {
+		// A process classified as a VM but carrying no VM metadata must not
+		// bring the whole informer down: it is skipped and the refresh goes on.
+		mockProcFS := &MockProcReader{}
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+
+		assert.NotPanics(t, func() {
+			require.NoError(t, informer.refreshVMs([]*Process{{
+				PID:            4242,
+				Comm:           "qemu-system-x86",
+				Type:           VMProcess,
+				VirtualMachine: nil,
+			}}))
+		})
+
+		assert.Empty(t, informer.VirtualMachines().Running)
 	})
 }
 
