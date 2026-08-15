@@ -1169,6 +1169,42 @@ func TestResourceInformer_InitRefreshErr(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 1, informer.lastUnreadableCount)
 	})
+
+	t.Run("Refresh resets the skipped count once /proc is readable again", func(t *testing.T) {
+		// The denied process becomes readable on the second refresh, which must
+		// bring the count back to zero so a later failure warns again.
+		exeErr := error(&os.PathError{
+			Op:   "readlink",
+			Path: "/proc/80/exe",
+			Err:  os.ErrPermission,
+		})
+
+		recoveringProc := &MockProcInfo{}
+		recoveringProc.On("PID").Return(80)
+		recoveringProc.On("Comm").Return("nginx", nil)
+		recoveringProc.On("CPUTime").Return(float64(1.0), nil)
+		recoveringProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/nginx.service"}}, nil).Maybe()
+		recoveringProc.On("Environ").Return([]string{}, nil).Maybe()
+		recoveringProc.On("CmdLine").Return([]string{"/usr/sbin/nginx"}, nil).Maybe()
+		recoveringProc.On("Executable").Return("", exeErr).Once()
+		recoveringProc.On("Executable").Return("/usr/sbin/nginx", nil)
+
+		mockProcFS := &MockProcReader{}
+		mockProcFS.On("AllProcs").Return([]procInfo{recoveringProc}, nil)
+		mockProcFS.On("CPUUsageRatio").Return(float64(0.25), nil)
+
+		informer, err := NewInformer(WithProcReader(mockProcFS))
+		require.NoError(t, err)
+		require.NoError(t, informer.Init())
+
+		require.NoError(t, informer.Refresh())
+		assert.Equal(t, 1, informer.lastUnreadableCount)
+		assert.NotContains(t, informer.Processes().Running, 80)
+
+		require.NoError(t, informer.Refresh())
+		assert.Equal(t, 0, informer.lastUnreadableCount)
+		assert.Contains(t, informer.Processes().Running, 80)
+	})
 }
 
 func TestNewProcFSReaderErrors(t *testing.T) {
