@@ -11,6 +11,20 @@ Kepler exports metrics in Prometheus format that can be scraped by Prometheus or
 - **COUNTER**: A cumulative metric that only increases over time
 - **GAUGE**: A metric that can increase and decrease
 
+### Energy Zones
+
+CPU energy and power metrics carry a `zone` label. A zone is a hardware power domain reported by the underlying power meter. With the default RAPL (Running Average Power Limiting) meter, the following zones can appear:
+
+- `psys`: the entire platform / system on chip (SoC)
+- `package`: the whole CPU socket, including cores, cache, memory controller, and integrated GPU
+- `core`: the CPU cores only
+- `uncore`: the uncore parts of the package, such as an integrated GPU
+- `dram`: the memory attached to the memory controller
+
+Which zones are exported depends entirely on what the hardware and the kernel expose on that machine. It is common that CPUs support only a subset of these zones. A zone that is not available will not appear in the metrics. 
+
+Some zones overlap and therefore zones should not be summed. `package` already contains `core`, `uncore`, and part of what `psys` covers. It is advised to filter on a single zone in queries, for example `kepler_node_cpu_watts{zone="package"}`.
+
 ## Metrics Reference
 
 ### Node Metrics

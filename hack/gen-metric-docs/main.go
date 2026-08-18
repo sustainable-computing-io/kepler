@@ -202,6 +202,20 @@ func generateMarkdown(metrics []MetricInfo) string {
 	md.WriteString("### Metric Types\n\n")
 	md.WriteString("- **COUNTER**: A cumulative metric that only increases over time\n")
 	md.WriteString("- **GAUGE**: A metric that can increase and decrease\n\n")
+	md.WriteString("### Energy Zones\n\n")
+	md.WriteString("CPU energy and power metrics carry a `zone` label. ")
+	md.WriteString("A zone is a hardware power domain reported by the underlying power meter. ")
+	md.WriteString("With the default RAPL (Running Average Power Limiting) meter, the following zones can appear:\n\n")
+	md.WriteString("- `psys`: the entire platform / system on chip (SoC)\n")
+	md.WriteString("- `package`: the whole CPU socket, including cores, cache, memory controller, and integrated GPU\n")
+	md.WriteString("- `core`: the CPU cores only\n")
+	md.WriteString("- `uncore`: the uncore parts of the package, such as an integrated GPU\n")
+	md.WriteString("- `dram`: the memory attached to the memory controller\n\n")
+	md.WriteString("Which zones are exported depends entirely on what the hardware and the kernel expose on that machine. ")
+	md.WriteString("It is common that CPUs support only a subset of these zones. A zone that is not available will not appear in the metrics. \n\n")
+	md.WriteString("Some zones overlap and therefore zones should not be summed. `package` already contains `core`, `uncore`, and part of what `psys` covers. ")
+	md.WriteString("It is advised to filter on a single zone in queries, for example `kepler_node_cpu_watts{zone=\"package\"}`.\n\n")
+	
 	md.WriteString("## Metrics Reference\n\n")
 
 	nodeMetrics := []MetricInfo{}
