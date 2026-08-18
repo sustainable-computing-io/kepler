@@ -7,14 +7,14 @@ import (
 	"bytes"
 	"log/slog"
 	"regexp"
-	"sort"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
 
 // notFoundRe matches the yaml.v3 strict-decoding message for a key that has no
 // matching struct field, e.g.
-// "line 12: field dcgmEndpoint not found in type config.GPU".
+// "line 12: field dcgmEndpoint not found in type config.ExperimentalGPU".
 var notFoundRe = regexp.MustCompile(`field (\S+) not found in type`)
 
 // unknownFields returns the config keys that the decoder ignored.
@@ -32,32 +32,17 @@ func unknownFields(data []byte) []string {
 		return nil
 	}
 
-	typeErr, ok := err.(*yaml.TypeError)
-	if !ok {
-		return nil
-	}
-
-	seen := map[string]struct{}{}
-	fields := []string{}
-	for _, msg := range typeErr.Errors {
-		m := notFoundRe.FindStringSubmatch(msg)
-		if m == nil {
-			continue
-		}
-		if _, dup := seen[m[1]]; dup {
-			continue
-		}
-		seen[m[1]] = struct{}{}
+	var fields []string
+	for _, m := range notFoundRe.FindAllStringSubmatch(err.Error(), -1) {
 		fields = append(fields, m[1])
 	}
-	sort.Strings(fields)
+	slices.Sort(fields)
 
-	return fields
+	return slices.Compact(fields)
 }
 
 // LogUnknownFields warns about config keys that were ignored while loading.
-// Unknown keys are not fatal, so an existing config that used to work keeps
-// working.
+// Unknown keys are not fatal, so a config that works today keeps working.
 func (c *Config) LogUnknownFields(logger *slog.Logger) {
 	if len(c.unknownFields) == 0 {
 		return

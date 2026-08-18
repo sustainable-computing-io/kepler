@@ -49,16 +49,25 @@ notASetting: 42
 `,
 		expected: []string{"notASetting"},
 	}, {
+		name: "the same unknown key in two sections is reported once",
+		yaml: `
+log:
+  notAKey: debug
+monitor:
+  notAKey: 5s
+`,
+		expected: []string{"notAKey"},
+	}, {
 		name: "several unknown fields are reported once each",
 		yaml: `
 log:
   level: debug
-  levl: debug
+  notAKey: debug
 monitor:
   interval: 5s
-  intervall: 5s
+  alsoNotAKey: 5s
 `,
-		expected: []string{"intervall", "levl"},
+		expected: []string{"alsoNotAKey", "notAKey"},
 	}}
 
 	for _, tc := range tt {
