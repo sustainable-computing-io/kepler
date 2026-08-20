@@ -102,10 +102,20 @@ make build && sudo ./bin/kepler
 cd compose/dev && docker compose up -d
 
 # 🐳 Kubernetes with Kustomize
+git clone https://github.com/sustainable-computing-io/kepler.git
+cd kepler && git checkout v0.11.4 # pin to a release tag, see note below
 kubectl kustomize manifests/k8s | \
-  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" | \
+  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:v0.11.4|g" | \
   kubectl apply --server-side --force-conflicts -f -
 ```
+
+> **⚠️ Important:** Always check out a matching release tag (rather than `main`) before
+> applying manifests from `manifests/k8s`, and set `<KEPLER_IMAGE>` to that same version.
+> Manifests on `main` can reference features not yet present in the last published image
+> (for example, the `/probe/livez` and `/probe/readyz` endpoints added for liveness/readiness
+> probes) — mixing a `main` manifest with an older image can make the container fail its
+> liveness probe and crash-loop. See the [Releases page](https://github.com/sustainable-computing-io/kepler/releases)
+> for available tags.
 
 ## 📖 Documentation
 
