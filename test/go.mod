@@ -3,9 +3,7 @@
 
 module github.com/sustainable-computing-io/kepler/test
 
-go 1.24.0
-
-toolchain go1.24.9
+go 1.25.0
 
 require (
 	github.com/prometheus/client_model v0.6.1
