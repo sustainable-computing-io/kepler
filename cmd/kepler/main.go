@@ -242,6 +242,9 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		services = append(services, stdoutExporter)
 	}
 
+	// created last so that it observes every other service
+	services = append(services, server.NewProbe(logger, apiServer, services))
+
 	return services, nil
 }
 

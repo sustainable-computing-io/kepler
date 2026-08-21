@@ -153,6 +153,8 @@ sudo ./bin/kepler --log.level=debug --exporter.stdout
 **Access Points:**
 
 - Metrics: <http://localhost:28282/metrics>
+- Liveness probe: <http://localhost:28282/probe/livez>
+- Readiness probe: <http://localhost:28282/probe/readyz>
 
 ### 3. Docker Compose (Recommended for Development)
 
