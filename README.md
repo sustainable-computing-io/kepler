@@ -133,7 +133,7 @@ Our project adheres to the Linux Foundation's Generative AI Policy, which can be
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://www.star-history.com/#sustainable-computing-io/kepler&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=sustainable-computing-io/kepler&type=Date)](https://star-history.dera.page/#sustainable-computing-io/kepler&type=Date)
 
 ## 📝 License
 
