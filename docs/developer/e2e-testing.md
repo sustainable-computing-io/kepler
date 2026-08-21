@@ -101,6 +101,7 @@ The e2e tests are organized by concern across multiple files:
 | `metrics_test.go`    | Metric format validation: required labels, non-negative values, multiple scrapes       |
 | `invariants_test.go` | Energy conservation laws: Total = Active + Idle, process power attribution             |
 | `workload_test.go`   | Workload detection: stress-ng detection, power changes under load, terminated tracking |
+| `gpu_test.go`        | GPU metrics: presence, labels, non-negative values, power conservation (uses fake GPU) |
 
 ### Test Configuration
 
@@ -154,12 +155,13 @@ monitor:
 
 ## What Is NOT Covered (and Why)
 
-| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                             |
-|----------------------------|--------------------------------------------------------------------------|-----------------------------------------------|
-| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`   |
-| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`    |
-| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                       |
-| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go` |
+| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                            |
+|----------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|
+| GPU pod/container metrics  | Fake GPU uses static PIDs that don't map to real containers              | Unit tests in `internal/monitor/`; Phase 2: fake-gpu K8s e2e |
+| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`                  |
+| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                   |
+| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                      |
+| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`                |
 
 > **Note**: Container and Pod metrics are tested in the [Kubernetes E2E tests](#kubernetes-e2e-tests) which run against a real cluster.
 
