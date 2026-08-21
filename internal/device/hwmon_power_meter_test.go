@@ -307,6 +307,18 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 
 			// Verify energy is non-negative
 			assert.GreaterOrEqual(t, uint64(energy), uint64(0), "Energy should be non-negative")
+		} else if iioZone, ok := zone.(*iioPowerZone); ok {
+			t.Logf("\nIIO Power Zone: %s", iioZone.chipName)
+			t.Logf("  Zone Name: %s", iioZone.Name())
+			t.Logf("  Sensor Index: %d", iioZone.Index())
+			t.Logf("  Sysfs Path: %s", iioZone.Path())
+
+			power, err := iioZone.Power()
+			require.NoError(t, err)
+			t.Logf("  Current Power: %.3f W (%.0f µW)", power.Watts(), power.MicroWatts())
+
+			assert.GreaterOrEqual(t, power.Watts(), 0.0, "Power should be non-negative")
+			assert.LessOrEqual(t, power.Watts(), 500.0, "Power should be reasonable for test data")
 		} else {
 			t.Fatalf("Unknown zone type: %T", zone)
 		}
