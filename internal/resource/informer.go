@@ -91,10 +91,6 @@ type resourceInformer struct {
 	pods        *Pods
 
 	lastScanTime time.Time // Time of the last full scan
-
-	// Number of processes skipped for unreadable /proc entries in the previous
-	// refresh, used to warn on transitions only instead of on every refresh.
-	lastUnreadableCount int
 }
 
 var _ Informer = (*resourceInformer)(nil)
@@ -183,7 +179,6 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 
 	// Refresh process cache and update running processes
 	var refreshErrs error
-	unreadable := 0
 	for _, p := range procs {
 		pid := p.PID()
 		// start by updating the process
@@ -191,16 +186,6 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 		if err != nil {
 			if os.IsNotExist(err) {
 				ri.logger.Debug("Process not found", "pid", pid)
-				continue
-			}
-
-			if errors.Is(err, os.ErrPermission) {
-				// Processes owned by other users (e.g. in sandboxed or
-				// shared environments) may have unreadable /proc entries.
-				// Skip them instead of failing the whole refresh, which
-				// would block all power metrics from being exported.
-				unreadable++
-				ri.logger.Debug("Skipping process with unreadable /proc entry", "pid", pid, "error", err)
 				continue
 			}
 
@@ -217,22 +202,6 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 		case VMProcess:
 			vmProcs = append(vmProcs, proc)
 		}
-	}
-
-	// Surface permission-skipped processes: they are excluded from
-	// attribution, so an operator needs more than a debug line to notice
-	// that a subset of the node's power is being redistributed.
-	// Refresh runs on a short interval and unreadable entries are usually a
-	// steady state, so only warn when the count changes.
-	if unreadable != ri.lastUnreadableCount {
-		if unreadable > 0 {
-			ri.logger.Warn("Skipping processes with unreadable /proc entries; their power will be attributed to the remaining processes",
-				"count", unreadable, "total", len(procs))
-		} else {
-			ri.logger.Info("All /proc entries readable again; no processes skipped")
-		}
-
-		ri.lastUnreadableCount = unreadable
 	}
 
 	// Find terminated processes
