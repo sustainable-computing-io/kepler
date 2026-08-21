@@ -79,34 +79,87 @@ for _, proc := range runningProcs {
 
 ### 3. MIG Mode (Multi-Instance GPU)
 
-GPU partitioned into isolated instances. MIG detection is implemented, but **power attribution is not yet implemented**.
+GPU partitioned into isolated instances. Both MIG detection **and** per-instance
+power attribution are implemented, backed by DCGM (NVML returns N/A for MIG
+power, so DCGM activity is used to split power across instances).
 
 ```go
-// Detection works:
-device.IsMIGEnabled()      // returns true if MIG enabled
-device.GetMIGInstances()   // enumerates MIG partitions
-
-// Attribution skipped:
+// Partitioned (MIG) devices are attributed per instance:
 case gpu.SharingModePartitioned:
-    c.logger.Debug("partitioned mode detected, skipping (not yet implemented)")
-    continue  // no power data returned for MIG devices
+    if err := c.attributePartitioned(dev.Index, result); err != nil {
+        c.logger.Debug("MIG attribution failed", "device", dev.Index, "error", err)
+    }
 ```
 
-Per-instance power attribution requires DCGM integration (NVML returns N/A for MIG power). DCGM support is planned for upcoming PRs.
+`attributePartitioned` works as follows:
+
+- reads the device active power via the shared idle-detection logic;
+- queries per-instance activity from DCGM (`GetMIGInstanceActivity`) using the
+  cached MIG hierarchy, and skips NVML calls for instances whose activity is 0
+  (idle instances) as an optimization;
+- splits active power across instances proportionally to their activity and
+  per-process SM utilization.
+
+**Fallback:** when DCGM is unavailable (not deployed, unreachable, or not
+initialized) or no MIG instances are cached, `attributePartitionedFallback`
+distributes active power equally among the running processes so MIG devices
+still report data.
 
 ## Idle Power Detection
 
-Kepler tracks minimum observed power per device as an approximation of idle power:
+Kepler approximates a device's idle power from the **minimum power observed
+while the GPU is truly idle**, i.e. when no compute processes are running.
+Restricting the baseline update to idle periods prevents a false, inflated
+baseline when Kepler starts while the GPU is already under load.
+
+This logic lives in `getDevicePowerStatsLocked`
+([`collector.go`][collector-idle]). A failed
+`GetComputeRunningProcesses()` call is non-fatal: idle detection is skipped
+for that reading rather than corrupting the baseline.
 
 ```go
-if totalPower < c.minObservedPower[uuid] {
-    c.minObservedPower[uuid] = totalPower
+// Check if the GPU is truly idle (no compute processes running)
+procs, err := dev.GetComputeRunningProcesses()
+if err != nil {
+    // Non-fatal: log and skip idle detection for this reading
+    c.logger.Debug("GetComputeRunningProcesses failed, skipping idle detection",
+        "device", deviceIndex, "error", err)
+} else if len(procs) == 0 {
+    // GPU is truly idle — update minimum observed power
+    if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
+        c.minObservedPower[uuid] = totalPower
+    }
+    c.idleObserved[uuid] = true
 }
-idlePower := c.minObservedPower[uuid]
-activePower := totalPower - idlePower
 ```
 
-**Active power** = Total power - Idle power
+Idle power is then resolved with the following precedence:
+
+1. **User-configured idle power** — when set via `SetIdlePower(watts)` with a
+   value `> 0`, it always takes precedence.
+2. **Observed idle power** — `minObservedPower[uuid]`, used once a true idle
+   period has been observed for the device.
+3. **Conservative fallback** — `0`, so that until a real idle baseline exists,
+   all power is attributed as active rather than guessing.
+
+```go
+var idlePower float64
+switch {
+case c.idlePower > 0:
+    idlePower = c.idlePower
+case c.idleObserved[uuid]:
+    idlePower = c.minObservedPower[uuid]
+default:
+    idlePower = 0
+}
+
+activePower := totalPower - idlePower
+if activePower < 0 {
+    activePower = 0
+}
+```
+
+**Active power** = Total power − Idle power (clamped at 0)
 
 ## Key NVML APIs Used
 
@@ -190,3 +243,5 @@ The implementation assumes homogeneous GPU nodes (single vendor). While the code
 2. **Idle Power Model**: Linear regression from (utilization, power) pairs for better idle estimation
 3. **AMD ROCm Support**: Implement `GPUPowerMeter` for AMD GPUs using ROCm SMI
 4. **Intel GPU Support**: Implement for Intel discrete GPUs
+
+[collector-idle]: https://github.com/sustainable-computing-io/kepler/blob/7486e93d6793aca66c09fbf590e011493f3db046/internal/device/gpu/nvidia/collector.go#L234-L247
