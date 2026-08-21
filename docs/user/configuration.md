@@ -102,6 +102,12 @@ kepler --monitor.max-terminated=-1
 
 Kepler can load configuration from a YAML file. The configuration file offers more extensive options than command-line flags.
 
+Keys that Kepler does not recognize are ignored rather than rejected, so a config written for a different release still starts. Each ignored key is listed in a warning at startup:
+
+```text
+level=WARN msg="ignoring unknown config fields; check for typos or options from another release" fields="[dcgmEndpoint]"
+```
+
 ### 🧾 Sample Configuration File
 
 ```yaml

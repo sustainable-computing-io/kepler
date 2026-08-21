@@ -212,6 +212,11 @@ type (
 		// use omitempty to suppress printing (String) Experimental configuration
 		// when it is empty
 		Experimental *Experimental `yaml:"experimental,omitempty"`
+
+		// unknownFields holds the keys present in the config file that do not
+		// map to any field above. They are dropped silently by the decoder, so
+		// they are kept here to be reported at startup.
+		unknownFields []string `yaml:"-"`
 	}
 )
 
@@ -408,6 +413,7 @@ func Load(r io.Reader) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+	cfg.unknownFields = unknownFields(data)
 	cfg.sanitize()
 
 	if err := cfg.Validate(); err != nil {

@@ -46,6 +46,7 @@ func main() {
 	printConfigInfo(logger, cfg)
 
 	cfg.ApplyCpuMeterDeprecations(logger)
+	cfg.LogUnknownFields(logger)
 
 	services, err := createServices(logger, cfg)
 	if err != nil {
