@@ -68,3 +68,4 @@ data:
         enabled: false
         idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
         dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+        metricsCacheTTL: 2s # dcgm-exporter metrics cache TTL for MIG (0 disables cache)
