@@ -100,10 +100,18 @@ case gpu.SharingModePartitioned:
 - splits active power across instances proportionally to their activity and
   per-process SM utilization.
 
+DCGM is reached through `--experimental.gpu.dcgm-endpoint` (YAML:
+`experimental.gpu.dcgmEndpoint`).
+
 **Fallback:** when DCGM is unavailable (not deployed, unreachable, or not
 initialized) or no MIG instances are cached, `attributePartitionedFallback`
 distributes active power equally among the running processes so MIG devices
 still report data.
+
+When DCGM is initialized and instances are cached but every instance is idle,
+fails to report, or has no processes, `attributePartitioned` logs a warning and
+returns without attributing anything for that device. There is no fallback in
+that case.
 
 ## Idle Power Detection
 
@@ -135,8 +143,9 @@ if err != nil {
 
 Idle power is then resolved with the following precedence:
 
-1. **User-configured idle power** — when set via `SetIdlePower(watts)` with a
-   value `> 0`, it always takes precedence.
+1. **User-configured idle power** — `--experimental.gpu.idle-power=<watts>`
+   (YAML: `experimental.gpu.idlePower`), applied via `SetIdlePower(watts)`.
+   A value `> 0` always takes precedence.
 2. **Observed idle power** — `minObservedPower[uuid]`, used once a true idle
    period has been observed for the device.
 3. **Conservative fallback** — `0`, so that until a real idle baseline exists,
@@ -159,7 +168,7 @@ if activePower < 0 {
 }
 ```
 
-**Active power** = Total power − Idle power (clamped at 0)
+**Active power** = Total power - Idle power (clamped at 0)
 
 ## Key NVML APIs Used
 
@@ -212,17 +221,22 @@ if activePower < 0 {
 
 ### 1. Idle Power Calibration
 
-Idle power is estimated as minimum observed power. If Kepler starts while GPU is under load, the first reading becomes the "idle" baseline, causing inaccurate active power calculations.
+Idle power is observed only while no compute processes are running. On a GPU that
+is never idle, no baseline is recorded and idle power stays 0, so total power is
+reported as active power.
 
-**Mitigation**: Start Kepler before GPU workloads, or wait for a period of low GPU activity.
+**Mitigation**: set a known value with `--experimental.gpu.idle-power=<watts>`
+(YAML: `experimental.gpu.idlePower`), which takes precedence over observation.
 
 ### 2. Time-Slicing Accuracy
 
 `GetProcessUtilization()` returns sampled data, not continuous measurements. Rapid process switching may not be fully captured.
 
-### 3. MIG Power Attribution Not Yet Implemented
+### 3. MIG Power Attribution Needs DCGM
 
-Multi-Instance GPU mode is detected, but power attribution requires DCGM for per-partition metrics (NVML returns N/A for MIG power). DCGM integration is planned for upcoming PRs.
+NVML returns N/A for MIG instance power, so per-instance attribution depends on a
+reachable dcgm-exporter. Without one, active power is split equally across the
+running processes of the device.
 
 ### 4. Single Vendor Per Node
 
@@ -239,9 +253,8 @@ The implementation assumes homogeneous GPU nodes (single vendor). While the code
 
 ## Future Work
 
-1. **MIG Support**: Integrate with DCGM for per-instance power attribution (planned)
-2. **Idle Power Model**: Linear regression from (utilization, power) pairs for better idle estimation
-3. **AMD ROCm Support**: Implement `GPUPowerMeter` for AMD GPUs using ROCm SMI
-4. **Intel GPU Support**: Implement for Intel discrete GPUs
+1. **Idle Power Model**: Linear regression from (utilization, power) pairs for better idle estimation
+2. **AMD ROCm Support**: Implement `GPUPowerMeter` for AMD GPUs using ROCm SMI
+3. **Intel GPU Support**: Implement for Intel discrete GPUs
 
-[collector-idle]: https://github.com/sustainable-computing-io/kepler/blob/7486e93d6793aca66c09fbf590e011493f3db046/internal/device/gpu/nvidia/collector.go#L234-L247
+[collector-idle]: https://github.com/sustainable-computing-io/kepler/blob/fc8f8a39931cc7bcefb42a2275c8bc7e2ac49752/internal/device/gpu/nvidia/collector.go#L220-L274
