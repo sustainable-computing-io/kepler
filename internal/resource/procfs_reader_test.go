@@ -6,6 +6,7 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"testing"
 	"time"
@@ -115,6 +116,24 @@ func TestNewProcess(t *testing.T) {
 
 		mockProc.AssertExpectations(t)
 	})
+}
+
+func TestRefreshProcesses_PermissionDeniedHint(t *testing.T) {
+	mockProc := &MockProcInfo{}
+	mockProc.On("PID").Return(80)
+	mockProc.On("Comm").Return("nginx", nil)
+	mockProc.On("CPUTime").Return(float64(1), nil)
+	mockProc.On("Executable").Return("", &fs.PathError{Op: "readlink", Path: "/proc/80/exe", Err: fs.ErrPermission})
+
+	mockProcFS := &MockProcReader{}
+	mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil)
+
+	informer, err := NewInformer(WithProcReader(mockProcFS))
+	require.NoError(t, err)
+
+	_, _, err = informer.refreshProcesses()
+	require.ErrorIs(t, err, fs.ErrPermission)
+	assert.ErrorContains(t, err, "CAP_SYS_PTRACE")
 }
 
 func TestResourceInformer(t *testing.T) {
