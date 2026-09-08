@@ -28,6 +28,12 @@ func TestContainerMetricsPresent(t *testing.T) {
 				"kepler_container_cpu_watts metric should exist")
 			return ctx
 		}).
+		Assess("kepler_container_cpu_seconds_total exists", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			snapshot := takeSnapshot(t)
+			assert.True(t, snapshot.HasMetric("kepler_container_cpu_seconds_total"),
+				"kepler_container_cpu_seconds_total metric should exist")
+			return ctx
+		}).
 		Feature()
 
 	testenv.Test(t, feature)
@@ -75,6 +81,26 @@ func TestContainerMetricsHaveRequiredLabels(t *testing.T) {
 			}
 			return ctx
 		}).
+		Assess("kepler_container_cpu_seconds_total has required labels", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			snapshot := takeSnapshot(t)
+			metrics := snapshot.GetAllWithName("kepler_container_cpu_seconds_total")
+			require.NotEmpty(t, metrics,
+				"kepler_container_cpu_seconds_total metric should exist")
+
+			m := metrics[0]
+			requiredSecondsLabels := []string{
+				"container_id",
+				"container_name",
+				"runtime",
+				"state",
+				"pod_id",
+			}
+			for _, label := range requiredSecondsLabels {
+				assert.Contains(t, m.Labels, label,
+					"kepler_container_cpu_seconds_total should have %s label", label)
+			}
+			return ctx
+		}).
 		Feature()
 
 	testenv.Test(t, feature)
@@ -103,6 +129,17 @@ func TestContainerMetricsNonNegative(t *testing.T) {
 			}
 
 			t.Logf("Verified %d container watts metrics are non-negative", len(metrics))
+			return ctx
+		}).
+		Assess("kepler_container_cpu_seconds_total values are non-negative", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			snapshot := takeSnapshot(t)
+			metrics := snapshot.GetAllWithName("kepler_container_cpu_seconds_total")
+			for _, m := range metrics {
+				assert.GreaterOrEqual(t, m.Value, float64(0),
+					"Container seconds should be >= 0 (container_id=%s)", m.Labels["container_id"])
+			}
+
+			t.Logf("Verified %d container seconds metrics are non-negative", len(metrics))
 			return ctx
 		}).
 		Feature()
