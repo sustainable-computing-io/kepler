@@ -14,6 +14,7 @@
 | Yi Yuan               |              | SamYuan1990    | <yy19902439@126.com>             | Community Engagement                                          |
 | Sunyanan Choochotkaew | IBM          | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
 | Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
+| Laura Llinares        | CERN         | laurall974     | <llinares.laura@cern.ch>         | Technical Committee, Maintainer                               |
 | Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
 | Erwan Billard         |              | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 | Ángel Olivares        |              | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
@@ -24,7 +25,6 @@ An off-cycle maintainer is a contributor granted project write/merge access exce
 
 | Name           | Company | Github ID  | Email                    | Role                | Date         |
 |----------------|---------|------------|--------------------------|---------------------|--------------|
-| Laura Llinares | CERN    | laurall974 | <llinares.laura@cern.ch> | Technical Committee | July 8, 2026 |
 
 This list must be kept in sync with the
 [CNCF Project Maintainers list](https://github.com/cncf/foundation/blob/master/project-maintainers.csv).
