@@ -149,3 +149,62 @@ func TestApplyGPUConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestFakeGPUMeterConfigValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		enabled       bool
+		deviceCount   int
+		sharingMode   string
+		expectedError string
+	}{
+		{
+			name:        "valid time-slicing config",
+			enabled:     true,
+			deviceCount: 1,
+			sharingMode: "time-slicing",
+		},
+		{
+			name:        "valid exclusive config",
+			enabled:     true,
+			deviceCount: 2,
+			sharingMode: "exclusive",
+		},
+		{
+			name:          "zero devices",
+			enabled:       true,
+			deviceCount:   0,
+			sharingMode:   "time-slicing",
+			expectedError: "invalid dev.fake-gpu-meter.deviceCount",
+		},
+		{
+			name:          "invalid sharing mode",
+			enabled:       true,
+			deviceCount:   1,
+			sharingMode:   "exclusve",
+			expectedError: "invalid dev.fake-gpu-meter.sharingMode",
+		},
+		{
+			name:        "disabled config is ignored",
+			enabled:     false,
+			deviceCount: 0,
+			sharingMode: "invalid",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Dev.FakeGPUMeter.Enabled = ptr.To(tc.enabled)
+			cfg.Dev.FakeGPUMeter.DeviceCount = tc.deviceCount
+			cfg.Dev.FakeGPUMeter.SharingMode = tc.sharingMode
+
+			err := cfg.Validate(SkipHostValidation)
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.expectedError)
+		})
+	}
+}
