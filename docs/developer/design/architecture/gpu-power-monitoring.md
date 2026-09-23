@@ -91,7 +91,7 @@ case gpu.SharingModePartitioned:
     }
 ```
 
-`attributePartitioned` works as follows:
+[`attributePartitioned`](https://github.com/sustainable-computing-io/kepler/blob/fc8f8a39931cc7bcefb42a2275c8bc7e2ac49752/internal/device/gpu/nvidia/collector.go#L529-L631) works as follows:
 
 - reads the device active power via the shared idle-detection logic;
 - queries per-instance activity from DCGM (`GetMIGInstanceActivity`) using the
@@ -101,7 +101,9 @@ case gpu.SharingModePartitioned:
   per-process SM utilization.
 
 DCGM is reached through `--experimental.gpu.dcgm-endpoint` (YAML:
-`experimental.gpu.dcgmEndpoint`).
+`experimental.gpu.dcgmEndpoint`); when unset, Kepler tries to discover a local
+dcgm-exporter: the pod on the same node via the Kubernetes API, then static
+fallback endpoints on port 9400.
 
 **Fallback:** when DCGM is unavailable (not deployed, unreachable, or not
 initialized) or no MIG instances are cached, `attributePartitionedFallback`
@@ -136,6 +138,8 @@ if err != nil {
     // GPU is truly idle — update minimum observed power
     if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
         c.minObservedPower[uuid] = totalPower
+        c.logger.Debug("updated idle power baseline",
+            "device", deviceIndex, "uuid", uuid, "idlePower", totalPower)
     }
     c.idleObserved[uuid] = true
 }
