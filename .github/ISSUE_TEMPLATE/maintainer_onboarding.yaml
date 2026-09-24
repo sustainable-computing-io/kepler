@@ -1,0 +1,107 @@
+name: Maintainer Onboarding Checklist
+description: Track access, calls, channels and first tasks for a newly merged maintainer.
+labels:
+  - kind/documentation
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ```
+         _  __         _
+        | |/ /___ _ __| |___ _ _
+        | ' </ -_) '_ \ / -_) '_|
+        |_|\_\___| .__/_\___|_|
+                 |_|   welcome aboard, new maintainer 🌱
+        ```
+
+        Welcome to the maintainer team! This checklist covers the steps that come
+        *after* your `MAINTAINERS.md` PR is merged. Work through it at your own
+        pace and check items off as you go.
+
+        Stable references (governance, contributing, call calendar, notes doc) are
+        linked directly below. Details that change often (one-off links, invites)
+        belong in the [#kepler-project Slack canvas](https://cloud-native.slack.com/docs/T08PSQ7BQ/F05R1G7QYD7),
+        which a maintainer keeps up to date. If something there is missing or
+        stale, ping in #kepler-project and note it under Notes below.
+
+  - type: input
+    id: new_maintainer
+    attributes:
+      label: 🧑‍💼 New maintainer
+      description: GitHub handle of the person being onboarded.
+      placeholder: "@username"
+    validations:
+      required: true
+
+  - type: input
+    id: nomination_pr
+    attributes:
+      label: 🔗 Nomination PR
+      description: Link to the merged PR that added this maintainer to `MAINTAINERS.md`.
+      placeholder: https://github.com/sustainable-computing-io/kepler/pull/
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: access
+    attributes:
+      label: 🔑 Access
+      description: Repository and org permissions.
+      options:
+        - label: Added to the appropriate GitHub team / granted write access
+        - label: Listed in [`MAINTAINERS.md`](https://github.com/sustainable-computing-io/kepler/blob/main/MAINTAINERS.md) with the correct role
+        - label: Added to the CNCF project-maintainers list (kept in sync with `MAINTAINERS.md`)
+        - label: Added to the [`OWNERS`](https://github.com/sustainable-computing-io/kepler/blob/main/OWNERS) file(s) for the areas you review
+
+  - type: checkboxes
+    id: calls
+    attributes:
+      label: 📅 Community calls
+      description: >
+        The recurring community call. The calendar (with the recurring invite and
+        past recordings) is on
+        [LFX](https://zoom-lfx.platform.linuxfoundation.org/meetings/kepler), and
+        the running agenda and notes live in the
+        [shared Google Doc](https://docs.google.com/document/d/1YtflOiC8Eq61MIrX2DW2KT2XcJjBZnvgyKrkjUCr_ZE/edit).
+      options:
+        - label: Added the recurring community call from the [LFX calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/kepler)
+        - label: Can open the [shared agenda / notes doc](https://docs.google.com/document/d/1YtflOiC8Eq61MIrX2DW2KT2XcJjBZnvgyKrkjUCr_ZE/edit)
+        - label: Know that a call reminder with the join link is posted in #kepler-project before each meeting
+
+  - type: checkboxes
+    id: channels
+    attributes:
+      label: 💬 Channels
+      description: Where the conversations happen.
+      options:
+        - label: Joined the [CNCF Slack](https://slack.cncf.io) and the [#kepler-project](https://cloud-native.slack.com/archives/C05QK3KN3HT) channel
+        - label: Know where design proposals live ([`docs/developer/proposal/`](https://github.com/sustainable-computing-io/kepler/tree/main/docs/developer/proposal))
+
+  - type: checkboxes
+    id: first_tasks
+    attributes:
+      label: 📚 Governance & policies
+      description: The rules of the road — worth reading once, early.
+      options:
+        - label: Read your role in [`GOVERNANCE.md` → Maintainers](https://github.com/sustainable-computing-io/kepler/blob/main/GOVERNANCE.md#maintainers)
+        - label: Skimmed [`CONTRIBUTING.md`](https://github.com/sustainable-computing-io/kepler/blob/main/CONTRIBUTING.md) (review flow, DCO sign-off, CI)
+        - label: Know the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md) and the [security policy](https://github.com/sustainable-computing-io/kepler/blob/main/SECURITY.md) for reporting vulnerabilities
+
+  - type: checkboxes
+    id: onramp
+    attributes:
+      label: 🚀 First tasks
+      description: A gentle on-ramp.
+      options:
+        - label: Reviewed at least one open PR
+        - label: Picked up one triage item or good-first-issue
+        - label: Introduced yourself in the next community call
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 📝 Notes
+      description: Anything unclear, missing, or worth improving in this onboarding flow?
+    validations:
+      required: false

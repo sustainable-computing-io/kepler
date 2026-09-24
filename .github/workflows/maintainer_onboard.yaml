@@ -1,0 +1,95 @@
+# Opens a maintainer onboarding checklist issue when a nomination PR is merged.
+# The nomination flow already ends at the MAINTAINERS.md merge; this picks up
+# right after it, which is the gap a new maintainer hits today. The checklist
+# content lives in .github/ISSUE_TEMPLATE/maintainer_onboarding.yaml; this
+# workflow only files it automatically so nobody has to remember to.
+name: Maintainer Onboarding
+
+on: # yamllint disable-line rule:truthy
+  pull_request_target:
+    types:
+      - closed
+
+# default permissions as read only
+permissions: read-all
+
+jobs:
+  open-onboarding-issue:
+    # Only on merge, only for nomination PRs that touched MAINTAINERS.md.
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'kind/nomination')
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check MAINTAINERS.md was modified
+        id: files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner: context.repo.owner, repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number });
+            core.setOutput('touched',
+              files.some(f => f.filename === 'MAINTAINERS.md'));
+
+      - name: Open onboarding checklist issue
+        if: steps.files.outputs.touched == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = [
+              '```',
+              ' _  __         _',
+              '| |/ /___ _ __| |___ _ _',
+              '| \' </ -_) \'_ \\ / -_) \'_|',
+              '|_|\\_\\___| .__/_\\___|_|',
+              '         |_|   welcome aboard, new maintainer 🌱',
+              '```',
+              '',
+              `### 👋 Welcome @${pr.user.login}!`,
+              '',
+              `Congratulations on joining the Kepler maintainers via #${pr.number}. This checklist covers what comes **after** the merge. Work through it at your own pace, tick each item as you go, and comment if a step is unclear or a link is stale.`,
+              '',
+              '---',
+              '',
+              '### 🔑 Access',
+              '- [ ] Added to the appropriate GitHub team / granted write access',
+              '- [ ] Listed in [`MAINTAINERS.md`](https://github.com/sustainable-computing-io/kepler/blob/main/MAINTAINERS.md) with the correct role (done by the merged PR)',
+              '- [ ] Added to the CNCF project-maintainers list (kept in sync with `MAINTAINERS.md`)',
+              '- [ ] Added to the [`OWNERS`](https://github.com/sustainable-computing-io/kepler/blob/main/OWNERS) file(s) for the areas you review',
+              '',
+              '### 📅 Community calls & channels',
+              '- [ ] Joined the [CNCF Slack](https://slack.cncf.io) and the [#kepler-project](https://cloud-native.slack.com/archives/C05QK3KN3HT) channel',
+              '- [ ] Added the recurring community call from the [LFX calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/kepler)',
+              '- [ ] Can open the [shared agenda / notes doc](https://docs.google.com/document/d/1YtflOiC8Eq61MIrX2DW2KT2XcJjBZnvgyKrkjUCr_ZE/edit)',
+              '- [ ] Know where design proposals live ([`docs/developer/proposal/`](https://github.com/sustainable-computing-io/kepler/tree/main/docs/developer/proposal))',
+              '',
+              '### 📚 Governance & policies',
+              '- [ ] Read your role in [`GOVERNANCE.md` → Maintainers](https://github.com/sustainable-computing-io/kepler/blob/main/GOVERNANCE.md#maintainers)',
+              '- [ ] Skimmed [`CONTRIBUTING.md`](https://github.com/sustainable-computing-io/kepler/blob/main/CONTRIBUTING.md) (review flow, DCO sign-off, CI)',
+              '- [ ] Know the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md) and the [security policy](https://github.com/sustainable-computing-io/kepler/blob/main/SECURITY.md) for reporting vulnerabilities',
+              '',
+              '### 🚀 First tasks',
+              '- [ ] Reviewed at least one open PR',
+              '- [ ] Picked up one triage item or good-first-issue',
+              '- [ ] Introduced yourself in the next community call',
+              '',
+              '---',
+              '',
+              '> 💡 **Where things live:** the LFX calendar carries the recurring invite and past recordings, and the Google Doc holds the running agenda and notes. One-off join links and invites are posted in the [#kepler-project Slack canvas](https://cloud-native.slack.com/docs/T08PSQ7BQ/F05R1G7QYD7), which a maintainer keeps up to date.',
+              '',
+              'Something missing or stale? Flag it in #kepler-project — improving this checklist is itself a great first contribution. 🌱',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Maintainer onboarding: ${pr.user.login}`,
+              labels: ['kind/documentation'],
+              assignees: [pr.user.login],
+              body,
+            });
