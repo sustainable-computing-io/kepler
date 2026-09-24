@@ -81,6 +81,8 @@ These metrics provide energy and power information at the node level.
   - `model_name`
   - `physical_id`
   - `core_id`
+- **Constant Labels**:
+  - `node_name`
 
 #### kepler_node_cpu_joules_total
 
