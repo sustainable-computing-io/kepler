@@ -50,13 +50,14 @@ func expectedLabels() map[string]string {
 		"model_name":  "",
 		"physical_id": "",
 		"core_id":     "",
+		"node_name":   "",
 	}
 }
 
 // TestNewCPUInfoCollector tests the creation of a new CPUInfoCollector.
 func TestNewCPUInfoCollector(t *testing.T) {
 	// Test successful creation with a mock procfs
-	collector, err := NewCPUInfoCollector("/proc")
+	collector, err := NewCPUInfoCollector("/proc", "test-node")
 	assert.NoError(t, err)
 	assert.NotNil(t, collector)
 	assert.NotNil(t, collector.fs)
@@ -70,12 +71,13 @@ func TestNewCPUInfoCollectorWithFS(t *testing.T) {
 			return sampleCPUInfo(), nil
 		},
 	}
-	collector := newCPUInfoCollectorWithFS(mockFS)
+	collector := newCPUInfoCollectorWithFS(mockFS, "test-node")
 	assert.NotNil(t, collector)
 	assert.Equal(t, mockFS, collector.fs)
 	assert.NotNil(t, collector.desc)
 	assert.Contains(t, collector.desc.String(), "kepler_node_cpu_info")
 	assert.Contains(t, collector.desc.String(), "variableLabels: {processor,vendor_id,model_name,physical_id,core_id}")
+	assert.Contains(t, collector.desc.String(), `node_name="test-node"`)
 }
 
 // TestCPUInfoCollector_Describe tests the Describe method.
@@ -85,7 +87,7 @@ func TestCPUInfoCollector_Describe(t *testing.T) {
 			return sampleCPUInfo(), nil
 		},
 	}
-	collector := newCPUInfoCollectorWithFS(mockFS)
+	collector := newCPUInfoCollectorWithFS(mockFS, "test-node")
 
 	ch := make(chan *prometheus.Desc, 1)
 	collector.Describe(ch)
@@ -102,7 +104,7 @@ func TestCPUInfoCollector_Collect_Success(t *testing.T) {
 			return sampleCPUInfo(), nil
 		},
 	}
-	collector := newCPUInfoCollectorWithFS(mockFS)
+	collector := newCPUInfoCollectorWithFS(mockFS, "test-node")
 
 	ch := make(chan prometheus.Metric, 10)
 	collector.Collect(ch)
@@ -140,7 +142,7 @@ func TestCPUInfoCollector_Collect_Error(t *testing.T) {
 			return nil, errors.New("failed to read CPU info")
 		},
 	}
-	collector := newCPUInfoCollectorWithFS(mockFS)
+	collector := newCPUInfoCollectorWithFS(mockFS, "test-node")
 
 	ch := make(chan prometheus.Metric, 10)
 	collector.Collect(ch)
@@ -161,7 +163,7 @@ func TestCPUInfoCollector_Collect_Concurrency(t *testing.T) {
 			return sampleCPUInfo(), nil
 		},
 	}
-	collector := newCPUInfoCollectorWithFS(mockFS)
+	collector := newCPUInfoCollectorWithFS(mockFS, "test-node")
 
 	const numGoroutines = 10
 	var wg sync.WaitGroup

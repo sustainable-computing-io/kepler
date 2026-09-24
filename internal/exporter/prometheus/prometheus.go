@@ -156,7 +156,7 @@ func CreateCollectors(pm Monitor, applyOpts ...OptionFn) (map[string]prom.Collec
 		"build_info": collector.NewKeplerBuildInfoCollector(),
 		"power":      collector.NewPowerCollector(pm, opts.nodeName, opts.logger, opts.metricsLevel),
 	}
-	cpuInfoCollector, err := collector.NewCPUInfoCollector(opts.procfs)
+	cpuInfoCollector, err := collector.NewCPUInfoCollector(opts.procfs, opts.nodeName)
 	if err != nil {
 		return nil, err
 	}
