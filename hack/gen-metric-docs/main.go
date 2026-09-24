@@ -350,7 +350,7 @@ func main() {
 	fmt.Println("Created power collector")
 	buildInfoCollector := collector.NewKeplerBuildInfoCollector()
 	fmt.Println("Created build info collector")
-	cpuInfoCollector, err := collector.NewCPUInfoCollector("/proc")
+	cpuInfoCollector, err := collector.NewCPUInfoCollector("/proc", "test-node")
 	if err != nil {
 		fmt.Printf("Warning: Could not create CPU info collector: %v\n", err)
 	} else {

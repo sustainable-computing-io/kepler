@@ -41,23 +41,23 @@ type cpuInfoCollector struct {
 }
 
 // NewCPUInfoCollector creates a CPUInfoCollector using a procfs mount path.
-func NewCPUInfoCollector(procPath string) (*cpuInfoCollector, error) {
+func NewCPUInfoCollector(procPath, nodeName string) (*cpuInfoCollector, error) {
 	fs, err := newProcFS(procPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating procfs failed: %w", err)
 	}
-	return newCPUInfoCollectorWithFS(fs), nil
+	return newCPUInfoCollectorWithFS(fs, nodeName), nil
 }
 
 // newCPUInfoCollectorWithFS injects a procFS interface
-func newCPUInfoCollectorWithFS(fs procFS) *cpuInfoCollector {
+func newCPUInfoCollectorWithFS(fs procFS, nodeName string) *cpuInfoCollector {
 	return &cpuInfoCollector{
 		fs: fs,
 		desc: prom.NewDesc(
 			prom.BuildFQName(keplerNS, "node", "cpu_info"),
 			"CPU information from procfs",
 			[]string{"processor", "vendor_id", "model_name", "physical_id", "core_id"},
-			nil,
+			prom.Labels{nodeNameLabel: nodeName},
 		),
 	}
 }
