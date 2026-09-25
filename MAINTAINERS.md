@@ -18,6 +18,7 @@
 | Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
 | Erwan Billard         |              | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 | Ángel Olivares        |              | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
+| Diana Todea           | VictoriaMetrics| didiViking   | <diane.todea@gmail.com>          | Community Engagement, Repository Oversight                    |  
 
 ## Off-cycle maintainers
 
