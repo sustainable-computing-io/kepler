@@ -342,6 +342,14 @@ func TestResourceInformer(t *testing.T) {
 
 		processes := informer.Processes()
 		require.Contains(t, processes.Running, 4001)
+		t.Logf(
+			"refreshed pid=%d comm=%s cpu_total=%.1f cpu_delta=%.1f node_delta=%.1f",
+			4001,
+			processes.Running[4001].Comm,
+			processes.Running[4001].CPUTotalTime,
+			processes.Running[4001].CPUTimeDelta,
+			informer.Node().ProcessTotalCPUTimeDelta,
+		)
 		assert.Equal(t, "new-process", processes.Running[4001].Comm)
 		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTotalTime)
 		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTimeDelta)
