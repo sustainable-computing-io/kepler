@@ -298,6 +298,68 @@ func TestResourceInformer(t *testing.T) {
 		mockProc2.AssertExpectations(t)
 	})
 
+	t.Run("PID reuse resets CPU delta", func(t *testing.T) {
+		mockProc1 := &MockProcInfo{}
+		mockProc1.On("PID").Return(4001)
+		mockProc1.On("Comm").Return("old-process", nil)
+		mockProc1.On("Executable").Return("/bin/old", nil)
+		mockProc1.On("Cgroups").Return([]cGroup{{Path: "/system.slice/old.service"}}, nil)
+		mockProc1.On("Environ").Return([]string{}, nil).Maybe()
+		mockProc1.On("CmdLine").Return([]string{"/bin/old"}, nil).Maybe()
+		mockProc1.On("CPUTime").Return(float64(20.0), nil).Once()
+
+		mockProc2 := &MockProcInfo{}
+		mockProc2.On("PID").Return(4001)
+		mockProc2.On("Comm").Return("new-process", nil)
+		mockProc2.On("Executable").Return("/bin/new", nil)
+		mockProc2.On("Cgroups").Return([]cGroup{{Path: "/system.slice/new.service"}}, nil)
+		mockProc2.On("Environ").Return([]string{}, nil).Maybe()
+		mockProc2.On("CmdLine").Return([]string{"/bin/new"}, nil).Maybe()
+		mockProc2.On("CPUTime").Return(float64(1.0), nil).Once()
+
+		mockInformer := &MockProcReader{}
+		fakeClock := testclock.NewFakeClock(time.Now())
+
+		informer, err := NewInformer(
+			WithProcReader(mockInformer),
+			WithClock(fakeClock),
+		)
+		require.NoError(t, err)
+
+		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
+		err = informer.Init()
+		require.NoError(t, err)
+
+		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.4), nil).Once()
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		mockInformer.On("AllProcs").Return([]procInfo{mockProc2}, nil).Once()
+		mockInformer.On("CPUUsageRatio").Return(float64(0.2), nil).Once()
+		err = informer.Refresh()
+		require.NoError(t, err)
+
+		processes := informer.Processes()
+		require.Contains(t, processes.Running, 4001)
+		t.Logf(
+			"refreshed pid=%d comm=%s cpu_total=%.1f cpu_delta=%.1f node_delta=%.1f",
+			4001,
+			processes.Running[4001].Comm,
+			processes.Running[4001].CPUTotalTime,
+			processes.Running[4001].CPUTimeDelta,
+			informer.Node().ProcessTotalCPUTimeDelta,
+		)
+		assert.Equal(t, "new-process", processes.Running[4001].Comm)
+		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTotalTime)
+		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTimeDelta)
+		assert.Equal(t, float64(1.0), informer.Node().ProcessTotalCPUTimeDelta)
+
+		mockInformer.AssertExpectations(t)
+		mockProc1.AssertExpectations(t)
+		mockProc2.AssertExpectations(t)
+	})
+
 	t.Run("Container detect", func(t *testing.T) {
 		mockInformer := &MockProcReader{}
 		fakeClock := testclock.NewFakeClock(time.Now())

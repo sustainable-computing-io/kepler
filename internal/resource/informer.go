@@ -522,6 +522,9 @@ func populateProcessFields(p *Process, proc procInfo) error {
 	}
 
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
+	if p.CPUTimeDelta < 0 {
+		p.CPUTimeDelta = cpuTotalTime
+	}
 	p.CPUTotalTime = cpuTotalTime
 
 	// ignore already processed processes with close to 0 CPU time usage
