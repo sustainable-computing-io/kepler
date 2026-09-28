@@ -28,7 +28,8 @@ repos:
         pass_filenames: false
         entry: >
           bash -c 'set -euo pipefail;
-          for commit in $(git rev-list --reverse --no-merges "$FROM..$TO"); do
+          git rev-list --reverse --no-merges "$FROM..$TO" |
+          while IFS= read -r commit; do
             git show -s --format=%B "$commit" | commitlint --verbose;
           done'
 
