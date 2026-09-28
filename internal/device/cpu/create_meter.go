@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/sustainable-computing-io/kepler/config"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu/esmi"
 )
 
 // CreateCPUMeter walks cfg.Cpu.PreferredMeters in preference order, builds
@@ -91,6 +92,12 @@ func buildCPUMeter(name string, logger *slog.Logger, cfg *config.Config) (CPUPow
 			WithHwmonLogger(logger),
 			WithHwmonZoneFilter(zones),
 			WithHwmonChipRules(rules),
+		)
+
+	case "esmi":
+		return esmi.NewCPUPowerMeter(
+			cfg.Host.SysFS,
+			esmi.WithLogger(logger),
 		)
 
 	case "fake":

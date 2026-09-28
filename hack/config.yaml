@@ -36,6 +36,7 @@ cpu:
   # Ordered preference list of CPU power-meter backends. The first backend
   # that initializes successfully and reports zones is used.
   # Built-in backends: rapl, hwmon, fake.
+  # To enable ESMI (AMD CPU power monitoring), set experimental.esmi.enabled: true
   preferredMeters: [rapl, hwmon]
 
 rapl:
@@ -111,3 +112,5 @@ experimental:
     enabled: false # Enable experimental GPU power monitoring
     idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
     dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+  esmi:
+    enabled: false # Enable experimental AMD ESMI CPU power monitoring (AMD EPYC platforms)
