@@ -13,7 +13,8 @@ repos:
         pass_filenames: false
         entry: bash -c "markdown-table-formatter"
 
-  # NOTE: This hook lints commit messages within a specified range, ideal for validating all commits in a PR.
+  # NOTE: This hook lints non-merge commit messages within a specified range, ideal for validating PR commits
+  # while allowing git-generated merge commits created when a branch is updated from main.
   # Environment variables $FROM (start of range) and $TO (end of range) are set in PR Checks workflow.
   - repo: local
     hooks:
@@ -25,7 +26,11 @@ repos:
           - "@commitlint/cli"
           - "@commitlint/config-conventional"
         pass_filenames: false
-        entry: bash -c "commitlint --from $FROM --to $TO --verbose"
+        entry: >
+          bash -c 'set -euo pipefail;
+          for commit in $(git rev-list --reverse --no-merges "$FROM..$TO"); do
+            git show -s --format=%B "$commit" | commitlint --verbose;
+          done'
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
