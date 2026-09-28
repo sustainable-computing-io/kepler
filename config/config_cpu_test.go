@@ -59,6 +59,23 @@ func TestCpuPreferredMeters(t *testing.T) {
 			},
 			want: []string{"rapl"},
 		},
+		{
+			name: "esmi enabled prepends to preferredMeters",
+			setup: func(c *Config) {
+				c.Experimental = &Experimental{}
+				c.Experimental.Esmi.Enabled = ptr.To(true)
+			},
+			want: []string{"esmi", "rapl", "hwmon"},
+		},
+		{
+			name: "esmi already in list: no duplication",
+			setup: func(c *Config) {
+				c.Cpu.PreferredMeters = []string{"esmi", "rapl"}
+				c.Experimental = &Experimental{}
+				c.Experimental.Esmi.Enabled = ptr.To(true)
+			},
+			want: []string{"esmi", "rapl"},
+		},
 	}
 
 	logger := slog.New(slog.DiscardHandler)
@@ -81,7 +98,7 @@ func TestCpuPreferredMetersValidation(t *testing.T) {
 	}{
 		{
 			name:   "all known backends",
-			meters: []string{"rapl", "hwmon", "fake"},
+			meters: []string{"rapl", "hwmon", "esmi", "fake"},
 		},
 		{
 			name:    "unknown backend",
