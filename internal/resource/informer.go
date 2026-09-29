@@ -6,6 +6,7 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"sync"
@@ -189,6 +190,11 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 				continue
 			}
 
+			if errors.Is(err, fs.ErrPermission) {
+				// Refresh fails fast on purpose (see #2518): silently skipping
+				// processes would skew attribution. Tell the operator how to fix it.
+				err = fmt.Errorf("%w (kepler needs root or CAP_SYS_PTRACE to read /proc entries of other users)", err)
+			}
 			ri.logger.Debug("Failed to get process info", "pid", pid, "error", err)
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
