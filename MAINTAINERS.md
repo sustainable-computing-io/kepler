@@ -1,26 +1,28 @@
 # Maintainers
 
-- **Cycle:** Spring 2026
-- **Period:** April 1, 2026 – September 30, 2026
+- **Cycle:** Fall 2026
+- **Period:** October 1, 2026 – March 31, 2027
 
-| Name                  | Company      | Github ID      | Email                            | Role                                                          |
-|-----------------------|--------------|----------------|----------------------------------|---------------------------------------------------------------|
-| Vimal Kumar           | Red Hat      | vimalk78       | <vimal78@gmail.com>              | Project Lead                                                  |
-| Vibhu Prashar         | Red Hat      | vprashar2929   | <vibhu.sharma2929@gmail.com>     | Technical Committee, Release Management, Repository Oversight |
-| Kaiyi Liu             | Red Hat      | KaiyiLiu1234   | <kaliu@redhat.com>               | Technical Committee                                           |
-| Sunil Thaha           | Red Hat      | sthaha         | <gh.dev@thaha.me>                | Technical Committee                                           |
-| Peng Hui Jiang        | cogiot       | jiangphcn      | <jiangphcn@apache.org>           | Technical Committee                                           |
-| Brad McCoy            | Basiq        | bradmccoydev   | <bradmccoydev@gmail.com>         | Technical Committee                                           |
-| Yi Yuan               |              | SamYuan1990    | <yy19902439@126.com>             | Community Engagement                                          |
-| Sunyanan Choochotkaew | IBM          | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
-| Niki Manoledaki       | Grafana Labs | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
-| Laura Llinares        | CERN         | laurall974     | <llinares.laura@cern.ch>         | Technical Committee, Maintainer                               |
-| Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
-| Erwan Billard         |              | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
-| Ángel Olivares        |              | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
-| Julian Legler         | TU Berlin    | JulianLegler   | <julian.legler@tu-berlin.de>     | Technical Committee, Repository Oversight                     |
-| Himanshu Verma        |              | bitflicker64   | <himnshuverma10152006@gmail.com> | Technical Committee                                           |
-| Leonor Oliveira       | Grafana Labs | leonorfmartins | <leonorfmartins@gmail.com>       | Repository Oversight                                          |
+| Name                  | Company         | Github ID      | Email                            | Role                                                          |
+|-----------------------|-----------------|----------------|----------------------------------|---------------------------------------------------------------|
+| Vimal Kumar           | Red Hat         | vimalk78       | <vimal78@gmail.com>              | Project Lead                                                  |
+| Vibhu Prashar         | Red Hat         | vprashar2929   | <vibhu.sharma2929@gmail.com>     | Technical Committee, Release Management, Repository Oversight |
+| Kaiyi Liu             | Red Hat         | KaiyiLiu1234   | <kaliu@redhat.com>               | Technical Committee                                           |
+| Sunil Thaha           | Red Hat         | sthaha         | <gh.dev@thaha.me>                | Technical Committee                                           |
+| Peng Hui Jiang        | cogiot          | jiangphcn      | <jiangphcn@apache.org>           | Technical Committee                                           |
+| Brad McCoy            | Basiq           | bradmccoydev   | <bradmccoydev@gmail.com>         | Technical Committee                                           |
+| Yi Yuan               |                 | SamYuan1990    | <yy19902439@126.com>             | Community Engagement                                          |
+| Sunyanan Choochotkaew | IBM             | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
+| Niki Manoledaki       | Grafana Labs    | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
+| Laura Llinares        | CERN            | laurall974     | <llinares.laura@cern.ch>         | Technical Committee, Maintainer                               |
+| Vasco Gervasi         |                 | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
+| Erwan Billard         |                 | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
+| Ángel Olivares        |                 | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
+| Julian Legler         | TU Berlin       | JulianLegler   | <julian.legler@tu-berlin.de>     | Technical Committee, Repository Oversight                     |
+| Himanshu Verma        |                 | bitflicker64   | <himnshuverma10152006@gmail.com> | Technical Committee                                           |
+| Diana Todea           | VictoriaMetrics | didiViking     | <diane.todea@gmail.com>          | Community Engagement, Repository Oversight                    |
+| Mary Baldwin Hughes   | Independent     | marybaldwin    | <marymbaldwin@gmail.com>         | Community Engagement                                          |
+| Leonor Oliveira       | Grafana Labs    | leonorfmartins | <leonorfmartins@gmail.com>       | Repository Oversight                                          |
 
 ## Off-cycle maintainers
 
