@@ -56,6 +56,7 @@ body:
         Confirm that you have read and agree with the [GOVERNANCE.md](https://github.com/sustainable-computing-io/kepler/blob/main/GOVERNANCE.md). Please include your role and sign-up date in the comment.
       options:
         - label: I confirm I have read and agree with GOVERNANCE.md.
+        - label: The nominee has joined the [community call](https://zoom-lfx.platform.linuxfoundation.org/meetings/kepler).
 
   - type: input
     id: link
@@ -65,3 +66,22 @@ body:
       placeholder: https://github.com/sustainable-computing-io/kepler/pull/
     validations:
       required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## After the merge
+
+        The checklist below is for the existing maintainers once the
+        `MAINTAINERS.md` PR is merged. Leave it unchecked when opening the issue
+        and tick items as they are done.
+
+  - type: checkboxes
+    id: onboarding
+    attributes:
+      label: 🧭 Onboarding (after merge)
+      description: Tasks done by an existing maintainer to onboard the new maintainer.
+      options:
+        - label: Added the new maintainer to the [`kepler-maintainer`](https://github.com/orgs/sustainable-computing-io/teams/kepler-maintainer) GitHub team
+        - label: Added the new maintainer to the `kepler-maintainer` Slack channel
+        - label: Assigned a first PR to review or a triage item
