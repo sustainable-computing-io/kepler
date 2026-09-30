@@ -18,7 +18,9 @@
 | Vasco Gervasi         |              | yellowhat      | <yellowhat@mailbox.org>          | Helm Chart Maintainer                                         |
 | Erwan Billard         |              | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 | Ángel Olivares        |              | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
+| Julian Legler         | TU Berlin    | JulianLegler   | <julian.legler@tu-berlin.de>     | Technical Committee, Repository Oversight                     |
 | Himanshu Verma        |              | bitflicker64   | <himnshuverma10152006@gmail.com> | Technical Committee                                           |
+| Leonor Oliveira       | Grafana Labs | leonorfmartins | <leonorfmartins@gmail.com>       | Repository Oversight                                          |
 
 ## Off-cycle maintainers
 
