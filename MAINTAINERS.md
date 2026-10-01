@@ -5,10 +5,10 @@
 
 | Name                  | Company         | Github ID      | Email                            | Role                                                          |
 |-----------------------|-----------------|----------------|----------------------------------|---------------------------------------------------------------|
+| Niki Manoledaki       | Grafana Labs    | nikimanoledaki | <niki.manoledaki@gmail.com>      | Project Lead                                                  |
 | Vibhu Prashar         | Red Hat         | vprashar2929   | <vibhu.sharma2929@gmail.com>     | Technical Committee, Release Management, Repository Oversight |
 | Sunil Thaha           | Red Hat         | sthaha         | <gh.dev@thaha.me>                | Technical Committee                                           |
 | Sunyanan Choochotkaew | IBM             | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
-| Niki Manoledaki       | Grafana Labs    | nikimanoledaki | <niki.manoledaki@grafana.com>    | Community Engagement                                          |
 | Laura Llinares        | CERN            | laurall974     | <llinares.laura@cern.ch>         | Technical Committee, Maintainer                               |
 | Erwan Billard         |                 | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 | Ángel Olivares        |                 | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
