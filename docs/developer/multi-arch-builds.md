@@ -1,8 +1,9 @@
 # Multi-Architecture Builds
 
 Kepler supports building for multiple architectures (amd64, arm64). Both base
-images (`golang:1.24` and `ubi9:latest`) are already multi-arch, so Docker
-pulls the correct variant automatically.
+images in the [`Dockerfile`](../../Dockerfile) (`golang:<go-version>` and
+`ubi9:latest`) are already multi-arch, so Docker pulls the correct variant
+automatically.
 
 ## Native Build
 
