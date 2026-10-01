@@ -1,5 +1,5 @@
 # Build the binary
-FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 # Build arguments for binary
 ARG VERSION
