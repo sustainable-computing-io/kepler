@@ -458,7 +458,14 @@ func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
 	pid := proc.PID()
 
-	if cached, exists := ri.procCache[pid]; exists {
+	startTime, err := proc.StartTime()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process start time: %w", err)
+	}
+
+	// A cached entry whose start time differs is a different process that happens to have
+	// been given the same PID, so its container, pod and namespace must not be carried over.
+	if cached, exists := ri.procCache[pid]; exists && cached.StartTime == startTime {
 		err := populateProcessFields(cached, proc)
 		return cached, err
 	}
@@ -467,6 +474,7 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 	if err != nil {
 		return nil, err
 	}
+	newProc.StartTime = startTime
 
 	ri.procCache[pid] = newProc
 	return newProc, nil
