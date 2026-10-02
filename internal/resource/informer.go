@@ -459,7 +459,22 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 	pid := proc.PID()
 
 	if cached, exists := ri.procCache[pid]; exists {
-		err := populateProcessFields(cached, proc)
+		cpuTotalTime, err := proc.CPUTime()
+		if err != nil {
+			return nil, err
+		}
+
+		if cpuTotalTime < cached.CPUTotalTime {
+			// A lower CPU total means PID reuse; rebuild the cache to refresh process metadata.
+			newProc, err := newProcessWithCPUTime(proc, cpuTotalTime)
+			if err != nil {
+				return nil, err
+			}
+			ri.procCache[pid] = newProc
+			return newProc, nil
+		}
+
+		err = populateProcessFields(cached, proc, cpuTotalTime)
 		return cached, err
 	}
 
@@ -515,16 +530,8 @@ func (ri *resourceInformer) updatePodCache(container *Container, resetCPUTime bo
 	return cached
 }
 
-func populateProcessFields(p *Process, proc procInfo) error {
-	cpuTotalTime, err := proc.CPUTime()
-	if err != nil {
-		return err
-	}
-
+func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) error {
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
-	if p.CPUTimeDelta < 0 {
-		p.CPUTimeDelta = cpuTotalTime
-	}
 	p.CPUTotalTime = cpuTotalTime
 
 	// ignore already processed processes with close to 0 CPU time usage
@@ -611,11 +618,20 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 
 // newProcess creates a new Process with static information filled in
 func newProcess(proc procInfo) (*Process, error) {
+	cpuTotalTime, err := proc.CPUTime()
+	if err != nil {
+		return nil, err
+	}
+
+	return newProcessWithCPUTime(proc, cpuTotalTime)
+}
+
+func newProcessWithCPUTime(proc procInfo, cpuTotalTime float64) (*Process, error) {
 	p := &Process{
 		PID: proc.PID(),
 	}
 
-	if err := populateProcessFields(p, proc); err != nil {
+	if err := populateProcessFields(p, proc, cpuTotalTime); err != nil {
 		return nil, err
 	}
 

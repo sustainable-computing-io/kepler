@@ -1345,3 +1345,43 @@ func TestRefreshConcurrency(t *testing.T) {
 	mockProc2.AssertExpectations(t)
 	mockProc3.AssertExpectations(t)
 }
+
+func TestUpdateProcessCacheRebuildsAfterPIDReuse(t *testing.T) {
+	oldContainerID, oldCgroupPath := mockContainerIDAndPath(DockerRuntime)
+	newContainerID, newCgroupPath := mockContainerIDAndPath(DockerRuntime)
+	informer, err := NewInformer(WithProcReader(&MockProcReader{}))
+	require.NoError(t, err)
+
+	oldProc := &MockProcInfo{}
+	oldProc.On("PID").Return(4001)
+	oldProc.On("Comm").Return("same-process", nil).Once()
+	oldProc.On("Executable").Return("/bin/same-process", nil).Once()
+	oldProc.On("Cgroups").Return([]cGroup{{Path: oldCgroupPath}}, nil).Once()
+	oldProc.On("Environ").Return([]string{}, nil).Maybe()
+	oldProc.On("CmdLine").Return([]string{"/bin/same-process"}, nil).Maybe()
+	oldProc.On("CPUTime").Return(float64(20), nil).Once()
+
+	oldCachedProcess, err := informer.updateProcessCache(oldProc)
+	require.NoError(t, err)
+	require.NotNil(t, oldCachedProcess.Container)
+	assert.Equal(t, oldContainerID, oldCachedProcess.Container.ID)
+
+	newProc := &MockProcInfo{}
+	newProc.On("PID").Return(4001)
+	newProc.On("Comm").Return("same-process", nil).Once()
+	newProc.On("Executable").Return("/bin/same-process", nil).Once()
+	newProc.On("Cgroups").Return([]cGroup{{Path: newCgroupPath}}, nil).Once()
+	newProc.On("Environ").Return([]string{}, nil).Maybe()
+	newProc.On("CmdLine").Return([]string{"/bin/same-process"}, nil).Maybe()
+	newProc.On("CPUTime").Return(float64(0), nil).Once()
+
+	newCachedProcess, err := informer.updateProcessCache(newProc)
+	require.NoError(t, err)
+	require.NotNil(t, newCachedProcess.Container)
+	assert.NotSame(t, oldCachedProcess, newCachedProcess)
+	assert.Equal(t, newContainerID, newCachedProcess.Container.ID)
+	assert.Zero(t, newCachedProcess.CPUTimeDelta)
+
+	oldProc.AssertExpectations(t)
+	newProc.AssertExpectations(t)
+}
