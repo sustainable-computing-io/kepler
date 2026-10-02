@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -152,8 +153,8 @@ func getTestNodeSnapshot() *monitor.Snapshot {
 
 func getTestNodeData() *monitor.Node {
 	// Setup test zones
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	dramZone := cpu.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgPower := 12 * device.Watt
