@@ -65,3 +65,26 @@ body:
       placeholder: https://github.com/sustainable-computing-io/kepler/pull/
     validations:
       required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## After the merge
+
+        The checklist below is for the nominee once the `MAINTAINERS.md` PR is
+        merged. Leave it unchecked when opening the issue and tick items as they
+        are done. One-off links and invites are posted in the
+        [#kepler-project](https://cloud-native.slack.com/archives/C05QK3KN3HT) channel.
+
+  - type: checkboxes
+    id: onboarding
+    attributes:
+      label: 🧭 Onboarding (after merge)
+      description: Access, calls, channels and first tasks for the new maintainer.
+      options:
+        - label: Granted write access / added to the appropriate GitHub team
+        - label: Added to the [`OWNERS`](https://github.com/sustainable-computing-io/kepler/blob/main/OWNERS) file(s) for the areas you review
+        - label: Joined the [CNCF Slack](https://slack.cncf.io) and [#kepler-project](https://cloud-native.slack.com/archives/C05QK3KN3HT)
+        - label: Added the community call from the [LFX calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/kepler) and can open the [agenda / notes doc](https://docs.google.com/document/d/1YtflOiC8Eq61MIrX2DW2KT2XcJjBZnvgyKrkjUCr_ZE/edit)
+        - label: Read the maintainer section of [`GOVERNANCE.md`](https://github.com/sustainable-computing-io/kepler/blob/main/GOVERNANCE.md#maintainers) and [`CONTRIBUTING.md`](https://github.com/sustainable-computing-io/kepler/blob/main/CONTRIBUTING.md)
+        - label: Reviewed a first open PR or picked up a triage item
