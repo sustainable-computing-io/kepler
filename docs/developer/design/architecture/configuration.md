@@ -270,6 +270,11 @@ type Dev struct {
         Enabled *bool    `yaml:"enabled"`  // Use fake CPU meter
         Zones   []string `yaml:"zones"`    // Fake zone list
     } `yaml:"fake-cpu-meter"`
+    FakeGPUMeter struct {
+        Enabled     *bool  `yaml:"enabled"`
+        DeviceCount int    `yaml:"deviceCount"`
+        SharingMode string `yaml:"sharingMode"`
+    } `yaml:"fake-gpu-meter"`
 }
 ```
 

@@ -99,6 +99,11 @@ type (
 			Enabled *bool    `yaml:"enabled"`
 			Zones   []string `yaml:"zones"`
 		} `yaml:"fake-cpu-meter"`
+		FakeGPUMeter struct {
+			Enabled     *bool  `yaml:"enabled"`
+			DeviceCount int    `yaml:"deviceCount"` // number of fake GPUs (default: 1)
+			SharingMode string `yaml:"sharingMode"` // "exclusive" or "time-slicing" (default: "time-slicing")
+		} `yaml:"fake-gpu-meter"`
 	}
 	Web struct {
 		Config          string   `yaml:"configFile"`
@@ -375,6 +380,9 @@ func DefaultConfig() *Config {
 	}
 
 	cfg.Dev.FakeCpuMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGPUMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGPUMeter.DeviceCount = 1
+	cfg.Dev.FakeGPUMeter.SharingMode = "time-slicing"
 	return cfg
 }
 
@@ -946,6 +954,20 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 
 		if c.Monitor.MinTerminatedEnergyThreshold < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
+		}
+	}
+	{ // Development
+		fakeGPU := c.Dev.FakeGPUMeter
+		if ptr.Deref(fakeGPU.Enabled, false) {
+			if fakeGPU.DeviceCount <= 0 {
+				errs = append(errs, fmt.Sprintf("invalid dev.fake-gpu-meter.deviceCount: %d, must be greater than 0", fakeGPU.DeviceCount))
+			}
+			switch fakeGPU.SharingMode {
+			case "exclusive", "time-slicing":
+				// valid
+			default:
+				errs = append(errs, fmt.Sprintf("invalid dev.fake-gpu-meter.sharingMode: %q, must be \"exclusive\" or \"time-slicing\"", fakeGPU.SharingMode))
+			}
 		}
 	}
 	{ // Kubernetes
