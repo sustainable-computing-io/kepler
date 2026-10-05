@@ -142,6 +142,8 @@ config:
       forceEnabled: false # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
       zones: [] # List of zones to enable (default enable all)
       chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
+    esmi:
+      enabled: false # Enable experimental AMD ESMI power monitoring (prepends "esmi" to cpu.preferredMeters)
     gpu:
       # Enabling this also triggers the chart's NVML init container and
       # LD_LIBRARY_PATH injection (daemonset.nvidia.*). Leave false if you

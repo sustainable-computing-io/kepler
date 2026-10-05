@@ -38,6 +38,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
 | `--experimental.hwmon.force-enabled`          | Force hwmon as power meter, skipping RAPL auto-detection                | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
+| `--experimental.esmi.enabled`                 | Enable experimental AMD ESMI power monitoring for AMD EPYC CPUs         | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 | `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
@@ -249,6 +250,7 @@ Built-in backends:
 
 - `rapl`: Intel RAPL via sysfs (default first choice)
 - `hwmon`: hwmon power sensors (default second choice)
+- `esmi`: AMD ESMI (E-SMI) for AMD EPYC processors (experimental, opt-in)
 - `fake`: synthetic readings for development and testing
 
 Examples:
@@ -444,6 +446,8 @@ experimental:
     forceEnabled: false
     zones: []
     chipRules: []
+  esmi:
+    enabled: false
   gpu:
     enabled: false
 ```
@@ -545,6 +549,26 @@ experimental:
           2: 2  # in2 pairs with curr2
         skipVoltages: [0]  # Skip shunt voltage at in0
 ```
+
+#### ESMI CPU Power Monitoring (AMD)
+
+- **enabled**: Enable experimental AMD ESMI power monitoring (default: false)
+  - When enabled, Kepler will prepend `esmi` to `cpu.preferredMeters`, making it the first-tried CPU power source
+  - Collects power metrics from AMD EPYC processors via E-SMI library or sysfs
+  - Provides per-socket energy (package-N), per-thread energy (core-N), and per-socket DIMM power (dimm-N)
+  - Supports two backends:
+    - **goamdsmi**: Uses E-SMI C library (`libe_smi64.so`) - requires build with `-tags goamdsmi`
+    - **sysfs**: Pure Go fallback using `amd_energy` kernel module (default, no dependencies)
+
+**Example:**
+
+```yaml
+experimental:
+  esmi:
+    enabled: true
+```
+
+When enabled, this configuration automatically prepends `esmi` to the CPU power meter priority list, so on AMD EPYC systems with ESMI support, it becomes the first choice before RAPL or hwmon.
 
 #### GPU Power Monitoring
 

@@ -19,3 +19,4 @@ tmp
 
 coverage.*
 *.patch
+/metrics
