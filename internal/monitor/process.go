@@ -86,6 +86,7 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 		Comm:         proc.Comm,
 		Exe:          proc.Exe,
 		Type:         proc.Type,
+		StartTime:    proc.StartTime,
 		CPUTotalTime: proc.CPUTotalTime,
 		Zones:        make(ZoneUsageMap, len(zones)),
 	}
@@ -177,8 +178,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		}
 
 		// Add to internal tracker (which will handle priority-based retention)
-		// NOTE: Each terminated process is only added once since a process cannot be terminated twice
-		pm.terminatedProcessesTracker.Add(prevProcess.Clone())
+		// Each lifetime is retained separately, even when the PID is reused before export.
+		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
 	}
 
 	running := procs.Running
@@ -202,6 +203,13 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		process := newProcess(proc, zones)
 		pid := process.StringID() // to string
 
+		// A failed collection can consume the informer's PID-reuse notification.
+		if prevProcess := prev.Processes[pid]; prevProcess != nil && prevProcess.StartTime != process.StartTime {
+			if _, terminated := procs.Terminated[proc.PID]; !terminated {
+				pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
+			}
+		}
+
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
@@ -212,9 +220,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// Calculate energy  for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Calculate absolute energy based on previous data
+			// Accumulate CPU energy only for the same process identity.
 			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Processes[pid]; exists {
+			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
 					absoluteEnergy += prevUsage.EnergyTotal
 				}

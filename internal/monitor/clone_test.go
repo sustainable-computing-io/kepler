@@ -98,6 +98,7 @@ func TestProcessClone(t *testing.T) {
 			Comm:             "test-process",
 			Exe:              "/usr/bin/test",
 			Type:             resource.RegularProcess,
+			StartTime:        100,
 			CPUTotalTime:     100.5,
 			ContainerID:      "container-123",
 			VirtualMachineID: "vm-456",
@@ -117,6 +118,7 @@ func TestProcessClone(t *testing.T) {
 		assert.Equal(t, original.Comm, clone.Comm, "Comm should be copied")
 		assert.Equal(t, original.Exe, clone.Exe, "Exe should be copied")
 		assert.Equal(t, original.Type, clone.Type, "Type should be copied")
+		assert.Equal(t, original.StartTime, clone.StartTime, "StartTime should be copied")
 		assert.Equal(t, original.CPUTotalTime, clone.CPUTotalTime, "CPUTotalTime should be copied")
 		assert.Equal(t, original.ContainerID, clone.ContainerID, "ContainerID should be copied")
 		assert.Equal(t, original.VirtualMachineID, clone.VirtualMachineID, "VirtualMachineID should be copied")
