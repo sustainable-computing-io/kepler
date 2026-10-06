@@ -320,6 +320,15 @@ func (ri *resourceInformer) Refresh() error {
 
 ### CPU Time Tracking
 
+Processes are identified by PID and start time from `/proc/PID/stat`. When a PID
+is reused, the resource informer reports the cached process as terminated and
+creates a fresh CPU baseline for its replacement. The monitor retains the old
+process's CPU energy under the existing termination settings and accumulates
+CPU energy only when both PID and start time match the previous snapshot.
+Running and terminated CPU energy and power metrics retain their state labels.
+If PID reuse leaves both processes with identical metric labels, the CPU time
+metric reports the running process because that metric has no state label.
+
 Critical for power attribution, CPU time deltas are calculated:
 
 ```go

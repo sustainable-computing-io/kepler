@@ -14,6 +14,12 @@ type cGroup struct {
 	Path string // used to detect if a process is running in a container
 }
 
+// procCPUStat holds CPU accounting and process identity from a single stat read.
+type procCPUStat struct {
+	CPUTime   float64
+	StartTime uint64
+}
+
 // procInfo is an interface that wraps the necessary methods from procfs.Proc to be used by the resource service
 type procInfo interface {
 	PID() int
@@ -22,7 +28,7 @@ type procInfo interface {
 	Cgroups() ([]cGroup, error)
 	Environ() ([]string, error)
 	CmdLine() ([]string, error)
-	CPUTime() (float64, error)
+	CPUStat() (procCPUStat, error)
 }
 
 // procWrapper implements ProcInfo by wrapping procfs.Proc. This is needed because the procfs.Proc
@@ -72,13 +78,16 @@ func (p *procWrapper) CmdLine() ([]string, error) {
 // hardcoded just like in procfs
 const userHZ = 100
 
-func (p *procWrapper) CPUTime() (float64, error) {
+func (p *procWrapper) CPUStat() (procCPUStat, error) {
 	st, err := p.proc.Stat()
 	if err != nil {
-		return 0, err
+		return procCPUStat{}, err
 	}
 
-	return float64(st.STime+st.UTime) / userHZ, nil
+	return procCPUStat{
+		CPUTime:   float64(st.STime+st.UTime) / userHZ,
+		StartTime: st.Starttime,
+	}, nil
 }
 
 // WrapProc wraps a procfs.Proc in a ProcInfo interface

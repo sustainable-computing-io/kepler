@@ -86,6 +86,7 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 		Comm:         proc.Comm,
 		Exe:          proc.Exe,
 		Type:         proc.Type,
+		StartTime:    proc.StartTime,
 		CPUTotalTime: proc.CPUTotalTime,
 		Zones:        make(ZoneUsageMap, len(zones)),
 	}
@@ -212,9 +213,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// Calculate energy  for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Calculate absolute energy based on previous data
+			// Accumulate CPU energy only for the same process identity.
 			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Processes[pid]; exists {
+			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
 				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
 					absoluteEnergy += prevUsage.EnergyTotal
 				}
