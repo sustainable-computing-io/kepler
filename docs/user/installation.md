@@ -100,6 +100,46 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
   --values values.yaml
 ```
 
+#### Running Without Privileged Mode
+
+The chart defaults to `privileged: true`. Kepler does not need it: it reads
+RAPL counters from `/sys` and other processes' details from `/proc`, and it
+does not load eBPF programs, so the `BPF` and `PERFMON` capabilities are not
+needed either. Reading `/proc` entries of other users needs `SYS_PTRACE`.
+Without it Kepler starts but fails every interval with
+`failed to get process executable: readlink /host/proc/1/exe: permission denied`.
+
+This values file drops every other capability:
+
+```yaml
+# values-unprivileged.yaml
+daemonset:
+  securityContext:
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: false
+    runAsUser: 0
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
+```
+
+```bash
+helm install kepler manifests/helm/kepler/ \
+  --namespace kepler \
+  --create-namespace \
+  --set namespace.create=false \
+  --values values-unprivileged.yaml
+```
+
+Tested on a kind node with Intel RAPL: the pod runs without errors and exports
+the node and container metrics. The container still runs as root and the
+DaemonSet still uses `hostPID` and read-only `hostPath` mounts of `/sys` and
+`/proc`. Nodes without RAPL (most cloud VMs) were not tested.
+
 #### Enabling GPU Power Monitoring (NVIDIA GPU Operator)
 
 To export GPU power metrics on clusters with the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/overview.html), enable the experimental GPU flag. The chart then adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` from the host driver path into an `emptyDir`, and points `LD_LIBRARY_PATH` at it:
@@ -368,7 +408,9 @@ serviceMonitor:
 
 ### Common Issues
 
-1. **Permission Denied**: Ensure privileged security context is enabled
+1. **Permission Denied**: Ensure privileged security context is enabled, or
+   add the `SYS_PTRACE` capability when running without privileged mode (see
+   [Running Without Privileged Mode](#running-without-privileged-mode))
 2. **No Metrics**: Check if nodes support Intel RAPL sensors
 3. **Pod Crashes**: Review logs for hardware access issues
 4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
