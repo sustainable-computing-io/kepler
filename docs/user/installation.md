@@ -102,12 +102,11 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
 
 #### Running Without Privileged Mode
 
-The chart defaults to `privileged: true`. Kepler does not need it: it reads
-RAPL counters from `/sys` and other processes' details from `/proc`, and it
-does not load eBPF programs, so the `BPF` and `PERFMON` capabilities are not
-needed either. Reading other processes' `/proc` entries, including
-root-owned host processes, needs `SYS_PTRACE` once other capabilities
-are dropped. Without it Kepler starts but fails every interval with
+The chart defaults to `privileged: true`, which Kepler does not need. It reads
+RAPL counters from `/sys` and process details from `/proc`. Reading other
+processes' `/proc` entries, including root-owned host processes, needs
+`SYS_PTRACE` once other capabilities are dropped. Without it Kepler starts but
+fails every interval with
 `failed to get process executable: readlink /host/proc/1/exe: permission denied`.
 
 This values file drops every other capability:
