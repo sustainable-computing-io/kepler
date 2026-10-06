@@ -42,8 +42,16 @@ daemonset:
 
   hostUsers: true
   securityContext:
-    privileged: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     runAsNonRoot: false
+    runAsUser: 0
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
 
   resources:
     {}

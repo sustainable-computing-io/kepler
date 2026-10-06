@@ -368,7 +368,7 @@ serviceMonitor:
 
 ### Common Issues
 
-1. **Permission Denied**: Ensure privileged security context is enabled
+1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
 2. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 3. **Pod Crashes**: Review logs for hardware access issues
 4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
