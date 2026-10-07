@@ -419,15 +419,14 @@ func TestProbeEndToEnd(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
-		return true
+		return resp.Body.Close() == nil
 	}, 3*time.Second, 10*time.Millisecond, "server should start serving")
 
 	fetch := func(t *testing.T, endpoint string) (int, probeResponse) {
 		t.Helper()
 		resp, err := http.Get(probeURL(endpoint))
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 		var body probeResponse
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
@@ -459,7 +458,7 @@ func TestProbeEndToEnd(t *testing.T) {
 	// the probes are listed on the landing page
 	resp, err := http.Get("http://" + addr + "/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { assert.NoError(t, resp.Body.Close()) }()
 	landing, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(landing), LivezEndpoint)
