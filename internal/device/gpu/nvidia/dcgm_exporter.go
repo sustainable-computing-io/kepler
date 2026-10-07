@@ -99,7 +99,8 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 		logger = slog.Default()
 	}
 	d := &DCGMExporterBackend{
-		logger: logger.With("component", "dcgm-exporter"),
+		logger:          logger.With("component", "dcgm-exporter"),
+		metricsCacheTTL: 2 * time.Second,
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},

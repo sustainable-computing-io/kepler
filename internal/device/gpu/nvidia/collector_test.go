@@ -1660,7 +1660,7 @@ func TestGPUPowerCollector_SetDCGMMetricsCacheTTL(t *testing.T) {
 		assert.Equal(t, time.Duration(0), *collector.dcgmMetricsCacheTTL)
 	})
 
-	t.Run("after init with MIG reinitializes DCGM", func(t *testing.T) {
+	t.Run("after init with MIG initializes unavailable DCGM", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")

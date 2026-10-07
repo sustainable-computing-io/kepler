@@ -98,7 +98,6 @@ func TestDCGMExporterBackend_GetMIGInstanceActivity(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
-	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -129,7 +128,6 @@ func TestDCGMExporterBackend_caching(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
-	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -194,7 +192,6 @@ func TestDCGMExporterBackend_cacheExpiry(t *testing.T) {
 	ctx := context.Background()
 	backend := NewDCGMExporterBackend(slog.Default())
 	backend.SetEndpoint(server.URL)
-	backend.SetMetricsCacheTTL(2 * time.Second)
 
 	err := backend.Init(ctx)
 	require.NoError(t, err)
@@ -281,7 +278,7 @@ func TestNewDCGMExporterBackend(t *testing.T) {
 		assert.NotNil(t, backend)
 		assert.NotNil(t, backend.logger)
 		assert.NotNil(t, backend.client)
-		assert.Zero(t, backend.metricsCacheTTL)
+		assert.Equal(t, 2*time.Second, backend.metricsCacheTTL)
 	})
 
 	t.Run("with logger", func(t *testing.T) {
