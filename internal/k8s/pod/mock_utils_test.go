@@ -22,7 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	crrecorder "sigs.k8s.io/controller-runtime/pkg/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
 
 func podWithStatus(
@@ -256,6 +258,24 @@ func (_m *mockManager) GetControllerOptions() config.Controller {
 	return r0
 }
 
+// GetConverterRegistry provides a mock function with no fields
+func (_m *mockManager) GetConverterRegistry() conversion.Registry {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetConverterRegistry")
+	}
+
+	var r0 conversion.Registry
+	if rf, ok := ret.Get(0).(func() conversion.Registry); ok {
+		r0 = rf()
+	} else if ret.Get(0) != nil {
+		r0 = ret.Get(0).(conversion.Registry)
+	}
+
+	return r0
+}
+
 // GetEventRecorderFor provides a mock function with given fields: name
 func (_m *mockManager) GetEventRecorderFor(name string) record.EventRecorder {
 	ret := _m.Called(name)
@@ -271,6 +291,24 @@ func (_m *mockManager) GetEventRecorderFor(name string) record.EventRecorder {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(record.EventRecorder)
 		}
+	}
+
+	return r0
+}
+
+// GetEventRecorder provides a mock function with given fields: name
+func (_m *mockManager) GetEventRecorder(name string) crrecorder.EventRecorder {
+	ret := _m.Called(name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEventRecorder")
+	}
+
+	var r0 crrecorder.EventRecorder
+	if rf, ok := ret.Get(0).(func(string) crrecorder.EventRecorder); ok {
+		r0 = rf(name)
+	} else if ret.Get(0) != nil {
+		r0 = ret.Get(0).(crrecorder.EventRecorder)
 	}
 
 	return r0
@@ -619,6 +657,8 @@ type fakeManager struct {
 	ctx    context.Context
 }
 
+var _ manager.Manager = &fakeManager{}
+
 func (f *fakeManager) Start(ctx context.Context) error {
 	f.ctx = ctx
 	<-ctx.Done()
@@ -639,6 +679,8 @@ func (f *fakeManager) Elected() <-chan struct{}                                {
 func (f *fakeManager) GetAPIReader() client.Reader                             { return f.client }
 func (f *fakeManager) GetConfig() *rest.Config                                 { return &rest.Config{} }
 func (f *fakeManager) GetControllerOptions() config.Controller                 { return config.Controller{} }
+func (f *fakeManager) GetConverterRegistry() conversion.Registry               { return nil }
+func (f *fakeManager) GetEventRecorder(string) crrecorder.EventRecorder        { return nil }
 func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder         { return nil }
 func (f *fakeManager) GetFieldIndexer() client.FieldIndexer                    { return &fakeIndexer{f.client} }
 func (f *fakeManager) GetHTTPClient() *http.Client                             { return nil }
