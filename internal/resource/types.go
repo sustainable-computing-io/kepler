@@ -18,6 +18,9 @@ type Process struct {
 	Comm string
 	Exe  string
 	Type ProcessType
+	// StartTime is the process start time in clock ticks since boot. The kernel reuses
+	// PIDs, so the pair identifies a process where the PID alone does not.
+	StartTime uint64
 
 	Container      *Container
 	VirtualMachine *VirtualMachine
