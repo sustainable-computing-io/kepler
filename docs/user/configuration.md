@@ -41,6 +41,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 | `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
+| `--experimental.gpu.metrics-cache-ttl`        | dcgm-exporter metrics cache TTL for MIG power attribution               | `2s`                            | Non-negative Go duration; `0s` disables caching                    |
 
 ### 💡 Examples
 
@@ -180,6 +181,7 @@ experimental:   # experimental features (no stability guarantees)
     enabled: false                    # Enable GPU power monitoring (default: false)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
     dcgmEndpoint: ""                  # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+    metricsCacheTTL: 2s               # dcgm-exporter metrics cache TTL for MIG, 0 disables cache (default: 2s)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -559,6 +561,9 @@ experimental:
   - Required when GPUs are in MIG mode — NVML cannot provide per-instance utilization in MIG mode
   - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API
   - **Note**: When deploying with MIG, the Kepler container must have `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_MIG_MONITOR_DEVICES=all` environment variables set for NVML to see all MIG devices. These are included in the default manifests and Helm chart.
+- **metricsCacheTTL**: dcgm-exporter metrics cache TTL for MIG power attribution (default: 2s)
+  - Prevents HTTP request storms when querying multiple MIG instances
+  - Set to `0s` to disable caching and fetch metrics on every query
 
 **Example:**
 
@@ -567,6 +572,7 @@ experimental:
   gpu:
     enabled: true
     idlePower: 17.5  # Override idle power to 17.5W (0 = auto-detect)
+    metricsCacheTTL: 1s
 ```
 
 ### 🧑‍🔬 Development Configuration

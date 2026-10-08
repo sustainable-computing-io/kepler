@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 
@@ -45,6 +46,7 @@ type GPUPowerCollector struct {
 	// MIG support
 	dcgm                 DCGMBackend
 	dcgmEndpoint         string // pre-configured endpoint, applied during Init() or SetDCGMEndpoint()
+	dcgmMetricsCacheTTL  *time.Duration
 	migInstancesByDevice map[int][]MIGGPUInstance
 
 	initialized bool
@@ -150,6 +152,9 @@ func (c *GPUPowerCollector) initDCGM() {
 	dcgm := NewDCGMExporterBackend(c.logger)
 	if c.dcgmEndpoint != "" {
 		dcgm.SetEndpoint(c.dcgmEndpoint)
+	}
+	if c.dcgmMetricsCacheTTL != nil {
+		dcgm.SetMetricsCacheTTL(*c.dcgmMetricsCacheTTL)
 	}
 
 	if err := dcgm.Init(context.Background()); err != nil {
@@ -470,6 +475,24 @@ func (c *GPUPowerCollector) SetDCGMEndpoint(endpoint string) {
 		c.logger.Info("reinitializing DCGM backend with configured endpoint",
 			"endpoint", endpoint)
 		c.initDCGM()
+	}
+}
+
+// SetDCGMMetricsCacheTTL sets the dcgm-exporter metrics cache TTL.
+// Can be called before or after Init(). Updates an existing DCGM exporter
+// backend in place; initializes one if MIG is enabled and no backend exists.
+func (c *GPUPowerCollector) SetDCGMMetricsCacheTTL(ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ttl = max(ttl, 0)
+	c.dcgmMetricsCacheTTL = &ttl
+
+	if c.initialized && c.hasMIG() {
+		if dcgm, ok := c.dcgm.(*DCGMExporterBackend); ok {
+			dcgm.SetMetricsCacheTTL(ttl)
+		} else if c.dcgm == nil {
+			c.initDCGM()
+		}
 	}
 }
 
