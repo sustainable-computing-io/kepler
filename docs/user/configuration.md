@@ -41,7 +41,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 | `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
-| `--experimental.gpu.metrics-cache-ttl`        | dcgm-exporter metrics cache TTL for MIG power attribution               | `2s`                            | Non-negative Go duration; `0s` disables caching                     |
+| `--experimental.gpu.metrics-cache-ttl`        | dcgm-exporter metrics cache TTL for MIG power attribution               | `2s`                            | Non-negative Go duration; `0s` disables caching                    |
 
 ### 💡 Examples
 
