@@ -41,6 +41,9 @@ const (
 
 	// ExperimentalGPUFeature represents GPU power monitoring (experimental)
 	ExperimentalGPUFeature Feature = "gpu"
+
+	// ExperimentalEsmiFeature represents the CPU ESMI power monitoring feature
+	ExperimentalEsmiFeature Feature = "esmi"
 )
 
 // Config represents the complete application configuration
@@ -189,11 +192,17 @@ type (
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
 	}
 
+	// ESMI configuration (Experimental)
+	Esmi struct {
+		Enabled *bool `yaml:"enabled"` //Development mode (capability auto detection in future)
+	}
+
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
 		Platform Platform        `yaml:"platform"`
 		Hwmon    Hwmon           `yaml:"hwmon"`
 		GPU      ExperimentalGPU `yaml:"gpu"`
+		Esmi     Esmi            `yaml:"esmi"`
 	}
 
 	Config struct {
@@ -311,6 +320,9 @@ const (
 	ExperimentalHwmonForceEnabledFlag = "experimental.hwmon.force-enabled"
 	ExperimentalHwmonZonesFlag        = "experimental.hwmon.zones"
 
+	// Experimental ESMI flags
+	ExperimentalEsmiEnabledFlag = "experimental.esmi.enabled"
+
 	// Experimental GPU flags
 	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
 	ExperimentalGPUIdlePowerFlag    = "experimental.gpu.idle-power"
@@ -390,6 +402,10 @@ func DefaultConfig() *Config {
 // operators who set them today expect the legacy behavior. When both legacy
 // keys are set, fake takes precedence over hwmon. The legacy keys will stop
 // working in a future release.
+//
+// When experimental.esmi.enabled is set, "esmi" is prepended to the
+// cpu.preferredMeters list (unless already present), making ESMI the
+// first-tried CPU meter.
 func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
 	switch {
 	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
@@ -398,6 +414,23 @@ func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
 	case c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false):
 		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.preferredMeters: ["hwmon"] instead`)
 		c.Cpu.PreferredMeters = []string{"hwmon"}
+	}
+
+	// When ESMI is explicitly enabled, inject it as the first CPU meter to try
+	if c.Experimental != nil && ptr.Deref(c.Experimental.Esmi.Enabled, false) {
+		// Check if "esmi" is already in the list
+		hasEsmi := false
+		for _, m := range c.Cpu.PreferredMeters {
+			if m == "esmi" {
+				hasEsmi = true
+				break
+			}
+		}
+		if !hasEsmi {
+			// Prepend "esmi" to try it first
+			c.Cpu.PreferredMeters = append([]string{"esmi"}, c.Cpu.PreferredMeters...)
+			logger.Info("esmi CPU meter enabled", "preferredMeters", c.Cpu.PreferredMeters)
+		}
 	}
 }
 
@@ -501,6 +534,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	hwmonForceEnabled := app.Flag(ExperimentalHwmonForceEnabledFlag, "Force hwmon as the power meter, skipping RAPL auto-detection").Default("false").Bool()
 	hwmonZones := app.Flag(ExperimentalHwmonZonesFlag, "Hwmon zone filter (power labels to monitor)").Strings()
 
+	// experimental ESMI
+	esmiEnabled := app.Flag(ExperimentalEsmiEnabledFlag, "Enable experimental ESMI power monitoring").Default("false").Bool()
+
 	// experimental GPU
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
@@ -576,6 +612,15 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		// Apply experimental hwmon settings
 		if err := applyHwmonConfig(cfg, flagsSet, hwmonForceEnabled, hwmonZones); err != nil {
 			return err
+		}
+
+		// Apply experimental ESMI settings
+		if flagsSet[ExperimentalEsmiEnabledFlag] {
+			// Initialize experimental section if needed
+			if cfg.Experimental == nil {
+				cfg.Experimental = &Experimental{}
+			}
+			cfg.Experimental.Esmi.Enabled = esmiEnabled
 		}
 
 		// Apply experimental GPU settings
@@ -785,6 +830,11 @@ func (c *Config) IsFeatureEnabled(feature Feature) bool {
 		return ptr.Deref(c.Exporter.Stdout.Enabled, false)
 	case PprofFeature:
 		return ptr.Deref(c.Debug.Pprof.Enabled, false)
+	case ExperimentalEsmiFeature:
+		if c.Experimental == nil {
+			return false
+		}
+		return ptr.Deref(c.Experimental.Esmi.Enabled, false)
 	case ExperimentalGPUFeature:
 		if c.Experimental == nil {
 			return false
@@ -808,6 +858,11 @@ func (c *Config) experimentalFeatureEnabled() bool {
 
 	// Check if Hwmon is force-enabled
 	if ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false) {
+		return true
+	}
+
+	// Check if ESMI is enabled
+	if ptr.Deref(c.Experimental.Esmi.Enabled, false) {
 		return true
 	}
 
@@ -924,15 +979,16 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		}
 	}
 	{ // cpu.preferredMeters
-		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
+		// Keep this list in sync with the switch in internal/device/cpu/cpu_power_meter.go.
 		validCpuMeters := map[string]bool{
 			"rapl":  true,
 			"hwmon": true,
+			"esmi":  true,
 			"fake":  true,
 		}
 		for _, name := range c.Cpu.PreferredMeters {
 			if !validCpuMeters[name] {
-				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
+				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q, %q", name, "rapl", "hwmon", "esmi", "fake"))
 			}
 		}
 	}

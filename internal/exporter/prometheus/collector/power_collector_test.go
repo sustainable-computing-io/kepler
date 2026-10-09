@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
@@ -179,8 +180,8 @@ func TestPowerCollector(t *testing.T) {
 	mockMonitor := NewMockPowerMonitor()
 
 	// Setup test zones
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	dramZone := cpu.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
@@ -606,7 +607,7 @@ func TestTerminatedProcessExport(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),
@@ -712,7 +713,7 @@ func TestEnhancedErrorReporting(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),
@@ -846,7 +847,7 @@ func TestPowerCollector_MetricsLevelFiltering(t *testing.T) {
 			mockMonitor := NewMockPowerMonitor()
 
 			// Create test data with all types of metrics
-			packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+			packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 			testData := &monitor.Snapshot{
 				Timestamp: time.Now(),
 				Node: &monitor.Node{
@@ -958,7 +959,7 @@ func TestTerminatedContainerExport(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),
@@ -1092,7 +1093,7 @@ func TestTerminatedVMExport(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	mockMonitor := NewMockPowerMonitor()
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	testSnapshot := &monitor.Snapshot{
 		Timestamp: time.Now(),

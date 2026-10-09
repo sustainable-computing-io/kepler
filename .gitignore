@@ -18,3 +18,5 @@ go.work.sum
 tmp
 
 coverage.*
+*.patch
+/metrics
