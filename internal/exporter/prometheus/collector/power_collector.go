@@ -278,8 +278,8 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if c.metricsLevel.IsProcessEnabled() {
-		c.collectProcessMetrics(ch, "running", snapshot.Processes)
-		c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses)
+		c.collectProcessMetrics(ch, "running", snapshot.Processes, nil)
+		c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses, snapshot.Processes)
 	}
 
 	if c.metricsLevel.IsContainerEnabled() {
@@ -363,7 +363,7 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 }
 
 // collectProcessMetrics collects process-level power metrics
-func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, state string, processes monitor.Processes) {
+func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, state string, processes, running monitor.Processes) {
 	if len(processes) == 0 {
 		c.logger.Debug("No processes to export metrics", "state", state)
 		return
@@ -372,13 +372,20 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 	// No need to lock, already done by the calling function
 	for pid, proc := range processes {
 
-		ch <- prometheus.MustNewConstMetric(
-			c.processCPUTimeDescriptor,
-			prometheus.CounterValue,
-			proc.CPUTotalTime,
-			pid, proc.Comm, proc.Exe, string(proc.Type),
-			proc.ContainerID, proc.VirtualMachineID,
-		)
+		// CPU time has no state label. Prefer the running process if PID reuse
+		// leaves a terminated process with the same metric labels.
+		runningProc := running[pid]
+		if runningProc == nil || proc.Comm != runningProc.Comm || proc.Exe != runningProc.Exe ||
+			proc.Type != runningProc.Type || proc.ContainerID != runningProc.ContainerID ||
+			proc.VirtualMachineID != runningProc.VirtualMachineID {
+			ch <- prometheus.MustNewConstMetric(
+				c.processCPUTimeDescriptor,
+				prometheus.CounterValue,
+				proc.CPUTotalTime,
+				pid, proc.Comm, proc.Exe, string(proc.Type),
+				proc.ContainerID, proc.VirtualMachineID,
+			)
+		}
 
 		for zone, usage := range proc.Zones {
 			zoneName := zone.Name()

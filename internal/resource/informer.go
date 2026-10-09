@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
@@ -173,6 +172,7 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 
 	// construct current running processes
 	procsRunning := make(map[int]*Process, len(procs))
+	procsTerminated := make(map[int]*Process)
 
 	// collect categorized processes during iteration
 	containerProcs := make([]*Process, 0)
@@ -182,10 +182,11 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	var refreshErrs error
 	for _, p := range procs {
 		pid := p.PID()
+		cached := ri.procCache[pid]
 		// start by updating the process
 		proc, err := ri.updateProcessCache(p)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				ri.logger.Debug("Process not found", "pid", pid)
 				continue
 			}
@@ -199,6 +200,10 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
 		}
+		// A reused PID terminates the cached process while its replacement remains running.
+		if cached != nil && cached.StartTime != proc.StartTime {
+			procsTerminated[pid] = cached
+		}
 		procsRunning[pid] = proc
 
 		// categorize processes during iteration
@@ -211,7 +216,6 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	}
 
 	// Find terminated processes
-	procsTerminated := make(map[int]*Process)
 	for pid, proc := range ri.procCache {
 		if _, isRunning := procsRunning[pid]; !isRunning {
 			procsTerminated[pid] = proc
@@ -457,13 +461,19 @@ func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 // updateProcessCache updates the process cache with the latest information and returns the updated process
 func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
 	pid := proc.PID()
+	cpuStat, err := proc.CPUStat()
+	if err != nil {
+		return nil, err
+	}
 
-	if cached, exists := ri.procCache[pid]; exists {
-		err := populateProcessFields(cached, proc)
+	// A different start time means the PID was reused.
+	// Rebuild its metadata and CPU baseline.
+	if cached, exists := ri.procCache[pid]; exists && cached.StartTime == cpuStat.StartTime {
+		err := populateProcessFields(cached, proc, cpuStat.CPUTime)
 		return cached, err
 	}
 
-	newProc, err := newProcess(proc)
+	newProc, err := newProcess(proc, cpuStat)
 	if err != nil {
 		return nil, err
 	}
@@ -515,12 +525,7 @@ func (ri *resourceInformer) updatePodCache(container *Container, resetCPUTime bo
 	return cached
 }
 
-func populateProcessFields(p *Process, proc procInfo) error {
-	cpuTotalTime, err := proc.CPUTime()
-	if err != nil {
-		return err
-	}
-
+func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) error {
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
 	p.CPUTotalTime = cpuTotalTime
 
@@ -606,13 +611,14 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 	}
 }
 
-// newProcess creates a new Process with static information filled in
-func newProcess(proc procInfo) (*Process, error) {
+// newProcess creates a new Process using the CPU stat already read for this sample.
+func newProcess(proc procInfo, cpuStat procCPUStat) (*Process, error) {
 	p := &Process{
-		PID: proc.PID(),
+		PID:       proc.PID(),
+		StartTime: cpuStat.StartTime,
 	}
 
-	if err := populateProcessFields(p, proc); err != nil {
+	if err := populateProcessFields(p, proc, cpuStat.CPUTime); err != nil {
 		return nil, err
 	}
 

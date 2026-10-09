@@ -79,6 +79,10 @@ type Process struct {
 
 	Type resource.ProcessType
 
+	// StartTime is the process start time in clock ticks since boot.
+	// Together with PID, it identifies the process.
+	StartTime uint64
+
 	CPUTotalTime float64 // CPU time in seconds
 
 	Zones ZoneUsageMap

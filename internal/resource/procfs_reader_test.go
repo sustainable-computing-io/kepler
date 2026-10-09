@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +23,8 @@ import (
 )
 
 func TestNewProcess(t *testing.T) {
+	cpuStat := procCPUStat{CPUTime: 10.5, StartTime: 100}
+
 	t.Run("Successfully create process", func(t *testing.T) {
 		mockProc := new(MockProcInfo)
 		mockProc.On("PID").Return(12345)
@@ -27,9 +33,8 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/test.service"}}, nil)
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
-		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
-		process, err := newProcess(mockProc)
+		process, err := newProcess(mockProc, cpuStat)
 		require.NoError(t, err)
 		assert.NotNil(t, process)
 		assert.Equal(t, 12345, process.PID)
@@ -37,6 +42,7 @@ func TestNewProcess(t *testing.T) {
 		assert.Equal(t, "/usr/bin/test", process.Exe)
 		assert.Equal(t, float64(10.5), process.CPUTotalTime)
 		assert.Equal(t, float64(10.5), process.CPUTimeDelta)
+		assert.Equal(t, uint64(100), process.StartTime)
 		assert.Nil(t, process.Container) // Not a container process
 
 		mockProc.AssertExpectations(t)
@@ -48,9 +54,8 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
 		mockProc.On("Comm").Return("", assert.AnError)
-		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
-		process, err := newProcess(mockProc)
+		process, err := newProcess(mockProc, cpuStat)
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process comm")
@@ -63,9 +68,8 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("PID").Return(12345)
 		mockProc.On("Comm").Return("test-process", nil)
 		mockProc.On("Executable").Return("", errors.New("executable error"))
-		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
-		process, err := newProcess(mockProc)
+		process, err := newProcess(mockProc, cpuStat)
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process executable")
@@ -80,9 +84,8 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Executable").Return("/usr/bin/test", nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/test", "this", "out"}, nil).Maybe()
 		mockProc.On("Cgroups").Return([]cGroup{}, errors.New("cgroups error"))
-		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
 
-		process, err := newProcess(mockProc)
+		process, err := newProcess(mockProc, cpuStat)
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process cgroups")
@@ -96,13 +99,12 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Comm").Return("container-process", nil)
 		mockProc.On("Executable").Return("/usr/bin/container", nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/container"}, nil)
-		mockProc.On("CPUTime").Return(float64(10.5), nil)
 
 		ctrID := "316de3e24617ffce955b712c990dd057e7088fc9720e578cb18d874aac72deb0"
 		mockProc.On("Cgroups").Return([]cGroup{{Path: fmt.Sprintf("/sys/fs/cgroup/system.slice/docker-%s.scope", ctrID)}}, nil)
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
 
-		process, err := newProcess(mockProc)
+		process, err := newProcess(mockProc, cpuStat)
 		require.NoError(t, err)
 		require.NotNil(t, process)
 		assert.Equal(t, 12345, process.PID)
@@ -122,7 +124,7 @@ func TestRefreshProcesses_PermissionDeniedHint(t *testing.T) {
 	mockProc := &MockProcInfo{}
 	mockProc.On("PID").Return(80)
 	mockProc.On("Comm").Return("nginx", nil)
-	mockProc.On("CPUTime").Return(float64(1), nil)
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(1), StartTime: 100}, nil)
 	mockProc.On("Executable").Return("", &fs.PathError{Op: "readlink", Path: "/proc/80/exe", Err: fs.ErrPermission})
 
 	mockProcFS := &MockProcReader{}
@@ -145,7 +147,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/test.service"}}, nil)
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil)
-		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(10.5), StartTime: 100}, nil).Once()
 
 		// AllProcs calls
 		mockProcFS := &MockProcReader{}
@@ -192,7 +194,7 @@ func TestResourceInformer(t *testing.T) {
 		assert.Len(t, containers.Terminated, 0)
 
 		// For second Refresh - same process with increased CPU time
-		mockProc.On("CPUTime").Return(float64(15.0), nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(15.0), StartTime: 100}, nil).Once()
 		mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 		mockProcFS.On("CPUUsageRatio").Return(float64(0.35), nil).Once()
 
@@ -224,7 +226,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc1.On("Comm").Return("process-1", nil)
 		mockProc1.On("Executable").Return("/bin/process1", nil)
 		mockProc1.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process1.service"}}, nil)
-		mockProc1.On("CPUTime").Return(float64(5.0), nil).Once()
+		mockProc1.On("CPUStat").Return(procCPUStat{CPUTime: float64(5.0), StartTime: 100}, nil).Once()
 		mockProc1.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc1.On("CmdLine").Return([]string{"/bin/process1"}, nil).Maybe()
 
@@ -233,7 +235,7 @@ func TestResourceInformer(t *testing.T) {
 		mockProc2.On("Comm").Return("process-2", nil)
 		mockProc2.On("Executable").Return("/bin/process2", nil)
 		mockProc2.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process2.service"}}, nil)
-		mockProc2.On("CPUTime").Return(float64(10.0), nil).Once()
+		mockProc2.On("CPUStat").Return(procCPUStat{CPUTime: float64(10.0), StartTime: 100}, nil).Once()
 		mockProc2.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc2.On("CmdLine").Return([]string{"/bin/process2"}, nil).Maybe()
 
@@ -268,7 +270,7 @@ func TestResourceInformer(t *testing.T) {
 		assert.Equal(t, float64(15.0), node.ProcessTotalCPUTimeDelta) // 5.0 + 10.0 = 15.0
 
 		// Second refresh - process 2 is gone
-		mockProc1.On("CPUTime").Return(float64(7.5), nil)
+		mockProc1.On("CPUStat").Return(procCPUStat{CPUTime: float64(7.5), StartTime: 100}, nil)
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
 		mockInformer.On("CPUUsageRatio").Return(float64(0.15), nil).Once()
 
@@ -315,7 +317,7 @@ func TestResourceInformer(t *testing.T) {
 		ctnrID, cgPath := mockContainerIDAndPath(PodmanRuntime)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil).Once()
 
-		mockProc.On("CPUTime").Return(float64(3.0), nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(3.0), StartTime: 100}, nil).Once()
 
 		informer, err := NewInformer(
 			WithProcReader(mockInformer),
@@ -358,7 +360,7 @@ func TestResourceInformer(t *testing.T) {
 		assert.Equal(t, float64(3.0), c.CPUTimeDelta)
 
 		// For second Refresh - increased CPU time
-		mockProc.On("CPUTime").Return(float64(5.0), nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(5.0), StartTime: 100}, nil).Once()
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 		mockInformer.On("CPUUsageRatio").Return(float64(0.45), nil).Once()
 
@@ -394,7 +396,7 @@ func TestResourceInformer(t *testing.T) {
 		cntrID, cgroupPath := mockContainerIDAndPath(PodmanRuntime)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: cgroupPath}}, nil)
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
-		mockProc.On("CPUTime").Return(float64(8.0), nil)
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(8.0), StartTime: 100}, nil)
 
 		// For Init
 		mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
@@ -489,7 +491,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProc.On("Executable").Return("/usr/bin/test", nil)
 		containerID, cgPath := mockContainerIDAndPath(DockerRuntime)
 		mockProc.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
-		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: 10.0, StartTime: 100}, nil).Once()
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
 
 		mockProcFS := &MockProcReader{}
@@ -526,7 +528,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProc.On("PID").Return(456)
 		mockProc.On("Comm").Return("container-process", nil)
 		mockProc.On("Executable").Return("/usr/bin/container-exec", nil)
-		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: 10.0, StartTime: 100}, nil).Once()
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/container-exec"}, nil).Once()
 
@@ -565,7 +567,7 @@ func TestRefresh_PodInformer(t *testing.T) {
 		mockProc.On("PID").Return(789)
 		mockProc.On("Comm").Return("container-process", nil)
 		mockProc.On("Executable").Return("/usr/bin/container-exec", nil)
-		mockProc.On("CPUTime").Return(10.0, nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: 10.0, StartTime: 100}, nil).Once()
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=my-container"}, nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/container-exec"}, nil).Once()
 
@@ -609,7 +611,7 @@ func TestLookupByContainerID_UpdatesContainerName(t *testing.T) {
 		mockProc.On("PID").Return(5001)
 		mockProc.On("Comm").Return("app-container", nil)
 		mockProc.On("Executable").Return("/app/server", nil)
-		mockProc.On("CPUTime").Return(15.0, nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: 15.0, StartTime: 100}, nil).Once()
 		mockProc.On("Environ").Return([]string{}, nil) // No CONTAINER_NAME in env
 		mockProc.On("CmdLine").Return([]string{"/app/server", "--port=8080"}, nil)
 
@@ -680,7 +682,7 @@ func TestLookupByContainerID_UpdatesContainerName(t *testing.T) {
 		mockProc.On("PID").Return(5002)
 		mockProc.On("Comm").Return("web-app", nil)
 		mockProc.On("Executable").Return("/usr/bin/nginx", nil)
-		mockProc.On("CPUTime").Return(8.5, nil).Once()
+		mockProc.On("CPUStat").Return(procCPUStat{CPUTime: 8.5, StartTime: 100}, nil).Once()
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=nginx-from-env"}, nil)
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/nginx", "-g", "daemon off;"}, nil)
 
@@ -766,9 +768,57 @@ func TestProcWrapper(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, cgroups)
 
-	cpuTime, err := wrapper.CPUTime()
+	cpuStat, err := wrapper.CPUStat()
 	require.NoError(t, err)
-	assert.Greater(t, cpuTime, float64(0))
+	assert.Equal(t, float64(572479+27124)/userHZ, cpuStat.CPUTime)
+	assert.Equal(t, uint64(633412975), cpuStat.StartTime)
+}
+
+func TestProcWrapperCPUStat(t *testing.T) {
+	statData, err := os.ReadFile("./testdata/procfs/3456208/stat")
+	require.NoError(t, err)
+	fields := strings.Fields(string(statData))
+	fields[0] = "4001"
+
+	root := t.TempDir()
+	procDir := filepath.Join(root, "4001")
+	require.NoError(t, os.Mkdir(procDir, 0o755))
+	statPath := filepath.Join(procDir, "stat")
+	procFS, err := procfs.NewFS(root)
+	require.NoError(t, err)
+	proc, err := procFS.Proc(4001)
+	require.NoError(t, err)
+	wrapper := WrapProc(proc)
+
+	for _, tt := range []struct {
+		name      string
+		userTime  uint64
+		sysTime   uint64
+		startTime uint64
+	}{
+		{name: "first sample", userTime: 100, sysTime: 50, startTime: 100},
+		{name: "fresh CPU sample", userTime: 300, sysTime: 75, startTime: 100},
+		{name: "reused PID", userTime: 0, sysTime: 0, startTime: 900},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fields[13] = strconv.FormatUint(tt.userTime, 10)
+			fields[14] = strconv.FormatUint(tt.sysTime, 10)
+			fields[21] = strconv.FormatUint(tt.startTime, 10)
+			require.NoError(t, os.WriteFile(statPath, []byte(strings.Join(fields, " ")+"\n"), 0o644))
+
+			cpuStat, err := wrapper.CPUStat()
+			require.NoError(t, err)
+			assert.Equal(t, procCPUStat{
+				CPUTime:   float64(tt.userTime+tt.sysTime) / userHZ,
+				StartTime: tt.startTime,
+			}, cpuStat)
+		})
+	}
+
+	require.NoError(t, os.Remove(statPath))
+	cpuStat, err := wrapper.CPUStat()
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	assert.Equal(t, procCPUStat{}, cpuStat)
 }
 
 // Test for the procfs fixture to ensure the test fixture directory is available
@@ -854,7 +904,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	mockProc.On("Comm").Return("process-initial", nil).Once()
 	mockProc.On("Executable").Return("/bin/process-initial", nil).Once()
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
-	mockProc.On("CPUTime").Return(procCPUTime, nil).Once()
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: procCPUTime, StartTime: 100}, nil).Once()
 	mockProc.On("Environ").Return([]string{}, nil).Maybe()
 	mockProc.On("CmdLine").Return([]string{"/bin/process-initial"}, nil).Once()
 
@@ -884,6 +934,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	assert.Equal(t, procCPUTime, node.ProcessTotalCPUTimeDelta)
 
 	processes := informer.Processes()
+	initialProcess := processes.Running[1001]
 	assert.Equal(t, "process-initial", processes.Running[1001].Comm)
 	assert.Equal(t, "/bin/process-initial", processes.Running[1001].Exe)
 	assert.Equal(t, float64(5.0), processes.Running[1001].CPUTotalTime)
@@ -893,7 +944,7 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 	mockProc.On("CmdLine").Return([]string{"/bin/process-updated"}, nil).Once()
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
 	mockProc.On("Executable").Return("/bin/process-updated", nil).Once()
-	mockProc.On("CPUTime").Return(float64(7.0), nil).Once() // 2.0 delta
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(7.0), StartTime: 100}, nil).Once() // 2.0 delta
 
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 	mockInformer.On("CPUUsageRatio").Return(0.3, nil).Once()
@@ -904,13 +955,14 @@ func TestProcessUpdateAfterRefresh(t *testing.T) {
 
 	// Verify changes were applied
 	processes = informer.Processes()
+	assert.Same(t, initialProcess, processes.Running[1001])
 	assert.Equal(t, "process-updated", processes.Running[1001].Comm)
 	assert.Equal(t, "/bin/process-updated", processes.Running[1001].Exe)
 	assert.Equal(t, float64(7.0), processes.Running[1001].CPUTotalTime)
 	assert.Equal(t, float64(2.0), processes.Running[1001].CPUTimeDelta)
 
 	// Third refresh - process changes again but with negligible CPU time delta
-	mockProc.On("CPUTime").Return(float64(7.0000000000001), nil).Once() // Very small delta (1e-13)
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(7.0000000000001), StartTime: 100}, nil).Once() // Very small delta (1e-13)
 	mockInformer.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 	mockInformer.On("CPUUsageRatio").Return(0.3, nil).Once()
 	// Third refresh
@@ -940,7 +992,7 @@ func TestZeroCPUTimeProcess(t *testing.T) {
 	mockProc.On("Comm").Return("zero-cpu-process", nil).Once()
 	mockProc.On("Executable").Return("/bin/zero-cpu-process", nil).Once()
 	mockProc.On("Cgroups").Return([]cGroup{{Path: "/system.slice/process.service"}}, nil).Once()
-	mockProc.On("CPUTime").Return(float64(0.0), nil).Once()
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(0.0), StartTime: 100}, nil).Once()
 	mockProc.On("Environ").Return([]string{}, nil).Maybe()
 	mockProc.On("CmdLine").Return([]string{"/bin/zero-cpu-process"}, nil).Maybe()
 
@@ -972,7 +1024,7 @@ func TestZeroCPUTimeProcess(t *testing.T) {
 	assert.Equal(t, float64(0.0), processes.Running[1001].CPUTimeDelta)
 
 	// Second refresh - process with close to 0 CPU delta and should not update process fields
-	mockProc.On("CPUTime").Return(float64(1e-14), nil).Once() // Still zero
+	mockProc.On("CPUStat").Return(procCPUStat{CPUTime: float64(1e-14), StartTime: 100}, nil).Once() // Still zero
 
 	mockProcFS.On("AllProcs").Return([]procInfo{mockProc}, nil).Once()
 	mockProcFS.On("CPUUsageRatio").Return(float64(0.5), nil).Once()
@@ -1166,15 +1218,15 @@ func TestProcWrapperErrors(t *testing.T) {
 		mockProc.AssertExpectations(t)
 	})
 
-	t.Run("CPUTime with read error", func(t *testing.T) {
+	t.Run("CPUStat with read error", func(t *testing.T) {
 		mockProc := &MockProcInfo{}
 
-		// Mock CPUTime to return error
-		mockProc.On("CPUTime").Return(float64(0), errors.New("stat read error"))
+		// Mock CPUStat to return error
+		mockProc.On("CPUStat").Return(procCPUStat{}, errors.New("stat read error"))
 
-		cpuTime, err := mockProc.CPUTime()
+		cpuStat, err := mockProc.CPUStat()
 		assert.Error(t, err)
-		assert.Equal(t, float64(0), cpuTime)
+		assert.Equal(t, procCPUStat{}, cpuStat)
 		assert.Contains(t, err.Error(), "stat read error")
 
 		mockProc.AssertExpectations(t)
@@ -1191,7 +1243,7 @@ func TestRefreshConcurrency(t *testing.T) {
 	mockProc1.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
 	ctnrID, cgPath := mockContainerIDAndPath(PodmanRuntime)
 	mockProc1.On("Cgroups").Return([]cGroup{{Path: cgPath}}, nil)
-	mockProc1.On("CPUTime").Return(float64(3.0), nil)
+	mockProc1.On("CPUStat").Return(procCPUStat{CPUTime: float64(3.0), StartTime: 100}, nil)
 
 	// VM process
 	mockProc2 := &MockProcInfo{}
@@ -1205,7 +1257,7 @@ func TestRefreshConcurrency(t *testing.T) {
 	}, nil)
 	mockProc2.On("Environ").Return([]string{}, nil).Maybe()
 	mockProc2.On("Cgroups").Return([]cGroup{{Path: "/system.slice/libvirt.service"}}, nil)
-	mockProc2.On("CPUTime").Return(float64(2.0), nil)
+	mockProc2.On("CPUStat").Return(procCPUStat{CPUTime: float64(2.0), StartTime: 100}, nil)
 
 	// Regular process
 	mockProc3 := &MockProcInfo{}
@@ -1213,7 +1265,7 @@ func TestRefreshConcurrency(t *testing.T) {
 	mockProc3.On("Comm").Return("regular-proc", nil)
 	mockProc3.On("Executable").Return("/bin/regular", nil)
 	mockProc3.On("Cgroups").Return([]cGroup{{Path: "/system.slice/regular.service"}}, nil)
-	mockProc3.On("CPUTime").Return(float64(1.0), nil)
+	mockProc3.On("CPUStat").Return(procCPUStat{CPUTime: float64(1.0), StartTime: 100}, nil)
 	mockProc3.On("Environ").Return([]string{}, nil).Maybe()
 	mockProc3.On("CmdLine").Return([]string{"/bin/regular"}, nil).Maybe()
 
