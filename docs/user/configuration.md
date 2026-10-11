@@ -126,7 +126,7 @@ host:
   procfs: /proc # Path to procfs filesystem (default: /proc)
 
 cpu:
-  meters: ["rapl", "hwmon"]  # Ordered priority of CPU power-meter backends.
+  preferredMeters: ["rapl", "hwmon"]  # Ordered priority of CPU power-meter backends.
                              # Built-in backends: rapl, hwmon, fake.
                              # The first backend that initializes and reports zones is used.
 
@@ -150,7 +150,7 @@ exporter:
 
 debug:          # debug related config
   pprof:        # pprof related config
-    enabled: true
+    enabled: false
 
 web:
   configFile: "" # Path to TLS server config file
@@ -224,9 +224,9 @@ monitor:
 
 - **interval**: The monitor's refresh interval. All processes with a lifetime less than this interval will be ignored. Setting to 0s disables monitor refreshes.
 
-- **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
+- **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again (default: 500ms). Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
 
-- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, the least power consuming terminated workloads are removed first.
+- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, workloads with the lowest cumulative energy in the primary energy zone are removed first.
 
 - **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. Only terminated workloads with energy consumption above this threshold will be included in the tracking. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
 
@@ -261,11 +261,15 @@ Examples:
 # Default order — try RAPL first, then hwmon
 cpu:
   preferredMeters: ["rapl", "hwmon"]
+```
 
+```yaml
 # Force hwmon, skip RAPL
 cpu:
   preferredMeters: ["hwmon"]
+```
 
+```yaml
 # Development mode
 cpu:
   preferredMeters: ["fake"]
@@ -318,7 +322,7 @@ exporter:
 
 - **prometheus**: Configuration for the Prometheus exporter
   - `enabled`: Enable or disable the Prometheus exporter (default: true)
-  - `debugCollectors`: List of debug collectors to enable (available: "go", "process")
+  - `debugCollectors`: List of debug collectors to enable (default: `["go"]`; available: "go", "process")
   - `metricsLevel`: List of metric levels to expose. Controls the granularity of metrics exported:
     - `node`: Node-level metrics (system-wide power consumption)
     - `process`: Process-level metrics (per-process power consumption)
@@ -331,11 +335,11 @@ exporter:
 ```yaml
 debug:
   pprof:
-    enabled: true
+    enabled: false
 ```
 
 - **pprof**: Configuration for pprof debugging
-  - `enabled`: When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler (default: true)
+  - `enabled`: When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler (default: false)
 
 ### 🌐 Web Configuration
 
@@ -450,6 +454,8 @@ experimental:
     chipRules: []
   gpu:
     enabled: false
+    idlePower: 0
+    dcgmEndpoint: ""
 ```
 
 ⚠️ **WARNING**: This section contains experimental features with no stability guarantees.
@@ -494,10 +500,10 @@ bmcs:
 
 #### hwmon Power Monitoring
 
-- **enabled**: Enable experimental hwmon power monitoring (default: false)
-  - When enabled, Kepler will collect power metrics from hwmon sensors
-  - Available on architectures with hwmon power sensors
-  - Error will be returned if hwmon is not available
+- **forceEnabled**: Deprecated option to force hwmon instead of RAPL (default: false)
+  - Use `cpu.preferredMeters: ["hwmon"]` instead
+  - The default meter order tries hwmon if RAPL is unavailable
+  - Forcing hwmon requires available hwmon power sensors
 
 - **zones**: List of hwmon zones to enable (default: all available power zones)
   - By default, Kepler enables all available hwmon power zones
@@ -522,7 +528,7 @@ bmcs:
 
 ```yaml
 cpu:
-  meters: ["hwmon"]
+  preferredMeters: ["hwmon"]
 experimental:
   hwmon:
     zones: ["power1", "power2"]
@@ -532,7 +538,7 @@ experimental:
 
 ```yaml
 cpu:
-  meters: ["hwmon"]
+  preferredMeters: ["hwmon"]
 experimental:
   hwmon:
     zones: []
@@ -559,9 +565,9 @@ experimental:
 - **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
   - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
   - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
-- **dcgmEndpoint**: dcgm-exporter Prometheus metrics URL for MIG power attribution (default: auto-discover)
-  - Required when GPUs are in MIG mode — NVML cannot provide per-instance utilization in MIG mode
-  - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API
+- **dcgmEndpoint**: dcgm-exporter Prometheus metrics URL for activity-weighted MIG power attribution (default: auto-discover)
+  - DCGM supplies activity measurements for weighted allocation across MIG instances. Kepler uses equal-share fallback when the DCGM backend is unavailable.
+  - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API; set an explicit URL when discovery is unavailable.
   - **Note**: When deploying with MIG, the Kepler container must have `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_MIG_MONITOR_DEVICES=all` environment variables set for NVML to see all MIG devices. These are included in the default manifests and Helm chart.
 
 **Example:**

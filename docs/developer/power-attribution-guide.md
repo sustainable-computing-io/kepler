@@ -1,16 +1,20 @@
 # Kepler Power Attribution Guide
 
 This guide explains how Kepler measures and attributes power consumption to
-processes, containers, VMs, and pods running on a system.
+processes, containers, VMs, and pods running on a system. CPU attribution uses
+CPU time; experimental NVIDIA GPU attribution uses GPU activity separately.
 
 ## Table of Contents
 
 1. [Bird's Eye View](#birds-eye-view)
 2. [Key Concepts](#key-concepts)
-3. [Attribution Examples](#attribution-examples)
-4. [Implementation Overview](#implementation-overview)
-5. [Code Reference](#code-reference)
-6. [Limitations and Considerations](#limitations-and-considerations)
+3. [Platform Power Sources](#platform-power-sources)
+4. [GPU Power Attribution](#gpu-power-attribution)
+5. [Attribution Examples](#attribution-examples)
+6. [Implementation Overview](#implementation-overview)
+7. [Code Reference](#code-reference)
+8. [Limitations and Considerations](#limitations-and-considerations)
+9. [Trained Model Server Compatibility](#trained-model-server-compatibility)
 
 ## Bird's Eye View
 
@@ -45,7 +49,7 @@ distinct components:
 
 ### Attribution Formula
 
-All workload types use the same proportional attribution formula:
+CPU power for all workload types uses the same proportional attribution formula:
 
 ```text
 Workload Power = (Workload CPU Time Δ / Node CPU Time Δ) × Active Power
@@ -61,6 +65,9 @@ on actual resource utilization.
 decomposed into active and idle components, with active power distributed
 proportionally based on workload CPU time deltas.*
 
+The [editable diagram](assets/power-attribution.excalidraw) is included for
+maintainers updating this explanation.
+
 ### Multi-Socket and Zone Aggregation
 
 Modern server systems often feature multiple CPU sockets, each with their own
@@ -69,7 +76,7 @@ RAPL energy domains. Kepler handles this complexity through zone aggregation:
 **Zone Types and Hierarchy:**
 
 - **Package zones**: CPU socket-level energy (e.g., `package-0`, `package-1`)
-- **Core zones**: Individual CPU core energy within each package
+- **Core zones**: CPU cores energy domain within each package
 - **DRAM zones**: Memory controller energy per socket
 - **Uncore zones**: Integrated GPU, cache, and interconnect energy
 - **PSys zones**: Platform-level energy (most comprehensive when available)
@@ -115,13 +122,21 @@ Node CPU Time = Σ(All process CPU time deltas)
 
 ### Energy Zones
 
-Hardware energy is read from different zones:
+Kepler discovers RAPL zones dynamically under Linux's powercap sysfs interface.
+Available zones depend on the hardware and kernel; the following list is not
+a requirement for every host:
 
 - **Package**: CPU package-level energy consumption
-- **Core**: Individual CPU core energy
+- **Core**: CPU cores energy domain
 - **DRAM**: Memory subsystem energy
 - **Uncore**: Integrated graphics and other uncore components
 - **PSys**: Platform-level energy (most comprehensive when available)
+
+Zones can be filtered by name through [configuration](../user/configuration.md).
+Node power is calculated and exported for each available zone. A primary zone
+is selected by coverage priority to rank terminated workloads; it does not
+replace the other zones' node power measurements. Nested zones may overlap,
+so do not sum all zone types to obtain whole-system power.
 
 ### Independent Attribution
 
@@ -132,6 +147,51 @@ Each workload type (process, container, VM, pod) calculates power
 - Pods don't inherit power from their containers
 - VMs don't inherit power from their processes
 - Each calculates directly from node active power
+
+## Platform Power Sources
+
+Kepler supports additional hardware interfaces when available:
+
+- **RAPL (sysfs powercap)** reads CPU energy counters on supported platforms.
+- **HWMon (sysfs)** reads Linux power and energy sensors, providing a CPU meter
+  alternative when RAPL is unavailable. The default preference is RAPL, then
+  hwmon; select a meter explicitly with `cpu.preferredMeters`.
+- **Experimental Redfish BMC monitoring** reads chassis power independently of
+  CPU energy counters. It uses the `PowerSubsystem` API with a fallback to the
+  older `Power` API for BMCs that do not support `PowerSubsystem`.
+
+See the [configuration guide](../user/configuration.md) for hardware selection
+and experimental-feature settings.
+
+## GPU Power Attribution
+
+Experimental NVIDIA GPU monitoring uses NVML separately from CPU attribution:
+
+1. **Device power** is read using `nvmlDeviceGetPowerUsage`. This is an
+   API power reading, rather than an energy-counter delta; its averaging
+   window depends on the GPU model.
+2. **Idle baseline** is the minimum observed device power while no compute
+   processes are running. A positive `experimental.gpu.idlePower` takes
+   precedence. Power above the baseline is treated as active power.
+3. **Process attribution** distributes active power in proportion to SM
+   (streaming multiprocessor) utilization from
+   `nvmlDeviceGetProcessUtilization`. When utilization is unavailable, Kepler
+   falls back to equal shares among the device's running compute processes.
+4. **MIG (Multi-Instance GPU)** uses DCGM activity to split parent-device power
+   between instances, then NVML process utilization within each instance.
+   When the DCGM backend is unavailable or MIG topology is missing, Kepler
+   falls back to equal shares among the parent device's running processes.
+   With an initialized DCGM backend, activity-query failures or zero activity
+   can instead leave instances without process attribution.
+
+GPU power is exported through `kepler_node_gpu_watts` and workload GPU metrics
+such as `kepler_process_gpu_watts`. These measurements require supported NVIDIA
+hardware and the relevant NVML/DCGM interfaces; they are not inferred from CPU
+usage. See [GPU configuration](../user/configuration.md#gpu-power-monitoring).
+
+The `kepler_node_gpu_info` gauge maps device indices to GPU UUIDs and names.
+Its labels are `gpu`, `gpu_uuid`, `gpu_name`, and `vendor`, with `node_name`
+as a constant label.
 
 ## Attribution Examples
 
@@ -404,12 +464,13 @@ Example Scenario:
 - Process B: 50% CPU, memory-bound (frequent stalls, lower frequency)
 
 Current Attribution: Both receive equal power
-Reality: Process A likely consumes 2-3x more power
+Actual power can differ substantially despite identical CPU time
 ```
 
 #### Instruction-Level Variations
 
-- **Vector Instructions (AVX/SSE)**: 2-4x more power than scalar operations
+- **Vector Instructions (AVX/SSE)**: Can consume more power than scalar operations;
+  the difference depends on the hardware and workload
 - **Execution Units**: Different power profiles for integer vs floating point
 - **Cache Behavior**: Cache misses trigger higher memory controller power
 
@@ -425,7 +486,9 @@ Reality: Process A likely consumes 2-3x more power
 
 - **Storage I/O**: Triggers storage controller and device power
 - **Network I/O**: Consumes network interface and PCIe power
-- **GPU Workloads**: Integrated graphics power not captured by CPU metrics
+- **GPU Workloads**: Integrated graphics may contribute to package or uncore
+  zones. Discrete NVIDIA GPU power is measured separately by NVML, as described
+  in [GPU Power Attribution](#gpu-power-attribution).
 
 ### Temporal Distribution Issues
 
@@ -460,11 +523,20 @@ Reality: Process B likely consumed more during its burst due to:
 
 ### Key Metrics
 
-- `kepler_node_cpu_watts{}`: Total node power consumption
+- `kepler_node_cpu_watts{}`: Node CPU power for the selected energy zone
 - `kepler_process_cpu_watts{}`: Individual process power
 - `kepler_container_cpu_watts{}`: Container-level power
 - `kepler_vm_cpu_watts{}`: Virtual machine power
 - `kepler_pod_cpu_watts{}`: Kubernetes pod power
+- `kepler_node_gpu_watts{}`: NVIDIA GPU device power
+- `kepler_process_gpu_watts{}`: Per-process GPU power attribution
+
+## Trained Model Server Compatibility
+
+Earlier Kepler versions could estimate power using trained models from
+`kepler-model-server`. The v0.10+ rewrite reads hardware interfaces directly
+(RAPL, hwmon, Redfish, and NVML) and does not integrate the legacy model server.
+The measurements described here come from those hardware sources.
 
 ## Conclusion
 

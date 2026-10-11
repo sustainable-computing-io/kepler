@@ -360,8 +360,8 @@ serviceMonitor:
 
 ### Environment-Specific Settings
 
-- **Development**: Use fake CPU meter when RAPL unavailable
-- **Production**: Ensure nodes have Intel RAPL support
+- **Development**: Use the fake CPU meter when hardware sensors are unavailable
+- **Production**: Ensure nodes expose supported RAPL or hwmon sensors
 - **Cloud**: May need different privilege configurations
 
 ## Troubleshooting
@@ -369,7 +369,7 @@ serviceMonitor:
 ### Common Issues
 
 1. **Permission Denied**: Ensure privileged security context is enabled
-2. **No Metrics**: Check if nodes support Intel RAPL sensors
+2. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 3. **Pod Crashes**: Review logs for hardware access issues
 4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
    or use the minimal deployment section above
@@ -388,12 +388,12 @@ kubectl exec -n kepler -it <pod-name> -- ls /sys/class/powercap/intel-rapl
 
 # Test with fake meter (development)
 helm upgrade kepler manifests/helm/kepler/ -n kepler \
-  --set env.KEPLER_FAKE_CPU_METER=true
+  --set 'config.cpu.preferredMeters[0]=fake'
 ```
 
 ### Getting Help
 
-- **Documentation**: <https://sustainable-computing.io/kepler/>
+- **Documentation**: <https://sustainable-computing.io/>
 - **Issues**: <https://github.com/sustainable-computing-io/kepler/issues>
 - **Discussions**: <https://github.com/sustainable-computing-io/kepler/discussions>
 - **Slack**: [#kepler channel in CNCF Slack](https://cloud-native.slack.com/archives/C06HYDN4A01)
