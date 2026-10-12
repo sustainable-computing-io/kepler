@@ -333,7 +333,14 @@ image:
 daemonset:
   hostPID: true
   securityContext:
-    privileged: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
 
 # Resource limits
 resources:
