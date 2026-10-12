@@ -137,6 +137,14 @@ For more detailed documentation, please visit the [official Kepler documentation
 
 Contributions are welcome! Please feel free to submit a Pull Request. For more detailed information about contributing to this project, please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
+### Roadmap
+
+See the [Kepler Roadmap](https://github.com/orgs/sustainable-computing-io/projects/9) for planned and in-progress work.
+
+### Code of Conduct
+
+Kepler follows the [CNCF Code of Conduct](code-of-conduct.md).
+
 ### Gen AI policy
 
 Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
