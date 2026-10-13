@@ -202,6 +202,12 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		process := newProcess(proc, zones)
 		pid := process.StringID() // to string
 
+		prevProc := prev.Processes[pid]
+		if _, reused := procs.Terminated[proc.PID]; reused {
+			// A new process took over this PID; it must not inherit the energy of the one that held it.
+			prevProc = nil
+		}
+
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
@@ -214,8 +220,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 			// Calculate absolute energy based on previous data
 			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Processes[pid]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+			if prevProc != nil {
+				if prevUsage, hasZone := prevProc.Zones[zone]; hasZone {
 					absoluteEnergy += prevUsage.EnergyTotal
 				}
 			}
@@ -233,7 +239,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		}
 
 		// Accumulate GPU energy: energy = power × time
-		if prevProc, exists := prev.Processes[pid]; exists {
+		if prevProc != nil {
 			process.GPUEnergyTotal = prevProc.GPUEnergyTotal
 			if process.GPUPower > 0 {
 				timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()

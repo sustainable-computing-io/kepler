@@ -28,6 +28,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
 		mockProc.On("CPUTime").Return(float64(10.5), nil).Once()
+		mockProc.On("StartTime").Return(uint64(4242), nil).Once()
 
 		process, err := newProcess(mockProc)
 		require.NoError(t, err)
@@ -35,9 +36,22 @@ func TestNewProcess(t *testing.T) {
 		assert.Equal(t, 12345, process.PID)
 		assert.Equal(t, "test-process", process.Comm)
 		assert.Equal(t, "/usr/bin/test", process.Exe)
+		assert.Equal(t, uint64(4242), process.StartTime)
 		assert.Equal(t, float64(10.5), process.CPUTotalTime)
 		assert.Equal(t, float64(10.5), process.CPUTimeDelta)
 		assert.Nil(t, process.Container) // Not a container process
+
+		mockProc.AssertExpectations(t)
+	})
+
+	t.Run("Error getting StartTime", func(t *testing.T) {
+		mockProc := &MockProcInfo{}
+		mockProc.On("StartTime").Return(uint64(0), errors.New("stat error"))
+
+		process, err := newProcess(mockProc)
+		assert.Error(t, err)
+		assert.Nil(t, process)
+		assert.ErrorContains(t, err, "stat error")
 
 		mockProc.AssertExpectations(t)
 	})
@@ -292,68 +306,6 @@ func TestResourceInformer(t *testing.T) {
 		require.NotNil(t, node)
 		assert.Equal(t, float64(0.15), node.CPUUsageRatio)
 		assert.Equal(t, float64(2.5), node.ProcessTotalCPUTimeDelta) // Only running process delta
-
-		mockInformer.AssertExpectations(t)
-		mockProc1.AssertExpectations(t)
-		mockProc2.AssertExpectations(t)
-	})
-
-	t.Run("PID reuse resets CPU delta", func(t *testing.T) {
-		mockProc1 := &MockProcInfo{}
-		mockProc1.On("PID").Return(4001)
-		mockProc1.On("Comm").Return("old-process", nil)
-		mockProc1.On("Executable").Return("/bin/old", nil)
-		mockProc1.On("Cgroups").Return([]cGroup{{Path: "/system.slice/old.service"}}, nil)
-		mockProc1.On("Environ").Return([]string{}, nil).Maybe()
-		mockProc1.On("CmdLine").Return([]string{"/bin/old"}, nil).Maybe()
-		mockProc1.On("CPUTime").Return(float64(20.0), nil).Once()
-
-		mockProc2 := &MockProcInfo{}
-		mockProc2.On("PID").Return(4001)
-		mockProc2.On("Comm").Return("new-process", nil)
-		mockProc2.On("Executable").Return("/bin/new", nil)
-		mockProc2.On("Cgroups").Return([]cGroup{{Path: "/system.slice/new.service"}}, nil)
-		mockProc2.On("Environ").Return([]string{}, nil).Maybe()
-		mockProc2.On("CmdLine").Return([]string{"/bin/new"}, nil).Maybe()
-		mockProc2.On("CPUTime").Return(float64(1.0), nil).Once()
-
-		mockInformer := &MockProcReader{}
-		fakeClock := testclock.NewFakeClock(time.Now())
-
-		informer, err := NewInformer(
-			WithProcReader(mockInformer),
-			WithClock(fakeClock),
-		)
-		require.NoError(t, err)
-
-		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
-		err = informer.Init()
-		require.NoError(t, err)
-
-		mockInformer.On("AllProcs").Return([]procInfo{mockProc1}, nil).Once()
-		mockInformer.On("CPUUsageRatio").Return(float64(0.4), nil).Once()
-		err = informer.Refresh()
-		require.NoError(t, err)
-
-		mockInformer.On("AllProcs").Return([]procInfo{mockProc2}, nil).Once()
-		mockInformer.On("CPUUsageRatio").Return(float64(0.2), nil).Once()
-		err = informer.Refresh()
-		require.NoError(t, err)
-
-		processes := informer.Processes()
-		require.Contains(t, processes.Running, 4001)
-		t.Logf(
-			"refreshed pid=%d comm=%s cpu_total=%.1f cpu_delta=%.1f node_delta=%.1f",
-			4001,
-			processes.Running[4001].Comm,
-			processes.Running[4001].CPUTotalTime,
-			processes.Running[4001].CPUTimeDelta,
-			informer.Node().ProcessTotalCPUTimeDelta,
-		)
-		assert.Equal(t, "new-process", processes.Running[4001].Comm)
-		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTotalTime)
-		assert.Equal(t, float64(1.0), processes.Running[4001].CPUTimeDelta)
-		assert.Equal(t, float64(1.0), informer.Node().ProcessTotalCPUTimeDelta)
 
 		mockInformer.AssertExpectations(t)
 		mockProc1.AssertExpectations(t)
@@ -831,6 +783,10 @@ func TestProcWrapper(t *testing.T) {
 	cpuTime, err := wrapper.CPUTime()
 	require.NoError(t, err)
 	assert.Greater(t, cpuTime, float64(0))
+
+	startTime, err := wrapper.StartTime()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(633412975), startTime) // field 22 of the fixture's stat file
 }
 
 // Test for the procfs fixture to ensure the test fixture directory is available
@@ -1346,42 +1302,113 @@ func TestRefreshConcurrency(t *testing.T) {
 	mockProc3.AssertExpectations(t)
 }
 
-func TestUpdateProcessCacheRebuildsAfterPIDReuse(t *testing.T) {
-	oldContainerID, oldCgroupPath := mockContainerIDAndPath(DockerRuntime)
-	newContainerID, newCgroupPath := mockContainerIDAndPath(DockerRuntime)
+// mockProcAt mocks one process observation: its PID, cgroup, CPU time and start time
+func mockProcAt(pid int, comm, cgroupPath string, cpuTime float64, startTime uint64) *MockProcInfo {
+	proc := &MockProcInfo{}
+	proc.On("PID").Return(pid)
+	proc.On("Comm").Return(comm, nil).Maybe()
+	proc.On("Executable").Return("/bin/"+comm, nil).Maybe()
+	proc.On("Cgroups").Return([]cGroup{{Path: cgroupPath}}, nil).Maybe()
+	proc.On("Environ").Return([]string{}, nil).Maybe()
+	proc.On("CmdLine").Return([]string{"/bin/" + comm}, nil).Maybe()
+	proc.On("CPUTime").Return(cpuTime, nil)
+	proc.On("StartTime").Return(startTime, nil)
+	return proc
+}
+
+func TestRefreshPIDReuse(t *testing.T) {
+	const (
+		pid       = 4001
+		startTime = uint64(100)
+	)
+
+	tests := []struct {
+		name         string
+		oldCPUTime   float64
+		newCPUTime   float64
+		newStartTime uint64
+	}{
+		{name: "lower CPU total", oldCPUTime: 20, newCPUTime: 1, newStartTime: 200},
+		{name: "equal CPU total", oldCPUTime: 20, newCPUTime: 20, newStartTime: 200},
+		{name: "higher CPU total", oldCPUTime: 0.01, newCPUTime: 3, newStartTime: 200},
+		{name: "same process", oldCPUTime: 20, newCPUTime: 21, newStartTime: startTime},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reused := tc.newStartTime != startTime
+
+			oldCtrID, oldCgroupPath := mockContainerIDAndPath(DockerRuntime)
+			newCtrID, newCgroupPath := oldCtrID, oldCgroupPath
+			if reused {
+				newCtrID, newCgroupPath = mockContainerIDAndPath(DockerRuntime)
+			}
+
+			before := mockProcAt(pid, "sh", oldCgroupPath, tc.oldCPUTime, startTime)
+			after := mockProcAt(pid, "sh", newCgroupPath, tc.newCPUTime, tc.newStartTime)
+
+			reader := &MockProcReader{}
+			informer, err := NewInformer(
+				WithProcReader(reader),
+				WithClock(testclock.NewFakeClock(time.Now())),
+			)
+			require.NoError(t, err)
+
+			reader.On("AllProcs").Return([]procInfo{before}, nil).Once()
+			require.NoError(t, informer.Init())
+
+			reader.On("AllProcs").Return([]procInfo{before}, nil).Once()
+			reader.On("CPUUsageRatio").Return(float64(0.4), nil).Once()
+			require.NoError(t, informer.Refresh())
+
+			reader.On("AllProcs").Return([]procInfo{after}, nil).Once()
+			reader.On("CPUUsageRatio").Return(float64(0.2), nil).Once()
+			require.NoError(t, informer.Refresh())
+
+			procs := informer.Processes()
+			containers := informer.Containers()
+			require.Contains(t, procs.Running, pid)
+			running := procs.Running[pid]
+			require.NotNil(t, running.Container)
+			assert.Equal(t, newCtrID, running.Container.ID)
+			require.Contains(t, containers.Running, newCtrID)
+
+			if !reused {
+				assert.Empty(t, procs.Terminated)
+				assert.Empty(t, containers.Terminated)
+				assert.InDelta(t, tc.newCPUTime-tc.oldCPUTime, running.CPUTimeDelta, 1e-9)
+				return
+			}
+
+			// the PID now belongs to a new process: all of its CPU time is new
+			// and the previous owner is reported as terminated
+			assert.Equal(t, tc.newStartTime, running.StartTime)
+			assert.Equal(t, tc.newCPUTime, running.CPUTimeDelta)
+			assert.Equal(t, tc.newCPUTime, containers.Running[newCtrID].CPUTimeDelta)
+			assert.NotContains(t, containers.Running, oldCtrID)
+			assert.Contains(t, containers.Terminated, oldCtrID)
+
+			require.Contains(t, procs.Terminated, pid)
+			require.NotNil(t, procs.Terminated[pid].Container)
+			assert.Equal(t, oldCtrID, procs.Terminated[pid].Container.ID)
+		})
+	}
+}
+
+func TestUpdateProcessCacheStartTimeError(t *testing.T) {
 	informer, err := NewInformer(WithProcReader(&MockProcReader{}))
 	require.NoError(t, err)
 
-	oldProc := &MockProcInfo{}
-	oldProc.On("PID").Return(4001)
-	oldProc.On("Comm").Return("same-process", nil).Once()
-	oldProc.On("Executable").Return("/bin/same-process", nil).Once()
-	oldProc.On("Cgroups").Return([]cGroup{{Path: oldCgroupPath}}, nil).Once()
-	oldProc.On("Environ").Return([]string{}, nil).Maybe()
-	oldProc.On("CmdLine").Return([]string{"/bin/same-process"}, nil).Maybe()
-	oldProc.On("CPUTime").Return(float64(20), nil).Once()
-
-	oldCachedProcess, err := informer.updateProcessCache(oldProc)
+	_, _, err = informer.updateProcessCache(mockProcAt(4001, "sh", "/system.slice/sh.service", 1, 100))
 	require.NoError(t, err)
-	require.NotNil(t, oldCachedProcess.Container)
-	assert.Equal(t, oldContainerID, oldCachedProcess.Container.ID)
 
-	newProc := &MockProcInfo{}
-	newProc.On("PID").Return(4001)
-	newProc.On("Comm").Return("same-process", nil).Once()
-	newProc.On("Executable").Return("/bin/same-process", nil).Once()
-	newProc.On("Cgroups").Return([]cGroup{{Path: newCgroupPath}}, nil).Once()
-	newProc.On("Environ").Return([]string{}, nil).Maybe()
-	newProc.On("CmdLine").Return([]string{"/bin/same-process"}, nil).Maybe()
-	newProc.On("CPUTime").Return(float64(0), nil).Once()
+	vanished := &MockProcInfo{}
+	vanished.On("PID").Return(4001)
+	vanished.On("StartTime").Return(uint64(0), fs.ErrNotExist)
 
-	newCachedProcess, err := informer.updateProcessCache(newProc)
-	require.NoError(t, err)
-	require.NotNil(t, newCachedProcess.Container)
-	assert.NotSame(t, oldCachedProcess, newCachedProcess)
-	assert.Equal(t, newContainerID, newCachedProcess.Container.ID)
-	assert.Zero(t, newCachedProcess.CPUTimeDelta)
-
-	oldProc.AssertExpectations(t)
-	newProc.AssertExpectations(t)
+	proc, replaced, err := informer.updateProcessCache(vanished)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	assert.Nil(t, proc)
+	assert.Nil(t, replaced)
+	assert.Contains(t, informer.procCache, 4001, "the cached process must survive a failed read")
 }
