@@ -42,6 +42,8 @@ daemonset:
 
   hostUsers: true
   securityContext:
+    # To run privileged, set both to true: Kubernetes rejects privileged
+    # with allowPrivilegeEscalation false.
     privileged: false
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
