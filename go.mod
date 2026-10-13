@@ -9,15 +9,15 @@ require (
 	github.com/go-logr/logr v1.4.4
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.1.5
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/exporter-toolkit v0.20.0
 	github.com/prometheus/procfs v0.22.0
 	github.com/stmcginnis/gofish v0.27.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
-	golang.org/x/sync v0.23.0
-	golang.org/x/sys v0.48.0
+	golang.org/x/sync v0.24.0
+	golang.org/x/sys v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
