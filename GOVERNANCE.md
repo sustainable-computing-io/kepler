@@ -30,6 +30,8 @@ and are approved through consensus by the existing maintainers.
 The candidate or an existing maintainer creates a [maintainer nomination issue](.github/ISSUE_TEMPLATE/maintainer_nominate.yaml) and submits a pull request (PR) to update the `MAINTAINERS.md`
 or `ADVISORS.md` file by adding the nominee or reflecting the new role.
 
+The nominee should have joined at least one community call before the nomination.
+
 #### Voting
 
 The PR requires approval from **at least three maintainers**.

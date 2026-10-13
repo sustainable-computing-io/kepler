@@ -61,8 +61,8 @@ body:
   - type: input
     id: link
     attributes:
-      label: 🔗 MAINTAINER.md PR Link
-      description: Please provide the link to the PR that updates `MAINTAINER.md`.
+      label: 🔗 MAINTAINERS.md PR Link
+      description: Please provide the link to the PR that updates `MAINTAINERS.md`.
       placeholder: https://github.com/sustainable-computing-io/kepler/pull/
     validations:
       required: false
@@ -75,6 +75,10 @@ body:
         The checklist below is for the existing maintainers once the
         `MAINTAINERS.md` PR is merged. Leave it unchecked when opening the issue
         and tick items as they are done.
+
+        In the `MAINTAINERS.md` PR, reference this issue with `ref: #<issue>`
+        rather than a closing keyword, so the issue stays open until
+        onboarding is done.
 
   - type: checkboxes
     id: onboarding
