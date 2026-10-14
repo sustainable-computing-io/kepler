@@ -218,6 +218,22 @@ runs:
         HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:28283/metrics)
         [[ $HTTP_STATUS -ne 200 ]] && echo "Helm deployment HTTP status code is not 200" && exit 1
 
+        # The chart runs unprivileged by default, so a 200 is not enough:
+        # workload processes must still be attributed to containers and pods.
+        curl -s -o /tmp/helm-metrics.txt http://localhost:28283/metrics
+        for metric in kepler_container_cpu_joules_total kepler_pod_cpu_joules_total; do
+          echo "Checking metric: $metric"
+          if ! grep -q "^${metric}{" /tmp/helm-metrics.txt; then
+            echo "Helm deployment metric $metric has no series"
+            exit 1
+          fi
+        done
+
+        if kubectl logs daemonset/kepler-helm-test -n kepler-helm | grep -q "needs root or CAP_SYS_PTRACE"; then
+          echo "Helm deployment cannot read /proc entries of other users"
+          exit 1
+        fi
+
         echo "Helm deployment metrics endpoint is working"
         echo "::endgroup::"
 
