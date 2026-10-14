@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 )
 
@@ -38,7 +39,7 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 	ri.SetExpectations(t, tr)
 	ri.On("Refresh").Return(nil)
 	fakeMonitor := monitor.NewPowerMonitor(
-		musT(device.NewFakeCPUMeter(nil)),
+		musT(cpu.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
 	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), config.MetricsLevelAll)
@@ -114,9 +115,9 @@ func TestPowerCollectorConcurrency(t *testing.T) {
 func TestPowerCollectorWithRegistry(t *testing.T) {
 	mockMonitor := NewMockPowerMonitor()
 
-	package0Zone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
-	package1Zone := device.NewMockRaplZone("package", 1, "/sys/class/powercap/intel-rapl/intel-rapl:1", 1000)
-	dramZone := device.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
+	package0Zone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	package1Zone := cpu.NewMockRaplZone("package", 1, "/sys/class/powercap/intel-rapl/intel-rapl:1", 1000)
+	dramZone := cpu.NewMockRaplZone("dram", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0:1", 1000)
 
 	nodePkgAbs := 12300 * device.Joule
 	nodePkgDelta := 123 * device.Joule
@@ -241,7 +242,7 @@ func TestUpdateDuringCollection(t *testing.T) {
 	collectingCh := make(chan struct{})
 	allowCollectCh := make(chan struct{})
 
-	packageZone := device.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
+	packageZone := cpu.NewMockRaplZone("package", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000)
 
 	mockMonitor.On("Snapshot").Run(func(args mock.Arguments) {
 		// NOTE: this waits for allow collect to close
@@ -336,7 +337,7 @@ func TestConcurrentRegistration(t *testing.T) {
 	ri.On("Refresh").Return(nil)
 
 	fakeMonitor := monitor.NewPowerMonitor(
-		musT(device.NewFakeCPUMeter(nil)),
+		musT(cpu.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
 
@@ -407,7 +408,7 @@ func TestFastCollectAndDescribe(t *testing.T) {
 	ri.On("Refresh").Return(nil)
 
 	fakeMonitor := monitor.NewPowerMonitor(
-		musT(device.NewFakeCPUMeter(nil)),
+		musT(cpu.NewFakeCPUMeter(nil)),
 		monitor.WithResourceInformer(ri),
 	)
 	collector := NewPowerCollector(fakeMonitor, "test-node", newLogger(), config.MetricsLevelAll)
