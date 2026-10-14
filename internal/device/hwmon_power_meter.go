@@ -45,10 +45,7 @@ func WithHwmonReader(r hwmonReader) HwmonOptionFn {
 func WithHwmonLogger(logger *slog.Logger) HwmonOptionFn {
 	return func(pm *hwmonPowerMeter) {
 		pm.logger = logger.With("service", "hwmon")
-		// Also update the reader's logger if it's the default sysfs reader
-		if reader, ok := pm.reader.(*sysfsHwmonReader); ok {
-			reader.logger = pm.logger
-		}
+		updateReadersLogger(pm.reader, pm.logger)
 	}
 }
 
@@ -80,20 +77,81 @@ type ConfigChipRule struct {
 // These rules take precedence over hardcoded defaults.
 func WithHwmonChipRules(rules []ConfigChipRule) HwmonOptionFn {
 	return func(pm *hwmonPowerMeter) {
-		// Update the reader's chip rules if it's the default sysfs reader
-		if reader, ok := pm.reader.(*sysfsHwmonReader); ok {
-			reader.configChipRules = rules
+		updateReadersChipRules(pm.reader, rules)
+	}
+}
+
+// updateReadersLogger recursively updates logger on all readers in a composite chain.
+func updateReadersLogger(r hwmonReader, logger *slog.Logger) {
+	switch reader := r.(type) {
+	case *sysfsHwmonReader:
+		reader.logger = logger
+	case *sysfsIIOReader:
+		reader.logger = logger
+	case *compositeReader:
+		reader.logger = logger
+		for _, sub := range reader.readers {
+			updateReadersLogger(sub, logger)
 		}
 	}
 }
 
-// NewHwmonPowerMeter creates a new hwmon-based power meter
+// updateReadersChipRules recursively updates chip rules on hwmon readers.
+func updateReadersChipRules(r hwmonReader, rules []ConfigChipRule) {
+	switch reader := r.(type) {
+	case *sysfsHwmonReader:
+		reader.configChipRules = rules
+	case *compositeReader:
+		for _, sub := range reader.readers {
+			updateReadersChipRules(sub, rules)
+		}
+	}
+}
+
+// compositeReader implements hwmonReader by trying multiple readers in order.
+// It combines zones from all readers that return results, providing fallback
+// support for devices that expose power data through different subsystems
+// (e.g., hwmon vs IIO).
+type compositeReader struct {
+	readers []hwmonReader
+	logger  *slog.Logger
+}
+
+func (c *compositeReader) Zones() ([]EnergyZone, error) {
+	var allZones []EnergyZone
+	for _, r := range c.readers {
+		zones, err := r.Zones()
+		if err != nil {
+			if c.logger != nil {
+				c.logger.Debug("reader returned no zones", "reader", fmt.Sprintf("%T", r), "error", err)
+			}
+			continue
+		}
+		allZones = append(allZones, zones...)
+	}
+	if len(allZones) == 0 {
+		return nil, fmt.Errorf("no power zones found from any reader")
+	}
+	return allZones, nil
+}
+
+// NewHwmonPowerMeter creates a new hwmon-based power meter.
+// It uses a composite reader that tries hwmon sysfs first, then falls back
+// to IIO sysfs for devices like Jetson Nano where power monitors use IIO drivers.
 func NewHwmonPowerMeter(sysfsPath string, opts ...HwmonOptionFn) (*hwmonPowerMeter, error) {
 	logger := slog.Default().With("service", "hwmon")
+	sysfsReader := &sysfsHwmonReader{
+		basePath: filepath.Join(sysfsPath, "class", "hwmon"),
+		logger:   logger,
+	}
+	iioReader := &sysfsIIOReader{
+		basePath: filepath.Join(sysfsPath, "bus", "iio", "devices"),
+		logger:   logger,
+	}
 	ret := &hwmonPowerMeter{
-		reader: &sysfsHwmonReader{
-			basePath: filepath.Join(sysfsPath, "class", "hwmon"),
-			logger:   logger,
+		reader: &compositeReader{
+			readers: []hwmonReader{sysfsReader, iioReader},
+			logger:  logger,
 		},
 		logger:     logger,
 		zoneFilter: []string{},
