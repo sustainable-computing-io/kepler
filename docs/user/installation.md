@@ -375,7 +375,7 @@ serviceMonitor:
 
 ### Common Issues
 
-1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set both `daemonset.securityContext.privileged=true` and `daemonset.securityContext.allowPrivilegeEscalation=true` (Kubernetes rejects `privileged: true` with `allowPrivilegeEscalation: false`)
+1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
 2. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 3. **Pod Crashes**: Review logs for hardware access issues
 4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,

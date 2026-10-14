@@ -91,7 +91,12 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
-            {{- toYaml .Values.daemonset.securityContext | nindent 12 }}
+            {{- $sc := deepCopy .Values.daemonset.securityContext }}
+            {{- if $sc.privileged }}
+            {{- /* Kubernetes rejects privileged with allowPrivilegeEscalation false */}}
+            {{- $_ := set $sc "allowPrivilegeEscalation" true }}
+            {{- end }}
+            {{- toYaml $sc | nindent 12 }}
           command:
             - /usr/bin/kepler
           args:
