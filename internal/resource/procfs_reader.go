@@ -23,6 +23,7 @@ type procInfo interface {
 	Environ() ([]string, error)
 	CmdLine() ([]string, error)
 	CPUTime() (float64, error)
+	StartTime() (uint64, error)
 }
 
 // procWrapper implements ProcInfo by wrapping procfs.Proc. This is needed because the procfs.Proc
@@ -79,6 +80,17 @@ func (p *procWrapper) CPUTime() (float64, error) {
 	}
 
 	return float64(st.STime+st.UTime) / userHZ, nil
+}
+
+// StartTime returns the time the process started, in clock ticks since boot. Together with
+// the PID it identifies a process, since the kernel reuses PIDs.
+func (p *procWrapper) StartTime() (uint64, error) {
+	st, err := p.proc.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	return st.Starttime, nil
 }
 
 // WrapProc wraps a procfs.Proc in a ProcInfo interface

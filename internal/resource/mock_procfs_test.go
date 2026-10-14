@@ -52,6 +52,19 @@ func (m *MockProcInfo) CPUTime() (float64, error) {
 	return args.Get(0).(float64), args.Error(1)
 }
 
+// StartTime returns the configured start time, or zero when a test does not care about it.
+// Returning a constant keeps every process looking like the same process across refreshes.
+func (m *MockProcInfo) StartTime() (uint64, error) {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "StartTime" {
+			args := m.Called()
+			return args.Get(0).(uint64), args.Error(1)
+		}
+	}
+
+	return 0, nil
+}
+
 // MockProcReader is a mock implementation of procInformer for testing
 type MockProcReader struct {
 	mock.Mock
