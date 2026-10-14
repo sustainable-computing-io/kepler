@@ -139,6 +139,16 @@ func TestContainerIDFromPathWithCgroup(t *testing.T) {
 
 		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
 	}, {
+		name: "cgroupfs pod path read from a private cgroup namespace",
+		path: "0::/../../pod5d496b2f-b6d9-490c-badd-d43585d05892/83c3260e5385ee19e7e7631e8ad9e1b470dbb217649665a855e1034de2c55fa9",
+
+		expected: expect{id: "83c3260e5385ee19e7e7631e8ad9e1b470dbb217649665a855e1034de2c55fa9", runtime: KubePodsRuntime},
+	}, {
+		name: "cgroupfs pod path in another qos class read from a private cgroup namespace",
+		path: "0::/../../../burstable/pod5a89bcaa-3509-4375-83e1-b9e7a5712123/a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee",
+
+		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
+	}, {
 		name: "guaranteed qos pod cgroup v2 systemd slice openshift",
 		path: "0::/kubepods.slice/kubepods-pod7922aa99_d4aa_4885_a953_82976860b23a.slice/crio-1c33afbc9e5aa6c69150d1af05254b562a4b17c313fc6153e3625cf456922bfe.scope",
 
