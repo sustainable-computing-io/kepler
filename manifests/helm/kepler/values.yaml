@@ -54,7 +54,8 @@ daemonset:
     seccompProfile:
       type: RuntimeDefault
     # The runtime's default AppArmor profile blocks reading other processes'
-    # /proc/<pid>/exe even with SYS_PTRACE. Dropped on Kubernetes < 1.30.
+    # /proc/<pid>/exe even with SYS_PTRACE. On Kubernetes < 1.30 the chart
+    # sets the equivalent pod annotation instead.
     appArmorProfile:
       type: Unconfined
 

@@ -22,6 +22,10 @@ spec:
         {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- /* Before 1.30 the AppArmor opt-out is a pod annotation, not a securityContext field */}}
+        {{- if and (semverCompare "<1.30-0" .Capabilities.KubeVersion.Version) (eq (dig "appArmorProfile" "type" "" (.Values.daemonset.securityContext | default dict)) "Unconfined") }}
+        container.apparmor.security.beta.kubernetes.io/kepler: unconfined
+        {{- end }}
         {{- with .Values.annotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
