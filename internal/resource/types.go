@@ -19,6 +19,8 @@ type Process struct {
 	Exe  string
 	Type ProcessType
 
+	StartTime uint64 // clock ticks since boot; differs when a PID is reused
+
 	Container      *Container
 	VirtualMachine *VirtualMachine
 

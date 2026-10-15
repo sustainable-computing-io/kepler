@@ -881,6 +881,84 @@ func TestTerminatedProcessTracking(t *testing.T) {
 
 		resInformer.AssertExpectations(t)
 	})
+
+	t.Run("reused PID starts from zero energy and the previous process terminates", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// Interval 1: PID 123 runs process1 and accumulates energy
+		snapshot1 := NewSnapshot()
+		snapshot1.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+
+		procs1 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				123: {PID: 123, Comm: "process1", Exe: "/usr/bin/process1", CPUTotalTime: 100.0, CPUTimeDelta: 30.0},
+			},
+			Terminated: map[int]*resource.Process{},
+		}
+
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs1).Once()
+
+		err = monitor.calculateProcessPower(NewSnapshot(), snapshot1)
+		require.NoError(t, err)
+
+		oldProc := snapshot1.Processes["123"]
+		require.NotNil(t, oldProc)
+
+		// Interval 2: the kernel hands PID 123 to a new process, so the PID is both terminated and running
+		snapshot2 := NewSnapshot()
+		snapshot2.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		const newCPUTimeDelta = 10.0
+		procs2 := &resource.Processes{
+			Running: map[int]*resource.Process{
+				123: {PID: 123, Comm: "process-new", Exe: "/usr/bin/process-new", CPUTotalTime: newCPUTimeDelta, CPUTimeDelta: newCPUTimeDelta},
+			},
+			Terminated: map[int]*resource.Process{
+				123: {PID: 123, Comm: "process1", Exe: "/usr/bin/process1", CPUTotalTime: 100.0},
+			},
+		}
+		resInformer.On("Processes").Return(procs2).Once()
+
+		err = monitor.calculateProcessPower(snapshot1, snapshot2)
+		require.NoError(t, err)
+
+		newProc := snapshot2.Processes["123"]
+		require.NotNil(t, newProc)
+		assert.Equal(t, "process-new", newProc.Comm)
+
+		terminatedProc := monitor.terminatedProcessesTracker.Items()["123"]
+		require.NotNil(t, terminatedProc, "the previous owner of PID 123 should be tracked as terminated")
+		assert.Equal(t, "process1", terminatedProc.Comm)
+
+		for _, zone := range zones {
+			// the new process only gets its own share of the interval's active energy
+			cpuTimeRatio := newCPUTimeDelta / tr.Node.ProcessTotalCPUTimeDelta
+			expected := Energy(cpuTimeRatio * float64(snapshot2.Node.Zones[zone].activeEnergy))
+			assert.Equal(t, expected, newProc.Zones[zone].EnergyTotal,
+				"reused PID must not inherit the previous process's energy in zone %s", zone.Name())
+
+			assert.Equal(t, oldProc.Zones[zone].EnergyTotal, terminatedProc.Zones[zone].EnergyTotal,
+				"the previous process keeps its own energy in zone %s", zone.Name())
+		}
+
+		resInformer.AssertExpectations(t)
+	})
 }
 
 func TestProcessPowerWithGPU(t *testing.T) {
@@ -1092,6 +1170,71 @@ func TestProcessPowerWithGPU(t *testing.T) {
 		proc456, exists := newSnapshot.Processes["456"]
 		require.True(t, exists)
 		assert.Equal(t, Energy(0), proc456.GPUEnergyTotal)
+	})
+
+	t.Run("calculateProcessPower_GPU_reused_PID_starts_from_zero", func(t *testing.T) {
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		fakeClock := testingclock.NewFakeClock(time.Now())
+
+		zones := CreateTestZones()
+		mockCPUMeter := &MockCPUPowerMeter{}
+		mockCPUMeter.On("Zones").Return(zones, nil)
+		mockCPUMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+
+		mockGPUMeter := new(MockGPUPowerMeter)
+		gpuDevices := []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-1234", Name: "Test GPU", Vendor: gpu.VendorNVIDIA},
+		}
+		mockGPUMeter.On("Vendor").Return(gpu.VendorNVIDIA)
+		mockGPUMeter.On("Devices").Return(gpuDevices)
+		mockGPUMeter.On("GetDevicePowerStats", 0).Return(gpu.GPUPowerStats{
+			TotalPower:  150.5,
+			IdlePower:   25.0,
+			ActivePower: 125.5,
+		}, nil)
+		mockGPUMeter.On("GetTotalEnergy", 0).Return(500*Joule, nil)
+		mockGPUMeter.On("GetProcessPower").Return(map[uint32]float64{123: 50.5}, nil)
+
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:                       logger,
+			cpu:                          mockCPUMeter,
+			clock:                        fakeClock,
+			resources:                    resInformer,
+			maxTerminated:                500,
+			minTerminatedEnergyThreshold: 1 * Joule,
+			gpuMeters:                    []gpu.GPUPowerMeter{mockGPUMeter},
+		}
+
+		err := monitor.Init()
+		require.NoError(t, err)
+
+		// PID 123 is running again, but the process that held 100J of GPU energy has terminated
+		tr := CreateTestResources(createOnly(testProcesses, testNode))
+		tr.Processes.Terminated[123] = &resource.Process{PID: 123, Comm: "previous-owner"}
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		prevSnapshot.Processes["123"] = &Process{
+			PID:            123,
+			GPUPower:       50.5,
+			GPUEnergyTotal: 100 * Joule,
+			Zones:          make(ZoneUsageMap),
+		}
+
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(5*time.Second), 0.5)
+
+		err = monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		proc123, exists := newSnapshot.Processes["123"]
+		require.True(t, exists)
+		assert.Equal(t, 50.5, proc123.GPUPower)
+		assert.Equal(t, Energy(0), proc123.GPUEnergyTotal,
+			"a reused PID must not inherit the previous process's GPU energy")
 	})
 
 	t.Run("calculateProcessPower_GPU_error_continues", func(t *testing.T) {

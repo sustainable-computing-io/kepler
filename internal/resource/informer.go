@@ -173,6 +173,7 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 
 	// construct current running processes
 	procsRunning := make(map[int]*Process, len(procs))
+	procsTerminated := make(map[int]*Process)
 
 	// collect categorized processes during iteration
 	containerProcs := make([]*Process, 0)
@@ -183,7 +184,7 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	for _, p := range procs {
 		pid := p.PID()
 		// start by updating the process
-		proc, err := ri.updateProcessCache(p)
+		proc, replaced, err := ri.updateProcessCache(p)
 		if err != nil {
 			if os.IsNotExist(err) {
 				ri.logger.Debug("Process not found", "pid", pid)
@@ -199,6 +200,10 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 			refreshErrs = errors.Join(refreshErrs, err)
 			continue
 		}
+		if replaced != nil {
+			// the PID was reused, so the process that held it has ended
+			procsTerminated[pid] = replaced
+		}
 		procsRunning[pid] = proc
 
 		// categorize processes during iteration
@@ -211,7 +216,6 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	}
 
 	// Find terminated processes
-	procsTerminated := make(map[int]*Process)
 	for pid, proc := range ri.procCache {
 		if _, isRunning := procsRunning[pid]; !isRunning {
 			procsTerminated[pid] = proc
@@ -454,22 +458,32 @@ func (ri *resourceInformer) updateVMCache(proc *Process) *VirtualMachine {
 	return cached
 }
 
-// updateProcessCache updates the process cache with the latest information and returns the updated process
-func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) {
+// updateProcessCache updates the process cache with the latest information and returns the updated process.
+// If the PID now belongs to a different process than the cached one, the cached process is returned as well.
+func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, *Process, error) {
 	pid := proc.PID()
 
-	if cached, exists := ri.procCache[pid]; exists {
-		err := populateProcessFields(cached, proc)
-		return cached, err
+	cached := ri.procCache[pid]
+	if cached != nil {
+		startTime, err := proc.StartTime()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if startTime == cached.StartTime {
+			err = populateProcessFields(cached, proc)
+			return cached, nil, err
+		}
 	}
 
+	// A new PID, or one the kernel handed to a new process: nothing cached applies to it.
 	newProc, err := newProcess(proc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ri.procCache[pid] = newProc
-	return newProc, nil
+	return newProc, cached, nil
 }
 
 func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime bool) *Container {
@@ -608,8 +622,14 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 
 // newProcess creates a new Process with static information filled in
 func newProcess(proc procInfo) (*Process, error) {
+	startTime, err := proc.StartTime()
+	if err != nil {
+		return nil, err
+	}
+
 	p := &Process{
-		PID: proc.PID(),
+		PID:       proc.PID(),
+		StartTime: startTime,
 	}
 
 	if err := populateProcessFields(p, proc); err != nil {
