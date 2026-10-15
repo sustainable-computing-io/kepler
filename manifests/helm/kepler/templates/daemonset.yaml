@@ -91,10 +91,17 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
-            {{- $sc := deepCopy .Values.daemonset.securityContext }}
+            {{- $sc := deepCopy (.Values.daemonset.securityContext | default dict) }}
+            {{- if .Values.config.experimental.gpu.enabled }}
+            {{- /* GPU device nodes reach the container only when it is privileged */}}
+            {{- $_ := set $sc "privileged" true }}
+            {{- end }}
             {{- if $sc.privileged }}
             {{- /* Kubernetes rejects privileged with allowPrivilegeEscalation false */}}
             {{- $_ := set $sc "allowPrivilegeEscalation" true }}
+            {{- end }}
+            {{- if semverCompare "<1.30-0" .Capabilities.KubeVersion.Version }}
+            {{- $_ := unset $sc "appArmorProfile" }}
             {{- end }}
             {{- toYaml $sc | nindent 12 }}
           command:

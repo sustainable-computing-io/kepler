@@ -116,6 +116,7 @@ What this changes:
 - Adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` into a 200Mi `emptyDir` using `cp -P` (preserves the driver symlink chain; `cp -L` can exceed the size limit when leftover driver versions are present).
 - Mounts that `emptyDir` read-only at `/usr/local/nvidia/lib64` and sets `LD_LIBRARY_PATH=/usr/local/nvidia/lib64`.
 - Mounts the host driver directory (default `/run/nvidia/driver`, overridable via `daemonset.nvidia.driverPath`) with `DirectoryOrCreate` so non-GPU nodes still schedule.
+- Runs the Kepler container privileged (and with `allowPrivilegeEscalation: true`), since the GPU device nodes reach the container only that way when the pod does not run under the NVIDIA runtime.
 
 Defaults assume the standard GPU Operator layout. Override via `values.yaml` if needed:
 
@@ -341,6 +342,8 @@ daemonset:
       add: [SYS_PTRACE]
     seccompProfile:
       type: RuntimeDefault
+    appArmorProfile:
+      type: Unconfined
 
 # Resource limits
 resources:

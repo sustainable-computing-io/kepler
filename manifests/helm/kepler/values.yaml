@@ -53,6 +53,10 @@ daemonset:
       add: [SYS_PTRACE]
     seccompProfile:
       type: RuntimeDefault
+    # The runtime's default AppArmor profile blocks reading other processes'
+    # /proc/<pid>/exe even with SYS_PTRACE. Dropped on Kubernetes < 1.30.
+    appArmorProfile:
+      type: Unconfined
 
   resources:
     {}
@@ -157,8 +161,9 @@ config:
       chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
     gpu:
       # Enabling this also triggers the chart's NVML init container and
-      # LD_LIBRARY_PATH injection (daemonset.nvidia.*). Leave false if you
-      # do not want GPU power monitoring.
+      # LD_LIBRARY_PATH injection (daemonset.nvidia.*), and runs the Kepler
+      # container privileged so it can reach the GPU device nodes. Leave
+      # false if you do not want GPU power monitoring.
       enabled: false # Enable experimental GPU power monitoring
       idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
       dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
