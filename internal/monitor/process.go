@@ -86,6 +86,7 @@ func newProcess(proc *resource.Process, zones NodeZoneUsageMap) *Process {
 		Comm:         proc.Comm,
 		Exe:          proc.Exe,
 		Type:         proc.Type,
+		StartTime:    proc.StartTime,
 		CPUTotalTime: proc.CPUTotalTime,
 		Zones:        make(ZoneUsageMap, len(zones)),
 	}
@@ -203,8 +204,16 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		pid := process.StringID() // to string
 
 		prevProc := prev.Processes[pid]
-		if _, reused := procs.Terminated[proc.PID]; reused {
+		_, listedTerminated := procs.Terminated[proc.PID]
+		if prevProc != nil && (listedTerminated || prevProc.StartTime != process.StartTime) {
 			// A new process took over this PID; it must not inherit the energy of the one that held it.
+			// The informer lists the PID as terminated only in the refresh that sees the takeover, and
+			// the interval of that refresh may not have produced a snapshot, so the start time kept in
+			// the previous snapshot decides too.
+			if !listedTerminated {
+				pm.logger.Debug("PID reused while an interval was lost, tracking the previous process as terminated", "pid", proc.PID)
+				pm.terminatedProcessesTracker.Add(prevProc.Clone())
+			}
 			prevProc = nil
 		}
 
