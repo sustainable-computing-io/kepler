@@ -344,6 +344,8 @@ daemonset:
       type: RuntimeDefault
     appArmorProfile:
       type: Unconfined
+    seLinuxOptions:
+      type: spc_t
 
 # Resource limits
 resources:
