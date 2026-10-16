@@ -1660,27 +1660,18 @@ func TestGPUPowerCollector_SetDCGMMetricsCacheTTL(t *testing.T) {
 		assert.Equal(t, time.Duration(0), *collector.dcgmMetricsCacheTTL)
 	})
 
-	t.Run("after init with MIG initializes unavailable DCGM", func(t *testing.T) {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = fmt.Fprint(w, "# HELP\nDCGM_FI_PROF_GR_ENGINE_ACTIVE{gpu=\"0\",GPU_I_ID=\"1\",GPU_I_PROFILE=\"1g.5gb\"} 0.5\n")
-		}))
-		defer ts.Close()
-
+	t.Run("after init with MIG and no backend stores TTL", func(t *testing.T) {
 		collector := &GPUPowerCollector{
 			logger:       slog.Default(),
 			initialized:  true,
 			sharingModes: map[int]gpu.SharingMode{0: gpu.SharingModePartitioned},
-			dcgmEndpoint: ts.URL + "/metrics",
 		}
 
 		collector.SetDCGMMetricsCacheTTL(500 * time.Millisecond)
-		require.NotNil(t, collector.dcgm, "DCGM should be initialized after SetDCGMMetricsCacheTTL")
-		assert.True(t, collector.dcgm.IsInitialized())
 
-		dcgm, ok := collector.dcgm.(*DCGMExporterBackend)
-		require.True(t, ok)
-		assert.Equal(t, 500*time.Millisecond, dcgm.metricsCacheTTL)
+		assert.Nil(t, collector.dcgm, "DCGM should not be initialized by the TTL setter")
+		require.NotNil(t, collector.dcgmMetricsCacheTTL)
+		assert.Equal(t, 500*time.Millisecond, *collector.dcgmMetricsCacheTTL)
 	})
 
 	t.Run("after init with MIG updates DCGM in place", func(t *testing.T) {

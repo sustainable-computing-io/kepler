@@ -480,7 +480,8 @@ func (c *GPUPowerCollector) SetDCGMEndpoint(endpoint string) {
 
 // SetDCGMMetricsCacheTTL sets the dcgm-exporter metrics cache TTL.
 // Can be called before or after Init(). Updates an existing DCGM exporter
-// backend in place; initializes one if MIG is enabled and no backend exists.
+// backend in place; otherwise the TTL is stored and applied when the backend
+// is next initialized.
 func (c *GPUPowerCollector) SetDCGMMetricsCacheTTL(ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -490,8 +491,7 @@ func (c *GPUPowerCollector) SetDCGMMetricsCacheTTL(ttl time.Duration) {
 	if c.initialized && c.hasMIG() {
 		if dcgm, ok := c.dcgm.(*DCGMExporterBackend); ok {
 			dcgm.SetMetricsCacheTTL(ttl)
-		} else if c.dcgm == nil {
-			c.initDCGM()
+			c.logger.Debug("applied metrics cache TTL to DCGM backend", "ttl", ttl)
 		}
 	}
 }

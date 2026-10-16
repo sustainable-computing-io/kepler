@@ -175,7 +175,7 @@ experimental:   # experimental features (no stability guarantees)
     enabled: false                    # Enable GPU power monitoring (default: false)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
     dcgmEndpoint: ""                  # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
-    metricsCacheTTL: 2s               # dcgm-exporter metrics cache TTL for MIG, 0 disables cache (default: 2s)
+    metricsCacheTTL: 2s               # dcgm-exporter metrics cache TTL for MIG, 0s disables cache (default: 2s)
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
