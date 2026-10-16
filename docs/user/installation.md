@@ -116,6 +116,7 @@ What this changes:
 - Adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` into a 200Mi `emptyDir` using `cp -P` (preserves the driver symlink chain; `cp -L` can exceed the size limit when leftover driver versions are present).
 - Mounts that `emptyDir` read-only at `/usr/local/nvidia/lib64` and sets `LD_LIBRARY_PATH=/usr/local/nvidia/lib64`.
 - Mounts the host driver directory (default `/run/nvidia/driver`, overridable via `daemonset.nvidia.driverPath`) with `DirectoryOrCreate` so non-GPU nodes still schedule.
+- Runs the Kepler container privileged (and with `allowPrivilegeEscalation: true`), since the GPU device nodes reach the container only that way when the pod does not run under the NVIDIA runtime.
 
 Defaults assume the standard GPU Operator layout. Override via `values.yaml` if needed:
 
@@ -333,7 +334,18 @@ image:
 daemonset:
   hostPID: true
   securityContext:
-    privileged: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: Unconfined
+    seLinuxOptions:
+      type: spc_t
 
 # Resource limits
 resources:
@@ -368,7 +380,7 @@ serviceMonitor:
 
 ### Common Issues
 
-1. **Permission Denied**: Ensure privileged security context is enabled
+1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
 2. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 3. **Pod Crashes**: Review logs for hardware access issues
 4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
