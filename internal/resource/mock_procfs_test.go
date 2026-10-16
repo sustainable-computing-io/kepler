@@ -47,9 +47,9 @@ func (m *MockProcInfo) CmdLine() ([]string, error) {
 	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockProcInfo) CPUTime() (float64, error) {
+func (m *MockProcInfo) CPUStat() (procCPUStat, error) {
 	args := m.Called()
-	return args.Get(0).(float64), args.Error(1)
+	return args.Get(0).(procCPUStat), args.Error(1)
 }
 
 // MockProcReader is a mock implementation of procInformer for testing
