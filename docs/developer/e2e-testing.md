@@ -233,7 +233,7 @@ Standard GitHub-hosted runners use virtualized environments without access to ha
 
 The GPU tests run against a real NVIDIA A10 on a CNCF-hosted GPU runner (`oracle-vm-gpu-a10-1`). These GPUs are shared by all CNCF projects, so the workflow does not run on every pull request:
 
-- **On demand**: a maintainer runs it for a pull request that touches GPU code, from Actions > GPU e2e > Run workflow. Fill in the PR number and the commit you reviewed. The run stops before using a GPU if the PR is closed or has new commits since your review.
+- **On demand**: a maintainer runs it for a pull request that touches GPU code, from Actions > GPU e2e > Run workflow. Fill in the PR number and the commit you reviewed; the commit is required whenever a PR number is given. The run stops before using a GPU if the PR is closed or has new commits since your review.
 - **Weekly**: every Monday it tests `main`. If that run fails, it opens an issue named "Weekly GPU e2e run failed", or comments on the one already open.
 
 For a pull request, the `GPU e2e` status on its latest commit goes to pending as soon as the run starts, then to passed or failed, and links to the run. The run summary shows the GPU, each test's result, Kepler's GPU power next to `nvidia-smi` at idle and under load, and the GPU power over the run. The full test output and the power samples are kept as the `gpu-e2e-logs` artifact for 7 days.

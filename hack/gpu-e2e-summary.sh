@@ -83,16 +83,19 @@ skip_reasons=$(awk '
 		print test "\t" line
 	}' "$log")
 
-# GPU details from the driver.
-gpu_name="unknown" driver="unknown" memory="unknown" cuda="unknown"
+# GPU details from the driver. Best effort: the summary matters most when
+# something is broken, so a failing nvidia-smi must not stop it.
+gpu_name="" driver="" memory="" cuda=""
 if command -v nvidia-smi >/dev/null 2>&1; then
-	IFS=',' read -r gpu_name driver memory < <(nvidia-smi --query-gpu=name,driver_version,memory.total \
-		--format=csv,noheader | head -n 1) || true
+	gpu_info=$(nvidia-smi --query-gpu=name,driver_version,memory.total \
+		--format=csv,noheader 2>/dev/null | head -n 1) || true
+	IFS=',' read -r gpu_name driver memory <<<"$gpu_info" || true
 	gpu_name=$(echo "$gpu_name" | xargs)
 	driver=$(echo "$driver" | xargs)
 	memory=$(echo "$memory" | xargs)
-	cuda=$(nvidia-smi | sed -nE 's/.*CUDA Version: ([0-9.]+).*/\1/p' | head -n 1)
+	cuda=$(nvidia-smi 2>/dev/null | sed -nE 's/.*CUDA Version: ([0-9.]+).*/\1/p' | head -n 1) || true
 fi
+gpu_name=${gpu_name:-unknown} driver=${driver:-unknown} memory=${memory:-unknown} cuda=${cuda:-unknown}
 
 # Measurements logged by the tests.
 idle_smi=$(first 'idle: nvidia-smi=([0-9.]+) W')

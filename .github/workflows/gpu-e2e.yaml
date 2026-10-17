@@ -13,7 +13,7 @@ on: # yamllint disable-line rule:truthy
         required: false
         type: string
       sha:
-        description: Commit of the PR you reviewed (the run stops if the PR has moved on)
+        description: Commit of the PR you reviewed (required with a PR number, the run stops if the PR has moved on)
         required: false
         type: string
   schedule:
@@ -57,9 +57,11 @@ jobs:
             echo "::error::The PR number must be digits only, got '${PR}'"
             exit 1
           fi
+          # The reviewed commit is required for a PR, so only code someone has
+          # read runs on the GPU runner.
           REVIEWED_SHA=${REVIEWED_SHA,,}
-          if [ -n "$REVIEWED_SHA" ] && ! [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
-            echo "::error::The reviewed commit must be a commit SHA, got '${REVIEWED_SHA}'"
+          if ! [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Give the commit of PR #${PR} you reviewed (7 to 40 hex characters), got '${REVIEWED_SHA}'"
             exit 1
           fi
 
@@ -69,7 +71,7 @@ jobs:
             echo "::error::PR #${PR} is ${state}, not open"
             exit 1
           fi
-          if [ -n "$REVIEWED_SHA" ] && [[ "$head" != "$REVIEWED_SHA"* ]]; then
+          if [[ "$head" != "$REVIEWED_SHA"* ]]; then
             echo "::error::PR #${PR} moved from ${REVIEWED_SHA} to ${head:0:12}. Review the new commits and run again."
             exit 1
           fi
@@ -147,6 +149,8 @@ jobs:
       - name: Build Kepler and the e2e test binary
         run: CGO_ENABLED=1 make test-e2e
 
+      # The log, the power samples and the PID file live in RUNNER_TEMP, which
+      # the runner empties for every job, so no older run can leak into them.
       - name: Start sampling GPU power
         run: |
           start=$(date +%s)
@@ -156,14 +160,14 @@ jobs:
               echo "$(($(date +%s) - start)),${watts}"
               sleep 1
             done
-          ) >> /tmp/gpu-power.csv 2> /dev/null &
-          echo $! > /tmp/gpu-power.pid
+          ) >> "$RUNNER_TEMP/gpu-power.csv" 2> /dev/null &
+          echo $! > "$RUNNER_TEMP/gpu-power.pid"
 
       - name: Run the GPU e2e tests
         run: |
           set +e
           sudo ./bin/kepler-e2e.test -test.v -test.timeout=20m -test.run TestGPU \
-            -gpu.real -gpu.load-image="$DCGM_IMAGE" 2>&1 | tee /tmp/gpu-e2e.log
+            -gpu.real -gpu.load-image="$DCGM_IMAGE" 2>&1 | tee "$RUNNER_TEMP/gpu-e2e.log"
           code=${PIPESTATUS[0]}
           echo "GPU_E2E_EXIT_CODE=${code}" >> "$GITHUB_ENV"
           exit "$code"
@@ -176,10 +180,10 @@ jobs:
           GPU_E2E_RUNNER: oracle-vm-gpu-a10-1
           GPU_E2E_ARTIFACT: gpu-e2e-logs
         run: |
-          if [ -f /tmp/gpu-power.pid ]; then
-            kill "$(cat /tmp/gpu-power.pid)" 2> /dev/null || true
+          if [ -f "$RUNNER_TEMP/gpu-power.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/gpu-power.pid")" 2> /dev/null || true
           fi
-          bash workflow-src/hack/gpu-e2e-summary.sh /tmp/gpu-e2e.log /tmp/gpu-power.csv >> "$GITHUB_STEP_SUMMARY"
+          bash workflow-src/hack/gpu-e2e-summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs
         if: always()
@@ -187,8 +191,8 @@ jobs:
         with:
           name: gpu-e2e-logs
           path: |
-            /tmp/gpu-e2e.log
-            /tmp/gpu-power.csv
+            ${{ runner.temp }}/gpu-e2e.log
+            ${{ runner.temp }}/gpu-power.csv
           retention-days: 7
 
   report:
