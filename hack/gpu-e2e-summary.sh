@@ -116,15 +116,30 @@ if [ -n "$sha" ]; then
 	commit_ref="[\`${sha:0:7}\`](${server}/${repo}/commit/${sha})"
 fi
 
+# The test binary prints a standalone PASS or FAIL line when it finishes. A
+# run that was cancelled or timed out has neither, and may have no exit code.
+finished=false
+if grep -qE '^(PASS|FAIL)$' "$log"; then
+	finished=true
+fi
+
 # Heading and one-line verdict.
 if [ "$total" -eq 0 ]; then
 	echo "## ⚠️ GPU e2e did not report any tests"
 	echo
 	echo "The test binary exited with code \`${exit_code:-unknown}\` before any test finished. The logs below and in the artifact show why."
-elif [ "$failed" -gt 0 ] || { [ -n "$exit_code" ] && [ "$exit_code" != 0 ]; }; then
+elif [ "$failed" -gt 0 ]; then
 	echo "## ❌ GPU e2e failed on ${gpu_name}"
 	echo
 	echo "${failed} of ${total} GPU tests failed on \`${target}\` at ${commit_ref}. Details are below each failing test."
+elif [ -n "$exit_code" ] && [ "$exit_code" != 0 ]; then
+	echo "## ❌ GPU e2e failed on ${gpu_name}"
+	echo
+	echo "The test binary exited with code \`${exit_code}\` on \`${target}\` at ${commit_ref} without a failing test, for example after a timeout or a crash. The logs show why."
+elif [ "$finished" != true ]; then
+	echo "## ⚠️ GPU e2e did not finish on ${gpu_name}"
+	echo
+	echo "The run on \`${target}\` at ${commit_ref} stopped before the tests finished, for example because it was cancelled. Only the ${total} tests that finished are listed below."
 else
 	echo "## ✅ GPU e2e passed on ${gpu_name}"
 	echo
