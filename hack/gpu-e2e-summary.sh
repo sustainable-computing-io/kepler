@@ -209,26 +209,40 @@ if [ -n "$idle_smi$load_smi" ]; then
 	echo
 fi
 
-# Power over time, from the nvidia-smi samples.
+# Power over time, from the nvidia-smi samples. The x axis follows the
+# timestamps in the samples, not their count: each sample also waits for
+# nvidia-smi, so samples are not exactly one second apart.
 if [ -n "$samples" ] && [ -s "$samples" ]; then
 	chart=$(awk -F ',' '
-		NF >= 2 && $2 + 0 == $2 { n++; w[n] = $2; if ($2 > max) max = $2 }
+		NF >= 2 && $1 + 0 == $1 && $2 + 0 == $2 {
+			n++
+			t[n] = $1
+			w[n] = $2
+			if ($2 > max) max = $2
+		}
 		END {
 			if (n < 2) exit
+			span = t[n] - t[1]
+			if (span <= 0) exit
+			# Average the samples in each time bucket; an empty bucket keeps
+			# the value of the bucket before it.
 			buckets = n < 90 ? n : 90
-			size = n / buckets
+			width = span / buckets
+			for (i = 1; i <= n; i++) {
+				b = int((t[i] - t[1]) / width)
+				if (b >= buckets) b = buckets - 1
+				sum[b] += w[i]
+				count[b]++
+			}
 			line = ""
+			value = w[1]
 			for (b = 0; b < buckets; b++) {
-				from = int(b * size) + 1
-				to = int((b + 1) * size)
-				if (to < from) to = from
-				sum = 0
-				for (i = from; i <= to; i++) sum += w[i]
-				line = line (b ? ", " : "") sprintf("%.1f", sum / (to - from + 1))
+				if (count[b]) value = sum[b] / count[b]
+				line = line (b ? ", " : "") sprintf("%.1f", value)
 			}
 			top = (int(max / 25) + 1) * 25
 			if (top - max < 10) top += 25
-			printf "x-axis \"seconds\" 0 --> %d\n", n
+			printf "x-axis \"seconds\" 0 --> %d\n", span + 0.5
 			printf "y-axis \"watts\" 0 --> %d\n", top
 			printf "line [%s]\n", line
 		}' "$samples")
