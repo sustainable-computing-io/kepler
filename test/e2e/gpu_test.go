@@ -463,10 +463,10 @@ func gpuLoadBinary(t *testing.T) string {
 	return "/usr/bin/dcgmproftester" + string(match[1])
 }
 
-// startGPULoad starts dcgmproftester on tensor cores (field 1004) in the
-// background and removes the container when the test ends, even if it fails
-// to start. The container is kept until then so its logs can explain a load
-// that failed to start.
+// startGPULoad starts dcgmproftester on the tensor cores (field 1004) of GPU 0
+// in the background and removes the container when the test ends, even if it
+// fails to start. The container is kept until then so its logs can explain a
+// load that failed to start.
 func startGPULoad(t *testing.T) *gpuLoad {
 	t.Helper()
 
@@ -485,8 +485,11 @@ func startGPULoad(t *testing.T) *gpuLoad {
 
 	ctx, cancel := context.WithTimeout(context.Background(), gpuLoadStartTimeout)
 	defer cancel()
+	// Only GPU 0: dcgmproftester starts a worker for each GPU it can see, and
+	// the attribution checks expect one load process to hold all of the node's
+	// active GPU power. Any other GPUs stay idle.
 	cmd := exec.CommandContext(ctx, "docker", "run", "--detach",
-		"--gpus", "all", "--cap-add", "SYS_ADMIN", "--name", name,
+		"--gpus", "device=0", "--cap-add", "SYS_ADMIN", "--name", name,
 		"--entrypoint", binary, testConfig.gpuLoadImage,
 		"--no-dcgm-validation", "-t", "1004", "-d", "120")
 	var stderr bytes.Buffer
