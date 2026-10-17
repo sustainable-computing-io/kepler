@@ -40,6 +40,14 @@ const (
 	// moments, and an idle GPU's reading moves by a watt or so.
 	smiPercentTolerance = 0.05
 	smiAbsTolerance     = 3.0
+
+	// commandTimeout bounds one-off nvidia-smi and docker calls made outside
+	// the polling loops, so a stuck command fails the test instead of hanging it.
+	commandTimeout = 30 * time.Second
+
+	// gpuLoadStartTimeout bounds docker run, which pulls the DCGM image, a few
+	// GB, the first time it runs on a host.
+	gpuLoadStartTimeout = 10 * time.Minute
 )
 
 // setupKeplerForGPUTest starts Kepler for a GPU test. With -gpu.real it does
@@ -283,6 +291,7 @@ func TestGPUWorkloadAttribution(t *testing.T) {
 	defer cancel()
 
 	var snapshot *common.MetricsSnapshot
+	var loadSMI map[string]float64
 	err = common.WaitForCondition(ctx, 2*time.Second, func() bool {
 		s, err := scraper.TakeSnapshot()
 		if err != nil {
@@ -293,10 +302,11 @@ func TestGPUWorkloadAttribution(t *testing.T) {
 		if !found || loadWatts <= 0 || active < minLoadActiveWatts {
 			return false
 		}
-		if !gpuWattsAgree(gpuWattsByUUID(s.GetAllWithName("kepler_node_gpu_watts")), nvidiaSMIWatts(t)) {
+		smi, err := nvidiaSMIWatts(ctx)
+		if err != nil || !gpuWattsAgree(gpuWattsByUUID(s.GetAllWithName("kepler_node_gpu_watts")), smi) {
 			return false
 		}
-		snapshot = s
+		snapshot, loadSMI = s, smi
 		return true
 	})
 	require.NoError(t, err, "Kepler never attributed GPU power to the load (pid %s)", pid)
@@ -311,7 +321,7 @@ func TestGPUWorkloadAttribution(t *testing.T) {
 
 	t.Logf("under load: nvidia-smi=%.2f W, node total=%.2f W, idle=%.2f W, active=%.2f W, "+
 		"running processes=%.2f W, load pid=%.2f W, load container=%.2f W",
-		sumWatts(nvidiaSMIWatts(t)), total, idle, active, running, loadWatts, containerWatts)
+		sumWatts(loadSMI), total, idle, active, running, loadWatts, containerWatts)
 
 	// Running processes share all of the node's active GPU power.
 	assertWithinTolerance(t, active, running, powerTolerance, absolutePowerTolerance,
@@ -352,13 +362,13 @@ func gpuWattsByUUID(metrics []common.Metric) map[string]float64 {
 }
 
 // nvidiaSMIWatts returns nvidia-smi's GPU power keyed by GPU UUID. GPUs
-// without a power reading are left out.
-func nvidiaSMIWatts(t *testing.T) map[string]float64 {
-	t.Helper()
-
-	out, err := exec.Command("nvidia-smi", "--query-gpu=uuid,power.draw",
+// without a power reading are left out. ctx bounds the nvidia-smi call.
+func nvidiaSMIWatts(ctx context.Context) (map[string]float64, error) {
+	out, err := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=uuid,power.draw",
 		"--format=csv,noheader,nounits").Output()
-	require.NoError(t, err, "nvidia-smi failed")
+	if err != nil {
+		return nil, fmt.Errorf("nvidia-smi: %w", err)
+	}
 
 	watts := make(map[string]float64)
 	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
@@ -372,7 +382,7 @@ func nvidiaSMIWatts(t *testing.T) map[string]float64 {
 		}
 		watts[strings.TrimSpace(uuid)] = value
 	}
-	return watts
+	return watts, nil
 }
 
 // waitForKeplerToMatchNvidiaSMI waits until Kepler's GPU power agrees with
@@ -385,17 +395,19 @@ func waitForKeplerToMatchNvidiaSMI(t *testing.T, scraper *common.MetricsScraper)
 	defer cancel()
 
 	matches := 0
+	var smiErr error
 	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
 		kepler = keplerGPUWatts(scraper)
-		smi = nvidiaSMIWatts(t)
-		if gpuWattsAgree(kepler, smi) {
+		smi, smiErr = nvidiaSMIWatts(ctx)
+		if smiErr == nil && gpuWattsAgree(kepler, smi) {
 			matches++
 		} else {
 			matches = 0
 		}
 		return matches >= 3
 	})
-	require.NoError(t, err, "Kepler GPU power never matched nvidia-smi: kepler=%v nvidia-smi=%v", kepler, smi)
+	require.NoError(t, err, "Kepler GPU power never matched nvidia-smi: kepler=%v nvidia-smi=%v (last nvidia-smi error: %v)",
+		kepler, smi, smiErr)
 	return kepler, smi
 }
 
@@ -442,7 +454,9 @@ func gpuLoadBinary(t *testing.T) string {
 	if testConfig.gpuLoadBinary != "" {
 		return testConfig.gpuLoadBinary
 	}
-	out, err := exec.Command("nvidia-smi").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "nvidia-smi").Output()
 	require.NoError(t, err, "nvidia-smi failed")
 	match := regexp.MustCompile(`CUDA Version: (\d+)`).FindSubmatch(out)
 	require.NotNil(t, match, "nvidia-smi did not report a CUDA version")
@@ -450,8 +464,9 @@ func gpuLoadBinary(t *testing.T) string {
 }
 
 // startGPULoad starts dcgmproftester on tensor cores (field 1004) in the
-// background and removes the container when the test ends. The container is
-// kept until then so its logs can explain a load that failed to start.
+// background and removes the container when the test ends, even if it fails
+// to start. The container is kept until then so its logs can explain a load
+// that failed to start.
 func startGPULoad(t *testing.T) *gpuLoad {
 	t.Helper()
 
@@ -459,7 +474,18 @@ func startGPULoad(t *testing.T) *gpuLoad {
 	t.Logf("Starting GPU load: %s from %s", binary, testConfig.gpuLoadImage)
 
 	name := fmt.Sprintf("kepler-e2e-gpu-load-%d", time.Now().UnixNano())
-	cmd := exec.Command("docker", "run", "--detach",
+
+	// Register the cleanup before docker run: docker can create the container
+	// and then fail to start it, and the container must not outlive the test.
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+		defer cancel()
+		_ = exec.CommandContext(ctx, "docker", "rm", "--force", name).Run() // best-effort cleanup
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), gpuLoadStartTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "docker", "run", "--detach",
 		"--gpus", "all", "--cap-add", "SYS_ADMIN", "--name", name,
 		"--entrypoint", binary, testConfig.gpuLoadImage,
 		"--no-dcgm-validation", "-t", "1004", "-d", "120")
@@ -468,10 +494,6 @@ func startGPULoad(t *testing.T) *gpuLoad {
 
 	out, err := cmd.Output()
 	require.NoError(t, err, "Failed to start GPU load: %s", stderr.String())
-
-	t.Cleanup(func() {
-		_ = exec.Command("docker", "rm", "--force", name).Run() // best-effort cleanup
-	})
 
 	containerID := strings.TrimSpace(string(out))
 	require.Len(t, containerID, 64, "docker run should print the full container ID")
@@ -488,13 +510,13 @@ func waitForGPULoadPID(t *testing.T, load *gpuLoad) string {
 
 	var pid string
 	err := common.WaitForCondition(ctx, time.Second, func() bool {
-		top, err := exec.Command("docker", "top", load.name, "-eo", "pid").Output()
+		top, err := exec.CommandContext(ctx, "docker", "top", load.name, "-eo", "pid").Output()
 		if err != nil {
 			return false
 		}
 		containerPIDs := strings.Fields(string(top))
 
-		apps, err := exec.Command("nvidia-smi", "--query-compute-apps=pid",
+		apps, err := exec.CommandContext(ctx, "nvidia-smi", "--query-compute-apps=pid",
 			"--format=csv,noheader").Output()
 		if err != nil {
 			return false
@@ -508,7 +530,9 @@ func waitForGPULoadPID(t *testing.T, load *gpuLoad) string {
 		return false
 	})
 	if err != nil {
-		logs, _ := exec.Command("docker", "logs", "--tail", "20", load.name).CombinedOutput()
+		logCtx, logCancel := context.WithTimeout(context.Background(), commandTimeout)
+		defer logCancel()
+		logs, _ := exec.CommandContext(logCtx, "docker", "logs", "--tail", "20", load.name).CombinedOutput()
 		require.NoError(t, err, "GPU load never showed up in nvidia-smi, container logs:\n%s", logs)
 	}
 	return pid
