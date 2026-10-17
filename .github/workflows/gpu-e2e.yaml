@@ -25,7 +25,9 @@ permissions: read-all
 jobs:
   check:
     name: Quick check
-    if: github.repository_owner == 'sustainable-computing-io'
+    # Only the upstream repository: copies of this workflow elsewhere, even in
+    # the same organization, must never reach the GPU runner group.
+    if: github.repository == 'sustainable-computing-io/kepler'
     runs-on: ubuntu-latest
     permissions:
       contents: read
