@@ -1,0 +1,245 @@
+name: GPU e2e
+
+# Runs the GPU e2e tests (test/e2e/gpu_test.go with -gpu.real) on the CNCF
+# A10 GPU runner. The GPUs are shared by all CNCF projects, so this only runs
+# when a maintainer starts it for a PR that touches GPU code, and once a week
+# on main. See docs/developer/e2e-testing.md.
+
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to test (leave empty to test the branch picked above)
+        required: false
+        type: string
+      sha:
+        description: Commit of the PR you reviewed (required with a PR number, the run stops if the PR has moved on)
+        required: false
+        type: string
+  schedule:
+    - cron: 0 6 * * 1 # Mondays 06:00 UTC, tests main
+
+# default permissions as read only
+permissions: read-all
+
+jobs:
+  check:
+    name: Quick check
+    # Only the upstream repository: copies of this workflow elsewhere, even in
+    # the same organization, must never reach the GPU runner group.
+    if: github.repository == 'sustainable-computing-io/kepler'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      target: ${{ steps.target.outputs.target }}
+      pr: ${{ steps.target.outputs.pr }}
+    steps:
+      - name: Resolve what to test
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REVIEWED_SHA: ${{ inputs.sha }}
+        run: |
+          if [ -z "$PR" ]; then
+            echo "Testing ${GITHUB_REF_NAME} at ${GITHUB_SHA}"
+            {
+              echo "sha=${GITHUB_SHA}"
+              echo "target=${GITHUB_REF_NAME}"
+              echo "pr="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "::error::The PR number must be digits only, got '${PR}'"
+            exit 1
+          fi
+          # The reviewed commit is required for a PR, so only code someone has
+          # read runs on the GPU runner.
+          REVIEWED_SHA=${REVIEWED_SHA,,}
+          if ! [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Give the commit of PR #${PR} you reviewed (7 to 40 hex characters), got '${REVIEWED_SHA}'"
+            exit 1
+          fi
+
+          info=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.state) \(.head.sha)"')
+          read -r state head <<< "$info"
+          if [ "$state" != open ]; then
+            echo "::error::PR #${PR} is ${state}, not open"
+            exit 1
+          fi
+          if [[ "$head" != "$REVIEWED_SHA"* ]]; then
+            echo "::error::PR #${PR} moved from ${REVIEWED_SHA} to ${head:0:12}. Review the new commits and run again."
+            exit 1
+          fi
+
+          echo "Testing PR #${PR} at ${head}"
+          {
+            echo "sha=${head}"
+            echo "target=PR #${PR}"
+            echo "pr=${PR}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Mark the PR as running
+        if: steps.target.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.target.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state=pending -f context="GPU e2e" \
+            -f description="Running on the CNCF A10 runner" -f target_url="$RUN_URL" > /dev/null
+
+  gpu:
+    name: GPU tests on the A10
+    needs: check
+    runs-on:
+      group: GPUs
+      labels: oracle-vm-gpu-a10-1
+    timeout-minutes: 30
+    # This job runs the code under test, so it only gets read access.
+    permissions:
+      contents: read
+    # One GPU run at a time: the runners are shared across CNCF projects.
+    concurrency:
+      group: gpu-e2e-runner
+      cancel-in-progress: false
+    env:
+      DCGM_IMAGE: nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
+    steps:
+      - name: Checkout the code under test
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          persist-credentials: false
+
+      - name: Checkout the run summary script
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e-summary.sh
+          sparse-checkout-cone-mode: false
+
+      - name: GPU info
+        run: |
+          nvidia-smi --query-gpu=name,driver_version,memory.total,power.draw --format=csv
+          cat /proc/driver/nvidia/version
+
+      - name: Prepare the GPU
+        run: |
+          # Keep the GPU initialized between Kepler starts, so Kepler sees its real idle power.
+          sudo nvidia-smi -pm 1
+          # Let Docker run the GPU load used by TestGPUWorkloadAttribution.
+          sudo nvidia-ctk runtime configure --runtime=docker --set-as-default
+          sudo systemctl restart docker
+          docker pull -q "$DCGM_IMAGE"
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build Kepler and the e2e test binary
+        run: CGO_ENABLED=1 make test-e2e
+
+      # The log, the power samples and the PID file live in RUNNER_TEMP, which
+      # the runner empties for every job, so no older run can leak into them.
+      - name: Start sampling GPU power
+        run: |
+          start=$(date +%s)
+          (
+            while true; do
+              watts=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits | awk '{ s += $1 } END { printf "%.2f", s }')
+              echo "$(($(date +%s) - start)),${watts}"
+              sleep 1
+            done
+          ) >> "$RUNNER_TEMP/gpu-power.csv" 2> /dev/null &
+          echo $! > "$RUNNER_TEMP/gpu-power.pid"
+
+      - name: Run the GPU e2e tests
+        run: |
+          set +e
+          sudo ./bin/kepler-e2e.test -test.v -test.timeout=20m -test.run TestGPU \
+            -gpu.real -gpu.load-image="$DCGM_IMAGE" 2>&1 | tee "$RUNNER_TEMP/gpu-e2e.log"
+          code=${PIPESTATUS[0]}
+          echo "GPU_E2E_EXIT_CODE=${code}" >> "$GITHUB_ENV"
+          exit "$code"
+
+      - name: Write the run summary
+        if: always()
+        env:
+          GPU_E2E_TARGET: ${{ needs.check.outputs.target }}
+          GPU_E2E_SHA: ${{ needs.check.outputs.sha }}
+          GPU_E2E_RUNNER: oracle-vm-gpu-a10-1
+          GPU_E2E_ARTIFACT: gpu-e2e-logs
+        run: |
+          if [ -f "$RUNNER_TEMP/gpu-power.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/gpu-power.pid")" 2> /dev/null || true
+          fi
+          bash workflow-src/hack/gpu-e2e-summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-e2e-logs
+          path: |
+            ${{ runner.temp }}/gpu-e2e.log
+            ${{ runner.temp }}/gpu-power.csv
+          retention-days: 7
+
+  report:
+    name: Report on the PR
+    needs: [check, gpu]
+    if: always() && needs.check.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set the GPU e2e status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.check.outputs.sha }}
+          RESULT: ${{ needs.gpu.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$RESULT" in
+            success) state=success description="All GPU tests passed on the CNCF A10 runner" ;;
+            failure) state=failure description="GPU tests failed, see the run summary" ;;
+            *) state=error description="The GPU run did not finish (${RESULT})" ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state="$state" -f context="GPU e2e" \
+            -f description="$description" -f target_url="$RUN_URL" > /dev/null
+
+  weekly-issue:
+    name: Open an issue for a failed weekly run
+    needs: gpu
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Weekly GPU e2e run failed"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"${title}\" in:title" \
+            --json number,title --jq "map(select(.title == \"${title}\")) | .[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Failed again: ${RUN_URL}"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" \
+              --body "The weekly GPU e2e run on \`main\` failed: ${RUN_URL}"
+          fi

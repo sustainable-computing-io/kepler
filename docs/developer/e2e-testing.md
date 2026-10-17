@@ -87,7 +87,37 @@ sudo ./bin/kepler-e2e.test -test.v -kepler.config=/path/to/config.yaml
 
 # Use a different metrics port
 sudo ./bin/kepler-e2e.test -test.v -kepler.port=9999
+
+# Run the GPU tests against a real NVIDIA GPU (see below)
+sudo ./bin/kepler-e2e.test -test.v -test.run TestGPU -gpu.real
+
+# Override the image or the dcgmproftester build used for the GPU load test
+sudo ./bin/kepler-e2e.test -test.v -gpu.real -gpu.load-image=IMAGE -gpu.load-binary=/usr/bin/dcgmproftester13
 ```
+
+### Run the GPU Tests on a Real GPU
+
+By default the GPU tests use the fake GPU meter. With `-gpu.real` they run against a real NVIDIA GPU, and the config defaults to `test/testdata/e2e-gpu-config.yaml`. That config uses the fake CPU meter, so the host does not need RAPL. Cloud GPU VMs usually have none.
+
+Prerequisites:
+
+- An NVIDIA GPU with its driver and `nvidia-smi`
+- GPU persistence mode on (`sudo nvidia-smi -pm 1`). With it off, the GPU powers up each time a new Kepler starts and only drops back to idle after a while, so Kepler's idle baseline starts too high
+- Docker set up for GPUs, for the load test. On the CI runner this is `sudo nvidia-ctk runtime configure --runtime=docker --set-as-default` followed by `sudo systemctl restart docker`
+- Root access, as for the other e2e tests
+
+```bash
+make test-e2e
+sudo ./bin/kepler-e2e.test -test.v -test.run TestGPU -gpu.real
+```
+
+With `-gpu.real`, three more tests run:
+
+- `TestGPURealHardware`: the GPU is an NVIDIA device with an NVML UUID, and it draws power
+- `TestGPUPowerMatchesNvidiaSMI`: Kepler's GPU power matches `nvidia-smi` within 5% or 3 W, whichever is larger
+- `TestGPUWorkloadAttribution`: loads the GPU with `dcgmproftester` from NVIDIA's DCGM image and checks that the load's process and container get the active GPU power
+
+Kepler's GPU readings can trail the GPU by several seconds, so these tests wait for fresh readings before checking. The load test pulls `nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04`, a few GB, the first time it runs, and picks the `dcgmproftester` build that matches the driver's CUDA version (for example `dcgmproftester13` for CUDA 13).
 
 ## Test Organization
 
@@ -101,7 +131,7 @@ The e2e tests are organized by concern across multiple files:
 | `metrics_test.go`    | Metric format validation: required labels, non-negative values, multiple scrapes       |
 | `invariants_test.go` | Energy conservation laws: Total = Active + Idle, process power attribution             |
 | `workload_test.go`   | Workload detection: stress-ng detection, power changes under load, terminated tracking |
-| `gpu_test.go`        | GPU metrics: presence, labels, non-negative values, power conservation (uses fake GPU) |
+| `gpu_test.go`        | GPU metrics with the fake GPU; real GPU and GPU load attribution with `-gpu.real`      |
 
 ### Test Configuration
 
@@ -131,8 +161,8 @@ monitor:
 - `kepler_node_cpu_idle_joules_total` / `kepler_node_cpu_idle_watts` - Idle power
 - `kepler_node_cpu_usage_ratio` - CPU utilization (0.0 to 1.0)
 - `kepler_node_cpu_info` - CPU hardware information
-- `kepler_node_gpu_watts` - Total GPU power (fake GPU)
-- `kepler_node_gpu_active_watts` / `kepler_node_gpu_idle_watts` - Active and idle GPU power (currently exercises the idle case)
+- `kepler_node_gpu_watts` - Total GPU power (fake GPU, or a real GPU with `-gpu.real`)
+- `kepler_node_gpu_active_watts` / `kepler_node_gpu_idle_watts` - Active and idle GPU power (idle with the fake GPU, under load with `-gpu.real`)
 - `kepler_node_gpu_info` - GPU device information
 
 GPU tests require GPU metrics to be enabled, as in the default e2e configuration.
@@ -143,6 +173,7 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 - `kepler_process_cpu_joules_total` - Per-process energy
 - `kepler_process_cpu_watts` - Per-process power
 - `kepler_process_cpu_seconds_total` - Per-process CPU time
+- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (with `-gpu.real`)
 
 ### Energy Conservation Invariants
 
@@ -163,7 +194,7 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 
 | Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                            |
 |----------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|
-| GPU pod/container metrics  | The fake GPU meter does not expose any fake processes yet                | Unit tests in `internal/monitor/`; Phase 2: fake-gpu K8s e2e |
+| GPU pod metrics            | Needs Kubernetes; GPU process and container metrics need `-gpu.real`     | Unit tests in `internal/monitor/`; Phase 2: fake-gpu K8s e2e |
 | VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`                  |
 | Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                   |
 | Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                      |
@@ -195,6 +226,19 @@ Standard GitHub-hosted runners use virtualized environments without access to ha
 1. Physical Intel CPU with RAPL support
 2. Root access to read `/sys/class/powercap/`
 3. Kernel support for powercap subsystem
+
+### GPU E2E Workflow
+
+**Workflow file**: `.github/workflows/gpu-e2e.yaml`
+
+The GPU tests run against a real NVIDIA A10 on a CNCF-hosted GPU runner (`oracle-vm-gpu-a10-1`). These GPUs are shared by all CNCF projects, so the workflow does not run on every pull request:
+
+- **On demand**: a maintainer runs it for a pull request that touches GPU code, from Actions > GPU e2e > Run workflow. Fill in the PR number and the commit you reviewed; the commit is required whenever a PR number is given. The run stops before using a GPU if the PR is closed or has new commits since your review.
+- **Weekly**: every Monday it tests `main`. If that run fails, it opens an issue named "Weekly GPU e2e run failed", or comments on the one already open.
+
+For a pull request, the `GPU e2e` status on its latest commit goes to pending as soon as the run starts, then to passed or failed, and links to the run. The run summary shows the GPU, each test's result, Kepler's GPU power next to `nvidia-smi` at idle and under load, and the GPU power over the run. The full test output and the power samples are kept as the `gpu-e2e-logs` artifact for 7 days.
+
+Only one GPU run happens at a time. If a run is already waiting for the GPU, a newer run replaces it. The job that runs the code under test only gets read access; the PR status and the weekly issue are written by separate jobs that do not run that code.
 
 ## Kubernetes E2E Tests
 
