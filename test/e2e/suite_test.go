@@ -32,13 +32,19 @@ const (
 
 // testConfig holds test configuration from flags
 var testConfig = struct {
-	keplerBinary string
-	metricsPort  int
-	configFile   string
+	keplerBinary  string
+	metricsPort   int
+	configFile    string
+	realGPU       bool
+	gpuLoadImage  string
+	gpuLoadBinary string
 }{
-	keplerBinary: "bin/kepler",
-	metricsPort:  28282,
-	configFile:   "",
+	keplerBinary:  "bin/kepler",
+	metricsPort:   28282,
+	configFile:    "",
+	realGPU:       false,
+	gpuLoadImage:  "nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04",
+	gpuLoadBinary: "",
 }
 
 func init() {
@@ -48,6 +54,12 @@ func init() {
 		"Port for Kepler metrics endpoint")
 	flag.StringVar(&testConfig.configFile, "kepler.config", testConfig.configFile,
 		"Path to Kepler config file")
+	flag.BoolVar(&testConfig.realGPU, "gpu.real", testConfig.realGPU,
+		"Run the GPU tests against a real NVIDIA GPU (defaults the config to e2e-gpu-config.yaml)")
+	flag.StringVar(&testConfig.gpuLoadImage, "gpu.load-image", testConfig.gpuLoadImage,
+		"Container image with dcgmproftester, used to load a real GPU")
+	flag.StringVar(&testConfig.gpuLoadBinary, "gpu.load-binary", testConfig.gpuLoadBinary,
+		"dcgmproftester binary inside the GPU load image (default: the one matching the driver's CUDA version)")
 }
 
 func TestMain(m *testing.M) {
@@ -55,17 +67,21 @@ func TestMain(m *testing.M) {
 
 	// Find config file if not specified
 	if testConfig.configFile == "" {
-		testConfig.configFile = findConfigFile()
+		name := "e2e-config.yaml"
+		if testConfig.realGPU {
+			name = "e2e-gpu-config.yaml"
+		}
+		testConfig.configFile = findConfigFile(name)
 	}
 
 	os.Exit(m.Run())
 }
 
-func findConfigFile() string {
+func findConfigFile(name string) string {
 	candidates := []string{
-		"test/testdata/e2e-config.yaml",
-		"../testdata/e2e-config.yaml",
-		"testdata/e2e-config.yaml",
+		filepath.Join("test/testdata", name),
+		filepath.Join("../testdata", name),
+		filepath.Join("testdata", name),
 	}
 
 	for _, c := range candidates {
