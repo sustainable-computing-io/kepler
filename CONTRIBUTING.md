@@ -41,6 +41,21 @@ All submissions require review. We use GitHub pull requests for this purpose:
 3. Address feedback from maintainers
 4. Once approved, a maintainer will merge your changes
 
+### Commit Hygiene
+
+Kepler uses merge commits, so the individual commits in a PR remain in the
+project history. A coherent commit sequence helps future contributors understand
+changes and makes debugging and reverting easier.
+
+- Aim for each commit to represent a coherent change with a meaningful message.
+- Keep separate commits for distinct, useful logical steps within a PR.
+- Generally fold intermediate fixes, such as link corrections and review
+  follow-ups, into the commits they belong to before merging.
+- Order commits so the progression of the change is easy to follow.
+
+These are commit hygiene principles, not strict rules or a requirement to squash
+every PR into a single commit.
+
 ### Reporting Bugs 🐛
 
 Found a bug? Please report it by creating an issue with the bug template. Include:
