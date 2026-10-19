@@ -52,6 +52,17 @@ func (m *MockProcInfo) CPUTime() (float64, error) {
 	return args.Get(0).(float64), args.Error(1)
 }
 
+// StartTime defaults to 0 (the same process every refresh) unless a test stubs it to model PID reuse
+func (m *MockProcInfo) StartTime() (uint64, error) {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "StartTime" {
+			args := m.Called()
+			return args.Get(0).(uint64), args.Error(1)
+		}
+	}
+	return 0, nil
+}
+
 // MockProcReader is a mock implementation of procInformer for testing
 type MockProcReader struct {
 	mock.Mock

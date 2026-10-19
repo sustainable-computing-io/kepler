@@ -5,6 +5,7 @@ package resource
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/prometheus/procfs"
 )
@@ -23,12 +24,19 @@ type procInfo interface {
 	Environ() ([]string, error)
 	CmdLine() ([]string, error)
 	CPUTime() (float64, error)
+	// StartTime is when the process started, in clock ticks since boot
+	StartTime() (uint64, error)
 }
 
 // procWrapper implements ProcInfo by wrapping procfs.Proc. This is needed because the procfs.Proc
 // does not implement PID() as a method
 type procWrapper struct {
 	proc procfs.Proc
+
+	// CPUTime and StartTime both come from /proc/<pid>/stat, so read it once
+	statOnce sync.Once
+	stat     procfs.ProcStat
+	statErr  error
 }
 
 var _ procInfo = (*procWrapper)(nil)
@@ -72,13 +80,29 @@ func (p *procWrapper) CmdLine() ([]string, error) {
 // hardcoded just like in procfs
 const userHZ = 100
 
+func (p *procWrapper) procStat() (procfs.ProcStat, error) {
+	p.statOnce.Do(func() {
+		p.stat, p.statErr = p.proc.Stat()
+	})
+	return p.stat, p.statErr
+}
+
 func (p *procWrapper) CPUTime() (float64, error) {
-	st, err := p.proc.Stat()
+	st, err := p.procStat()
 	if err != nil {
 		return 0, err
 	}
 
 	return float64(st.STime+st.UTime) / userHZ, nil
+}
+
+func (p *procWrapper) StartTime() (uint64, error) {
+	st, err := p.procStat()
+	if err != nil {
+		return 0, err
+	}
+
+	return st.Starttime, nil
 }
 
 // WrapProc wraps a procfs.Proc in a ProcInfo interface
