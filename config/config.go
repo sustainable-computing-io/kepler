@@ -594,6 +594,11 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		cfg.sanitize()
+
+		if !cfg.experimentalFeatureEnabled() {
+			cfg.Experimental = nil
+		}
+
 		return cfg.Validate()
 	}
 }
@@ -862,10 +867,6 @@ func (c *Config) sanitize() {
 		c.Experimental.Hwmon.Zones[i] = strings.TrimSpace(c.Experimental.Hwmon.Zones[i])
 	}
 
-	// If all experimental features are disabled, set experimental to nil to hide it
-	if !c.experimentalFeatureEnabled() {
-		c.Experimental = nil
-	}
 }
 
 // Validate checks for configuration errors
