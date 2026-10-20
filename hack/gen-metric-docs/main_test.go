@@ -13,6 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
 )
 
 // MockCollector implements prometheus.Collector for testing
@@ -106,6 +107,28 @@ func TestExtractMetricsInfo(t *testing.T) {
 			assert.Equal(t, tt.expectedMetrics, gotMetrics)
 		})
 	}
+}
+
+// TestExtractGPUInfoMetrics tests that the GPU info collector metric is documented
+func TestExtractGPUInfoMetrics(t *testing.T) {
+	mockMonitor := &MockMonitor{
+		dataChan: make(chan struct{}),
+	}
+	close(mockMonitor.dataChan)
+
+	gpuInfoCollector := collector.NewGPUInfoCollector(mockMonitor, "test-node")
+
+	gotMetrics, err := extractMetricsInfo(gpuInfoCollector)
+	assert.NoError(t, err)
+	assert.Equal(t, []MetricInfo{
+		{
+			Name:        "kepler_node_gpu_info",
+			Type:        "GAUGE",
+			Description: "GPU device information for mapping index to UUID/name",
+			Labels:      []string{"gpu", "gpu_uuid", "gpu_name", "vendor"},
+			ConstLabels: map[string]string{"node_name": "test-node"},
+		},
+	}, gotMetrics)
 }
 
 // TestGenerateMarkdown tests the generateMarkdown function
