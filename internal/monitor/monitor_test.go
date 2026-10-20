@@ -806,8 +806,8 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	assert.NotEmpty(t, snapshot2.TerminatedVirtualMachines, "Terminated VMs should be present before Snapshot() call")
 
 	// Verify specific terminated workloads are present
-	assert.Contains(t, snapshot2.TerminatedProcesses, "456", "Process 456 should be in terminated processes")
-	assert.Contains(t, snapshot2.TerminatedProcesses, "789", "Process 789 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedProcesses, "456:0", "Process 456 should be in terminated processes")
+	assert.Contains(t, snapshot2.TerminatedProcesses, "789:0", "Process 789 should be in terminated processes")
 	assert.Contains(t, snapshot2.TerminatedContainers, "container-2", "Container-2 should be in terminated containers")
 	assert.Contains(t, snapshot2.TerminatedVirtualMachines, "vm-2", "VM-2 should be in terminated VMs")
 
@@ -951,7 +951,7 @@ func TestTerminatedWorkloadsClearedAfterSnapshot(t *testing.T) {
 	require.NotNil(t, snapshot4)
 
 	// Step 11: Verify new terminated workloads are present since Snapshot() wasn't called
-	assert.Contains(t, snapshot4.TerminatedProcesses, "999", "New terminated process should be present")
+	assert.Contains(t, snapshot4.TerminatedProcesses, "999:0", "New terminated process should be present")
 	assert.Contains(t, snapshot4.TerminatedContainers, "container-3", "New terminated container should be present")
 	assert.Contains(t, snapshot4.TerminatedVirtualMachines, "vm-3", "New terminated VM should be present")
 	assert.Contains(t, snapshot4.TerminatedPods, "pod-id-3", "New terminated pod should be present")
