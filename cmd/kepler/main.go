@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"syscall"
@@ -44,7 +45,7 @@ func main() {
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
 
 	logVersionInfo(logger)
-	printConfigInfo(logger, cfg)
+	printConfigInfo(logger, cfg, logOut)
 
 	cfg.ApplyCpuMeterDeprecations(logger)
 	cfg.LogUnknownFields(logger)
@@ -93,7 +94,9 @@ func parseArgsAndConfig() (*config.Config, error) {
 	updateConfig := config.RegisterFlags(app)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	logger := logger.New("info", "text", os.Stdout)
+	// Diagnostics go to stderr so that stdout is reserved for exporter output
+	// (see the stdout exporter handling in main).
+	logger := logger.New("info", "text", os.Stderr)
 	cfg := config.DefaultConfig()
 	if *configFile != "" {
 		logger.Info("Loading configuration file", "path", *configFile)
@@ -116,12 +119,12 @@ func parseArgsAndConfig() (*config.Config, error) {
 	return cfg, nil
 }
 
-func printConfigInfo(logger *slog.Logger, cfg *config.Config) {
+func printConfigInfo(logger *slog.Logger, cfg *config.Config, out io.Writer) {
 	if !logger.Enabled(context.Background(), slog.LevelInfo) || cfg.Log.Format == "json" {
 		return
 	}
 
-	fmt.Printf(`
+	fmt.Fprintf(out, `
 Configuration
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 %s
