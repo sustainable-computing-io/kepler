@@ -62,19 +62,20 @@ image:
   tag: "v0.10.0"
   pullPolicy: IfNotPresent
 
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+daemonset:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 400Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
 
-tolerations:
-  - operator: Exists
+  tolerations:
+    - operator: Exists
 
-nodeSelector:
-  kubernetes.io/os: linux
+  nodeSelector:
+    kubernetes.io/os: linux
 
 # Enable ServiceMonitor for Prometheus
 serviceMonitor:
@@ -335,27 +336,26 @@ daemonset:
   securityContext:
     privileged: true
 
-# Resource limits
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+  # Resource limits
+  resources:
+    limits:
+      cpu: 100m
+      memory: 400Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
 
-# Node scheduling
-tolerations:
-  - operator: Exists
+  # Node scheduling
+  tolerations:
+    - operator: Exists
 
-nodeSelector:
-  kubernetes.io/os: linux
+  nodeSelector:
+    kubernetes.io/os: linux
 
 # Monitoring
 serviceMonitor:
   enabled: true
   interval: 30s
-  scrapeTimeout: 10s
 ```
 
 ### Environment-Specific Settings
