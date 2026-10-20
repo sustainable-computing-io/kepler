@@ -22,6 +22,10 @@ spec:
         {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- /* Before 1.30 the AppArmor opt-out is a pod annotation, not a securityContext field */}}
+        {{- if and (semverCompare "<1.30-0" .Capabilities.KubeVersion.Version) (eq (dig "appArmorProfile" "type" "" (.Values.daemonset.securityContext | default dict)) "Unconfined") }}
+        container.apparmor.security.beta.kubernetes.io/kepler: unconfined
+        {{- end }}
         {{- with .Values.annotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -91,7 +95,19 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
-            {{- toYaml .Values.daemonset.securityContext | nindent 12 }}
+            {{- $sc := deepCopy (.Values.daemonset.securityContext | default dict) }}
+            {{- if .Values.config.experimental.gpu.enabled }}
+            {{- /* GPU device nodes reach the container only when it is privileged */}}
+            {{- $_ := set $sc "privileged" true }}
+            {{- end }}
+            {{- if $sc.privileged }}
+            {{- /* Kubernetes rejects privileged with allowPrivilegeEscalation false */}}
+            {{- $_ := set $sc "allowPrivilegeEscalation" true }}
+            {{- end }}
+            {{- if semverCompare "<1.30-0" .Capabilities.KubeVersion.Version }}
+            {{- $_ := unset $sc "appArmorProfile" }}
+            {{- end }}
+            {{- toYaml $sc | nindent 12 }}
           command:
             - /usr/bin/kepler
           args:
