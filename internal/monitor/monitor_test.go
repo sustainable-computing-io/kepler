@@ -9,6 +9,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -127,11 +129,23 @@ func TestPowerMonitor_DataChannel(t *testing.T) {
 
 func TestPowerMonitor_ZoneNames(t *testing.T) {
 	mockPowerMeter := &MockCPUPowerMeter{}
-	monitor := NewPowerMonitor(mockPowerMeter)
-	// TODO: Implement zone names validation
+	pkg := &MockEnergyZone{}
+	pkg.On("Name").Return("package")
+	core := &MockEnergyZone{}
+	core.On("Name").Return("core")
+	mockPowerMeter.On("Zones").Return([]EnergyZone{pkg, core}, nil)
+	mockPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 
-	names := monitor.ZoneNames()
-	assert.Empty(t, names)
+	monitor := NewPowerMonitor(mockPowerMeter)
+	assert.Empty(t, monitor.ZoneNames(), "zone names are empty before Init")
+
+	err := monitor.Init()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package", "core"}, monitor.ZoneNames())
+
+	mockPowerMeter.AssertExpectations(t)
+	pkg.AssertExpectations(t)
+	core.AssertExpectations(t)
 }
 
 func TestPowerMonitor_Snapshot(t *testing.T) {
@@ -403,6 +417,137 @@ func TestPowerMonitor_FullInitRunShutdownCycle(t *testing.T) {
 	zone.AssertExpectations(t)
 }
 
+func TestPowerMonitor_Shutdown(t *testing.T) {
+	mockMeter := &MockCPUPowerMeter{}
+	pkg := &MockEnergyZone{}
+	pkg.On("Name").Return("package")
+	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
+	pkg.On("Power").Return(Power(0), assert.AnError)
+	pkg.On("Energy").Return(Energy(100*Joule), nil)
+	mockMeter.On("Zones").Return([]EnergyZone{pkg}, nil)
+	mockMeter.On("PrimaryEnergyZone").Return(pkg, nil)
+
+	tr := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetExpectations(t, tr)
+
+	// First Refresh is collectionLoop's firstReading (unblocks immediately).
+	// Later Refresh calls are calculatePower in the scheduled goroutine.
+	var refreshN atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	resourceInformer.On("Refresh").Run(func(mock.Arguments) {
+		if refreshN.Add(1) == 1 {
+			return
+		}
+		select {
+		case <-started:
+		default:
+			close(started)
+		}
+		<-release
+	}).Return(nil)
+
+	fakeClock := testingclock.NewFakeClock(time.Now())
+	interval := 50 * time.Millisecond
+	// Interval > 0 so scheduleNextCollection starts a goroutine that Shutdown must wait for.
+	monitor := NewPowerMonitor(
+		mockMeter,
+		WithResourceInformer(resourceInformer),
+		WithClock(fakeClock),
+		WithInterval(interval),
+		WithMaxStaleness(interval/4),
+	)
+
+	err := monitor.Init()
+	require.NoError(t, err)
+
+	dataCh := monitor.DataChannel()
+	assertDataUpdated(t, dataCh, 5*time.Second, "Init should signal the data channel")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runErr := make(chan error, 1)
+	go func() {
+		runErr <- monitor.Run(ctx)
+	}()
+
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	assertDataUpdated(t, dataCh, 5*time.Second, "first collection should signal after Run starts")
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
+	fakeClock.Step(interval)
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for scheduled collection to enter Refresh")
+	}
+
+	shutdownErr := make(chan error, 1)
+	go func() {
+		shutdownErr <- monitor.Shutdown()
+	}()
+
+	select {
+	case err := <-shutdownErr:
+		t.Fatalf("Shutdown returned while a collection was in flight; it must wait for collectionWg: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-shutdownErr:
+		assert.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not return after the in-flight collection was released")
+	}
+
+	// In-flight calculatePower may still signal once it finishes.
+	select {
+	case <-dataCh:
+	default:
+	}
+
+	for range 3 {
+		fakeClock.Step(interval)
+		select {
+		case <-dataCh:
+			t.Fatal("collection continued after Shutdown; Shutdown must cancel collectionCtx")
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+
+	// Shutdown cancels collectionCtx only; Run still blocks on this ctx.
+	cancel()
+
+	select {
+	case err := <-runErr:
+		assert.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run didn't exit after context cancellation")
+	}
+
+	mockMeter.AssertExpectations(t)
+	pkg.AssertExpectations(t)
+}
+
+func waitForClockWaiters(t *testing.T, c *testingclock.FakeClock, timeout time.Duration) {
+	t.Helper()
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	for !c.HasWaiters() {
+		select {
+		case <-deadline.C:
+			t.Fatal("timed out waiting for collection goroutine to park on interval timer")
+		default:
+			runtime.Gosched()
+		}
+	}
+}
+
 // TestMonitorRefreshSnapshot tests the PowerMonitor.refreshSnapshot
 func TestMonitorRefreshSnapshot(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -669,6 +814,94 @@ func TestRefreshSnapshotError(t *testing.T) {
 		assert.Contains(t, snapshot.Node.Zones, pkg)
 		assert.Contains(t, snapshot.Node.Zones, core)
 	})
+}
+
+func TestRefreshSnapshotError_RefreshFailsFirstReading(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockClock := testingclock.NewFakeClock(time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC))
+
+	pkg := device.NewMockRaplZone(
+		"package-0",
+		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+	core := device.NewMockRaplZone(
+		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+	mockCPUPowerMeter.On("Zones").Return([]EnergyZone{pkg, core}, nil)
+	mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
+
+	refreshErr := errors.New("refresh failed")
+	tr := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetExpectations(t, tr)
+	resourceInformer.On("Refresh").Return(refreshErr)
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(resourceInformer),
+	)
+
+	err := pm.Init()
+	require.NoError(t, err)
+
+	err = pm.refreshSnapshot()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, refreshErr)
+	assert.Nil(t, pm.snapshot.Load(), "failed first reading must not publish a snapshot")
+
+	mockCPUPowerMeter.AssertExpectations(t)
+}
+
+func TestRefreshSnapshotError_RefreshFailsCalculatePower(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	mockClock := testingclock.NewFakeClock(time.Date(2023, 4, 15, 9, 0, 0, 0, time.UTC))
+
+	pkg := device.NewMockRaplZone(
+		"package-0",
+		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+	core := device.NewMockRaplZone(
+		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
+
+	mockCPUPowerMeter := &MockCPUPowerMeter{}
+	mockCPUPowerMeter.On("Zones").Return([]EnergyZone{pkg, core}, nil)
+	mockCPUPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
+
+	refreshErr := errors.New("refresh failed")
+	tr := CreateTestResources()
+	resourceInformer := &MockResourceInformer{}
+	resourceInformer.SetExpectations(t, tr)
+	resourceInformer.On("Refresh").Return(nil).Once()
+	resourceInformer.On("Refresh").Return(refreshErr)
+
+	pm := NewPowerMonitor(
+		mockCPUPowerMeter,
+		WithLogger(logger),
+		WithClock(mockClock),
+		WithResourceInformer(resourceInformer),
+	)
+
+	err := pm.Init()
+	require.NoError(t, err)
+
+	err = pm.refreshSnapshot()
+	require.NoError(t, err)
+	firstSnapshot := pm.snapshot.Load()
+	require.NotNil(t, firstSnapshot)
+	firstTimestamp := firstSnapshot.Timestamp
+
+	mockClock.Step(30 * time.Second)
+	err = pm.refreshSnapshot()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, refreshErr)
+
+	snapshot := pm.snapshot.Load()
+	require.NotNil(t, snapshot)
+	assert.Equal(t, firstTimestamp, snapshot.Timestamp, "failed calculatePower must not replace the snapshot")
+	assert.NotEqual(t, mockClock.Now(), snapshot.Timestamp)
+
+	mockCPUPowerMeter.AssertExpectations(t)
 }
 
 // TestTerminatedWorkloadsClearedAfterSnapshot validates that terminated workloads
