@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 var (
@@ -89,8 +91,7 @@ func vmInfoFromCmdLine(cmdline []string) (Hypervisor, string) {
 
 			vmID := extractVMID(cmdline, hypervisor)
 
-			// If VM ID is still empty, make one up from the command line parameter hash
-			// TODO: validate if this this is a good idea
+			// If VM ID is still empty, derive a stable one from a hash of the full command line
 			if vmID == "" {
 				vmID = generateVMID(fullCmd)
 			}
@@ -157,13 +158,14 @@ func extractXenDomID(cmdline []string) string {
 	return qemuVMNameFromCmdLine(cmdline)
 }
 
-// generateVMID generates a VM ID when one can't be extracted
+// generateVMID generates a stable VM ID when one can't be extracted. The ID is
+// the 64-bit xxhash of the full command line in 16 hex characters, so command
+// lines that differ anywhere get different IDs.
 func generateVMID(fullCmd string) string {
-	hash := fmt.Sprintf("%x", []byte(fullCmd))
-	if len(hash) > 16 {
-		return hash[:16]
+	if fullCmd == "" {
+		return ""
 	}
-	return hash
+	return fmt.Sprintf("%016x", xxhash.Sum64String(fullCmd))
 }
 
 // vmNameFromCmdLine extracts VM name from command line arguments

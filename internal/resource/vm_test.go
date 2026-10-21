@@ -207,7 +207,7 @@ func TestVMInfoFromCmdLine(t *testing.T) {
 		},
 		expected: expect{
 			hypervisor: KVMHypervisor,
-			vmID:       "2f7573722f62696e", // First 16 chars of hex hash
+			vmID:       "d655e8dfaee6da14", // xxhash of the command line
 		},
 	}}
 
@@ -469,11 +469,19 @@ func TestGenerateVMID(t *testing.T) {
 	}{{
 		name:     "Short command",
 		fullCmd:  "/usr/bin/qemu",
-		expected: "2f7573722f62696e",
+		expected: "cdbfd0710b8238b4",
 	}, {
-		name:     "Long command gets truncated",
+		name:     "Long command is hashed, not truncated",
 		fullCmd:  "/usr/bin/qemu-system-x86_64 -name guest=test-vm -uuid 12345678-1234-5678-9abc-123456789abc",
-		expected: "2f7573722f62696e", // First 16 chars
+		expected: "aad0d042650095f6",
+	}, {
+		name:     "QEMU command with shared prefix (a)",
+		fullCmd:  "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=a.img",
+		expected: "7aeca777286243a4",
+	}, {
+		name:     "QEMU command with shared prefix (b)",
+		fullCmd:  "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=b.img",
+		expected: "f2b350d539712ab3",
 	}, {
 		name:     "Empty command",
 		fullCmd:  "",
@@ -486,6 +494,15 @@ func TestGenerateVMID(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestGenerateVMIDStableAndDistinct(t *testing.T) {
+	a := "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=a.img"
+	b := "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=b.img"
+
+	assert.Equal(t, generateVMID(a), generateVMID(a), "same command line must give the same ID")
+	assert.NotEqual(t, generateVMID(a), generateVMID(b), "command lines sharing a prefix must give different IDs")
+	assert.Len(t, generateVMID(a), 16)
 }
 
 func TestVMInfoFromProc(t *testing.T) {
