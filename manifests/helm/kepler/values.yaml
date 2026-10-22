@@ -144,6 +144,12 @@ config:
       enabled: true
       debugCollectors:
         - go
+      metricsLevel:
+        - node
+        - process
+        - container
+        - vm
+        - pod
   web:
     configFile: ""
     listenAddresses:
@@ -174,6 +180,7 @@ config:
         enabled: false  # Enable experimental Redfish BMC power monitoring
         configFile: /etc/kepler/redfish.yaml  # Path to Redfish BMC configuration file
         nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
+        httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)
     hwmon:
       forceEnabled: false # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
       zones: [] # List of zones to enable (default enable all)

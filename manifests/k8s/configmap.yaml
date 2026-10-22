@@ -33,6 +33,12 @@ data:
         enabled: true
         debugCollectors:
           - go
+        metricsLevel:
+          - node
+          - process
+          - container
+          - vm
+          - pod
     web:
       configFile: ""
       listenAddresses:
