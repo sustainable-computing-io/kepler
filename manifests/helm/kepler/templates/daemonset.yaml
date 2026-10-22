@@ -33,6 +33,13 @@ spec:
       serviceAccountName: {{ include "kepler.serviceAccountName" . }}
       hostPID: {{ .Values.daemonset.hostPID }}
       hostUsers: {{ .Values.daemonset.hostUsers }}
+      {{- with .Values.daemonset.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.daemonset.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
