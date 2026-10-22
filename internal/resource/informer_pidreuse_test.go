@@ -230,6 +230,41 @@ func TestSelfContainerAttribution(t *testing.T) {
 		podInformer.AssertNumberOfCalls(t, "LookupContainerID", 2)
 	})
 
+	t.Run("found on a later refresh types the cached process again", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return("", false, nil).Once()
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return(selfID, true, nil).Once()
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+
+		informer.resolveSelfContainerID()
+		later := selfProc()
+		later.ExpectedCalls = nil
+		later.On("PID").Return(4002)
+		later.On("CPUStat").Return(procCPUStat{CPUTime: 5, StartTime: 100}, nil).Once()
+		later.On("Comm").Return("kepler", nil).Maybe()
+		later.On("Executable").Return("/usr/bin/kepler", nil).Maybe()
+		later.On("Cgroups").Return([]cGroup{{Path: "/"}}, nil).Maybe()
+		later.On("Environ").Return([]string{}, nil).Maybe()
+		later.On("CmdLine").Return([]string{"/usr/bin/kepler"}, nil).Maybe()
+		proc, err := informer.updateProcessCache(later)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		assert.Equal(t, ContainerProcess, proc.Type)
+		require.NotNil(t, proc.Container)
+		assert.Equal(t, selfID, proc.Container.ID)
+		assert.InDelta(t, 2, proc.CPUTimeDelta, 1e-9)
+	})
+
 	t.Run("without a self container the pod informer is not asked", func(t *testing.T) {
 		podInformer := &mockPodInformer{}
 		informer, err := NewInformer(WithProcReader(&MockProcReader{}), WithPodInformer(podInformer))

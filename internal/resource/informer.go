@@ -170,6 +170,15 @@ func (ri *resourceInformer) resolveSelfContainerID() string {
 
 	ri.resolvedSelfID = id
 	ri.logger.Info("Attributing kepler's own processes to its container", "container", sc.ContainerName, "id", id)
+
+	// Processes seen before the id was known (the pod informer is usually not synced
+	// on the first refresh) were typed regular and are not typed again, so kepler's own
+	// processes would stay out of the container series. Type them again.
+	for _, p := range ri.procCache {
+		if p.Type == RegularProcess {
+			p.Type = UnknownProcess
+		}
+	}
 	return id
 }
 
