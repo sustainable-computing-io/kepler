@@ -3,32 +3,48 @@
 # Declare variables to be passed into your templates.
 
 image:
+  # -- Kepler image repository
   repository: quay.io/sustainable_computing_io/kepler
+  # -- Image pull policy
   pullPolicy: IfNotPresent
+  # -- Image tag. Uses the chart appVersion when empty.
   tag: ""
 
+# -- Override the chart name
 nameOverride: ""
+# -- Override the full resource name
 fullnameOverride: ""
 
 namespace:
+  # -- Create the namespace. When false, the release namespace is used.
   create: false
+  # -- Namespace name, used when `namespace.create` is true
   name: kepler
 
 serviceAccount:
+  # -- Create a service account
   create: true
+  # -- Service account name
   name: kepler
 
 rbac:
+  # -- Create the ClusterRole and ClusterRoleBinding
   create: true
 
 service:
+  # -- Service type
   type: ClusterIP
+  # -- Service port
   port: 28282
+  # -- Target port on the pod
   targetPort: http
+  # -- Service protocol
   protocol: TCP
 
 daemonset:
+  # -- Use the host PID namespace so Kepler can see all processes
   hostPID: true
+  # -- Tolerations. The defaults let Kepler run on control plane nodes.
   tolerations:
     - key: node-role.kubernetes.io/control-plane
       operator: Exists
@@ -37,9 +53,12 @@ daemonset:
       operator: Exists
       effect: NoSchedule
 
+  # -- Node selector
   nodeSelector: {}
+  # -- Affinity rules
   affinity: {}
 
+  # -- Use the host user namespace
   hostUsers: true
   securityContext:
     # Setting privileged: true also sets allowPrivilegeEscalation: true.
@@ -51,26 +70,36 @@ daemonset:
     # - Kepler's own container and pod are missing from the kepler_container_*
     #   and kepler_pod_* series, because its private cgroup namespace hides its
     #   own cgroup path.
+    # -- Run the container privileged. See the comment above for what changes.
     privileged: false
+    # -- Allow privilege escalation. Set to true when privileged is true.
     allowPrivilegeEscalation: false
+    # -- Read-only root filesystem
     readOnlyRootFilesystem: true
+    # -- Require a non-root user
     runAsNonRoot: false
+    # -- User ID to run as
     runAsUser: 0
+    # -- Linux capabilities
     capabilities:
       drop: [ALL]
       add: [SYS_PTRACE]
+    # -- Seccomp profile
     seccompProfile:
       type: RuntimeDefault
     # The runtime's default AppArmor profile blocks reading other processes'
     # /proc/<pid>/exe even with SYS_PTRACE. On Kubernetes < 1.30 the chart
     # sets the equivalent pod annotation instead.
+    # -- AppArmor profile
     appArmorProfile:
       type: Unconfined
     # containerd with SELinux enabled labels unprivileged containers container_t,
     # which cannot read other processes' /proc entries.
+    # -- SELinux options
     seLinuxOptions:
       type: spc_t
 
+  # -- CPU and memory requests and limits
   resources:
     {}
     # limits:
@@ -82,6 +111,7 @@ daemonset:
 
   # Probes use the dedicated /probe/* endpoints, which are cheap to serve.
   # Avoid pointing them at /metrics: every scrape triggers a power computation.
+  # -- Liveness probe
   livenessProbe:
     httpGet:
       path: /probe/livez
@@ -89,8 +119,10 @@ daemonset:
     initialDelaySeconds: 10
     periodSeconds: 60
 
+  # -- Startup probe. Off when empty.
   startupProbe: {}
 
+  # -- Readiness probe
   readinessProbe:
     httpGet:
       path: /probe/readyz
@@ -103,103 +135,147 @@ daemonset:
   # /etc/kepler/config.yaml (templates/configmap.yaml), and the Kepler binary
   # doesn't (and shouldn't) know about driver paths or init-image names.
   nvidia:
-    # Path on the host where the NVIDIA GPU Operator exposes the driver
+    # -- Path on the host where the NVIDIA GPU Operator exposes the driver
     # container root FS. Override if your GPU Operator uses a non-default path.
     driverPath: /run/nvidia/driver
     # Init container used to copy NVML libraries into an emptyDir.
     # Override repository/tag for airgapped or private-registry environments.
     nvmlInitImage:
+      # -- NVML init container image
       repository: busybox
+      # -- NVML init container image tag
       tag: 1.36.1
 
 config:
   log:
+    # -- Log level: debug, info, warn or error
     level: debug
+    # -- Log format: text or json
     format: text
   host:
+    # -- Path to the host sysfs inside the container
     sysfs: /host/sys
+    # -- Path to the host procfs inside the container
     procfs: /host/proc
   monitor:
+    # -- How often Kepler refreshes power data
     interval: 5s
+    # -- How long data is reused before it is recomputed
     staleness: 500ms
+    # -- Max terminated workloads kept in memory until exported. 0 turns it off.
     maxTerminated: 100
+    # -- Minimum energy in joules for a terminated workload to be tracked
     minTerminatedEnergyThreshold: 10
   cpu:
-    # Ordered preference list of CPU power-meter backends. The first backend
+    # -- Ordered preference list of CPU power-meter backends. The first backend
     # that initializes successfully and reports zones is used.
     # Built-in backends: rapl, hwmon, fake.
     preferredMeters: [rapl, hwmon]
   rapl:
+    # -- RAPL zones to enable. Empty enables the default zones.
     zones: []
   exporter:
     stdout:
+      # -- Print metrics to stdout
       enabled: false
     prometheus:
+      # -- Expose Prometheus metrics
       enabled: true
+      # -- Extra Go runtime collectors to expose
       debugCollectors:
         - go
   web:
+    # -- Path to a TLS config file
     configFile: ""
+    # -- Addresses to listen on
     listenAddresses:
       - :28282
   debug:
     pprof:
+      # -- Turn on pprof endpoints
       enabled: false
   kube:
+    # -- Watch Kubernetes for pod info. The DaemonSet passes `--kube.enable`.
     enabled: false
+    # -- Path to a kubeconfig. Empty uses the in-cluster config.
     config: ""
+    # -- Node name. The DaemonSet passes it with `--kube.node-name`.
     nodeName: ""
     podInformer:
-      mode: kubelet          # "kubelet" (default) or "apiserver"
-      pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
+      # -- "kubelet" (default) or "apiserver"
+      mode: kubelet
+      # -- Poll interval for kubelet mode (default: 15s)
+      pollInterval: 15s
   dev:
     fake-cpu-meter:
-      enabled: false # DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true.
+      # -- DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true.
+      enabled: false
+      # -- Fake CPU meter zones
       zones: []
     fake-gpu-meter:
+      # -- Use a fake GPU meter. For testing only.
       enabled: false
+      # -- Number of fake GPUs
       deviceCount: 1
+      # -- "exclusive" or "time-slicing"
       sharingMode: time-slicing
   # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
   # and are disabled by default
   experimental:
     platform:
       redfish:
-        enabled: false  # Enable experimental Redfish BMC power monitoring
-        configFile: /etc/kepler/redfish.yaml  # Path to Redfish BMC configuration file
-        nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
+        # -- Enable experimental Redfish BMC power monitoring
+        enabled: false
+        # -- Path to Redfish BMC configuration file
+        configFile: /etc/kepler/redfish.yaml
+        # -- Node name to use (overrides Kubernetes node name and hostname fallback)
+        nodeName: ""
     hwmon:
-      forceEnabled: false # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
-      zones: [] # List of zones to enable (default enable all)
-      chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
+      # -- DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
+      forceEnabled: false
+      # -- List of zones to enable (default enable all)
+      zones: []
+      # -- User-defined chip pairing rules (override/add to hardcoded defaults)
+      chipRules: []
     gpu:
       # Enabling this also triggers the chart's NVML init container and
       # LD_LIBRARY_PATH injection (daemonset.nvidia.*), and runs the Kepler
       # container privileged so it can reach the GPU device nodes. Leave
       # false if you do not want GPU power monitoring.
-      enabled: false # Enable experimental GPU power monitoring
-      idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
-      dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+      # -- Enable experimental GPU power monitoring
+      enabled: false
+      # -- GPU idle power in Watts (0 = auto-detect)
+      idlePower: 0
+      # -- dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+      dcgmEndpoint: ""
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
+  # -- Create a ServiceMonitor
   enabled: false
+  # -- Scrape interval
   interval: 5s
+  # -- Metrics path
   path: /metrics
+  # -- Extra labels
   labels: {}
+  # -- Extra annotations
   annotations: {}
 
 # A networkPolicy for Kepler
 networkPolicy:
+  # -- Create a NetworkPolicy
   enabled: false
+  # -- Ingress rules
   ingress:
     - ports:
         - protocol: TCP
           port: 28282
+  # -- Egress rules. Empty blocks all egress.
   egress: []
 
-# Additional labels to add to all resources
+# -- Additional labels to add to all resources
 labels: {}
 
-# Additional annotations to add to all resources
+# -- Additional annotations to add to all resources
 annotations: {}
