@@ -7,6 +7,9 @@ image:
   pullPolicy: IfNotPresent
   tag: ""
 
+# Secrets for pulling images from a private registry, e.g. [{name: my-registry-secret}].
+imagePullSecrets: []
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -39,6 +42,9 @@ daemonset:
 
   nodeSelector: {}
   affinity: {}
+  # Priority class for the Kepler pods, e.g. system-node-critical, so they are
+  # not among the first evicted under node pressure. Empty uses the cluster default.
+  priorityClassName: ""
 
   hostUsers: true
   securityContext:
