@@ -90,6 +90,11 @@ type resourceInformer struct {
 	podCache    map[string]*Pod
 	pods        *Pods
 
+	// selfContainer is where kepler runs; its ID is resolved through the pod informer
+	// the first time it is needed and kept from then on
+	selfContainer  *SelfContainer
+	resolvedSelfID string
+
 	lastScanTime time.Time // Time of the last full scan
 }
 
@@ -139,13 +144,33 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 			Terminated: make(map[string]*VirtualMachine),
 		},
 
-		podInformer: opt.podInformer,
-		podCache:    make(map[string]*Pod),
+		podInformer:   opt.podInformer,
+		selfContainer: opt.selfContainer,
+		podCache:      make(map[string]*Pod),
 		pods: &Pods{
 			Running:    make(map[string]*Pod),
 			Terminated: make(map[string]*Pod),
 		},
 	}, nil
+}
+
+// resolveSelfContainerID returns the ID of the container kepler runs in, or "" when it is not
+// configured or not known (yet) to the pod informer.
+func (ri *resourceInformer) resolveSelfContainerID() string {
+	if ri.resolvedSelfID != "" || ri.selfContainer == nil || ri.podInformer == nil {
+		return ri.resolvedSelfID
+	}
+
+	sc := ri.selfContainer
+	id, found, err := ri.podInformer.LookupContainerID(sc.Namespace, sc.PodName, sc.ContainerName)
+	if err != nil || !found {
+		ri.logger.Debug("Kepler's own container not found", "pod", sc.PodName, "container", sc.ContainerName, "error", err)
+		return ""
+	}
+
+	ri.resolvedSelfID = id
+	ri.logger.Info("Attributing kepler's own processes to its container", "container", sc.ContainerName, "id", id)
+	return id
 }
 
 func (ri *resourceInformer) Name() string {
@@ -169,6 +194,9 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get processes: %w", err)
 	}
+
+	// once per refresh, not per process: an unresolved lookup may query the kubelet
+	ri.resolveSelfContainerID()
 
 	// construct current running processes
 	procsRunning := make(map[int]*Process, len(procs))
@@ -468,12 +496,13 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	// A different start time means the PID was reused.
 	// Rebuild its metadata and CPU baseline.
+	selfContainerID := ri.resolvedSelfID
 	if cached, exists := ri.procCache[pid]; exists && cached.StartTime == cpuStat.StartTime {
-		err := populateProcessFields(cached, proc, cpuStat.CPUTime)
+		err := populateProcessFields(cached, proc, cpuStat.CPUTime, selfContainerID)
 		return cached, err
 	}
 
-	newProc, err := newProcess(proc, cpuStat)
+	newProc, err := newProcess(proc, cpuStat, selfContainerID)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +554,7 @@ func (ri *resourceInformer) updatePodCache(container *Container, resetCPUTime bo
 	return cached
 }
 
-func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) error {
+func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64, selfContainerID string) error {
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
 	p.CPUTotalTime = cpuTotalTime
 
@@ -549,7 +578,7 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) erro
 
 	// Determine process type and associated container/VM only if not already set
 	if p.Type == UnknownProcess || commChanged {
-		info, err := computeTypeInfoFromProc(proc)
+		info, err := computeTypeInfoFromProc(proc, selfContainerID)
 		if err != nil {
 			return fmt.Errorf("failed to detect process type: %w", err)
 		}
@@ -568,7 +597,7 @@ type ProcessTypeInfo struct {
 	VM        *VirtualMachine
 }
 
-func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
+func computeTypeInfoFromProc(proc procInfo, selfContainerID string) (*ProcessTypeInfo, error) {
 	// detect process type in parallel
 	type result struct {
 		container *Container
@@ -582,7 +611,7 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 
 	go func() {
 		defer close(containerCh)
-		container, err := containerInfoFromProc(proc)
+		container, err := containerInfoFromProc(proc, selfContainerID)
 		containerCh <- result{container: container, err: err}
 	}()
 
@@ -612,13 +641,13 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 }
 
 // newProcess creates a new Process using the CPU stat already read for this sample.
-func newProcess(proc procInfo, cpuStat procCPUStat) (*Process, error) {
+func newProcess(proc procInfo, cpuStat procCPUStat, selfContainerID string) (*Process, error) {
 	p := &Process{
 		PID:       proc.PID(),
 		StartTime: cpuStat.StartTime,
 	}
 
-	if err := populateProcessFields(p, proc, cpuStat.CPUTime); err != nil {
+	if err := populateProcessFields(p, proc, cpuStat.CPUTime, selfContainerID); err != nil {
 		return nil, err
 	}
 

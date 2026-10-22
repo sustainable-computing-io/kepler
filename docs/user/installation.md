@@ -381,7 +381,7 @@ serviceMonitor:
 ### Common Issues
 
 1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
-2. **Missing Series After Upgrade**: The unprivileged default changes two outputs. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Kepler's own container and pod no longer appear in the `kepler_container_*` and `kepler_pod_*` series, because its private cgroup namespace hides its own cgroup path. Set `daemonset.securityContext.privileged=true` to get both back
+2. **Missing Series After Upgrade**: The unprivileged default changes one output. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Set `daemonset.securityContext.privileged=true` to get it back
 3. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 4. **Pod Crashes**: Review logs for hardware access issues
 5. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,

@@ -33,6 +33,9 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--kube.enable`                               | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
 | `--kube.config`                               | Path to a kubeconfig file                                               | `""`                            | Any valid file path                                                |
 | `--kube.node-name`                            | Name of kubernetes node on which kepler is running                      | `""`                            | Any valid node name                                                |
+| `--kube.pod-name`                             | Name of the pod kepler is running in                                    | `""`                            | Any valid pod name                                                 |
+| `--kube.pod-namespace`                        | Namespace of the pod kepler is running in                               | `""`                            | Any valid namespace                                                |
+| `--kube.container-name`                       | Name of kepler's container in its pod                                   | `kepler`                        | Any valid container name                                           |
 | `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
@@ -161,6 +164,9 @@ kube:           # kubernetes related config
   enabled: false    # Enable kubernetes monitoring (default: false)
   config: ""        # Path to kubeconfig file (optional if running in-cluster)
   nodeName: ""      # Name of the kubernetes node (required when enabled)
+  podName: ""       # Name of the pod Kepler runs in (with podNamespace, attributes Kepler's own processes)
+  podNamespace: ""  # Namespace of the pod Kepler runs in
+  containerName: kepler  # Name of Kepler's container in its pod
   podInformer:      # Pod informer configuration
     mode: kubelet          # "kubelet" (default) or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
@@ -435,6 +441,9 @@ kube:
   enabled: false    # Enable kubernetes monitoring
   config: ""        # Path to kubeconfig file
   nodeName: ""      # Name of the kubernetes node
+  podName: ""       # Name of the pod Kepler runs in
+  podNamespace: ""  # Namespace of the pod Kepler runs in
+  containerName: kepler  # Name of Kepler's container in its pod
   podInformer:
     mode: kubelet          # "kubelet" or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode
@@ -452,6 +461,11 @@ kube:
   - This helps Kepler identify which node it's monitoring
   - Must match the actual node name in the Kubernetes cluster
   - Required when `enabled` is set to `true`
+
+- **podName**, **podNamespace**, **containerName**: Where Kepler itself runs (optional)
+  - Set `podName` and `podNamespace` together, from the downward API; `containerName` defaults to `kepler`
+  - Needed when Kepler runs unprivileged: its private cgroup namespace hides its own cgroup path, so Kepler finds its container through the pod informer instead and reports its own energy use under it
+  - Without them Kepler's own processes are counted as regular processes and its container and pod are missing from the `kepler_container_*` and `kepler_pod_*` series
 
 - **podInformer**: Configuration for how Kepler discovers pod metadata
   - **mode**: Pod informer mode (default: `kubelet`)

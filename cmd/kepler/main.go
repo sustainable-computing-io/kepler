@@ -166,11 +166,19 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		podInformer = createPodInformer(cfg, logger)
 		services = append(services, podInformer)
 	}
-	resourceInformer, err := resource.NewInformer(
+	resourceOpts := []resource.OptionFn{
 		resource.WithLogger(logger),
 		resource.WithProcFSPath(cfg.Host.ProcFS),
 		resource.WithPodInformer(podInformer),
-	)
+	}
+	if podInformer != nil && cfg.Kube.PodName != "" {
+		resourceOpts = append(resourceOpts, resource.WithSelfContainer(resource.SelfContainer{
+			Namespace:     cfg.Kube.PodNamespace,
+			PodName:       cfg.Kube.PodName,
+			ContainerName: cfg.Kube.ContainerName,
+		}))
+	}
+	resourceInformer, err := resource.NewInformer(resourceOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource informer: %w", err)
 	}

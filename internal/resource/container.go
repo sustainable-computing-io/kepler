@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -40,8 +41,14 @@ var containerPatterns = map[*regexp.Regexp]ContainerRuntime{
 	kubepodsPattern: KubePodsRuntime,
 }
 
-// containerInfoFromProc detects if a process is running in a container and extracts container info
-func containerInfoFromProc(proc procInfo) (*Container, error) {
+// cgroupNamespaceRoot is the cgroup path a process reads for its own cgroup, or
+// one in the same cgroup, when it runs in a private cgroup namespace.
+const cgroupNamespaceRoot = "/"
+
+// containerInfoFromProc detects if a process is running in a container and extracts container info.
+// selfContainerID, when set, is the ID of the container kepler runs in: a process at the
+// cgroup namespace root shares kepler's cgroup, so it belongs to that container.
+func containerInfoFromProc(proc procInfo, selfContainerID string) (*Container, error) {
 	cgroups, err := proc.Cgroups()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get process cgroups: %w", err)
@@ -57,6 +64,9 @@ func containerInfoFromProc(proc procInfo) (*Container, error) {
 		paths[i] = cg.Path
 	}
 	runtime, ctnrID := containerInfoFromCgroupPaths(paths)
+	if ctnrID == "" && selfContainerID != "" && slices.Contains(paths, cgroupNamespaceRoot) {
+		runtime, ctnrID = KubePodsRuntime, selfContainerID
+	}
 	if ctnrID == "" {
 		// Not in a container
 		return nil, nil
