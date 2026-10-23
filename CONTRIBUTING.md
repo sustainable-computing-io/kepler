@@ -30,7 +30,7 @@ Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
 The CNCF tracks project health on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) using affiliation data from [cncf/gitdm](https://github.com/cncf/gitdm). DevStats counts contributors without an entry as `Independent`.
 
-If you contribute on behalf of a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
+If you are affiliated with a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
 
 ## How Can I Contribute? 💡
 
