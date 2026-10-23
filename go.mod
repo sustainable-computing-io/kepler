@@ -1,11 +1,12 @@
 module github.com/sustainable-computing-io/kepler
 
-go 1.26.10
+go 1.27.0
 
 require (
 	dario.cat/mergo v1.0.2
 	github.com/NVIDIA/go-nvml v0.13.4-1
 	github.com/alecthomas/kingpin/v2 v2.4.0
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/go-logr/logr v1.4.4
 	github.com/oklog/run v1.2.0
 	github.com/olekukonko/tablewriter v1.1.5
@@ -29,7 +30,6 @@ require (
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/clipperhouse/displaywidth v0.10.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
