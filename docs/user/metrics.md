@@ -159,6 +159,18 @@ These metrics provide energy and power information at the node level.
 - **Constant Labels**:
   - `node_name`
 
+#### kepler_node_gpu_info
+
+- **Type**: GAUGE
+- **Description**: GPU device information for mapping index to UUID/name
+- **Labels**:
+  - `gpu`
+  - `gpu_uuid`
+  - `gpu_name`
+  - `vendor`
+- **Constant Labels**:
+  - `node_name`
+
 #### kepler_node_gpu_joules_total
 
 - **Type**: COUNTER
