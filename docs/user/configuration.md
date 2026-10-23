@@ -465,6 +465,7 @@ kube:
 - **podName**, **podNamespace**, **containerName**: Where Kepler itself runs (optional)
   - Set `podName` and `podNamespace` together, from the downward API; `containerName` defaults to `kepler`
   - Needed when Kepler runs unprivileged: its private cgroup namespace hides its own cgroup path, so Kepler finds its container through the pod informer instead and reports its own energy use under it
+  - Only used when Kepler's own cgroup is the namespace root (a private cgroup namespace); in the host cgroup namespace (privileged, or cgroup v1) the setting has no effect and Kepler is attributed from its cgroup path as usual
   - Without them Kepler's own processes are counted as regular processes and its container and pod are missing from the `kepler_container_*` and `kepler_pod_*` series
 
 - **podInformer**: Configuration for how Kepler discovers pod metadata

@@ -50,6 +50,9 @@ data:
       enabled: false
       config: ""
       nodeName: ""
+      podName: ""
+      podNamespace: ""
+      containerName: kepler
       podInformer:
         mode: kubelet          # "kubelet" (default) or "apiserver"
         pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
