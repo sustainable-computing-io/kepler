@@ -207,6 +207,7 @@ All PRs must pass:
 - **Race Conditions**: All code must be thread-safe; tests run with `-race`
 - **Commit Sign-off**: Forgot `-s`? Amend: `git commit --amend -s --no-edit`
 - **Pre-commit Failures**: Run `pre-commit run --all-files` to check everything
+- **Company Affiliation**: Contributors without an entry in [`cncf/gitdm`](https://github.com/cncf/gitdm) appear as `Independent` on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1). When helping a first-time contributor or new maintainer, remind them to add their affiliation there (see `CONTRIBUTING.md`)
 
 ## Architecture
 
