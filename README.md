@@ -103,9 +103,9 @@ cd compose/dev && docker compose up -d
 
 # 🐳 Kubernetes with Kustomize
 git clone https://github.com/sustainable-computing-io/kepler.git
-cd kepler && git checkout v0.11.4 # pin to a release tag, see note below
+cd kepler && git checkout v0.12.0 # pin to a release tag, see note below
 kubectl kustomize manifests/k8s | \
-  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:v0.11.4|g" | \
+  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:v0.12.0|g" | \
   kubectl apply --server-side --force-conflicts -f -
 ```
 

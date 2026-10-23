@@ -371,6 +371,10 @@ Kepler always exposes two health endpoints on the web server, intended for
 Kubernetes [liveness and readiness probes](https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/).
 They require no configuration.
 
+> **Note**: The probe endpoints were added in **v0.12.0**. Older images return
+> `404` for `/probe/*`, so a liveness probe pointed at them keeps failing and
+> the pod restart-loops. Keep your manifests and your image on the same release.
+
 | Endpoint        | Probe     | Healthy response           | Unhealthy response                              |
 |-----------------|-----------|----------------------------|-------------------------------------------------|
 | `/probe/livez`  | Liveness  | `200` `{"status":"alive"}` | `503` `{"status":"unavailable","failures":{…}}` |
@@ -404,8 +408,25 @@ readinessProbe:
   periodSeconds: 10
 ```
 
-> **Note**: When TLS is enabled via `web.configFile`, probes must use
-> `scheme: HTTPS`.
+When TLS is enabled via `web.configFile`, the probes must use HTTPS. Add
+`scheme: HTTPS` under `httpGet` in both probes:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /probe/livez
+    port: http
+    scheme: HTTPS
+  initialDelaySeconds: 10
+  periodSeconds: 60
+readinessProbe:
+  httpGet:
+    path: /probe/readyz
+    port: http
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
 
 ### 🐳 Kubernetes Configuration
 
