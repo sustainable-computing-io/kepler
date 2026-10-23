@@ -357,6 +357,9 @@ func main() {
 		fmt.Println("Created CPU info collector")
 	}
 
+	gpuInfoCollector := collector.NewGPUInfoCollector(mockMonitor, "test-node")
+	fmt.Println("Created GPU info collector")
+
 	// Extract metrics information from collectors
 	var allMetrics []MetricInfo
 
@@ -388,6 +391,15 @@ func main() {
 		fmt.Printf("Extracted %d CPU info metrics\n", len(cpuInfoMetrics))
 		allMetrics = append(allMetrics, cpuInfoMetrics...)
 	}
+
+	fmt.Println("Extracting metrics from GPU info collector...")
+	gpuInfoMetrics, err := extractMetricsInfo(gpuInfoCollector)
+	if err != nil {
+		fmt.Printf("Failed to extract GPU info metrics: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Extracted %d GPU info metrics\n", len(gpuInfoMetrics))
+	allMetrics = append(allMetrics, gpuInfoMetrics...)
 
 	// Create mock redfish service for platform collector
 	mockRedfish := &MockRedfishService{

@@ -32,13 +32,21 @@ const (
 
 // testConfig holds test configuration from flags
 var testConfig = struct {
-	keplerBinary string
-	metricsPort  int
-	configFile   string
+	keplerBinary  string
+	metricsPort   int
+	configFile    string
+	gpuConfigFile string
+	fakeGPU       bool
+	gpuLoadImage  string
+	gpuLoadBinary string
 }{
-	keplerBinary: "bin/kepler",
-	metricsPort:  28282,
-	configFile:   "",
+	keplerBinary:  "bin/kepler",
+	metricsPort:   28282,
+	configFile:    "",
+	gpuConfigFile: "",
+	fakeGPU:       false,
+	gpuLoadImage:  "nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04",
+	gpuLoadBinary: "",
 }
 
 func init() {
@@ -48,24 +56,37 @@ func init() {
 		"Port for Kepler metrics endpoint")
 	flag.StringVar(&testConfig.configFile, "kepler.config", testConfig.configFile,
 		"Path to Kepler config file")
+	flag.BoolVar(&testConfig.fakeGPU, "gpu.fake", testConfig.fakeGPU,
+		"Run the GPU tests against the fake GPU meter instead of a real NVIDIA GPU")
+	flag.StringVar(&testConfig.gpuLoadImage, "gpu.load-image", testConfig.gpuLoadImage,
+		"Container image with dcgmproftester, used to load a real GPU")
+	flag.StringVar(&testConfig.gpuLoadBinary, "gpu.load-binary", testConfig.gpuLoadBinary,
+		"dcgmproftester binary inside the GPU load image (default: the one matching the driver's CUDA version)")
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	// Find config file if not specified
-	if testConfig.configFile == "" {
-		testConfig.configFile = findConfigFile()
+	// Find config file if not specified. The GPU tests read a real GPU with
+	// e2e-gpu-config.yaml unless -gpu.fake is set. Only they use it: it selects
+	// the fake CPU meter, which would let the CPU tests pass without reading RAPL.
+	explicitConfig := testConfig.configFile != ""
+	if !explicitConfig {
+		testConfig.configFile = findConfigFile("e2e-config.yaml")
+	}
+	testConfig.gpuConfigFile = testConfig.configFile
+	if !testConfig.fakeGPU && !explicitConfig {
+		testConfig.gpuConfigFile = findConfigFile("e2e-gpu-config.yaml")
 	}
 
 	os.Exit(m.Run())
 }
 
-func findConfigFile() string {
+func findConfigFile(name string) string {
 	candidates := []string{
-		"test/testdata/e2e-config.yaml",
-		"../testdata/e2e-config.yaml",
-		"testdata/e2e-config.yaml",
+		filepath.Join("test/testdata", name),
+		filepath.Join("../testdata", name),
+		filepath.Join("testdata", name),
 	}
 
 	for _, c := range candidates {
