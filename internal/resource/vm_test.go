@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -741,4 +742,76 @@ func TestVMNameFromCmdLine(t *testing.T) {
 			assert.Equal(t, tc.expected, name)
 		})
 	}
+}
+
+func FuzzVMInfoFromCmdLine(f *testing.F) {
+	for _, cmdline := range [][]string{
+		{"/usr/bin/qemu-system-x86_64", "-name", "guest=test-vm,debug-threads=on", "-uuid", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/bin/qemu-system-x86_64", "-name", "guest=test-vm,debug-threads=on"},
+		{"/usr/bin/qemu-system-x86_64", "-name", "simple-vm"},
+		{"/usr/bin/qemu-system-x86_64", "-name=test-vm"},
+		{"/usr/bin/qemu-system-aarch64", "-name", "guest=arm-vm", "-uuid", "12345678-1234-5678-9abc-123456789abc"},
+		{"/usr/libexec/qemu-kvm", "-name", "guest=instance-0000008b,debug-threads=on", "-uuid", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/libexec/qemu-kvm", "-name", "guest=instance-0000008b,debug-threads=on"},
+		{"/usr/bin/kvm", "-name", "test-vm"},
+		{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "ubuntu-server", "--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb"},
+		{"/usr/lib/virtualbox/VirtualBoxVM", "-comment", "win10", "-startvm", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/lib/virtualbox/VBoxSDL", "--comment", "sdl-vm"},
+		{"/usr/lib/vmware/bin/vmware-vmx", "-s", "vmx.stdio.keep=TRUE", "/home/user/vmware/UbuntuVM/UbuntuVM.vmx"},
+		{"/usr/local/lib/xen/bin/qemu-system-i386", "-xen-domid", "5", "-name", "debian-guest"},
+		{"/usr/bin/qemu-system-i386", "-name", "xen-guest", "-xen-domid"},
+		{"/usr/bin/firefox", "--profile", "/home/user/.mozilla/firefox"},
+		{"/usr/bin/qemu-system-x86_64", "-machine", "pc", "-m", "1024"},
+	} {
+		f.Add(strings.Join(cmdline, "\x00"))
+	}
+	f.Add("")
+	f.Add("\x00")
+	f.Add("/usr/bin/qemu-system-x86_64\x00-name\x00ゲスト-αβγ-" + strings.Repeat("本", 256))
+
+	f.Fuzz(func(t *testing.T, joined string) {
+		hv, id := vmInfoFromCmdLine(strings.Split(joined, "\x00"))
+		if hv == UnknownHypervisor && id != "" {
+			t.Errorf("unknown hypervisor with non-empty id %q", id)
+		}
+	})
+}
+
+func FuzzVMNameFromCmdLine(f *testing.F) {
+	for _, seed := range []struct {
+		cmdline    []string
+		hypervisor string
+	}{
+		{[]string{}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "test"}, string(UnknownHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "vbox-vm"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/vmware/bin/vmware-vmx", "/vms/TestVM/TestVM.vmx"}, string(VMwareHypervisor)},
+		{[]string{"/usr/local/lib/xen/bin/qemu-system-i386", "-name", "xen-guest"}, string(XenHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "guest=kepler-stuff_default,debug-threads=on"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "simple-vm"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name=test-vm"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name"}, string(KVMHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "ubuntu-server"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VirtualBoxVM", "-comment", "win10"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/vmware/bin/vmware-vmx", "/home/user/vmware/UbuntuVM/UbuntuVM.vmx"}, string(VMwareHypervisor)},
+	} {
+		f.Add(strings.Join(seed.cmdline, "\x00"), seed.hypervisor)
+	}
+	f.Add("", string(UnknownHypervisor))
+	f.Add("\x00", string(KVMHypervisor))
+	f.Add("/usr/bin/qemu-system-x86_64\x00-name\x00ゲスト-αβγ-"+strings.Repeat("本", 256), string(KVMHypervisor))
+
+	f.Fuzz(func(t *testing.T, joined, hypervisor string) {
+		cmdline := strings.Split(joined, "\x00")
+		name := vmNameFromCmdLine(cmdline, Hypervisor(hypervisor))
+		if name == "" {
+			return
+		}
+		for _, arg := range cmdline {
+			if strings.Contains(arg, name) {
+				return
+			}
+		}
+		t.Errorf("name %q is not a substring of any cmdline arg %q", name, cmdline)
+	})
 }
