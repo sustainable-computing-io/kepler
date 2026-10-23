@@ -314,7 +314,7 @@ Where:
   activity_i = DCGM_FI_PROF_GR_ENGINE_ACTIVE for MIG instance i
 ```
 
-For detailed MIG implementation design, see [MIG Power Attribution Design](./mig-power-attribution.md).
+For detailed MIG implementation design, see [MIG Power Attribution Design](../design/architecture/mig-power-attribution.md).
 
 **MPS (Multi-Process Service):**
 
