@@ -48,14 +48,15 @@ const cgroupNamespaceRoot = "/"
 // containerInfoFromProc detects if a process is running in a container and extracts container info.
 // selfContainerID, when set, is the ID of the container kepler runs in: a process at the
 // cgroup namespace root shares kepler's cgroup, so it belongs to that container.
-func containerInfoFromProc(proc procInfo, selfContainerID string) (*Container, error) {
+// cgroupAtRoot is true when the process has a cgroup at "/" regardless of attribution outcome.
+func containerInfoFromProc(proc procInfo, selfContainerID string) (c *Container, cgroupAtRoot bool, err error) {
 	cgroups, err := proc.Cgroups()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get process cgroups: %w", err)
+		return nil, false, fmt.Errorf("failed to get process cgroups: %w", err)
 	}
 
 	if len(cgroups) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	// Check cgroups for container ID and runtime
@@ -63,16 +64,17 @@ func containerInfoFromProc(proc procInfo, selfContainerID string) (*Container, e
 	for i, cg := range cgroups {
 		paths[i] = cg.Path
 	}
+	atRoot := slices.Contains(paths, cgroupNamespaceRoot)
 	runtime, ctnrID := containerInfoFromCgroupPaths(paths)
-	if ctnrID == "" && selfContainerID != "" && slices.Contains(paths, cgroupNamespaceRoot) {
+	if ctnrID == "" && selfContainerID != "" && atRoot {
 		runtime, ctnrID = KubePodsRuntime, selfContainerID
 	}
 	if ctnrID == "" {
 		// Not in a container
-		return nil, nil
+		return nil, atRoot, nil
 	}
 
-	c := &Container{
+	c = &Container{
 		ID:      ctnrID,
 		Runtime: runtime,
 	}
@@ -88,7 +90,7 @@ func containerInfoFromProc(proc procInfo, selfContainerID string) (*Container, e
 		}
 	}
 
-	return c, nil
+	return c, atRoot, nil
 }
 
 // matchResult stores information about a successful regex match.

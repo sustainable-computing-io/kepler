@@ -265,6 +265,43 @@ func TestSelfContainerAttribution(t *testing.T) {
 		assert.InDelta(t, 2, proc.CPUTimeDelta, 1e-9)
 	})
 
+	t.Run("idle process is re-typed once the container id is resolved", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return("", false, nil).Once()
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return(selfID, true, nil).Once()
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+
+		informer.resolveSelfContainerID()
+		// Same CPU time: delta is zero, the process is idle.
+		idle := selfProc()
+		idle.ExpectedCalls = nil
+		idle.On("PID").Return(4002)
+		idle.On("CPUStat").Return(procCPUStat{CPUTime: 3, StartTime: 100}, nil).Once()
+		idle.On("Comm").Return("kepler", nil).Maybe()
+		idle.On("Executable").Return("/usr/bin/kepler", nil).Maybe()
+		idle.On("Cgroups").Return([]cGroup{{Path: "/"}}, nil).Maybe()
+		idle.On("Environ").Return([]string{}, nil).Maybe()
+		idle.On("CmdLine").Return([]string{"/usr/bin/kepler"}, nil).Maybe()
+		proc, err := informer.updateProcessCache(idle)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		// The idle process must not keep an empty type: it must be re-typed as a
+		// container process now that the self-container ID is known.
+		assert.Equal(t, ContainerProcess, proc.Type)
+		require.NotNil(t, proc.Container)
+		assert.Equal(t, selfID, proc.Container.ID)
+	})
+
 	t.Run("without a self container the pod informer is not asked", func(t *testing.T) {
 		podInformer := &mockPodInformer{}
 		informer, err := NewInformer(WithProcReader(&MockProcReader{}), WithPodInformer(podInformer))

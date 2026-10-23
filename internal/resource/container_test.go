@@ -346,7 +346,7 @@ func TestContainerInfoFromProc(t *testing.T) {
 			mockProc.On("Environ").Return(tc.environ, tc.environError)
 			mockProc.On("CmdLine").Return(tc.cmdline, tc.cmdlineError)
 
-			container, err := containerInfoFromProc(mockProc, "")
+			container, _, err := containerInfoFromProc(mockProc, "")
 
 			if tc.expectError {
 				assert.Error(t, err)
@@ -502,7 +502,7 @@ func TestContainerInfoFromProcCgroupNamespaceRoot(t *testing.T) {
 			mockProc.On("Environ").Return([]string{}, nil)
 			mockProc.On("CmdLine").Return([]string{}, nil)
 
-			container, err := containerInfoFromProc(mockProc, tc.selfID)
+			container, _, err := containerInfoFromProc(mockProc, tc.selfID)
 			assert.NoError(t, err)
 			if tc.expectedNone {
 				assert.Nil(t, container)

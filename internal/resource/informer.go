@@ -170,15 +170,8 @@ func (ri *resourceInformer) resolveSelfContainerID() string {
 
 	ri.resolvedSelfID = id
 	ri.logger.Info("Attributing kepler's own processes to its container", "container", sc.ContainerName, "id", id)
-
-	// Processes seen before the id was known (the pod informer is usually not synced
-	// on the first refresh) were typed regular and are not typed again, so kepler's own
-	// processes would stay out of the container series. Type them again.
-	for _, p := range ri.procCache {
-		if p.Type == RegularProcess {
-			p.Type = UnknownProcess
-		}
-	}
+	// Processes seen before the ID was known carry pendingContainerAttribution=true
+	// and are re-typed on their next populateProcessFields call even when idle.
 	return id
 }
 
@@ -567,8 +560,9 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64, self
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
 	p.CPUTotalTime = cpuTotalTime
 
-	// ignore already processed processes with close to 0 CPU time usage
-	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 {
+	// ignore already processed processes with close to 0 CPU time usage;
+	// always re-type pending-attribution processes so the type is never empty
+	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 && !p.pendingContainerAttribution {
 		return nil
 	}
 
@@ -585,8 +579,9 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64, self
 	}
 	p.Exe = exe
 
-	// Determine process type and associated container/VM only if not already set
-	if p.Type == UnknownProcess || commChanged {
+	// Determine process type: always when unknown or comm changed; also when
+	// container attribution was deferred until kepler's own ID became available.
+	if p.Type == UnknownProcess || commChanged || p.pendingContainerAttribution {
 		info, err := computeTypeInfoFromProc(proc, selfContainerID)
 		if err != nil {
 			return fmt.Errorf("failed to detect process type: %w", err)
@@ -595,6 +590,7 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64, self
 		p.Type = info.Type
 		p.Container = info.Container
 		p.VirtualMachine = info.VM
+		p.pendingContainerAttribution = info.PendingContainerAttribution
 	}
 
 	return nil
@@ -604,24 +600,31 @@ type ProcessTypeInfo struct {
 	Type      ProcessType
 	Container *Container
 	VM        *VirtualMachine
+	// PendingContainerAttribution is true when the process has cgroup "/" but
+	// the self-container ID was not known at typing time; it is cleared on re-type.
+	PendingContainerAttribution bool
 }
 
 func computeTypeInfoFromProc(proc procInfo, selfContainerID string) (*ProcessTypeInfo, error) {
 	// detect process type in parallel
 	type result struct {
-		container *Container
-		vm        *VirtualMachine
-		err       error
+		vm  *VirtualMachine
+		err error
 	}
 
 	// Using buffered channels to prevent goroutine from blocking
-	containerCh := make(chan result, 1)
+	type ctnrResult struct {
+		container    *Container
+		cgroupAtRoot bool
+		err          error
+	}
+	ctnrCh := make(chan ctnrResult, 1)
 	vmCh := make(chan result, 1)
 
 	go func() {
-		defer close(containerCh)
-		container, err := containerInfoFromProc(proc, selfContainerID)
-		containerCh <- result{container: container, err: err}
+		defer close(ctnrCh)
+		container, cgroupAtRoot, err := containerInfoFromProc(proc, selfContainerID)
+		ctnrCh <- ctnrResult{container: container, cgroupAtRoot: cgroupAtRoot, err: err}
 	}()
 
 	go func() {
@@ -631,21 +634,25 @@ func computeTypeInfoFromProc(proc procInfo, selfContainerID string) (*ProcessTyp
 	}()
 
 	// Wait for both to complete
-	ctnrResult := <-containerCh
+	cr := <-ctnrCh
 	vmResult := <-vmCh
 
 	switch {
-	case ctnrResult.err == nil && ctnrResult.container != nil:
-		return &ProcessTypeInfo{Type: ContainerProcess, Container: ctnrResult.container}, nil
+	case cr.err == nil && cr.container != nil:
+		return &ProcessTypeInfo{Type: ContainerProcess, Container: cr.container}, nil
 
 	case vmResult.err == nil && vmResult.vm != nil:
 		return &ProcessTypeInfo{Type: VMProcess, VM: vmResult.vm}, nil
 
-	case ctnrResult.err == nil && vmResult.err == nil:
-		return &ProcessTypeInfo{Type: RegularProcess}, errors.Join(ctnrResult.err, vmResult.err)
+	case cr.err == nil && vmResult.err == nil:
+		// When selfContainerID is not yet known, a process at the cgroup namespace
+		// root belongs to kepler's container but cannot be attributed yet; mark it
+		// so it is re-typed once the ID is resolved, even when idle.
+		pending := selfContainerID == "" && cr.cgroupAtRoot
+		return &ProcessTypeInfo{Type: RegularProcess, PendingContainerAttribution: pending}, nil
 
 	default:
-		return nil, errors.Join(ctnrResult.err, vmResult.err)
+		return nil, errors.Join(cr.err, vmResult.err)
 	}
 }
 
