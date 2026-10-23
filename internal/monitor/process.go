@@ -162,7 +162,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 				})
 			}
 		}
-		gpuStats = computeGPUActiveIdleEnergy(gpuStats, prev.GPUStats)
+		dt := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
+		gpuStats = computeGPUActiveIdleEnergy(gpuStats, prev.GPUStats, dt)
 		newSnapshot.GPUStats = gpuStats
 		pm.logger.Debug("GPU process power", "gpu_processes", len(gpuPowerByPID))
 	}
@@ -272,8 +273,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 }
 
 // computeGPUActiveIdleEnergy splits cumulative GPU energy into active and idle
-// components using the instantaneous power ratio as the splitting factor.
-func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats) []GPUDeviceStats {
+// components. The idle share of each interval's energy delta is the idle power
+// baseline over the interval duration dt (in seconds), capped at the delta; the
+// remainder is active. Intervals with dt <= 0 are skipped.
+func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats, dt float64) []GPUDeviceStats {
 	if len(previous) == 0 {
 		return current
 	}
@@ -289,20 +292,24 @@ func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats) []GPUDeviceS
 			continue
 		}
 
+		// Carry totals forward when the interval duration is unknown
+		if dt <= 0 {
+			current[i].ActiveEnergyTotal = prev.ActiveEnergyTotal
+			current[i].IdleEnergyTotal = prev.IdleEnergyTotal
+			continue
+		}
+
 		// Delta energy from hardware counter (skip if counter decreased)
 		var deltaEnergy Energy
 		if current[i].EnergyTotal >= prev.EnergyTotal {
 			deltaEnergy = current[i].EnergyTotal - prev.EnergyTotal
 		}
 
-		// Split using instantaneous power ratio
-		var activeRatio float64
-		if current[i].TotalPower > 0 {
-			activeRatio = current[i].ActivePower / current[i].TotalPower
-		}
-
-		deltaActive := Energy(float64(deltaEnergy) * activeRatio)
-		deltaIdle := deltaEnergy - deltaActive
+		// Split using the idle power baseline over the interval, so both parts
+		// come from the same energy counter delta
+		idleEnergy := max(current[i].IdlePower*dt, 0)
+		deltaIdle := min(Energy(idleEnergy*float64(Joule)), deltaEnergy)
+		deltaActive := deltaEnergy - deltaIdle
 
 		current[i].ActiveEnergyTotal = prev.ActiveEnergyTotal + deltaActive
 		current[i].IdleEnergyTotal = prev.IdleEnergyTotal + deltaIdle

@@ -255,8 +255,8 @@ type GPUDeviceStats struct {
 	IdlePower         float64 // Detected idle power in Watts
 	ActivePower       float64 // Active power (Total - Idle) in Watts
 	EnergyTotal       Energy  // Cumulative GPU energy from hardware counter
-	ActiveEnergyTotal Energy  // Cumulative active GPU energy (split from EnergyTotal using power ratio)
-	IdleEnergyTotal   Energy  // Cumulative idle GPU energy (split from EnergyTotal using power ratio)
+	ActiveEnergyTotal Energy  // Cumulative active GPU energy (EnergyTotal above the idle baseline)
+	IdleEnergyTotal   Energy  // Cumulative idle GPU energy (idle power over time, capped at EnergyTotal)
 }
 
 // Snapshot encapsulates power monitoring data

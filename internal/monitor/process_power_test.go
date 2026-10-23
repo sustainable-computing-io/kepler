@@ -1148,8 +1148,6 @@ func TestComputeGPUActiveIdleEnergy(t *testing.T) {
 		prev := []GPUDeviceStats{
 			{
 				UUID:              "GPU-1234",
-				TotalPower:        200.0,
-				ActivePower:       150.0,
 				IdlePower:         50.0,
 				EnergyTotal:       500 * Joule,
 				ActiveEnergyTotal: 300 * Joule,
@@ -1166,16 +1164,74 @@ func TestComputeGPUActiveIdleEnergy(t *testing.T) {
 			},
 		}
 
-		result := computeGPUActiveIdleEnergy(current, prev)
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
 
-		// activeRatio = 150/200 = 0.75
-		// deltaActive = 500J * 0.75 = 375J, deltaIdle = 500J - 375J = 125J
-		assert.Equal(t, 300*Joule+Energy(float64(500*Joule)*0.75), result[0].ActiveEnergyTotal)
-		assert.Equal(t, 200*Joule+(500*Joule-Energy(float64(500*Joule)*0.75)), result[0].IdleEnergyTotal)
-		// Verify conservation: active + idle delta = total delta
-		activeDelta := result[0].ActiveEnergyTotal - 300*Joule
-		idleDelta := result[0].IdleEnergyTotal - 200*Joule
-		assert.Equal(t, 500*Joule, activeDelta+idleDelta)
+		// deltaIdle = 50W * 5s = 250J, deltaActive = 500J - 250J = 250J
+		assert.Equal(t, 550*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 450*Joule, result[0].IdleEnergyTotal)
+	})
+
+	t.Run("bursty load is split by interval energy, not end-of-interval power", func(t *testing.T) {
+		// Busy at 250W for 4s, then idle at 50W for the final 1s:
+		// delta = 4s*250W + 1s*50W = 1050J. The end-of-interval power reading
+		// is idle, so a power-ratio split would label everything as idle.
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-1234", IdlePower: 50.0, EnergyTotal: 0},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 50.0, ActivePower: 0, IdlePower: 50.0, EnergyTotal: 1050 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
+
+		// deltaIdle = 50W * 5s = 250J, deltaActive = 1050J - 250J = 800J (4s * 200W)
+		assert.Equal(t, 800*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 250*Joule, result[0].IdleEnergyTotal)
+	})
+
+	t.Run("idle baseline exceeds delta - clamp to delta", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-1234", EnergyTotal: 500 * Joule, ActiveEnergyTotal: 100 * Joule, IdleEnergyTotal: 400 * Joule},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 30.0, IdlePower: 50.0, EnergyTotal: 700 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
+
+		// 50W * 5s = 250J > 200J delta, so all 200J goes to idle
+		assert.Equal(t, 100*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 600*Joule, result[0].IdleEnergyTotal)
+	})
+
+	t.Run("zero idle power - all goes to active", func(t *testing.T) {
+		prev := []GPUDeviceStats{
+			{UUID: "GPU-1234", EnergyTotal: 500 * Joule, ActiveEnergyTotal: 100 * Joule, IdleEnergyTotal: 400 * Joule},
+		}
+		current := []GPUDeviceStats{
+			{UUID: "GPU-1234", TotalPower: 40.0, ActivePower: 40.0, IdlePower: 0, EnergyTotal: 700 * Joule},
+		}
+
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
+
+		assert.Equal(t, 300*Joule, result[0].ActiveEnergyTotal)
+		assert.Equal(t, 400*Joule, result[0].IdleEnergyTotal)
+	})
+
+	t.Run("non-positive dt - carry totals forward", func(t *testing.T) {
+		for _, dt := range []float64{0, -1} {
+			prev := []GPUDeviceStats{
+				{UUID: "GPU-1234", EnergyTotal: 500 * Joule, ActiveEnergyTotal: 100 * Joule, IdleEnergyTotal: 400 * Joule},
+			}
+			current := []GPUDeviceStats{
+				{UUID: "GPU-1234", IdlePower: 50.0, EnergyTotal: 700 * Joule},
+			}
+
+			result := computeGPUActiveIdleEnergy(current, prev, dt)
+
+			assert.Equal(t, 100*Joule, result[0].ActiveEnergyTotal)
+			assert.Equal(t, 400*Joule, result[0].IdleEnergyTotal)
+		}
 	})
 
 	t.Run("no previous data", func(t *testing.T) {
@@ -1183,25 +1239,10 @@ func TestComputeGPUActiveIdleEnergy(t *testing.T) {
 			{UUID: "GPU-1234", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 1000 * Joule},
 		}
 
-		result := computeGPUActiveIdleEnergy(current, nil)
+		result := computeGPUActiveIdleEnergy(current, nil, 5)
 
 		assert.Equal(t, Energy(0), result[0].ActiveEnergyTotal)
 		assert.Equal(t, Energy(0), result[0].IdleEnergyTotal)
-	})
-
-	t.Run("zero total power - all goes to idle", func(t *testing.T) {
-		prev := []GPUDeviceStats{
-			{UUID: "GPU-1234", EnergyTotal: 500 * Joule, ActiveEnergyTotal: 100 * Joule, IdleEnergyTotal: 400 * Joule},
-		}
-		current := []GPUDeviceStats{
-			{UUID: "GPU-1234", TotalPower: 0, ActivePower: 0, IdlePower: 0, EnergyTotal: 700 * Joule},
-		}
-
-		result := computeGPUActiveIdleEnergy(current, prev)
-
-		// activeRatio = 0, so all 200J delta goes to idle
-		assert.Equal(t, 100*Joule, result[0].ActiveEnergyTotal)
-		assert.Equal(t, 600*Joule, result[0].IdleEnergyTotal)
 	})
 
 	t.Run("new device not in previous", func(t *testing.T) {
@@ -1212,7 +1253,7 @@ func TestComputeGPUActiveIdleEnergy(t *testing.T) {
 			{UUID: "GPU-NEW", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 1000 * Joule},
 		}
 
-		result := computeGPUActiveIdleEnergy(current, prev)
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
 
 		// No match, so active/idle stay zero
 		assert.Equal(t, Energy(0), result[0].ActiveEnergyTotal)
@@ -1224,10 +1265,10 @@ func TestComputeGPUActiveIdleEnergy(t *testing.T) {
 			{UUID: "GPU-1234", EnergyTotal: 1000 * Joule, ActiveEnergyTotal: 500 * Joule, IdleEnergyTotal: 500 * Joule},
 		}
 		current := []GPUDeviceStats{
-			{UUID: "GPU-1234", TotalPower: 200.0, ActivePower: 150.0, EnergyTotal: 500 * Joule}, // decreased!
+			{UUID: "GPU-1234", TotalPower: 200.0, ActivePower: 150.0, IdlePower: 50.0, EnergyTotal: 500 * Joule}, // decreased!
 		}
 
-		result := computeGPUActiveIdleEnergy(current, prev)
+		result := computeGPUActiveIdleEnergy(current, prev, 5)
 
 		// Delta is 0 (skip decrease), so values stay the same as previous
 		assert.Equal(t, 500*Joule, result[0].ActiveEnergyTotal)
