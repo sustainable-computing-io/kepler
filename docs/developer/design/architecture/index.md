@@ -29,11 +29,12 @@ This section provides comprehensive documentation of Kepler's architecture, desi
 
 ### Implementation Details
 
-| Document                                            | Description                                           |
-|-----------------------------------------------------|-------------------------------------------------------|
-| **[Interfaces & Contracts](interfaces.md)**         | Key interfaces, service contracts, and API boundaries |
-| **[Configuration System](configuration.md)**        | Hierarchical configuration and option management      |
-| **[GPU Power Monitoring](gpu-power-monitoring.md)** | NVIDIA GPU power monitoring via NVML                  |
+| Document                                              | Description                                           |
+|-------------------------------------------------------|-------------------------------------------------------|
+| **[Interfaces & Contracts](interfaces.md)**           | Key interfaces, service contracts, and API boundaries |
+| **[Configuration System](configuration.md)**          | Hierarchical configuration and option management      |
+| **[GPU Power Monitoring](gpu-power-monitoring.md)**   | NVIDIA GPU power monitoring via NVML                  |
+| **[MIG Power Attribution](mig-power-attribution.md)** | Per-process power attribution on MIG-enabled GPUs     |
 
 ## Quick Reference
 
