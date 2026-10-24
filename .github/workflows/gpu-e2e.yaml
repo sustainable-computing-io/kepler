@@ -1,0 +1,400 @@
+name: GPU e2e
+
+# Runs the GPU e2e tests (test/e2e/gpu_test.go) on the real GPU of the CNCF
+# A10 GPU runner. The GPUs are shared by all CNCF projects, so this only runs
+# when a maintainer starts it for a PR that touches GPU code, and once a week
+# on main. See docs/developer/e2e-testing.md.
+
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to test (leave empty to test the branch picked above)
+        required: false
+        type: string
+      sha:
+        description: Commit of the PR you reviewed (optional, the run stops if the PR has moved on; empty tests the PR's latest commit)
+        required: false
+        type: string
+  schedule:
+    - cron: 0 6 * * 1 # Mondays 06:00 UTC, tests main
+
+# default permissions as read only
+permissions: read-all
+
+jobs:
+  check:
+    name: Quick check
+    # Only the upstream repository: copies of this workflow elsewhere, even in
+    # the same organization, must never reach the GPU runner group.
+    if: github.repository == 'sustainable-computing-io/kepler'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      target: ${{ steps.target.outputs.target }}
+      pr: ${{ steps.target.outputs.pr }}
+      note: ${{ steps.target.outputs.note }}
+    steps:
+      - name: Resolve what to test
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REVIEWED_SHA: ${{ inputs.sha }}
+        run: |
+          if [ -z "$PR" ]; then
+            echo "Testing ${GITHUB_REF_NAME} at ${GITHUB_SHA}"
+            {
+              echo "sha=${GITHUB_SHA}"
+              echo "target=${GITHUB_REF_NAME}"
+              echo "pr="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "::error::The PR number must be digits only, got '${PR}'"
+            exit 1
+          fi
+          REVIEWED_SHA=${REVIEWED_SHA,,}
+          if [ -n "$REVIEWED_SHA" ] && ! [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::The reviewed commit must be 7 to 40 hex characters, got '${REVIEWED_SHA}'"
+            exit 1
+          fi
+
+          info=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.state) \(.head.sha)"')
+          read -r state head <<< "$info"
+          if [ "$state" != open ]; then
+            echo "::error::PR #${PR} is ${state}, not open"
+            exit 1
+          fi
+
+          # With a reviewed commit, only that commit runs on the GPU runner.
+          # Without one, the PR's latest commit runs, and the run says so.
+          note=""
+          if [ -n "$REVIEWED_SHA" ]; then
+            if [[ "$head" != "$REVIEWED_SHA"* ]]; then
+              echo "::error::PR #${PR} moved from ${REVIEWED_SHA} to ${head:0:12}. Review the new commits and run again."
+              exit 1
+            fi
+          else
+            note="No reviewed commit was given, so this run tested the latest commit of PR #${PR} when it started, ${head:0:12}, without pinning it to a review."
+            echo "::notice title=Not pinned to a reviewed commit::${note}"
+          fi
+
+          echo "Testing PR #${PR} at ${head}"
+          {
+            echo "sha=${head}"
+            echo "target=PR #${PR}"
+            echo "pr=${PR}"
+            echo "note=${note}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Mark the PR as running
+        if: steps.target.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.target.outputs.sha }}
+          NOTE: ${{ steps.target.outputs.note }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          description="Running on the CNCF A10 runner"
+          if [ -n "$NOTE" ]; then
+            description="${description}, latest commit, not pinned to a review"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state=pending -f context="GPU e2e" \
+            -f description="$description" -f target_url="$RUN_URL" > /dev/null
+
+  gpu:
+    name: GPU tests on the A10
+    needs: check
+    runs-on:
+      group: GPUs
+      labels: oracle-vm-gpu-a10-1
+    timeout-minutes: 30
+    # This job runs the code under test, so it only gets read access.
+    permissions:
+      contents: read
+    # One GPU run at a time: the runners are shared across CNCF projects.
+    concurrency:
+      group: gpu-e2e-runner
+      cancel-in-progress: false
+    env:
+      DCGM_IMAGE: nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
+    steps:
+      - name: Checkout the code under test
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          persist-credentials: false
+
+      - name: Checkout the run summary script
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e-summary.sh
+          sparse-checkout-cone-mode: false
+
+      - name: GPU info
+        run: |
+          nvidia-smi --query-gpu=name,driver_version,memory.total,power.draw --format=csv
+          cat /proc/driver/nvidia/version
+
+      - name: Prepare the GPU
+        run: |
+          # Keep the GPU initialized between Kepler starts, so Kepler sees its real idle power.
+          sudo nvidia-smi -pm 1
+          # Let Docker run the GPU load used by TestGPUWorkloadAttribution.
+          sudo nvidia-ctk runtime configure --runtime=docker --set-as-default
+          sudo systemctl restart docker
+          docker pull -q "$DCGM_IMAGE"
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build Kepler and the e2e test binary
+        run: CGO_ENABLED=1 make test-e2e
+
+      # The log, the samples and the PID files live in RUNNER_TEMP, which the
+      # runner empties for every job, so no older run can leak into them.
+      - name: Start sampling GPU power and Kepler's GPU metrics
+        run: |
+          start=$(date +%s)
+          (
+            while true; do
+              watts=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits | awk '{ s += $1 } END { printf "%.2f", s }')
+              echo "$(($(date +%s) - start)),${watts}"
+              sleep 1
+            done
+          ) >> "$RUNNER_TEMP/gpu-power.csv" 2> /dev/null &
+          echo $! > "$RUNNER_TEMP/gpu-power.pid"
+
+          # Each test starts its own Kepler on the port set in
+          # test/testdata/e2e-gpu-config.yaml. Keep its GPU series, once per
+          # monitor interval, so a failure can be read without another GPU run.
+          (
+            while true; do
+              if metrics=$(curl -sf --max-time 2 http://localhost:28282/metrics | grep -E '^kepler_(node|process|container)_gpu_'); then
+                echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ), $(($(date +%s) - start)) s"
+                printf '%s\n' "$metrics"
+              fi
+              sleep 3
+            done
+          ) >> "$RUNNER_TEMP/kepler-gpu-metrics.txt" 2> /dev/null &
+          echo $! > "$RUNNER_TEMP/kepler-gpu-metrics.pid"
+
+      - name: Run the GPU e2e tests
+        run: |
+          set +e
+          sudo ./bin/kepler-e2e.test -test.v -test.timeout=20m -test.run TestGPU \
+            -gpu.load-image="$DCGM_IMAGE" 2>&1 | tee "$RUNNER_TEMP/gpu-e2e.log"
+          code=${PIPESTATUS[0]}
+          echo "GPU_E2E_EXIT_CODE=${code}" >> "$GITHUB_ENV"
+          # Go also exits 0 when every test skips, for example when nvidia-smi
+          # finds no usable GPU, so the run only passes once a GPU test passed.
+          if [ "$code" -eq 0 ] && ! grep -qE '^--- PASS: TestGPU' "$RUNNER_TEMP/gpu-e2e.log"; then
+            echo "::error::No GPU test passed, so the GPU was not tested. The run summary says why."
+            exit 1
+          fi
+          exit "$code"
+
+      - name: Write the run summary
+        if: always()
+        env:
+          GPU_E2E_TARGET: ${{ needs.check.outputs.target }}
+          GPU_E2E_SHA: ${{ needs.check.outputs.sha }}
+          GPU_E2E_NOTE: ${{ needs.check.outputs.note }}
+          GPU_E2E_RUNNER: oracle-vm-gpu-a10-1
+          GPU_E2E_ARTIFACT: gpu-e2e-logs
+        run: |
+          for pid in "$RUNNER_TEMP/gpu-power.pid" "$RUNNER_TEMP/kepler-gpu-metrics.pid"; do
+            if [ -f "$pid" ]; then
+              kill "$(cat "$pid")" 2> /dev/null || true
+            fi
+          done
+          # The weekly issue reuses this summary, so it also goes in the artifact.
+          bash workflow-src/hack/gpu-e2e-summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" > "$RUNNER_TEMP/gpu-e2e-summary.md"
+          cat "$RUNNER_TEMP/gpu-e2e-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-e2e-logs
+          path: |
+            ${{ runner.temp }}/gpu-e2e.log
+            ${{ runner.temp }}/gpu-power.csv
+            ${{ runner.temp }}/kepler-gpu-metrics.txt
+            ${{ runner.temp }}/gpu-e2e-summary.md
+          retention-days: 7
+
+  report:
+    name: Report on the PR
+    needs: [check, gpu]
+    if: always() && needs.check.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set the GPU e2e status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.check.outputs.sha }}
+          RESULT: ${{ needs.gpu.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$RESULT" in
+            success) state=success description="All GPU tests passed on the CNCF A10 runner" ;;
+            failure) state=failure description="GPU e2e failed, see the run summary" ;;
+            *) state=error description="The GPU run did not finish (${RESULT})" ;;
+          esac
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state="$state" -f context="GPU e2e" \
+            -f description="$description" -f target_url="$RUN_URL" > /dev/null
+
+  weekly-issue:
+    name: Open an issue for a failed weekly run
+    needs: [check, gpu]
+    # A GPU job that hits timeout-minutes, or that a newer run replaces while
+    # it waits for the GPU, ends as cancelled, not failed.
+    if: >-
+      always() && github.event_name == 'schedule' &&
+      (needs.check.result == 'failure' || needs.gpu.result == 'failure' || needs.gpu.result == 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      # The GPU job writes the run summary into its artifact: this job never
+      # runs the code under test, it only posts what that job measured.
+      - name: Download the run summary
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: gpu-e2e-logs
+          path: ${{ runner.temp }}/gpu-e2e-logs
+
+      - name: Write the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.check.outputs.sha || github.sha }}
+          GPU_RESULT: ${{ needs.gpu.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.check.outputs.sha || github.sha }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/gpu-e2e.yaml
+        run: |
+          summary="$RUNNER_TEMP/gpu-e2e-logs/gpu-e2e-summary.md"
+          # The GPU job is skipped when the quick check failed; then that
+          # job's log shows why.
+          job_name="GPU tests on the A10"
+          if [ "$GPU_RESULT" = skipped ]; then
+            job_name="Quick check"
+          fi
+          if [ "$GPU_RESULT" = cancelled ]; then
+            outcome="did not finish (cancelled or timed out)" during="during"
+          else
+            outcome="failed" during="in"
+          fi
+          job=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" |
+            jq -r --arg name "$job_name" '.jobs[] | select(.name == $name)
+              | "\(.id)\t\(.html_url)\t\([.steps[] | select(.conclusion == "failure" or .conclusion == "cancelled") | .name][0] // "")"' || true)
+          IFS=$'\t' read -r job_id job_url failed_step <<< "$job" || true
+
+          # Without per-test failure details in the summary (a build error, a
+          # crash, a timeout), show the end of the failed step's log instead.
+          # Job logs expire with the run, so the excerpt is what stays.
+          excerpt=""
+          if [ -n "$job_id" ] && ! grep -qs '<summary><strong>Why <code>' "$summary"; then
+            # curl, not gh api: newer gh refuses to print the log's color codes.
+            excerpt=$(curl -sfL --max-time 60 -H "Authorization: Bearer ${GH_TOKEN}" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/jobs/${job_id}/logs" |
+              sed -E -e 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ?//' -e $'s/\x1b\\[[0-9;]*[A-Za-z]//g' |
+              awk '
+                function show() { for (i = (n > 40 ? n - 39 : 1); i <= n; i++) print buf[i] }
+                # A step starts with its script in a "Run" group; drop that.
+                /^##\[group\]Run / { header = 1; next }
+                /^##\[endgroup\]/ { if (header) n = 0; header = 0; next }
+                header { next }
+                { sub(/^##\[group\]/, ""); buf[++n] = $0 }
+                /^##\[error\](Process completed|The action|The operation)/ { show(); done = 1; exit }
+                END { if (!done) show() }' || true)
+          fi
+
+          body="$RUNNER_TEMP/issue.md"
+          {
+            echo "The weekly GPU e2e run on \`main\` ${outcome}${failed_step:+ ${during} the step \`${failed_step}\`}."
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| **Run** | [${GITHUB_RUN_ID}](${RUN_URL})${job_url:+, [${job_name} log](${job_url})} |"
+            echo "| **Commit** | [\`${SHA:0:7}\`](${COMMIT_URL}) on \`main\` |"
+            echo "| **Logs** | [\`gpu-e2e-logs\`](${RUN_URL}#artifacts), kept for 7 days: the test output with Kepler's logs, Kepler's GPU metrics every 3 s and \`nvidia-smi\` power every second |"
+            echo
+            if [ -n "$excerpt" ]; then
+              echo "<details open><summary><strong>End of the log of <code>${failed_step:-${job_name}}</code></strong></summary>"
+              echo
+              echo '```text'
+              printf '%s\n' "$excerpt"
+              echo '```'
+              echo
+              echo "</details>"
+              echo
+            fi
+            if [ -s "$summary" ]; then
+              cat "$summary"
+            else
+              echo "There is no run summary: the GPU job did not get to write one, for example because the quick check failed, the job was cancelled before it started, or its runner went away. The run page shows why."
+            fi
+          } > "$body"
+
+          # An issue body or comment holds at most 65536 characters.
+          # Cut at a line, then close the code block and the <details> it was in.
+          if [ "$(wc -c < "$body")" -gt 60000 ]; then
+            head -c 55000 "$body" | sed '$d' > "$body.cut"
+            fences=$(grep -c '^```' "$body.cut" || true)
+            opened=$(grep -c '<details' "$body.cut" || true)
+            closed=$(grep -c '</details>' "$body.cut" || true)
+            {
+              if [ $((fences % 2)) -eq 1 ]; then echo '```'; fi
+              for ((i = closed; i < opened; i++)); do printf '\n</details>\n'; done
+              printf '\nThe rest is cut, the full summary is on the [run page](%s).\n' "$RUN_URL"
+            } >> "$body.cut"
+            mv "$body.cut" "$body"
+          fi
+
+          {
+            echo
+            echo "---"
+            echo "Written by the weekly run of the [GPU e2e workflow](${WORKFLOW_URL}). Later failures are added as comments; close this issue once \`main\` passes again."
+          } > "$RUNNER_TEMP/footer.md"
+          {
+            echo "ISSUE_BODY=${body}"
+            echo "ISSUE_FOOTER=${RUNNER_TEMP}/footer.md"
+          } >> "$GITHUB_ENV"
+
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GPU_RESULT: ${{ needs.gpu.result }}
+        run: |
+          title="Weekly GPU e2e run failed"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"${title}\" in:title" \
+            --json number,title --jq "map(select(.title == \"${title}\")) | .[0].number // empty")
+          if [ -n "$number" ]; then
+            if [ "$GPU_RESULT" = cancelled ]; then again="Did not finish this time (cancelled or timed out)."; else again="Failed again."; fi
+            { echo "$again"; echo; cat "$ISSUE_BODY"; } > "$RUNNER_TEMP/comment.md"
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          else
+            cat "$ISSUE_BODY" "$ISSUE_FOOTER" > "$RUNNER_TEMP/new-issue.md"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$RUNNER_TEMP/new-issue.md"
+          fi
