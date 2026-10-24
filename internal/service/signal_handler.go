@@ -27,7 +27,7 @@ func (sh *SignalHandler) Name() string {
 func (sh *SignalHandler) Run(ctx context.Context) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, sh.signals...)
-	fmt.Println("Press Ctrl+C to shutdown")
+	fmt.Fprintln(os.Stderr, "Press Ctrl+C to shutdown")
 
 	select {
 	case <-c:
