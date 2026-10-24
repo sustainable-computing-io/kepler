@@ -434,7 +434,7 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		},
 		expectedZones: nil,
 	}, {
-		name: "all experimental features disabled - should set experimental to nil",
+		name: "all experimental features disabled - sanitize trims but preserves section",
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
@@ -448,7 +448,10 @@ func TestSanitize_HwmonFields(t *testing.T) {
 				},
 			},
 		},
-		experimentalNil: true,
+		// sanitize() no longer nils Experimental; that happens after flags
+		// are merged so YAML values survive into applyGPUConfig et al.
+		experimentalNil: false,
+		expectedZones:   []string{"zone1"},
 	}}
 
 	for _, tc := range tests {

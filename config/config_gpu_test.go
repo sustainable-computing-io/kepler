@@ -4,9 +4,12 @@
 package config
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 )
 
@@ -47,6 +50,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet   map[string]bool
 		enabled    *bool
 		idlePower  *float64
+		cacheTTL   *time.Duration
 		wantExpNil bool
 		wantGPU    *ExperimentalGPU // nil means don't check GPU fields
 	}{{
@@ -55,6 +59,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:   map[string]bool{},
 		enabled:    ptr.To(false),
 		idlePower:  ptr.To(0.0),
+		cacheTTL:   ptr.To(2 * time.Second),
 		wantExpNil: true,
 	}, {
 		name:      "gpu enabled flag only",
@@ -62,9 +67,11 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUEnabledFlag: true},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 0,
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
 		},
 	}, {
 		name: "gpu enabled and idle power flags",
@@ -75,9 +82,11 @@ func TestApplyGPUConfig(t *testing.T) {
 		},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(50.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 50.0,
+			Enabled:         ptr.To(true),
+			IdlePower:       50.0,
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
 		},
 	}, {
 		name: "gpu disabled with idle power flag",
@@ -88,6 +97,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		},
 		enabled:   ptr.To(false),
 		idlePower: ptr.To(50.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
 			Enabled:   ptr.To(false),
 			IdlePower: 0, // idle power not applied when GPU is disabled
@@ -98,6 +108,7 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:   map[string]bool{ExperimentalGPUIdlePowerFlag: true},
 		enabled:    ptr.To(false),
 		idlePower:  ptr.To(50.0),
+		cacheTTL:   ptr.To(2 * time.Second),
 		wantExpNil: true, // early exit — enabled flag not in flagsSet, Experimental is nil
 	}, {
 		name: "yaml gpu enabled with idle power flag override",
@@ -111,9 +122,29 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUIdlePowerFlag: true},
 		enabled:   ptr.To(false),
 		idlePower: ptr.To(25.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true), // preserved from YAML
-			IdlePower: 25.0,
+			Enabled:         ptr.To(true), // preserved from YAML
+			IdlePower:       25.0,
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
+		},
+	}, {
+		name: "yaml metrics cache TTL is preserved without CLI override",
+		cfg: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled:         ptr.To(true),
+					MetricsCacheTTL: ptr.To(time.Second),
+				},
+			},
+		},
+		flagsSet:  map[string]bool{},
+		enabled:   ptr.To(false),
+		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
+		wantGPU: &ExperimentalGPU{
+			Enabled:         ptr.To(true),
+			MetricsCacheTTL: ptr.To(time.Second),
 		},
 	}, {
 		name: "enabled flag overrides yaml disabled",
@@ -127,16 +158,33 @@ func TestApplyGPUConfig(t *testing.T) {
 		flagsSet:  map[string]bool{ExperimentalGPUEnabledFlag: true},
 		enabled:   ptr.To(true),
 		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(2 * time.Second),
 		wantGPU: &ExperimentalGPU{
-			Enabled:   ptr.To(true),
-			IdlePower: 0,
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(defaultGPUMetricsCacheTTL),
+		},
+	}, {
+		name: "gpu enabled and metrics cache TTL flags",
+		cfg:  &Config{},
+		flagsSet: map[string]bool{
+			ExperimentalGPUEnabledFlag:         true,
+			ExperimentalGPUMetricsCacheTTLFlag: true,
+		},
+		enabled:   ptr.To(true),
+		idlePower: ptr.To(0.0),
+		cacheTTL:  ptr.To(500 * time.Millisecond),
+		wantGPU: &ExperimentalGPU{
+			Enabled:         ptr.To(true),
+			IdlePower:       0,
+			MetricsCacheTTL: ptr.To(500 * time.Millisecond),
 		},
 	}}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dcgmEndpoint := ""
-			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower, &dcgmEndpoint)
+			applyGPUConfig(tc.cfg, tc.flagsSet, tc.enabled, tc.idlePower, &dcgmEndpoint, tc.cacheTTL)
 
 			if tc.wantExpNil {
 				assert.Nil(t, tc.cfg.Experimental)
@@ -146,6 +194,78 @@ func TestApplyGPUConfig(t *testing.T) {
 			assert.NotNil(t, tc.cfg.Experimental)
 			assert.Equal(t, tc.wantGPU.Enabled, tc.cfg.Experimental.GPU.Enabled)
 			assert.Equal(t, tc.wantGPU.IdlePower, tc.cfg.Experimental.GPU.IdlePower)
+			assert.Equal(t, tc.wantGPU.MetricsCacheTTL, tc.cfg.Experimental.GPU.MetricsCacheTTL)
+		})
+	}
+}
+
+// TestLoadThenApplyGPUConfig verifies that YAML GPU settings survive Load()'s
+// sanitize() and are visible to applyGPUConfig when the GPU is enabled by flag.
+// Regression test for: sanitize() used to nil the Experimental section when
+// gpu.enabled was false in YAML, discarding metricsCacheTTL and other values
+// before flags could promote the section.
+func TestLoadThenApplyGPUConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		flagsSet map[string]bool
+		enabled  *bool
+		wantTTL  time.Duration
+	}{{
+		name: "yaml enabled:false with TTL, flag enables gpu",
+		yaml: `
+experimental:
+  gpu:
+    enabled: false
+    metricsCacheTTL: 500ms
+`,
+		flagsSet: map[string]bool{ExperimentalGPUEnabledFlag: true},
+		enabled:  ptr.To(true),
+		wantTTL:  500 * time.Millisecond,
+	}, {
+		name: "yaml enabled:true with TTL, no flag override",
+		yaml: `
+experimental:
+  gpu:
+    enabled: true
+    metricsCacheTTL: 1s
+`,
+		flagsSet: map[string]bool{},
+		enabled:  ptr.To(false),
+		wantTTL:  time.Second,
+	}, {
+		name: "yaml enabled:false with TTL, no flag — gpu stays disabled",
+		yaml: `
+experimental:
+  gpu:
+    enabled: false
+    metricsCacheTTL: 500ms
+`,
+		flagsSet: map[string]bool{},
+		enabled:  ptr.To(false),
+		wantTTL:  0, // sentinel: expect Experimental nil
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(tc.yaml))
+			require.NoError(t, err)
+
+			idlePower := 0.0
+			dcgmEndpoint := ""
+			cacheTTL := defaultGPUMetricsCacheTTL
+			applyGPUConfig(cfg, tc.flagsSet, tc.enabled, &idlePower, &dcgmEndpoint, &cacheTTL)
+
+			if tc.wantTTL == 0 {
+				// GPU never enabled — section should be nil after sanitize
+				assert.False(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+				return
+			}
+
+			require.NotNil(t, cfg.Experimental, "Experimental section must survive Load()")
+			assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+			require.NotNil(t, cfg.Experimental.GPU.MetricsCacheTTL)
+			assert.Equal(t, tc.wantTTL, *cfg.Experimental.GPU.MetricsCacheTTL)
 		})
 	}
 }
