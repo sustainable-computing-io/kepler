@@ -6,6 +6,11 @@ on: # yamllint disable-line rule:truthy
 # default permissions as read only
 permissions: read-all
 
+# cancel superseded runs so they don't hold the self-hosted runner
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-changes:
     runs-on: ubuntu-latest
