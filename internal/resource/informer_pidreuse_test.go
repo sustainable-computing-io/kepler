@@ -313,4 +313,35 @@ func TestSelfContainerAttribution(t *testing.T) {
 		assert.Equal(t, RegularProcess, proc.Type)
 		podInformer.AssertNotCalled(t, "LookupContainerID", mock.Anything, mock.Anything, mock.Anything)
 	})
+
+	t.Run("without a self container idle processes at the root are not re-read", func(t *testing.T) {
+		informer, err := NewInformer(WithProcReader(&MockProcReader{}))
+		require.NoError(t, err)
+
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+		assert.False(t, first.pendingContainerAttribution)
+
+		// Same CPU time: the process is idle. Only PID and CPUStat are mocked, so any
+		// read of comm, exe or cgroups would fail the test.
+		idle := &MockProcInfo{}
+		idle.On("PID").Return(4002)
+		idle.On("CPUStat").Return(procCPUStat{CPUTime: 3, StartTime: 100}, nil).Once()
+		proc, err := informer.updateProcessCache(idle)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		assert.Equal(t, RegularProcess, proc.Type)
+		assert.False(t, proc.pendingContainerAttribution)
+		idle.AssertExpectations(t)
+	})
+
+	t.Run("a pod informer without a self container does not leave processes pending", func(t *testing.T) {
+		informer, err := NewInformer(WithProcReader(&MockProcReader{}), WithPodInformer(&mockPodInformer{}))
+		require.NoError(t, err)
+
+		proc, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.False(t, proc.pendingContainerAttribution)
+	})
 }

@@ -501,6 +501,7 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 	selfContainerID := ri.resolvedSelfID
 	if cached, exists := ri.procCache[pid]; exists && cached.StartTime == cpuStat.StartTime {
 		err := populateProcessFields(cached, proc, cpuStat.CPUTime, selfContainerID)
+		ri.settlePendingAttribution(cached)
 		return cached, err
 	}
 
@@ -508,9 +509,20 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 	if err != nil {
 		return nil, err
 	}
+	ri.settlePendingAttribution(newProc)
 
 	ri.procCache[pid] = newProc
 	return newProc, nil
+}
+
+// settlePendingAttribution clears the pending flag when there is nothing to wait for:
+// without a configured self container and a pod informer its ID can never resolve, so
+// processes at the cgroup namespace root (every kernel thread in the host namespace)
+// must not be re-read on each refresh.
+func (ri *resourceInformer) settlePendingAttribution(p *Process) {
+	if ri.selfContainer == nil || ri.podInformer == nil {
+		p.pendingContainerAttribution = false
+	}
 }
 
 func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime bool) *Container {
