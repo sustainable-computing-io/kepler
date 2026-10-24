@@ -82,6 +82,8 @@ spec:
             - --config.file=/etc/kepler/config.yaml
             - --kube.enable
             - --kube.node-name=$(NODE_NAME)
+            - --kube.pod-name=$(POD_NAME)
+            - --kube.pod-namespace=$(POD_NAMESPACE)
           ports:
             - name: http
               containerPort: 28282
@@ -119,6 +121,16 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
             # Static path; K8s cannot expand the image's existing LD_LIBRARY_PATH.
             - name: LD_LIBRARY_PATH
               value: /usr/local/nvidia/lib64

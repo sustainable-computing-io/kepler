@@ -162,6 +162,13 @@ type (
 		Config      string      `yaml:"config"`
 		Node        string      `yaml:"nodeName"`
 		PodInformer PodInformer `yaml:"podInformer"`
+
+		// Identity of the pod and container kepler runs in. Set together, they
+		// let kepler attribute its own processes to its own container when it
+		// runs in a private cgroup namespace (the unprivileged default).
+		PodName       string `yaml:"podName"`
+		PodNamespace  string `yaml:"podNamespace"`
+		ContainerName string `yaml:"containerName"`
 	}
 
 	// Platform contains settings for platform power monitoring
@@ -307,6 +314,10 @@ const (
 	KubeConfigFlag   = "kube.config"
 	KubeNodeNameFlag = "kube.node-name"
 
+	KubePodNameFlag       = "kube.pod-name"
+	KubePodNamespaceFlag  = "kube.pod-namespace"
+	KubeContainerNameFlag = "kube.container-name"
+
 	// Experimental Platform flags
 	ExperimentalPlatformRedfishEnabledFlag  = "experimental.platform.redfish.enabled"
 	ExperimentalPlatformRedfishNodeNameFlag = "experimental.platform.redfish.node-name"
@@ -372,6 +383,7 @@ func DefaultConfig() *Config {
 				Mode:         "kubelet",
 				PollInterval: 15 * time.Second,
 			},
+			ContainerName: "kepler",
 		},
 
 		// NOTE: Experimental config will be nil by default and only allocated when needed
@@ -499,6 +511,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	kubernetes := app.Flag(KubernetesFlag, "Monitor kubernetes").Default("false").Bool()
 	kubeconfig := app.Flag(KubeConfigFlag, "Path to a kubeconfig. Only required if out-of-cluster.").ExistingFile()
 	nodeName := app.Flag(KubeNodeNameFlag, "Name of kubernetes node on which kepler is running.").String()
+	podName := app.Flag(KubePodNameFlag, "Name of the pod kepler is running in. Needed with the pod namespace to attribute kepler's own processes when it runs in a private cgroup namespace.").String()
+	podNamespace := app.Flag(KubePodNamespaceFlag, "Namespace of the pod kepler is running in.").String()
+	containerName := app.Flag(KubeContainerNameFlag, "Name of kepler's container in its pod.").String()
 
 	// experimental platform
 	redfishEnabled := app.Flag(ExperimentalPlatformRedfishEnabledFlag, "Enable experimental Redfish BMC power monitoring").Default("false").Bool()
@@ -574,6 +589,18 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[KubeNodeNameFlag] {
 			cfg.Kube.Node = *nodeName
+		}
+
+		if flagsSet[KubePodNameFlag] {
+			cfg.Kube.PodName = *podName
+		}
+
+		if flagsSet[KubePodNamespaceFlag] {
+			cfg.Kube.PodNamespace = *podNamespace
+		}
+
+		if flagsSet[KubeContainerNameFlag] {
+			cfg.Kube.ContainerName = *containerName
 		}
 
 		// Apply experimental platform settings
@@ -979,6 +1006,9 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 			if c.Kube.Node == "" {
 				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", KubeNodeNameFlag, KubernetesFlag))
+			}
+			if (c.Kube.PodName == "") != (c.Kube.PodNamespace == "") {
+				errs = append(errs, fmt.Sprintf("%s and %s must be supplied together", KubePodNameFlag, KubePodNamespaceFlag))
 			}
 
 			// Validate PodInformer mode

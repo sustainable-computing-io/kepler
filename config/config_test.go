@@ -315,6 +315,16 @@ func TestInvalidConfigurationValues(t *testing.T) {
 		},
 		error: "kube.node-name not supplied but kube.enable set to true",
 	}, {
+		name: "kube enabled, pod name without namespace",
+		config: &Config{
+			Kube: Kube{
+				Enabled: ptr.To(true),
+				Node:    "node",
+				PodName: "kepler-abcde",
+			},
+		},
+		error: "kube.pod-name and kube.pod-namespace must be supplied together",
+	}, {
 		name: "invalid podInformer mode",
 		config: &Config{
 			Kube: Kube{
@@ -2632,4 +2642,18 @@ func TestValidateExperimentalConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestKubeSelfContainerFlags(t *testing.T) {
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err := app.Parse([]string{"--kube.pod-name", "kepler-abcde", "--kube.pod-namespace", "kepler-system", "--kube.container-name", "agent"})
+	assert.NoError(t, err)
+
+	cfg := DefaultConfig()
+	assert.Equal(t, "kepler", cfg.Kube.ContainerName)
+	assert.NoError(t, updateConfig(cfg))
+	assert.Equal(t, "kepler-abcde", cfg.Kube.PodName)
+	assert.Equal(t, "kepler-system", cfg.Kube.PodNamespace)
+	assert.Equal(t, "agent", cfg.Kube.ContainerName)
 }

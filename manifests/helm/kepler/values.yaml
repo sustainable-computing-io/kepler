@@ -49,14 +49,11 @@ daemonset:
   hostUsers: true
   securityContext:
     # Setting privileged: true also sets allowPrivilegeEscalation: true.
-    # Unprivileged has two side effects; privileged: true restores the old behavior:
+    # Unprivileged has a side effect; privileged: true restores the old behavior:
     # - Kepler cannot read /proc/<pid>/environ of processes owned by another uid
     #   (it needs CAP_DAC_READ_SEARCH, which also allows open_by_handle_at), so
     #   container_name is empty for non-Kubernetes containers (Docker, Podman,
     #   nerdctl) whose process does not run as root.
-    # - Kepler's own container and pod are missing from the kepler_container_*
-    #   and kepler_pod_* series, because its private cgroup namespace hides its
-    #   own cgroup path.
     privileged: false
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -170,4 +171,177 @@ func TestRefreshProcessesMissingProcess(t *testing.T) {
 			reader.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSelfContainerAttribution(t *testing.T) {
+	selfID := strings.Repeat("e", 64)
+	selfProc := func() *MockProcInfo {
+		proc := &MockProcInfo{}
+		proc.On("PID").Return(4002)
+		proc.On("CPUStat").Return(procCPUStat{CPUTime: 3, StartTime: 100}, nil).Once()
+		proc.On("Comm").Return("kepler", nil).Maybe()
+		proc.On("Executable").Return("/usr/bin/kepler", nil).Maybe()
+		proc.On("Cgroups").Return([]cGroup{{Path: "/"}}, nil).Maybe()
+		proc.On("Environ").Return([]string{}, nil).Maybe()
+		proc.On("CmdLine").Return([]string{"/usr/bin/kepler"}, nil).Maybe()
+		return proc
+	}
+
+	t.Run("resolved through the pod informer", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return(selfID, true, nil)
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		proc, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, ContainerProcess, proc.Type)
+		require.NotNil(t, proc.Container)
+		assert.Equal(t, selfID, proc.Container.ID)
+		podInformer.AssertNumberOfCalls(t, "LookupContainerID", 1)
+
+		// the id is kept: later refreshes do not ask again
+		informer.resolveSelfContainerID()
+		podInformer.AssertNumberOfCalls(t, "LookupContainerID", 1)
+	})
+
+	t.Run("not found leaves the process regular and is retried", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return("", false, nil)
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		proc, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, proc.Type)
+		assert.Nil(t, proc.Container)
+
+		informer.resolveSelfContainerID()
+		podInformer.AssertNumberOfCalls(t, "LookupContainerID", 2)
+	})
+
+	t.Run("found on a later refresh types the cached process again", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return("", false, nil).Once()
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return(selfID, true, nil).Once()
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+
+		informer.resolveSelfContainerID()
+		later := selfProc()
+		later.ExpectedCalls = nil
+		later.On("PID").Return(4002)
+		later.On("CPUStat").Return(procCPUStat{CPUTime: 5, StartTime: 100}, nil).Once()
+		later.On("Comm").Return("kepler", nil).Maybe()
+		later.On("Executable").Return("/usr/bin/kepler", nil).Maybe()
+		later.On("Cgroups").Return([]cGroup{{Path: "/"}}, nil).Maybe()
+		later.On("Environ").Return([]string{}, nil).Maybe()
+		later.On("CmdLine").Return([]string{"/usr/bin/kepler"}, nil).Maybe()
+		proc, err := informer.updateProcessCache(later)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		assert.Equal(t, ContainerProcess, proc.Type)
+		require.NotNil(t, proc.Container)
+		assert.Equal(t, selfID, proc.Container.ID)
+		assert.InDelta(t, 2, proc.CPUTimeDelta, 1e-9)
+	})
+
+	t.Run("idle process is re-typed once the container id is resolved", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return("", false, nil).Once()
+		podInformer.On("LookupContainerID", "kepler-system", "kepler-abcde", "kepler").Return(selfID, true, nil).Once()
+		informer, err := NewInformer(
+			WithProcReader(&MockProcReader{}),
+			WithPodInformer(podInformer),
+			WithSelfContainer(SelfContainer{Namespace: "kepler-system", PodName: "kepler-abcde", ContainerName: "kepler"}),
+		)
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+
+		informer.resolveSelfContainerID()
+		// Same CPU time: delta is zero, the process is idle.
+		idle := selfProc()
+		idle.ExpectedCalls = nil
+		idle.On("PID").Return(4002)
+		idle.On("CPUStat").Return(procCPUStat{CPUTime: 3, StartTime: 100}, nil).Once()
+		idle.On("Comm").Return("kepler", nil).Maybe()
+		idle.On("Executable").Return("/usr/bin/kepler", nil).Maybe()
+		idle.On("Cgroups").Return([]cGroup{{Path: "/"}}, nil).Maybe()
+		idle.On("Environ").Return([]string{}, nil).Maybe()
+		idle.On("CmdLine").Return([]string{"/usr/bin/kepler"}, nil).Maybe()
+		proc, err := informer.updateProcessCache(idle)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		// The idle process must not keep an empty type: it must be re-typed as a
+		// container process now that the self-container ID is known.
+		assert.Equal(t, ContainerProcess, proc.Type)
+		require.NotNil(t, proc.Container)
+		assert.Equal(t, selfID, proc.Container.ID)
+	})
+
+	t.Run("without a self container the pod informer is not asked", func(t *testing.T) {
+		podInformer := &mockPodInformer{}
+		informer, err := NewInformer(WithProcReader(&MockProcReader{}), WithPodInformer(podInformer))
+		require.NoError(t, err)
+
+		informer.resolveSelfContainerID()
+		proc, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, proc.Type)
+		podInformer.AssertNotCalled(t, "LookupContainerID", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("without a self container idle processes at the root are not re-read", func(t *testing.T) {
+		informer, err := NewInformer(WithProcReader(&MockProcReader{}))
+		require.NoError(t, err)
+
+		first, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.Equal(t, RegularProcess, first.Type)
+		assert.False(t, first.pendingContainerAttribution)
+
+		// Same CPU time: the process is idle. Only PID and CPUStat are mocked, so any
+		// read of comm, exe or cgroups would fail the test.
+		idle := &MockProcInfo{}
+		idle.On("PID").Return(4002)
+		idle.On("CPUStat").Return(procCPUStat{CPUTime: 3, StartTime: 100}, nil).Once()
+		proc, err := informer.updateProcessCache(idle)
+		require.NoError(t, err)
+		assert.Same(t, first, proc)
+		assert.Equal(t, RegularProcess, proc.Type)
+		assert.False(t, proc.pendingContainerAttribution)
+		idle.AssertExpectations(t)
+	})
+
+	t.Run("a pod informer without a self container does not leave processes pending", func(t *testing.T) {
+		informer, err := NewInformer(WithProcReader(&MockProcReader{}), WithPodInformer(&mockPodInformer{}))
+		require.NoError(t, err)
+
+		proc, err := informer.updateProcessCache(selfProc())
+		require.NoError(t, err)
+		assert.False(t, proc.pendingContainerAttribution)
+	})
 }

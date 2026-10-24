@@ -346,7 +346,7 @@ func TestContainerInfoFromProc(t *testing.T) {
 			mockProc.On("Environ").Return(tc.environ, tc.environError)
 			mockProc.On("CmdLine").Return(tc.cmdline, tc.cmdlineError)
 
-			container, err := containerInfoFromProc(mockProc)
+			container, _, err := containerInfoFromProc(mockProc, "")
 
 			if tc.expectError {
 				assert.Error(t, err)
@@ -477,4 +477,41 @@ func FuzzContainerNameFromCmdLine(f *testing.F) {
 		}
 		t.Errorf("name %q is not cmdline[i>=1] and not a --name= suffix in %q", name, cmdline)
 	})
+}
+
+func TestContainerInfoFromProcCgroupNamespaceRoot(t *testing.T) {
+	selfID := strings.Repeat("c", 64)
+	otherID := strings.Repeat("d", 64)
+
+	tt := []struct {
+		name         string
+		selfID       string
+		cgroupPath   string
+		expectedID   string
+		expectedNone bool
+	}{
+		{name: "root path is kepler's container", selfID: selfID, cgroupPath: "/", expectedID: selfID},
+		{name: "root path without a known self container", selfID: "", cgroupPath: "/", expectedNone: true},
+		{name: "other pod seen from the namespace keeps its own id", selfID: selfID, cgroupPath: "/../../pod5d496b2f-1111-2222-3333-444455556666/" + otherID, expectedID: otherID},
+		{name: "path below the root is not kepler's container", selfID: selfID, cgroupPath: "/system.slice/sshd.service", expectedNone: true},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			mockProc := &MockProcInfo{}
+			mockProc.On("Cgroups").Return([]cGroup{{Path: tc.cgroupPath}}, nil)
+			mockProc.On("Environ").Return([]string{}, nil)
+			mockProc.On("CmdLine").Return([]string{}, nil)
+
+			container, _, err := containerInfoFromProc(mockProc, tc.selfID)
+			assert.NoError(t, err)
+			if tc.expectedNone {
+				assert.Nil(t, container)
+				return
+			}
+			require.NotNil(t, container)
+			assert.Equal(t, tc.expectedID, container.ID)
+			assert.Equal(t, KubePodsRuntime, container.Runtime)
+		})
+	}
 }
