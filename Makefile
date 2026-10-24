@@ -13,6 +13,8 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
 CGO_ENABLED ?= 1
+CC ?= cc
+CXX ?= c++
 
 # Cross-compilation sysroot auto-detection
 # On Fedora, the cross-compiler's default sysroot lacks headers.
@@ -74,6 +76,24 @@ endif
 
 LDFLAGS=-ldflags "$(LD_STRIP_DEBUG_SYMBOLS) $(LD_VERSION_FLAGS)"
 
+# Build tags (e.g., TAGS=goamdsmi)
+TAGS ?=
+ifneq ($(TAGS),)
+	BUILD_ARGS=-tags $(TAGS)
+endif
+
+# When goamdsmi tag is used, ensure C++ stdlib is linked
+# The goamdsmi library requires C++ linking
+ifneq (,$(findstring goamdsmi,$(TAGS)))
+	BUILD_ENV_VARS=CC="$(CC)" CXX="$(CXX)" CGO_ENABLED=1
+	# Preserve user CGO_CFLAGS and CGO_LDFLAGS if set, add C++ stdlib
+	export CGO_CFLAGS
+	export CGO_LDFLAGS += -lstdc++
+	export CGO_CXXFLAGS=-std=c++11
+else
+	BUILD_ENV_VARS=CC="$(CC)"
+endif
+
 BUILD_DEBUG_ARGS ?=
 
 # Docker parameters
@@ -130,7 +150,7 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build binary
 	mkdir -p $(BINARY_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CC=$(CC) \
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) $(BUILD_ENV_VARS) \
 		$(GOBUILD) $(BUILD_ARGS) \
 		$(LDFLAGS) \
 		-o $(BINARY_DIR)/$(BINARY_NAME) \
