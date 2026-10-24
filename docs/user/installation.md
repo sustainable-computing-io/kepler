@@ -4,7 +4,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 
 ## Prerequisites
 
-- **For Local Installation**: Go 1.26.0+ and sudo access for hardware sensor access
+- **For Local Installation**: The Go version specified in the repository's [`go.mod`](../../go.mod) file and root access to read RAPL energy counters
 - **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
