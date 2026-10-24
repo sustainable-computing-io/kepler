@@ -81,6 +81,16 @@ jobs:
         shell: bash
         run: make vet && git diff --exit-code
 
+  govulncheck:
+    needs: check-changes
+    if: needs.check-changes.outputs.changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+
   docs:
     runs-on: ubuntu-latest
     steps:
