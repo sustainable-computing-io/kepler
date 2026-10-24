@@ -6,10 +6,6 @@ Kepler (Kubernetes-based Efficient Power Level Exporter) is a Prometheus exporte
 
 🌟 Star the [Kepler repository](https://github.com/sustainable-computing-io/kepler) to help others find it!
 
-## 🚀 Major Rewrite: Kepler (0.10.0 and above)
-
-Kepler 0.10.0 is a ground-up rewrite. See the [rewrite announcement](https://sustainable-computing.io/blog/kepler-0-10-rewrite/) for changes and migration from `0.9.x`.
-
 ## 🚀 Getting Started
 
 > **📖 For comprehensive installation instructions, troubleshooting, and advanced deployment options, see our [Installation Guide](docs/user/installation.md)**
@@ -84,6 +80,7 @@ kubectl kustomize manifests/k8s | \
 - **[Installation Guide](docs/user/installation.md)** - Detailed installation instructions for all deployment methods
 - **[Configuration Guide](docs/user/configuration.md)** - Configuration options and examples
 - **[Metrics Documentation](docs/user/metrics.md)** - Available metrics and their descriptions
+- **[Upgrading from 0.9.x](https://sustainable-computing.io/blog/kepler-0-10-rewrite/)** - What changed in the 0.10.0 rewrite and how to stay on the legacy version
 
 ### Developer Documentation
 
