@@ -89,3 +89,4 @@ body:
         - label: Added the new maintainer to the [`kepler-maintainer`](https://github.com/orgs/sustainable-computing-io/teams/kepler-maintainer) GitHub team
         - label: Added the new maintainer to the `kepler-maintainer` Slack channel
         - label: Assigned a first PR to review or a triage item
+        - label: Confirmed the new maintainer's company affiliation is up to date in [`cncf/gitdm`](https://github.com/cncf/gitdm)

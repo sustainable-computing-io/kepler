@@ -26,6 +26,12 @@ Our project adheres to the Linux Foundation's Generative AI Policy, which can be
 
 Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
+### Keep Your Company Affiliation Up to Date 🏢
+
+The CNCF tracks project health on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) using affiliation data from [cncf/gitdm](https://github.com/cncf/gitdm). DevStats attributes contributions to a company only through a `cncf/gitdm` entry, so contributors without one count toward no company.
+
+If you are affiliated with a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
+
 ## How Can I Contribute? 💡
 
 ### Continuous Integration 🔄
