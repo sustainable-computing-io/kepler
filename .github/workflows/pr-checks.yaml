@@ -120,6 +120,11 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v7
 
+      - name: setup go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+
       - name: Setup Python
         uses: actions/setup-python@v7
 
