@@ -89,6 +89,7 @@ jobs:
       - name: govulncheck
         uses: golang/govulncheck-action@v1
         with:
+          go-version-input: ""
           go-version-file: go.mod
 
   docs:
