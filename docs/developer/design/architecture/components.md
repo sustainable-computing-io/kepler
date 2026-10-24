@@ -320,19 +320,50 @@ func (ri *resourceInformer) Refresh() error {
 
 ### CPU Time Tracking
 
-Critical for power attribution, CPU time deltas are calculated:
+Processes are identified by PID and start time from `/proc/PID/stat`. When a PID
+is reused, the resource informer reports the cached process as terminated and
+creates a fresh CPU baseline for its replacement. The monitor retains the old
+process's CPU energy under the existing termination settings, keyed by PID and
+start time so multiple terminated lifetimes can coexist before export. Capacity
+and energy thresholds apply to each lifetime. CPU and GPU energy carry forward
+only when both PID and start time match the previous snapshot. The process
+holding the PID still receives the current interval of GPU energy.
+If the collection that detects reuse fails, the next successful collection also
+checks the previous snapshot to retain the replaced lifetime.
+Running and terminated CPU energy and power metrics retain their state labels.
+For retained lifetimes with identical metric labels, the monitor snapshot's
+`TerminatedProcessesForMetrics` sums CPU energy per zone and GPU energy, and uses
+the latest lifetime's power.
+`ProcessesForCPUTime` selects the running process when present, otherwise the
+latest retained lifetime, because CPU time has no state label. The collector
+only converts these records to metrics, retaining the plain PID label. The raw
+lifetime records remain unchanged in the snapshot.
+
+Container and pod GPU counters keep their previous totals and add each child's
+new energy. A pod includes container energy collected before that pod was known.
+
+In `updateProcessCache`, one stat read supplies both identity and CPU time:
 
 ```go
-func populateProcessFields(p *Process, proc procInfo) error {
-    prevCPUTime := p.CPUTotalTime
+cpuStat, err := proc.CPUStat() // CPUTime and StartTime from the same sample
+if err != nil {
+    return nil, err
+}
+if cached, exists := ri.procCache[pid]; exists && cached.StartTime == cpuStat.StartTime {
+    err := populateProcessFields(cached, proc, cpuStat.CPUTime)
+    return cached, err
+}
+// Otherwise, newProcess(proc, cpuStat) rebuilds the cached process.
+```
 
-    // Get current CPU time from /proc/PID/stat
-    currentCPUTime := proc.CPUTotalTime()
+`populateProcessFields` calculates the delta without another stat read:
 
-    // Calculate delta since last refresh
-    p.CPUTimeDelta = currentCPUTime - prevCPUTime
-    p.CPUTotalTime = currentCPUTime
+```go
+func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) error {
+    p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
+    p.CPUTotalTime = cpuTotalTime
 
+    // Populate process metadata as needed.
     return nil
 }
 ```

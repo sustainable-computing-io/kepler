@@ -173,6 +173,12 @@ git commit -s -m "docs: update architecture diagram"
 # Types: feat, fix, docs, style, refactor, test, chore, ci, perf
 ```
 
+### Commit Hygiene
+
+Follow the [commit hygiene guidance](CONTRIBUTING.md#commit-hygiene) when preparing
+PRs. This guidance is advisory; the existing [approval requirements](#requires-approval)
+for commits and history changes still apply.
+
 ### PR Guidelines
 
 1. **Title**: Use conventional commit format (e.g., `feat: add feature X`)

@@ -79,6 +79,10 @@ type Process struct {
 
 	Type resource.ProcessType
 
+	// StartTime is the process start time in clock ticks since boot.
+	// Together with PID, it identifies the process.
+	StartTime uint64
+
 	CPUTotalTime float64 // CPU time in seconds
 
 	Zones ZoneUsageMap
@@ -110,6 +114,11 @@ func (p *Process) ZoneUsage() ZoneUsageMap {
 // StringID implements the Resource interface
 func (p *Process) StringID() string {
 	return strconv.Itoa(p.PID)
+}
+
+// lifetimeID distinguishes terminated processes when a PID is reused.
+func (p *Process) lifetimeID() string {
+	return p.StringID() + ":" + strconv.FormatUint(p.StartTime, 10)
 }
 
 type ContainerRuntime = resource.ContainerRuntime
@@ -256,7 +265,7 @@ type Snapshot struct {
 	Node      *Node     // Node power data
 
 	Processes           Processes // Process power data, keyed by PID
-	TerminatedProcesses Processes // Terminated processes with highest energy consumption
+	TerminatedProcesses Processes // Highest-energy terminated processes, keyed by PID:start time
 
 	Containers           Containers // Container power data, keyed by container ID
 	TerminatedContainers Containers // Terminated containers with highest energy consumption
@@ -286,6 +295,80 @@ func NewSnapshot() *Snapshot {
 		Pods:                      make(Pods),
 		TerminatedPods:            make(Pods),
 	}
+}
+
+// processMetricIdentity matches process labels within one node and state.
+// StartTime is excluded because it is not an exported label.
+type processMetricIdentity struct {
+	pid               int
+	comm, exe         string
+	kind              resource.ProcessType
+	containerID, vmID string
+}
+
+func (p *Process) metricIdentity() processMetricIdentity {
+	return processMetricIdentity{
+		pid: p.PID, comm: p.Comm, exe: p.Exe, kind: p.Type,
+		containerID: p.ContainerID, vmID: p.VirtualMachineID,
+	}
+}
+
+// ProcessesForCPUTime selects one CPU counter per label set. Running processes
+// take precedence. Otherwise, the latest retained lifetime supplies the counter.
+func (s *Snapshot) ProcessesForCPUTime() []*Process {
+	processes := make([]*Process, 0, len(s.Processes)+len(s.TerminatedProcesses))
+	for _, proc := range s.Processes {
+		processes = append(processes, proc)
+	}
+	// Only retained lifetimes need deduplication. Running PIDs are already unique.
+	selected := make(map[processMetricIdentity]*Process, len(s.TerminatedProcesses))
+	for _, proc := range s.TerminatedProcesses {
+		key := proc.metricIdentity()
+		if running := s.Processes[proc.StringID()]; running != nil && key == running.metricIdentity() {
+			continue
+		}
+		if old := selected[key]; old == nil || proc.StartTime > old.StartTime {
+			selected[key] = proc
+		}
+	}
+	for _, proc := range selected {
+		processes = append(processes, proc)
+	}
+	return processes
+}
+
+// TerminatedProcessesForMetrics combines retained lifetimes with the same labels.
+// It sums CPU energy per zone and GPU energy, and takes power and CPU time from
+// the latest lifetime. The snapshot is unchanged.
+func (s *Snapshot) TerminatedProcessesForMetrics() Processes {
+	if len(s.TerminatedProcesses) == 0 {
+		return nil
+	}
+	groups := make(map[processMetricIdentity]*Process, len(s.TerminatedProcesses))
+	for _, proc := range s.TerminatedProcesses {
+		key := proc.metricIdentity()
+		group := groups[key]
+		if group == nil {
+			groups[key] = proc.Clone()
+			continue
+		}
+		older := proc
+		if proc.StartTime > group.StartTime {
+			older, group = group, proc.Clone()
+			groups[key] = group
+		}
+		group.GPUEnergyTotal += older.GPUEnergyTotal
+		for zone, usage := range older.Zones {
+			total := group.Zones[zone]
+			total.EnergyTotal += usage.EnergyTotal
+			group.Zones[zone] = total
+		}
+	}
+	processes := make(Processes, len(groups))
+	for _, proc := range groups {
+		processes[proc.lifetimeID()] = proc
+	}
+	return processes
 }
 
 func (s *Snapshot) Clone() *Snapshot {

@@ -21,7 +21,9 @@ var (
 	libpodPattern        = regexp.MustCompile(`libpod-([0-9a-f]{64}).*`)
 	libpodPayloadPattern = regexp.MustCompile(`/libpod-payload-([0-9a-f]+)`)
 
-	kubepodsPattern = regexp.MustCompile(`/kubepods/(?:[^/]+/)?pod[0-9a-f\-]+/([0-9a-f]{64})`)
+	// An unprivileged container has its own cgroup namespace, so with the
+	// cgroupfs driver other pods' paths read as /../../pod<uid>/<id>.
+	kubepodsPattern = regexp.MustCompile(`(?:/kubepods|/\.\.)/(?:[^/]+/)?pod[0-9a-f\-]+/([0-9a-f]{64})`)
 )
 
 // containerPatterns maps pre-compiled patterns to runtime types

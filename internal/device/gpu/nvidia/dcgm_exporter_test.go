@@ -546,6 +546,32 @@ func TestParseLabels_edgeCases(t *testing.T) {
 	})
 }
 
+func FuzzParseLabels(f *testing.F) {
+	f.Add(`gpu="0",UUID="GPU-abc-123",GPU_I_ID="1",GPU_I_PROFILE="3g.20gb"`)
+	f.Add(`gpu="0"`)
+	f.Add("")
+	f.Add("\x00")
+	f.Add(`gpu="ゲスト-αβγ-` + strings.Repeat("本", 256) + `"`)
+
+	f.Fuzz(func(t *testing.T, labelsStr string) {
+		labels := parseLabels(labelsStr)
+		if labels == nil {
+			t.Fatal("parseLabels returned nil map")
+		}
+		if labelsStr == "" && len(labels) != 0 {
+			t.Errorf("empty input yielded %v", labels)
+		}
+		for k, v := range labels {
+			if !strings.Contains(labelsStr, k) {
+				t.Errorf("key %q is not a substring of %q", k, labelsStr)
+			}
+			if !strings.Contains(labelsStr, v) {
+				t.Errorf("value %q is not a substring of %q", v, labelsStr)
+			}
+		}
+	})
+}
+
 // dcgmExporterPod creates a pod that looks like a dcgm-exporter pod.
 func dcgmExporterPod(name, namespace, nodeName, podIP string, labels map[string]string, ports ...corev1.ContainerPort) *corev1.Pod {
 	pod := &corev1.Pod{

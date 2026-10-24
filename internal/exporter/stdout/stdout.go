@@ -29,7 +29,7 @@ type Exporter struct {
 	logger   *slog.Logger
 	monitor  Monitor
 	out      io.WriteCloser
-	ticker   time.Ticker
+	ticker   *time.Ticker
 	interval time.Duration
 }
 
@@ -93,18 +93,22 @@ func NewExporter(pm Monitor, applyOpts ...OptionFn) *Exporter {
 }
 
 func (e *Exporter) Init() error {
-	e.ticker = *time.NewTicker(e.interval)
+	e.ticker = time.NewTicker(e.interval)
 	return nil
 }
 
 func (e *Exporter) Run(ctx context.Context) error {
+	defer e.ticker.Stop()
+
 	for {
 		select {
 		case now := <-e.ticker.C:
 			snapshot, err := e.monitor.Snapshot()
 			if err != nil {
+				// a failed snapshot may be transient; skip this tick instead of
+				// returning, which would stop all other services in the run group
 				e.logger.Error("Failed to collect power data", "error", err)
-				return nil
+				continue
 			}
 			write(e.out, now, snapshot)
 		case <-ctx.Done():
@@ -133,7 +137,7 @@ func writeNode(out io.Writer, node *monitor.Node) {
 	})
 	table := tablewriter.NewWriter(out)
 	table.Configure(func(cfg *tablewriter.Config) {
-		cfg.Row.Formatting.Alignment = tw.AlignRight
+		cfg.Row.Alignment.Global = tw.AlignRight
 	})
 	table.Header([]string{"Zone", "Power(W)", "Absolute(J)"})
 	_ = table.Bulk(rows)

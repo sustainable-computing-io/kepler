@@ -56,4 +56,5 @@ jobs:
       - name: Run e2e tests
         shell: bash
         run: |
-          sudo ./bin/kepler-e2e.test -test.v -test.timeout=15m
+          # This runner has no NVIDIA GPU, so the GPU tests use the fake GPU meter.
+          sudo ./bin/kepler-e2e.test -test.v -test.timeout=15m -gpu.fake

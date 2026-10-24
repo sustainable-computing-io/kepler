@@ -21,13 +21,9 @@ type Resource interface {
 // TerminatedResourceTracker tracks the top N highest energy consuming terminated resources
 // using a priority queue (min-heap) for fast insertion operations.
 //
-// IMPORTANT: This tracker is designed specifically for terminated resources, which  should ..
-// follow these properties:
-// - Once terminated, a resource cannot be terminated again
-// - Energy consumption of terminated resources is immutable (frozen at termination)
-// - No updates or re-additions of the same resource will occur
-//
-// These constraints allow for optimizations like skipping duplicate checks
+// Retained resources are immutable, with energy frozen at termination.
+// Each ID identifies one lifetime. Processes use PID and start time so a reused
+// PID can terminate again while an earlier lifetime is still retained.
 type TerminatedResourceTracker[T Resource] struct {
 	logger             *slog.Logger
 	heap               Heap[T]           // min-heap for efficient eviction of lowest energy items
@@ -67,26 +63,24 @@ func NewTerminatedResourceTracker[T Resource](zone device.EnergyZone, maxSize in
 	}
 }
 
-// Add adds a terminated resource to the tracker.
-//
-// NOTE: OPTIMIZATION: Since terminated resources are immutable and
-// cannot be re-terminated, this method assumes that:
-// - The same resource ID will never be added twice in normal operation
-// - No energy updates for existing resources will occur
-// - Resources added here represent the final energy state at termination
+// Add adds a terminated resource using its StringID. Duplicate identities are
+// ignored to preserve their frozen energy. Processes use addWithID to distinguish
+// lifetimes sharing a PID.
 //
 // If the tracker is at capacity, the resource with the lowest energy will be evicted
 // if the new resource has higher energy.
 func (trt *TerminatedResourceTracker[T]) Add(resource T) {
+	trt.addWithID(resource.StringID(), resource)
+}
+
+// addWithID allows process lifetimes to be retained separately from their PID.
+func (trt *TerminatedResourceTracker[T]) addWithID(id string, resource T) {
 	// If maxSize is 0, feature is disabled - don't track anything
 	if trt.maxSize == 0 {
 		return
 	}
 
-	// Check if already tracking this resource
-	// NOTE: Since terminated resources are immutable and should never be re-added,
-	// this check is for safety but should never trigger in normal operation
-	id := resource.StringID()
+	// Preserve the frozen value if the same lifetime is submitted twice.
 	if _, exists := trt.resources[id]; exists {
 		trt.logger.Warn("Resource already tracked in terminated resource tracker", "id", id)
 		return // Ignore duplicate - terminated resource already tracked

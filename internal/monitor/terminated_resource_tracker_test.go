@@ -804,3 +804,20 @@ func TestTerminatedResourceTracker_ThresholdEdgeCases(t *testing.T) {
 		assert.Equal(t, 0, len(tracker.Items()))
 	})
 }
+
+func TestTerminatedResourceTrackerProcessLifetimes(t *testing.T) {
+	zone := CreateTestZones()[0]
+	tracker := NewTerminatedResourceTracker[*Process](zone, 2, 10*Joule, slog.Default())
+	add := func(start uint64, energy Energy) {
+		tracker.addWithID(fmt.Sprintf("4001:%d", start), &Process{PID: 4001, StartTime: start, Zones: ZoneUsageMap{zone: {EnergyTotal: energy}}})
+	}
+	add(100, 50*Joule)
+	add(900, 100*Joule)
+	require.Len(t, tracker.Items(), 2)
+	add(100, 200*Joule) // A duplicate identity must not replace its frozen value.
+	assert.Equal(t, 50*Joule, tracker.Items()["4001:100"].Zones[zone].EnergyTotal)
+	add(1300, 75*Joule)
+	assert.NotContains(t, tracker.Items(), "4001:100")
+	assert.Contains(t, tracker.Items(), "4001:900")
+	assert.Contains(t, tracker.Items(), "4001:1300")
+}

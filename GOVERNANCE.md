@@ -1,5 +1,23 @@
 # Governance
 
+<!-- TOC tocDepth:2..3 chapterDepth:2..6 -->
+
+- [Leadership Election](#leadership-election)
+  - [Nomination Protocol](#nomination-protocol)
+  - [Active Maintainer Definition](#active-maintainer-definition)
+- [Maintainers](#maintainers)
+  - [1. Project Lead](#1-project-lead)
+  - [2. Technical Committee](#2-technical-committee)
+  - [3. Release Management](#3-release-management)
+  - [4. Repository Oversight](#4-repository-oversight)
+  - [5. Community Engagement](#5-community-engagement)
+- [Reviewer](#reviewer)
+  - [Responsibilities](#responsibilities)
+- [Advisory Committee](#advisory-committee)
+- [Teams](#teams)
+
+<!-- /TOC -->
+
 ## Leadership Election
 
 For most roles, candidates can self-nominate or be nominated
@@ -11,6 +29,8 @@ and are approved through consensus by the existing maintainers.
 
 The candidate or an existing maintainer creates a [maintainer nomination issue](.github/ISSUE_TEMPLATE/maintainer_nominate.yaml) and submits a pull request (PR) to update the `MAINTAINERS.md`
 or `ADVISORS.md` file by adding the nominee or reflecting the new role.
+
+The nominee should have joined at least one community call before the nomination.
 
 #### Voting
 
@@ -107,9 +127,9 @@ significant contributions including:
 
 - Core Kepler development and maintenance
 - Test suite maintenance
-- Deployment and integration (including
-  the [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator),
-  [Helm Chart](https://github.com/sustainable-computing-io/kepler-helm-chart))
+- Deployment and integration including
+  - the [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator),
+  - the [Helm Chart](https://github.com/sustainable-computing-io/kepler/tree/main/manifests/helm)
 - [Model server](https://github.com/sustainable-computing-io/kepler-model-server)
   and model development
 - [Continuous integration](https://github.com/sustainable-computing-io/kepler-action)
@@ -159,6 +179,8 @@ test job, event, or other clearly-defined project component
 that is smaller than an entire repository or subproject.
 Most often it is one or a set of directories in one or more Git repositories.
 
+Reviewers will be able to approve PRs but will not be able to merge PRs to the main branch. The merge action requires maintainer or admin of the repository.
+
 The "specific area" below refers to this area of responsibility:
 
 ### Responsibilities
@@ -195,3 +217,16 @@ Members are invited and approved by the Kepler maintainers.
 
 The current list of advisory committee is published and updated in
 [ADVISORS.md](./ADVISORS.md).
+
+## Teams
+
+| Name              | Project           | Permission            |
+|-------------------|-------------------|-----------------------|
+| project-lead      | kepler            | Admin                 |
+| kepler-maintainer | All               | Maintain              |
+| kepler-doc        | kepler-doc        | Admin                 |
+| kepler-operator   | kepler-operator   | Admin                 |
+| kepler-ci         | kepler-metal-ci   | Admin                 |
+|                   | kepler-action     | Admin                 |
+|                   | local-dev-cluster | Admin                 |
+| kepler-reviewer   | All               | Write (without merge) |

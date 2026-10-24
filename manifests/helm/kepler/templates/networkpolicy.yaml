@@ -4,6 +4,12 @@ kind: NetworkPolicy
 metadata:
   name: {{ template "kepler.fullname" . }}-network-policy
   namespace: {{ include "kepler.namespace" . }}
+  labels:
+    {{- include "kepler.labels" . | nindent 4}}
+  {{- with .Values.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
 spec:
   egress:
     {{- with .Values.networkPolicy.egress }}

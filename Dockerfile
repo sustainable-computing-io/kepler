@@ -1,5 +1,5 @@
 # Build the binary
-FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
 # Build arguments for binary
 ARG VERSION
@@ -38,7 +38,7 @@ RUN CROSS_CC=""; \
       GIT_COMMIT=${GIT_COMMIT} \
       GIT_BRANCH=${GIT_BRANCH}
 
-FROM registry.access.redhat.com/ubi9:latest
+FROM quay.io/fedora/fedora-minimal:latest
 
 # Build arguments for labels
 ARG VERSION

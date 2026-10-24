@@ -102,10 +102,20 @@ make build && sudo ./bin/kepler
 cd compose/dev && docker compose up -d
 
 # 🐳 Kubernetes with Kustomize
+git clone https://github.com/sustainable-computing-io/kepler.git
+cd kepler && git checkout v0.12.0 # pin to a release tag, see note below
 kubectl kustomize manifests/k8s | \
-  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" | \
+  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:v0.12.0|g" | \
   kubectl apply --server-side --force-conflicts -f -
 ```
+
+> **⚠️ Important:** Always check out a matching release tag (rather than `main`) before
+> applying manifests from `manifests/k8s`, and set `<KEPLER_IMAGE>` to that same version.
+> Manifests on `main` can reference features not yet present in the last published image
+> (for example, the `/probe/livez` and `/probe/readyz` endpoints added for liveness/readiness
+> probes) — mixing a `main` manifest with an older image can make the container fail its
+> liveness probe and crash-loop. See the [Releases page](https://github.com/sustainable-computing-io/kepler/releases)
+> for available tags.
 
 ## 📖 Documentation
 
@@ -127,13 +137,21 @@ For more detailed documentation, please visit the [official Kepler documentation
 
 Contributions are welcome! Please feel free to submit a Pull Request. For more detailed information about contributing to this project, please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
+### Roadmap
+
+See the [Kepler Roadmap](https://github.com/orgs/sustainable-computing-io/projects/9) for planned and in-progress work.
+
+### Code of Conduct
+
+Kepler follows the [CNCF Code of Conduct](code-of-conduct.md).
+
 ### Gen AI policy
 
 Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://www.star-history.com/#sustainable-computing-io/kepler&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=sustainable-computing-io/kepler&type=Date)](https://star-history.dera.page/#sustainable-computing-io/kepler&type=Date)
 
 ## 📝 License
 

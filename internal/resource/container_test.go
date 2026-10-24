@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -136,6 +137,16 @@ func TestContainerIDFromPathWithCgroup(t *testing.T) {
 	}, {
 		name: "valid path with burstable qos pod",
 		path: "0::/kubepods/burstable/pod5a89bcaa-3509-4375-83e1-b9e7a5712123/a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee",
+
+		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
+	}, {
+		name: "cgroupfs pod path read from a private cgroup namespace",
+		path: "0::/../../pod5d496b2f-b6d9-490c-badd-d43585d05892/83c3260e5385ee19e7e7631e8ad9e1b470dbb217649665a855e1034de2c55fa9",
+
+		expected: expect{id: "83c3260e5385ee19e7e7631e8ad9e1b470dbb217649665a855e1034de2c55fa9", runtime: KubePodsRuntime},
+	}, {
+		name: "cgroupfs pod path in another qos class read from a private cgroup namespace",
+		path: "0::/../../../burstable/pod5a89bcaa-3509-4375-83e1-b9e7a5712123/a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee",
 
 		expected: expect{id: "a069581483b00a498b3ba172612ffed06b3275a043bf3895c1b19e783e2793ee", runtime: KubePodsRuntime},
 	}, {
@@ -381,5 +392,89 @@ func TestContainerClone(t *testing.T) {
 		var nilContainer *Container
 		nilClone := nilContainer.Clone()
 		assert.Nil(t, nilClone, "Cloning nil container should return nil")
+	})
+}
+
+func FuzzContainerInfoFromCgroupPaths(f *testing.F) {
+	for _, paths := range [][]string{
+		{"/docker-ce82d94d69e1fbbc7feeb66930c69e9b96d9f151f594773e5d0e342741d15437"},
+		{"/docker/ce82d94d69e1fbbc7feeb66930c69e9b96d9f151f594773e5d0e342741d15437"},
+		{"/crio-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+		{"/libpod-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+		{"/containerd/1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+		{"/system.slice/ssh.service"},
+		{"/system.slice/user.slice", "/docker-ce82d94d69e1fbbc7feeb66930c69e9b96d9f151f594773e5d0e342741d15437"},
+		{"0::/system.slice/docker-fd9d0ea06257a9780827cbc7fd92e3812a54fca26d63e191b73610d5d48b9cbd.scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-podeab5a334_93fe_48a8_b139_9e8079c1f163.slice/cri-containerd-99f3a16ea25b7724cb56a4f0c0df1113ad9474fbf5545bead97fd5c7f61c13f4.scope"},
+		{"1:name=systemd:/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd0511cd2_29d2_4215_be0f_f77bc0609d99.slice/crio-f93ee491b8ed2680d5a909eb098b14a9430173b57ca1c4efedd8768566d67e8e.scope"},
+		{"kubelet/kubepods/besteffort/podbdd4097d-6795-404e-9bd8-6a1383386198/c79788e0da15a6597263eb2b9c51d05dd1a9a1d08c53c1161dc8c45d2dac6b38"},
+		{"/sys/fs/cgroup/systemd/system.slice/containerd.service/kubepods-burstable-poda3b200c9_db51_40b4_9d2d_53f8fdf80d7f.slice:cri-containerd:286b15051ec43375190802e1f40562536980a8fd97e75bb89c7f2eec6f995f17"},
+		{"0::/../../pod5d496b2f-b6d9-490c-badd-d43585d05892/83c3260e5385ee19e7e7631e8ad9e1b470dbb217649665a855e1034de2c55fa9"},
+		{"0::/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-3f05ee050f82c0145f1d88c94269c39dff0f07dbf8bba20aafd54b3a75dcaecc.scope/container"},
+		{"0::/system.slice/kepler.service/libpod-payload-8e363eb2287da4ccc9f52ffc5de11252ac5fe707e3ddb917a3c0bdf9bb64165b"},
+	} {
+		f.Add(strings.Join(paths, "\x00"))
+	}
+	f.Add("")
+	f.Add("\x00")
+	f.Add("/docker-" + strings.Repeat("a", 64) + "\x00/ゲスト-αβγ-" + strings.Repeat("本", 256))
+
+	f.Fuzz(func(t *testing.T, joined string) {
+		paths := strings.Split(joined, "\x00")
+		runtime, id := containerInfoFromCgroupPaths(paths)
+		if id == "" {
+			if runtime != UnknownRuntime {
+				t.Errorf("empty id with runtime %q", runtime)
+			}
+			return
+		}
+		for _, path := range paths {
+			if strings.Contains(path, id) {
+				return
+			}
+		}
+		t.Errorf("id %q is not a substring of any path %q", id, paths)
+	})
+}
+
+func FuzzContainerNameFromCmdLine(f *testing.F) {
+	for _, cmdline := range [][]string{
+		{"/bin/containerd", "--name=test-container"},
+		{"docker", "run", "--name", "my-prom", "prom/prometheus"},
+		{"docker", "run", "--name", "my-container"},
+		{"docker", "run", "--name"},
+		{"/usr/bin/docker-containerd-shim", "arg1", "arg2", "test-container-name"},
+		{"/usr/bin/containerd-shim", "arg1", "arg2", "test-container-name"},
+		{"/bin/bash", "arg1", "arg2"},
+		{},
+		{"docker", "run", "-it", "--rm", "--entrypoint", "/bin/sh", "--name", "my-prom", "docker.io/prom/prometheus"},
+		{"docker", "run", "-it", "--rm", "--entrypoint", "/bin/sh", "--name=my-prom", "docker.io/prom/prometheus"},
+	} {
+		f.Add(strings.Join(cmdline, "\x00"))
+	}
+	f.Add("")
+	f.Add("\x00")
+	f.Add("docker\x00run\x00--name\x00ゲスト-αβγ-" + strings.Repeat("本", 256))
+
+	f.Fuzz(func(t *testing.T, joined string) {
+		cmdline := strings.Split(joined, "\x00")
+		name := containerNameFromCmdLine(cmdline)
+		if len(cmdline) <= 1 {
+			if name != "" {
+				t.Errorf("len(cmdline)=%d yielded name %q", len(cmdline), name)
+			}
+			return
+		}
+		if name == "" {
+			return
+		}
+		for i, arg := range cmdline {
+			if i >= 1 && arg == name {
+				return
+			}
+			if strings.HasPrefix(arg, "--name=") && strings.TrimPrefix(arg, "--name=") == name {
+				return
+			}
+		}
+		t.Errorf("name %q is not cmdline[i>=1] and not a --name= suffix in %q", name, cmdline)
 	})
 }

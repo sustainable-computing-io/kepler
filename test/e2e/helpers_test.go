@@ -95,6 +95,11 @@ func withLogOutput(w io.Writer) keplerOption {
 	return func(k *KeplerInstance) { k.logOutput = w }
 }
 
+// withConfig sets the Kepler config file
+func withConfig(path string) keplerOption {
+	return func(k *KeplerInstance) { k.configPath = path }
+}
+
 // startKepler starts Kepler and registers cleanup
 func startKepler(t *testing.T, opts ...keplerOption) *KeplerInstance {
 	t.Helper()

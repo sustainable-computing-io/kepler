@@ -98,6 +98,9 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 	for id, p := range pods.Running {
 		// Create pod power entry with node zones
 		pod := newPod(p, newSnapshot.Node.Zones)
+		if prevPod := prev.Pods[id]; prevPod != nil {
+			pod.GPUEnergyTotal = prevPod.GPUEnergyTotal
+		}
 
 		// Calculate CPU time ratio for this pod
 
@@ -128,14 +131,19 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		podMap[id] = pod
 	}
 
-	// Aggregate GPU power and energy from containers into pods
-	for _, container := range newSnapshot.Containers {
+	// Keep the pod total and add GPU energy accumulated since the last sample.
+	for id, container := range newSnapshot.Containers {
 		if container.PodID == "" {
 			continue
 		}
 		if pod, ok := podMap[container.PodID]; ok {
 			pod.GPUPower += container.GPUPower
-			pod.GPUEnergyTotal += container.GPUEnergyTotal
+			energy := container.GPUEnergyTotal
+			// A container that was not on a pod yet contributes its full total once.
+			if prevContainer := prev.Containers[id]; prevContainer != nil && prevContainer.PodID != "" {
+				energy -= min(energy, prevContainer.GPUEnergyTotal)
+			}
+			pod.GPUEnergyTotal += energy
 		}
 	}
 
