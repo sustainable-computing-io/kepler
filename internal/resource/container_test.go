@@ -477,6 +477,7 @@ func FuzzContainerNameFromCmdLine(f *testing.F) {
 		}
 		t.Errorf("name %q is not cmdline[i>=1] and not a --name= suffix in %q", name, cmdline)
 	})
+}
 
 func TestContainerInfoFromProcCgroupNamespaceRoot(t *testing.T) {
 	selfID := strings.Repeat("c", 64)
