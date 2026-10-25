@@ -145,7 +145,7 @@ func buildCPUMeter(name string, logger *slog.Logger, cfg *config.Config) (CPUPow
 		if pp.BaseURL == "" || pp.Query == "" {
 			return nil, errors.New("experimental.prometheus-power baseURL or query is empty")
 		}
-		logger.Info("Using Prometheus-based node power input", "baseURL", pp.BaseURL, "query", pp.Query)
+		logger.Info("Using Prometheus-based node power input", "baseURL", config.RedactURL(pp.BaseURL), "query", pp.Query)
 		client := NewPrometheusClient(pp.BaseURL, pp.Query)
 		return NewPrometheusPowerMeter("node", client.QueryPowerWatt)
 

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -845,11 +846,13 @@ func (c *Config) experimentalFeatureEnabled() bool {
 	if ptr.Deref(c.Experimental.GPU.Enabled, false) {
 		return true
 	}
-	// Add checks for future experimental features here
 
-	if ptr.Deref(c.Experimental.PrometheusPower.Enabled, false) {
+	// Prometheus power is in use when enabled or selected via cpu.preferredMeters
+	if ptr.Deref(c.Experimental.PrometheusPower.Enabled, false) ||
+		slices.Contains(c.Cpu.PreferredMeters, "prometheus") {
 		return true
 	}
+	// Add checks for future experimental features here
 
 	return false
 }
@@ -1168,7 +1171,16 @@ func validateDCGMEndpoint(endpoint string) []string {
 }
 
 func (c *Config) String() string {
-	bytes, err := yaml.Marshal(c)
+	// Redact credentials embedded in the Prometheus power baseURL without
+	// modifying the original config
+	redacted := *c
+	if c.Experimental != nil {
+		exp := *c.Experimental
+		exp.PrometheusPower.BaseURL = RedactURL(exp.PrometheusPower.BaseURL)
+		redacted.Experimental = &exp
+	}
+
+	bytes, err := yaml.Marshal(&redacted)
 	if err == nil {
 		return string(bytes)
 	}
@@ -1208,4 +1220,18 @@ func (c *Config) manualString() string {
 	}
 
 	return sb.String()
+}
+
+// RedactURL returns rawURL with any userinfo password masked so it can be
+// logged safely. Unparseable URLs are fully masked since they may still
+// contain credentials.
+func RedactURL(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "<redacted: unparseable URL>"
+	}
+	return u.Redacted()
 }

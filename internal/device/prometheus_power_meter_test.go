@@ -4,7 +4,9 @@
 package device
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,6 +69,12 @@ func TestPrometheusClient_QueryPowerWatt(t *testing.T) {
 			status:  http.StatusOK,
 			body:    `{"status":"success","data":{"resultType":"vector","result":[]}}`,
 			wantErr: "returned no samples",
+		},
+		{
+			name:    "multiple series",
+			status:  http.StatusOK,
+			body:    `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"psu":"1"},"value":[1700000000,"100"]},{"metric":{"psu":"2"},"value":[1700000000,"120"]}]}}`,
+			wantErr: "returned 2 series, expected exactly 1",
 		},
 		{name: "http error", status: http.StatusInternalServerError, body: "", wantErr: "prometheus query failed"},
 		{name: "invalid json", status: http.StatusOK, body: "{", wantErr: "failed to decode"},
@@ -133,6 +141,26 @@ func TestCreateCPUMeter_PrometheusUnreachable_FallsThroughToFake(t *testing.T) {
 	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "fake-cpu-meter", meter.Name())
+}
+
+func TestBuildCPUMeter_Prometheus_RedactsCredentialsInLog(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	cfg := prometheusConfig("https://kepler:s3cret@vm.example.org:8428", "prometheus")
+
+	_, err := buildCPUMeter("prometheus", logger, cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, buf.String(), "s3cret")
+	assert.Contains(t, buf.String(), "kepler:xxxxx@vm.example.org")
+}
+
+func TestPrometheusClient_InvalidBaseURLDoesNotLeakCredentials(t *testing.T) {
+	client := NewPrometheusClient("https://kepler:s3cret@vm.example.org:port", "up")
+
+	_, err := client.QueryPowerWatt(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid base URL")
+	assert.NotContains(t, err.Error(), "s3cret")
 }
 
 func TestBuildCPUMeter_Prometheus_MissingConfig(t *testing.T) {

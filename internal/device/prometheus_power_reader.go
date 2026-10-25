@@ -6,6 +6,7 @@ package device
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -36,7 +37,12 @@ func NewPrometheusClient(baseURL, query string) *PrometheusClient {
 func (c *PrometheusClient) QueryPowerWatt(ctx context.Context) (float64, error) {
 	u, err := url.Parse(c.baseURL + "/api/v1/query")
 	if err != nil {
-		return 0, fmt.Errorf("invalid base URL %q: %w", c.baseURL, err)
+		// url.Error embeds the raw URL, which may contain credentials; keep only the cause
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			err = urlErr.Err
+		}
+		return 0, fmt.Errorf("invalid base URL: %w", err)
 	}
 
 	q := u.Query()
@@ -69,6 +75,12 @@ func (c *PrometheusClient) QueryPowerWatt(ctx context.Context) (float64, error) 
 
 	if len(result.Data.Result) == 0 {
 		return 0, fmt.Errorf("prometheus query %q returned no samples", c.query)
+	}
+
+	// Picking one of several series would report arbitrary partial power
+	// (e.g. one PSU or PDU outlet); the query must aggregate to a single series.
+	if n := len(result.Data.Result); n > 1 {
+		return 0, fmt.Errorf("prometheus query %q returned %d series, expected exactly 1; aggregate in the query (e.g. sum(...))", c.query, n)
 	}
 
 	v := result.Data.Result[0].Value[1]

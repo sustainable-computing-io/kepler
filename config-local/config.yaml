@@ -94,9 +94,12 @@ experimental:
 
     # Replace with an environment-specific query that returns
     # the node power in watts for the current machine / target.
+    # The query must return exactly one series; aggregate multiple
+    # PSUs or PDU outlets in the query itself.
     #
-    # Example:
+    # Examples:
     #   node_power_watts{instance="server01"}
+    #   sum(pdu_outlet_power_watts{server="server01"})
     query: node_power_watts{instance="example-node"}
 
   platform:
