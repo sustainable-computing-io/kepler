@@ -27,15 +27,17 @@ func (pm *PowerMonitor) firstProcessRead(snapshot *Snapshot) error {
 					pm.logger.Debug("Failed to get GPU energy", "device", dev.Index, "error", energyErr)
 					continue
 				}
+				energyReadAt := pm.clock.Now()
 				gpuStats = append(gpuStats, GPUDeviceStats{
-					DeviceIndex: dev.Index,
-					UUID:        dev.UUID,
-					Name:        dev.Name,
-					Vendor:      string(dev.Vendor),
-					TotalPower:  stats.TotalPower,
-					IdlePower:   stats.IdlePower,
-					ActivePower: stats.ActivePower,
-					EnergyTotal: energy,
+					DeviceIndex:  dev.Index,
+					UUID:         dev.UUID,
+					Name:         dev.Name,
+					Vendor:       string(dev.Vendor),
+					TotalPower:   stats.TotalPower,
+					IdlePower:    stats.IdlePower,
+					ActivePower:  stats.ActivePower,
+					EnergyTotal:  energy,
+					EnergyReadAt: energyReadAt,
 				})
 			}
 		}
@@ -150,20 +152,21 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 					pm.logger.Debug("Failed to get GPU energy", "device", dev.Index, "error", energyErr)
 					continue
 				}
+				energyReadAt := pm.clock.Now()
 				gpuStats = append(gpuStats, GPUDeviceStats{
-					DeviceIndex: dev.Index,
-					UUID:        dev.UUID,
-					Name:        dev.Name,
-					Vendor:      string(dev.Vendor),
-					TotalPower:  stats.TotalPower,
-					IdlePower:   stats.IdlePower,
-					ActivePower: stats.ActivePower,
-					EnergyTotal: energy,
+					DeviceIndex:  dev.Index,
+					UUID:         dev.UUID,
+					Name:         dev.Name,
+					Vendor:       string(dev.Vendor),
+					TotalPower:   stats.TotalPower,
+					IdlePower:    stats.IdlePower,
+					ActivePower:  stats.ActivePower,
+					EnergyTotal:  energy,
+					EnergyReadAt: energyReadAt,
 				})
 			}
 		}
-		dt := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
-		gpuStats = computeGPUActiveIdleEnergy(gpuStats, prev.GPUStats, dt)
+		gpuStats = computeGPUActiveIdleEnergy(gpuStats, prev.GPUStats)
 		newSnapshot.GPUStats = gpuStats
 		pm.logger.Debug("GPU process power", "gpu_processes", len(gpuPowerByPID))
 	}
@@ -274,9 +277,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 // computeGPUActiveIdleEnergy splits cumulative GPU energy into active and idle
 // components. The idle share of each interval's energy delta is the idle power
-// baseline over the interval duration dt (in seconds), capped at the delta; the
-// remainder is active. Intervals with dt <= 0 are skipped.
-func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats, dt float64) []GPUDeviceStats {
+// baseline over the time between the two energy reads, capped at the delta; the
+// remainder is active. Intervals with a non-positive duration are skipped.
+func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats) []GPUDeviceStats {
 	if len(previous) == 0 {
 		return current
 	}
@@ -293,6 +296,7 @@ func computeGPUActiveIdleEnergy(current, previous []GPUDeviceStats, dt float64) 
 		}
 
 		// Carry totals forward when the interval duration is unknown
+		dt := current[i].EnergyReadAt.Sub(prev.EnergyReadAt).Seconds()
 		if dt <= 0 {
 			current[i].ActiveEnergyTotal = prev.ActiveEnergyTotal
 			current[i].IdleEnergyTotal = prev.IdleEnergyTotal
