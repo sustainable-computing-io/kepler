@@ -4,7 +4,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 
 ## Prerequisites
 
-- **For Local Installation**: Go 1.24.0+ and sudo access for hardware sensor access
+- **For Local Installation**: Go 1.27.0+ and sudo access for hardware sensor access
 - **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
@@ -62,19 +62,20 @@ image:
   tag: "v0.10.0"
   pullPolicy: IfNotPresent
 
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+daemonset:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 400Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
 
-tolerations:
-  - operator: Exists
+  tolerations:
+    - operator: Exists
 
-nodeSelector:
-  kubernetes.io/os: linux
+  nodeSelector:
+    kubernetes.io/os: linux
 
 # Enable ServiceMonitor for Prometheus
 serviceMonitor:
@@ -99,6 +100,42 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
   --create-namespace \
   --values values.yaml
 ```
+
+#### Enabling GPU Power Monitoring (NVIDIA GPU Operator)
+
+To export GPU power metrics on clusters with the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/overview.html), enable the experimental GPU flag. The chart then adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` from the host driver path into an `emptyDir`, and points `LD_LIBRARY_PATH` at it:
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace \
+  --set config.experimental.gpu.enabled=true
+```
+
+What this changes:
+
+- Adds an `nvidia-libs` init container that copies `libnvidia-ml.so*` into a 200Mi `emptyDir` using `cp -P` (preserves the driver symlink chain; `cp -L` can exceed the size limit when leftover driver versions are present).
+- Mounts that `emptyDir` read-only at `/usr/local/nvidia/lib64` and sets `LD_LIBRARY_PATH=/usr/local/nvidia/lib64`.
+- Mounts the host driver directory (default `/run/nvidia/driver`, overridable via `daemonset.nvidia.driverPath`) with `DirectoryOrCreate` so non-GPU nodes still schedule.
+- Runs the Kepler container privileged (and with `allowPrivilegeEscalation: true`), since the GPU device nodes reach the container only that way when the pod does not run under the NVIDIA runtime.
+
+Defaults assume the standard GPU Operator layout. Override via `values.yaml` if needed:
+
+```yaml
+config:
+  experimental:
+    gpu:
+      enabled: true
+
+daemonset:
+  nvidia:
+    driverPath: /run/nvidia/driver
+    nvmlInitImage:
+      repository: busybox
+      tag: 1.36.1
+```
+
+Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart's `daemonset.nvidia.*` plumbing. Enabling the binary flag without the init path (or the reverse) is not a supported split. Leave `enabled: false` if you do not want GPU power monitoring.
 
 #### Helm Management Commands
 
@@ -153,6 +190,8 @@ sudo ./bin/kepler --log.level=debug --exporter.stdout
 **Access Points:**
 
 - Metrics: <http://localhost:28282/metrics>
+- Liveness probe: <http://localhost:28282/probe/livez>
+- Readiness probe: <http://localhost:28282/probe/readyz>
 
 ### 3. Docker Compose (Recommended for Development)
 
@@ -296,45 +335,56 @@ image:
 daemonset:
   hostPID: true
   securityContext:
-    privileged: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: Unconfined
+    seLinuxOptions:
+      type: spc_t
 
-# Resource limits
-resources:
-  limits:
-    cpu: 100m
-    memory: 400Mi
-  requests:
-    cpu: 100m
-    memory: 200Mi
+  # Resource limits
+  resources:
+    limits:
+      cpu: 100m
+      memory: 400Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
 
-# Node scheduling
-tolerations:
-  - operator: Exists
+  # Node scheduling
+  tolerations:
+    - operator: Exists
 
-nodeSelector:
-  kubernetes.io/os: linux
+  nodeSelector:
+    kubernetes.io/os: linux
 
 # Monitoring
 serviceMonitor:
   enabled: true
   interval: 30s
-  scrapeTimeout: 10s
 ```
 
 ### Environment-Specific Settings
 
-- **Development**: Use fake CPU meter when RAPL unavailable
-- **Production**: Ensure nodes have Intel RAPL support
+- **Development**: Use the fake CPU meter when hardware sensors are unavailable
+- **Production**: Ensure nodes expose supported RAPL or hwmon sensors
 - **Cloud**: May need different privilege configurations
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Permission Denied**: Ensure privileged security context is enabled
-2. **No Metrics**: Check if nodes support Intel RAPL sensors
-3. **Pod Crashes**: Review logs for hardware access issues
-4. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
+1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
+2. **Missing Series After Upgrade**: The unprivileged default changes two outputs. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Kepler's own container and pod no longer appear in the `kepler_container_*` and `kepler_pod_*` series, because its private cgroup namespace hides its own cgroup path. Set `daemonset.securityContext.privileged=true` to get both back
+3. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
+4. **Pod Crashes**: Review logs for hardware access issues
+5. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
    or use the minimal deployment section above
 
 ### Debug Commands
@@ -351,12 +401,12 @@ kubectl exec -n kepler -it <pod-name> -- ls /sys/class/powercap/intel-rapl
 
 # Test with fake meter (development)
 helm upgrade kepler manifests/helm/kepler/ -n kepler \
-  --set env.KEPLER_FAKE_CPU_METER=true
+  --set 'config.cpu.preferredMeters[0]=fake'
 ```
 
 ### Getting Help
 
-- **Documentation**: <https://sustainable-computing.io/kepler/>
+- **Documentation**: <https://sustainable-computing.io/>
 - **Issues**: <https://github.com/sustainable-computing-io/kepler/issues>
 - **Discussions**: <https://github.com/sustainable-computing-io/kepler/discussions>
 - **Slack**: [#kepler channel in CNCF Slack](https://cloud-native.slack.com/archives/C06HYDN4A01)

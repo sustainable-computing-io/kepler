@@ -13,7 +13,7 @@ jobs:
       changes: ${{ steps.filter.outputs.changes }}
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: filter changes
         uses: dorny/paths-filter@v4
@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup go
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
 
@@ -48,10 +48,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup go
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -59,7 +59,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.6
+          version: v2.13.2
           args: --timeout=3m --issues-exit-code=0 ./...
           only-new-issues: true
 
@@ -69,10 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup go
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -85,10 +85,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup go
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -118,10 +118,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      - name: setup go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
 
       - name: Setup Pre-commit
         run: pip install pre-commit
@@ -135,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Fetch all the history of PR commits
 
@@ -152,10 +157,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup go
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -169,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest-8-cores
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build and Deploy Kepler on K8s
         uses: ./.github/k8s
@@ -178,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build and Deploy Kepler using Docker Compose
         uses: ./.github/compose

@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -53,6 +54,13 @@ type (
 		ProcFS string `yaml:"procfs"`
 	}
 
+	// Cpu configuration controls how CPU power meters are selected.
+	// PreferredMeters lists backends in preference order. The first backend
+	// that initializes successfully and reports zones is used.
+	Cpu struct {
+		PreferredMeters []string `yaml:"preferredMeters"`
+	}
+
 	// Rapl configuration
 	Rapl struct {
 		Zones []string `yaml:"zones"`
@@ -78,8 +86,8 @@ type (
 
 	// Hwmon configuration (Set in Experimental)
 	Hwmon struct {
-		Enabled *bool    `yaml:"enabled"` // Development mode settings (sensor detection should be set based on architecture in future)
-		Zones   []string `yaml:"zones"`
+		ForceEnabled *bool    `yaml:"forceEnabled"` // Force hwmon as the power meter, skipping RAPL auto-detection
+		Zones        []string `yaml:"zones"`
 		// ChipRules allows users to override or add chip pairing rules via configuration.
 		// Rules defined here take precedence over hardcoded defaults.
 		ChipRules []ChipPairingRule `yaml:"chipRules,omitempty"`
@@ -91,6 +99,11 @@ type (
 			Enabled *bool    `yaml:"enabled"`
 			Zones   []string `yaml:"zones"`
 		} `yaml:"fake-cpu-meter"`
+		FakeGPUMeter struct {
+			Enabled     *bool  `yaml:"enabled"`
+			DeviceCount int    `yaml:"deviceCount"` // number of fake GPUs (default: 1)
+			SharingMode string `yaml:"sharingMode"` // "exclusive" or "time-slicing" (default: "time-slicing")
+		} `yaml:"fake-gpu-meter"`
 	}
 	Web struct {
 		Config          string   `yaml:"configFile"`
@@ -199,6 +212,7 @@ type (
 		Log      Log      `yaml:"log"`
 		Host     Host     `yaml:"host"`
 		Monitor  Monitor  `yaml:"monitor"`
+		Cpu      Cpu      `yaml:"cpu"`
 		Rapl     Rapl     `yaml:"rapl"`
 		Exporter Exporter `yaml:"exporter"`
 		Web      Web      `yaml:"web"`
@@ -210,6 +224,11 @@ type (
 		// use omitempty to suppress printing (String) Experimental configuration
 		// when it is empty
 		Experimental *Experimental `yaml:"experimental,omitempty"`
+
+		// unknownFields holds the keys present in the config file that do not
+		// map to any field above. They are dropped silently by the decoder, so
+		// they are kept here to be reported at startup.
+		unknownFields []string `yaml:"-"`
 	}
 )
 
@@ -271,6 +290,9 @@ const (
 	MonitorStaleness         = "monitor.staleness" // not a flag
 	MonitorMaxTerminatedFlag = "monitor.max-terminated"
 
+	// CPU
+	CpuPreferredMeters = "cpu.preferredMeters" // not a flag
+
 	// RAPL
 	RaplZones = "rapl.zones" // not a flag
 
@@ -298,8 +320,8 @@ const (
 	ExperimentalPlatformRedfishConfigFlag   = "experimental.platform.redfish.config-file"
 
 	// Experimental Hwmon flags
-	ExperimentalHwmonEnabledFlag = "experimental.hwmon.enabled"
-	ExperimentalHwmonZonesFlag   = "experimental.hwmon.zones"
+	ExperimentalHwmonForceEnabledFlag = "experimental.hwmon.force-enabled"
+	ExperimentalHwmonZonesFlag        = "experimental.hwmon.zones"
 
 	// Experimental GPU flags
 	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
@@ -319,6 +341,9 @@ func DefaultConfig() *Config {
 		Host: Host{
 			SysFS:  "/sys",
 			ProcFS: "/proc",
+		},
+		Cpu: Cpu{
+			PreferredMeters: []string{"rapl", "hwmon"},
 		},
 		Rapl: Rapl{
 			Zones: []string{},
@@ -362,7 +387,38 @@ func DefaultConfig() *Config {
 	}
 
 	cfg.Dev.FakeCpuMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGPUMeter.Enabled = ptr.To(false)
+	cfg.Dev.FakeGPUMeter.DeviceCount = 1
+	cfg.Dev.FakeGPUMeter.SharingMode = "time-slicing"
 	return cfg
+}
+
+// ApplyCpuMeterDeprecations translates legacy CPU-meter selectors into an
+// effective cpu.preferredMeters value and logs a deprecation warning per
+// translation.
+//
+// Legacy selectors:
+//   - experimental.hwmon.forceEnabled=true → cpu.preferredMeters: ["hwmon"]
+//   - dev.fake-cpu-meter.enabled=true      → cpu.preferredMeters: ["fake"]
+//
+// Legacy selectors win over an explicit cpu.preferredMeters when set, since
+// operators who set them today expect the legacy behavior. When both legacy
+// keys are set, fake takes precedence over hwmon. The legacy keys will stop
+// working in a future release.
+func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
+	switch {
+	// experimental.prometheus-power.enabled=true keeps selecting the Prometheus
+	// meter as it did before cpu.preferredMeters existed.
+	case c.Experimental != nil && ptr.Deref(c.Experimental.PrometheusPower.Enabled, false):
+		logger.Info(`experimental.prometheus-power.enabled is set; using cpu.preferredMeters: ["prometheus"]`)
+		c.Cpu.PreferredMeters = []string{"prometheus"}
+	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
+		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.preferredMeters: ["fake"] instead`)
+		c.Cpu.PreferredMeters = []string{"fake"}
+	case c.Experimental != nil && ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false):
+		logger.Warn(`experimental.hwmon.forceEnabled is deprecated; set cpu.preferredMeters: ["hwmon"] instead`)
+		c.Cpu.PreferredMeters = []string{"hwmon"}
+	}
 }
 
 // Load loads configuration from an io.Reader
@@ -377,6 +433,7 @@ func Load(r io.Reader) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+	cfg.unknownFields = unknownFields(data)
 	cfg.sanitize()
 
 	if err := cfg.Validate(); err != nil {
@@ -461,7 +518,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	redfishConfig := app.Flag(ExperimentalPlatformRedfishConfigFlag, "Path to experimental Redfish BMC configuration file").String()
 
 	// experimental hwmon
-	hwmonEnabled := app.Flag(ExperimentalHwmonEnabledFlag, "Enable experimental hwmon power monitoring").Default("false").Bool()
+	hwmonForceEnabled := app.Flag(ExperimentalHwmonForceEnabledFlag, "Force hwmon as the power meter, skipping RAPL auto-detection").Default("false").Bool()
 	hwmonZones := app.Flag(ExperimentalHwmonZonesFlag, "Hwmon zone filter (power labels to monitor)").Strings()
 
 	// experimental GPU
@@ -537,12 +594,22 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		// Apply experimental hwmon settings
-		if err := applyHwmonConfig(cfg, flagsSet, hwmonEnabled, hwmonZones); err != nil {
+		if err := applyHwmonConfig(cfg, flagsSet, hwmonForceEnabled, hwmonZones); err != nil {
 			return err
 		}
 
 		// Apply experimental GPU settings
 		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint)
+
+		// Resolve Kube.Node fallback to hostname when Kubernetes is not enabled
+		// and no node name was set by flags or YAML
+		if cfg.Kube.Node == "" && !ptr.Deref(cfg.Kube.Enabled, false) {
+			hostname, err := os.Hostname()
+			if err != nil {
+				return fmt.Errorf("failed to resolve node name: %w", err)
+			}
+			cfg.Kube.Node = hostname
+		}
 
 		cfg.sanitize()
 		return cfg.Validate()
@@ -630,7 +697,7 @@ func resolveRedfishNodeName(redfish *Redfish, kubeNodeName string) error {
 }
 
 // applyHwmonConfig applies Hwmon configuration flags
-func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, zones *[]string) error {
+func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, forceEnabled *bool, zones *[]string) error {
 	// Early exit if no hwmon flags are set and config file does not have experimental section
 	if !hasHwmonFlags(flagsSet) && cfg.Experimental == nil {
 		return nil
@@ -648,29 +715,29 @@ func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, zone
 	hwmon := &cfg.Experimental.Hwmon
 
 	// Apply flag values
-	applyHwmonFlags(hwmon, flagsSet, enabled, zones)
+	applyHwmonFlags(hwmon, flagsSet, forceEnabled, zones)
 
 	return nil
 }
 
 // hasHwmonFlags returns true if any hwmon experimental flags are set
 func hasHwmonFlags(flagsSet map[string]bool) bool {
-	return flagsSet[ExperimentalHwmonEnabledFlag] ||
+	return flagsSet[ExperimentalHwmonForceEnabledFlag] ||
 		flagsSet[ExperimentalHwmonZonesFlag]
 }
 
 func defaultHwmonConfig() Hwmon {
 	return Hwmon{
-		Enabled:   ptr.To(false),
-		Zones:     []string{},
-		ChipRules: []ChipPairingRule{},
+		ForceEnabled: ptr.To(false),
+		Zones:        []string{},
+		ChipRules:    []ChipPairingRule{},
 	}
 }
 
 // applyHwmonFlags applies flag values to hwmon config
-func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, enabled *bool, zones *[]string) {
-	if flagsSet[ExperimentalHwmonEnabledFlag] {
-		hwmon.Enabled = enabled
+func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, forceEnabled *bool, zones *[]string) {
+	if flagsSet[ExperimentalHwmonForceEnabledFlag] {
+		hwmon.ForceEnabled = forceEnabled
 	}
 
 	if flagsSet[ExperimentalHwmonZonesFlag] {
@@ -741,7 +808,7 @@ func (c *Config) IsFeatureEnabled(feature Feature) bool {
 		if c.Experimental == nil {
 			return false
 		}
-		return ptr.Deref(c.Experimental.Hwmon.Enabled, false)
+		return ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false)
 	case PrometheusFeature:
 		return ptr.Deref(c.Exporter.Prometheus.Enabled, false)
 	case StdoutFeature:
@@ -769,8 +836,8 @@ func (c *Config) experimentalFeatureEnabled() bool {
 		return true
 	}
 
-	// Check if Hwmon is enabled
-	if ptr.Deref(c.Experimental.Hwmon.Enabled, false) {
+	// Check if Hwmon is force-enabled
+	if ptr.Deref(c.Experimental.Hwmon.ForceEnabled, false) {
 		return true
 	}
 
@@ -795,6 +862,10 @@ func (c *Config) sanitize() {
 	c.Web.Config = strings.TrimSpace(c.Web.Config)
 	for i := range c.Web.ListenAddresses {
 		c.Web.ListenAddresses[i] = strings.TrimSpace(c.Web.ListenAddresses[i])
+	}
+
+	for i := range c.Cpu.PreferredMeters {
+		c.Cpu.PreferredMeters[i] = strings.TrimSpace(c.Cpu.PreferredMeters[i])
 	}
 
 	for i := range c.Rapl.Zones {
@@ -889,6 +960,20 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
+	{ // cpu.preferredMeters
+		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
+		validCpuMeters := map[string]bool{
+			"rapl":       true,
+			"hwmon":      true,
+			"fake":       true,
+			"prometheus": true,
+		}
+		for _, name := range c.Cpu.PreferredMeters {
+			if !validCpuMeters[name] {
+				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q, %q", name, "rapl", "hwmon", "fake", "prometheus"))
+			}
+		}
+	}
 	{ // Monitor
 		if c.Monitor.Interval < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor interval: %s can't be negative", c.Monitor.Interval))
@@ -899,6 +984,20 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 
 		if c.Monitor.MinTerminatedEnergyThreshold < 0 {
 			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
+		}
+	}
+	{ // Development
+		fakeGPU := c.Dev.FakeGPUMeter
+		if ptr.Deref(fakeGPU.Enabled, false) {
+			if fakeGPU.DeviceCount <= 0 {
+				errs = append(errs, fmt.Sprintf("invalid dev.fake-gpu-meter.deviceCount: %d, must be greater than 0", fakeGPU.DeviceCount))
+			}
+			switch fakeGPU.SharingMode {
+			case "exclusive", "time-slicing":
+				// valid
+			default:
+				errs = append(errs, fmt.Sprintf("invalid dev.fake-gpu-meter.sharingMode: %q, must be \"exclusive\" or \"time-slicing\"", fakeGPU.SharingMode))
+			}
 		}
 	}
 	{ // Kubernetes
@@ -1090,6 +1189,7 @@ func (c *Config) manualString() string {
 		{MonitorIntervalFlag, c.Monitor.Interval.String()},
 		{MonitorStaleness, c.Monitor.Staleness.String()},
 		{MonitorMaxTerminatedFlag, fmt.Sprintf("%d", c.Monitor.MaxTerminated)},
+		{CpuPreferredMeters, strings.Join(c.Cpu.PreferredMeters, ", ")},
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},

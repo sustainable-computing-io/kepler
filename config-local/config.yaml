@@ -76,6 +76,9 @@ rapl:
 
 experimental:
   prometheus-power:
+    # enabled: true forces cpu.preferredMeters: [prometheus].
+    # Alternatively leave it unset and list "prometheus" in cpu.preferredMeters,
+    # e.g. [rapl, prometheus] to fall back to Prometheus when RAPL is unavailable.
     enabled: true
 
     # Replace with your monitoring endpoint.

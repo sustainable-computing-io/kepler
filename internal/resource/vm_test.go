@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -114,6 +115,74 @@ func TestVMInfoFromCmdLine(t *testing.T) {
 			vmID:       "test-vm",
 		},
 	}, {
+		name: "VirtualBox headless with UUID",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment", "ubuntu-server",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+			"--vrde", "config",
+		},
+		expected: expect{
+			hypervisor: VirtualBoxHypervisor,
+			vmID:       "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+	}, {
+		name: "VirtualBox GUI with single dash startvm",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VirtualBoxVM",
+			"-comment", "win10",
+			"-startvm", "df12672f-fedb-4f6f-9d51-0166868835fb",
+		},
+		expected: expect{
+			hypervisor: VirtualBoxHypervisor,
+			vmID:       "df12672f-fedb-4f6f-9d51-0166868835fb",
+		},
+	}, {
+		name: "VirtualBox SDL without startvm (uses comment)",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxSDL",
+			"--comment", "sdl-vm",
+		},
+		expected: expect{
+			hypervisor: VirtualBoxHypervisor,
+			vmID:       "sdl-vm",
+		},
+	}, {
+		name: "VMware Workstation guest",
+		cmdline: []string{
+			"/usr/lib/vmware/bin/vmware-vmx",
+			"-s", "vmx.stdio.keep=TRUE",
+			"-@", "duplex=3;msgs=ui",
+			"/home/user/vmware/UbuntuVM/UbuntuVM.vmx",
+		},
+		expected: expect{
+			hypervisor: VMwareHypervisor,
+			vmID:       "UbuntuVM",
+		},
+	}, {
+		name: "Xen device model with domain ID",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-xen-domid", "5",
+			"-name", "debian-guest",
+			"-machine", "xenpv",
+		},
+		expected: expect{
+			hypervisor: XenHypervisor,
+			vmID:       "5",
+		},
+	}, {
+		name: "Xen device model with domid flag but no value (uses name)",
+		cmdline: []string{
+			"/usr/bin/qemu-system-i386",
+			"-name", "xen-guest",
+			"-xen-domid",
+		},
+		expected: expect{
+			hypervisor: XenHypervisor,
+			vmID:       "xen-guest",
+		},
+	}, {
 		name: "Not a VM process",
 		cmdline: []string{
 			"/usr/bin/firefox",
@@ -139,7 +208,7 @@ func TestVMInfoFromCmdLine(t *testing.T) {
 		},
 		expected: expect{
 			hypervisor: KVMHypervisor,
-			vmID:       "2f7573722f62696e", // First 16 chars of hex hash
+			vmID:       "d655e8dfaee6da14", // xxhash of the command line
 		},
 	}}
 
@@ -246,6 +315,153 @@ func TestExtractQemuMachineID(t *testing.T) {
 	}
 }
 
+func TestExtractVBoxMachineID(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdline  []string
+		expected string
+	}{{
+		name: "startvm UUID present",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+		expected: "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+	}, {
+		name: "no startvm, fallback to comment",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment", "fallback-vm",
+		},
+		expected: "fallback-vm",
+	}, {
+		name: "startvm without value",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--startvm",
+		},
+		expected: "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := extractVBoxMachineID(tc.cmdline)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestExtractXenDomID(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdline  []string
+		expected string
+	}{{
+		name: "domid present",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-xen-domid", "12",
+			"-name", "xen-guest",
+		},
+		expected: "12",
+	}, {
+		name: "no domid, fallback to name",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-name", "xen-guest",
+		},
+		expected: "xen-guest",
+	}, {
+		name: "domid without value, no name",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-xen-domid",
+		},
+		expected: "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := extractXenDomID(tc.cmdline)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestVBoxVMNameFromCmdLine(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdline  []string
+		expected string
+	}{{
+		name: "double dash comment",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment", "ubuntu-server",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+		expected: "ubuntu-server",
+	}, {
+		name: "single dash comment",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VirtualBoxVM",
+			"-comment", "win10",
+		},
+		expected: "win10",
+	}, {
+		name: "no comment argument",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+		expected: "",
+	}, {
+		name: "comment without value",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment",
+		},
+		expected: "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := vboxVMNameFromCmdLine(tc.cmdline)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestVMwareVMNameFromCmdLine(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmdline  []string
+		expected string
+	}{{
+		name: "vmx path present",
+		cmdline: []string{
+			"/usr/lib/vmware/bin/vmware-vmx",
+			"-s", "vmx.stdio.keep=TRUE",
+			"/home/user/vmware/UbuntuVM/UbuntuVM.vmx",
+		},
+		expected: "UbuntuVM",
+	}, {
+		name: "no vmx path",
+		cmdline: []string{
+			"/usr/lib/vmware/bin/vmware-vmx",
+			"-s", "vmx.stdio.keep=TRUE",
+		},
+		expected: "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := vmwareVMNameFromCmdLine(tc.cmdline)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func TestGenerateVMID(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -254,11 +470,19 @@ func TestGenerateVMID(t *testing.T) {
 	}{{
 		name:     "Short command",
 		fullCmd:  "/usr/bin/qemu",
-		expected: "2f7573722f62696e",
+		expected: "cdbfd0710b8238b4",
 	}, {
-		name:     "Long command gets truncated",
+		name:     "Long command is hashed, not truncated",
 		fullCmd:  "/usr/bin/qemu-system-x86_64 -name guest=test-vm -uuid 12345678-1234-5678-9abc-123456789abc",
-		expected: "2f7573722f62696e", // First 16 chars
+		expected: "aad0d042650095f6",
+	}, {
+		name:     "QEMU command with shared prefix (a)",
+		fullCmd:  "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=a.img",
+		expected: "7aeca777286243a4",
+	}, {
+		name:     "QEMU command with shared prefix (b)",
+		fullCmd:  "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=b.img",
+		expected: "f2b350d539712ab3",
 	}, {
 		name:     "Empty command",
 		fullCmd:  "",
@@ -271,6 +495,15 @@ func TestGenerateVMID(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestGenerateVMIDStableAndDistinct(t *testing.T) {
+	a := "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=a.img"
+	b := "/usr/bin/qemu-system-x86_64 -m 1024 -drive file=b.img"
+
+	assert.Equal(t, generateVMID(a), generateVMID(a), "same command line must give the same ID")
+	assert.NotEqual(t, generateVMID(a), generateVMID(b), "command lines sharing a prefix must give different IDs")
+	assert.Len(t, generateVMID(a), 16)
 }
 
 func TestVMInfoFromProc(t *testing.T) {
@@ -324,6 +557,51 @@ func TestVMInfoFromProc(t *testing.T) {
 				ID:         "df12672f-fedb-4f6f-9d51-0166868835fb",
 				Name:       "kvm-df12672f",
 				Hypervisor: KVMHypervisor,
+			},
+			error: false,
+		},
+	}, {
+		name: "VirtualBox VM with UUID and comment",
+		cmdline: []string{
+			"/usr/lib/virtualbox/VBoxHeadless",
+			"--comment", "ubuntu-server",
+			"--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "8a4c5e12-34ab-4f6f-9d51-0166868835fb",
+				Name:       "ubuntu-server",
+				Hypervisor: VirtualBoxHypervisor,
+			},
+			error: false,
+		},
+	}, {
+		name: "VMware VM with vmx path",
+		cmdline: []string{
+			"/usr/lib/vmware/bin/vmware-vmx",
+			"-s", "vmx.stdio.keep=TRUE",
+			"/home/user/vmware/UbuntuVM/UbuntuVM.vmx",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "UbuntuVM",
+				Name:       "UbuntuVM",
+				Hypervisor: VMwareHypervisor,
+			},
+			error: false,
+		},
+	}, {
+		name: "Xen VM without name (short domain ID generates name)",
+		cmdline: []string{
+			"/usr/local/lib/xen/bin/qemu-system-i386",
+			"-xen-domid", "5",
+			"-machine", "xenpv",
+		},
+		expected: expect{
+			vm: &VirtualMachine{
+				ID:         "5",
+				Name:       "xen-5",
+				Hypervisor: XenHypervisor,
 			},
 			error: false,
 		},
@@ -437,10 +715,25 @@ func TestVMNameFromCmdLine(t *testing.T) {
 		hypervisor: KVMHypervisor,
 		expected:   "",
 	}, {
-		name:       "non-KVM hypervisor returns empty",
+		name:       "unknown hypervisor returns empty",
 		cmdline:    []string{"/usr/bin/qemu-system-x86_64", "-name", "test"},
 		hypervisor: UnknownHypervisor,
 		expected:   "",
+	}, {
+		name:       "VirtualBox name from comment",
+		cmdline:    []string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "vbox-vm"},
+		hypervisor: VirtualBoxHypervisor,
+		expected:   "vbox-vm",
+	}, {
+		name:       "VMware name from vmx path",
+		cmdline:    []string{"/usr/lib/vmware/bin/vmware-vmx", "/vms/TestVM/TestVM.vmx"},
+		hypervisor: VMwareHypervisor,
+		expected:   "TestVM",
+	}, {
+		name:       "Xen name from qemu style name argument",
+		cmdline:    []string{"/usr/local/lib/xen/bin/qemu-system-i386", "-name", "xen-guest"},
+		hypervisor: XenHypervisor,
+		expected:   "xen-guest",
 	}}
 
 	for _, tc := range tests {
@@ -449,4 +742,76 @@ func TestVMNameFromCmdLine(t *testing.T) {
 			assert.Equal(t, tc.expected, name)
 		})
 	}
+}
+
+func FuzzVMInfoFromCmdLine(f *testing.F) {
+	for _, cmdline := range [][]string{
+		{"/usr/bin/qemu-system-x86_64", "-name", "guest=test-vm,debug-threads=on", "-uuid", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/bin/qemu-system-x86_64", "-name", "guest=test-vm,debug-threads=on"},
+		{"/usr/bin/qemu-system-x86_64", "-name", "simple-vm"},
+		{"/usr/bin/qemu-system-x86_64", "-name=test-vm"},
+		{"/usr/bin/qemu-system-aarch64", "-name", "guest=arm-vm", "-uuid", "12345678-1234-5678-9abc-123456789abc"},
+		{"/usr/libexec/qemu-kvm", "-name", "guest=instance-0000008b,debug-threads=on", "-uuid", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/libexec/qemu-kvm", "-name", "guest=instance-0000008b,debug-threads=on"},
+		{"/usr/bin/kvm", "-name", "test-vm"},
+		{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "ubuntu-server", "--startvm", "8a4c5e12-34ab-4f6f-9d51-0166868835fb"},
+		{"/usr/lib/virtualbox/VirtualBoxVM", "-comment", "win10", "-startvm", "df12672f-fedb-4f6f-9d51-0166868835fb"},
+		{"/usr/lib/virtualbox/VBoxSDL", "--comment", "sdl-vm"},
+		{"/usr/lib/vmware/bin/vmware-vmx", "-s", "vmx.stdio.keep=TRUE", "/home/user/vmware/UbuntuVM/UbuntuVM.vmx"},
+		{"/usr/local/lib/xen/bin/qemu-system-i386", "-xen-domid", "5", "-name", "debian-guest"},
+		{"/usr/bin/qemu-system-i386", "-name", "xen-guest", "-xen-domid"},
+		{"/usr/bin/firefox", "--profile", "/home/user/.mozilla/firefox"},
+		{"/usr/bin/qemu-system-x86_64", "-machine", "pc", "-m", "1024"},
+	} {
+		f.Add(strings.Join(cmdline, "\x00"))
+	}
+	f.Add("")
+	f.Add("\x00")
+	f.Add("/usr/bin/qemu-system-x86_64\x00-name\x00ゲスト-αβγ-" + strings.Repeat("本", 256))
+
+	f.Fuzz(func(t *testing.T, joined string) {
+		hv, id := vmInfoFromCmdLine(strings.Split(joined, "\x00"))
+		if hv == UnknownHypervisor && id != "" {
+			t.Errorf("unknown hypervisor with non-empty id %q", id)
+		}
+	})
+}
+
+func FuzzVMNameFromCmdLine(f *testing.F) {
+	for _, seed := range []struct {
+		cmdline    []string
+		hypervisor string
+	}{
+		{[]string{}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "test"}, string(UnknownHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "vbox-vm"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/vmware/bin/vmware-vmx", "/vms/TestVM/TestVM.vmx"}, string(VMwareHypervisor)},
+		{[]string{"/usr/local/lib/xen/bin/qemu-system-i386", "-name", "xen-guest"}, string(XenHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "guest=kepler-stuff_default,debug-threads=on"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "simple-vm"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name=test-vm"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name"}, string(KVMHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "ubuntu-server"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/virtualbox/VirtualBoxVM", "-comment", "win10"}, string(VirtualBoxHypervisor)},
+		{[]string{"/usr/lib/vmware/bin/vmware-vmx", "/home/user/vmware/UbuntuVM/UbuntuVM.vmx"}, string(VMwareHypervisor)},
+	} {
+		f.Add(strings.Join(seed.cmdline, "\x00"), seed.hypervisor)
+	}
+	f.Add("", string(UnknownHypervisor))
+	f.Add("\x00", string(KVMHypervisor))
+	f.Add("/usr/bin/qemu-system-x86_64\x00-name\x00ゲスト-αβγ-"+strings.Repeat("本", 256), string(KVMHypervisor))
+
+	f.Fuzz(func(t *testing.T, joined, hypervisor string) {
+		cmdline := strings.Split(joined, "\x00")
+		name := vmNameFromCmdLine(cmdline, Hypervisor(hypervisor))
+		if name == "" {
+			return
+		}
+		for _, arg := range cmdline {
+			if strings.Contains(arg, name) {
+				return
+			}
+		}
+		t.Errorf("name %q is not a substring of any cmdline arg %q", name, cmdline)
+	})
 }

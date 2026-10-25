@@ -28,6 +28,14 @@ func (m *PrometheusPowerMeter) Name() string {
 	return "prometheus-power-meter"
 }
 
+// Init verifies that the configured query can be executed and returns a usable value.
+func (m *PrometheusPowerMeter) Init() error {
+	if _, err := m.zone.Power(); err != nil {
+		return fmt.Errorf("prometheus power query failed: %w", err)
+	}
+	return nil
+}
+
 // Zones returns the single zone exposed by this meter.
 func (m *PrometheusPowerMeter) Zones() ([]EnergyZone, error) {
 	return []EnergyZone{m.zone}, nil

@@ -4,6 +4,7 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -43,11 +44,10 @@ type AggregatedZone struct {
 
 // NewAggregatedZone creates a new AggregatedZone for zones of the same type
 // The name is taken from the first zone
-// Panics if zones is empty or nil
-func NewAggregatedZone(zones []EnergyZone) *AggregatedZone {
-	// Panic on invalid inputs
+// Returns an error if zones is empty or nil
+func NewAggregatedZone(zones []EnergyZone) (*AggregatedZone, error) {
 	if len(zones) == 0 {
-		panic("NewAggregatedZone: zones cannot be empty")
+		return nil, errors.New("NewAggregatedZone: zones cannot be empty")
 	}
 
 	// Use the first zone's name as the aggregated zone name
@@ -73,7 +73,7 @@ func NewAggregatedZone(zones []EnergyZone) *AggregatedZone {
 		lastReadings:  make(map[zoneKey]Energy),
 		currentEnergy: 0,
 		maxEnergy:     totalMax, // Cache the combined MaxEnergy
-	}
+	}, nil
 }
 
 // Name returns the zone name

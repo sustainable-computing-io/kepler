@@ -36,7 +36,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
-| `--experimental.hwmon.enabled`                | Enable experimental hwmon power monitoring                              | `false`                         | `true`, `false`                                                    |
+| `--experimental.hwmon.force-enabled`          | Force hwmon as power meter, skipping RAPL auto-detection                | `false`                         | `true`, `false`                                                    |
 | `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
@@ -68,11 +68,11 @@ kepler --experimental.platform.redfish.enabled=true \
        --experimental.platform.redfish.config-file=/path/to/redfish-config.yaml \
        --experimental.platform.redfish.node-name=worker-node-1
 
-# Enable experimental hwmon power monitoring
-kepler --experimental.hwmon.enabled=true
+# Force hwmon as power meter (skipping RAPL auto-detection)
+kepler --experimental.hwmon.force-enabled=true
 
-# Enable experimental hwmon power monitoring with specific zones
-kepler --experimental.hwmon.enabled=true \
+# Force hwmon with specific zones
+kepler --experimental.hwmon.force-enabled=true \
        --experimental.hwmon.zones=power1 \
        --experimental.hwmon.zones=power2
 
@@ -102,6 +102,12 @@ kepler --monitor.max-terminated=-1
 
 Kepler can load configuration from a YAML file. The configuration file offers more extensive options than command-line flags.
 
+Keys that Kepler does not recognize are ignored rather than rejected, so a config written for a different release still starts. Each ignored key is listed in a warning at startup:
+
+```text
+level=WARN msg="ignoring unknown config fields; check for typos or options from another release" fields="[dcgmEndpoint]"
+```
+
 ### 🧾 Sample Configuration File
 
 ```yaml
@@ -118,6 +124,11 @@ monitor:
 host:
   sysfs: /sys   # Path to sysfs filesystem (default: /sys)
   procfs: /proc # Path to procfs filesystem (default: /proc)
+
+cpu:
+  preferredMeters: ["rapl", "hwmon"]  # Ordered priority of CPU power-meter backends.
+                             # Built-in backends: rapl, hwmon, fake.
+                             # The first backend that initializes and reports zones is used.
 
 rapl:
   zones: []     # RAPL zones to be enabled, empty enables all default zones
@@ -139,7 +150,7 @@ exporter:
 
 debug:          # debug related config
   pprof:        # pprof related config
-    enabled: true
+    enabled: false
 
 web:
   configFile: "" # Path to TLS server config file
@@ -162,7 +173,7 @@ experimental:   # experimental features (no stability guarantees)
       configFile: ""                  # Path to BMC configuration file (required when enabled)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
   hwmon:        # hwmon power monitoring
-    enabled: false                    # Enable hwmon power monitoring (default: false)
+    forceEnabled: false               # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
     zones: []                         # hwmon zones to be enabled, empty enables all available zones
     chipRules: []                     # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:          # GPU power monitoring
@@ -175,6 +186,10 @@ dev:
   fake-cpu-meter:
     enabled: false
     zones: []  # Zones to be enabled, empty enables all default zones
+  fake-gpu-meter:
+    enabled: false
+    deviceCount: 1            # Number of fake GPUs to simulate (default: 1)
+    sharingMode: time-slicing # GPU sharing mode: "exclusive" or "time-slicing" (default: "time-slicing")
 ```
 
 ## 🧩 Configuration Options in Detail
@@ -209,9 +224,9 @@ monitor:
 
 - **interval**: The monitor's refresh interval. All processes with a lifetime less than this interval will be ignored. Setting to 0s disables monitor refreshes.
 
-- **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again. Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
+- **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again (default: 500ms). Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
 
-- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, the least power consuming terminated workloads are removed first.
+- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, workloads with the lowest cumulative energy in the primary energy zone are removed first.
 
 - **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. Only terminated workloads with energy consumption above this threshold will be included in the tracking. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
 
@@ -224,6 +239,48 @@ host:
 ```
 
 These settings specify where Kepler should look for system information. In containerized environments, you might need to adjust these paths.
+
+### 🧮 CPU Power Meter Selection
+
+```yaml
+cpu:
+  preferredMeters: ["rapl", "hwmon"]
+```
+
+`cpu.preferredMeters` is an ordered preference list. Kepler walks the list, builds each backend, runs `Init()`, and selects the first one that reports zones. If every backend fails, Kepler exits with the aggregated error.
+
+Built-in backends:
+
+- `rapl`: Intel RAPL via sysfs (default first choice)
+- `hwmon`: hwmon power sensors (default second choice)
+- `fake`: synthetic readings for development and testing
+
+Examples:
+
+```yaml
+# Default order — try RAPL first, then hwmon
+cpu:
+  preferredMeters: ["rapl", "hwmon"]
+```
+
+```yaml
+# Force hwmon, skip RAPL
+cpu:
+  preferredMeters: ["hwmon"]
+```
+
+```yaml
+# Development mode
+cpu:
+  preferredMeters: ["fake"]
+```
+
+Two legacy keys still work but emit a deprecation warning:
+
+- `dev.fake-cpu-meter.enabled: true` → translates to `cpu.preferredMeters: ["fake"]`
+- `experimental.hwmon.forceEnabled: true` → translates to `cpu.preferredMeters: ["hwmon"]`
+
+The legacy keys override `cpu.preferredMeters` when set, since operators who rely on them today expect that behavior. They will stop working in a future release. Per-backend tuning keys (`rapl.zones`, `experimental.hwmon.zones`, `experimental.hwmon.chipRules`, `dev.fake-cpu-meter.zones`) are unchanged.
 
 ### 🔋 RAPL Zones Configuration
 
@@ -265,7 +322,7 @@ exporter:
 
 - **prometheus**: Configuration for the Prometheus exporter
   - `enabled`: Enable or disable the Prometheus exporter (default: true)
-  - `debugCollectors`: List of debug collectors to enable (available: "go", "process")
+  - `debugCollectors`: List of debug collectors to enable (default: `["go"]`; available: "go", "process")
   - `metricsLevel`: List of metric levels to expose. Controls the granularity of metrics exported:
     - `node`: Node-level metrics (system-wide power consumption)
     - `process`: Process-level metrics (per-process power consumption)
@@ -278,11 +335,11 @@ exporter:
 ```yaml
 debug:
   pprof:
-    enabled: true
+    enabled: false
 ```
 
 - **pprof**: Configuration for pprof debugging
-  - `enabled`: When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler (default: true)
+  - `enabled`: When enabled, this exposes [pprof](https://golang.org/pkg/net/http/pprof/) debug endpoints that can be used for profiling Kepler (default: false)
 
 ### 🌐 Web Configuration
 
@@ -306,6 +363,69 @@ Example TLS server configuration file content:
 tls_server_config:
   cert_file: /path/to/cert.pem  # Path to the certificate file
   key_file: /path/to/key.pem    # Path to the key file
+```
+
+### 🩺 Health Probe Endpoints
+
+Kepler always exposes two health endpoints on the web server, intended for
+Kubernetes [liveness and readiness probes](https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/).
+They require no configuration.
+
+> **Note**: The probe endpoints were added in **v0.12.0**. Older images return
+> `404` for `/probe/*`, so a liveness probe pointed at them keeps failing and
+> the pod restart-loops. Keep your manifests and your image on the same release.
+
+| Endpoint        | Probe     | Healthy response           | Unhealthy response                              |
+|-----------------|-----------|----------------------------|-------------------------------------------------|
+| `/probe/livez`  | Liveness  | `200` `{"status":"alive"}` | `503` `{"status":"unavailable","failures":{…}}` |
+| `/probe/readyz` | Readiness | `200` `{"status":"ok"}`    | `503` `{"status":"unavailable","failures":{…}}` |
+
+Both accept `GET` and `HEAD` and return `405` for any other method. The
+`failures` object maps the name of each unhealthy service to the reason it
+reported.
+
+- **Liveness** succeeds as long as Kepler can answer the request, which proves
+  the process is running and not dead-locked.
+- **Readiness** fails with `503` until every service has been initialized and
+  started, then succeeds.
+
+Use these endpoints instead of `/metrics` for probes: each `/metrics` scrape
+triggers a power computation, whereas the probes do no work beyond answering.
+The shipped Kubernetes manifests and Helm chart are already configured this way:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /probe/livez
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 60
+readinessProbe:
+  httpGet:
+    path: /probe/readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+When TLS is enabled via `web.configFile`, the probes must use HTTPS. Add
+`scheme: HTTPS` under `httpGet` in both probes:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /probe/livez
+    port: http
+    scheme: HTTPS
+  initialDelaySeconds: 10
+  periodSeconds: 60
+readinessProbe:
+  httpGet:
+    path: /probe/readyz
+    port: http
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 10
 ```
 
 ### 🐳 Kubernetes Configuration
@@ -350,11 +470,13 @@ experimental:
       configFile: ""
       httpTimeout: 5s
   hwmon:
-    enabled: false
+    forceEnabled: false
     zones: []
     chipRules: []
   gpu:
     enabled: false
+    idlePower: 0
+    dcgmEndpoint: ""
 ```
 
 ⚠️ **WARNING**: This section contains experimental features with no stability guarantees.
@@ -399,10 +521,10 @@ bmcs:
 
 #### hwmon Power Monitoring
 
-- **enabled**: Enable experimental hwmon power monitoring (default: false)
-  - When enabled, Kepler will collect power metrics from hwmon sensors
-  - Available on architectures with hwmon power sensors
-  - Error will be returned if hwmon is not available
+- **forceEnabled**: Deprecated option to force hwmon instead of RAPL (default: false)
+  - Use `cpu.preferredMeters: ["hwmon"]` instead
+  - The default meter order tries hwmon if RAPL is unavailable
+  - Forcing hwmon requires available hwmon power sensors
 
 - **zones**: List of hwmon zones to enable (default: all available power zones)
   - By default, Kepler enables all available hwmon power zones
@@ -426,18 +548,20 @@ bmcs:
 **Example with specific zones:**
 
 ```yaml
+cpu:
+  preferredMeters: ["hwmon"]
 experimental:
   hwmon:
-    enabled: true
     zones: ["power1", "power2"]
 ```
 
 **Example with chip rules (override and add new chips):**
 
 ```yaml
+cpu:
+  preferredMeters: ["hwmon"]
 experimental:
   hwmon:
-    enabled: true
     zones: []
     chipRules:
       # Override existing chip rule (replaces hardcoded default)
@@ -462,9 +586,9 @@ experimental:
 - **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
   - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
   - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
-- **dcgmEndpoint**: dcgm-exporter Prometheus metrics URL for MIG power attribution (default: auto-discover)
-  - Required when GPUs are in MIG mode — NVML cannot provide per-instance utilization in MIG mode
-  - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API
+- **dcgmEndpoint**: dcgm-exporter Prometheus metrics URL for activity-weighted MIG power attribution (default: auto-discover)
+  - DCGM supplies activity measurements for weighted allocation across MIG instances. Kepler uses equal-share fallback when the DCGM backend is unavailable.
+  - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API; set an explicit URL when discovery is unavailable.
   - **Note**: When deploying with MIG, the Kepler container must have `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_MIG_MONITOR_DEVICES=all` environment variables set for NVML to see all MIG devices. These are included in the default manifests and Helm chart.
 
 **Example:**
@@ -479,17 +603,27 @@ experimental:
 ### 🧑‍🔬 Development Configuration
 
 ```yaml
+cpu:
+  preferredMeters: ["fake"]
 dev:
   fake-cpu-meter:
-    enabled: false
     zones: []
+  fake-gpu-meter:
+    enabled: false
+    deviceCount: 1
+    sharingMode: time-slicing
 ```
 
 ⚠️ **WARNING**: This section is for development and testing only. Do not enable in production.
 
-- **fake-cpu-meter**: When enabled, uses a fake CPU meter instead of real hardware metrics
-  - `enabled`: Set to `true` to enable fake CPU meter
+- **fake-cpu-meter**: Synthesizes CPU power readings instead of reading real hardware
+  - Select via `cpu.preferredMeters: ["fake"]` (preferred)
+  - `dev.fake-cpu-meter.enabled: true` is **deprecated**: it overrides `cpu.preferredMeters` and emits a deprecation warning
   - `zones`: Specific zones to enable, empty enables all
+- **fake-gpu-meter**: When enabled, uses a fake GPU backend instead of real NVIDIA hardware
+  - `enabled`: Set to `true` to enable fake GPU meter. This takes precedence over `experimental.gpu.enabled`, so the experimental GPU flag does not also need to be enabled
+  - `deviceCount`: Number of simulated GPUs. Must be greater than 0 (default: 1)
+  - `sharingMode`: Set to `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`). This changes the detected sharing mode but has no effect on exported metrics because the fake GPU meter does not configure any processes.
 
 ## 📖 Further Reading
 

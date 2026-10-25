@@ -6,10 +6,12 @@ package stdout
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -113,7 +115,7 @@ func TestExporter_InitRunShotdown(t *testing.T) {
 		mockMonitor := &MockMonitor{}
 		mockMonitor.On("Snapshot").Return(&monitor.Snapshot{Node: getTestNodeData()}, nil)
 		out := &dummyWriteCloser{&bytes.Buffer{}}
-		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(1*time.Second))
+		exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(100*time.Millisecond))
 		err := exporter.Init()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		go func() {
@@ -125,6 +127,68 @@ func TestExporter_InitRunShotdown(t *testing.T) {
 		assert.NoError(t, exporter.Shutdown())
 		mockMonitor.AssertExpectations(t)
 	})
+}
+
+// syncBuffer is a thread-safe io.WriteCloser used to read the exporter output
+// while Run is writing to it
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncBuffer) Close() error {
+	return nil
+}
+
+func TestExporter_RunContinuesAfterSnapshotError(t *testing.T) {
+	mockMonitor := &MockMonitor{}
+	mockMonitor.On("Snapshot").Return(nil, errors.New("snapshot failed")).Once()
+	mockMonitor.On("Snapshot").Return(getTestNodeSnapshot(), nil)
+
+	out := &syncBuffer{}
+	exporter := NewExporter(mockMonitor, WithOutput(out), WithInterval(10*time.Millisecond))
+	assert.NoError(t, exporter.Init())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- exporter.Run(ctx)
+	}()
+
+	// the snapshot after the failed one must still be written
+	assert.Eventually(t, func() bool {
+		return strings.Contains(out.String(), "package")
+	}, 2*time.Second, 10*time.Millisecond, "snapshot after a failed one was not written")
+
+	// Run must keep running until its context is cancelled
+	select {
+	case err := <-errCh:
+		t.Fatalf("Run returned before the context was cancelled: %v", err)
+	default:
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after the context was cancelled")
+	}
+	mockMonitor.AssertExpectations(t)
 }
 
 func Test_print(t *testing.T) {

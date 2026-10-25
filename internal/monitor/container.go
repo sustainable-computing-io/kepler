@@ -116,6 +116,9 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 	// For each container, calculate power for each zone separately
 	for id, c := range cntrs.Running {
 		container := newContainer(c, zones)
+		if prevContainer := prev.Containers[id]; prevContainer != nil {
+			container.GPUEnergyTotal = prevContainer.GPUEnergyTotal
+		}
 
 		// Calculate CPU time ratio for this container
 
@@ -150,14 +153,18 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 		containerMap[id] = container
 	}
 
-	// Aggregate GPU power and energy from processes into containers
-	for _, proc := range newSnapshot.Processes {
+	// Keep the container total and add GPU energy accumulated since the last sample.
+	for pid, proc := range newSnapshot.Processes {
 		if proc.ContainerID == "" {
 			continue
 		}
 		if container, ok := containerMap[proc.ContainerID]; ok {
 			container.GPUPower += proc.GPUPower
-			container.GPUEnergyTotal += proc.GPUEnergyTotal
+			energy := proc.GPUEnergyTotal
+			if prevProcess := prev.Processes[pid]; prevProcess != nil && prevProcess.StartTime == proc.StartTime {
+				energy -= min(energy, prevProcess.GPUEnergyTotal)
+			}
+			container.GPUEnergyTotal += energy
 		}
 	}
 

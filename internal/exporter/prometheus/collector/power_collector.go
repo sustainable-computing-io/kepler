@@ -52,6 +52,7 @@ type PowerCollector struct {
 	// Container power metrics
 	containerCPUJoulesDescriptor *prometheus.Desc
 	containerCPUWattsDescriptor  *prometheus.Desc
+	containerCPUTimeDescriptor   *prometheus.Desc
 	containerGPUWattsDescriptor  *prometheus.Desc
 	containerGPUJoulesDescriptor *prometheus.Desc
 
@@ -147,6 +148,7 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 
 		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
 		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
+		containerCPUTimeDescriptor:   timeDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUJoulesDescriptor: joulesDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUWattsDescriptor:  wattsDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 
@@ -216,9 +218,9 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 	if c.metricsLevel.IsContainerEnabled() {
 		ch <- c.containerCPUJoulesDescriptor
 		ch <- c.containerCPUWattsDescriptor
+		ch <- c.containerCPUTimeDescriptor
 		ch <- c.containerGPUJoulesDescriptor
 		ch <- c.containerGPUWattsDescriptor
-		// ch <- c.containerCPUTimeDescriptor // TODO: add conntainerCPUTimeDescriptor
 	}
 
 	// vm
@@ -276,8 +278,9 @@ func (c *PowerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if c.metricsLevel.IsProcessEnabled() {
+		c.collectProcessCPUTimeMetrics(ch, snapshot.ProcessesForCPUTime())
 		c.collectProcessMetrics(ch, "running", snapshot.Processes)
-		c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcesses)
+		c.collectProcessMetrics(ch, "terminated", snapshot.TerminatedProcessesForMetrics())
 	}
 
 	if c.metricsLevel.IsContainerEnabled() {
@@ -360,6 +363,19 @@ func (c *PowerCollector) collectNodeMetrics(ch chan<- prometheus.Metric, node *m
 	}
 }
 
+// collectProcessCPUTimeMetrics converts the monitor's CPU-time records to metrics.
+func (c *PowerCollector) collectProcessCPUTimeMetrics(ch chan<- prometheus.Metric, processes []*monitor.Process) {
+	for _, proc := range processes {
+		ch <- prometheus.MustNewConstMetric(
+			c.processCPUTimeDescriptor,
+			prometheus.CounterValue,
+			proc.CPUTotalTime,
+			proc.StringID(), proc.Comm, proc.Exe, string(proc.Type),
+			proc.ContainerID, proc.VirtualMachineID,
+		)
+	}
+}
+
 // collectProcessMetrics collects process-level power metrics
 func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, state string, processes monitor.Processes) {
 	if len(processes) == 0 {
@@ -368,16 +384,8 @@ func (c *PowerCollector) collectProcessMetrics(ch chan<- prometheus.Metric, stat
 	}
 
 	// No need to lock, already done by the calling function
-	for pid, proc := range processes {
-
-		ch <- prometheus.MustNewConstMetric(
-			c.processCPUTimeDescriptor,
-			prometheus.CounterValue,
-			proc.CPUTotalTime,
-			pid, proc.Comm, proc.Exe, string(proc.Type),
-			proc.ContainerID, proc.VirtualMachineID,
-		)
-
+	for _, proc := range processes {
+		pid := proc.StringID()
 		for zone, usage := range proc.Zones {
 			zoneName := zone.Name()
 			ch <- prometheus.MustNewConstMetric(
@@ -432,6 +440,14 @@ func (c *PowerCollector) collectContainerMetrics(ch chan<- prometheus.Metric, st
 
 	// No need to lock, already done by the calling function
 	for id, container := range containers {
+		ch <- prometheus.MustNewConstMetric(
+			c.containerCPUTimeDescriptor,
+			prometheus.CounterValue,
+			container.CPUTotalTime,
+			id, container.Name, string(container.Runtime), state,
+			container.PodID,
+		)
+
 		for zone, usage := range container.Zones {
 			zoneName := zone.Name()
 

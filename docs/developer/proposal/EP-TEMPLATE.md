@@ -1,7 +1,10 @@
 # EP-XXX: [Enhancement Title]
 
 **Status**: Draft
-**Author**: [Your Name]
+**Authors**: [GitHub IDs]
+**Reviewers**: [GitHub IDs, distinct from authors]
+**Approvers**: [GitHub IDs, drawn from maintainers]
+**Editor**: [GitHub ID, optional]
 **Created**: YYYY-MM-DD
 **Last Updated**: YYYY-MM-DD
 

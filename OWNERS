@@ -1,2 +1,5 @@
 reviewers:
-- TBA
+- @sustainable-computing-io/kepler-maintainer
+- @sustainable-computing-io/kepler-reviewer
+approvers:
+- @sustainable-computing-io/kepler-maintainer

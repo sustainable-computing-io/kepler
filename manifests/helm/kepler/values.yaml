@@ -7,6 +7,9 @@ image:
   pullPolicy: IfNotPresent
   tag: ""
 
+# Secrets for pulling images from a private registry, e.g. [{name: my-registry-secret}].
+imagePullSecrets: []
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -39,11 +42,40 @@ daemonset:
 
   nodeSelector: {}
   affinity: {}
+  # Priority class for the Kepler pods, e.g. system-node-critical, so they are
+  # not among the first evicted under node pressure. Empty uses the cluster default.
+  priorityClassName: ""
 
   hostUsers: true
   securityContext:
-    privileged: true
+    # Setting privileged: true also sets allowPrivilegeEscalation: true.
+    # Unprivileged has two side effects; privileged: true restores the old behavior:
+    # - Kepler cannot read /proc/<pid>/environ of processes owned by another uid
+    #   (it needs CAP_DAC_READ_SEARCH, which also allows open_by_handle_at), so
+    #   container_name is empty for non-Kubernetes containers (Docker, Podman,
+    #   nerdctl) whose process does not run as root.
+    # - Kepler's own container and pod are missing from the kepler_container_*
+    #   and kepler_pod_* series, because its private cgroup namespace hides its
+    #   own cgroup path.
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     runAsNonRoot: false
+    runAsUser: 0
+    capabilities:
+      drop: [ALL]
+      add: [SYS_PTRACE]
+    seccompProfile:
+      type: RuntimeDefault
+    # The runtime's default AppArmor profile blocks reading other processes'
+    # /proc/<pid>/exe even with SYS_PTRACE. On Kubernetes < 1.30 the chart
+    # sets the equivalent pod annotation instead.
+    appArmorProfile:
+      type: Unconfined
+    # containerd with SELinux enabled labels unprivileged containers container_t,
+    # which cannot read other processes' /proc entries.
+    seLinuxOptions:
+      type: spc_t
 
   resources:
     {}
@@ -54,16 +86,37 @@ daemonset:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # Probes use the dedicated /probe/* endpoints, which are cheap to serve.
+  # Avoid pointing them at /metrics: every scrape triggers a power computation.
   livenessProbe:
     httpGet:
-      path: /metrics
+      path: /probe/livez
       port: http
     initialDelaySeconds: 10
     periodSeconds: 60
 
   startupProbe: {}
 
-  readinessProbe: {}
+  readinessProbe:
+    httpGet:
+      path: /probe/readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  # Chart-only knobs for the NVML init-container pattern. These do NOT live
+  # under .Values.config because that tree is dumped verbatim into
+  # /etc/kepler/config.yaml (templates/configmap.yaml), and the Kepler binary
+  # doesn't (and shouldn't) know about driver paths or init-image names.
+  nvidia:
+    # Path on the host where the NVIDIA GPU Operator exposes the driver
+    # container root FS. Override if your GPU Operator uses a non-default path.
+    driverPath: /run/nvidia/driver
+    # Init container used to copy NVML libraries into an emptyDir.
+    # Override repository/tag for airgapped or private-registry environments.
+    nvmlInitImage:
+      repository: busybox
+      tag: 1.36.1
 
 config:
   log:
@@ -77,6 +130,11 @@ config:
     staleness: 500ms
     maxTerminated: 100
     minTerminatedEnergyThreshold: 10
+  cpu:
+    # Ordered preference list of CPU power-meter backends. The first backend
+    # that initializes successfully and reports zones is used.
+    # Built-in backends: rapl, hwmon, fake.
+    preferredMeters: [rapl, hwmon]
   rapl:
     zones: []
   exporter:
@@ -86,6 +144,12 @@ config:
       enabled: true
       debugCollectors:
         - go
+      metricsLevel:
+        - node
+        - process
+        - container
+        - vm
+        - pod
   web:
     configFile: ""
     listenAddresses:
@@ -102,8 +166,12 @@ config:
       pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
   dev:
     fake-cpu-meter:
-      enabled: false
+      enabled: false # DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true.
       zones: []
+    fake-gpu-meter:
+      enabled: false
+      deviceCount: 1
+      sharingMode: time-slicing
   # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
   # and are disabled by default
   experimental:
@@ -112,11 +180,16 @@ config:
         enabled: false  # Enable experimental Redfish BMC power monitoring
         configFile: /etc/kepler/redfish.yaml  # Path to Redfish BMC configuration file
         nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
+        httpTimeout: 5s # HTTP client timeout for BMC requests (default: 5s)
     hwmon:
-      enabled: false # Enable experimental hwmon power monitoring
+      forceEnabled: false # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
       zones: [] # List of zones to enable (default enable all)
       chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
     gpu:
+      # Enabling this also triggers the chart's NVML init container and
+      # LD_LIBRARY_PATH injection (daemonset.nvidia.*), and runs the Kepler
+      # container privileged so it can reach the GPU device nodes. Leave
+      # false if you do not want GPU power monitoring.
       enabled: false # Enable experimental GPU power monitoring
       idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
       dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)

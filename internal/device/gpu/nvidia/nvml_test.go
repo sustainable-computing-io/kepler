@@ -186,8 +186,14 @@ func (m *mockGpuInstance) GetVgpuHeterogeneousMode() (nvml.VgpuHeterogeneousMode
 func (m *mockGpuInstance) GetVgpuSchedulerLog() (nvml.VgpuSchedulerLogInfo, nvml.Return) {
 	return nvml.VgpuSchedulerLogInfo{}, nvml.ERROR_NOT_SUPPORTED
 }
+func (m *mockGpuInstance) GetVgpuSchedulerLog_v2(nvml.VgpuSchedulerLogInfo_v2) (nvml.VgpuSchedulerLogInfo_v2, nvml.Return) {
+	return nvml.VgpuSchedulerLogInfo_v2{}, nvml.ERROR_NOT_SUPPORTED
+}
 func (m *mockGpuInstance) GetVgpuSchedulerState() (nvml.VgpuSchedulerStateInfo, nvml.Return) {
 	return nvml.VgpuSchedulerStateInfo{}, nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) GetVgpuSchedulerState_v2(nvml.VgpuSchedulerStateInfo_v2) (nvml.VgpuSchedulerStateInfo_v2, nvml.Return) {
+	return nvml.VgpuSchedulerStateInfo_v2{}, nvml.ERROR_NOT_SUPPORTED
 }
 func (m *mockGpuInstance) GetVgpuTypeCreatablePlacements() (nvml.VgpuCreatablePlacementInfo, nvml.Return) {
 	return nvml.VgpuCreatablePlacementInfo{}, nvml.ERROR_NOT_SUPPORTED
@@ -196,6 +202,9 @@ func (m *mockGpuInstance) SetVgpuHeterogeneousMode(*nvml.VgpuHeterogeneousMode) 
 	return nvml.ERROR_NOT_SUPPORTED
 }
 func (m *mockGpuInstance) SetVgpuSchedulerState(*nvml.VgpuSchedulerState) nvml.Return {
+	return nvml.ERROR_NOT_SUPPORTED
+}
+func (m *mockGpuInstance) SetVgpuSchedulerState_v2(*nvml.VgpuSchedulerState_v2) nvml.Return {
 	return nvml.ERROR_NOT_SUPPORTED
 }
 

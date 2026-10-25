@@ -4,51 +4,7 @@
 
 Kepler (Kubernetes-based Efficient Power Level Exporter) is a Prometheus exporter that measures energy consumption metrics at the container, pod, and node level in Kubernetes clusters.
 
-## 🚀 Major Rewrite: Kepler (0.10.0 and above)
-
-**Important Notice:** Starting with version 0.10.0, Kepler has undergone a complete ground-up rewrite.
-This represents a significant architectural improvement while maintaining the core mission of
-accurate energy consumption monitoring for cloud-native workloads.
-
-> 📢 **Read the full announcement:** [CNCF Slack Announcement](https://cloud-native.slack.com/archives/C05QK3KN3HT/p1752049660866519)
-
-### ✨ What's New in the Rewrite
-
-**Enhanced Performance & Accuracy:**
-
-- Dynamic detection of Nodes' RAPL zones - no more hardcoded RAPL zones
-- More accurate power attribution based on active CPU usage (no more idle/dynamic for workloads)
-- Improved VM, Container, and Pod detection with more meaningful label values
-- Significantly reduced resource usage compared to old Kepler
-
-**Reduced Security Requirements:**
-
-- Requires only readonly access to host `/proc` and `/sys`
-- No more `CAP_SYSADMIN` or `CAP_BPF` capabilities required
-- Much fewer privileges than previous versions
-
-**Modern Architecture:**
-
-- Service-oriented design with clean separation of concerns
-- Thread-safe operations throughout the codebase
-- Graceful shutdown handling with proper resource cleanup
-- Comprehensive error handling with structured logging
-
-**Current Limitations:**
-
-- Supports RAPL/powercap framework, with experimental support for HWMon, GPU (NVIDIA), and platform power (Redfish BMC)
-
-### 📚 Migration & Legacy Support
-
-**For New Users:** Use the current version (0.10.0+) for the best experience and latest features.
-
-**For Existing Users:** If you need to continue using the old version:
-
-- Pin your deployment to version `0.9.0` (final legacy release)
-- Access the old codebase in the [archived branch](https://github.com/sustainable-computing-io/kepler/tree/archived)
-- **Important:** The legacy version (0.9.x and earlier) is now frozen - no bug fixes or feature requests will be accepted for the old version
-
-**Migration Note:** Please review the new configuration format and deployment methods below when upgrading to 0.10.0+.
+🌟 Star the [Kepler repository](https://github.com/sustainable-computing-io/kepler) to help others find it!
 
 ## 🚀 Getting Started
 
@@ -102,10 +58,20 @@ make build && sudo ./bin/kepler
 cd compose/dev && docker compose up -d
 
 # 🐳 Kubernetes with Kustomize
+git clone https://github.com/sustainable-computing-io/kepler.git
+cd kepler && git checkout v0.12.0 # pin to a release tag, see note below
 kubectl kustomize manifests/k8s | \
-  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:latest|g" | \
+  sed -e "s|<KEPLER_IMAGE>|quay.io/sustainable_computing_io/kepler:v0.12.0|g" | \
   kubectl apply --server-side --force-conflicts -f -
 ```
+
+> **⚠️ Important:** Always check out a matching release tag (rather than `main`) before
+> applying manifests from `manifests/k8s`, and set `<KEPLER_IMAGE>` to that same version.
+> Manifests on `main` can reference features not yet present in the last published image
+> (for example, the `/probe/livez` and `/probe/readyz` endpoints added for liveness/readiness
+> probes) — mixing a `main` manifest with an older image can make the container fail its
+> liveness probe and crash-loop. See the [Releases page](https://github.com/sustainable-computing-io/kepler/releases)
+> for available tags.
 
 ## 📖 Documentation
 
@@ -114,6 +80,7 @@ kubectl kustomize manifests/k8s | \
 - **[Installation Guide](docs/user/installation.md)** - Detailed installation instructions for all deployment methods
 - **[Configuration Guide](docs/user/configuration.md)** - Configuration options and examples
 - **[Metrics Documentation](docs/user/metrics.md)** - Available metrics and their descriptions
+- **[Upgrading from 0.9.x](https://sustainable-computing.io/blog/kepler-0-10-rewrite/)** - What changed in the 0.10.0 rewrite and how to stay on the legacy version
 
 ### Developer Documentation
 
@@ -127,13 +94,21 @@ For more detailed documentation, please visit the [official Kepler documentation
 
 Contributions are welcome! Please feel free to submit a Pull Request. For more detailed information about contributing to this project, please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
+### Roadmap
+
+See the [Kepler Roadmap](https://github.com/orgs/sustainable-computing-io/projects/9) for planned and in-progress work.
+
+### Code of Conduct
+
+Kepler follows the [CNCF Code of Conduct](code-of-conduct.md).
+
 ### Gen AI policy
 
 Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sustainable-computing-io/kepler&type=Date)](https://www.star-history.com/#sustainable-computing-io/kepler&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=sustainable-computing-io/kepler&type=Date)](https://star-history.dera.page/#sustainable-computing-io/kepler&type=Date)
 
 ## 📝 License
 

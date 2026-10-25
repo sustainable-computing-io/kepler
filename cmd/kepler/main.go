@@ -8,17 +8,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"syscall"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/alecthomas/kingpin/v2"
+	"k8s.io/utils/ptr"
 
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
-	_ "github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia" // Register NVIDIA backend
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -47,6 +45,9 @@ func main() {
 
 	logVersionInfo(logger)
 	printConfigInfo(logger, cfg)
+
+	cfg.ApplyCpuMeterDeprecations(logger)
+	cfg.LogUnknownFields(logger)
 
 	services, err := createServices(logger, cfg)
 	if err != nil {
@@ -130,7 +131,7 @@ Configuration
 
 func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service, error) {
 	logger.Debug("Creating all services")
-	cpuPowerMeter, err := createCPUMeter(logger, cfg)
+	cpuPowerMeter, err := device.CreateCPUMeter(logger, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}
@@ -243,6 +244,9 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		services = append(services, stdoutExporter)
 	}
 
+	// created last so that it observes every other service
+	services = append(services, server.NewProbe(logger, apiServer, services))
+
 	return services, nil
 }
 
@@ -312,75 +316,14 @@ func createPrometheusExporter(
 	return promExporter, nil
 }
 
-func createCPUMeter(logger *slog.Logger, cfg *config.Config) (device.CPUPowerMeter, error) {
-	// Experimental: Prometheus/VictoriaMetrics based node power input
-	if cfg.Experimental != nil && ptr.Deref(cfg.Experimental.PrometheusPower.Enabled, false) {
-		pp := cfg.Experimental.PrometheusPower
-
-		if strings.TrimSpace(pp.BaseURL) == "" || strings.TrimSpace(pp.Query) == "" {
-			return nil, fmt.Errorf("experimental.prometheus-power enabled but baseURL or query is empty")
-		}
-
-		logger.Info("Using Prometheus-based node power input",
-			"baseURL", pp.BaseURL,
-			"query", pp.Query,
-		)
-
-		client := device.NewPrometheusClient(pp.BaseURL, pp.Query)
-		return device.NewPrometheusPowerMeter("node", client.QueryPowerWatt)
-	}
-
-	if fake := cfg.Dev.FakeCpuMeter; *fake.Enabled {
-		return device.NewFakeCPUMeter(fake.Zones, device.WithFakeLogger(logger))
-	}
-
-	// Launch hwmon if enabled (experimental feature)
-	if cfg.IsFeatureEnabled(config.ExperimentalHwmonFeature) {
-		hwmon := cfg.Experimental.Hwmon
-
-		if len(hwmon.Zones) > 0 {
-			logger.Info("hwmon zones are filtered", "zones-enabled", hwmon.Zones)
-		}
-
-		// Convert config chip rules to device chip rules
-		var chipRules []device.ConfigChipRule
-		for _, cr := range hwmon.ChipRules {
-			chipRules = append(chipRules, device.ConfigChipRule{
-				Name:         cr.Name,
-				Pairings:     cr.Pairings,
-				SkipVoltages: cr.SkipVoltages,
-				SkipCurrents: cr.SkipCurrents,
-				UseSameIndex: cr.UseSameIndex,
-			})
-		}
-
-		if len(chipRules) > 0 {
-			logger.Info("hwmon chip rules configured", "count", len(chipRules))
-		}
-
-		return device.NewHwmonPowerMeter(
-			cfg.Host.SysFS,
-			device.WithHwmonLogger(logger),
-			device.WithHwmonZoneFilter(hwmon.Zones),
-			device.WithHwmonChipRules(chipRules),
-		)
-	}
-
-	if len(cfg.Rapl.Zones) > 0 {
-		logger.Info("rapl zones are filtered", "zones-enabled", cfg.Rapl.Zones)
-	}
-
-	return device.NewCPUPowerMeter(
-		cfg.Host.SysFS,
-		device.WithRaplLogger(logger),
-		device.WithZoneFilter(cfg.Rapl.Zones),
-	)
-}
-
 // createGPUMeters discovers and initializes GPU power meters for all vendors.
 // Uses the registry pattern to support multiple GPU vendors (NVIDIA, AMD, Intel).
 // Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
 func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
+	if fake := cfg.Dev.FakeGPUMeter; ptr.Deref(fake.Enabled, false) {
+		return createFakeGPUMeter(logger, fake.DeviceCount, fake.SharingMode)
+	}
+
 	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
 		return nil
 	}
@@ -400,4 +343,57 @@ func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMete
 	}
 
 	return meters
+}
+
+// createFakeGPUMeter creates a GPU meter backed by FakeNVMLBackend for
+// development and testing. Not for production use.
+func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode string) []gpu.GPUPowerMeter {
+	if deviceCount <= 0 {
+		logger.Error("invalid fake GPU device count", "deviceCount", deviceCount)
+		return nil
+	}
+
+	var mode nvidia.ComputeMode
+	switch sharingMode {
+	case "exclusive":
+		mode = nvidia.ComputeModeExclusiveProcess
+	case "time-slicing":
+		mode = nvidia.ComputeModeDefault
+	default:
+		logger.Error("invalid fake GPU sharing mode", "sharingMode", sharingMode)
+		return nil
+	}
+
+	logger.Warn("using FAKE NVML backend (dev/testing mode)",
+		"deviceCount", deviceCount,
+		"sharingMode", sharingMode)
+
+	devices := make([]*nvidia.FakeNVMLDevice, deviceCount)
+	for i := range devices {
+		devices[i] = &nvidia.FakeNVMLDevice{
+			Idx:         i,
+			DeviceUUID:  fmt.Sprintf("FAKE-GPU-%04d", i),
+			DeviceName:  "Fake NVIDIA GPU",
+			DevicePower: 225 * device.Watt,
+			Mode:        mode,
+		}
+	}
+	// TODO: Add fake GPU processes when e2e workloads can supply stable PIDs.
+
+	backend := nvidia.NewFakeNVMLBackend(devices...)
+	collector, err := nvidia.NewGPUPowerCollector(logger, nvidia.WithNVMLBackend(backend))
+	if err != nil {
+		logger.Error("failed to create GPU collector with fake backend", "error", err)
+		return nil
+	}
+
+	// Init must be called before returning, matching the real path (gpu.Discover
+	// calls Init before returning the meter). This ensures Devices() is populated
+	// when the monitor logs GPU meter info during its own Init.
+	if err := collector.Init(); err != nil {
+		logger.Error("failed to initialize fake GPU collector", "error", err)
+		return nil
+	}
+
+	return []gpu.GPUPowerMeter{collector}
 }

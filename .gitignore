@@ -20,5 +20,5 @@ tmp
 coverage.*
 
 # build output
-kepler
+/kepler
 

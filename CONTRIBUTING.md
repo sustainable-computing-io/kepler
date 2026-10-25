@@ -26,6 +26,12 @@ Our project adheres to the Linux Foundation's Generative AI Policy, which can be
 
 Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
+### Keep Your Company Affiliation Up to Date 🏢
+
+The CNCF tracks project health on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) using affiliation data from [cncf/gitdm](https://github.com/cncf/gitdm). DevStats attributes contributions to a company only through a `cncf/gitdm` entry, so contributors without one count toward no company.
+
+If you are affiliated with a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
+
 ## How Can I Contribute? 💡
 
 ### Continuous Integration 🔄
@@ -40,6 +46,21 @@ All submissions require review. We use GitHub pull requests for this purpose:
 2. Ensure all CI checks pass
 3. Address feedback from maintainers
 4. Once approved, a maintainer will merge your changes
+
+### Commit Hygiene
+
+Kepler uses merge commits, so the individual commits in a PR remain in the
+project history. A coherent commit sequence helps future contributors understand
+changes and makes debugging and reverting easier.
+
+- Aim for each commit to represent a coherent change with a meaningful message.
+- Keep separate commits for distinct, useful logical steps within a PR.
+- Generally fold intermediate fixes, such as link corrections and review
+  follow-ups, into the commits they belong to before merging.
+- Order commits so the progression of the change is easy to follow.
+
+These are commit hygiene principles, not strict rules or a requirement to squash
+every PR into a single commit.
 
 ### Reporting Bugs 🐛
 
@@ -75,7 +96,7 @@ For smaller improvements to existing functionality:
 
 ### Set up your dev environment
 
-1. Install Go 1.24.0+ (toolchain go1.24.9)
+1. Install Go 1.27.0+
 2. Install pre-commit hooks:
 
 ```bash

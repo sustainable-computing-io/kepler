@@ -68,7 +68,7 @@ cd compose/dev && docker compose down --volumes   # cleanup
 - Modifying CI/CD configs (`.github/`, Makefile)
 - Modifying `AGENTS.md`, `CLAUDE.md`, or `GOVERNANCE.md`
 - Deploying to clusters (`make deploy`, `kubectl apply`)
-- Architectural changes (create Enhancement Proposal first; see `docs/developer/proposal/EP_TEMPLATE.md`)
+- Architectural changes (create Enhancement Proposal first; see `docs/developer/proposal/EP-TEMPLATE.md`)
 
 ### Never allowed
 
@@ -173,6 +173,12 @@ git commit -s -m "docs: update architecture diagram"
 # Types: feat, fix, docs, style, refactor, test, chore, ci, perf
 ```
 
+### Commit Hygiene
+
+Follow the [commit hygiene guidance](CONTRIBUTING.md#commit-hygiene) when preparing
+PRs. This guidance is advisory; the existing [approval requirements](#requires-approval)
+for commits and history changes still apply.
+
 ### PR Guidelines
 
 1. **Title**: Use conventional commit format (e.g., `feat: add feature X`)
@@ -201,6 +207,7 @@ All PRs must pass:
 - **Race Conditions**: All code must be thread-safe; tests run with `-race`
 - **Commit Sign-off**: Forgot `-s`? Amend: `git commit --amend -s --no-edit`
 - **Pre-commit Failures**: Run `pre-commit run --all-files` to check everything
+- **Company Affiliation**: DevStats attributes contributions to a company only through a [`cncf/gitdm`](https://github.com/cncf/gitdm) entry, so contributors without one count toward no company on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1). When helping a first-time contributor or new maintainer, remind them to add their affiliation there (see `CONTRIBUTING.md`)
 
 ## Architecture
 
@@ -251,7 +258,7 @@ When making design decisions, follow these architectural principles
 
 ### Enhancement Proposals
 
-For significant changes, use the template at `docs/developer/proposal/EP_TEMPLATE.md`.
+For significant changes, use the template at `docs/developer/proposal/EP-TEMPLATE.md`.
 Required sections: Problem Statement, Goals/Non-Goals, Detailed Design, Testing Plan,
 Migration Strategy.
 
@@ -272,7 +279,7 @@ Migration Strategy.
 - Installation: `docs/user/installation.md`
 - Configuration: `docs/user/configuration.md`
 - Metrics catalog: `docs/user/metrics.md` (auto-generated)
-- Enhancement Proposals: `docs/developer/proposal/EP_TEMPLATE.md`
+- Enhancement Proposals: `docs/developer/proposal/EP-TEMPLATE.md`
 - Governance: `GOVERNANCE.md`
 - Security: `SECURITY.md`
 - Issues: `github.com/sustainable-computing-io/kepler/issues`

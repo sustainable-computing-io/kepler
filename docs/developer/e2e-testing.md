@@ -87,7 +87,37 @@ sudo ./bin/kepler-e2e.test -test.v -kepler.config=/path/to/config.yaml
 
 # Use a different metrics port
 sudo ./bin/kepler-e2e.test -test.v -kepler.port=9999
+
+# Run the GPU tests against the fake GPU meter instead of a real NVIDIA GPU
+sudo ./bin/kepler-e2e.test -test.v -gpu.fake
+
+# Override the image or the dcgmproftester build used for the GPU load test
+sudo ./bin/kepler-e2e.test -test.v -test.run TestGPU -gpu.load-image=IMAGE -gpu.load-binary=/usr/bin/dcgmproftester13
 ```
+
+### Run the GPU Tests on a Real GPU
+
+By default the GPU tests run against a real NVIDIA GPU and use `test/testdata/e2e-gpu-config.yaml`, unless `-kepler.config` is set; the other tests keep the default config. That config uses the fake CPU meter, so the host does not need RAPL. Cloud GPU VMs usually have none. On a host without an NVIDIA GPU the GPU tests skip; run with `-gpu.fake` to test them against the fake GPU meter instead, which needs RAPL like the other tests.
+
+Prerequisites:
+
+- An NVIDIA GPU with its driver and `nvidia-smi`
+- GPU persistence mode on (`sudo nvidia-smi -pm 1`). With it off, the GPU powers up each time a new Kepler starts and only drops back to idle after a while, so Kepler's idle baseline starts too high
+- Docker set up for GPUs, for the load test. On the CI runner this is `sudo nvidia-ctk runtime configure --runtime=docker --set-as-default` followed by `sudo systemctl restart docker`
+- Root access, as for the other e2e tests
+
+```bash
+make test-e2e
+sudo ./bin/kepler-e2e.test -test.v -test.run TestGPU
+```
+
+On a real GPU, three more tests run:
+
+- `TestGPURealHardware`: the GPU is an NVIDIA device with an NVML UUID, and it draws power
+- `TestGPUPowerMatchesNvidiaSMI`: Kepler's GPU power matches `nvidia-smi` within 5% or 3 W, whichever is larger
+- `TestGPUWorkloadAttribution`: loads the GPU with `dcgmproftester` from NVIDIA's DCGM image and checks that the load's processes and container get the active GPU power. It skips when another process is using a GPU, since the load must be the only GPU process on the host
+
+Kepler's GPU readings can trail the GPU by several seconds, so these tests wait for fresh readings before checking. The load test pulls `nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04`, a few GB, the first time it runs, and picks the `dcgmproftester` build that matches the driver's CUDA version (for example `dcgmproftester13` for CUDA 13). A CUDA 13.0 driver with a GPU older than compute capability 7.5 (Maxwell, Pascal or Volta) gets `dcgmproftester12`, which DCGM requires there.
 
 ## Test Organization
 
@@ -101,6 +131,7 @@ The e2e tests are organized by concern across multiple files:
 | `metrics_test.go`    | Metric format validation: required labels, non-negative values, multiple scrapes       |
 | `invariants_test.go` | Energy conservation laws: Total = Active + Idle, process power attribution             |
 | `workload_test.go`   | Workload detection: stress-ng detection, power changes under load, terminated tracking |
+| `gpu_test.go`        | GPU metrics on a real GPU, or the fake GPU with `-gpu.fake`; GPU load attribution      |
 
 ### Test Configuration
 
@@ -130,12 +161,19 @@ monitor:
 - `kepler_node_cpu_idle_joules_total` / `kepler_node_cpu_idle_watts` - Idle power
 - `kepler_node_cpu_usage_ratio` - CPU utilization (0.0 to 1.0)
 - `kepler_node_cpu_info` - CPU hardware information
+- `kepler_node_gpu_watts` - Total GPU power (a real GPU, or the fake GPU with `-gpu.fake`)
+- `kepler_node_gpu_active_watts` / `kepler_node_gpu_idle_watts` - Active and idle GPU power (under load on a real GPU, idle with the fake GPU)
+- `kepler_node_gpu_info` - GPU device information
+
+GPU tests require GPU metrics to be enabled, as in both e2e configurations.
+Custom configurations passed through `-kepler.config` must also enable GPU metrics when running these tests.
 
 ### Process-Level Metrics
 
 - `kepler_process_cpu_joules_total` - Per-process energy
 - `kepler_process_cpu_watts` - Per-process power
 - `kepler_process_cpu_seconds_total` - Per-process CPU time
+- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (real GPU only)
 
 ### Energy Conservation Invariants
 
@@ -154,12 +192,13 @@ monitor:
 
 ## What Is NOT Covered (and Why)
 
-| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                             |
-|----------------------------|--------------------------------------------------------------------------|-----------------------------------------------|
-| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`   |
-| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`    |
-| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                       |
-| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go` |
+| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                            |
+|----------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|
+| GPU pod metrics            | Needs Kubernetes; GPU process and container metrics need a real GPU      | Unit tests in `internal/monitor/`; Phase 2: fake-gpu K8s e2e |
+| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`                  |
+| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                   |
+| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                      |
+| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`                |
 
 > **Note**: Container and Pod metrics are tested in the [Kubernetes E2E tests](#kubernetes-e2e-tests) which run against a real cluster.
 
@@ -177,7 +216,7 @@ E2E tests run automatically on pull requests via GitHub Actions.
 
 ```bash
   make test-e2e
-  sudo ./bin/kepler-e2e.test -test.v -test.timeout=15m
+  sudo ./bin/kepler-e2e.test -test.v -test.timeout=15m -gpu.fake
   ```
 
 ### Why Self-Hosted Runners?

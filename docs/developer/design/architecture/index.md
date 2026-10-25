@@ -29,11 +29,12 @@ This section provides comprehensive documentation of Kepler's architecture, desi
 
 ### Implementation Details
 
-| Document                                            | Description                                           |
-|-----------------------------------------------------|-------------------------------------------------------|
-| **[Interfaces & Contracts](interfaces.md)**         | Key interfaces, service contracts, and API boundaries |
-| **[Configuration System](configuration.md)**        | Hierarchical configuration and option management      |
-| **[GPU Power Monitoring](gpu-power-monitoring.md)** | NVIDIA GPU power monitoring via NVML                  |
+| Document                                              | Description                                           |
+|-------------------------------------------------------|-------------------------------------------------------|
+| **[Interfaces & Contracts](interfaces.md)**           | Key interfaces, service contracts, and API boundaries |
+| **[Configuration System](configuration.md)**          | Hierarchical configuration and option management      |
+| **[GPU Power Monitoring](gpu-power-monitoring.md)**   | NVIDIA GPU power monitoring via NVML                  |
+| **[MIG Power Attribution](mig-power-attribution.md)** | Per-process power attribution on MIG-enabled GPUs     |
 
 ## Quick Reference
 
@@ -78,9 +79,9 @@ For developers new to the Kepler architecture:
 
 For specific implementation work:
 
-- **Adding new workload types**: See [System Components](components.md#resource-monitoring)
-- **Adding new exporters**: See [Interfaces](interfaces.md#power-data-provider-contract)
-- **Modifying power attribution**: See [Data Flow](data-flow.md#power-attribution-algorithm)
+- **Adding new workload types**: See [System Components](components.md#4-resource-monitoring-internalresource)
+- **Adding new exporters**: See [Interfaces](interfaces.md#powerdataprovider-contract)
+- **Modifying power attribution**: See [Data Flow](data-flow.md#phase-3-workload-attribution)
 - **Configuration changes**: See [Configuration System](configuration.md)
 - **GPU power monitoring**: See [GPU Power Monitoring](gpu-power-monitoring.md)
 

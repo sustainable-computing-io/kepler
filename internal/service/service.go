@@ -30,3 +30,19 @@ type Shutdowner interface {
 	// Shutdown shuts down the service
 	Shutdown() error
 }
+
+// LivenessChecker is an optional interface a service can implement to report
+// whether it is still functioning. Kepler's liveness probe fails if any service
+// implementing it reports an error.
+type LivenessChecker interface {
+	Service
+	IsAlive() error
+}
+
+// ReadinessChecker is an optional interface a service can implement to report
+// whether it is ready to serve. Kepler's readiness probe fails if any service
+// implementing it reports an error.
+type ReadinessChecker interface {
+	Service
+	IsReady() error
+}

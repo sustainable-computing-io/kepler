@@ -293,6 +293,26 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		err := backend.Init(ctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no reachable dcgm-exporter endpoint found")
+		// The underlying cause from testEndpoint must be propagated, not swallowed.
+		assert.Contains(t, err.Error(), "tried 1 fallback endpoints")
+	})
+
+	t.Run("all endpoints fail reports count and cause", func(t *testing.T) {
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.discoverEndpoint = func() string { return "" }
+		backend.fallbackEndpoints = []string{
+			"http://127.0.0.1:1/metrics",
+			"http://127.0.0.1:2/metrics",
+		}
+
+		err := backend.Init(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tried 2 fallback endpoints")
+		// Every failed endpoint must be reported, not just the last one, so an
+		// actionable earlier failure isn't hidden behind an unfixable last one.
+		assert.Contains(t, err.Error(), "http://127.0.0.1:1/metrics")
+		assert.Contains(t, err.Error(), "http://127.0.0.1:2/metrics")
+		assert.False(t, backend.IsInitialized())
 	})
 
 	t.Run("discovery succeeds", func(t *testing.T) {
@@ -461,6 +481,32 @@ func TestParseLabels_edgeCases(t *testing.T) {
 		labels := parseLabels(`gpu="0"`)
 		assert.Len(t, labels, 1)
 		assert.Equal(t, "0", labels["gpu"])
+	})
+}
+
+func FuzzParseLabels(f *testing.F) {
+	f.Add(`gpu="0",UUID="GPU-abc-123",GPU_I_ID="1",GPU_I_PROFILE="3g.20gb"`)
+	f.Add(`gpu="0"`)
+	f.Add("")
+	f.Add("\x00")
+	f.Add(`gpu="ゲスト-αβγ-` + strings.Repeat("本", 256) + `"`)
+
+	f.Fuzz(func(t *testing.T, labelsStr string) {
+		labels := parseLabels(labelsStr)
+		if labels == nil {
+			t.Fatal("parseLabels returned nil map")
+		}
+		if labelsStr == "" && len(labels) != 0 {
+			t.Errorf("empty input yielded %v", labels)
+		}
+		for k, v := range labels {
+			if !strings.Contains(labelsStr, k) {
+				t.Errorf("key %q is not a substring of %q", k, labelsStr)
+			}
+			if !strings.Contains(labelsStr, v) {
+				t.Errorf("value %q is not a substring of %q", v, labelsStr)
+			}
+		}
 	})
 }
 
