@@ -49,6 +49,8 @@ If the nominee is not yet added as a maintainer to the repository,
 they should be added at this point,
 officially confirming their maintainer status.
 
+New maintainers should also confirm their company affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) so that [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) reflects it. See [CONTRIBUTING.md](CONTRIBUTING.md#keep-your-company-affiliation-up-to-date-).
+
 ### Active Maintainer Definition
 
 An **active maintainer** is a contributor who demonstrates ongoing commitment
