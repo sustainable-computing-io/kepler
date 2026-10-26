@@ -1,0 +1,21 @@
+## ⚠️ GPU e2e tested nothing
+
+Every GPU test skipped (7 of 7) on `PR #1234` at [`0123456`](https://github.com/sustainable-computing-io/kepler/commit/0123456789abcdef0123456789abcdef01234567), so the GPU was not tested and the run counts as failed. The reasons are below.
+
+| GPU | Driver | CUDA | Memory | Runner |
+| --- | --- | --- | --- | --- |
+| unknown | `unknown` | `unknown` | unknown | `oracle-vm-gpu-a10-1` |
+
+### Tests: 0 passed, 7 skipped
+
+| | Test | What it checks | Time |
+| :---: | --- | --- | ---: |
+| ⏭️ | `TestGPUNodeMetricsPresent` | GPU node metrics are exported. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPUNodeMetricsLabels` | GPU metrics carry the gpu, uuid, name and vendor labels. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPUNodeMetricsNonNegative` | no GPU power value is negative. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPUNodePowerConservation` | total GPU power = active + idle. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPURealHardware` | Kepler reads a real NVIDIA GPU that draws power. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPUPowerMatchesNvidiaSMI` | Kepler's GPU watts match `nvidia-smi`. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+| ⏭️ | `TestGPUWorkloadAttribution` | a GPU load's power goes to its process and container. Skipped: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU | 0.0 s |
+
+⬇️ The full test output with Kepler's logs, Kepler's GPU metrics during the run and the power samples are in the [`gpu-e2e-logs`](https://github.com/sustainable-computing-io/kepler/actions/runs/1000#artifacts) artifact.

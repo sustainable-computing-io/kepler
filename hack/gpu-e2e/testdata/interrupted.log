@@ -1,0 +1,14 @@
+=== RUN   TestGPUNodeMetricsPresent
+    gpu_test.go:127: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:127: Kepler started on port 28282 (PID: 23800)
+--- PASS: TestGPUNodeMetricsPresent (2.98s)
+=== RUN   TestGPUNodeMetricsLabels
+    gpu_test.go:153: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:153: Kepler started on port 28282 (PID: 23850)
+--- PASS: TestGPUNodeMetricsLabels (2.97s)
+=== RUN   TestGPUNodeMetricsNonNegative
+    gpu_test.go:176: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:176: Kepler started on port 28282 (PID: 23894)
+--- PASS: TestGPUNodeMetricsNonNegative (2.97s)
+=== RUN   TestGPUNodePowerConservation
+    gpu_test.go:201: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
