@@ -129,7 +129,8 @@ type (
 
 	// Exporter configuration
 	StdoutExporter struct {
-		Enabled *bool `yaml:"enabled"`
+		Enabled  *bool         `yaml:"enabled"`
+		Interval time.Duration `yaml:"interval"`
 	}
 
 	PrometheusExporter struct {
@@ -295,7 +296,8 @@ const (
 	WebListenAddressFlag = "web.listen-address"
 
 	// Exporters
-	ExporterStdoutEnabledFlag = "exporter.stdout"
+	ExporterStdoutEnabledFlag  = "exporter.stdout"
+	ExporterStdoutIntervalFlag = "exporter.stdout.interval"
 
 	ExporterPrometheusEnabledFlag = "exporter.prometheus"
 	// NOTE: not a flag
@@ -350,7 +352,8 @@ func DefaultConfig() *Config {
 		},
 		Exporter: Exporter{
 			Stdout: StdoutExporter{
-				Enabled: ptr.To(false),
+				Enabled:  ptr.To(false),
+				Interval: 2 * time.Second,
 			},
 			Prometheus: PrometheusExporter{
 				Enabled:         ptr.To(true),
@@ -490,6 +493,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 	// exporters
 	stdoutExporterEnabled := app.Flag(ExporterStdoutEnabledFlag, "Enable stdout exporter").Default("false").Bool()
+	stdoutExporterInterval := app.Flag(ExporterStdoutIntervalFlag, "Interval for printing the power table; must be greater than zero").Default("2s").Duration()
 
 	prometheusExporterEnabled := app.Flag(ExporterPrometheusEnabledFlag, "Enable Prometheus exporter").Default("true").Bool()
 
@@ -554,6 +558,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 
 		if flagsSet[ExporterStdoutEnabledFlag] {
 			cfg.Exporter.Stdout.Enabled = stdoutExporterEnabled
+		}
+		if flagsSet[ExporterStdoutIntervalFlag] {
+			cfg.Exporter.Stdout.Interval = *stdoutExporterInterval
 		}
 
 		if flagsSet[ExporterPrometheusEnabledFlag] {
@@ -956,6 +963,11 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			errs = append(errs, fmt.Sprintf("invalid monitor min terminated energy threshold: %d can't be negative", c.Monitor.MinTerminatedEnergyThreshold))
 		}
 	}
+	{ // Stdout exporter
+		if c.Exporter.Stdout.Interval <= 0 {
+			errs = append(errs, fmt.Sprintf("invalid stdout exporter interval: %s must be greater than zero", c.Exporter.Stdout.Interval))
+		}
+	}
 	{ // Development
 		fakeGPU := c.Dev.FakeGPUMeter
 		if ptr.Deref(fakeGPU.Enabled, false) {
@@ -1162,6 +1174,7 @@ func (c *Config) manualString() string {
 		{CpuPreferredMeters, strings.Join(c.Cpu.PreferredMeters, ", ")},
 		{RaplZones, strings.Join(c.Rapl.Zones, ", ")},
 		{ExporterStdoutEnabledFlag, fmt.Sprintf("%v", c.Exporter.Stdout.Enabled)},
+		{ExporterStdoutIntervalFlag, c.Exporter.Stdout.Interval.String()},
 		{ExporterPrometheusEnabledFlag, fmt.Sprintf("%v", c.Exporter.Prometheus.Enabled)},
 		{ExporterPrometheusDebugCollectors, strings.Join(c.Exporter.Prometheus.DebugCollectors, ", ")},
 		{ExporterPrometheusMetricsFlag, c.Exporter.Prometheus.MetricsLevel.String()},
