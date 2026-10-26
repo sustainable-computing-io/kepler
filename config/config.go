@@ -195,8 +195,9 @@ type (
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
 	}
 
+	// PrometheusPower configures the "prometheus" CPU meter, which is
+	// selected by listing it in cpu.preferredMeters.
 	PrometheusPower struct {
-		Enabled *bool  `yaml:"enabled"`
 		BaseURL string `yaml:"baseURL"`
 		Query   string `yaml:"query"`
 	}
@@ -408,11 +409,6 @@ func DefaultConfig() *Config {
 // working in a future release.
 func (c *Config) ApplyCpuMeterDeprecations(logger *slog.Logger) {
 	switch {
-	// experimental.prometheus-power.enabled=true keeps selecting the Prometheus
-	// meter as it did before cpu.preferredMeters existed.
-	case c.Experimental != nil && ptr.Deref(c.Experimental.PrometheusPower.Enabled, false):
-		logger.Info(`experimental.prometheus-power.enabled is set; using cpu.preferredMeters: ["prometheus"]`)
-		c.Cpu.PreferredMeters = []string{"prometheus"}
 	case ptr.Deref(c.Dev.FakeCpuMeter.Enabled, false):
 		logger.Warn(`dev.fake-cpu-meter.enabled is deprecated; set cpu.preferredMeters: ["fake"] instead`)
 		c.Cpu.PreferredMeters = []string{"fake"}
@@ -632,7 +628,6 @@ func applyRedfishConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, no
 			Platform: Platform{
 				Redfish: defaultRedfishConfig(),
 			},
-			PrometheusPower: defaultPrometheusPowerConfig(),
 		}
 	}
 
@@ -661,14 +656,6 @@ func defaultRedfishConfig() Redfish {
 	return Redfish{
 		Enabled:     ptr.To(false),
 		HTTPTimeout: 5 * time.Second,
-	}
-}
-
-func defaultPrometheusPowerConfig() PrometheusPower {
-	return PrometheusPower{
-		Enabled: ptr.To(false),
-		BaseURL: "",
-		Query:   "",
 	}
 }
 
@@ -708,8 +695,7 @@ func applyHwmonConfig(cfg *Config, flagsSet map[string]bool, forceEnabled *bool,
 	// so ensure experimental section exists
 	if cfg.Experimental == nil {
 		cfg.Experimental = &Experimental{
-			Hwmon:           defaultHwmonConfig(),
-			PrometheusPower: defaultPrometheusPowerConfig(),
+			Hwmon: defaultHwmonConfig(),
 		}
 	}
 
@@ -847,9 +833,8 @@ func (c *Config) experimentalFeatureEnabled() bool {
 		return true
 	}
 
-	// Prometheus power is in use when enabled or selected via cpu.preferredMeters
-	if ptr.Deref(c.Experimental.PrometheusPower.Enabled, false) ||
-		slices.Contains(c.Cpu.PreferredMeters, "prometheus") {
+	// Prometheus power is in use when selected via cpu.preferredMeters
+	if slices.Contains(c.Cpu.PreferredMeters, "prometheus") {
 		return true
 	}
 	// Add checks for future experimental features here

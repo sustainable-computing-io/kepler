@@ -53,22 +53,14 @@ func TestCpuPreferredMeters(t *testing.T) {
 			want: []string{"fake"},
 		},
 		{
-			name: "prometheus-power enabled overrides cpu.preferredMeters",
+			name: "prometheus config keeps explicit fallback order",
 			setup: func(c *Config) {
+				c.Cpu.PreferredMeters = []string{"prometheus", "rapl"}
 				c.Experimental = &Experimental{}
-				c.Experimental.PrometheusPower.Enabled = ptr.To(true)
+				c.Experimental.PrometheusPower.BaseURL = "https://vm.example.org:8428"
+				c.Experimental.PrometheusPower.Query = "up"
 			},
-			want: []string{"prometheus"},
-		},
-		{
-			name: "prometheus-power wins over other legacy keys",
-			setup: func(c *Config) {
-				c.Dev.FakeCpuMeter.Enabled = ptr.To(true)
-				c.Experimental = &Experimental{}
-				c.Experimental.Hwmon.ForceEnabled = ptr.To(true)
-				c.Experimental.PrometheusPower.Enabled = ptr.To(true)
-			},
-			want: []string{"prometheus"},
+			want: []string{"prometheus", "rapl"},
 		},
 		{
 			name: "no legacy: explicit cpu.preferredMeters preserved",
@@ -179,7 +171,6 @@ experimental:
 
 	assert.Equal(t, []string{"rapl", "prometheus"}, cfg.Cpu.PreferredMeters)
 	require.NotNil(t, cfg.Experimental, "experimental section must survive sanitize when prometheus is a preferred meter")
-	assert.Nil(t, cfg.Experimental.PrometheusPower.Enabled)
 	assert.Equal(t, "https://vm.example.org:8428", cfg.Experimental.PrometheusPower.BaseURL)
 	assert.Equal(t, `sum(pdu_power_watts{node="n1"})`, cfg.Experimental.PrometheusPower.Query)
 }
@@ -199,7 +190,6 @@ experimental:
 func TestConfigStringRedactsPrometheusPowerCredentials(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Experimental = &Experimental{}
-	cfg.Experimental.PrometheusPower.Enabled = ptr.To(true)
 	cfg.Experimental.PrometheusPower.BaseURL = "https://kepler:s3cret@vm.example.org:8428"
 
 	str := cfg.String()

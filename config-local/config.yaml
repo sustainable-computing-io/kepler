@@ -69,18 +69,17 @@ dev:
   fake-cpu-meter:
     enabled: false
 
-# Disable RAPL zones in this example, because node power comes from Prometheus.
+# Node power comes from Prometheus in this example. Add a fallback such as
+# [prometheus, rapl] to use RAPL when Prometheus is unreachable at startup.
+cpu:
+  preferredMeters: [prometheus]
+
 rapl:
-  enabled: false
   zones: []
 
 experimental:
+  # Settings for the "prometheus" meter in cpu.preferredMeters.
   prometheus-power:
-    # enabled: true forces cpu.preferredMeters: [prometheus].
-    # Alternatively leave it unset and list "prometheus" in cpu.preferredMeters,
-    # e.g. [rapl, prometheus] to fall back to Prometheus when RAPL is unavailable.
-    enabled: true
-
     # Replace with your monitoring endpoint.
     #
     # Example:
@@ -105,9 +104,6 @@ experimental:
   platform:
     redfish:
       enabled: false
-
-  hwmon:
-    enabled: false
 
   gpu:
     enabled: false
