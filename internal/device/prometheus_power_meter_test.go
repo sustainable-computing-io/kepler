@@ -82,7 +82,7 @@ func TestPrometheusClient_QueryPowerWatt(t *testing.T) {
 			wantErr: "prometheus response status: error",
 		},
 		{
-			name:    "unparseable string value",
+			name:    "unparsable string value",
 			status:  http.StatusOK,
 			body:    `{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1700000000,"abc"]}]}}`,
 			wantErr: "failed to parse prometheus value",

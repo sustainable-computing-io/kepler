@@ -209,7 +209,7 @@ func TestRedactURL(t *testing.T) {
 		{name: "no userinfo", in: "https://vm.example.org:8428", want: "https://vm.example.org:8428"},
 		{name: "user and password", in: "https://u:p@vm.example.org", want: "https://u:xxxxx@vm.example.org"},
 		{name: "user only", in: "https://u@vm.example.org", want: "https://u@vm.example.org"},
-		{name: "unparseable", in: "https://u:p@vm.example.org:port", want: "<redacted: unparseable URL>"},
+		{name: "unparsable", in: "https://u:p@vm.example.org:port", want: "<redacted: unparsable URL>"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1208,7 +1208,7 @@ func (c *Config) manualString() string {
 }
 
 // RedactURL returns rawURL with any userinfo password masked so it can be
-// logged safely. Unparseable URLs are fully masked since they may still
+// logged safely. Unparsable URLs are fully masked since they may still
 // contain credentials.
 func RedactURL(rawURL string) string {
 	if rawURL == "" {
@@ -1216,7 +1216,7 @@ func RedactURL(rawURL string) string {
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return "<redacted: unparseable URL>"
+		return "<redacted: unparsable URL>"
 	}
 	return u.Redacted()
 }
