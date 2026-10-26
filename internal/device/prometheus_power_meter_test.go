@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
 
 	"github.com/sustainable-computing-io/kepler/config"
 )
@@ -40,7 +40,6 @@ func prometheusConfig(baseURL string, meters ...string) *config.Config {
 	cfg.Cpu.PreferredMeters = meters
 	cfg.Experimental = &config.Experimental{}
 	cfg.Experimental.PrometheusPower = config.PrometheusPower{
-		Enabled: ptr.To(true),
 		BaseURL: baseURL,
 		Query:   `node_power_watts{instance="n1"}`,
 	}
@@ -113,10 +112,35 @@ func TestPrometheusPowerMeter_PowerAndZones(t *testing.T) {
 	assert.InDelta(t, 12.5, power.Watts(), 1e-9)
 }
 
-func TestPrometheusPowerMeter_NegativePowerFailsInit(t *testing.T) {
-	meter, err := NewPrometheusPowerMeter("node", func(context.Context) (float64, error) { return -1, nil })
+func TestPrometheusPowerMeter_InvalidPowerFailsInit(t *testing.T) {
+	tests := []struct {
+		name    string
+		watts   float64
+		wantErr string
+	}{
+		{name: "negative", watts: -1, wantErr: "negative"},
+		{name: "NaN", watts: math.NaN(), wantErr: "non-finite"},
+		{name: "+Inf", watts: math.Inf(1), wantErr: "non-finite"},
+		{name: "-Inf", watts: math.Inf(-1), wantErr: "non-finite"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			meter, err := NewPrometheusPowerMeter("node", func(context.Context) (float64, error) { return tc.watts, nil })
+			require.NoError(t, err)
+			assert.ErrorContains(t, meter.Init(), tc.wantErr)
+		})
+	}
+}
+
+func TestCreateCPUMeter_PrometheusNaN_FallsThroughToFake(t *testing.T) {
+	// Prometheus encodes NaN as the string "NaN", which strconv.ParseFloat accepts
+	srv := newPromServer(t, http.StatusOK,
+		`{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1700000000,"NaN"]}]}}`)
+	cfg := prometheusConfig(srv.URL, "prometheus", "fake")
+
+	meter, err := CreateCPUMeter(discardLogger(), cfg)
 	require.NoError(t, err)
-	assert.Error(t, meter.Init())
+	assert.Equal(t, "fake-cpu-meter", meter.Name())
 }
 
 func TestCreateCPUMeter_Prometheus(t *testing.T) {

@@ -6,6 +6,7 @@ package device
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -75,6 +76,11 @@ func (z *PrometheusPowerZone) Power() (Power, error) {
 	watts, err := z.readPower(ctx)
 	if err != nil {
 		return 0, err
+	}
+
+	// NaN/Inf (e.g. 0/0 or a failed sensor) would corrupt energy accumulation
+	if math.IsNaN(watts) || math.IsInf(watts, 0) {
+		return 0, fmt.Errorf("received non-finite watt value %v from Prometheus", watts)
 	}
 
 	if watts < 0 {
