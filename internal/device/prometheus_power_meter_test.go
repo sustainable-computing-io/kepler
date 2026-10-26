@@ -75,6 +75,24 @@ func TestPrometheusClient_QueryPowerWatt(t *testing.T) {
 			body:    `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"psu":"1"},"value":[1700000000,"100"]},{"metric":{"psu":"2"},"value":[1700000000,"120"]}]}}`,
 			wantErr: "returned 2 series, expected exactly 1",
 		},
+		{
+			name:    "error status",
+			status:  http.StatusOK,
+			body:    `{"status":"error","errorType":"bad_data","error":"parse error"}`,
+			wantErr: "prometheus response status: error",
+		},
+		{
+			name:    "unparseable string value",
+			status:  http.StatusOK,
+			body:    `{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1700000000,"abc"]}]}}`,
+			wantErr: "failed to parse prometheus value",
+		},
+		{
+			name:    "unexpected value type",
+			status:  http.StatusOK,
+			body:    `{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1700000000,true]}]}}`,
+			wantErr: "unexpected value type bool",
+		},
 		{name: "http error", status: http.StatusInternalServerError, body: "", wantErr: "prometheus query failed"},
 		{name: "invalid json", status: http.StatusOK, body: "{", wantErr: "failed to decode"},
 	}
@@ -94,6 +112,39 @@ func TestPrometheusClient_QueryPowerWatt(t *testing.T) {
 			assert.InDelta(t, tc.want, got, 1e-9)
 		})
 	}
+}
+
+func TestPrometheusClient_Unreachable(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	baseURL := srv.URL
+	srv.Close()
+
+	_, err := NewPrometheusClient(baseURL, "up").QueryPowerWatt(context.Background())
+	assert.ErrorContains(t, err, "failed to execute prometheus query")
+}
+
+func TestNewPrometheusPowerMeter_NilReadFunc(t *testing.T) {
+	meter, err := NewPrometheusPowerMeter("node", nil)
+	assert.ErrorContains(t, err, "readPowerFunc must not be nil")
+	assert.Nil(t, meter)
+}
+
+func TestPrometheusPowerMeter_ServiceAndZoneMetadata(t *testing.T) {
+	m, err := NewPrometheusPowerMeter(" pdu ", func(context.Context) (float64, error) { return 1, nil })
+	require.NoError(t, err)
+	meter := m.(*PrometheusPowerMeter)
+	assert.NoError(t, meter.Start())
+	assert.NoError(t, meter.Stop())
+
+	zone, err := meter.PrimaryEnergyZone()
+	require.NoError(t, err)
+	assert.Equal(t, "pdu", zone.Name())
+	assert.Equal(t, 0, zone.Index())
+	assert.Equal(t, "prometheus:pdu", zone.Path())
+
+	energy, err := zone.Energy()
+	require.NoError(t, err)
+	assert.Equal(t, Energy(0), energy)
 }
 
 func TestPrometheusPowerMeter_PowerAndZones(t *testing.T) {
