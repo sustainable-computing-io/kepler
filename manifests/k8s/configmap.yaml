@@ -29,6 +29,7 @@ data:
     exporter:
       stdout:
         enabled: false
+        interval: 2s # Power table refresh interval; must be greater than zero
       prometheus:
         enabled: true
         debugCollectors:

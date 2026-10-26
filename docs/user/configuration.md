@@ -28,6 +28,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--web.listen-address`                        | Web server listen addresses (can be specified multiple times)           | `:28282`                        | Any valid host:port or :port format                                |
 | `--debug.pprof`                               | Enable pprof debugging endpoints                                        | `false`                         | `true`, `false`                                                    |
 | `--exporter.stdout`                           | Enable stdout exporter                                                  | `false`                         | `true`, `false`                                                    |
+| `--exporter.stdout.interval`                  | Stdout power table refresh interval                                     | `2s`                            | Any duration greater than zero                                     |
 | `--exporter.prometheus`                       | Enable Prometheus exporter                                              | `true`                          | `true`, `false`                                                    |
 | `--metrics`                                   | Metrics levels to export (can be specified multiple times)              | `node,process,container,vm,pod` | `node`, `process`, `container`, `vm`, `pod`                        |
 | `--kube.enable`                               | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
@@ -63,6 +64,9 @@ kepler --web.listen-address=:8080 --web.listen-address=localhost:9090
 
 # Enable stdout exporter and disable Prometheus exporter
 kepler --exporter.stdout=true --exporter.prometheus=false
+
+# Print the power table every 10 seconds
+kepler --exporter.stdout=true --exporter.stdout.interval=10s
 
 # Enable Kubernetes monitoring with specific kubeconfig and node name
 kepler --kube.enable=true --kube.config=/path/to/kubeconfig --kube.node-name=my-node
@@ -140,6 +144,7 @@ rapl:
 exporter:
   stdout:       # stdout exporter related config
     enabled: false # disabled by default
+    interval: 2s   # Power table refresh interval; must be greater than zero
   prometheus:   # prometheus exporter related config
     enabled: true
     debugCollectors:
@@ -312,6 +317,7 @@ rapl:
 exporter:
   stdout:       # stdout exporter related config
     enabled: false # disabled by default
+    interval: 2s   # Power table refresh interval; must be greater than zero
   prometheus:   # prometheus exporter related config
     enabled: true
     debugCollectors:
@@ -327,6 +333,7 @@ exporter:
 
 - **stdout**: Configuration for the stdout exporter
   - `enabled`: Enable or disable the stdout exporter (default: false)
+  - `interval`: Power table refresh interval (default: `2s`); must be greater than zero. Increase this interval to print the power table less often. Snapshot reuse is controlled by `monitor.staleness`.
 
 - **prometheus**: Configuration for the Prometheus exporter
   - `enabled`: Enable or disable the Prometheus exporter (default: true)
