@@ -2633,3 +2633,28 @@ func TestValidateExperimentalConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestStdoutExporterIntervalFlag(t *testing.T) {
+	// DefaultConfig instead of Load(): Load validates host paths (/sys, /proc)
+	// that do not exist on macOS dev machines.
+	cfg := DefaultConfig()
+	assert.Equal(t, 2*time.Second, cfg.Exporter.Stdout.Interval, "default should be 2s")
+
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	// --host.sysfs/--host.procfs are ExistingDir flags; point them at real
+	// dirs so parse succeeds on macOS.
+	_, err := app.Parse([]string{
+		"--host.sysfs", t.TempDir(),
+		"--host.procfs", t.TempDir(),
+		"--exporter.stdout.interval=7s",
+	})
+	assert.NoError(t, err)
+	// updateConfig mutates cfg before running Validate, which fails on
+	// non-Linux hosts here; the flag→config update itself is what this test
+	// pins, so the validation error is ignored.
+	_ = updateConfig(cfg)
+	assert.Equal(t, 7*time.Second, cfg.Exporter.Stdout.Interval, "flag should override the default")
+
+	assert.Equal(t, 7*time.Second, cfg.Exporter.Stdout.Interval, "flag should override the default")
+}
