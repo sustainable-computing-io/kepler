@@ -24,9 +24,9 @@ func TestCpuPreferredMeters(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "default: rapl then hwmon",
+			name:  "default: rapl, then hwmon, then zpwr",
 			setup: func(*Config) {},
-			want:  []string{"rapl", "hwmon"},
+			want:  []string{"rapl", "hwmon", "zpwr"},
 		},
 		{
 			name: "fake-cpu-meter overrides cpu.preferredMeters",
@@ -81,7 +81,7 @@ func TestCpuPreferredMetersValidation(t *testing.T) {
 	}{
 		{
 			name:   "all known backends",
-			meters: []string{"rapl", "hwmon", "fake"},
+			meters: []string{"rapl", "hwmon", "zpwr", "fake"},
 		},
 		{
 			name:    "unknown backend",

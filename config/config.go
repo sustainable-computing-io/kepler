@@ -336,7 +336,7 @@ func DefaultConfig() *Config {
 			ProcFS: "/proc",
 		},
 		Cpu: Cpu{
-			PreferredMeters: []string{"rapl", "hwmon"},
+			PreferredMeters: []string{"rapl", "hwmon", "zpwr"},
 		},
 		Rapl: Rapl{
 			Zones: []string{},
@@ -936,11 +936,12 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 		validCpuMeters := map[string]bool{
 			"rapl":  true,
 			"hwmon": true,
+			"zpwr":  true,
 			"fake":  true,
 		}
 		for _, name := range c.Cpu.PreferredMeters {
 			if !validCpuMeters[name] {
-				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
+				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q, %q", name, "rapl", "hwmon", "zpwr", "fake"))
 			}
 		}
 	}

@@ -126,8 +126,8 @@ host:
   procfs: /proc # Path to procfs filesystem (default: /proc)
 
 cpu:
-  preferredMeters: ["rapl", "hwmon"]  # Ordered priority of CPU power-meter backends.
-                             # Built-in backends: rapl, hwmon, fake.
+  preferredMeters: ["rapl", "hwmon", "zpwr"]  # Ordered priority of CPU power-meter backends.
+                             # Built-in backends: rapl, hwmon, zpwr, fake.
                              # The first backend that initializes and reports zones is used.
 
 rapl:
@@ -244,7 +244,7 @@ These settings specify where Kepler should look for system information. In conta
 
 ```yaml
 cpu:
-  preferredMeters: ["rapl", "hwmon"]
+  preferredMeters: ["rapl", "hwmon", "zpwr"]
 ```
 
 `cpu.preferredMeters` is an ordered preference list. Kepler walks the list, builds each backend, runs `Init()`, and selects the first one that reports zones. If every backend fails, Kepler exits with the aggregated error.
@@ -253,14 +253,32 @@ Built-in backends:
 
 - `rapl`: Intel RAPL via sysfs (default first choice)
 - `hwmon`: hwmon power sensors (default second choice)
+- `zpwr`: IBM Z / LinuxONE partition power via s390 DIAGNOSE 0x324 (default third choice).
+  Requires linux/s390x, IBM z17 / LinuxONE 5 or later (firmware with DIAGNOSE 0x324
+  power readings), a kernel that provides `/dev/diag` with DIAGNOSE 0x324 support
+  (upstream Linux 6.14 or later, or a distribution kernel with the backport, e.g.
+  RHEL 10 with kernel 6.12), and access to the host `/dev/diag` device, which reaches
+  the container only when it runs privileged. The Kustomize manifests already do;
+  Helm installs must set `daemonset.securityContext.privileged=true` and add `zpwr`
+  to `config.cpu.preferredMeters` (see the
+  [installation guide](installation.md#enabling-ibm-z--linuxone-power-monitoring-s390x)). Reports the
+  zones `lpar` (primary, the sum of the others), `cpu`, `memory` (LPAR main storage)
+  and `io`. These are the same partition readings shown by
+  [`zpwr`](https://github.com/ibm-s390-linux/s390-tools/tree/master/zpwr) from s390-tools 2.38+.
 - `fake`: synthetic readings for development and testing
 
 Examples:
 
 ```yaml
-# Default order — try RAPL first, then hwmon
+# Default order — try RAPL first, then hwmon, then zpwr (IBM Z)
 cpu:
-  preferredMeters: ["rapl", "hwmon"]
+  preferredMeters: ["rapl", "hwmon", "zpwr"]
+```
+
+```yaml
+# IBM Z / LinuxONE only
+cpu:
+  preferredMeters: ["zpwr"]
 ```
 
 ```yaml
