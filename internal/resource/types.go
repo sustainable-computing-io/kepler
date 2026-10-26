@@ -29,6 +29,11 @@ type Process struct {
 	// Dynamic
 	CPUTotalTime float64 // total cpu time used by the process
 	CPUTimeDelta float64 // cpu time used by the process since last refresh
+
+	// pendingContainerAttribution is true when this process has a cgroup at the
+	// namespace root ("/") but kepler's container ID was not yet known at typing
+	// time; it is cleared once the process is successfully re-typed.
+	pendingContainerAttribution bool
 }
 
 // Container represents metadata about a container

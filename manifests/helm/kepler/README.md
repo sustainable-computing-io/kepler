@@ -67,7 +67,7 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
 | daemonset.securityContext.allowPrivilegeEscalation | bool | `false` | Allow privilege escalation. Forced on when `privileged` is true. |
 | daemonset.securityContext.appArmorProfile | object | `{"type":"Unconfined"}` | AppArmor profile |
 | daemonset.securityContext.capabilities | object | `{"add":["SYS_PTRACE"],"drop":["ALL"]}` | Linux capabilities |
-| daemonset.securityContext.privileged | bool | `false` | Run privileged. Needed to name non-root, non-Kubernetes containers and to report Kepler's own pod. Forced on when `config.experimental.gpu.enabled` is true. |
+| daemonset.securityContext.privileged | bool | `false` | Run privileged. Needed to name non-root, non-Kubernetes containers. Forced on when `config.experimental.gpu.enabled` is true. |
 | daemonset.securityContext.readOnlyRootFilesystem | bool | `true` | Read-only root filesystem |
 | daemonset.securityContext.runAsNonRoot | bool | `false` | Require a non-root user |
 | daemonset.securityContext.runAsUser | int | `0` | User ID to run as |
