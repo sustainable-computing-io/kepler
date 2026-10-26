@@ -133,7 +133,7 @@ config:
   cpu:
     # Ordered preference list of CPU power-meter backends. The first backend
     # that initializes successfully and reports zones is used.
-    # Built-in backends: rapl, hwmon, fake.
+    # Built-in backends: rapl, hwmon, fake, prometheus.
     preferredMeters: [rapl, hwmon]
   rapl:
     zones: []
@@ -193,6 +193,9 @@ config:
       enabled: false # Enable experimental GPU power monitoring
       idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
       dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+    prometheus-power: # settings for the "prometheus" CPU meter (select via cpu.preferredMeters)
+      baseURL: "" # Prometheus-compatible API base URL, e.g. https://vm.example.org:8428 (userinfo is redacted in logs)
+      query: "" # PromQL query returning node power in watts as exactly one series, e.g. sum(pdu_outlet_power_watts{server="node1"})
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
