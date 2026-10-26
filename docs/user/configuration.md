@@ -613,6 +613,39 @@ experimental:
     idlePower: 17.5  # Override idle power to 17.5W (0 = auto-detect)
 ```
 
+#### MIG Power Attribution
+
+On a GPU in MIG mode, Kepler splits the GPU's active power across MIG instances using the `DCGM_FI_PROF_GR_ENGINE_ACTIVE` value that [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) reports for each instance, then across the processes in each instance using NVML utilization. This depends on a second component, so check the following when you set it up:
+
+- **dcgm-exporter must export `DCGM_FI_PROF_GR_ENGINE_ACTIVE`.** It is in dcgm-exporter's default metric lists. If you use a custom counters file, keep it in. Kepler reads no other dcgm-exporter metric.
+- **Some GPUs don't report it.** dcgm-exporter has no `DCGM_FI_PROF_GR_ENGINE_ACTIVE` for MIG instances on H100 and H200 GPUs ([NVIDIA/DCGM#226](https://github.com/NVIDIA/DCGM/issues/226)). Kepler then finds no active MIG instance, logs `no active MIG instances found, skipping power attribution`, and doesn't attribute that GPU's active power to processes. Node-level GPU metrics such as `kepler_node_gpu_active_joules_total` are still reported.
+- **Finding dcgm-exporter.** When `dcgmEndpoint` is empty, Kepler looks up a dcgm-exporter pod on its own node through the Kubernetes API, in any namespace, with the label `app=nvidia-dcgm-exporter` (GPU Operator) or `app.kubernetes.io/name=dcgm-exporter` (standalone chart). This needs `list` on pods across the cluster and the `NODE_NAME` environment variable, which the Helm chart and the manifests already set up. If no pod is found or it doesn't answer, Kepler tries `http://localhost:9400/metrics`, then `http://nvidia-dcgm-exporter.nvidia-gpu-operator.svc:9400/metrics`. Set `dcgmEndpoint` if dcgm-exporter runs anywhere else.
+- **NetworkPolicy.** With `networkPolicy.enabled: true`, the chart's default `egress: []` blocks all outgoing traffic, so Kepler can reach neither dcgm-exporter nor the Kubernetes API server. Allow both. For dcgm-exporter on its default port:
+
+  ```yaml
+  networkPolicy:
+    enabled: true
+    egress:
+      - to:
+          - namespaceSelector: {}
+            podSelector:
+              matchLabels:
+                app: nvidia-dcgm-exporter
+        ports:
+          - protocol: TCP
+            port: 9400
+  ```
+
+- **MIG changes need a restart.** Kepler reads each GPU's MIG mode and its MIG instances once, at startup. After you enable or disable MIG, or change the MIG layout, restart the Kepler pod on that node. This includes the case where Kepler starts before the GPU Operator's MIG manager has finished configuring the GPUs.
+
+When a piece is missing, Kepler keeps running and falls back as follows:
+
+| Situation                                      | What Kepler reports                                                                                                                                                                                         |
+|------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| dcgm-exporter not reachable when Kepler starts | The GPU's active power is split equally across all processes on the GPU, whatever MIG instance they run in. Kepler doesn't retry, so restart the pod once dcgm-exporter is up.                              |
+| dcgm-exporter stops responding later           | Collection intervals where the request fails get no per-process GPU power. After 3 failed requests in a row, Kepler stops using dcgm-exporter and switches to the equal split above until the pod restarts. |
+| NVML fails to initialize                       | Kepler logs `GPU vendor init failed` and reports no GPU metrics on that node. CPU metrics are not affected.                                                                                                 |
+
 #### Prometheus Power Input
 
 Reads node power from a Prometheus-compatible API (Prometheus, VictoriaMetrics, ...) instead of local sensors, e.g. for servers whose power is only measured by a PDU or an external meter. Kepler then attributes this node power to processes, containers, and pods as usual.
