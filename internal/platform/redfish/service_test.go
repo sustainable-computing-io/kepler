@@ -4,7 +4,6 @@
 package redfish
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -966,56 +965,4 @@ func TestServiceGracefulDegradation(t *testing.T) {
 		err = service.Shutdown()
 		assert.NoError(t, err)
 	})
-}
-
-func TestServiceRun(t *testing.T) {
-	// Test the Service.Run method which is currently a no-op waiting for context cancellation
-	server := testutil.NewServer(testutil.ServerConfig{
-		Username:   "admin",
-		Password:   "password",
-		PowerWatts: 100.0,
-		EnableAuth: false,
-	})
-	defer server.Close()
-
-	// Create a temporary config file for the test
-	tmpDir, err := os.MkdirTemp("", "service_run_test")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	configContent := `
-nodes:
-  test-node: test-bmc
-bmcs:
-  test-bmc:
-    endpoint: "` + server.URL() + `"
-    username: "admin"
-    password: "password"
-    insecure: true
-`
-	configFile := filepath.Join(tmpDir, "config.yaml")
-	err = os.WriteFile(configFile, []byte(configContent), 0600)
-	require.NoError(t, err)
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	redfishCfg := defaultRedfishConfig(configFile, "test-node")
-	service, err := NewService(redfishCfg, logger, WithStaleness(testMonitorStaleness))
-	require.NoError(t, err)
-
-	// Initialize the service
-	err = service.Init()
-	require.NoError(t, err)
-
-	// Test Run method with context cancellation
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
-	start := time.Now()
-	err = service.Run(ctx)
-	duration := time.Since(start)
-
-	// Run should complete when context is cancelled
-	assert.NoError(t, err)
-	assert.True(t, duration >= 100*time.Millisecond, "Run should wait for context cancellation")
-	assert.True(t, duration < 200*time.Millisecond, "Run should return promptly after context cancellation")
 }

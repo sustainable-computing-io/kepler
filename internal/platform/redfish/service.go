@@ -4,7 +4,6 @@
 package redfish
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -147,14 +146,6 @@ func (s *Service) Init() error {
 		"node_name", s.nodeName,
 		"max_retries", maxRetries,
 		"error", initErr)
-	return nil
-}
-
-// Run is a no-op for this service
-func (s *Service) Run(ctx context.Context) error {
-	// TODO: remove this once service.Run calls Shutdown even for services that
-	// don't have a Run method
-	<-ctx.Done()
 	return nil
 }
 
