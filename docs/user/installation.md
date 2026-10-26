@@ -137,6 +137,8 @@ daemonset:
 
 Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart's `daemonset.nvidia.*` plumbing. Enabling the binary flag without the init path (or the reverse) is not a supported split. Leave `enabled: false` if you do not want GPU power monitoring.
 
+For GPUs in MIG mode, Kepler also needs dcgm-exporter. See [MIG Power Attribution](configuration.md#mig-power-attribution) for its requirements and limits.
+
 #### Helm Management Commands
 
 ```bash
