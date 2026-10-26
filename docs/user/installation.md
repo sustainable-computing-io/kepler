@@ -324,7 +324,7 @@ Look for key metrics like:
 
 ### Helm Chart Values
 
-Key configuration options in `values.yaml`:
+Key configuration options in `values.yaml` are below. See the [chart README](../../manifests/helm/kepler/README.md) for all of them.
 
 ```yaml
 # Image configuration
