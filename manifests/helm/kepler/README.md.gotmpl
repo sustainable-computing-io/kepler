@@ -1,0 +1,15 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+## Install
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace
+```
+
+<!-- markdown-table-prettify-ignore-start -->
+{{ template "chart.valuesSection" . }}
+<!-- markdown-table-prettify-ignore-end -->

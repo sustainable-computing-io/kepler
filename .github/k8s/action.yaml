@@ -194,10 +194,10 @@ runs:
         # Update Helm chart to use the locally built image
         sed -i 's|repository: quay.io/sustainable_computing_io/kepler|repository: localhost:5001/kepler|' manifests/helm/kepler/values.yaml
         sed -i 's|tag:.*|tag: dev|' manifests/helm/kepler/values.yaml
-        sed -i '/fake-cpu-meter:/{n;s/enabled: false/enabled: true/}' manifests/helm/kepler/values.yaml
 
-        # Install using Helm
-        helm install kepler-helm-test manifests/helm/kepler --namespace kepler-helm --create-namespace --wait --timeout=5m
+        # Install using Helm with the fake CPU meter
+        helm install kepler-helm-test manifests/helm/kepler --namespace kepler-helm --create-namespace \
+          --set 'config.cpu.preferredMeters={fake}' --wait --timeout=5m
         echo "::endgroup::"
 
     - name: Verify Helm deployment
