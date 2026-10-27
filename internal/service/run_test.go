@@ -220,4 +220,62 @@ func TestRun(t *testing.T) {
 		err := Run(context.Background(), nil, []Service{})
 		assert.NoError(t, err)
 	})
+
+	t.Run("shutdowner without Run is shut down after runners stop", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		var order []string
+		runnerStarted := make(chan struct{})
+
+		runner := &mockRunShutdownService{
+			mockService: mockService{name: "runner"},
+			runFn: func(ctx context.Context) error {
+				close(runnerStarted)
+				<-ctx.Done()
+				return ctx.Err()
+			},
+			shutdownFn: func() error {
+				order = append(order, "runner")
+				return nil
+			},
+		}
+
+		shutdownOnly := &mockInitShutdownService{
+			mockService: mockService{name: "shutdown-only"},
+			shutdownFn: func() error {
+				order = append(order, "shutdown-only")
+				return nil
+			},
+		}
+
+		// shutdown-only comes first in the list but must still shut down
+		// after the runner has stopped
+		services := []Service{shutdownOnly, runner}
+
+		errCh := make(chan error)
+		go func() {
+			errCh <- Run(ctx, nil, services)
+		}()
+
+		<-runnerStarted
+		cancel()
+		err := <-errCh
+
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.Equal(t, 1, runner.shutdownCount)
+		assert.Equal(t, 1, shutdownOnly.shutdownCount)
+		assert.Equal(t, []string{"runner", "shutdown-only"}, order)
+	})
+
+	t.Run("shutdowner without Run is shut down when there are no runners", func(t *testing.T) {
+		shutdownOnly := &mockInitShutdownService{
+			mockService: mockService{name: "shutdown-only"},
+		}
+
+		err := Run(context.Background(), nil, []Service{shutdownOnly})
+
+		assert.NoError(t, err)
+		assert.Equal(t, 1, shutdownOnly.shutdownCount)
+	})
 }

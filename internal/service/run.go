@@ -13,6 +13,8 @@ import (
 
 // Run runs all services that implement the Runner interface.
 // It returns an error if any service fails.
+// Services that implement Shutdowner but not Runner are shut down after all
+// runners have stopped.
 func Run(outer context.Context, logger *slog.Logger, services []Service) error {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -61,5 +63,24 @@ func Run(outer context.Context, logger *slog.Logger, services []Service) error {
 		)
 	}
 
-	return g.Run()
+	err := g.Run()
+
+	// Shutdowner-only services have no actor in the run group, so shut them
+	// down here, after the runners that may still be using them have stopped.
+	for _, s := range services {
+		if _, ok := s.(Runner); ok {
+			continue
+		}
+		shutdowner, ok := s.(Shutdowner)
+		if !ok {
+			continue
+		}
+
+		logger.Info("shutting down", "service", s.Name())
+		if shutdownErr := shutdowner.Shutdown(); shutdownErr != nil {
+			logger.Warn("service shutdown failed with error", "service", s.Name(), "error", shutdownErr)
+		}
+	}
+
+	return err
 }
