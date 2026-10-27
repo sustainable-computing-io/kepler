@@ -607,6 +607,14 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		return c.dcgm != nil && c.dcgm.IsInitialized() && len(instances) > 0
 	}
 
+	// Once its circuit breaker trips, the DCGM backend re-initializes only
+	// from GetMIGInstanceActivity, after reInitInterval. Give it that chance
+	// here, before useDCGM picks the path, otherwise it keeps using the
+	// fallback forever.
+	if c.dcgm != nil && !c.dcgm.IsInitialized() && len(instances) > 0 {
+		_, _ = c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, instances[0].GPUInstanceID)
+	}
+
 	// Shares cached by the other attribution path would never be used, and would keep
 	// hasTailShares from letting idle detection run, so drop them before reading the stats.
 	if c.hasTailShares(deviceIndex) {
