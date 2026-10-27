@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"syscall"
@@ -27,13 +26,14 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
-	"github.com/sustainable-computing-io/kepler/internal/version"
+	"github.com/sustainable-computing-io/kepler/internal/startup"
 )
 
 func main() {
 	// parse args and config and exit with error if there is an error
-	cfg, err := parseArgsAndConfig()
+	cfg, configFile, err := parseArgsAndConfig()
 	if err != nil {
+		logStartupError(cfg, err)
 		os.Exit(1)
 	}
 
@@ -44,8 +44,9 @@ func main() {
 	}
 	logger := logger.New(cfg.Log.Level, cfg.Log.Format, logOut)
 
-	logVersionInfo(logger)
-	printConfigInfo(logger, cfg, logOut)
+	startup.LogConfigLoaded(logger, configFile)
+	startup.LogVersionInfo(logger)
+	startup.PrintConfigInfo(logger, cfg, logOut)
 
 	cfg.ApplyCpuMeterDeprecations(logger)
 	cfg.LogUnknownFields(logger)
@@ -56,7 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sh := service.NewSignalHandler(syscall.SIGINT, syscall.SIGTERM)
+	sh := service.NewSignalHandler(logger, syscall.SIGINT, syscall.SIGTERM)
 	services = append(services, sh)
 
 	if err = service.Init(logger, services); err != nil {
@@ -73,20 +74,7 @@ func main() {
 	logger.Info("Graceful shutdown completed")
 }
 
-func logVersionInfo(logger *slog.Logger) {
-	v := version.Info()
-	logger.Info("Kepler version information",
-		"version", v.Version,
-		"buildTime", v.BuildTime,
-		"gitBranch", v.GitBranch,
-		"gitCommit", v.GitCommit,
-		"goVersion", v.GoVersion,
-		"goOS", v.GoOS,
-		"goArch", v.GoArch,
-	)
-}
-
-func parseArgsAndConfig() (*config.Config, error) {
+func parseArgsAndConfig() (*config.Config, string, error) {
 	const appName = "kepler"
 	app := kingpin.New(appName, "Power consumption monitoring exporter for Prometheus.")
 
@@ -94,42 +82,36 @@ func parseArgsAndConfig() (*config.Config, error) {
 	updateConfig := config.RegisterFlags(app)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	// Diagnostics go to stderr so that stdout is reserved for exporter output
-	// (see the stdout exporter handling in main).
-	logger := logger.New("info", "text", os.Stderr)
 	cfg := config.DefaultConfig()
 	if *configFile != "" {
-		logger.Info("Loading configuration file", "path", *configFile)
 		loadedCfg, err := config.FromFile(*configFile)
 		if err != nil {
-			logger.Error("Error loading config file", "error", err.Error())
-			return nil, err
+			return cfg, "", fmt.Errorf("failed to load config file %q: %w", *configFile, err)
 		}
 		// Replace default config with loaded config
 		cfg = loadedCfg
-		logger.Info("Completed loading of configuration file", "path", *configFile)
 	}
 
 	// Apply command line flags (these override config file settings)
 	if err := updateConfig(cfg); err != nil {
-		logger.Error("Error applying command line flags", "error", err.Error())
-		return nil, err
+		return cfg, *configFile, fmt.Errorf("failed to apply command line flags: %w", err)
 	}
 
-	return cfg, nil
+	return cfg, *configFile, nil
 }
 
-func printConfigInfo(logger *slog.Logger, cfg *config.Config, out io.Writer) {
-	if !logger.Enabled(context.Background(), slog.LevelInfo) || cfg.Log.Format == "json" {
-		return
+// logStartupError reports failures that happen before the main logger exists.
+// If configuration loading got far enough to determine the log format, use it
+// so JSON logging stays parseable on the error path too.
+func logStartupError(cfg *config.Config, err error) {
+	level, format := "info", "text"
+	if cfg != nil {
+		level = cfg.Log.Level
+		if cfg.Log.Format == "json" || cfg.Log.Format == "text" {
+			format = cfg.Log.Format
+		}
 	}
-
-	fmt.Fprintf(out, `
-Configuration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-%s
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`, cfg)
+	logger.New(level, format, os.Stderr).Error("Failed to load configuration", "error", err)
 }
 
 func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service, error) {
