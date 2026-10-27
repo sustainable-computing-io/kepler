@@ -627,11 +627,11 @@ On a GPU in MIG mode, Kepler splits the GPU's active power across MIG instances 
 
 When a piece is missing, Kepler keeps running and falls back as follows:
 
-| Situation                                      | What Kepler reports                                                                                                                                                                                         |
-|------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| dcgm-exporter not reachable when Kepler starts | The GPU's active power is split equally across all processes on the GPU, whatever MIG instance they run in. Kepler doesn't retry, so restart the pod once dcgm-exporter is up.                              |
-| dcgm-exporter stops responding later           | Collection intervals where the request fails get no per-process GPU power. After 3 failed requests in a row, Kepler stops using dcgm-exporter and switches to the equal split above until the pod restarts. |
-| NVML fails to initialize                       | Kepler logs `GPU vendor init failed` and reports no GPU metrics on that node. CPU metrics are not affected.                                                                                                 |
+| Situation                                      | What Kepler reports                                                                                                                                                                                                                                                             |
+|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| dcgm-exporter not reachable when Kepler starts | The GPU's active power is split equally across all processes on the GPU, whatever MIG instance they run in. Kepler doesn't retry, so restart the pod once dcgm-exporter is up.                                                                                                  |
+| dcgm-exporter stops responding later           | Collection intervals where the request fails get no per-process GPU power. After 3 failed requests in a row, Kepler switches to the equal split above and tries dcgm-exporter again every 30 seconds. Once it responds, Kepler goes back to splitting by MIG instance activity. |
+| NVML fails to initialize                       | Kepler logs `GPU vendor init failed` and reports no GPU metrics on that node. CPU metrics are not affected.                                                                                                                                                                     |
 
 ### 🧑‍🔬 Development Configuration
 
