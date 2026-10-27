@@ -149,11 +149,11 @@ daemonset:
       # -- NVML init container image tag
       tag: 1.36.1
 
-  # Extra volumes for the pod, e.g. a Redfish Secret
+  # -- Extra volumes to add to the Kepler DaemonSet pod
   extraVolumes: []
-  # Extra volume mounts for the Kepler container, e.g. a Redfish Secret
+  # -- Extra volume mounts to add to the Kepler container
   extraVolumeMounts: []
-  # Extra environment variables for the Kepler container
+  # -- Extra environment variables to add to the Kepler container
   extraEnv: []
 
 config:
