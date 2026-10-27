@@ -146,6 +146,7 @@ Redfish BMC power monitoring needs a config file Kepler can read. Mount that Sec
 Create the Secret, then install with a values file:
 
 ```bash
+kubectl create namespace kepler
 kubectl -n kepler create secret generic redfish-config --from-file=redfish.yaml
 ```
 
