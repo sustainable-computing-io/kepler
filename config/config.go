@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -194,11 +195,19 @@ type (
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
 	}
 
+	// PrometheusPower configures the "prometheus" CPU meter, which is
+	// selected by listing it in cpu.preferredMeters.
+	PrometheusPower struct {
+		BaseURL string `yaml:"baseURL"`
+		Query   string `yaml:"query"`
+	}
+
 	// Experimental contains experimental features (no stability guarantees)
 	Experimental struct {
-		Platform Platform        `yaml:"platform"`
-		Hwmon    Hwmon           `yaml:"hwmon"`
-		GPU      ExperimentalGPU `yaml:"gpu"`
+		Platform        Platform        `yaml:"platform"`
+		Hwmon           Hwmon           `yaml:"hwmon"`
+		GPU             ExperimentalGPU `yaml:"gpu"`
+		PrometheusPower PrometheusPower `yaml:"prometheus-power"`
 	}
 
 	Config struct {
@@ -823,6 +832,11 @@ func (c *Config) experimentalFeatureEnabled() bool {
 	if ptr.Deref(c.Experimental.GPU.Enabled, false) {
 		return true
 	}
+
+	// Prometheus power is in use when selected via cpu.preferredMeters
+	if slices.Contains(c.Cpu.PreferredMeters, "prometheus") {
+		return true
+	}
 	// Add checks for future experimental features here
 
 	return false
@@ -854,6 +868,9 @@ func (c *Config) sanitize() {
 	if c.Experimental == nil {
 		return
 	}
+
+	c.Experimental.PrometheusPower.BaseURL = strings.TrimSpace(c.Experimental.PrometheusPower.BaseURL)
+	c.Experimental.PrometheusPower.Query = strings.TrimSpace(c.Experimental.PrometheusPower.Query)
 
 	c.Experimental.Platform.Redfish.NodeName = strings.TrimSpace(c.Experimental.Platform.Redfish.NodeName)
 	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
@@ -934,13 +951,14 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 	{ // cpu.preferredMeters
 		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.
 		validCpuMeters := map[string]bool{
-			"rapl":  true,
-			"hwmon": true,
-			"fake":  true,
+			"rapl":       true,
+			"hwmon":      true,
+			"fake":       true,
+			"prometheus": true,
 		}
 		for _, name := range c.Cpu.PreferredMeters {
 			if !validCpuMeters[name] {
-				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q", name, "rapl", "hwmon", "fake"))
+				errs = append(errs, fmt.Sprintf("invalid cpu.preferredMeters entry %q, must be one of %q, %q, %q, %q", name, "rapl", "hwmon", "fake", "prometheus"))
 			}
 		}
 	}
@@ -1138,7 +1156,16 @@ func validateDCGMEndpoint(endpoint string) []string {
 }
 
 func (c *Config) String() string {
-	bytes, err := yaml.Marshal(c)
+	// Redact credentials embedded in the Prometheus power baseURL without
+	// modifying the original config
+	redacted := *c
+	if c.Experimental != nil {
+		exp := *c.Experimental
+		exp.PrometheusPower.BaseURL = RedactURL(exp.PrometheusPower.BaseURL)
+		redacted.Experimental = &exp
+	}
+
+	bytes, err := yaml.Marshal(&redacted)
 	if err == nil {
 		return string(bytes)
 	}
@@ -1178,4 +1205,18 @@ func (c *Config) manualString() string {
 	}
 
 	return sb.String()
+}
+
+// RedactURL returns rawURL with any userinfo password masked so it can be
+// logged safely. Unparsable URLs are fully masked since they may still
+// contain credentials.
+func RedactURL(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "<redacted: unparsable URL>"
+	}
+	return u.Redacted()
 }

@@ -137,6 +137,18 @@ func buildCPUMeter(name string, logger *slog.Logger, cfg *config.Config) (CPUPow
 	case "fake":
 		return NewFakeCPUMeter(cfg.Dev.FakeCpuMeter.Zones, WithFakeLogger(logger))
 
+	case "prometheus":
+		if cfg.Experimental == nil {
+			return nil, errors.New("experimental.prometheus-power is not configured")
+		}
+		pp := cfg.Experimental.PrometheusPower
+		if pp.BaseURL == "" || pp.Query == "" {
+			return nil, errors.New("experimental.prometheus-power baseURL or query is empty")
+		}
+		logger.Info("Using Prometheus-based node power input", "baseURL", config.RedactURL(pp.BaseURL), "query", pp.Query)
+		client := NewPrometheusClient(pp.BaseURL, pp.Query)
+		return NewPrometheusPowerMeter("node", client.QueryPowerWatt)
+
 	default:
 		return nil, fmt.Errorf("unknown cpu meter %q", name)
 	}
