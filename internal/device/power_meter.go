@@ -14,3 +14,30 @@ type PowerMeter interface {
 	service.Service     // Name()
 	service.Initializer // Init()
 }
+
+// EnergyZone represents a measurable energy or power zone/domain exposed by a power meter.
+// An EnergyZone typically represents a logical zone of the hardware unit, e.g. cpu core, cpu package
+// dram, uncore etc.
+// Reference: https://firefox-source-docs.mozilla.org/performance/power_profiling_overview.html
+type EnergyZone interface {
+	// Name() returns the zone name
+	Name() string
+
+	// Index() returns the index of the zone
+	Index() int
+
+	// Path() returns the path from which the energy usage value ie being read
+	Path() string
+
+	// Energy() returns energy consumed by the zone.
+	Energy() (Energy, error)
+
+	// MaxEnergy returns  the maximum value of energy usage that can be read.
+	// When energy usage reaches this value, the energy value returned by Energy()
+	// will wrap around and start again from zero.
+	MaxEnergy() Energy
+
+	// Power() returns the current power consumption by the zone.
+	// This method is used for zones that provide instantaneous power readings.
+	Power() (Power, error)
+}

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package device
+package cpu
 
 import (
 	"log/slog"
@@ -12,11 +12,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
 const (
-	validHwmonPath = "testdata/sys"
-	badHwmonPath   = "testdata/bad_sysfs"
+	validHwmonPath = "../testdata/sys"
+	badHwmonPath   = "../testdata/bad_sysfs"
 )
 
 // TestHwmonPowerMeterInterface ensures that hwmonPowerMeter properly implements the CPUPowerMeter interface
@@ -46,11 +47,11 @@ func TestWithHwmonReader(t *testing.T) {
 
 	// Create a mock reader
 	mockReader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// Create meter with custom reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// Verify the custom reader was set
@@ -68,7 +69,7 @@ func TestWithHwmonLogger(t *testing.T) {
 	}))
 
 	// Create meter with custom logger
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonLogger(customLogger))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonLogger(customLogger))
 	require.NoError(t, err)
 
 	// Verify logger was set (check that it's not nil and has "service" attribute)
@@ -85,7 +86,7 @@ func TestWithHwmonZoneFilter(t *testing.T) {
 
 	// Create meter with zone filter
 	zoneFilter := []string{"package", "core"}
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonZoneFilter(zoneFilter))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonZoneFilter(zoneFilter))
 	require.NoError(t, err)
 
 	// Verify zone filter was set
@@ -101,7 +102,7 @@ func TestNewHwmonPowerMeter_WithMultipleOptions(t *testing.T) {
 
 	// Create custom components
 	mockReader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 	customLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
@@ -109,7 +110,7 @@ func TestNewHwmonPowerMeter_WithMultipleOptions(t *testing.T) {
 	zoneFilter := []string{"package"}
 
 	// Create meter with all options
-	meter, err := NewHwmonPowerMeter("testdata/sys",
+	meter, err := NewHwmonPowerMeter("../testdata/sys",
 		WithHwmonReader(mockReader),
 		WithHwmonLogger(customLogger),
 		WithHwmonZoneFilter(zoneFilter))
@@ -211,18 +212,18 @@ func TestHwmonPowerMeter_Zones(t *testing.T) {
 		t.Logf("      Index: %d", zone.Index())
 		t.Logf("      Path: %s", zone.Path())
 
-		// Test reading capability - zones provide either Power() or Energy()
+		// Test reading capability - zones provide either device.Power() or device.Energy()
 		power, powerErr := zone.Power()
 		energy, energyErr := zone.Energy()
 
 		if _, ok := zone.(*hwmonEnergyZone); ok {
-			// Energy zones: Energy() succeeds, Power() fails
-			assert.NoError(t, energyErr, "Energy() should succeed for energy zone %s", zone.Name())
-			assert.Error(t, powerErr, "Power() should return error for energy zone %s", zone.Name())
+			// Energy zones: device.Energy() succeeds, device.Power() fails
+			assert.NoError(t, energyErr, "device.Energy() should succeed for energy zone %s", zone.Name())
+			assert.Error(t, powerErr, "device.Power() should return error for energy zone %s", zone.Name())
 			t.Logf("      Energy: %d µJ", energy)
 		} else {
-			// Power zones: Power() succeeds, Energy() fails
-			assert.NoError(t, powerErr, "Power() should not return error for zone %s", zone.Name())
+			// Power zones: device.Power() succeeds, device.Energy() fails
+			assert.NoError(t, powerErr, "device.Power() should not return error for zone %s", zone.Name())
 			t.Logf("      Power: %.2f W", power.Watts())
 		}
 	}
@@ -250,9 +251,9 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 	t.Logf("\n=== Detailed Zone Information ===")
 	for _, zone := range zones {
 		// Check if this is an aggregated zone or regular zone
-		if aggZone, ok := zone.(*AggregatedZone); ok {
+		if aggZone, ok := zone.(*device.AggregatedZone); ok {
 			t.Logf("\nAggregated Zone: %s", zone.Name())
-			t.Logf("  Contains: %d individual zones", len(aggZone.zones))
+			t.Logf("  Contains: %d individual zones", aggZone.Count())
 			t.Logf("  Index: %d (aggregated)", zone.Index())
 
 			power, err := zone.Power()
@@ -332,7 +333,7 @@ func TestHwmonPowerMeter_PowerReadings(t *testing.T) {
 	}
 
 	for _, zone := range zones {
-		// Skip energy-only zones (they don't provide Power())
+		// Skip energy-only zones (they don't provide device.Power())
 		if _, ok := zone.(*hwmonEnergyZone); ok {
 			energy, err := zone.Energy()
 			require.NoError(t, err, "Failed to read energy for zone %s", zone.Name())
@@ -493,7 +494,7 @@ func TestHwmonPowerZone_Interface(t *testing.T) {
 	zone := &hwmonPowerZone{
 		name:      "test_zone",
 		index:     1,
-		path:      "testdata/sys/class/hwmon/hwmon0/power1_input",
+		path:      "../testdata/sys/class/hwmon/hwmon0/power1_input",
 		chipName:  "test_chip",
 		humanName: "test_human",
 	}
@@ -501,18 +502,18 @@ func TestHwmonPowerZone_Interface(t *testing.T) {
 	t.Logf("\n=== Testing hwmonPowerZone Interface ===")
 	assert.Equal(t, "test_zone", zone.Name())
 	assert.Equal(t, 1, zone.Index())
-	assert.Equal(t, "testdata/sys/class/hwmon/hwmon0/power1_input", zone.Path())
+	assert.Equal(t, "../testdata/sys/class/hwmon/hwmon0/power1_input", zone.Path())
 
-	// Test Energy() returns 0
+	// Test device.Energy() returns 0
 	energy, err := zone.Energy()
 	assert.EqualError(t, err, "hwmon zones do not provide energy readings")
-	assert.Equal(t, Energy(0), energy, "Energy() should return 0")
+	assert.Equal(t, device.Energy(0), energy, "device.Energy() should return 0")
 
 	// Test MaxEnergy() returns 0
 	maxEnergy := zone.MaxEnergy()
-	assert.Equal(t, Energy(0), maxEnergy, "MaxEnergy() should return 0")
+	assert.Equal(t, device.Energy(0), maxEnergy, "MaxEnergy() should return 0")
 
-	// Test Power() reads actual value
+	// Test device.Power() reads actual value
 	power, err := zone.Power()
 	assert.NoError(t, err)
 	assert.InDelta(t, 45.0, power.Watts(), 0.01, "Power should be 45W from test file")
@@ -641,13 +642,13 @@ func TestHwmonPowerMeter_RealSystem(t *testing.T) {
 // TestGetChipName_DevicePathStrategy tests chip name derivation from device symlink
 func TestGetChipName_DevicePathStrategy(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Logf("\n=== Testing Device Path Strategy for Chip Name ===")
 
 	// Test with device symlink present
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_device_path"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_device_path"
 	chipName, err := reader.getChipName(hwmonPath)
 
 	require.NoError(t, err, "getChipName should not fail with device symlink")
@@ -663,13 +664,13 @@ func TestGetChipName_DevicePathStrategy(t *testing.T) {
 // TestGetChipName_DirectoryFallback tests chip name derivation from directory name
 func TestGetChipName_DirectoryFallback(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Logf("\n=== Testing Directory Name Fallback for Chip Name ===")
 
 	// Test with no name file and no device symlink
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_dir_fallback"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_dir_fallback"
 	chipName, err := reader.getChipName(hwmonPath)
 
 	require.NoError(t, err, "getChipName should fall back to directory name")
@@ -684,7 +685,7 @@ func TestGetChipName_DirectoryFallback(t *testing.T) {
 // TestGetChipName_AllStrategies tests all chip name derivation strategies
 func TestGetChipName_AllStrategies(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	testCases := []struct {
@@ -696,21 +697,21 @@ func TestGetChipName_AllStrategies(t *testing.T) {
 	}{
 		{
 			name:             "device_path_strategy",
-			hwmonPath:        "testdata/sys/class/hwmon/hwmon_device_path",
+			hwmonPath:        "../testdata/sys/class/hwmon/hwmon_device_path",
 			expectError:      false,
 			expectedContains: "card0",
 			description:      "Should derive name from device symlink path",
 		},
 		{
 			name:             "name_file_strategy",
-			hwmonPath:        "testdata/sys/class/hwmon/hwmon0",
+			hwmonPath:        "../testdata/sys/class/hwmon/hwmon0",
 			expectError:      false,
 			expectedContains: "k10temp",
 			description:      "Should read name from 'name' file",
 		},
 		{
 			name:             "directory_fallback_strategy",
-			hwmonPath:        "testdata/sys/class/hwmon/hwmon_dir_fallback",
+			hwmonPath:        "../testdata/sys/class/hwmon/hwmon_dir_fallback",
 			expectError:      false,
 			expectedContains: "hwmon_dir_fallback",
 			description:      "Should fall back to directory name",
@@ -738,12 +739,12 @@ func TestGetChipName_AllStrategies(t *testing.T) {
 // TestSysfsHwmonReader_DiscoverZones_DevicePath tests zone discovery with device path
 func TestSysfsHwmonReader_DiscoverZones_DevicePath(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Logf("\n=== Testing Zone Discovery with Device Path ===")
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_device_path")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_device_path")
 	require.NoError(t, err, "Should discover zones in hwmon_device_path")
 	assert.NotEmpty(t, zones, "Should find at least one zone")
 
@@ -772,12 +773,12 @@ func TestSysfsHwmonReader_DiscoverZones_DevicePath(t *testing.T) {
 // TestSysfsHwmonReader_DiscoverZones_DirectoryFallback tests zone discovery with dir fallback
 func TestSysfsHwmonReader_DiscoverZones_DirectoryFallback(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Logf("\n=== Testing Zone Discovery with Directory Fallback ===")
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_dir_fallback")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_dir_fallback")
 	require.NoError(t, err, "Should discover zones in hwmon_dir_fallback")
 	assert.NotEmpty(t, zones, "Should find at least one zone")
 
@@ -833,7 +834,7 @@ func TestGetChipName_DeviceNameOnly(t *testing.T) {
 
 // TestGetChipName_ErrorCases tests error conditions
 func TestGetChipName_ErrorCases(t *testing.T) {
-	reader := &sysfsHwmonReader{basePath: "testdata/sys/class/hwmon"}
+	reader := &sysfsHwmonReader{basePath: "../testdata/sys/class/hwmon"}
 
 	t.Run("nonexistent_path", func(t *testing.T) {
 		_, err := reader.getChipName("nonexistent/path/that/does/not/exist")
@@ -933,7 +934,7 @@ func TestIsSymlink(t *testing.T) {
 	// Test with existing test data
 	t.Run("test_with_existing_symlink_in_testdata", func(t *testing.T) {
 		// We created a device symlink in hwmon_device_path earlier
-		deviceSymlink := "testdata/sys/class/hwmon/hwmon_device_path/device"
+		deviceSymlink := "../testdata/sys/class/hwmon/hwmon_device_path/device"
 
 		result := isSymlink(deviceSymlink)
 		assert.True(t, result, "isSymlink should return true for device symlink")
@@ -946,7 +947,7 @@ func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
 	t.Logf("\n=== Testing Aggregated Zones ===")
 
 	// Create a meter that will discover zones with duplicate names
-	meter, err := NewHwmonPowerMeter("testdata/sys")
+	meter, err := NewHwmonPowerMeter("../testdata/sys")
 	require.NoError(t, err)
 
 	// Discover zones - this should trigger aggregation
@@ -956,7 +957,7 @@ func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
 	t.Logf("Found %d zones after aggregation", len(zones))
 
 	// Look for the aggregated "package" zone
-	var aggregatedZone EnergyZone
+	var aggregatedZone device.EnergyZone
 	for _, zone := range zones {
 		if zone.Name() == "package" {
 			aggregatedZone = zone
@@ -966,20 +967,20 @@ func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
 
 	require.NotNil(t, aggregatedZone, "Should find 'package' zone")
 
-	// Check if it's an AggregatedZone by checking the index
-	// AggregatedZone has index = -1
+	// Check if it's an device.AggregatedZone by checking the index
+	// device.AggregatedZone has index = -1
 	if aggregatedZone.Index() == -1 {
-		t.Logf("✓ Zone 'package' is an AggregatedZone (index=-1)")
+		t.Logf("✓ Zone 'package' is an device.AggregatedZone (index=-1)")
 
-		// Verify it's actually an AggregatedZone type
-		aggZone, ok := aggregatedZone.(*AggregatedZone)
-		require.True(t, ok, "Zone should be *AggregatedZone type")
+		// Verify it's actually an device.AggregatedZone type
+		aggZone, ok := aggregatedZone.(*device.AggregatedZone)
+		require.True(t, ok, "Zone should be *device.AggregatedZone type")
 
-		t.Logf("  Aggregated zone contains %d individual zones", len(aggZone.zones))
+		t.Logf("  Aggregated zone contains %d individual zones", aggZone.Count())
 		assert.Equal(t, "package", aggZone.Name())
 		assert.Equal(t, -1, aggZone.Index())
 
-		// Test Power() - should sum power from all package zones
+		// Test device.Power() - should sum power from all package zones
 		totalPower, err := aggZone.Power()
 		require.NoError(t, err)
 
@@ -989,14 +990,14 @@ func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
 		// Total should be sum of all package zones found
 		assert.Greater(t, totalPower.Watts(), 0.0,
 			"Aggregated power should be positive")
-		assert.Equal(t, len(aggZone.zones), 3,
+		assert.Equal(t, aggZone.Count(), 3,
 			"Should aggregate all package zones from test data")
 
 		// Expected: 45W + 50W + 30W = 125W
 		assert.InDelta(t, 125.0, totalPower.Watts(), 0.01,
 			"Aggregated power should be sum of all package zones (45W + 50W + 30W = 125W)")
 		t.Logf("  Total aggregated power: %.2f W from %d zones",
-			totalPower.Watts(), len(aggZone.zones))
+			totalPower.Watts(), aggZone.Count())
 
 	} else {
 		t.Logf("Zone 'package' is a single zone (index=%d)", aggregatedZone.Index())
@@ -1010,7 +1011,7 @@ func TestGroupZonesByName(t *testing.T) {
 	}
 
 	t.Run("single_zone_per_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0},
 			&hwmonPowerZone{name: "core", index: 1},
 			&hwmonPowerZone{name: "gpu", index: 2},
@@ -1029,7 +1030,7 @@ func TestGroupZonesByName(t *testing.T) {
 	})
 
 	t.Run("multiple_zones_same_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0, path: "/path1"},
 			&hwmonPowerZone{name: "package", index: 1, path: "/path2"},
 			&hwmonPowerZone{name: "core", index: 2, path: "/path3"},
@@ -1041,8 +1042,8 @@ func TestGroupZonesByName(t *testing.T) {
 			"Should have 2 zones (package aggregated, core single)")
 
 		// Find the package zone
-		var packageZone EnergyZone
-		var coreZone EnergyZone
+		var packageZone device.EnergyZone
+		var coreZone device.EnergyZone
 		for _, zone := range result {
 			if zone.Name() == "package" {
 				packageZone = zone
@@ -1068,7 +1069,7 @@ func TestGroupZonesByName(t *testing.T) {
 	})
 
 	t.Run("all_zones_same_name", func(t *testing.T) {
-		zones := []EnergyZone{
+		zones := []device.EnergyZone{
 			&hwmonPowerZone{name: "package", index: 0},
 			&hwmonPowerZone{name: "package", index: 1},
 			&hwmonPowerZone{name: "package", index: 2},
@@ -1082,9 +1083,9 @@ func TestGroupZonesByName(t *testing.T) {
 		assert.Equal(t, -1, result[0].Index(),
 			"Should be aggregated zone with index=-1")
 
-		aggZone, ok := result[0].(*AggregatedZone)
-		require.True(t, ok, "Should be AggregatedZone type")
-		assert.Equal(t, 3, len(aggZone.zones),
+		aggZone, ok := result[0].(*device.AggregatedZone)
+		require.True(t, ok, "Should be device.AggregatedZone type")
+		assert.Equal(t, 3, aggZone.Count(),
 			"Should aggregate all 3 zones")
 
 		t.Logf("✓ All zones with same name are aggregated into one")
@@ -1094,13 +1095,13 @@ func TestGroupZonesByName(t *testing.T) {
 // TestSysfsHwmonReader_DiscoverZones_Aggregation tests zone discovery with aggregation
 func TestSysfsHwmonReader_DiscoverZones_Aggregation(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Logf("\n=== Testing Zone Discovery with Aggregation ===")
 
 	// hwmon_aggregate has two power sensors with the same label "package"
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_aggregate")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_aggregate")
 	require.NoError(t, err, "Should discover zones in hwmon_aggregate")
 	assert.Equal(t, 2, len(zones), "Should find 2 zones with same name")
 
@@ -1161,20 +1162,20 @@ func TestCleanMetricName(t *testing.T) {
 
 // mockHwmonReader is a mock implementation of hwmonReader for testing error paths
 type mockHwmonReader struct {
-	zones []EnergyZone
+	zones []device.EnergyZone
 	err   error
 }
 
-func (m *mockHwmonReader) Zones() ([]EnergyZone, error) {
+func (m *mockHwmonReader) Zones() ([]device.EnergyZone, error) {
 	return m.zones, m.err
 }
 
-// TestHwmonPowerMeter_Init_PowerReadError tests Init() error path when Power() fails
+// TestHwmonPowerMeter_Init_PowerReadError tests Init() error path when device.Power() fails
 func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 	t.Logf("\n=== Testing Init() Error Path: Power Read Failure ===")
 
-	// Create a mock zone that fails on both Power() and Energy() calls
-	mockZone := &mockEnergyZone{
+	// Create a mock zone that fails on both device.Power() and device.Energy() calls
+	mockZone := &testMockEnergyZone{
 		name:     "test_zone",
 		index:    0,
 		path:     "/fake/path",
@@ -1185,17 +1186,17 @@ func TestHwmonPowerMeter_Init_PowerReadError(t *testing.T) {
 
 	// Create mock reader that returns the failing zone
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{mockZone},
+		zones: []device.EnergyZone{mockZone},
 		err:   nil,
 	}
 
 	// Create meter with mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
-	// Init should fail when both Power() and Energy() fail on first zone
+	// Init should fail when both device.Power() and device.Energy() fail on first zone
 	err = meter.Init()
-	assert.Error(t, err, "Init() should fail when both Power() and Energy() fail on first zone")
+	assert.Error(t, err, "Init() should fail when both device.Power() and device.Energy() fail on first zone")
 	t.Logf("✓ Init() correctly failed with error: %v", err)
 }
 
@@ -1210,7 +1211,7 @@ func TestHwmonPowerMeter_Zones_ReaderError(t *testing.T) {
 	}
 
 	// Create meter with failing mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// Zones() should return the error from reader
@@ -1225,7 +1226,7 @@ func TestHwmonPowerMeter_Zones_AllFiltered(t *testing.T) {
 	t.Logf("\n=== Testing Zones() Error Path: All Zones Filtered Out ===")
 
 	// Create meter with zone filter that excludes all zones
-	meter, err := NewHwmonPowerMeter("testdata/sys",
+	meter, err := NewHwmonPowerMeter("../testdata/sys",
 		WithHwmonZoneFilter([]string{"nonexistent_zone"}))
 	require.NoError(t, err)
 
@@ -1249,7 +1250,7 @@ func TestHwmonPowerMeter_PrimaryEnergyZone_ZonesError(t *testing.T) {
 	}
 
 	// Create meter with failing mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// PrimaryEnergyZone() should return the error from Zones()
@@ -1265,12 +1266,12 @@ func TestHwmonPowerMeter_PrimaryEnergyZone_NoZones(t *testing.T) {
 
 	// Create mock reader that returns empty zones list
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
 	// Create meter with mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// PrimaryEnergyZone() should fail when zones list is empty
@@ -1288,7 +1289,7 @@ func TestSysReadFile_ErrorPaths(t *testing.T) {
 
 	t.Run("nonexistent_file", func(t *testing.T) {
 		// Try to read a file that doesn't exist
-		data, err := sysReadFile("testdata/nonexistent_file_that_does_not_exist.txt")
+		data, err := sysReadFile("../testdata/nonexistent_file_that_does_not_exist.txt")
 		assert.Error(t, err, "sysReadFile should fail for nonexistent file")
 		assert.Nil(t, data, "Data should be nil on error")
 		t.Logf("✓ Nonexistent file error: %v", err)
@@ -1296,7 +1297,7 @@ func TestSysReadFile_ErrorPaths(t *testing.T) {
 
 	t.Run("directory_instead_of_file", func(t *testing.T) {
 		// Try to read a directory instead of a file
-		data, err := sysReadFile("testdata/sys/class/hwmon")
+		data, err := sysReadFile("../testdata/sys/class/hwmon")
 		assert.Error(t, err, "sysReadFile should fail when trying to read a directory")
 		assert.Nil(t, data, "Data should be nil on error")
 		t.Logf("✓ Directory read error: %v", err)
@@ -1309,12 +1310,12 @@ func TestHwmonPowerMeter_Init_NoZonesFound(t *testing.T) {
 
 	// Create mock reader that returns empty zones
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
 	// Create meter with mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// Init should fail when no zones are found
@@ -1331,12 +1332,12 @@ func TestHwmonPowerMeter_Zones_ReaderReturnsEmpty(t *testing.T) {
 
 	// Create mock reader that returns empty zones list without error
 	mockReader := &mockHwmonReader{
-		zones: []EnergyZone{},
+		zones: []device.EnergyZone{},
 		err:   nil,
 	}
 
 	// Create meter with mock reader
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// Zones() should fail when reader returns empty list
@@ -1348,7 +1349,7 @@ func TestHwmonPowerMeter_Zones_ReaderReturnsEmpty(t *testing.T) {
 	t.Logf("✓ Zones() correctly failed with: %v", err)
 }
 
-// TestHwmonPowerZone_Power_FileReadError tests Power() error when file read fails
+// TestHwmonPowerZone_Power_FileReadError tests device.Power() error when file read fails
 func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 	t.Logf("\n=== Testing hwmonPowerZone.Power() Error Paths ===")
 
@@ -1356,12 +1357,12 @@ func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 		zone := &hwmonPowerZone{
 			name:  "test_zone",
 			index: 0,
-			path:  "testdata/nonexistent_power_file.txt",
+			path:  "../testdata/nonexistent_power_file.txt",
 		}
 
 		power, err := zone.Power()
-		assert.Error(t, err, "Power() should fail for nonexistent file")
-		assert.Equal(t, Power(0), power, "Power should be 0 on error")
+		assert.Error(t, err, "device.Power() should fail for nonexistent file")
+		assert.Equal(t, device.Power(0), power, "Power should be 0 on error")
 		assert.Contains(t, err.Error(), "failed to read power",
 			"Error should mention power read failure")
 		t.Logf("✓ Nonexistent file error: %v", err)
@@ -1381,8 +1382,8 @@ func TestHwmonPowerZone_Power_FileReadError(t *testing.T) {
 		}
 
 		power, err := zone.Power()
-		assert.Error(t, err, "Power() should fail for invalid content")
-		assert.Equal(t, Power(0), power, "Power should be 0 on error")
+		assert.Error(t, err, "device.Power() should fail for invalid content")
+		assert.Equal(t, device.Power(0), power, "Power should be 0 on error")
 		assert.Contains(t, err.Error(), "failed to parse power value",
 			"Error should mention parse failure")
 		t.Logf("✓ Invalid content error: %v", err)
@@ -1394,7 +1395,7 @@ func TestSysfsHwmonReader_Zones_HwmonNotAvailable(t *testing.T) {
 	t.Logf("\n=== Testing sysfsHwmonReader.Zones() Error: hwmon Not Available ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/nonexistent_hwmon_directory",
+		basePath: "../testdata/nonexistent_hwmon_directory",
 	}
 
 	zones, err := reader.Zones()
@@ -1407,12 +1408,12 @@ func TestSysfsHwmonReader_Zones_HwmonNotAvailable(t *testing.T) {
 
 // TestHwmonPowerMeter_PrimaryEnergyZone_FallbackToFirstZone tests fallback when no priority zones exist
 func TestHwmonPowerMeter_PrimaryEnergyZone_FallbackToFirstZone(t *testing.T) {
-	t.Logf("\n=== Testing PrimaryEnergyZone() Fallback to First Zone ===")
+	t.Logf("\n=== Testing PrimaryEnergyZone() Fallback to Firstdevice.Zone ===")
 
 	// Create zones with names that don't match any priority names
-	mockZones := []EnergyZone{
-		&mockEnergyZone{name: "unknown_sensor_1", index: 0, power: 10.0, maxEnergy: 1000},
-		&mockEnergyZone{name: "unknown_sensor_2", index: 1, power: 20.0, maxEnergy: 1000},
+	mockZones := []device.EnergyZone{
+		&testMockEnergyZone{name: "unknown_sensor_1", index: 0, power: 10.0, maxEnergy: 1000},
+		&testMockEnergyZone{name: "unknown_sensor_2", index: 1, power: 20.0, maxEnergy: 1000},
 	}
 
 	mockReader := &mockHwmonReader{
@@ -1420,7 +1421,7 @@ func TestHwmonPowerMeter_PrimaryEnergyZone_FallbackToFirstZone(t *testing.T) {
 		err:   nil,
 	}
 
-	meter, err := NewHwmonPowerMeter("testdata/sys", WithHwmonReader(mockReader))
+	meter, err := NewHwmonPowerMeter("../testdata/sys", WithHwmonReader(mockReader))
 	require.NoError(t, err)
 
 	// PrimaryEnergyZone should fall back to first zone
@@ -1477,18 +1478,18 @@ func TestGetHumanReadableChipName_ErrorCases(t *testing.T) {
 	t.Logf("\n=== Testing getHumanReadableChipName() Error Cases ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	t.Run("no_name_file", func(t *testing.T) {
 		// Directory without a name file (using dir_fallback test fixture)
-		_, err := reader.getHumanReadableChipName("testdata/sys/class/hwmon/hwmon_dir_fallback")
+		_, err := reader.getHumanReadableChipName("../testdata/sys/class/hwmon/hwmon_dir_fallback")
 		assert.Error(t, err, "Should return error when name file doesn't exist")
 		t.Logf("✓ Correctly returned error for missing name file")
 	})
 
 	t.Run("nonexistent_directory", func(t *testing.T) {
-		_, err := reader.getHumanReadableChipName("testdata/nonexistent_hwmon_path")
+		_, err := reader.getHumanReadableChipName("../testdata/nonexistent_hwmon_path")
 		assert.Error(t, err, "Should return error for nonexistent directory")
 		t.Logf("✓ Correctly returned error for nonexistent directory")
 	})
@@ -1499,7 +1500,7 @@ func TestDiscoverZones_GetChipNameError(t *testing.T) {
 	t.Logf("\n=== Testing discoverZones() When getChipName Fails ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// Test with a path that will cause getChipName to fail
@@ -1527,7 +1528,7 @@ func TestDiscoverZones_GetChipNameError(t *testing.T) {
 
 // TestHwmonCalculatedPowerZoneInterface ensures hwmonVoltageCurrentZone implements EnergyZone
 func TestHwmonCalculatedPowerZoneInterface(t *testing.T) {
-	var _ EnergyZone = (*hwmonVoltageCurrentZone)(nil)
+	var _ device.EnergyZone = (*hwmonVoltageCurrentZone)(nil)
 	t.Log("✓ hwmonVoltageCurrentZone implements EnergyZone interface")
 }
 
@@ -1538,14 +1539,14 @@ func TestHwmonCalculatedPowerZone_Power(t *testing.T) {
 	zone := &hwmonVoltageCurrentZone{
 		name:        "vdd_cpu",
 		index:       1,
-		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
-		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		voltagePath: "../testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "../testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
 		chipName:    "ina3221",
 		humanName:   "ina3221",
 	}
 
 	power, err := zone.Power()
-	require.NoError(t, err, "Power() should not return error")
+	require.NoError(t, err, "device.Power() should not return error")
 
 	// Expected: 12000 mV × 5000 mA = 60,000,000 µW = 60 W
 	expectedPowerMicrowatts := float64(12000 * 5000)
@@ -1584,15 +1585,15 @@ func TestHwmonCalculatedPowerZone_Methods(t *testing.T) {
 	assert.Equal(t, "/path/to/voltage", zone.Path())
 	t.Logf("✓ Path() = %s", zone.Path())
 
-	// Test Energy() - returns error
+	// Test device.Energy() - returns error
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for calculated power zones")
-	assert.Equal(t, Energy(0), energy)
-	t.Logf("✓ Energy() correctly returns error: %v", err)
+	assert.Error(t, err, "device.Energy() should return error for calculated power zones")
+	assert.Equal(t, device.Energy(0), energy)
+	t.Logf("✓ device.Energy() correctly returns error: %v", err)
 
 	// Test MaxEnergy() - returns 0
 	maxEnergy := zone.MaxEnergy()
-	assert.Equal(t, Energy(0), maxEnergy)
+	assert.Equal(t, device.Energy(0), maxEnergy)
 	t.Logf("✓ MaxEnergy() = %d", maxEnergy)
 }
 
@@ -1603,16 +1604,16 @@ func TestHwmonCalculatedPowerZone_Power_VoltageReadError(t *testing.T) {
 	zone := &hwmonVoltageCurrentZone{
 		name:        "test_zone",
 		index:       1,
-		voltagePath: "testdata/nonexistent_voltage_file",
-		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		voltagePath: "../testdata/nonexistent_voltage_file",
+		currentPath: "../testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
 		chipName:    "test_chip",
 		humanName:   "test_human",
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail when voltage file doesn't exist")
+	assert.Error(t, err, "device.Power() should fail when voltage file doesn't exist")
 	assert.Contains(t, err.Error(), "failed to read voltage")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1623,16 +1624,16 @@ func TestHwmonCalculatedPowerZone_Power_CurrentReadError(t *testing.T) {
 	zone := &hwmonVoltageCurrentZone{
 		name:        "test_zone",
 		index:       1,
-		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
-		currentPath: "testdata/nonexistent_current_file",
+		voltagePath: "../testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "../testdata/nonexistent_current_file",
 		chipName:    "test_chip",
 		humanName:   "test_human",
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail when current file doesn't exist")
+	assert.Error(t, err, "device.Power() should fail when current file doesn't exist")
 	assert.Contains(t, err.Error(), "failed to read current")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1650,15 +1651,15 @@ func TestHwmonCalculatedPowerZone_Power_InvalidVoltageContent(t *testing.T) {
 		name:        "test_zone",
 		index:       1,
 		voltagePath: invalidFile,
-		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		currentPath: "../testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
 		chipName:    "test_chip",
 		humanName:   "test_human",
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail for invalid voltage content")
+	assert.Error(t, err, "device.Power() should fail for invalid voltage content")
 	assert.Contains(t, err.Error(), "failed to parse voltage")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1675,16 +1676,16 @@ func TestHwmonCalculatedPowerZone_Power_InvalidCurrentContent(t *testing.T) {
 	zone := &hwmonVoltageCurrentZone{
 		name:        "test_zone",
 		index:       1,
-		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		voltagePath: "../testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
 		currentPath: invalidFile,
 		chipName:    "test_chip",
 		humanName:   "test_human",
 	}
 
 	power, err := zone.Power()
-	assert.Error(t, err, "Power() should fail for invalid current content")
+	assert.Error(t, err, "device.Power() should fail for invalid current content")
 	assert.Contains(t, err.Error(), "failed to parse current")
-	assert.Equal(t, Power(0), power)
+	assert.Equal(t, device.Power(0), power)
 	t.Logf("✓ Correctly returned error: %v", err)
 }
 
@@ -1693,11 +1694,11 @@ func TestDiscoverVoltageCurrentZones_MatchByLabel(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery with Label Matching ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// Read files from the test fixture
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -1733,11 +1734,11 @@ func TestDiscoverVoltageCurrentZones_NoLabels(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery Without Labels ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// This fixture has voltage and current but no labels
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_no_labels"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current_no_labels"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -1755,10 +1756,10 @@ func TestDiscoverVoltageCurrentZones_MultiplePairs(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery with Multiple Pairs ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_multi"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current_multi"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -1770,7 +1771,7 @@ func TestDiscoverVoltageCurrentZones_MultiplePairs(t *testing.T) {
 	assert.Equal(t, 2, len(zones), "Should find 2 matched pairs")
 
 	// Create a map of zone names for verification
-	zoneNames := make(map[string]EnergyZone)
+	zoneNames := make(map[string]device.EnergyZone)
 	for _, zone := range zones {
 		zoneNames[zone.Name()] = zone
 	}
@@ -1811,7 +1812,7 @@ func TestDiscoverVoltageCurrentZones_PrefersAverageOverInput(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery Prefers _average Over _input ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// This fixture has both _input and _average files with different values
@@ -1819,7 +1820,7 @@ func TestDiscoverVoltageCurrentZones_PrefersAverageOverInput(t *testing.T) {
 	// curr1_input: 5000 mA, curr1_average: 4900 mA
 	// If _average is preferred: Power = 11800 × 4900 = 57,820,000 µW = 57.82 W
 	// If _input was used: Power = 12000 × 5000 = 60,000,000 µW = 60 W
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_average"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current_average"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -1853,7 +1854,7 @@ func TestDiscoverVoltageCurrentZones_PartialAverageFallsBackToInput(t *testing.T
 	t.Logf("\n=== Testing Partial _average Falls Back to _input for Both ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// This fixture has:
@@ -1862,7 +1863,7 @@ func TestDiscoverVoltageCurrentZones_PartialAverageFallsBackToInput(t *testing.T
 	// Since current lacks _average, both should use _input:
 	// Power = 12000 × 5000 = 60,000,000 µW = 60 W
 	// NOT: 11800 × 5000 = 59 W (which would be mixing average/input)
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current_partial_average"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current_partial_average"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -1894,11 +1895,11 @@ func TestDiscoverZones_FallbackToVoltageCurrentWhenNoPower(t *testing.T) {
 	t.Logf("\n=== Testing discoverZones() Fallback to Voltage/Current ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// hwmon_voltage_current has no power sensors, only voltage/current pairs
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_voltage_current")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_voltage_current")
 	require.NoError(t, err, "discoverZones should succeed with voltage/current fallback")
 	require.NotEmpty(t, zones, "Should find zones via voltage/current fallback")
 
@@ -1921,11 +1922,11 @@ func TestDiscoverZones_PreferDirectPowerOverCalculated(t *testing.T) {
 	t.Logf("\n=== Testing discoverZones() Prefers Direct Power ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// hwmon0 has direct power sensors
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon0")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon0")
 	require.NoError(t, err)
 	require.NotEmpty(t, zones)
 
@@ -1949,7 +1950,7 @@ func TestHwmonPowerMeter_WithVoltageCurrentZones(t *testing.T) {
 	require.NoError(t, err)
 
 	// Copy voltage/current fixture files
-	srcDir := "testdata/sys/class/hwmon/hwmon_voltage_current"
+	srcDir := "../testdata/sys/class/hwmon/hwmon_voltage_current"
 	files := []string{"name", "in1_input", "in1_label", "curr1_input", "curr1_label"}
 	for _, f := range files {
 		srcData, err := os.ReadFile(filepath.Join(srcDir, f))
@@ -1995,7 +1996,7 @@ func TestDiscoverVoltageCurrentZones_EmptySensors(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery with No Sensors ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// Create temporary directory with only temperature sensors
@@ -2023,7 +2024,7 @@ func TestDiscoverVoltageCurrentZones_VoltageOnly(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery with Voltage Only ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	tmpDir := t.TempDir()
@@ -2052,7 +2053,7 @@ func TestDiscoverVoltageCurrentZones_CurrentOnly(t *testing.T) {
 	t.Logf("\n=== Testing Voltage/Current Discovery with Current Only ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	tmpDir := t.TempDir()
@@ -2083,8 +2084,8 @@ func TestHwmonCalculatedPowerZone_MultipleReadings(t *testing.T) {
 	zone := &hwmonVoltageCurrentZone{
 		name:        "vdd_cpu",
 		index:       1,
-		voltagePath: "testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
-		currentPath: "testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
+		voltagePath: "../testdata/sys/class/hwmon/hwmon_voltage_current/in1_input",
+		currentPath: "../testdata/sys/class/hwmon/hwmon_voltage_current/curr1_input",
 		chipName:    "ina3221",
 		humanName:   "ina3221",
 	}
@@ -2248,10 +2249,10 @@ func TestDiscoverVoltageCurrentZones_INA226ChipRule(t *testing.T) {
 	t.Logf("INA226 has: in0 (shunt), in1 (bus), curr1 - rule: in1 ↔ curr1, skip in0")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_ina226"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_ina226"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -2279,10 +2280,10 @@ func TestDiscoverVoltageCurrentZones_INA3221ChipRule(t *testing.T) {
 	t.Logf("Rule: in{N} ↔ curr{N} for N=1..3, skip in4-7")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_ina3221"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_ina3221"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -2308,10 +2309,10 @@ func TestDiscoverVoltageCurrentZones_MAX20730ExceptionRule(t *testing.T) {
 	t.Logf("MAX20730 EXCEPTION: curr1 is output current, pairs with in2 (VOUT), not in1")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_max20730"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_max20730"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -2343,10 +2344,10 @@ func TestDiscoverVoltageCurrentZones_SameIndexFallback(t *testing.T) {
 	t.Logf("When chip is unknown, fall back to same-index matching: in{N} ↔ curr{N}")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_same_index"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_same_index"
 	files, err := os.ReadDir(hwmonPath)
 	require.NoError(t, err)
 
@@ -2370,13 +2371,13 @@ func TestDiscoverVoltageCurrentZones_PriorityOrder(t *testing.T) {
 	t.Logf("\n=== Testing Priority Order: Label > Chip Rule > Same-Index ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
 	// Test 1: Label matching takes priority
 	// hwmon_voltage_current has labels, should use label matching even for known chip
 	t.Run("LabelMatchingTakesPriority", func(t *testing.T) {
-		hwmonPath := "testdata/sys/class/hwmon/hwmon_voltage_current"
+		hwmonPath := "../testdata/sys/class/hwmon/hwmon_voltage_current"
 		files, err := os.ReadDir(hwmonPath)
 		require.NoError(t, err)
 
@@ -2394,7 +2395,7 @@ func TestDiscoverVoltageCurrentZones_PriorityOrder(t *testing.T) {
 
 	// Test 2: Chip rule used when no labels
 	t.Run("ChipRuleWhenNoLabels", func(t *testing.T) {
-		hwmonPath := "testdata/sys/class/hwmon/hwmon_ina226"
+		hwmonPath := "../testdata/sys/class/hwmon/hwmon_ina226"
 		files, err := os.ReadDir(hwmonPath)
 		require.NoError(t, err)
 
@@ -2406,7 +2407,7 @@ func TestDiscoverVoltageCurrentZones_PriorityOrder(t *testing.T) {
 
 	// Test 3: Same-index used when no labels and unknown chip
 	t.Run("SameIndexWhenUnknownChip", func(t *testing.T) {
-		hwmonPath := "testdata/sys/class/hwmon/hwmon_same_index"
+		hwmonPath := "../testdata/sys/class/hwmon/hwmon_same_index"
 		files, err := os.ReadDir(hwmonPath)
 		require.NoError(t, err)
 
@@ -2453,34 +2454,34 @@ func TestIsSensorEnabled(t *testing.T) {
 
 	t.Run("enabled_channel", func(t *testing.T) {
 		// in1_enable = 1 in the disabled_channel test directory
-		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 1, nil)
+		result := isSensorEnabled("../testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 1, nil)
 		assert.True(t, result, "Channel with enable=1 should be enabled")
 		t.Logf("✓ Channel with enable=1 correctly identified as enabled")
 	})
 
 	t.Run("disabled_channel", func(t *testing.T) {
 		// in3_enable = 0 in the disabled_channel test directory
-		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 3, nil)
+		result := isSensorEnabled("../testdata/sys/class/hwmon/hwmon_disabled_channel", "in", 3, nil)
 		assert.False(t, result, "Channel with enable=0 should be disabled")
 		t.Logf("✓ Channel with enable=0 correctly identified as disabled")
 	})
 
 	t.Run("no_enable_file", func(t *testing.T) {
 		// hwmon0 doesn't have enable files - should default to enabled
-		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon0", "power", 1, nil)
+		result := isSensorEnabled("../testdata/sys/class/hwmon/hwmon0", "power", 1, nil)
 		assert.True(t, result, "Channel without enable file should be considered enabled")
 		t.Logf("✓ Channel without enable file correctly defaults to enabled")
 	})
 
 	t.Run("enabled_power_channel", func(t *testing.T) {
 		// power1_enable = 1 in the disabled_power test directory
-		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 1, nil)
+		result := isSensorEnabled("../testdata/sys/class/hwmon/hwmon_disabled_power", "power", 1, nil)
 		assert.True(t, result, "Power channel with enable=1 should be enabled")
 	})
 
 	t.Run("disabled_power_channel", func(t *testing.T) {
 		// power3_enable = 0 in the disabled_power test directory
-		result := isSensorEnabled("testdata/sys/class/hwmon/hwmon_disabled_power", "power", 3, nil)
+		result := isSensorEnabled("../testdata/sys/class/hwmon/hwmon_disabled_power", "power", 3, nil)
 		assert.False(t, result, "Power channel with enable=0 should be disabled")
 	})
 }
@@ -2490,10 +2491,10 @@ func TestDisabledChannelSkipping(t *testing.T) {
 	t.Logf("\n=== Testing Disabled Channel Skipping ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_channel"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_disabled_channel"
 	zones, err := reader.discoverZones(hwmonPath)
 
 	require.NoError(t, err, "discoverZones should not fail")
@@ -2522,10 +2523,10 @@ func TestDisabledPowerChannelSkipping(t *testing.T) {
 	t.Logf("\n=== Testing Disabled Power Channel Skipping ===")
 
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_disabled_power"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_disabled_power"
 	zones, err := reader.discoverZones(hwmonPath)
 
 	require.NoError(t, err, "discoverZones should not fail")
@@ -2556,12 +2557,12 @@ func TestHwmonEnergyZone_Energy(t *testing.T) {
 	zone := &hwmonEnergyZone{
 		name:  "total",
 		index: 1,
-		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+		path:  "../testdata/sys/class/hwmon/hwmon_energy/energy1_input",
 	}
 
 	energy, err := zone.Energy()
 	require.NoError(t, err)
-	assert.Equal(t, Energy(500000000), energy, "Should read 500000000 microjoules")
+	assert.Equal(t, device.Energy(500000000), energy, "Should read 500000000 microjoules")
 }
 
 // TestHwmonEnergyZone_MaxEnergy tests that MaxEnergy returns 0 for energy zones
@@ -2569,10 +2570,10 @@ func TestHwmonEnergyZone_MaxEnergy(t *testing.T) {
 	zone := &hwmonEnergyZone{
 		name:  "total",
 		index: 1,
-		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+		path:  "../testdata/sys/class/hwmon/hwmon_energy/energy1_input",
 	}
 
-	assert.Equal(t, Energy(0), zone.MaxEnergy(), "MaxEnergy should return 0 for hwmon energy zones")
+	assert.Equal(t, device.Energy(0), zone.MaxEnergy(), "MaxEnergy should return 0 for hwmon energy zones")
 }
 
 // TestHwmonEnergyZone_Power tests that Power returns error for energy zones
@@ -2580,11 +2581,11 @@ func TestHwmonEnergyZone_Power(t *testing.T) {
 	zone := &hwmonEnergyZone{
 		name:  "total",
 		index: 1,
-		path:  "testdata/sys/class/hwmon/hwmon_energy/energy1_input",
+		path:  "../testdata/sys/class/hwmon/hwmon_energy/energy1_input",
 	}
 
 	_, err := zone.Power()
-	assert.Error(t, err, "Power() should return error for energy zones")
+	assert.Error(t, err, "device.Power() should return error for energy zones")
 }
 
 // TestHwmonEnergyZone_Methods tests Name, Index, Path accessors
@@ -2602,7 +2603,7 @@ func TestHwmonEnergyZone_Methods(t *testing.T) {
 	assert.Equal(t, "/sys/class/hwmon/hwmon0/energy1_input", zone.Path())
 }
 
-// TestHwmonEnergyZone_Energy_ReadError tests Energy() when the input file is unreadable
+// TestHwmonEnergyZone_Energy_ReadError tests device.Energy() when the input file is unreadable
 func TestHwmonEnergyZone_Energy_ReadError(t *testing.T) {
 	zone := &hwmonEnergyZone{
 		name:  "total",
@@ -2611,11 +2612,11 @@ func TestHwmonEnergyZone_Energy_ReadError(t *testing.T) {
 	}
 
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for unreadable file")
-	assert.Equal(t, Energy(0), energy, "Energy should be 0 on error")
+	assert.Error(t, err, "device.Energy() should return error for unreadable file")
+	assert.Equal(t, device.Energy(0), energy, "Energy should be 0 on error")
 }
 
-// TestHwmonEnergyZone_Energy_InvalidContent tests Energy() when the input file contains non-numeric data
+// TestHwmonEnergyZone_Energy_InvalidContent tests device.Energy() when the input file contains non-numeric data
 func TestHwmonEnergyZone_Energy_InvalidContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "energy1_input")
@@ -2629,17 +2630,17 @@ func TestHwmonEnergyZone_Energy_InvalidContent(t *testing.T) {
 	}
 
 	energy, err := zone.Energy()
-	assert.Error(t, err, "Energy() should return error for non-numeric content")
-	assert.Equal(t, Energy(0), energy, "Energy should be 0 on parse error")
+	assert.Error(t, err, "device.Energy() should return error for non-numeric content")
+	assert.Equal(t, device.Energy(0), energy, "Energy should be 0 on parse error")
 }
 
 // TestDiscoverZones_EnergySensors tests discovery of a single energy sensor
 func TestDiscoverZones_EnergySensors(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_energy")
 	require.NoError(t, err)
 	require.Len(t, zones, 1, "Should find 1 energy zone")
 
@@ -2650,16 +2651,16 @@ func TestDiscoverZones_EnergySensors(t *testing.T) {
 
 	energy, err := zone.Energy()
 	require.NoError(t, err)
-	assert.Equal(t, Energy(500000000), energy)
+	assert.Equal(t, device.Energy(500000000), energy)
 }
 
 // TestDiscoverZones_EnergySensorsMultiple tests discovery of multiple energy sensors
 func TestDiscoverZones_EnergySensorsMultiple(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_multi")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_energy_multi")
 	require.NoError(t, err)
 	require.Len(t, zones, 3, "Should find 3 energy zones")
 
@@ -2679,10 +2680,10 @@ func TestDiscoverZones_EnergySensorsMultiple(t *testing.T) {
 // TestDiscoverZones_EnergySensorNoLabel tests fallback naming when no label is present
 func TestDiscoverZones_EnergySensorNoLabel(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_no_label")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_energy_no_label")
 	require.NoError(t, err)
 	require.Len(t, zones, 1, "Should find 1 energy zone")
 
@@ -2694,10 +2695,10 @@ func TestDiscoverZones_EnergySensorNoLabel(t *testing.T) {
 // TestDiscoverZones_EnergySensorDisabled tests that disabled energy channels are skipped
 func TestDiscoverZones_EnergySensorDisabled(t *testing.T) {
 	reader := &sysfsHwmonReader{
-		basePath: "testdata/sys/class/hwmon",
+		basePath: "../testdata/sys/class/hwmon",
 	}
 
-	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_energy_disabled")
+	zones, err := reader.discoverZones("../testdata/sys/class/hwmon/hwmon_energy_disabled")
 	require.NoError(t, err)
 	require.Len(t, zones, 2, "Should find 2 enabled energy zones (energy3 is disabled)")
 
@@ -2785,7 +2786,7 @@ func TestDiscoverZones_EnergyPreferredOverVoltCurr(t *testing.T) {
 
 // TestIsSensorEnabled_Energy tests isSensorEnabled with energy sensor enable files
 func TestIsSensorEnabled_Energy(t *testing.T) {
-	hwmonPath := "testdata/sys/class/hwmon/hwmon_energy_disabled"
+	hwmonPath := "../testdata/sys/class/hwmon/hwmon_energy_disabled"
 
 	// energy1 has enable=1 → enabled
 	assert.True(t, isSensorEnabled(hwmonPath, "energy", 1, nil), "energy1 should be enabled (enable=1)")
@@ -2797,6 +2798,25 @@ func TestIsSensorEnabled_Energy(t *testing.T) {
 	assert.False(t, isSensorEnabled(hwmonPath, "energy", 3, nil), "energy3 should be disabled (enable=0)")
 
 	// No enable file → enabled by default
-	assert.True(t, isSensorEnabled("testdata/sys/class/hwmon/hwmon_energy", "energy", 1, nil),
+	assert.True(t, isSensorEnabled("../testdata/sys/class/hwmon/hwmon_energy", "energy", 1, nil),
 		"Should be enabled when no enable file exists")
 }
+
+// testMockEnergyZone is a local mock for testing
+type testMockEnergyZone struct {
+	name      string
+	index     int
+	path      string
+	energy    device.Energy
+	maxEnergy device.Energy
+	power     device.Power
+	err       error
+	powerErr  error
+}
+
+func (m *testMockEnergyZone) Name() string                   { return m.name }
+func (m *testMockEnergyZone) Index() int                     { return m.index }
+func (m *testMockEnergyZone) Path() string                   { return m.path }
+func (m *testMockEnergyZone) Energy() (device.Energy, error) { return m.energy, m.err }
+func (m *testMockEnergyZone) MaxEnergy() device.Energy       { return m.maxEnergy }
+func (m *testMockEnergyZone) Power() (device.Power, error)   { return m.power, m.powerErr }

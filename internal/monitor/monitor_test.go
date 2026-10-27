@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	testingclock "k8s.io/utils/clock/testing"
 )
@@ -84,15 +85,15 @@ func TestPowerMonitor_Init(t *testing.T) {
 	mockPowerMeter.On("PrimaryEnergyZone").Return(pkg, nil)
 	mockPowerMeter.On("Name").Return("mock-cpu")
 
-	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
+	fakePowerMeter, err := cpu.NewFakeCPUMeter(nil)
 	require.NoError(t, err)
 
-	powerMeters := []device.CPUPowerMeter{
+	powerMeters := []cpu.CPUPowerMeter{
 		mockPowerMeter,
 		fakePowerMeter,
 	}
 
-	zoneNamesFromMeter := func(meter device.CPUPowerMeter) []string {
+	zoneNamesFromMeter := func(meter cpu.CPUPowerMeter) []string {
 		energyZones, err := meter.Zones()
 		if err != nil {
 			log.Fatal(err)
@@ -186,7 +187,7 @@ func TestPowerMonitor_Snapshot(t *testing.T) {
 }
 
 func TestPowerMonitor_InitZones(t *testing.T) {
-	fakePowerMeter, err := device.NewFakeCPUMeter(nil)
+	fakePowerMeter, err := cpu.NewFakeCPUMeter(nil)
 	require.NoError(t, err, "failed to create fake power meter")
 	monitor := NewPowerMonitor(fakePowerMeter)
 
@@ -552,11 +553,11 @@ func waitForClockWaiters(t *testing.T, c *testingclock.FakeClock, timeout time.D
 func TestMonitorRefreshSnapshot(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	pkg := device.NewMockRaplZone(
+	pkg := cpu.NewMockRaplZone(
 		"package-0",
 		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
-	core := device.NewMockRaplZone(
+	core := cpu.NewMockRaplZone(
 		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 	testZones := []EnergyZone{pkg, core}
@@ -757,11 +758,11 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 	t.Run("Fix first read", func(t *testing.T) {
 		mockCPUPowerMeter.ExpectedCalls = nil
-		pkg := device.NewMockRaplZone(
+		pkg := cpu.NewMockRaplZone(
 			"package-0",
 			0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
-		core := device.NewMockRaplZone(
+		core := cpu.NewMockRaplZone(
 			"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 		testZones := []EnergyZone{pkg, core}
@@ -793,11 +794,11 @@ func TestRefreshSnapshotError(t *testing.T) {
 
 	t.Run("Fix computePower", func(t *testing.T) {
 		mockCPUPowerMeter.ExpectedCalls = nil
-		pkg := device.NewMockRaplZone(
+		pkg := cpu.NewMockRaplZone(
 			"package-0",
 			0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
-		core := device.NewMockRaplZone(
+		core := cpu.NewMockRaplZone(
 			"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 		testZones := []EnergyZone{pkg, core}

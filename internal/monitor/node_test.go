@@ -12,15 +12,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 
 	test_clock "k8s.io/utils/clock/testing"
 )
 
 type (
-	MockRaplZone  = device.MockRaplZone
-	MockPowerZone = device.MockPowerZone
+	MockRaplZone  = cpu.MockRaplZone
+	MockPowerZone = cpu.MockPowerZone
 )
 
 // TestNodePowerCollection tests the PowerMonitor.collectNodePower method
@@ -29,11 +29,11 @@ func TestNodePowerCollection(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Create test zones
-	pkg := device.NewMockRaplZone(
+	pkg := cpu.NewMockRaplZone(
 		"package-0",
 		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
-	core := device.NewMockRaplZone(
+	core := cpu.NewMockRaplZone(
 		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 	testZones := []EnergyZone{pkg, core}
@@ -213,11 +213,11 @@ func TestNodeErrorHandling(t *testing.T) {
 	// Create a logger that writes to nowhere for testing
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	pkg := device.NewMockRaplZone(
+	pkg := cpu.NewMockRaplZone(
 		"package-0",
 		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
 
-	core := device.NewMockRaplZone(
+	core := cpu.NewMockRaplZone(
 		"core-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0", 150*Joule)
 
 	testZones := []EnergyZone{pkg, core}
@@ -375,7 +375,7 @@ func TestCalculateEnergyDelta(t *testing.T) {
 func TestNodeActiveEnergyCounterBehavior(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	pkg := device.NewMockRaplZone(
+	pkg := cpu.NewMockRaplZone(
 		"package-0",
 		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
 
@@ -551,7 +551,7 @@ func TestNodeActiveEnergyTotalAccumulation(t *testing.T) {
 	// over multiple measurements, and that activeEnergy represents only the current interval
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	pkg := device.NewMockRaplZone(
+	pkg := cpu.NewMockRaplZone(
 		"package-0",
 		0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 1000*Joule)
 
@@ -695,8 +695,8 @@ func TestPowerSensorCollection(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Create test power zones (hwmon-style)
-	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
-	hwmon1 := device.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
+	hwmon0 := cpu.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	hwmon1 := cpu.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
 
 	testZones := []EnergyZone{hwmon0, hwmon1}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
@@ -827,8 +827,8 @@ func TestMixedSensorCollection(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Create mixed zones: RAPL (energy) and hwmon (power)
-	raplPkg := device.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
-	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	raplPkg := cpu.NewMockRaplZone("package-0", 0, "/sys/class/powercap/intel-rapl/intel-rapl:0", 200*Joule)
+	hwmon0 := cpu.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
 
 	testZones := []EnergyZone{raplPkg, hwmon0}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
@@ -909,8 +909,8 @@ func TestMixedSensorCollection(t *testing.T) {
 func TestPowerSensorErrorHandling(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
-	hwmon1 := device.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
+	hwmon0 := cpu.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	hwmon1 := cpu.NewMockPowerZone("hwmon1", 1, "/sys/class/hwmon/hwmon1")
 
 	testZones := []EnergyZone{hwmon0, hwmon1}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}
@@ -1000,7 +1000,7 @@ func TestPowerSensorErrorHandling(t *testing.T) {
 func TestPowerSensorActiveIdleSplit(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	hwmon0 := device.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
+	hwmon0 := cpu.NewMockPowerZone("hwmon0", 0, "/sys/class/hwmon/hwmon0")
 
 	testZones := []EnergyZone{hwmon0}
 	mockCPUPowerMeter := &MockCPUPowerMeter{}

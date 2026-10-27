@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 	"github.com/sustainable-computing-io/kepler/internal/service"
@@ -40,7 +40,7 @@ type Service interface {
 type PowerMonitor struct {
 	// passed externally
 	logger    *slog.Logger
-	cpu       device.CPUPowerMeter
+	cpu       cpu.CPUPowerMeter
 	gpuMeters []gpu.GPUPowerMeter // optional, empty if no GPUs available
 
 	interval time.Duration
@@ -87,7 +87,7 @@ type PowerMonitor struct {
 var _ Service = (*PowerMonitor)(nil)
 
 // NewPowerMonitor creates a new PowerMonitor instance
-func NewPowerMonitor(meter device.CPUPowerMeter, applyOpts ...OptionFn) *PowerMonitor {
+func NewPowerMonitor(meter cpu.CPUPowerMeter, applyOpts ...OptionFn) *PowerMonitor {
 	opts := DefaultOpts()
 	for _, apply := range applyOpts {
 		apply(&opts)

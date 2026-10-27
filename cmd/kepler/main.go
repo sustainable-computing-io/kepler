@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/sustainable-computing-io/kepler/config"
-	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
@@ -131,7 +131,7 @@ Configuration
 
 func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service, error) {
 	logger.Debug("Creating all services")
-	cpuPowerMeter, err := device.CreateCPUMeter(logger, cfg)
+	cpuPowerMeter, err := cpu.CreateCPUMeter(logger, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU power meter: %w", err)
 	}

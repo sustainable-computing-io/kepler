@@ -17,13 +17,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/internal/device"
+	"github.com/sustainable-computing-io/kepler/internal/device/cpu"
 	testingclock "k8s.io/utils/clock/testing"
 )
 
 // TestSnapshotThreadSafety tests that multiple goroutines can call Snapshot concurrently without races.
 func TestSnapshotThreadSafety(t *testing.T) {
 	fakeClock := testingclock.NewFakeClock(time.Now())
-	fakeMeter, err := device.NewFakeCPUMeter(nil)
+	fakeMeter, err := cpu.NewFakeCPUMeter(nil)
 	require.NoError(t, err)
 	tr := CreateTestResources()
 	resourceInformer := &MockResourceInformer{}
@@ -143,7 +144,7 @@ func TestFreshSnapshotCaching(t *testing.T) {
 func TestStaleSnapshotRefreshing(t *testing.T) {
 	// repeat the above using fake cpu meter
 	fakeClock := testingclock.NewFakeClock(time.Now())
-	fakeMeter, err := device.NewFakeCPUMeter(nil)
+	fakeMeter, err := cpu.NewFakeCPUMeter(nil)
 	require.NoError(t, err)
 
 	tr := CreateTestResources()
