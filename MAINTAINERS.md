@@ -10,7 +10,7 @@
 | Sunil Thaha           | Red Hat         | sthaha         | <gh.dev@thaha.me>                | Technical Committee                                           |
 | Sunyanan Choochotkaew | IBM             | sunya-ch       | <sunyanan.choochotkaew1@ibm.com> | Community Engagement                                          |
 | Laura Llinares        | CERN            | laurall974     | <llinares.laura@cern.ch>         | Technical Committee, Maintainer                               |
-| Erwan Billard         | Independent     | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
+| Erwan Billard         | SNCF            | iacker         | <erwan.billard@protonmail.com>   | Technical Committee, Repository Oversight                     |
 | Ángel Olivares        | Civir           | angelOlivares  | <olivares.angelp@gmail.com>      | Technical Committee, Community Engagement                     |
 | Julian Legler         | TU Berlin       | JulianLegler   | <julian.legler@tu-berlin.de>     | Technical Committee, Repository Oversight                     |
 | Himanshu Verma        | Independent     | bitflicker64   | <himnshuverma10152006@gmail.com> | Technical Committee                                           |
