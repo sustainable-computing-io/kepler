@@ -78,10 +78,10 @@ jobs:
 
           {
             echo "Moves the \`kepler\` submodule to [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG)."
-            if [[ "$TAG" == *.0 ]]; then
-              echo
-              echo "$TAG is a new minor release: add \`${TAG%.0}\` to the \`mike\` version list before merging."
-            fi
+            echo
+            # Always listed, since a patch release can update a still open
+            # bump PR for a new minor and replace its body
+            echo "- [ ] If \`${TAG%.*}\` is missing, add it to the \`mike\` version list"
             echo
             echo "Opened by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } >"$RUNNER_TEMP/pr-body.md"
