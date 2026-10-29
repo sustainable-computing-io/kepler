@@ -166,11 +166,27 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 		podInformer = createPodInformer(cfg, logger)
 		services = append(services, podInformer)
 	}
-	resourceInformer, err := resource.NewInformer(
+	resourceOpts := []resource.OptionFn{
 		resource.WithLogger(logger),
 		resource.WithProcFSPath(cfg.Host.ProcFS),
 		resource.WithPodInformer(podInformer),
-	)
+	}
+	if podInformer != nil && cfg.Kube.PodName != "" {
+		// "/" only means kepler's own cgroup in a private cgroup namespace; in the host
+		// namespace it is the host root cgroup, and its processes are not kepler's
+		if private, err := resource.InPrivateCgroupNamespace(resource.SelfCgroupFile); err != nil {
+			logger.Warn("Not attributing kepler's own processes to its container", "error", err)
+		} else if !private {
+			logger.Info("Kepler runs in the host cgroup namespace, its processes are attributed through their cgroup path")
+		} else {
+			resourceOpts = append(resourceOpts, resource.WithSelfContainer(resource.SelfContainer{
+				Namespace:     cfg.Kube.PodNamespace,
+				PodName:       cfg.Kube.PodName,
+				ContainerName: cfg.Kube.ContainerName,
+			}))
+		}
+	}
+	resourceInformer, err := resource.NewInformer(resourceOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource informer: %w", err)
 	}

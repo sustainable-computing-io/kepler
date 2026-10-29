@@ -70,6 +70,9 @@ kube: # kubernetes related config
   enabled: false # enable kubernetes monitoring (default: false)
   config: "" # path to kubeconfig file (optional if running in-cluster)
   nodeName: "" # name of the kubernetes node (required when enabled)
+  podName: "" # name of the pod kepler runs in (with podNamespace, attributes kepler's own processes)
+  podNamespace: "" # namespace of the pod kepler runs in
+  containerName: kepler # name of kepler's container in its pod
   podInformer:
     mode: kubelet          # "kubelet" (default) or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
