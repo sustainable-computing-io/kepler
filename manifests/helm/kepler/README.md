@@ -54,6 +54,9 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
 | config.web.configFile | string | `""` | Path to a TLS config file |
 | config.web.listenAddresses | list | `[":28282"]` | Addresses to listen on |
 | daemonset.affinity | object | `{}` | Affinity rules |
+| daemonset.extraEnv | list | `[]` | Extra environment variables to add to the Kepler container |
+| daemonset.extraVolumeMounts | list | `[]` | Extra volume mounts to add to the Kepler container |
+| daemonset.extraVolumes | list | `[]` | Extra volumes to add to the Kepler DaemonSet pod |
 | daemonset.hostPID | bool | `true` | Use the host PID namespace so Kepler can see all processes |
 | daemonset.hostUsers | bool | `true` | Use the host user namespace |
 | daemonset.livenessProbe | object | `{"httpGet":{"path":"/probe/livez","port":"http"},"initialDelaySeconds":10,"periodSeconds":60}` | Liveness probe |
