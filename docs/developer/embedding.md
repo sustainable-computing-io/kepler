@@ -50,3 +50,8 @@ required by the optional NVIDIA NVML backend. Kubernetes integration is optional
 enable it and provide node identity and credentials to attribute power to pods.
 Embedding does not change host access or Kubernetes RBAC requirements. Energy
 zones can overlap; retain labels and avoid summing overlapping domains.
+
+Device test fixtures include Linux sysfs filenames containing colons, which Go
+module archives cannot represent. `internal/device/testdata/go.mod` excludes that
+fixture tree from the library archive. Run Kepler's own fixture-based tests from
+a source checkout; the fixture module has no code or dependencies.
