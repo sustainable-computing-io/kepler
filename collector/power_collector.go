@@ -22,6 +22,7 @@ type PowerDataProvider = monitor.PowerDataProvider
 // by fetching all data in a single atomic operation during collection
 type PowerCollector struct {
 	pm           PowerDataProvider
+	dataCh       <-chan struct{}
 	logger       *slog.Logger
 	metricsLevel config.Level
 
@@ -123,6 +124,7 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 
 	c := &PowerCollector{
 		pm:           monitor,
+		dataCh:       monitor.DataChannel(),
 		logger:       logger.With("collector", "power"),
 		metricsLevel: metricsLevel,
 
@@ -178,16 +180,7 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 		gpuIdleJoulesDescriptor:   deviceStateJoulesDesc("node", "gpu", "idle", nodeName, []string{"gpu", "gpu_uuid", "gpu_name", "vendor"}),
 	}
 
-	go c.waitForData()
-
 	return c
-}
-
-func (c *PowerCollector) waitForData() {
-	<-c.pm.DataChannel()
-	c.mutex.Lock()
-	c.ready = true
-	c.mutex.Unlock()
 }
 
 // Describe implements the prometheus.Collector interface
@@ -249,8 +242,15 @@ func (c *PowerCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *PowerCollector) isReady() bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if !c.ready {
+		select {
+		case <-c.dataCh:
+			c.ready = true
+		default:
+		}
+	}
 	return c.ready
 }
 

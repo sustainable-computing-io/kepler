@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sustainable-computing-io/kepler/collector"
 	"github.com/sustainable-computing-io/kepler/config"
 	"github.com/sustainable-computing-io/kepler/internal/device"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/platform/redfish"
 )
