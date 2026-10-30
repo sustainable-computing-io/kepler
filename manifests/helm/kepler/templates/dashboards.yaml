@@ -1,0 +1,23 @@
+{{- if .Values.dashboards.enabled }}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+{{- $name := base $path | trimSuffix ".json" | trimPrefix "kepler-" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{include "kepler.fullname" $}}-dashboard-{{$name}}
+  namespace: {{$.Values.dashboards.namespace | default (include "kepler.namespace" $)}}
+  labels:
+    {{- include "kepler.labels" $ | nindent 4}}
+  {{- with $.Values.dashboards.labels}}
+  {{- toYaml . | nindent 4}}
+  {{- end}}
+  {{- with $.Values.dashboards.annotations}}
+  annotations:
+    {{- toYaml . | nindent 4}}
+  {{- end}}
+data:
+  {{base $path}}: |-
+    {{- $.Files.Get $path | nindent 4}}
+{{- end}}
+{{- end}}
