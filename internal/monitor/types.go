@@ -248,15 +248,16 @@ type GPUDeviceStats struct {
 	// Corresponds to nvidia-smi output for easy correlation during debugging.
 	// Note: not persistent across reboots; use UUID for unique identification.
 	DeviceIndex       int
-	UUID              string  // GPU UUID - globally unique, persistent identifier
-	Name              string  // GPU product name (e.g., "NVIDIA A100-SXM4-40GB")
-	Vendor            string  // GPU vendor (nvidia, amd, intel)
-	TotalPower        float64 // Current total power in Watts
-	IdlePower         float64 // Detected idle power in Watts
-	ActivePower       float64 // Active power (Total - Idle) in Watts
-	EnergyTotal       Energy  // Cumulative GPU energy from hardware counter
-	ActiveEnergyTotal Energy  // Cumulative active GPU energy (split from EnergyTotal using power ratio)
-	IdleEnergyTotal   Energy  // Cumulative idle GPU energy (split from EnergyTotal using power ratio)
+	UUID              string    // GPU UUID - globally unique, persistent identifier
+	Name              string    // GPU product name (e.g., "NVIDIA A100-SXM4-40GB")
+	Vendor            string    // GPU vendor (nvidia, amd, intel)
+	TotalPower        float64   // Current total power in Watts
+	IdlePower         float64   // Detected idle power in Watts
+	ActivePower       float64   // Active power (Total - Idle) in Watts
+	EnergyTotal       Energy    // Cumulative GPU energy from hardware counter
+	ActiveEnergyTotal Energy    // Cumulative active GPU energy (EnergyTotal above the idle baseline)
+	IdleEnergyTotal   Energy    // Cumulative idle GPU energy (idle power over time, capped at EnergyTotal)
+	EnergyReadAt      time.Time // When EnergyTotal was read from the hardware counter
 }
 
 // Snapshot encapsulates power monitoring data
