@@ -13,7 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
+	"github.com/sustainable-computing-io/kepler/collector"
 )
 
 // MockCollector implements prometheus.Collector for testing

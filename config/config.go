@@ -276,6 +276,7 @@ type SkipValidation int
 const (
 	SkipHostValidation         SkipValidation = 1
 	SkipExperimentalValidation SkipValidation = 2
+	SkipWebValidation          SkipValidation = 3
 )
 
 const (
@@ -937,26 +938,29 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			}
 		}
 	}
-	{ // Web config file
-		if c.Web.Config != "" {
-			if err := canReadFile(c.Web.Config); err != nil {
-				errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
+	if !validationSkipped[SkipWebValidation] {
+		{ // Web config file
+			if c.Web.Config != "" {
+				if err := canReadFile(c.Web.Config); err != nil {
+					errs = append(errs, fmt.Sprintf("invalid web config file. path: %q: %s", c.Web.Config, err.Error()))
+				}
 			}
 		}
-	}
-	{ // Web listen addresses
-		if len(c.Web.ListenAddresses) == 0 {
-			errs = append(errs, "at least one web listen address must be specified")
-		}
-		for _, addr := range c.Web.ListenAddresses {
-			if addr == "" {
-				errs = append(errs, "web listen address cannot be empty")
-				continue
+		{ // Web listen addresses
+			if len(c.Web.ListenAddresses) == 0 {
+				errs = append(errs, "at least one web listen address must be specified")
 			}
-			if err := validateListenAddress(addr); err != nil {
-				errs = append(errs, fmt.Sprintf("invalid web listen address %q: %s", addr, err.Error()))
+			for _, addr := range c.Web.ListenAddresses {
+				if addr == "" {
+					errs = append(errs, "web listen address cannot be empty")
+					continue
+				}
+				if err := validateListenAddress(addr); err != nil {
+					errs = append(errs, fmt.Sprintf("invalid web listen address %q: %s", addr, err.Error()))
+				}
 			}
 		}
+
 	}
 	{ // cpu.preferredMeters
 		// Keep this list in sync with the switch in internal/device/cpu_power_meter.go.

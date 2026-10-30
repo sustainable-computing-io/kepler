@@ -11,8 +11,8 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	collector "github.com/sustainable-computing-io/kepler/collector"
 	"github.com/sustainable-computing-io/kepler/config"
-	collector "github.com/sustainable-computing-io/kepler/internal/exporter/prometheus/collector"
 	"github.com/sustainable-computing-io/kepler/internal/monitor"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 )

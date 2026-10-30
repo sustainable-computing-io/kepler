@@ -253,7 +253,7 @@ The implementation assumes homogeneous GPU nodes (single vendor). While the code
 - **NVIDIA Collector**: `internal/device/gpu/nvidia/collector.go`
 - **NVML Wrapper**: `internal/device/gpu/nvidia/nvml.go`
 - **Monitor Integration**: `internal/monitor/process.go:115-150`
-- **Prometheus Metrics**: `internal/exporter/prometheus/collector/power_collector.go`
+- **Prometheus Metrics**: `collector/power_collector.go`
 
 ## Future Work
 
