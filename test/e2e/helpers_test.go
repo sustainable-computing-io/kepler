@@ -54,6 +54,15 @@ func skipIfNoStressNG(t *testing.T) {
 	}
 }
 
+// requireStressNG fails the test if stress-ng is not available.
+func requireStressNG(t *testing.T) {
+	t.Helper()
+
+	if _, err := exec.LookPath(StressNGBinary); err != nil {
+		t.Fatalf("stress-ng is required when -gpu.fake is set (install: apt-get install stress-ng): %v", err)
+	}
+}
+
 // skipIfRAPLNotReadable skips the test if RAPL energy values are not readable
 func skipIfRAPLNotReadable(t *testing.T) {
 	t.Helper()
@@ -85,6 +94,7 @@ type KeplerInstance struct {
 	binaryPath string
 	port       int
 	logOutput  io.Writer
+	env        []string
 }
 
 // keplerOption configures KeplerInstance
@@ -98,6 +108,13 @@ func withLogOutput(w io.Writer) keplerOption {
 // withConfig sets the Kepler config file
 func withConfig(path string) keplerOption {
 	return func(k *KeplerInstance) { k.configPath = path }
+}
+
+// withEnv appends environment variables to the Kepler process.
+func withEnv(env ...string) keplerOption {
+	return func(k *KeplerInstance) {
+		k.env = append(k.env, env...)
+	}
 }
 
 // startKepler starts Kepler and registers cleanup
@@ -145,6 +162,9 @@ func (k *KeplerInstance) start(t *testing.T) error {
 	}
 
 	k.cmd = exec.Command(binaryPath, args...)
+	if len(k.env) > 0 {
+		k.cmd.Env = append(os.Environ(), k.env...)
+	}
 
 	stdout, _ := k.cmd.StdoutPipe()
 	stderr, _ := k.cmd.StderrPipe()
@@ -259,6 +279,7 @@ type workloadConfig struct {
 	name       string
 	cpuWorkers int
 	cpuLoad    int
+	dir        string
 }
 
 // WithWorkloadName sets workload name
@@ -274,6 +295,11 @@ func WithCPUWorkers(n int) workloadOption {
 // WithCPULoad sets CPU load percentage
 func WithCPULoad(percent int) workloadOption {
 	return func(c *workloadConfig) { c.cpuLoad = percent }
+}
+
+// WithWorkDir sets the working directory for the stress-ng process.
+func WithWorkDir(dir string) workloadOption {
+	return func(c *workloadConfig) { c.dir = dir }
 }
 
 // StartWorkload starts a stress workload
@@ -295,6 +321,7 @@ func StartWorkload(t *testing.T, opts ...workloadOption) *Workload {
 
 	cmd := exec.Command(StressNGBinary, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Dir = cfg.dir
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start stress-ng: %v", err)
@@ -493,15 +520,10 @@ func WaitForNonZeroProcessPower(t *testing.T, scraper *common.MetricsScraper, pi
 }
 
 // FindWorkloadPower searches for a workload's power in a metrics snapshot.
+// It sums running kepler_process_cpu_watts over worker children only, never
+// the stress-ng parent.
 func FindWorkloadPower(snapshot *common.MetricsSnapshot, w *Workload) (power float64, found bool) {
 	processMetrics := snapshot.GetAllWithName("kepler_process_cpu_watts")
-
-	parentPIDStr := strconv.Itoa(w.ParentPID())
-	for _, m := range processMetrics {
-		if m.Labels["pid"] == parentPIDStr && m.Labels["state"] == "running" && m.Value > 0 {
-			return m.Value, true
-		}
-	}
 
 	for _, pid := range w.PIDs() {
 		pidStr := strconv.Itoa(pid)

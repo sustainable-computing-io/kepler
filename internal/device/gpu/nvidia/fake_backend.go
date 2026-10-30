@@ -15,6 +15,13 @@ import (
 // NOTE: This fake backend is not intended for production use. It is for
 // development and testing only, similar to fakeRaplMeter for CPU power.
 
+// PIDSource supplies the PIDs the fake GPU should treat as compute processes.
+// An empty or nil slice means the GPU is idle. Implementations must be safe
+// for concurrent PIDs() calls.
+type PIDSource interface {
+	PIDs() []uint32
+}
+
 // FakeNVMLBackend implements NVMLBackend for testing without real GPUs.
 type FakeNVMLBackend struct {
 	mu      sync.RWMutex
@@ -24,7 +31,13 @@ type FakeNVMLBackend struct {
 // FakeNVMLDevice implements NVMLDevice with configurable behavior.
 // Set exported fields before concurrent use. Callers must not read or write
 // them directly while device methods are running. Methods synchronize internal
-// updates to cumulative energy.
+// updates to cumulative energy and, when PIDSource is set, to power and process
+// lists.
+//
+// When PIDSource is nil, DevicePower, Processes, and Utilization are used as
+// static values (the original fake-device behaviour). When PIDSource is set,
+// each power/process/utilization read refreshes those fields from IdlePower or
+// LoadPower and UtilizationTemplate.
 type FakeNVMLDevice struct {
 	// Idx is the device index (0-based).
 	Idx int
@@ -59,6 +72,22 @@ type FakeNVMLDevice struct {
 	// UtilError, if set, is returned by GetProcessUtilization instead of Utilization.
 	// This allows testing the time-slicing fallback path.
 	UtilError error
+
+	// PIDSource, if set, is consulted on each power/process/utilization read.
+	// Empty PIDs select IdlePower and empty process lists; non-empty PIDs select
+	// LoadPower and per-PID process/utilization samples.
+	PIDSource PIDSource
+
+	// IdlePower is reported while PIDSource returns no PIDs.
+	IdlePower device.Power
+
+	// LoadPower is reported while PIDSource returns one or more PIDs.
+	LoadPower device.Power
+
+	// UtilizationTemplate is applied to PIDSource PIDs in order when building
+	// GetProcessUtilization samples. Extra PIDs beyond the template get PID-only
+	// samples (zero utilization).
+	UtilizationTemplate []gpu.ProcessUtilization
 
 	mu sync.RWMutex
 
@@ -131,20 +160,28 @@ func (d *FakeNVMLDevice) Name() string {
 	return d.DeviceName
 }
 
-func (d *FakeNVMLDevice) GetPowerUsage() (device.Power, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.DevicePower, nil
+func (d *FakeNVMLDevice) currentTimeLocked() time.Time {
+	if d.now != nil {
+		return d.now()
+	}
+	return time.Now()
 }
 
-func (d *FakeNVMLDevice) GetTotalEnergy() (device.Energy, error) {
+// collectPIDs reads PIDSource under a short lock, then calls PIDs() without
+// holding d.mu so procfs scans do not block other device methods.
+func (d *FakeNVMLDevice) collectPIDs() (hasSource bool, pids []uint32) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	now := time.Now()
-	if d.now != nil {
-		now = d.now()
+	src := d.PIDSource
+	d.mu.Unlock()
+	if src == nil {
+		return false, nil
 	}
+	return true, src.PIDs()
+}
+
+// integratePendingLocked adds elapsed*DevicePower since lastEnergyRead.
+// Caller must hold d.mu.
+func (d *FakeNVMLDevice) integratePendingLocked(now time.Time) {
 	if !d.lastEnergyRead.IsZero() {
 		elapsed := now.Sub(d.lastEnergyRead).Seconds()
 		if elapsed > 0 && d.DevicePower > 0 {
@@ -152,22 +189,82 @@ func (d *FakeNVMLDevice) GetTotalEnergy() (device.Energy, error) {
 		}
 	}
 	d.lastEnergyRead = now
+}
+
+// applyPIDsLocked updates power and process samples from a PID snapshot.
+// Caller must hold d.mu. hasSource false leaves DevicePower, Processes, and
+// Utilization unchanged. Pending energy is integrated at the pre-refresh power
+// before DevicePower changes.
+func (d *FakeNVMLDevice) applyPIDsLocked(hasSource bool, pids []uint32) {
+	if !hasSource {
+		return
+	}
+
+	d.integratePendingLocked(d.currentTimeLocked())
+
+	if len(pids) == 0 {
+		d.DevicePower = d.IdlePower
+		d.Processes = nil
+		d.Utilization = nil
+		return
+	}
+
+	d.DevicePower = d.LoadPower
+	procs := make([]gpu.ProcessGPUInfo, len(pids))
+	utils := make([]gpu.ProcessUtilization, len(pids))
+	for i, pid := range pids {
+		procs[i] = gpu.ProcessGPUInfo{
+			PID:         pid,
+			DeviceIndex: d.Idx,
+			DeviceUUID:  d.DeviceUUID,
+		}
+		utils[i] = gpu.ProcessUtilization{PID: pid}
+		if i < len(d.UtilizationTemplate) {
+			tmpl := d.UtilizationTemplate[i]
+			utils[i].ComputeUtil = tmpl.ComputeUtil
+			utils[i].MemUtil = tmpl.MemUtil
+			utils[i].EncUtil = tmpl.EncUtil
+			utils[i].DecUtil = tmpl.DecUtil
+			utils[i].Timestamp = tmpl.Timestamp
+		}
+	}
+	d.Processes = procs
+	d.Utilization = utils
+}
+
+func (d *FakeNVMLDevice) GetPowerUsage() (device.Power, error) {
+	hasSource, pids := d.collectPIDs()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.applyPIDsLocked(hasSource, pids)
+	return d.DevicePower, nil
+}
+
+func (d *FakeNVMLDevice) GetTotalEnergy() (device.Energy, error) {
+	hasSource, pids := d.collectPIDs()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	now := d.currentTimeLocked()
+	// Integrate the elapsed interval at the power that was in effect before this
+	// refresh. Idle time stays idle energy even if PIDSource now reports load.
+	d.integratePendingLocked(now)
+	d.applyPIDsLocked(hasSource, pids)
 	return d.TotalEnergy, nil
 }
 
 func (d *FakeNVMLDevice) GetComputeRunningProcesses() ([]gpu.ProcessGPUInfo, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+	hasSource, pids := d.collectPIDs()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.applyPIDsLocked(hasSource, pids)
 
 	// Return a copy to prevent mutation.
 	procs := make([]gpu.ProcessGPUInfo, len(d.Processes))
 	copy(procs, d.Processes)
 
-	// Fill in timestamps if not set.
-	now := time.Now()
-	if d.now != nil {
-		now = d.now()
-	}
+	now := d.currentTimeLocked()
 	for i := range procs {
 		if procs[i].Timestamp.IsZero() {
 			procs[i].Timestamp = now
@@ -183,8 +280,10 @@ func (d *FakeNVMLDevice) GetComputeRunningProcesses() ([]gpu.ProcessGPUInfo, err
 }
 
 func (d *FakeNVMLDevice) GetProcessUtilization(lastSeen uint64) ([]gpu.ProcessUtilization, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+	hasSource, pids := d.collectPIDs()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.applyPIDsLocked(hasSource, pids)
 
 	if d.UtilError != nil {
 		return nil, d.UtilError

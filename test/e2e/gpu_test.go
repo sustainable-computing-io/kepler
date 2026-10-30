@@ -53,6 +53,12 @@ const (
 	// gpuLoadStartTimeout bounds docker run, which pulls the DCGM image, a few
 	// GB, the first time it runs on a host.
 	gpuLoadStartTimeout = 10 * time.Minute
+
+	// fakeGPUIdleWatts is the idle power the fake GPU meter reports until
+	// tagged stress-ng workers appear.
+	fakeGPUIdleWatts = 40.0
+
+	keplerFakeGPUWorkloadDirEnv = "KEPLER_FAKE_GPU_WORKLOAD_DIR"
 )
 
 // setupKeplerForGPUTest starts Kepler for a GPU test with the GPU config. By
@@ -60,7 +66,7 @@ const (
 // They do not need RAPL then, since e2e-gpu-config.yaml uses the fake CPU
 // meter, so they also run on GPU hosts without RAPL, such as cloud VMs. With
 // -gpu.fake they use the fake GPU meter and the default config, which needs RAPL.
-func setupKeplerForGPUTest(t *testing.T) (*KeplerInstance, *common.MetricsScraper) {
+func setupKeplerForGPUTest(t *testing.T, extra ...keplerOption) (*KeplerInstance, *common.MetricsScraper) {
 	t.Helper()
 
 	if testConfig.fakeGPU {
@@ -69,7 +75,9 @@ func setupKeplerForGPUTest(t *testing.T) (*KeplerInstance, *common.MetricsScrape
 		skipIfNoNvidiaGPU(t)
 	}
 
-	k := startKepler(t, withLogOutput(os.Stderr), withConfig(testConfig.gpuConfigFile))
+	opts := []keplerOption{withLogOutput(os.Stderr), withConfig(testConfig.gpuConfigFile)}
+	opts = append(opts, extra...)
+	k := startKepler(t, opts...)
 	return k, common.NewMetricsScraper(k.MetricsURL())
 }
 
@@ -102,6 +110,16 @@ func requireRealGPU(t *testing.T) {
 		t.Skip("Skipping: needs a real GPU, runs without -gpu.fake")
 	}
 	skipIfNoNvidiaGPU(t)
+}
+
+// requireFakeGPU skips the test unless the suite is running against the fake
+// GPU meter (-gpu.fake).
+func requireFakeGPU(t *testing.T) {
+	t.Helper()
+
+	if !testConfig.fakeGPU {
+		t.Skip("Skipping: needs the fake GPU meter, run with -gpu.fake")
+	}
 }
 
 // waitForGPUMetrics waits until Kepler exposes GPU node metrics.
@@ -387,6 +405,126 @@ func TestGPUWorkloadAttribution(t *testing.T) {
 	require.True(t, containerFound, "kepler_container_gpu_watts should exist for the load container")
 	assertWithinTolerance(t, loadWatts, containerWatts, powerTolerance, absolutePowerTolerance,
 		"the load container should get its processes' GPU power")
+}
+
+// TestGPUFakeWorkloadAttribution verifies the fake GPU meter reports idle
+// power, then attributes load power to tagged stress-ng workers.
+func TestGPUFakeWorkloadAttribution(t *testing.T) {
+	requireFakeGPU(t)
+	requireStressNG(t)
+
+	dir := t.TempDir()
+	_, scraper := setupKeplerForGPUTest(t,
+		withEnv(keplerFakeGPUWorkloadDirEnv+"="+dir),
+	)
+
+	require.True(t, waitForGPUMetrics(t, scraper, 30*time.Second),
+		"Kepler should have GPU metrics when the fake GPU meter is enabled")
+	waitForFakeGPUIdle(t, scraper)
+
+	workload := StartWorkload(t,
+		WithWorkloadName("fake-gpu"),
+		WithCPUWorkers(2),
+		WithWorkDir(dir),
+	)
+	pids := waitForFakeGPUWorkerPIDs(t, workload)
+	t.Logf("fake GPU workload running: parent=%d workers=%s",
+		workload.ParentPID(), strings.Join(pids, ","))
+
+	snapshot := waitForFakeGPULoad(t, scraper, pids)
+
+	gpu := map[string]string{"gpu": loadGPU}
+	total := snapshot.SumValues("kepler_node_gpu_watts", gpu)
+	idle := snapshot.SumValues("kepler_node_gpu_idle_watts", gpu)
+	active := snapshot.SumValues("kepler_node_gpu_active_watts", gpu)
+	loadWatts, found := processGPUWatts(snapshot, pids)
+	require.True(t, found, "kepler_process_gpu_watts should exist for workers %s", strings.Join(pids, ", "))
+
+	t.Logf("under fake load: total=%.4f W, idle=%.4f W, active=%.4f W, workers=%.4f W",
+		total, idle, active, loadWatts)
+
+	assertWithinTolerance(t, total, active+idle, powerTolerance, absolutePowerTolerance,
+		"GPU %s: total (%.4f) should equal active + idle (%.4f)", loadGPU, total, active+idle)
+	assertWithinTolerance(t, active, loadWatts, powerTolerance, absolutePowerTolerance,
+		"sum of workload process GPU power should equal the fake GPU's active power")
+
+	w0, _ := snapshot.GetValue("kepler_process_gpu_watts", map[string]string{"pid": pids[0]})
+	w1, _ := snapshot.GetValue("kepler_process_gpu_watts", map[string]string{"pid": pids[1]})
+	assert.NotEqual(t, w0, w1, "time-slicing 80/20 should give unequal process GPU power (pid %s=%.4f, pid %s=%.4f)",
+		pids[0], w0, pids[1], w1)
+}
+
+func waitForFakeGPUIdle(t *testing.T, scraper *common.MetricsScraper) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), gpuSettleTimeout)
+	defer cancel()
+
+	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
+		s, err := scraper.TakeSnapshot()
+		if err != nil {
+			return false
+		}
+		gpu := map[string]string{"gpu": loadGPU}
+		total := s.SumValues("kepler_node_gpu_watts", gpu)
+		active := s.SumValues("kepler_node_gpu_active_watts", gpu)
+		return math.Abs(active) <= absolutePowerTolerance &&
+			math.Abs(total-fakeGPUIdleWatts) <= math.Max(fakeGPUIdleWatts*powerTolerance, absolutePowerTolerance)
+	})
+	require.NoError(t, err, "Kepler never reported the fake GPU as idle (~0 W active, ~%.0f W total)", fakeGPUIdleWatts)
+}
+
+func waitForFakeGPUWorkerPIDs(t *testing.T, w *Workload) []string {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), gpuSettleTimeout)
+	defer cancel()
+
+	err := common.WaitForCondition(ctx, 200*time.Millisecond, func() bool {
+		var workers []int
+		for _, pid := range findChildPIDs(w.ParentPID()) {
+			comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
+			if err != nil {
+				continue
+			}
+			if strings.HasPrefix(strings.TrimSpace(string(comm)), "stress-ng-cpu") {
+				workers = append(workers, pid)
+			}
+		}
+		w.workerPIDs = workers
+		return len(workers) == 2
+	})
+	require.NoError(t, err, "stress-ng never started exactly 2 CPU workers (got %v)", w.PIDs())
+
+	pids := make([]string, len(w.PIDs()))
+	for i, pid := range w.PIDs() {
+		pids[i] = strconv.Itoa(pid)
+	}
+	return pids
+}
+
+func waitForFakeGPULoad(t *testing.T, scraper *common.MetricsScraper, pids []string) *common.MetricsSnapshot {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), gpuSettleTimeout)
+	defer cancel()
+
+	var snapshot *common.MetricsSnapshot
+	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
+		s, err := scraper.TakeSnapshot()
+		if err != nil {
+			return false
+		}
+		active := s.SumValues("kepler_node_gpu_active_watts", map[string]string{"gpu": loadGPU})
+		loadWatts, found := processGPUWatts(s, pids)
+		if !found || loadWatts <= 0 || active <= 0 {
+			return false
+		}
+		snapshot = s
+		return true
+	})
+	require.NoError(t, err, "Kepler never attributed fake GPU power to workers %s", strings.Join(pids, ", "))
+	return snapshot
 }
 
 // keplerGPUWatts returns Kepler's GPU power keyed by GPU UUID.
