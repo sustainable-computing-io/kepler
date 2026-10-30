@@ -52,6 +52,11 @@ type DCGMExporterBackend struct {
 	initialized bool
 	mu          sync.Mutex
 
+	// endpointDiscovered is true when endpoint came from discovery rather than
+	// SetEndpoint. A discovered endpoint is looked up again on re-initialization,
+	// since a recreated dcgm-exporter pod gets a new IP.
+	endpointDiscovered bool
+
 	// Cached metrics with TTL to avoid HTTP request storms
 	cachedMetrics *dcgmMetrics
 
@@ -134,6 +139,7 @@ func (d *DCGMExporterBackend) SetEndpoint(endpoint string) {
 		endpoint += "/metrics"
 	}
 	d.endpoint = endpoint
+	d.endpointDiscovered = false
 }
 
 // Init initializes the backend by discovering the dcgm-exporter endpoint.
@@ -172,6 +178,7 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 	if localEndpoint := d.discoverEndpoint(); localEndpoint != "" {
 		if err := d.testEndpoint(ctx, localEndpoint); err == nil {
 			d.endpoint = localEndpoint
+			d.endpointDiscovered = true
 			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", localEndpoint, "discovery", "local-pod")
 			return nil
@@ -187,6 +194,7 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 		err := d.testEndpoint(ctx, ep)
 		if err == nil {
 			d.endpoint = ep
+			d.endpointDiscovered = true
 			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", ep, "discovery", "fallback")
 			return nil
@@ -353,6 +361,9 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 		}
 		// Attempt re-initialization
 		d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
+		if d.endpointDiscovered {
+			d.endpoint = ""
+		}
 		if err := d.initLocked(ctx); err != nil {
 			d.circuitOpenTime = time.Now()
 			d.logger.Warn("DCGM re-initialization failed", "error", err)

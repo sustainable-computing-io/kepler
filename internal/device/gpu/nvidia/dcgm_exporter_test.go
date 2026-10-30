@@ -917,6 +917,53 @@ func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
 		assert.Equal(t, 0, backend.consecutiveFailures)
 	})
 
+	t.Run("re-init discovers the endpoint again", func(t *testing.T) {
+		oldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		newServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer newServer.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		discovered := oldServer.URL + "/metrics"
+		backend.discoverEndpoint = func() string { return discovered }
+		backend.fallbackEndpoints = nil
+		require.NoError(t, backend.Init(ctx))
+
+		// dcgm-exporter pod is recreated with a new IP and the breaker trips
+		oldServer.Close()
+		discovered = newServer.URL + "/metrics"
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		activity, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 0.75, activity)
+		assert.Equal(t, newServer.URL+"/metrics", backend.endpoint)
+	})
+
+	t.Run("re-init keeps a configured endpoint", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.SetEndpoint("http://127.0.0.1:1")
+		backend.discoverEndpoint = func() string { return server.URL + "/metrics" }
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "re-init failed")
+		assert.Equal(t, "http://127.0.0.1:1/metrics", backend.endpoint)
+	})
+
 	t.Run("no re-init before interval", func(t *testing.T) {
 		ctx := context.Background()
 		backend := NewDCGMExporterBackend(slog.Default())
