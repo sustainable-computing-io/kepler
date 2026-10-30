@@ -53,6 +53,7 @@ dashboards:
 | config.experimental.gpu.dcgmEndpoint | string | `""` | dcgm-exporter metrics URL for MIG (auto-discovered if empty) |
 | config.experimental.gpu.enabled | bool | `false` | Enable GPU power monitoring. Also forces privileged mode and privilege escalation, and adds the NVML init container. |
 | config.experimental.gpu.idlePower | int | `0` | GPU idle power in Watts (0 = auto-detect) |
+| config.experimental.gpu.metricsCacheTTL | string | `"2s"` | dcgm-exporter metrics cache TTL for MIG (0s disables cache) |
 | config.experimental.hwmon.chipRules | list | `[]` | User-defined chip pairing rules (override/add to hardcoded defaults) |
 | config.experimental.hwmon.forceEnabled | bool | `false` | DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true. |
 | config.experimental.hwmon.zones | list | `[]` | List of zones to enable (default enable all) |
