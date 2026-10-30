@@ -10,6 +10,33 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
   --create-namespace
 ```
 
+## Grafana dashboards
+
+The chart can create one ConfigMap per Kepler dashboard for the
+[Grafana chart sidecar](https://github.com/grafana-community/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards).
+`kube-prometheus-stack` enables the sidecar by default.
+
+```yaml
+dashboards:
+  enabled: true
+```
+
+The defaults match `kube-prometheus-stack` (`grafana_dashboard: "1"`, all namespaces).
+For the standalone Grafana chart, match its sidecar settings:
+
+```yaml
+dashboards:
+  enabled: true
+  # Must match sidecar.dashboards.label / labelValue
+  labels:
+    grafana_dashboard: "import"
+  # Needs sidecar.dashboards.folderAnnotation and provider.foldersFromFilesStructure
+  annotations:
+    grafana_folder: Kepler
+  # Only if the sidecar doesn't set searchNamespace: ALL
+  namespace: monitoring
+```
+
 <!-- markdown-table-prettify-ignore-start -->
 {{ template "chart.valuesSection" . }}
 <!-- markdown-table-prettify-ignore-end -->

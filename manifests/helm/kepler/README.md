@@ -10,6 +10,33 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
   --create-namespace
 ```
 
+## Grafana dashboards
+
+The chart can create one ConfigMap per Kepler dashboard for the
+[Grafana chart sidecar](https://github.com/grafana-community/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards).
+`kube-prometheus-stack` enables the sidecar by default.
+
+```yaml
+dashboards:
+  enabled: true
+```
+
+The defaults match `kube-prometheus-stack` (`grafana_dashboard: "1"`, all namespaces).
+For the standalone Grafana chart, match its sidecar settings:
+
+```yaml
+dashboards:
+  enabled: true
+  # Must match sidecar.dashboards.label / labelValue
+  labels:
+    grafana_dashboard: "import"
+  # Needs sidecar.dashboards.folderAnnotation and provider.foldersFromFilesStructure
+  annotations:
+    grafana_folder: Kepler
+  # Only if the sidecar doesn't set searchNamespace: ALL
+  namespace: monitoring
+```
+
 <!-- markdown-table-prettify-ignore-start -->
 ## Values
 
@@ -75,6 +102,10 @@ helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
 | daemonset.securityContext.seccompProfile | object | `{"type":"RuntimeDefault"}` | Seccomp profile |
 | daemonset.startupProbe | object | `{}` | Startup probe. Off when empty. |
 | daemonset.tolerations | list | `[{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane","operator":"Exists"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master","operator":"Exists"}]` | Tolerations. The defaults let Kepler run on control plane nodes. |
+| dashboards.annotations | object | `{}` | Extra annotations, e.g. `grafana_folder: kepler`. Folder annotations need `sidecar.dashboards.folderAnnotation` and `provider.foldersFromFilesStructure` in the Grafana chart. |
+| dashboards.enabled | bool | `false` | Create a ConfigMap for each Kepler Grafana dashboard |
+| dashboards.labels | object | `{"grafana_dashboard":"1"}` | Labels the Grafana sidecar selects on. Must match `sidecar.dashboards.label` (and `labelValue`, if set) in the Grafana chart. |
+| dashboards.namespace | string | `""` | Namespace for the dashboard ConfigMaps (defaults to the release namespace). The Grafana chart sidecar watches only its own namespace unless `sidecar.dashboards.searchNamespace` is set, e.g. to `ALL`. |
 | fullnameOverride | string | `""` | Override the full resource name |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.repository | string | `"quay.io/sustainable_computing_io/kepler"` | Kepler image repository |

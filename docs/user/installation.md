@@ -418,7 +418,7 @@ helm upgrade kepler manifests/helm/kepler/ -n kepler \
 After successful installation:
 
 1. **Set up Prometheus**: Configure scraping of Kepler metrics
-2. **Install Grafana**: Use pre-built dashboards for visualization
+2. **Install Grafana**: Deploy the Kepler dashboards with the [Helm chart](../../manifests/helm/kepler/README.md#grafana-dashboards)
 3. **Configure Alerts**: Set up energy consumption alerts
 4. **Explore Metrics**: Learn about available energy metrics
 5. **Optimize Workloads**: Use insights to improve energy efficiency
