@@ -256,7 +256,10 @@ func createServices(logger *slog.Logger, cfg *config.Config) ([]service.Service,
 
 	// Add stdout exporter if enabled
 	if cfg.IsFeatureEnabled(config.StdoutFeature) {
-		stdoutExporter := stdout.NewExporter(pm, stdout.WithLogger(logger))
+		stdoutExporter := stdout.NewExporter(pm,
+			stdout.WithLogger(logger),
+			stdout.WithInterval(cfg.Exporter.Stdout.Interval),
+		)
 		services = append(services, stdoutExporter)
 	}
 
