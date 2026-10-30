@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.filter.outputs.changes }}
+      gpu-e2e: ${{ steps.filter.outputs.gpu-e2e }}
     steps:
       - name: checkout source
         uses: actions/checkout@v7
@@ -25,6 +26,22 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - 'Makefile'
+            gpu-e2e:
+              - 'hack/gpu-e2e/**'
+              - '.github/workflows/gpu-e2e.yaml'
+  # The GPU e2e workflow only runs on the CNCF GPU runner, so its scripts are
+  # checked here, without a GPU, whenever they change.
+  gpu-e2e-scripts:
+    needs: check-changes
+    if: needs.check-changes.outputs.gpu-e2e == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v7
+
+      - name: test the GPU e2e workflow scripts
+        run: bash hack/gpu-e2e/test.sh
+
   fmt:
     needs: check-changes
     if: needs.check-changes.outputs.changes == 'true'

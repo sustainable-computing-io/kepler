@@ -1,0 +1,41 @@
+=== RUN   TestGPUNodeMetricsPresent
+    gpu_test.go:127: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:127: Kepler started on port 28282 (PID: 23800)
+--- PASS: TestGPUNodeMetricsPresent (2.98s)
+=== RUN   TestGPUNodeMetricsLabels
+    gpu_test.go:153: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:153: Kepler started on port 28282 (PID: 23850)
+--- PASS: TestGPUNodeMetricsLabels (2.97s)
+=== RUN   TestGPUNodeMetricsNonNegative
+    gpu_test.go:176: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:176: Kepler started on port 28282 (PID: 23894)
+--- PASS: TestGPUNodeMetricsNonNegative (2.97s)
+=== RUN   TestGPUNodePowerConservation
+    gpu_test.go:201: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:201: Kepler started on port 28282 (PID: 23934)
+    gpu_test.go:232: GPU 0: total=10.6540 W, active=0.0000 W, idle=10.6540 W, computed=10.6540 W
+--- PASS: TestGPUNodePowerConservation (2.97s)
+=== RUN   TestGPURealHardware
+    gpu_test.go:248: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:248: Kepler started on port 28282 (PID: 23977)
+    gpu_test.go:260: GPU 0: NVIDIA A10 (GPU-89ec9134-671a-c36d-44aa-bcba5e5344f4), 10.75 W
+--- PASS: TestGPURealHardware (2.99s)
+=== RUN   TestGPUPowerMatchesNvidiaSMI
+    gpu_test.go:274: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:274: Kepler started on port 28282 (PID: 24020)
+    gpu_test.go:279:
+        	Error Trace:	/home/ubuntu/_work/kepler/kepler/test/e2e/gpu_test.go:279
+        	Error:      	Received unexpected error:
+        	            	context deadline exceeded
+        	Test:       	TestGPUPowerMatchesNvidiaSMI
+        	Messages:   	Kepler's GPU power never matched nvidia-smi within 5% or 3 W
+--- FAIL: TestGPUPowerMatchesNvidiaSMI (90.02s)
+=== RUN   TestGPUWorkloadAttribution
+    gpu_test.go:297: Starting Kepler: /home/ubuntu/_work/kepler/kepler/bin/kepler [--web.listen-address=:28282 --log.level=debug --config.file=/home/ubuntu/_work/kepler/kepler/test/testdata/e2e-gpu-config.yaml]
+    gpu_test.go:297: Kepler started on port 28282 (PID: 24107)
+    gpu_test.go:307: idle: nvidia-smi=10.75 W, node total=10.37 W, idle=10.37 W, active=0.00 W
+    gpu_test.go:312: Starting GPU load: /usr/bin/dcgmproftester13 from nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
+    gpu_test.go:314: GPU load running: container=ccd0f139687f pid=24371
+    gpu_test.go:366: under load: nvidia-smi=149.72 W, node total=149.52 W, idle=10.37 W, active=139.15 W, running processes=139.15 W, load pid=139.15 W, load container=139.15 W
+--- PASS: TestGPUWorkloadAttribution (23.51s)
+FAIL

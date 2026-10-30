@@ -1,0 +1,22 @@
+=== RUN   TestGPUNodeMetricsPresent
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUNodeMetricsPresent (0.02s)
+=== RUN   TestGPUNodeMetricsLabels
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUNodeMetricsLabels (0.02s)
+=== RUN   TestGPUNodeMetricsNonNegative
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUNodeMetricsNonNegative (0.02s)
+=== RUN   TestGPUNodePowerConservation
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUNodePowerConservation (0.02s)
+=== RUN   TestGPURealHardware
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPURealHardware (0.02s)
+=== RUN   TestGPUPowerMatchesNvidiaSMI
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUPowerMatchesNvidiaSMI (0.02s)
+=== RUN   TestGPUWorkloadAttribution
+    gpu_test.go:76: Skipping: no usable NVIDIA GPU (nvidia-smi -L: No devices were found), run with -gpu.fake to use the fake GPU
+--- SKIP: TestGPUWorkloadAttribution (0.02s)
+PASS

@@ -1,0 +1,55 @@
+## ❌ GPU e2e failed
+
+1 of 7 GPU tests failed on `PR #1234` at [`0123456`](https://github.com/sustainable-computing-io/kepler/commit/0123456789abcdef0123456789abcdef01234567). Details are below each failing test.
+
+| GPU | Driver | CUDA | Memory | Runner |
+| --- | --- | --- | --- | --- |
+| unknown | `unknown` | `unknown` | unknown | `oracle-vm-gpu-a10-1` |
+
+### Tests: 6 passed, 1 failed
+
+| | Test | What it checks | Time |
+| :---: | --- | --- | ---: |
+| ❌ | `TestGPUPowerMatchesNvidiaSMI` | Kepler's GPU watts match `nvidia-smi` | 90.0 s |
+| ✅ | `TestGPUNodeMetricsPresent` | GPU node metrics are exported | 3.0 s |
+| ✅ | `TestGPUNodeMetricsLabels` | GPU metrics carry the gpu, uuid, name and vendor labels | 3.0 s |
+| ✅ | `TestGPUNodeMetricsNonNegative` | no GPU power value is negative | 3.0 s |
+| ✅ | `TestGPUNodePowerConservation` | total GPU power = active + idle | 3.0 s |
+| ✅ | `TestGPURealHardware` | Kepler reads a real NVIDIA GPU that draws power | 3.0 s |
+| ✅ | `TestGPUWorkloadAttribution` | a GPU load's power goes to its process and container | 23.5 s |
+
+<details open><summary><strong>Why <code>TestGPUPowerMatchesNvidiaSMI</code> failed</strong></summary>
+
+```text
+gpu_test.go:279:
+Error:       Received unexpected error:
+context deadline exceeded
+Messages:    Kepler's GPU power never matched nvidia-smi within 5% or 3 W
+```
+
+</details>
+
+### Power
+
+| | nvidia-smi | Kepler total | Kepler idle | Kepler active | To processes | To the load |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Idle | 10.8 W | 10.4 W | 10.4 W | 0.0 W | - | - |
+| Under load | 149.7 W | 149.5 W | 10.4 W | 139.2 W | 139.2 W | 139.2 W |
+
+Kepler splits the GPU's power into idle, the lowest power it has seen with no process on the GPU, and active, the rest, which it gives to the processes using the GPU.
+Under load, `dcgmproftester` kept the tensor cores busy as pid `24371` in container `ccd0f139687f`.
+
+<details><summary><strong>Measurements logged by the tests</strong></summary>
+
+```text
+GPU 0: total=10.6540 W, active=0.0000 W, idle=10.6540 W, computed=10.6540 W
+GPU 0: NVIDIA A10 (GPU-89ec9134-671a-c36d-44aa-bcba5e5344f4), 10.75 W
+idle: nvidia-smi=10.75 W, node total=10.37 W, idle=10.37 W, active=0.00 W
+Starting GPU load: /usr/bin/dcgmproftester13 from nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
+GPU load running: container=ccd0f139687f pid=24371
+under load: nvidia-smi=149.72 W, node total=149.52 W, idle=10.37 W, active=139.15 W, running processes=139.15 W, load pid=139.15 W, load container=139.15 W
+```
+
+</details>
+
+⬇️ The full test output with Kepler's logs, Kepler's GPU metrics during the run and the power samples are in the [`gpu-e2e-logs`](https://github.com/sustainable-computing-io/kepler/actions/runs/1000#artifacts) artifact.
