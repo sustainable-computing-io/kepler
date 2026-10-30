@@ -89,7 +89,7 @@ kubectl kustomize manifests/k8s | \
 - **[Power Attribution Guide](docs/developer/power-attribution-guide.md)** - How Kepler measures and attributes power consumption
 - **[Developer Documentation](docs/developer/)** - Contributing guidelines and development workflow
 
-For more detailed documentation, please visit the [official Kepler documentation](https://sustainable-computing.io/kepler/).
+For more detailed documentation, please visit the [official Kepler documentation](https://sustainable-computing.io/).
 
 ## 🤝 Contributing
 
