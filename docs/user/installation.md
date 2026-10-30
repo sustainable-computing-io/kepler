@@ -139,6 +139,44 @@ Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart'
 
 For GPUs in MIG mode, Kepler also needs dcgm-exporter. See [MIG Power Attribution](configuration.md#mig-power-attribution) for its requirements and limits.
 
+#### Enable Redfish with Helm
+
+Redfish BMC power monitoring needs a config file Kepler can read. Mount that Secret as its own directory. Do not use a `subPath` file under `/etc/kepler`; the chart already mounts the ConfigMap as that directory.
+
+Create the Secret, then install with a values file:
+
+```bash
+kubectl create namespace kepler
+kubectl -n kepler create secret generic redfish-config --from-file=redfish.yaml
+```
+
+```yaml
+# redfish-values.yaml
+daemonset:
+  extraVolumes:
+    - name: redfish-config
+      secret:
+        secretName: redfish-config
+  extraVolumeMounts:
+    - name: redfish-config
+      mountPath: /etc/kepler-redfish
+      readOnly: true
+
+config:
+  experimental:
+    platform:
+      redfish:
+        enabled: true
+        configFile: /etc/kepler-redfish/redfish.yaml
+```
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace \
+  -f redfish-values.yaml
+```
+
 #### Helm Management Commands
 
 ```bash
