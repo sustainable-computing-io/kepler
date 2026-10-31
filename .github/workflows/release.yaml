@@ -82,6 +82,10 @@ jobs:
           # Currently the binary is built for linux-amd64 only
           tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
 
+      - name: govulncheck
+        shell: bash
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v7
         with:
