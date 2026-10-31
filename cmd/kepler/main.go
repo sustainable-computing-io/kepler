@@ -17,6 +17,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia"
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu/nvidia/fakeworkload"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/prometheus"
 	"github.com/sustainable-computing-io/kepler/internal/exporter/stdout"
 	"github.com/sustainable-computing-io/kepler/internal/k8s/pod"
@@ -27,6 +28,12 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/server"
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"github.com/sustainable-computing-io/kepler/internal/version"
+)
+
+const (
+	fakeGPUIdlePower            = 40 * device.Watt
+	fakeGPULoadPower            = 225 * device.Watt
+	keplerFakeGPUWorkloadDirEnv = "KEPLER_FAKE_GPU_WORKLOAD_DIR"
 )
 
 func main() {
@@ -337,7 +344,7 @@ func createPrometheusExporter(
 // Returns empty slice if GPU is not enabled or no GPUs are available (soft-fail).
 func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMeter {
 	if fake := cfg.Dev.FakeGPUMeter; ptr.Deref(fake.Enabled, false) {
-		return createFakeGPUMeter(logger, fake.DeviceCount, fake.SharingMode)
+		return createFakeGPUMeter(logger, fake.DeviceCount, fake.SharingMode, cfg.Host.ProcFS)
 	}
 
 	if !cfg.IsFeatureEnabled(config.ExperimentalGPUFeature) {
@@ -363,7 +370,7 @@ func createGPUMeters(logger *slog.Logger, cfg *config.Config) []gpu.GPUPowerMete
 
 // createFakeGPUMeter creates a GPU meter backed by FakeNVMLBackend for
 // development and testing. Not for production use.
-func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode string) []gpu.GPUPowerMeter {
+func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode, procfsPath string) []gpu.GPUPowerMeter {
 	if deviceCount <= 0 {
 		logger.Error("invalid fake GPU device count", "deviceCount", deviceCount)
 		return nil
@@ -390,11 +397,22 @@ func createFakeGPUMeter(logger *slog.Logger, deviceCount int, sharingMode string
 			Idx:         i,
 			DeviceUUID:  fmt.Sprintf("FAKE-GPU-%04d", i),
 			DeviceName:  "Fake NVIDIA GPU",
-			DevicePower: 225 * device.Watt,
+			DevicePower: fakeGPUIdlePower,
+			IdlePower:   fakeGPUIdlePower,
+			LoadPower:   fakeGPULoadPower,
 			Mode:        mode,
 		}
 	}
-	// TODO: Add fake GPU processes when e2e workloads can supply stable PIDs.
+	devices[0].UtilizationTemplate = []gpu.ProcessUtilization{
+		{ComputeUtil: 80},
+		{ComputeUtil: 20},
+	}
+	finder, err := fakeworkload.New(procfsPath, os.Getenv(keplerFakeGPUWorkloadDirEnv))
+	if err != nil {
+		logger.Error("failed to create fake GPU process finder", "procfs", procfsPath, "error", err)
+	} else {
+		devices[0].PIDSource = finder
+	}
 
 	backend := nvidia.NewFakeNVMLBackend(devices...)
 	collector, err := nvidia.NewGPUPowerCollector(logger, nvidia.WithNVMLBackend(backend))

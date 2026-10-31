@@ -671,7 +671,7 @@ dev:
 - **fake-gpu-meter**: When enabled, uses a fake GPU backend instead of real NVIDIA hardware
   - `enabled`: Set to `true` to enable fake GPU meter. This takes precedence over `experimental.gpu.enabled`, so the experimental GPU flag does not also need to be enabled
   - `deviceCount`: Number of simulated GPUs. Must be greater than 0 (default: 1)
-  - `sharingMode`: Set to `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`). This changes the detected sharing mode but has no effect on exported metrics because the fake GPU meter does not configure any processes.
+  - `sharingMode`: Set to `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`). When fake GPU processes are present (stress-ng workers whose cwd matches `KEPLER_FAKE_GPU_WORKLOAD_DIR`), this changes attribution: exclusive splits active power equally across those PIDs, and time-slicing splits it by the fake utilization samples (80/20 for the first two PIDs).
 
 ## 📖 Further Reading
 
