@@ -287,7 +287,7 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 
 	t.Run("all endpoints fail", func(t *testing.T) {
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" }
+		backend.discoverEndpoint = func(context.Context) string { return "" }
 		backend.fallbackEndpoints = []string{"http://127.0.0.1:1/metrics"}
 
 		err := backend.Init(ctx)
@@ -299,7 +299,7 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 
 	t.Run("all endpoints fail reports count and cause", func(t *testing.T) {
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" }
+		backend.discoverEndpoint = func(context.Context) string { return "" }
 		backend.fallbackEndpoints = []string{
 			"http://127.0.0.1:1/metrics",
 			"http://127.0.0.1:2/metrics",
@@ -322,7 +322,7 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return server.URL + "/metrics" }
+		backend.discoverEndpoint = func(context.Context) string { return server.URL + "/metrics" }
 
 		err := backend.Init(ctx)
 		assert.NoError(t, err)
@@ -337,7 +337,7 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "http://127.0.0.1:1/metrics" }
+		backend.discoverEndpoint = func(context.Context) string { return "http://127.0.0.1:1/metrics" }
 		backend.fallbackEndpoints = []string{server.URL + "/metrics"}
 
 		err := backend.Init(ctx)
@@ -353,7 +353,7 @@ func TestDCGMExporterBackend_Init_errors(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" }
+		backend.discoverEndpoint = func(context.Context) string { return "" }
 		backend.fallbackEndpoints = []string{server.URL + "/metrics"}
 
 		err := backend.Init(ctx)
@@ -547,7 +547,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.1:9400/metrics", endpoint)
 	})
 
@@ -561,7 +561,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.2:9400/metrics", endpoint)
 	})
 
@@ -575,7 +575,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.3:9400/metrics", endpoint)
 	})
 
@@ -592,7 +592,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Empty(t, endpoint)
 	})
 
@@ -606,7 +606,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Empty(t, endpoint)
 	})
 
@@ -620,7 +620,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Empty(t, endpoint)
 	})
 
@@ -628,7 +628,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend := NewDCGMExporterBackend(slog.Default())
 		t.Setenv("NODE_NAME", "")
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Empty(t, endpoint)
 	})
 
@@ -645,7 +645,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.10:9400/metrics", endpoint)
 	})
 
@@ -660,7 +660,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.20:9500/metrics", endpoint)
 	})
 
@@ -675,7 +675,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.21:8080/metrics", endpoint)
 	})
 
@@ -689,7 +689,7 @@ func TestDiscoverLocalDCGMExporter(t *testing.T) {
 		backend.kubeClient = client
 		t.Setenv("NODE_NAME", nodeName)
 
-		endpoint := backend.discoverLocalDCGMExporter()
+		endpoint := backend.discoverLocalDCGMExporter(context.Background())
 		assert.Equal(t, "http://10.0.0.22:9400/metrics", endpoint)
 	})
 }
@@ -770,7 +770,7 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return server.URL + "/metrics" }
+		backend.discoverEndpoint = func(context.Context) string { return server.URL + "/metrics" }
 		// Set fallbacks to unreachable — should never be tried
 		backend.fallbackEndpoints = []string{"http://127.0.0.1:1/metrics"}
 
@@ -786,7 +786,7 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" } // K8s discovery fails
+		backend.discoverEndpoint = func(context.Context) string { return "" } // K8s discovery fails
 		backend.fallbackEndpoints = []string{
 			server.URL + "/metrics", // simulates localhost:9400
 			"http://127.0.0.1:1/metrics",
@@ -804,7 +804,7 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" }
+		backend.discoverEndpoint = func(context.Context) string { return "" }
 		backend.fallbackEndpoints = []string{
 			"http://127.0.0.1:1/metrics", // localhost fails
 			server.URL + "/metrics",      // ClusterIP succeeds
@@ -817,7 +817,7 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 
 	t.Run("all 3 priorities fail", func(t *testing.T) {
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "" }
+		backend.discoverEndpoint = func(context.Context) string { return "" }
 		backend.fallbackEndpoints = []string{
 			"http://127.0.0.1:1/metrics",
 			"http://127.0.0.1:2/metrics",
@@ -835,7 +835,7 @@ func TestDCGMExporterBackend_Init_discoveryPriority(t *testing.T) {
 		defer server.Close()
 
 		backend := NewDCGMExporterBackend(slog.Default())
-		backend.discoverEndpoint = func() string { return "http://127.0.0.1:1/metrics" }
+		backend.discoverEndpoint = func(context.Context) string { return "http://127.0.0.1:1/metrics" }
 		backend.fallbackEndpoints = []string{server.URL + "/metrics"}
 
 		err := backend.Init(context.Background())
@@ -929,7 +929,7 @@ func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
 		ctx := context.Background()
 		backend := NewDCGMExporterBackend(slog.Default())
 		discovered := oldServer.URL + "/metrics"
-		backend.discoverEndpoint = func() string { return discovered }
+		backend.discoverEndpoint = func(context.Context) string { return discovered }
 		backend.fallbackEndpoints = nil
 		require.NoError(t, backend.Init(ctx))
 
@@ -954,7 +954,7 @@ func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
 		ctx := context.Background()
 		backend := NewDCGMExporterBackend(slog.Default())
 		backend.SetEndpoint("http://127.0.0.1:1")
-		backend.discoverEndpoint = func() string { return server.URL + "/metrics" }
+		backend.discoverEndpoint = func(context.Context) string { return server.URL + "/metrics" }
 		backend.initialized = false
 		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
 
@@ -962,6 +962,40 @@ func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "re-init failed")
 		assert.Equal(t, "http://127.0.0.1:1/metrics", backend.endpoint)
+	})
+
+	t.Run("re-init is bounded as a whole", func(t *testing.T) {
+		// Every endpoint hangs until the request is cancelled
+		release := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+		}))
+		defer server.Close()
+		defer close(release)
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.reInitTimeout = 200 * time.Millisecond
+		backend.discoverEndpoint = func(ctx context.Context) string {
+			_, hasDeadline := ctx.Deadline()
+			assert.True(t, hasDeadline, "discovery should share the re-init deadline")
+			return server.URL + "/discovered"
+		}
+		backend.fallbackEndpoints = []string{server.URL + "/localhost", server.URL + "/service"}
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		start := time.Now()
+		_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "re-init failed")
+		// Without the shared deadline each of the 3 probes waits for the 5s
+		// client timeout
+		assert.Less(t, time.Since(start), 2*time.Second)
+		assert.False(t, backend.IsInitialized())
 	})
 
 	t.Run("no re-init before interval", func(t *testing.T) {
