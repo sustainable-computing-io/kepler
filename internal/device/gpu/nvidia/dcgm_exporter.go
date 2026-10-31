@@ -31,6 +31,11 @@ const (
 	// reInitInterval is how long to wait before re-attempting initialization
 	// after the circuit breaker has tripped.
 	reInitInterval = 30 * time.Second
+
+	// reInitTimeout bounds one whole re-initialization attempt, including pod
+	// discovery and every endpoint probe. Re-initialization runs during
+	// snapshot collection, so it must not hold up the rest of the scrape.
+	reInitTimeout = 5 * time.Second
 )
 
 // DCGMExporterBackend provides MIG metrics by querying dcgm-exporter's Prometheus endpoint.
@@ -64,7 +69,11 @@ type DCGMExporterBackend struct {
 
 	// discoverEndpoint discovers the local dcgm-exporter endpoint.
 	// Defaults to discoverLocalDCGMExporter. Overridable for testing.
-	discoverEndpoint func() string
+	discoverEndpoint func(ctx context.Context) string
+
+	// reInitTimeout bounds a re-initialization attempt. Defaults to
+	// reInitTimeout. Overridable for testing.
+	reInitTimeout time.Duration
 
 	// fallbackEndpoints is the list of static endpoints to try if discovery fails.
 	fallbackEndpoints []string
@@ -122,6 +131,7 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 		},
 	}
 	d.discoverEndpoint = d.discoverLocalDCGMExporter
+	d.reInitTimeout = reInitTimeout
 	return d
 }
 
@@ -183,7 +193,7 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 	// 3. ClusterIP service (may route to wrong node — last resort, but with
 	//    DaemonSet deployment the service routes to the local pod)
 
-	if localEndpoint := d.discoverEndpoint(); localEndpoint != "" {
+	if localEndpoint := d.discoverEndpoint(ctx); localEndpoint != "" {
 		if err := d.testEndpoint(ctx, localEndpoint); err == nil {
 			d.endpoint = localEndpoint
 			d.endpointDiscovered = true
@@ -230,7 +240,7 @@ func (d *DCGMExporterBackend) markInitialized() {
 }
 
 // discoverLocalDCGMExporter finds the dcgm-exporter pod IP on the same node
-func (d *DCGMExporterBackend) discoverLocalDCGMExporter() string {
+func (d *DCGMExporterBackend) discoverLocalDCGMExporter(ctx context.Context) string {
 	// Get current node name from environment (set by downward API)
 	nodeName := os.Getenv("NODE_NAME")
 	if nodeName == "" {
@@ -256,7 +266,7 @@ func (d *DCGMExporterBackend) discoverLocalDCGMExporter() string {
 
 	// Search all namespaces for dcgm-exporter pods on the same node.
 	// Try multiple label selectors to support different deployment methods.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	nodeSelector := fmt.Sprintf("spec.nodeName=%s", nodeName)
@@ -372,7 +382,10 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 		if d.endpointDiscovered {
 			d.endpoint = ""
 		}
-		if err := d.initLocked(ctx); err != nil {
+		reInitCtx, cancel := context.WithTimeout(ctx, d.reInitTimeout)
+		err := d.initLocked(reInitCtx)
+		cancel()
+		if err != nil {
 			d.circuitOpenTime = time.Now()
 			d.logger.Warn("DCGM re-initialization failed", "error", err)
 			return 0, fmt.Errorf("DCGM re-init failed: %w", err)
