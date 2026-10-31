@@ -73,9 +73,29 @@ spec:
         - name: kepler
           image: <KEPLER_IMAGE>
           imagePullPolicy: Always
+          # Same defaults as the Helm chart (daemonset.securityContext): unprivileged,
+          # with only SYS_PTRACE. Set privileged: true (and allowPrivilegeEscalation: true)
+          # to name non-root, non-Kubernetes containers, or when enabling GPU monitoring.
           securityContext:
-            privileged: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              drop: [ALL]
+              add: [SYS_PTRACE]
+            seccompProfile:
+              type: RuntimeDefault
+            # The runtime's default AppArmor profile blocks reading other processes'
+            # /proc/<pid>/exe even with SYS_PTRACE. This field needs Kubernetes 1.30+; on older clusters drop it
+            # and add the pod annotation container.apparmor.security.beta.kubernetes.io/kepler: unconfined.
+            appArmorProfile:
+              type: Unconfined
+            # containerd with SELinux enabled labels unprivileged containers container_t,
+            # which cannot read other processes' /proc entries.
+            seLinuxOptions:
+              type: spc_t
           command:
             - /usr/bin/kepler
           args:
