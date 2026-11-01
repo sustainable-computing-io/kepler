@@ -1824,7 +1824,8 @@ func TestGPUPowerCollector_attributePartitioned_reinitAfterCircuitBreaker(t *tes
 	mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
 	mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
 	mockDevice.On("UUID").Return("GPU-123")
-	// Only used by the equal-share fallback
+	// Idle detection always calls this; the equal-share fallback also uses
+	// the PIDs.
 	mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
 		{PID: 1001},
 		{PID: 1002},
