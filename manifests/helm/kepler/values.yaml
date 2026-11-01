@@ -257,6 +257,8 @@ config:
       idlePower: 0
       # -- dcgm-exporter metrics URL for MIG (auto-discovered if empty)
       dcgmEndpoint: ""
+      # -- dcgm-exporter metrics cache TTL for MIG (0s disables cache)
+      metricsCacheTTL: 2s
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:
