@@ -74,8 +74,8 @@ type DCGMExporterBackend struct {
 	// Defaults to discoverLocalDCGMExporter. Overridable for testing.
 	discoverEndpoint func(ctx context.Context) string
 
-	// reInitTimeout bounds a re-initialization attempt. Defaults to
-	// reInitTimeout. Overridable for testing.
+	// reInitTimeout bounds a re-initialization attempt. Defaults to 5s.
+	// Overridable for testing.
 	reInitTimeout time.Duration
 
 	// fallbackEndpoints is the list of static endpoints to try if discovery fails.
