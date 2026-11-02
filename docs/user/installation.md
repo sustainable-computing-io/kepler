@@ -5,7 +5,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 ## Prerequisites
 
 - **For Local Installation**: Use the Go version specified in the repository's [`go.mod`](../../go.mod) file. Root access is required to read RAPL energy counters.
-- **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured; the `manifests/k8s` DaemonSet applied with `kubectl apply --server-side` needs v1.30+ (see the note under the kustomize install)
+- **For Kubernetes**: Kubernetes cluster (v1.30+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
 ## Installation Methods
@@ -273,7 +273,7 @@ make cluster-down
 
 #### Manual Kubernetes Deployment
 
-The DaemonSet runs unprivileged with only `SYS_PTRACE`, the same as the Helm chart. Its `appArmorProfile` field needs Kubernetes 1.30 or later: an older API server rejects it with `kubectl apply --server-side`. On an older cluster, remove that field from `manifests/k8s/daemonset.yaml` and add the pod annotation `container.apparmor.security.beta.kubernetes.io/kepler: unconfined` instead. To get `container_name` for Docker, Podman and nerdctl containers that do not run as root, set `privileged: true` and `allowPrivilegeEscalation: true` on the `kepler` container in `manifests/k8s/daemonset.yaml`. GPU monitoring needs the same change plus `enabled: true` under `config.experimental.gpu` in `manifests/k8s/configmap.yaml`.
+The DaemonSet runs unprivileged with only `SYS_PTRACE`, the same as the Helm chart. To get `container_name` for Docker, Podman and nerdctl containers that do not run as root, set `privileged: true` and `allowPrivilegeEscalation: true` on the `kepler` container in `manifests/k8s/daemonset.yaml`. GPU monitoring needs the same change plus `enabled: true` under `config.experimental.gpu` in `manifests/k8s/configmap.yaml`.
 
 ```bash
 # Deploy using kustomize

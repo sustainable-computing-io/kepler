@@ -88,8 +88,7 @@ spec:
             seccompProfile:
               type: RuntimeDefault
             # The runtime's default AppArmor profile blocks reading other processes'
-            # /proc/<pid>/exe even with SYS_PTRACE. This field needs Kubernetes 1.30+; on older clusters drop it
-            # and add the pod annotation container.apparmor.security.beta.kubernetes.io/kepler: unconfined.
+            # /proc/<pid>/exe even with SYS_PTRACE.
             appArmorProfile:
               type: Unconfined
             # containerd with SELinux enabled labels unprivileged containers container_t,
