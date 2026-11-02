@@ -31,3 +31,16 @@ updates:
     labels:
       - dependencies
       - github-actions
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      day: monday
+      interval: weekly
+    groups:
+      pre-commit:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - pre-commit
