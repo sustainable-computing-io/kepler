@@ -155,3 +155,28 @@ func TestBuildCPUMeter_Unknown(t *testing.T) {
 	assert.Nil(t, meter)
 	assert.Contains(t, err.Error(), "unknown cpu meter")
 }
+
+func TestBuildCPUMeter_Zpwr(t *testing.T) {
+	cfg := config.DefaultConfig()
+
+	meter, err := buildCPUMeter("zpwr", discardLogger(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, meter)
+	assert.Equal(t, "zpwr", meter.Name())
+}
+
+func TestCreateCPUMeter_ZpwrUnavailableFallsThroughToFake(t *testing.T) {
+	// Point zpwr at a missing device so Init fails deterministically, even on
+	// IBM Z hosts where /dev/diag exists, and the next backend is used.
+	orig := zpwrDevicePath
+	zpwrDevicePath = "/nonexistent/diag"
+	t.Cleanup(func() { zpwrDevicePath = orig })
+
+	cfg := config.DefaultConfig()
+	cfg.Cpu.PreferredMeters = []string{"zpwr", "fake"}
+
+	meter, err := CreateCPUMeter(discardLogger(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, meter)
+	assert.Equal(t, "fake-cpu-meter", meter.Name())
+}

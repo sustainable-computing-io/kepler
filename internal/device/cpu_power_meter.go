@@ -134,6 +134,10 @@ func buildCPUMeter(name string, logger *slog.Logger, cfg *config.Config) (CPUPow
 			WithHwmonChipRules(rules),
 		)
 
+	case "zpwr":
+		// IBM Z / LinuxONE partition power via s390 DIAGNOSE 0x324 (/dev/diag).
+		return NewZpwrPowerMeter(WithZpwrLogger(logger), WithZpwrDevicePath(zpwrDevicePath))
+
 	case "fake":
 		return NewFakeCPUMeter(cfg.Dev.FakeCpuMeter.Zones, WithFakeLogger(logger))
 

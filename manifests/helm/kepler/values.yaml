@@ -172,7 +172,10 @@ config:
   cpu:
     # -- Ordered preference list of CPU power-meter backends. The first backend
     # that initializes successfully and reports zones is used.
-    # Built-in backends: rapl, hwmon, fake.
+    # Built-in backends: rapl, hwmon, zpwr (IBM Z / LinuxONE), fake.
+    # zpwr reads /dev/diag, which reaches the container only when it is
+    # privileged: to use it, add zpwr here and set
+    # daemonset.securityContext.privileged=true (see docs/user/installation.md).
     preferredMeters: [rapl, hwmon]
   rapl:
     # -- RAPL zones to enable. Empty enables the default zones.

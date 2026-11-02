@@ -139,6 +139,20 @@ Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart'
 
 For GPUs in MIG mode, Kepler also needs dcgm-exporter. See [MIG Power Attribution](configuration.md#mig-power-attribution) for its requirements and limits.
 
+#### Enabling IBM Z / LinuxONE Power Monitoring (s390x)
+
+On IBM z17 / LinuxONE 5 and later, Kepler can read partition (LPAR) power with the `zpwr` CPU meter (see the `zpwr` entry under CPU Power Meter Selection in [configuration.md](configuration.md) for its requirements). It reads the host's `/dev/diag` device, which reaches the container only when it runs privileged, so enable both:
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace \
+  --set 'config.cpu.preferredMeters={rapl,hwmon,zpwr}' \
+  --set daemonset.securityContext.privileged=true
+```
+
+The chart's default stays unprivileged, so `zpwr` is not in its default meter list. The Kustomize manifests in `manifests/k8s` already run privileged and include `zpwr`.
+
 #### Helm Management Commands
 
 ```bash

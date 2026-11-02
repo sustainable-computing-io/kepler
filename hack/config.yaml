@@ -35,8 +35,8 @@ host:
 cpu:
   # Ordered preference list of CPU power-meter backends. The first backend
   # that initializes successfully and reports zones is used.
-  # Built-in backends: rapl, hwmon, fake.
-  preferredMeters: [rapl, hwmon]
+  # Built-in backends: rapl, hwmon, zpwr (IBM Z / LinuxONE), fake.
+  preferredMeters: [rapl, hwmon, zpwr]
 
 rapl:
   zones: [] # zones to be enabled, empty enables all default zones

@@ -43,7 +43,7 @@ dashboards:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | annotations | object | `{}` | Additional annotations to add to all resources |
-| config.cpu.preferredMeters | list | `["rapl","hwmon"]` | Ordered preference list of CPU power-meter backends. The first backend that initializes successfully and reports zones is used. Built-in backends: rapl, hwmon, fake. |
+| config.cpu.preferredMeters | list | `["rapl","hwmon"]` | Ordered preference list of CPU power-meter backends. The first backend that initializes successfully and reports zones is used. Built-in backends: rapl, hwmon, zpwr (IBM Z / LinuxONE), fake. zpwr reads /dev/diag, which reaches the container only when it is privileged: to use it, add zpwr here and set daemonset.securityContext.privileged=true (see docs/user/installation.md). |
 | config.debug.pprof.enabled | bool | `false` | Turn on pprof endpoints |
 | config.dev.fake-cpu-meter.enabled | bool | `false` | DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true. |
 | config.dev.fake-cpu-meter.zones | list | `[]` | Fake CPU meter zones |

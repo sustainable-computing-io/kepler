@@ -17,6 +17,9 @@ RUN if [ "$BUILDARCH" = "$TARGETARCH" ]; then \
     elif [ "$TARGETARCH" = "amd64" ]; then \
       apt-get update && apt-get install -y --no-install-recommends \
         gcc-x86-64-linux-gnu libc6-dev-amd64-cross && rm -rf /var/lib/apt/lists/*; \
+    elif [ "$TARGETARCH" = "s390x" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+        gcc-s390x-linux-gnu libc6-dev-s390x-cross && rm -rf /var/lib/apt/lists/*; \
     fi
 
 WORKDIR /workspace
@@ -28,6 +31,8 @@ RUN CROSS_CC=""; \
       CROSS_CC=aarch64-linux-gnu-gcc; \
     elif [ "$TARGETARCH" = "amd64" ] && [ "$BUILDARCH" != "amd64" ]; then \
       CROSS_CC=x86_64-linux-gnu-gcc; \
+    elif [ "$TARGETARCH" = "s390x" ] && [ "$BUILDARCH" != "s390x" ]; then \
+      CROSS_CC=s390x-linux-gnu-gcc; \
     fi; \
     make build \
       CGO_ENABLED=1 \
