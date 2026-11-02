@@ -141,6 +141,7 @@ spec:
               mountPath: /usr/local/nvidia/lib64
               readOnly: true
             {{- end }}
+            {{- with .Values.daemonset.extraVolumeMounts }}{{- toYaml . | nindent 12 }}{{- end }}
           {{- with .Values.daemonset.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
@@ -179,6 +180,7 @@ spec:
             - name: LD_LIBRARY_PATH
               value: /usr/local/nvidia/lib64
             {{- end }}
+            {{- with .Values.daemonset.extraEnv }}{{- toYaml . | nindent 12 }}{{- end }}
           {{- with .Values.daemonset.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -203,3 +205,4 @@ spec:
           emptyDir:
             sizeLimit: 200Mi
         {{- end }}
+        {{- with .Values.daemonset.extraVolumes }}{{- toYaml . | nindent 8 }}{{- end }}
