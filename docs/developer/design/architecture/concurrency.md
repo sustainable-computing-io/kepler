@@ -12,8 +12,8 @@ Kepler's architecture ensures that concurrent access never produces different re
 
 ### Component-Level Thread Safety
 
-| Component                         | Thread Safety  | Access Pattern                  | Notes                    |
-|-----------------------------------|----------------|---------------------------------|--------------------------|
+| Component                         | Thread Safety   | Access Pattern                  | Notes                    |
+|-----------------------------------|-----------------|---------------------------------|--------------------------|
 | **PowerMonitor** (public methods) | ✅ Thread-safe  | Multiple readers, single writer | Except `Init()`          |
 | **Device Layer**                  | ❌ Not required | Single goroutine access         | Called only from monitor |
 | **Resource Layer**                | ❌ Not required | Single goroutine access         | Called only from monitor |
