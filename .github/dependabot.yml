@@ -19,7 +19,12 @@ updates:
       - dependencies
       - go
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/check-x-crypto
+      - /.github/compose
+      - /.github/k8s
+      - /.github/publish-image
     schedule:
       day: monday
       interval: weekly

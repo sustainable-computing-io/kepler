@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@v2.5.0
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
@@ -74,10 +74,11 @@ jobs:
           name: scorecard-sarif-raw
 
       # Filter out Pinned-Dependencies findings from SARIF.
-      # We intentionally use tagged versions (e.g. @v6) instead of commit
-      # SHAs for readability and Dependabot compatibility. The scorecard-action
-      # has no option to exclude individual checks, so we strip these results
-      # from the SARIF before uploading to code scanning.
+      # Third-party actions are pinned to commit SHAs with a version comment,
+      # which Dependabot keeps up to date. First-party actions/* stay on tags
+      # for readability, which Scorecard still reports as unpinned. The
+      # scorecard-action has no option to exclude individual checks, so we
+      # strip these results from the SARIF before uploading to code scanning.
       - name: Filter Pinned-Dependencies from SARIF
         run: |
           jq '(.runs[].results) |= map(select(.ruleId != "PinnedDependenciesID"))' \
