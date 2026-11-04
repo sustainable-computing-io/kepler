@@ -95,6 +95,10 @@ For more detailed documentation, please visit the [official Kepler documentation
 
 Contributions are welcome! Please feel free to submit a Pull Request. For more detailed information about contributing to this project, please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
+### Community Meetings
+
+Everyone is welcome, no invitation needed. For details, see the [Community Meetings](https://github.com/sustainable-computing-io#:~:text=twice%2Dmonthly%20community%20meetings) link on the GitHub organization page.
+
 ### Roadmap
 
 See the [Kepler Roadmap](https://github.com/orgs/sustainable-computing-io/projects/9) for planned and in-progress work.
