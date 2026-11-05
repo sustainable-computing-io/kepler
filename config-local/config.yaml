@@ -99,6 +99,12 @@ experimental:
     # Examples:
     #   node_power_watts{instance="server01"}
     #   sum(pdu_outlet_power_watts{server="server01"})
+    #
+    # Prometheus may return a sample for up to its lookback period
+    # (5m by default). To reject stale readings, add a maximum sample
+    # age; the query then returns nothing and Kepler skips the reading:
+    #   sum(pdu_outlet_power_watts{server="server01"})
+    #     and on() (time() - min(timestamp(pdu_outlet_power_watts{server="server01"})) < 30)
     query: node_power_watts{instance="example-node"}
 
   platform:

@@ -679,6 +679,7 @@ The backend is selected by listing `prometheus` in [`cpu.preferredMeters`](#-cpu
 - **query**: PromQL instant query returning the current node power in **watts**
   - Must return exactly one series. If the node has several PSUs or PDU outlets, aggregate in the query, e.g. `sum(...)`; Kepler returns an error for multiple series.
   - Negative, NaN, and infinite values are rejected.
+  - Prometheus can return the last sample of a series for up to its lookback period (5 minutes by default), and the response carries the evaluation time rather than the sample time. To avoid attributing stale power, guard the query with a maximum sample age (see the example below). If any series is older than the limit, the query returns no samples and Kepler skips the reading for that interval.
 
 At startup Kepler runs the query once. If it fails, Kepler tries the next backend in `cpu.preferredMeters`, or exits if none is left. The backend reports power only (no energy counters); each reading issues one query.
 
@@ -690,7 +691,10 @@ cpu:
 experimental:
   prometheus-power:
     baseURL: https://vm.example.org:8428
-    query: sum(pdu_outlet_power_watts{server="node1"})
+    # sum of all outlets, but only if every sample is at most 30s old
+    query: >-
+      sum(pdu_outlet_power_watts{server="node1"})
+      and on() (time() - min(timestamp(pdu_outlet_power_watts{server="node1"})) < 30)
 ```
 
 ### 🧑‍🔬 Development Configuration
