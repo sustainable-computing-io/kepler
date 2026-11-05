@@ -22,7 +22,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -2399,8 +2399,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Kepler Dashboard",
-  "uid": "dew5f47h9ooowd",
+  "title": "Kepler Power",
+  "uid": "kepler-power",
   "version": 1,
   "weekStart": ""
 }

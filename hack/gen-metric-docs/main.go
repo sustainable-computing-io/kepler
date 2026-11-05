@@ -118,7 +118,7 @@ func (c *DescCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // extractMetricsInfo extracts metric information from a Prometheus collector
-func extractMetricsInfo(collector prometheus.Collector) ([]MetricInfo, error) {
+func extractMetricsInfo(collector prometheus.Collector) []MetricInfo {
 	ch := make(chan *prometheus.Desc, 100)
 	collector.Describe(ch)
 	close(ch)
@@ -185,7 +185,7 @@ func extractMetricsInfo(collector prometheus.Collector) ([]MetricInfo, error) {
 		})
 	}
 
-	return metrics, nil
+	return metrics
 }
 
 // generateMarkdown generates Markdown documentation from metric information
@@ -215,6 +215,25 @@ func generateMarkdown(metrics []MetricInfo) string {
 	md.WriteString("It is common that CPUs support only a subset of these zones. A zone that is not available will not appear in the metrics.\n\n")
 	md.WriteString("Some zones overlap and therefore zones should not be summed. `package` already contains `core`, `uncore`, and part of what `psys` covers. ")
 	md.WriteString("It is advised to filter on a single zone in queries, for example `kepler_node_cpu_watts{zone=\"package\"}`.\n\n")
+
+	md.WriteString("### DRAM Energy\n\n")
+	md.WriteString("Kepler 0.10.0 and later has no separate DRAM metric. DRAM energy is the `dram` zone of the CPU metrics, at every level:\n\n")
+	md.WriteString("```promql\n")
+	md.WriteString("kepler_node_cpu_watts{zone=\"dram\"}\n")
+	md.WriteString("kepler_container_cpu_joules_total{zone=\"dram\"}\n")
+	md.WriteString("kepler_pod_cpu_watts{zone=\"dram\"}\n")
+	md.WriteString("```\n\n")
+	md.WriteString("Kepler only reports energy that a hardware meter measures. ")
+	md.WriteString("It does not estimate DRAM energy when the machine does not report it, so on such machines there is no `zone=\"dram\"` series at all. ")
+	md.WriteString("This is common: many client CPUs and AMD processors do not expose a DRAM domain, and virtual machines usually expose no RAPL domains.\n\n")
+	md.WriteString("To check what a node reports, list the RAPL domain names on the host:\n\n")
+	md.WriteString("```bash\n")
+	md.WriteString("cat /sys/class/powercap/intel-rapl:*/name\n")
+	md.WriteString("```\n\n")
+	md.WriteString("If no line reads `dram`, Kepler cannot report DRAM energy on that node. ")
+	md.WriteString("If it does and the metrics still have no `dram` zone, check that `rapl.zones` in the [configuration](configuration.md) is empty or includes `dram`.\n\n")
+	md.WriteString("Users upgrading from 0.9.x, where `kepler_container_joules_total` had a component per resource, ")
+	md.WriteString("can find what changed in [Upgrading from 0.9.x](https://sustainable-computing.io/blog/kepler-0-10-rewrite/).\n\n")
 
 	md.WriteString("## Metrics Reference\n\n")
 
@@ -364,40 +383,24 @@ func main() {
 	var allMetrics []MetricInfo
 
 	fmt.Println("Extracting metrics from power collector...")
-	powerMetrics, err := extractMetricsInfo(powerCollector)
-	if err != nil {
-		fmt.Printf("Failed to extract power metrics: %v\n", err)
-		os.Exit(1)
-	}
+	powerMetrics := extractMetricsInfo(powerCollector)
 	fmt.Printf("Extracted %d power metrics\n", len(powerMetrics))
 	allMetrics = append(allMetrics, powerMetrics...)
 
 	fmt.Println("Extracting metrics from build info collector...")
-	buildInfoMetrics, err := extractMetricsInfo(buildInfoCollector)
-	if err != nil {
-		fmt.Printf("Failed to extract build info metrics: %v\n", err)
-		os.Exit(1)
-	}
+	buildInfoMetrics := extractMetricsInfo(buildInfoCollector)
 	fmt.Printf("Extracted %d build info metrics\n", len(buildInfoMetrics))
 	allMetrics = append(allMetrics, buildInfoMetrics...)
 
 	if cpuInfoCollector != nil {
 		fmt.Println("Extracting metrics from CPU info collector...")
-		cpuInfoMetrics, err := extractMetricsInfo(cpuInfoCollector)
-		if err != nil {
-			fmt.Printf("Failed to extract CPU info metrics: %v\n", err)
-			os.Exit(1)
-		}
+		cpuInfoMetrics := extractMetricsInfo(cpuInfoCollector)
 		fmt.Printf("Extracted %d CPU info metrics\n", len(cpuInfoMetrics))
 		allMetrics = append(allMetrics, cpuInfoMetrics...)
 	}
 
 	fmt.Println("Extracting metrics from GPU info collector...")
-	gpuInfoMetrics, err := extractMetricsInfo(gpuInfoCollector)
-	if err != nil {
-		fmt.Printf("Failed to extract GPU info metrics: %v\n", err)
-		os.Exit(1)
-	}
+	gpuInfoMetrics := extractMetricsInfo(gpuInfoCollector)
 	fmt.Printf("Extracted %d GPU info metrics\n", len(gpuInfoMetrics))
 	allMetrics = append(allMetrics, gpuInfoMetrics...)
 
@@ -411,11 +414,7 @@ func main() {
 	fmt.Println("Created platform collector")
 
 	fmt.Println("Extracting metrics from platform collector...")
-	platformMetrics, err := extractMetricsInfo(platformCollector)
-	if err != nil {
-		fmt.Printf("Failed to extract platform metrics: %v\n", err)
-		os.Exit(1)
-	}
+	platformMetrics := extractMetricsInfo(platformCollector)
 	fmt.Printf("Extracted %d platform metrics\n", len(platformMetrics))
 	allMetrics = append(allMetrics, platformMetrics...)
 

@@ -50,6 +50,9 @@ data:
       enabled: false
       config: ""
       nodeName: ""
+      podName: ""
+      podNamespace: ""
+      containerName: kepler
       podInformer:
         mode: kubelet          # "kubelet" (default) or "apiserver"
         pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
@@ -78,6 +81,7 @@ data:
         enabled: false
         idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
         dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+        metricsCacheTTL: 2s # dcgm-exporter metrics cache TTL for MIG (0s disables cache)
       prometheus-power: # settings for the "prometheus" CPU meter (select via cpu.preferredMeters)
         baseURL: "" # Prometheus-compatible API base URL, e.g. https://vm.example.org:8428 (userinfo is redacted in logs)
         query: "" # PromQL query returning node power in watts as exactly one series, e.g. sum(pdu_outlet_power_watts{server="node1"})

@@ -33,6 +33,9 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--kube.enable`                               | Monitor kubernetes                                                      | `false`                         | `true`, `false`                                                    |
 | `--kube.config`                               | Path to a kubeconfig file                                               | `""`                            | Any valid file path                                                |
 | `--kube.node-name`                            | Name of kubernetes node on which kepler is running                      | `""`                            | Any valid node name                                                |
+| `--kube.pod-name`                             | Name of the pod kepler is running in                                    | `""`                            | Any valid pod name                                                 |
+| `--kube.pod-namespace`                        | Namespace of the pod kepler is running in                               | `""`                            | Any valid namespace                                                |
+| `--kube.container-name`                       | Name of kepler's container in its pod                                   | `kepler`                        | Any valid container name                                           |
 | `--experimental.platform.redfish.enabled`     | Enable experimental Redfish BMC power monitoring                        | `false`                         | `true`, `false`                                                    |
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
@@ -41,6 +44,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 | `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
+| `--experimental.gpu.metrics-cache-ttl`        | dcgm-exporter metrics cache TTL for MIG power attribution               | `2s`                            | Non-negative Go duration; `0s` disables caching                    |
 
 ### 💡 Examples
 
@@ -161,6 +165,9 @@ kube:           # kubernetes related config
   enabled: false    # Enable kubernetes monitoring (default: false)
   config: ""        # Path to kubeconfig file (optional if running in-cluster)
   nodeName: ""      # Name of the kubernetes node (required when enabled)
+  podName: ""       # Name of the pod Kepler runs in (with podNamespace, attributes Kepler's own processes)
+  podNamespace: ""  # Namespace of the pod Kepler runs in
+  containerName: kepler  # Name of Kepler's container in its pod
   podInformer:      # Pod informer configuration
     mode: kubelet          # "kubelet" (default) or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
@@ -180,6 +187,7 @@ experimental:   # experimental features (no stability guarantees)
     enabled: false                    # Enable GPU power monitoring (default: false)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
     dcgmEndpoint: ""                  # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+    metricsCacheTTL: 2s               # dcgm-exporter metrics cache TTL for MIG, 0s disables cache (default: 2s)
   prometheus-power:  # settings for the "prometheus" CPU meter (select via cpu.preferredMeters)
     baseURL: ""                       # Prometheus-compatible API base URL (userinfo is redacted in logs)
     query: ""                         # PromQL query returning node power in watts as exactly one series
@@ -445,6 +453,9 @@ kube:
   enabled: false    # Enable kubernetes monitoring
   config: ""        # Path to kubeconfig file
   nodeName: ""      # Name of the kubernetes node
+  podName: ""       # Name of the pod Kepler runs in
+  podNamespace: ""  # Namespace of the pod Kepler runs in
+  containerName: kepler  # Name of Kepler's container in its pod
   podInformer:
     mode: kubelet          # "kubelet" or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode
@@ -462,6 +473,12 @@ kube:
   - This helps Kepler identify which node it's monitoring
   - Must match the actual node name in the Kubernetes cluster
   - Required when `enabled` is set to `true`
+
+- **podName**, **podNamespace**, **containerName**: Where Kepler itself runs (optional)
+  - Set `podName` and `podNamespace` together, from the downward API; `containerName` defaults to `kepler`
+  - Needed when Kepler runs unprivileged: its private cgroup namespace hides its own cgroup path, so Kepler finds its container through the pod informer instead and reports its own energy use under it
+  - Only used when Kepler's own cgroup is the namespace root (a private cgroup namespace); in the host cgroup namespace (privileged, or cgroup v1) the setting has no effect and Kepler is attributed from its cgroup path as usual
+  - Without them Kepler's own processes are counted as regular processes and its container and pod are missing from the `kepler_container_*` and `kepler_pod_*` series
 
 - **podInformer**: Configuration for how Kepler discovers pod metadata
   - **mode**: Pod informer mode (default: `kubelet`)
@@ -603,6 +620,10 @@ experimental:
   - DCGM supplies activity measurements for weighted allocation across MIG instances. Kepler uses equal-share fallback when the DCGM backend is unavailable.
   - If empty, Kepler auto-discovers the local dcgm-exporter pod via K8s API; set an explicit URL when discovery is unavailable.
   - **Note**: When deploying with MIG, the Kepler container must have `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_MIG_MONITOR_DEVICES=all` environment variables set for NVML to see all MIG devices. These are included in the default manifests and Helm chart.
+- **metricsCacheTTL**: dcgm-exporter metrics cache TTL for MIG power attribution (default: 2s)
+  - Prevents HTTP request storms when querying multiple MIG instances
+  - Set to `0s` to disable caching and fetch metrics on every query
+  - **Note**: YAML `experimental.gpu.*` settings are only applied when `experimental.gpu.enabled: true` is set in the same file. When enabling GPU monitoring with `--experimental.gpu.enabled`, use `--experimental.gpu.metrics-cache-ttl` instead of this key.
 
 **Example:**
 
@@ -611,6 +632,7 @@ experimental:
   gpu:
     enabled: true
     idlePower: 17.5  # Override idle power to 17.5W (0 = auto-detect)
+    metricsCacheTTL: 1s
 ```
 
 #### MIG Power Attribution
@@ -694,7 +716,7 @@ dev:
 - **fake-gpu-meter**: When enabled, uses a fake GPU backend instead of real NVIDIA hardware
   - `enabled`: Set to `true` to enable fake GPU meter. This takes precedence over `experimental.gpu.enabled`, so the experimental GPU flag does not also need to be enabled
   - `deviceCount`: Number of simulated GPUs. Must be greater than 0 (default: 1)
-  - `sharingMode`: Set to `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`). This changes the detected sharing mode but has no effect on exported metrics because the fake GPU meter does not configure any processes.
+  - `sharingMode`: Set to `"exclusive"` or `"time-slicing"` (default: `"time-slicing"`). When fake GPU processes are present (stress-ng workers whose cwd matches `KEPLER_FAKE_GPU_WORKLOAD_DIR`), this changes attribution: exclusive splits active power equally across those PIDs, and time-slicing splits it by the fake utilization samples (80/20 for the first two PIDs).
 
 ## 📖 Further Reading
 

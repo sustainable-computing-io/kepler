@@ -5,6 +5,7 @@ type: application
 version: 0.0.0-dev
 appVersion: latest
 home: https://github.com/sustainable-computing-io/kepler
+icon: https://sustainable-computing.io/assets/logo.png
 sources:
   - https://github.com/sustainable-computing-io/kepler
 maintainers:

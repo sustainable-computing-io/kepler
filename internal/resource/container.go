@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -40,15 +41,22 @@ var containerPatterns = map[*regexp.Regexp]ContainerRuntime{
 	kubepodsPattern: KubePodsRuntime,
 }
 
-// containerInfoFromProc detects if a process is running in a container and extracts container info
-func containerInfoFromProc(proc procInfo) (*Container, error) {
+// cgroupNamespaceRoot is the cgroup path a process reads for its own cgroup, or
+// one in the same cgroup, when it runs in a private cgroup namespace.
+const cgroupNamespaceRoot = "/"
+
+// containerInfoFromProc detects if a process is running in a container and extracts container info.
+// selfContainerID, when set, is the ID of the container kepler runs in: a process at the
+// cgroup namespace root shares kepler's cgroup, so it belongs to that container.
+// cgroupAtRoot is true when the process has a cgroup at "/" regardless of attribution outcome.
+func containerInfoFromProc(proc procInfo, selfContainerID string) (c *Container, cgroupAtRoot bool, err error) {
 	cgroups, err := proc.Cgroups()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get process cgroups: %w", err)
+		return nil, false, fmt.Errorf("failed to get process cgroups: %w", err)
 	}
 
 	if len(cgroups) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	// Check cgroups for container ID and runtime
@@ -56,13 +64,20 @@ func containerInfoFromProc(proc procInfo) (*Container, error) {
 	for i, cg := range cgroups {
 		paths[i] = cg.Path
 	}
+	// Every hierarchy must sit at the root: a process in a private cgroup namespace
+	// can read a path such as "/../../system.slice/sshd.service" next to a "/" from
+	// another hierarchy, and that process is not in kepler's cgroup.
+	atRoot := !slices.ContainsFunc(paths, func(p string) bool { return p != cgroupNamespaceRoot })
 	runtime, ctnrID := containerInfoFromCgroupPaths(paths)
+	if ctnrID == "" && selfContainerID != "" && atRoot {
+		runtime, ctnrID = KubePodsRuntime, selfContainerID
+	}
 	if ctnrID == "" {
 		// Not in a container
-		return nil, nil
+		return nil, atRoot, nil
 	}
 
-	c := &Container{
+	c = &Container{
 		ID:      ctnrID,
 		Runtime: runtime,
 	}
@@ -78,7 +93,7 @@ func containerInfoFromProc(proc procInfo) (*Container, error) {
 		}
 	}
 
-	return c, nil
+	return c, atRoot, nil
 }
 
 // matchResult stores information about a successful regex match.

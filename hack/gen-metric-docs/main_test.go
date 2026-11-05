@@ -101,8 +101,7 @@ func TestExtractMetricsInfo(t *testing.T) {
 				descs: tt.descs,
 			}
 
-			gotMetrics, err := extractMetricsInfo(mockCollector)
-			assert.NoError(t, err)
+			gotMetrics := extractMetricsInfo(mockCollector)
 			assert.Len(t, gotMetrics, tt.expectedMetricsLen)
 			assert.Equal(t, tt.expectedMetrics, gotMetrics)
 		})
@@ -118,8 +117,7 @@ func TestExtractGPUInfoMetrics(t *testing.T) {
 
 	gpuInfoCollector := collector.NewGPUInfoCollector(mockMonitor, "test-node")
 
-	gotMetrics, err := extractMetricsInfo(gpuInfoCollector)
-	assert.NoError(t, err)
+	gotMetrics := extractMetricsInfo(gpuInfoCollector)
 	assert.Equal(t, []MetricInfo{
 		{
 			Name:        "kepler_node_gpu_info",

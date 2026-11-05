@@ -9,9 +9,9 @@ repos:
         name: markdown-table-format
         language: node
         additional_dependencies:
-          - markdown-table-formatter
-        pass_filenames: false
-        entry: bash -c "markdown-table-formatter"
+          - markdown-table-formatter@2.1.0
+        types: [markdown]
+        entry: markdown-table-formatter
 
   # NOTE: This hook lints commit messages within a specified range, ideal for validating all commits in a PR.
   # Environment variables $FROM (start of range) and $TO (end of range) are set in PR Checks workflow.
@@ -54,7 +54,7 @@ repos:
         exclude: go\.(sum|mod)$
 
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.13.2
+    rev: v2.14.0
     hooks:
       - id: golangci-lint
         args: [--timeout=5m]

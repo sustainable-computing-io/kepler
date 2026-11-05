@@ -90,6 +90,11 @@ type resourceInformer struct {
 	podCache    map[string]*Pod
 	pods        *Pods
 
+	// selfContainer is where kepler runs; its ID is resolved through the pod informer
+	// on every refresh, since the kubelet reports a new ID when the container restarts
+	selfContainer  *SelfContainer
+	resolvedSelfID string
+
 	lastScanTime time.Time // Time of the last full scan
 }
 
@@ -139,13 +144,49 @@ func NewInformer(opts ...OptionFn) (*resourceInformer, error) {
 			Terminated: make(map[string]*VirtualMachine),
 		},
 
-		podInformer: opt.podInformer,
-		podCache:    make(map[string]*Pod),
+		podInformer:   opt.podInformer,
+		selfContainer: opt.selfContainer,
+		podCache:      make(map[string]*Pod),
 		pods: &Pods{
 			Running:    make(map[string]*Pod),
 			Terminated: make(map[string]*Pod),
 		},
 	}, nil
+}
+
+// resolveSelfContainerID returns the ID of the container kepler runs in, or "" when it is not
+// configured or not known (yet) to the pod informer. It looks the ID up on every call: after
+// a restart of kepler's container the pod keeps the previous ID until the kubelet posts the
+// new status, so a lookup that fails or returns the old ID keeps the last known one.
+func (ri *resourceInformer) resolveSelfContainerID() string {
+	if ri.selfContainer == nil || ri.podInformer == nil {
+		return ri.resolvedSelfID
+	}
+
+	sc := ri.selfContainer
+	id, found, err := ri.podInformer.LookupContainerID(sc.Namespace, sc.PodName, sc.ContainerName)
+	if err != nil || !found {
+		ri.logger.Debug("Kepler's own container not found", "pod", sc.PodName, "container", sc.ContainerName, "error", err)
+		return ri.resolvedSelfID
+	}
+	if id == ri.resolvedSelfID {
+		return id
+	}
+
+	previous := ri.resolvedSelfID
+	ri.resolvedSelfID = id
+	ri.logger.Info("Attributing kepler's own processes to its container", "container", sc.ContainerName, "id", id)
+	// Processes seen before the ID was known carry pendingContainerAttribution=true
+	// and are re-typed on their next populateProcessFields call even when idle.
+	// Processes typed with the previous ID are marked the same way.
+	if previous != "" {
+		for _, p := range ri.procCache {
+			if p.Container != nil && p.Container.ID == previous {
+				p.pendingContainerAttribution = true
+			}
+		}
+	}
+	return id
 }
 
 func (ri *resourceInformer) Name() string {
@@ -169,6 +210,9 @@ func (ri *resourceInformer) refreshProcesses() ([]*Process, []*Process, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get processes: %w", err)
 	}
+
+	// once per refresh, not per process: an unresolved lookup may query the kubelet
+	ri.resolveSelfContainerID()
 
 	// construct current running processes
 	procsRunning := make(map[int]*Process, len(procs))
@@ -468,18 +512,31 @@ func (ri *resourceInformer) updateProcessCache(proc procInfo) (*Process, error) 
 
 	// A different start time means the PID was reused.
 	// Rebuild its metadata and CPU baseline.
+	selfContainerID := ri.resolvedSelfID
 	if cached, exists := ri.procCache[pid]; exists && cached.StartTime == cpuStat.StartTime {
-		err := populateProcessFields(cached, proc, cpuStat.CPUTime)
+		err := populateProcessFields(cached, proc, cpuStat.CPUTime, selfContainerID)
+		ri.settlePendingAttribution(cached)
 		return cached, err
 	}
 
-	newProc, err := newProcess(proc, cpuStat)
+	newProc, err := newProcess(proc, cpuStat, selfContainerID)
 	if err != nil {
 		return nil, err
 	}
+	ri.settlePendingAttribution(newProc)
 
 	ri.procCache[pid] = newProc
 	return newProc, nil
+}
+
+// settlePendingAttribution clears the pending flag when there is nothing to wait for:
+// without a configured self container and a pod informer its ID can never resolve, so
+// processes at the cgroup namespace root (every kernel thread in the host namespace)
+// must not be re-read on each refresh.
+func (ri *resourceInformer) settlePendingAttribution(p *Process) {
+	if ri.selfContainer == nil || ri.podInformer == nil {
+		p.pendingContainerAttribution = false
+	}
 }
 
 func (ri *resourceInformer) updateContainerCache(proc *Process, resetCPUTime bool) *Container {
@@ -525,12 +582,13 @@ func (ri *resourceInformer) updatePodCache(container *Container, resetCPUTime bo
 	return cached
 }
 
-func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) error {
+func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64, selfContainerID string) error {
 	p.CPUTimeDelta = cpuTotalTime - p.CPUTotalTime
 	p.CPUTotalTime = cpuTotalTime
 
-	// ignore already processed processes with close to 0 CPU time usage
-	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 {
+	// ignore already processed processes with close to 0 CPU time usage;
+	// always re-type pending-attribution processes so the type is never empty
+	if newProc := p.Comm == ""; !newProc && p.CPUTimeDelta <= 1e-12 && !p.pendingContainerAttribution {
 		return nil
 	}
 
@@ -547,9 +605,10 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) erro
 	}
 	p.Exe = exe
 
-	// Determine process type and associated container/VM only if not already set
-	if p.Type == UnknownProcess || commChanged {
-		info, err := computeTypeInfoFromProc(proc)
+	// Determine process type: always when unknown or comm changed; also when
+	// container attribution was deferred until kepler's own ID became available.
+	if p.Type == UnknownProcess || commChanged || p.pendingContainerAttribution {
+		info, err := computeTypeInfoFromProc(proc, selfContainerID)
 		if err != nil {
 			return fmt.Errorf("failed to detect process type: %w", err)
 		}
@@ -557,6 +616,7 @@ func populateProcessFields(p *Process, proc procInfo, cpuTotalTime float64) erro
 		p.Type = info.Type
 		p.Container = info.Container
 		p.VirtualMachine = info.VM
+		p.pendingContainerAttribution = info.PendingContainerAttribution
 	}
 
 	return nil
@@ -566,24 +626,31 @@ type ProcessTypeInfo struct {
 	Type      ProcessType
 	Container *Container
 	VM        *VirtualMachine
+	// PendingContainerAttribution is true when the process has cgroup "/" but
+	// the self-container ID was not known at typing time; it is cleared on re-type.
+	PendingContainerAttribution bool
 }
 
-func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
+func computeTypeInfoFromProc(proc procInfo, selfContainerID string) (*ProcessTypeInfo, error) {
 	// detect process type in parallel
 	type result struct {
-		container *Container
-		vm        *VirtualMachine
-		err       error
+		vm  *VirtualMachine
+		err error
 	}
 
 	// Using buffered channels to prevent goroutine from blocking
-	containerCh := make(chan result, 1)
+	type ctnrResult struct {
+		container    *Container
+		cgroupAtRoot bool
+		err          error
+	}
+	ctnrCh := make(chan ctnrResult, 1)
 	vmCh := make(chan result, 1)
 
 	go func() {
-		defer close(containerCh)
-		container, err := containerInfoFromProc(proc)
-		containerCh <- result{container: container, err: err}
+		defer close(ctnrCh)
+		container, cgroupAtRoot, err := containerInfoFromProc(proc, selfContainerID)
+		ctnrCh <- ctnrResult{container: container, cgroupAtRoot: cgroupAtRoot, err: err}
 	}()
 
 	go func() {
@@ -593,32 +660,36 @@ func computeTypeInfoFromProc(proc procInfo) (*ProcessTypeInfo, error) {
 	}()
 
 	// Wait for both to complete
-	ctnrResult := <-containerCh
+	cr := <-ctnrCh
 	vmResult := <-vmCh
 
 	switch {
-	case ctnrResult.err == nil && ctnrResult.container != nil:
-		return &ProcessTypeInfo{Type: ContainerProcess, Container: ctnrResult.container}, nil
+	case cr.err == nil && cr.container != nil:
+		return &ProcessTypeInfo{Type: ContainerProcess, Container: cr.container}, nil
 
 	case vmResult.err == nil && vmResult.vm != nil:
 		return &ProcessTypeInfo{Type: VMProcess, VM: vmResult.vm}, nil
 
-	case ctnrResult.err == nil && vmResult.err == nil:
-		return &ProcessTypeInfo{Type: RegularProcess}, errors.Join(ctnrResult.err, vmResult.err)
+	case cr.err == nil && vmResult.err == nil:
+		// When selfContainerID is not yet known, a process at the cgroup namespace
+		// root belongs to kepler's container but cannot be attributed yet; mark it
+		// so it is re-typed once the ID is resolved, even when idle.
+		pending := selfContainerID == "" && cr.cgroupAtRoot
+		return &ProcessTypeInfo{Type: RegularProcess, PendingContainerAttribution: pending}, nil
 
 	default:
-		return nil, errors.Join(ctnrResult.err, vmResult.err)
+		return nil, errors.Join(cr.err, vmResult.err)
 	}
 }
 
 // newProcess creates a new Process using the CPU stat already read for this sample.
-func newProcess(proc procInfo, cpuStat procCPUStat) (*Process, error) {
+func newProcess(proc procInfo, cpuStat procCPUStat, selfContainerID string) (*Process, error) {
 	p := &Process{
 		PID:       proc.PID(),
 		StartTime: cpuStat.StartTime,
 	}
 
-	if err := populateProcessFields(p, proc, cpuStat.CPUTime); err != nil {
+	if err := populateProcessFields(p, proc, cpuStat.CPUTime, selfContainerID); err != nil {
 		return nil, err
 	}
 

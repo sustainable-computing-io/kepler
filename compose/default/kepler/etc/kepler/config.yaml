@@ -70,6 +70,9 @@ kube: # kubernetes related config
   enabled: false # enable kubernetes monitoring (default: false)
   config: /host/kube/kubeconfig # path to kubeconfig file (optional if running in-cluster)
   nodeName: kind-control-plane # name of the kubernetes node (required when enabled)
+  podName: "" # name of the pod kepler runs in (with podNamespace, attributes kepler's own processes)
+  podNamespace: "" # namespace of the pod kepler runs in
+  containerName: kepler # name of kepler's container in its pod
   podInformer:
     mode: kubelet          # "kubelet" (default) or "apiserver"
     pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
@@ -101,6 +104,7 @@ experimental:
     enabled: false # Enable experimental GPU power monitoring
     idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
     dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+    metricsCacheTTL: 2s # dcgm-exporter metrics cache TTL for MIG (0s disables cache)
   prometheus-power: # settings for the "prometheus" CPU meter (select via cpu.preferredMeters)
     baseURL: "" # Prometheus-compatible API base URL, e.g. https://vm.example.org:8428 (userinfo is redacted in logs)
     query: "" # PromQL query returning node power in watts as exactly one series, e.g. sum(pdu_outlet_power_watts{server="node1"})

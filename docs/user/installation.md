@@ -4,7 +4,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 
 ## Prerequisites
 
-- **For Local Installation**: Go 1.27.0+ and sudo access for hardware sensor access
+- **For Local Installation**: Use the Go version specified in the repository's [`go.mod`](../../go.mod) file. Root access is required to read RAPL energy counters.
 - **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
@@ -138,6 +138,44 @@ daemonset:
 Note: `config.experimental.gpu.enabled` is intentionally coupled with the chart's `daemonset.nvidia.*` plumbing. Enabling the binary flag without the init path (or the reverse) is not a supported split. Leave `enabled: false` if you do not want GPU power monitoring.
 
 For GPUs in MIG mode, Kepler also needs dcgm-exporter. See [MIG Power Attribution](configuration.md#mig-power-attribution) for its requirements and limits.
+
+#### Enable Redfish with Helm
+
+Redfish BMC power monitoring needs a config file Kepler can read. Mount that Secret as its own directory. Do not use a `subPath` file under `/etc/kepler`; the chart already mounts the ConfigMap as that directory.
+
+Create the Secret, then install with a values file:
+
+```bash
+kubectl create namespace kepler
+kubectl -n kepler create secret generic redfish-config --from-file=redfish.yaml
+```
+
+```yaml
+# redfish-values.yaml
+daemonset:
+  extraVolumes:
+    - name: redfish-config
+      secret:
+        secretName: redfish-config
+  extraVolumeMounts:
+    - name: redfish-config
+      mountPath: /etc/kepler-redfish
+      readOnly: true
+
+config:
+  experimental:
+    platform:
+      redfish:
+        enabled: true
+        configFile: /etc/kepler-redfish/redfish.yaml
+```
+
+```bash
+helm install kepler oci://quay.io/sustainable_computing_io/charts/kepler \
+  --namespace kepler \
+  --create-namespace \
+  -f redfish-values.yaml
+```
 
 #### Helm Management Commands
 
@@ -324,7 +362,7 @@ Look for key metrics like:
 
 ### Helm Chart Values
 
-Key configuration options in `values.yaml`:
+Key configuration options in `values.yaml` are below. See the [chart README](../../manifests/helm/kepler/README.md) for all of them.
 
 ```yaml
 # Image configuration
@@ -383,7 +421,7 @@ serviceMonitor:
 ### Common Issues
 
 1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
-2. **Missing Series After Upgrade**: The unprivileged default changes two outputs. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Kepler's own container and pod no longer appear in the `kepler_container_*` and `kepler_pod_*` series, because its private cgroup namespace hides its own cgroup path. Set `daemonset.securityContext.privileged=true` to get both back
+2. **Missing Series After Upgrade**: The unprivileged default changes one output. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Set `daemonset.securityContext.privileged=true` to get it back
 3. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 4. **Pod Crashes**: Review logs for hardware access issues
 5. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,
@@ -418,7 +456,7 @@ helm upgrade kepler manifests/helm/kepler/ -n kepler \
 After successful installation:
 
 1. **Set up Prometheus**: Configure scraping of Kepler metrics
-2. **Install Grafana**: Use pre-built dashboards for visualization
+2. **Install Grafana**: Deploy the Kepler dashboards with the [Helm chart](../../manifests/helm/kepler/README.md#grafana-dashboards)
 3. **Configure Alerts**: Set up energy consumption alerts
 4. **Explore Metrics**: Learn about available energy metrics
 5. **Optimize Workloads**: Use insights to improve energy efficiency
