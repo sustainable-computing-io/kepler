@@ -58,6 +58,12 @@ jobs:
         run: |
           CGO_ENABLED=1 make test-e2e
 
+      - name: Install e2e dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y stress-ng
+
       - name: Run e2e tests
         shell: bash
         run: |
