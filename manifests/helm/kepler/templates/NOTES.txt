@@ -1,0 +1,19 @@
+{{- $namespace := include "kepler.namespace" . -}}
+{{- $fullname := include "kepler.fullname" . -}}
+Kepler is installed as release "{{ .Release.Name }}" in namespace "{{ $namespace }}".
+
+1. Check that the Kepler pods are running:
+
+  kubectl get pods -n {{ $namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. Get the metrics:
+
+  kubectl port-forward -n {{ $namespace }} svc/{{ $fullname }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  curl localhost:{{ .Values.service.port }}/metrics
+{{- if .Values.serviceMonitor.enabled }}
+
+A ServiceMonitor "{{ $fullname }}" was created, so Prometheus will scrape Kepler every {{ .Values.serviceMonitor.interval }}.
+{{- end }}
+
+Installation guide:
+https://github.com/sustainable-computing-io/kepler/blob/main/docs/user/installation.md
