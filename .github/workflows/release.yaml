@@ -131,3 +131,13 @@ jobs:
             bin/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # NOTE: called from here because a release created with GITHUB_TOKEN
+  # does not trigger `on: release` workflows
+  kepler-doc:
+    needs: release
+    uses: ./.github/workflows/bump-kepler-doc.yaml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      KEPLER_DOC_APP_PRIVATE_KEY: ${{ secrets.KEPLER_DOC_APP_PRIVATE_KEY }}
