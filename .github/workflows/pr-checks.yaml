@@ -56,10 +56,16 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: read golangci-lint version
+        id: golangci-lint-version
+        run: |
+          version=$(yq '.repos[] | select(.repo == "https://github.com/golangci/golangci-lint") | .rev' .pre-commit-config.yaml)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.14.0
+          version: ${{ steps.golangci-lint-version.outputs.version }}
           args: --timeout=3m --issues-exit-code=0 ./...
           only-new-issues: true
 
