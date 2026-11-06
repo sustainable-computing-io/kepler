@@ -179,7 +179,7 @@ config:
   cpu:
     # -- Ordered preference list of CPU power-meter backends. The first backend
     # that initializes successfully and reports zones is used.
-    # Built-in backends: rapl, hwmon, fake.
+    # Built-in backends: rapl, hwmon, fake, prometheus.
     preferredMeters: [rapl, hwmon]
   rapl:
     # -- RAPL zones to enable. Empty enables the default zones.
@@ -266,6 +266,11 @@ config:
       dcgmEndpoint: ""
       # -- dcgm-exporter metrics cache TTL for MIG (0s disables cache)
       metricsCacheTTL: 2s
+    prometheus-power:
+      # -- Prometheus-compatible API base URL (userinfo is redacted in logs)
+      baseURL: ""
+      # -- PromQL query returning node power in watts as exactly one series
+      query: ""
 
 # ServiceMonitor for Prometheus Operator
 serviceMonitor:

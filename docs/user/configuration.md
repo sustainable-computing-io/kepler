@@ -131,7 +131,7 @@ host:
 
 cpu:
   preferredMeters: ["rapl", "hwmon"]  # Ordered priority of CPU power-meter backends.
-                             # Built-in backends: rapl, hwmon, fake.
+                             # Built-in backends: rapl, hwmon, fake, prometheus.
                              # The first backend that initializes and reports zones is used.
 
 rapl:
@@ -188,6 +188,9 @@ experimental:   # experimental features (no stability guarantees)
     idlePower: 0                      # GPU idle power in Watts, 0 = auto-detect (default: 0)
     dcgmEndpoint: ""                  # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
     metricsCacheTTL: 2s               # dcgm-exporter metrics cache TTL for MIG, 0s disables cache (default: 2s)
+  prometheus-power:  # settings for the "prometheus" CPU meter (select via cpu.preferredMeters)
+    baseURL: ""                       # Prometheus-compatible API base URL (userinfo is redacted in logs)
+    query: ""                         # PromQL query returning node power in watts as exactly one series
 
 # WARN: DO NOT ENABLE THIS IN PRODUCTION - for development/testing only
 dev:
@@ -262,6 +265,7 @@ Built-in backends:
 - `rapl`: Intel RAPL via sysfs (default first choice)
 - `hwmon`: hwmon power sensors (default second choice)
 - `fake`: synthetic readings for development and testing
+- `prometheus`: node power in watts read from a Prometheus-compatible API, for servers without RAPL or hwmon sensors (e.g. power measured by a PDU). Configured in [`experimental.prometheus-power`](#prometheus-power-input)
 
 Examples:
 
@@ -281,6 +285,12 @@ cpu:
 # Development mode
 cpu:
   preferredMeters: ["fake"]
+```
+
+```yaml
+# Node power from Prometheus, falling back to RAPL if Prometheus is unreachable at startup
+cpu:
+  preferredMeters: ["prometheus", "rapl"]
 ```
 
 Two legacy keys still work but emit a deprecation warning:
@@ -494,6 +504,9 @@ experimental:
     enabled: false
     idlePower: 0
     dcgmEndpoint: ""
+  prometheus-power:
+    baseURL: ""
+    query: ""
 ```
 
 ⚠️ **WARNING**: This section contains experimental features with no stability guarantees.
@@ -654,6 +667,37 @@ When a piece is missing, Kepler keeps running and falls back as follows:
 | dcgm-exporter not reachable when Kepler starts | The GPU's active power is split equally across all processes on the GPU, whatever MIG instance they run in. Kepler doesn't retry, so restart the pod once dcgm-exporter is up.                              |
 | dcgm-exporter stops responding later           | Collection intervals where the request fails get no per-process GPU power. After 3 failed requests in a row, Kepler stops using dcgm-exporter and switches to the equal split above until the pod restarts. |
 | NVML fails to initialize                       | Kepler logs `GPU vendor init failed` and reports no GPU metrics on that node. CPU metrics are not affected.                                                                                                 |
+
+#### Prometheus Power Input
+
+Reads node power from a Prometheus-compatible API (Prometheus, VictoriaMetrics, ...) instead of local sensors, e.g. for servers whose power is only measured by a PDU or an external meter. Kepler then attributes this node power to processes, containers, and pods as usual.
+
+The backend is selected by listing `prometheus` in [`cpu.preferredMeters`](#-cpu-power-meter-selection); this section only configures it.
+
+- **baseURL**: Base URL of the API; Kepler queries `<baseURL>/api/v1/query`
+  - Credentials can be embedded as URL userinfo (`https://user:password@host:port`). The password is redacted in logs and in the startup configuration dump.
+- **query**: PromQL instant query returning the current node power in **watts**
+  - Must return exactly one series. If the node has several PSUs or PDU outlets, aggregate in the query, e.g. `sum(...)`; Kepler returns an error for multiple series.
+  - Negative, NaN, and infinite values are rejected.
+  - Prometheus can return the last sample of a series for up to its lookback period (5 minutes by default), and the response carries the evaluation time rather than the sample time. To avoid attributing stale power, guard the query with a maximum sample age (see the example below). This matters for samples with explicit timestamps, e.g. remote-written or federated data, which Prometheus does not mark as stale. If any series is older than the limit, the query returns no samples and Kepler skips the reading for that interval.
+  - If a single series disappears (e.g. one outlet is no longer exported), `sum(...)` silently reports only part of the power. Also check the expected number of series with `count(...)`.
+
+At startup Kepler runs the query once. If it fails, Kepler tries the next backend in `cpu.preferredMeters`, or exits if none is left. The backend reports power only (no energy counters); each reading issues one query.
+
+**Example:**
+
+```yaml
+cpu:
+  preferredMeters: ["prometheus", "rapl"]
+experimental:
+  prometheus-power:
+    baseURL: https://vm.example.org:8428
+    # sum of both outlets, only if both are present and at most 30s old
+    query: >-
+      sum(pdu_outlet_power_watts{server="node1"})
+      and on() (time() - min(timestamp(pdu_outlet_power_watts{server="node1"})) < 30)
+      and on() (count(pdu_outlet_power_watts{server="node1"}) == 2)
+```
 
 ### 🧑‍🔬 Development Configuration
 
