@@ -18,6 +18,12 @@ type Resource interface {
 	ZoneUsage() ZoneUsageMap
 }
 
+// gpuEnergyReporter is implemented by resources that carry attributed GPU energy.
+// It is optional: resources without it (such as VMs) are ranked by zone energy only.
+type gpuEnergyReporter interface {
+	GPUEnergy() Energy
+}
+
 // TerminatedResourceTracker tracks the top N highest energy consuming terminated resources
 // using a priority queue (min-heap) for fast insertion operations.
 //
@@ -87,19 +93,28 @@ func (trt *TerminatedResourceTracker[T]) addWithID(id string, resource T) {
 	}
 
 	// Get the energy from the target zone for this resource
-	energyTotal := Energy(0)
+	zoneEnergy := Energy(0)
 	if zoneUsage, exists := resource.ZoneUsage()[trt.targetZone]; exists {
-		energyTotal = zoneUsage.EnergyTotal
+		zoneEnergy = zoneUsage.EnergyTotal
 	}
 
-	// Filter out resources that don't meet the minimum energy threshold
+	// GPU energy is not part of any energy zone, so it is read separately.
+	// Resources without GPU attribution (e.g. VMs) report zero.
+	gpuEnergy := Energy(0)
+	if r, ok := any(resource).(gpuEnergyReporter); ok {
+		gpuEnergy = r.GPUEnergy()
+	}
+
+	// Filter and rank on the same value: primary zone energy plus GPU energy.
+	// A GPU job that uses little CPU must still be kept.
+	energyTotal := zoneEnergy + gpuEnergy
 	if energyTotal < trt.minEnergyThreshold {
 		trt.logger.Debug("Filtering out terminated resource with low energy",
-			"id", id, "energy", energyTotal, "threshold", trt.minEnergyThreshold)
+			"id", id, "energy", zoneEnergy, "gpu_energy", gpuEnergy, "threshold", trt.minEnergyThreshold)
 		return
 	}
 
-	trt.logger.Debug("Keeping track of terminated resource", "id", id, "energy", energyTotal)
+	trt.logger.Debug("Keeping track of terminated resource", "id", id, "energy", zoneEnergy, "gpu_energy", gpuEnergy)
 	newItem := HeapItem[T]{
 		ID:          id,
 		EnergyTotal: energyTotal,
