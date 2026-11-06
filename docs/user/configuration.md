@@ -234,9 +234,9 @@ monitor:
 
 - **staleness**: Duration after which data computed by the monitor is considered stale and recomputed when requested again (default: 500ms). Especially useful when multiple Prometheus instances are scraping Kepler, ensuring they receive the same data within the staleness window. Should be shorter than the monitor interval.
 
-- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, workloads with the lowest cumulative energy in the primary energy zone are removed first.
+- **maxTerminated**: Maximum number of terminated workloads (processes, containers, VMs, pods) to keep in memory until the data is exported. This prevents unbounded memory growth in high-churn environments. Set 0 to disable. When the limit is reached, workloads with the lowest cumulative energy are removed first. Cumulative energy is the energy in the primary energy zone plus the GPU energy attributed to the workload (VMs have no GPU energy, so only the primary zone counts for them).
 
-- **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. Only terminated workloads with energy consumption above this threshold will be included in the tracking. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
+- **minTerminatedEnergyThreshold**: Minimum energy consumption threshold (in joules) for terminated workloads to be tracked. A terminated workload is tracked when its primary zone energy or its GPU energy reaches this threshold, so a GPU job that uses little CPU is still kept. This helps filter out short-lived processes that consume minimal energy. Default is 10 joules.
 
 ### 🗄️ Host Configuration
 

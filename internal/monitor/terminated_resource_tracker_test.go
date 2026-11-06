@@ -821,3 +821,77 @@ func TestTerminatedResourceTrackerProcessLifetimes(t *testing.T) {
 	assert.Contains(t, tracker.Items(), "4001:900")
 	assert.Contains(t, tracker.Items(), "4001:1300")
 }
+
+func TestTerminatedResourceTracker_KeepsGPUOnlyWorkloads(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+	threshold := 10 * Joule
+
+	// Low CPU energy (2 J) but heavy GPU use (500 J), as in issue #2724.
+	lowCPU := Usage{EnergyTotal: 2 * Joule}
+
+	t.Run("process", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*Process](zone, 5, threshold, slog.Default())
+		tracker.Add(&Process{PID: 1, Zones: ZoneUsageMap{zone: lowCPU}, GPUEnergyTotal: 500 * Joule})
+		assert.Equal(t, 1, tracker.Size())
+	})
+
+	t.Run("container", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*Container](zone, 5, threshold, slog.Default())
+		tracker.Add(&Container{ID: "c1", Zones: ZoneUsageMap{zone: lowCPU}, GPUEnergyTotal: 500 * Joule})
+		assert.Equal(t, 1, tracker.Size())
+	})
+
+	t.Run("pod", func(t *testing.T) {
+		tracker := NewTerminatedResourceTracker[*Pod](zone, 5, threshold, slog.Default())
+		tracker.Add(&Pod{ID: "p1", Zones: ZoneUsageMap{zone: lowCPU}, GPUEnergyTotal: 500 * Joule})
+		assert.Equal(t, 1, tracker.Size())
+	})
+}
+
+func TestTerminatedResourceTracker_DropsWhenCPUAndGPUBelowThreshold(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+	tracker := NewTerminatedResourceTracker[*Process](zone, 5, 10*Joule, slog.Default())
+
+	tracker.Add(&Process{PID: 1, Zones: ZoneUsageMap{zone: {EnergyTotal: 2 * Joule}}, GPUEnergyTotal: 3 * Joule})
+	assert.Equal(t, 0, tracker.Size(), "neither CPU nor GPU energy reaches the threshold")
+}
+
+func TestTerminatedResourceTracker_GPUEnergyDoesNotAffectVMs(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+	tracker := NewTerminatedResourceTracker[*VirtualMachine](zone, 5, 10*Joule, slog.Default())
+
+	tracker.Add(&VirtualMachine{ID: "vm-low", Zones: ZoneUsageMap{zone: {EnergyTotal: 2 * Joule}}})
+	tracker.Add(&VirtualMachine{ID: "vm-high", Zones: ZoneUsageMap{zone: {EnergyTotal: 20 * Joule}}})
+
+	items := tracker.Items()
+	assert.Len(t, items, 1)
+	assert.Contains(t, items, "vm-high")
+}
+
+func TestTerminatedResourceTracker_EvictionRanksByCPUPlusGPU(t *testing.T) {
+	zones := CreateTestZones()
+	zone := zones[0]
+	tracker := NewTerminatedResourceTracker[*Process](zone, 2, 1*Joule, slog.Default())
+
+	// Totals: cpu-only 100 J, gpu-heavy 600 J, small 50 J.
+	tracker.Add(&Process{PID: 1, Zones: ZoneUsageMap{zone: {EnergyTotal: 100 * Joule}}})
+	tracker.Add(&Process{PID: 2, Zones: ZoneUsageMap{zone: {EnergyTotal: 100 * Joule}}, GPUEnergyTotal: 500 * Joule})
+	tracker.Add(&Process{PID: 3, Zones: ZoneUsageMap{zone: {EnergyTotal: 50 * Joule}}})
+
+	items := tracker.Items()
+	require.Len(t, items, 2)
+	assert.Contains(t, items, "1")
+	assert.Contains(t, items, "2")
+	assert.NotContains(t, items, "3", "lowest combined energy is evicted")
+
+	// A GPU-only process with more combined energy than PID 1 evicts it.
+	tracker.Add(&Process{PID: 4, Zones: ZoneUsageMap{zone: {EnergyTotal: 1 * Joule}}, GPUEnergyTotal: 300 * Joule})
+	items = tracker.Items()
+	require.Len(t, items, 2)
+	assert.Contains(t, items, "2")
+	assert.Contains(t, items, "4")
+	assert.NotContains(t, items, "1")
+}
