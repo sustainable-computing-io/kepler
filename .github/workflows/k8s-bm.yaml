@@ -29,6 +29,12 @@ jobs:
               - 'cmd/**/*.go'
               - 'internal/**/*.go'
               - 'config/**/*.go'
+              - 'test/**'
+              - 'manifests/overlays/**'
+              - 'manifests/k8s/patches/**'
+              - 'manifests/k8s/configmap.yaml'
+              - 'hack/check-e2e-overlay-config.py'
+              - 'Makefile'
               - 'go.mod'
               - 'go.sum'
               - '.github/workflows/k8s-bm.yaml'
@@ -80,6 +86,8 @@ jobs:
         env:
           IMG_BASE: localhost:5001
           VERSION: dev
+          KUSTOMIZE_DIR: manifests/overlays/e2e
+          KUSTOMIZE_FLAGS: --load-restrictor=LoadRestrictionsNone
 
       - name: Verify Kepler deployment
         shell: bash

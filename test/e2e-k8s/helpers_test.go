@@ -41,6 +41,27 @@ const (
 
 	// waitForMetrics is the timeout for metrics to appear
 	waitForMetrics = 60 * time.Second
+
+	// fakeGPUWorkloadDir is the cwd tagged by KEPLER_FAKE_GPU_WORKLOAD_DIR
+	// on the Kind e2e overlay. Must not be "/".
+	fakeGPUWorkloadDir = "/fake-gpu-workload"
+
+	// fakeGPUIdleWatts is the idle power the fake GPU meter reports
+	// until tagged stress-ng workers appear.
+	fakeGPUIdleWatts = 40.0
+
+	// gpuStressDaemonSetName is the DaemonSet whose workers the fake GPU
+	// finder treats as compute PIDs.
+	gpuStressDaemonSetName = "kepler-e2e-fake-gpu"
+
+	// gpuStressContainerName is the container name in fake-GPU stress pods.
+	gpuStressContainerName = "fake-gpu-stress"
+
+	// gpuStressAppLabel selects the fake-GPU stress DaemonSet.
+	gpuStressAppLabel = "kepler-e2e-fake-gpu"
+
+	// waitForGPUMetrics bounds waits for fake GPU idle and load series.
+	waitForGPUMetrics = 90 * time.Second
 )
 
 // newStressDaemonSet returns a stress DaemonSet spec for testing.
@@ -145,6 +166,129 @@ func deleteStressWorkload(ctx context.Context, t *testing.T, cfg *envconf.Config
 
 	_ = wait.For(conditions.New(r).ResourceDeleted(ds), wait.WithTimeout(waitForDaemonSetDeleted))
 	t.Logf("Stress DaemonSet deleted: %s/%s", testNamespace, stressDaemonSetName)
+}
+
+func controlPlaneTolerations() []corev1.Toleration {
+	return []corev1.Toleration{
+		{
+			Key:      "node-role.kubernetes.io/control-plane",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node-role.kubernetes.io/master",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+}
+
+// newFakeGPUStressDaemonSet returns a DaemonSet of stress-ng workers whose
+// cwd is fakeGPUWorkloadDir, so the fake GPU finder attributes them.
+func newFakeGPUStressDaemonSet() *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gpuStressDaemonSetName,
+			Namespace: testNamespace,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": gpuStressAppLabel,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": gpuStressAppLabel,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Tolerations: controlPlaneTolerations(),
+					Containers: []corev1.Container{
+						{
+							Name:       gpuStressContainerName,
+							Image:      "polinux/stress-ng:latest",
+							Command:    []string{"stress-ng", "--cpu", "2", "--cpu-load", "50", "--timeout", "0"},
+							WorkingDir: fakeGPUWorkloadDir,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "fake-gpu-workload",
+									MountPath: fakeGPUWorkloadDir,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "fake-gpu-workload",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func deployFakeGPUStressWorkload(ctx context.Context, t *testing.T, cfg *envconf.Config) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	if err != nil {
+		t.Fatalf("Failed to create resources client: %v", err)
+	}
+
+	existingDS := newFakeGPUStressDaemonSet()
+	_ = r.Delete(ctx, existingDS)
+	_ = wait.For(conditions.New(r).ResourceDeleted(existingDS), wait.WithTimeout(10*time.Second))
+
+	ds := newFakeGPUStressDaemonSet()
+	if err := r.Create(ctx, ds); err != nil {
+		t.Fatalf("Failed to create fake GPU stress DaemonSet: %v", err)
+	}
+
+	err = wait.For(conditions.New(r).ResourceMatch(ds, func(object k8s.Object) bool {
+		d, ok := object.(*appsv1.DaemonSet)
+		if !ok {
+			return false
+		}
+		return d.Status.NumberReady >= 1
+	}), wait.WithTimeout(waitForDaemonSetReady))
+	if err != nil {
+		t.Fatalf("Fake GPU stress DaemonSet not ready within timeout: %v", err)
+	}
+
+	if err := r.Get(ctx, gpuStressDaemonSetName, testNamespace, ds); err == nil {
+		t.Logf("Fake GPU stress DaemonSet deployed: %d/%d pods ready",
+			ds.Status.NumberReady, ds.Status.DesiredNumberScheduled)
+	}
+}
+
+func deleteFakeGPUStressWorkload(ctx context.Context, t *testing.T, cfg *envconf.Config) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	if err != nil {
+		t.Logf("Warning: Failed to create resources client: %v", err)
+		return
+	}
+
+	ds := newFakeGPUStressDaemonSet()
+	if err := r.Delete(ctx, ds); err != nil {
+		t.Logf("Warning: Failed to delete fake GPU stress DaemonSet: %v", err)
+		return
+	}
+
+	_ = wait.For(conditions.New(r).ResourceDeleted(ds), wait.WithTimeout(waitForDaemonSetDeleted))
+	t.Logf("Fake GPU stress DaemonSet deleted: %s/%s", testNamespace, gpuStressDaemonSetName)
+}
+
+func isFakeGPUStressPodMetric(m common.Metric, state string) bool {
+	return strings.HasPrefix(m.Labels["pod_name"], gpuStressDaemonSetName) &&
+		m.Labels["state"] == state
 }
 
 // waitForMetricCondition polls until the condition is met or timeout

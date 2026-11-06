@@ -173,7 +173,7 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 - `kepler_process_cpu_joules_total` - Per-process energy
 - `kepler_process_cpu_watts` - Per-process power
 - `kepler_process_cpu_seconds_total` - Per-process CPU time
-- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (real GPU, or process series on the fake GPU once a stress-ng workload in `KEPLER_FAKE_GPU_WORKLOAD_DIR` is running)
+- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (real GPU, or process series on the fake GPU once a stress-ng workload in `KEPLER_FAKE_GPU_WORKLOAD_DIR` is running). Kubernetes container and pod GPU series are covered in the [Kubernetes e2e tests](#kubernetes-e2e-tests) on the fake GPU path.
 
 ### Energy Conservation Invariants
 
@@ -192,13 +192,13 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 
 ## What Is NOT Covered (and Why)
 
-| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                         |
-|----------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------|
-| GPU pod metrics            | Needs Kubernetes; fake-GPU container/pod GPU series are a follow-up      | Unit tests in `internal/monitor/`; later fake-gpu K8s e2e |
-| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`               |
-| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                |
-| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                   |
-| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`             |
+| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                            |
+|----------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|
+| GPU container/pod metrics  | Needs Kubernetes; fake GPU PIDs must belong to a pod                     | Kubernetes e2e `test/e2e-k8s/gpu_test.go` (fake GPU overlay) |
+| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`                  |
+| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                   |
+| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                      |
+| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`                |
 
 > **Note**: Container and Pod metrics are tested in the [Kubernetes E2E tests](#kubernetes-e2e-tests) which run against a real cluster.
 
@@ -248,10 +248,14 @@ Kubernetes e2e tests are located in `test/e2e-k8s/` and use the [sigs.k8s.io/e2e
 ```bash
 # Option 1: Local Kind cluster (recommended for development)
 make cluster-up                    # Create Kind cluster
-make image deploy                  # Build and deploy Kepler with default image
+make image deploy \
+  KUSTOMIZE_DIR=manifests/overlays/e2e \
+  KUSTOMIZE_FLAGS=--load-restrictor=LoadRestrictionsNone
 
-# Option 2: Existing cluster with custom image
-make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
+# Option 2: Existing cluster with custom image (same overlay; GPU e2e fails closed without it)
+make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0 \
+  KUSTOMIZE_DIR=manifests/overlays/e2e \
+  KUSTOMIZE_FLAGS=--load-restrictor=LoadRestrictionsNone
 
 # Verify Kepler is running
 kubectl get pods -n kepler
@@ -267,13 +271,13 @@ make test-e2e-k8s
 |----------------------|-----------------------------------------------------------------------|
 | `main_test.go`       | TestMain setup: environment, port-forwarding, namespace management    |
 | `helpers_test.go`    | Test utilities: workload deployment, metric waiting, snapshot helpers |
-| `node_test.go`       | Node-level metrics presence and labels                                |
 | `pod_test.go`        | Pod metrics presence, labels, and non-negative values                 |
 | `container_test.go`  | Container metrics presence, labels, and non-negative values           |
 | `hierarchy_test.go`  | Pod-container hierarchy validation (pod_id linkage)                   |
 | `workload_test.go`   | Workload detection, power attribution, energy accumulation            |
 | `terminated_test.go` | Terminated pod/container tracking                                     |
 | `invariants_test.go` | Power attribution invariants (pod=Σcontainers, container=Σprocesses)  |
+| `gpu_test.go`        | Fake-GPU container and pod GPU series on the Kind overlay             |
 
 ### K8s Test Coverage
 
@@ -281,6 +285,7 @@ make test-e2e-k8s
 
 - `kepler_pod_cpu_watts` / `kepler_pod_cpu_joules_total` - Pod power metrics
 - `kepler_container_cpu_watts` / `kepler_container_cpu_joules_total` - Container power metrics
+- `kepler_container_gpu_watts` / `kepler_container_gpu_joules_total` and `kepler_pod_gpu_watts` / `kepler_pod_gpu_joules_total` - Fake GPU attribution for a stress-ng DaemonSet whose cwd is `KEPLER_FAKE_GPU_WORKLOAD_DIR` (`/fake-gpu-workload`). k8s-bm deploys Kepler with `manifests/overlays/e2e`.
 - Required labels: `pod_name`, `pod_namespace`, `container_name`, `container_id`, etc.
 
 #### K8s-Specific Invariants
@@ -297,9 +302,11 @@ make test-e2e-k8s
 ### Local Development with Kind
 
 ```bash
-# Create Kind cluster and deploy Kepler
+# Create Kind cluster and deploy Kepler with the e2e overlay (fake GPU meter)
 make cluster-up
-make image deploy
+make image deploy \
+  KUSTOMIZE_DIR=manifests/overlays/e2e \
+  KUSTOMIZE_FLAGS=--load-restrictor=LoadRestrictionsNone
 
 # Verify Kepler is running
 kubectl get pods -n kepler -w

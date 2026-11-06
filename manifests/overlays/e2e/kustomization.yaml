@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Kind e2e (k8s-bm / KUSTOMIZE_DIR=manifests/overlays/e2e).
+# Production deploy stays manifests/k8s with fake-gpu-meter disabled.
+# kubectl kustomize needs --load-restrictor=LoadRestrictionsNone because
+# the patch is under manifests/k8s/patches/.
+# ConfigMap blob is checked by make check-e2e-overlay-config.
+resources:
+  - ../../k8s
+patches:
+  - path: ../../k8s/patches/enable-fake-gpu.yaml
