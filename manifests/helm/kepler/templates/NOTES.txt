@@ -1,0 +1,13 @@
+Kepler (Kubernetes-based Efficient Power Level Exporter) has been deployed to namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.exporter.stdout.enabled }}
+The stdout exporter is enabled — the power table prints to the exporter container's logs:
+
+  kubectl logs -l app.kubernetes.io/name={{ include "kepler.fullname" . }} -n {{ .Release.Namespace }} -f
+{{- else }}
+Check that the exporter is running:
+
+  kubectl get pods -l app.kubernetes.io/name={{ include "kepler.fullname" . }} -n {{ .Release.Namespace }}
+{{- end }}
+
+Learn more: https://sustainable-computing.io/kepler/
