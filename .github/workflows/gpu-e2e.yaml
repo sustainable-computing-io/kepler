@@ -1,0 +1,258 @@
+name: GPU e2e
+
+# Runs the GPU e2e tests (test/e2e/gpu_test.go) on the real GPU of the CNCF
+# A10 GPU runner. The GPUs are shared by all CNCF projects, so this only runs
+# when a maintainer starts it for a PR that touches GPU code, and once a week
+# on main. See docs/developer/e2e-testing.md.
+
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number to test (leave empty to test the branch picked above)
+        required: false
+        type: string
+      sha:
+        description: Commit of the PR you reviewed (required with a PR number, the run stops if the PR has moved on)
+        required: false
+        type: string
+  schedule:
+    - cron: 17 6 * * 1 # Mondays 06:17 UTC, off the hour when scheduled runs pile up; tests main
+
+# No default permissions: every job asks for only what it needs.
+permissions: {}
+
+# One run per PR at a time, so two runs never set the PR's status at once. A
+# newer run waits for the one in progress, and replaces one that is waiting.
+concurrency:
+  group: gpu-e2e-${{ inputs.pr && format('pr-{0}', inputs.pr) || format('{0}-{1}', github.event_name, github.ref) }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Quick check
+    # Only the upstream repository: copies of this workflow elsewhere, even in
+    # the same organization, must never reach the GPU runner group.
+    if: github.repository == 'sustainable-computing-io/kepler'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      target: ${{ steps.target.outputs.target }}
+      pr: ${{ steps.target.outputs.pr }}
+    steps:
+      # The helper scripts come from the workflow's own commit, never from
+      # the code under test.
+      - name: Checkout the workflow scripts
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve what to test
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          REVIEWED_SHA: ${{ inputs.sha }}
+        run: bash workflow-src/hack/gpu-e2e/target.sh
+
+      - name: Mark the PR as running
+        if: steps.target.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.target.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash workflow-src/hack/gpu-e2e/status.sh pending
+
+  gpu:
+    name: GPU tests on the A10
+    needs: check
+    runs-on:
+      group: GPUs
+      labels: oracle-vm-gpu-a10-1
+    timeout-minutes: 30
+    # This job runs the code under test, so it only gets read access.
+    permissions:
+      contents: read
+    outputs:
+      passed: ${{ steps.tests.outputs.passed }}
+      skipped: ${{ steps.tests.outputs.skipped }}
+    # One GPU run at a time: the runners are shared across CNCF projects.
+    concurrency:
+      group: gpu-e2e-runner
+      cancel-in-progress: false
+    env:
+      DCGM_IMAGE: nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
+    steps:
+      - name: Checkout the code under test
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          persist-credentials: false
+
+      # The helper scripts come from the workflow's own commit, never from
+      # the code under test.
+      - name: Checkout the workflow scripts
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e
+          sparse-checkout-cone-mode: false
+
+      # nvidia-smi can hang on a broken driver, so every call has a time limit
+      # instead of holding the shared GPU runner until the job times out.
+      - name: GPU info
+        run: |
+          timeout 60 nvidia-smi --query-gpu=name,driver_version,memory.total,power.draw --format=csv
+          cat /proc/driver/nvidia/version
+
+      - name: Prepare the GPU
+        run: |
+          # Keep the GPU initialized between Kepler starts, so Kepler sees its real idle power.
+          sudo timeout 60 nvidia-smi -pm 1
+          # Let Docker run the GPU load used by TestGPUWorkloadAttribution.
+          sudo nvidia-ctk runtime configure --runtime=docker --set-as-default
+          sudo systemctl restart docker
+          docker pull -q "$DCGM_IMAGE"
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build Kepler and the e2e test binary
+        run: CGO_ENABLED=1 make test-e2e
+
+      # The log and the samples live in RUNNER_TEMP, which the runner empties
+      # for every job, so no older run can leak into them.
+      - name: Start sampling GPU power and Kepler's GPU metrics
+        run: bash workflow-src/hack/gpu-e2e/sample.sh start "$RUNNER_TEMP"
+
+      - name: Run the GPU e2e tests
+        id: tests
+        run: |
+          set +e
+          sudo ./bin/kepler-e2e.test -test.v -test.timeout=20m -test.run TestGPU \
+            -gpu.load-image="$DCGM_IMAGE" 2>&1 | tee "$RUNNER_TEMP/gpu-e2e.log"
+          code=${PIPESTATUS[0]}
+          echo "GPU_E2E_EXIT_CODE=${code}" >> "$GITHUB_ENV"
+          {
+            echo "passed=$(grep -cE '^--- PASS: TestGPU' "$RUNNER_TEMP/gpu-e2e.log")"
+            echo "skipped=$(grep -cE '^--- SKIP: TestGPU' "$RUNNER_TEMP/gpu-e2e.log")"
+          } >> "$GITHUB_OUTPUT"
+          # Go also exits 0 when every test skips, for example when nvidia-smi
+          # finds no usable GPU, so the run only passes once a GPU test passed.
+          if [ "$code" -eq 0 ] && ! grep -qE '^--- PASS: TestGPU' "$RUNNER_TEMP/gpu-e2e.log"; then
+            echo "::error::No GPU test passed, so the GPU was not tested. The run summary says why."
+            exit 1
+          fi
+          exit "$code"
+
+      - name: Write the run summary
+        if: always()
+        env:
+          GPU_E2E_TARGET: ${{ needs.check.outputs.target }}
+          GPU_E2E_SHA: ${{ needs.check.outputs.sha }}
+          GPU_E2E_RUNNER: oracle-vm-gpu-a10-1
+          GPU_E2E_ARTIFACT: gpu-e2e-logs
+        run: |
+          bash workflow-src/hack/gpu-e2e/sample.sh stop "$RUNNER_TEMP"
+          # The weekly issue reuses this summary, so it also goes in the artifact.
+          bash workflow-src/hack/gpu-e2e/summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" > "$RUNNER_TEMP/gpu-e2e-summary.md"
+          cat "$RUNNER_TEMP/gpu-e2e-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-e2e-logs
+          path: |
+            ${{ runner.temp }}/gpu-e2e.log
+            ${{ runner.temp }}/gpu-power.csv
+            ${{ runner.temp }}/kepler-gpu-metrics.txt
+            ${{ runner.temp }}/gpu-e2e-summary.md
+          retention-days: 7
+
+  report:
+    name: Report on the PR
+    needs: [check, gpu]
+    if: always() && needs.check.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      # The helper scripts come from the workflow's own commit, never from
+      # the code under test.
+      - name: Checkout the workflow scripts
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e
+          sparse-checkout-cone-mode: false
+
+      - name: Set the GPU e2e status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.check.outputs.sha }}
+          RESULT: ${{ needs.gpu.result }}
+          PASSED: ${{ needs.gpu.outputs.passed }}
+          SKIPPED: ${{ needs.gpu.outputs.skipped }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash workflow-src/hack/gpu-e2e/status.sh final "$RESULT" "$PASSED" "$SKIPPED"
+
+  weekly-issue:
+    name: Open an issue for a failed weekly run
+    needs: [check, gpu]
+    # A GPU job that hits timeout-minutes, or that a newer run replaces while
+    # it waits for the GPU, ends as cancelled, not failed.
+    if: >-
+      always() && github.event_name == 'schedule' &&
+      (needs.check.result == 'failure' || needs.gpu.result == 'failure' || needs.gpu.result == 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      # The helper scripts come from the workflow's own commit, never from
+      # the code under test.
+      - name: Checkout the workflow scripts
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: workflow-src
+          persist-credentials: false
+          sparse-checkout: hack/gpu-e2e
+          sparse-checkout-cone-mode: false
+
+      # The GPU job writes the run summary into its artifact: this job never
+      # runs the code under test, it only posts what that job measured.
+      - name: Download the run summary
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: gpu-e2e-logs
+          path: ${{ runner.temp }}/gpu-e2e-logs
+
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.check.outputs.sha || github.sha }}
+          GPU_RESULT: ${{ needs.gpu.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.check.outputs.sha || github.sha }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/.github/workflows/gpu-e2e.yaml
+        run: bash workflow-src/hack/gpu-e2e/issue.sh "$RUNNER_TEMP/gpu-e2e-logs/gpu-e2e-summary.md"
