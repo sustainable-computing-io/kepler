@@ -6,6 +6,7 @@ package monitor
 import (
 	"fmt"
 
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -121,6 +122,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	// Get GPU power attribution from all GPU meters
 	gpuPowerByPID := make(map[uint32]float64)
+	// Part of gpuPowerByPID read after the process exited, which goes to the exited process.
+	gpuTailByPID := make(map[uint32]float64)
 	if len(pm.gpuMeters) > 0 {
 		var gpuStats []GPUDeviceStats
 		for _, meter := range pm.gpuMeters {
@@ -135,6 +138,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// so there's no PID overlap between meters.
 			for pid, watts := range power {
 				gpuPowerByPID[pid] = watts
+			}
+			if reporter, ok := meter.(gpu.TailPowerReporter); ok {
+				for pid, watts := range reporter.GetProcessTailPower() {
+					gpuTailByPID[pid] = watts
+				}
 			}
 
 			// Collect GPU device stats for debugging/monitoring
@@ -169,6 +177,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	procs := pm.resources.Processes()
 
+	// PIDs whose tail went to their terminated record, so a running process that reuses the PID
+	// does not get it too.
+	tailGiven := make(map[uint32]bool)
+
 	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
 	for pid := range procs.Terminated {
 		pidStr := fmt.Sprintf("%d", pid)
@@ -181,10 +193,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 		// GPU meters attribute the power read on the first collection after a GPU process
 		// exits to that process, since the GPU stays clocked up for a few seconds after it
-		// ends. Add it here, before the tracker freezes the record. If the PID is already
-		// running again, the power belongs to the new process.
-		_, reused := procs.Running[pid]
-		if gpuPower, hasGPU := gpuPowerByPID[uint32(pid)]; hasGPU && !reused {
+		// ends. Add it here, before the tracker freezes the record, even if the PID is
+		// already running again: the meter reports it apart from the new process's power.
+		if gpuPower, hasTail := gpuTailByPID[uint32(pid)]; hasTail {
+			tailGiven[uint32(pid)] = true
 			terminated.GPUPower = gpuPower
 			var energy Energy
 			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
@@ -256,6 +268,9 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 		// Add GPU power attribution if available
 		if gpuPower, hasGPU := gpuPowerByPID[uint32(proc.PID)]; hasGPU {
+			if tailGiven[uint32(proc.PID)] {
+				gpuPower = max(gpuPower-gpuTailByPID[uint32(proc.PID)], 0)
+			}
 			process.GPUPower = gpuPower
 		}
 
