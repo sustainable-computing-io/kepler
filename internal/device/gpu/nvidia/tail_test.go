@@ -56,6 +56,7 @@ func TestGPUPowerCollector_tailAfterProcessExit(t *testing.T) {
 		require.NoError(t, err)
 		assert.InDelta(t, 27.0, result[1001], 0.001)
 		assert.InDelta(t, 18.0, result[1002], 0.001)
+		assert.Equal(t, result, collector.GetProcessTailPower(), "all of it is tail power")
 
 		// The monitor reads the device stats after the process power: the tail reading must
 		// not become the idle baseline.
@@ -69,6 +70,7 @@ func TestGPUPowerCollector_tailAfterProcessExit(t *testing.T) {
 		result, err = collector.GetProcessPower()
 		require.NoError(t, err)
 		assert.Empty(t, result)
+		assert.Empty(t, collector.GetProcessTailPower())
 		assert.True(t, collector.idleObserved["GPU-123"])
 		assert.Equal(t, 11.0, collector.minObservedPower["GPU-123"])
 		assert.Empty(t, collector.tailShares)

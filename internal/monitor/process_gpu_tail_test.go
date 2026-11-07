@@ -15,25 +15,46 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
-// TestProcessPowerGPUTailOnTerminatedProcess checks that GPU power reported for a process that
-// has just exited goes to its terminated record, unless the PID is already running again.
+// tailMeter is a GPU meter that also reports the power read after a process exited.
+type tailMeter struct {
+	*MockGPUPowerMeter
+	tail map[uint32]float64
+}
+
+func (m tailMeter) GetProcessTailPower() map[uint32]float64 { return m.tail }
+
+// TestProcessPowerGPUTailOnTerminatedProcess checks that GPU power the meter reports as read
+// after a process exited goes to its terminated record, even when the PID is running again,
+// and that the rest goes to the running process.
 func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 	for _, tt := range []struct {
 		name               string
 		reused             bool
+		tail               map[uint32]float64
 		wantTerminatedGPU  Energy
 		wantTerminatedWatt float64
+		wantRunningWatt    float64
 	}{
 		{
 			name:               "exited process gets the tail",
+			tail:               map[uint32]float64{4001: 30},
 			wantTerminatedGPU:  100*Joule + 30*5*Joule,
 			wantTerminatedWatt: 30,
 		},
 		{
-			name:               "running process that reuses the PID keeps the power",
+			name:               "exited process gets the tail when the PID is reused off the GPU",
+			reused:             true,
+			tail:               map[uint32]float64{4001: 30},
+			wantTerminatedGPU:  100*Joule + 30*5*Joule,
+			wantTerminatedWatt: 30,
+			wantRunningWatt:    0,
+		},
+		{
+			name:               "running process that reuses the PID on the GPU keeps its power",
 			reused:             true,
 			wantTerminatedGPU:  100 * Joule,
 			wantTerminatedWatt: 20,
+			wantRunningWatt:    30,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,7 +91,7 @@ func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 			monitor := &PowerMonitor{
 				logger:                     logger,
 				resources:                  informer,
-				gpuMeters:                  []gpu.GPUPowerMeter{meter},
+				gpuMeters:                  []gpu.GPUPowerMeter{tailMeter{meter, tt.tail}},
 				terminatedProcessesTracker: NewTerminatedResourceTracker[*Process](zone, 10, 0, logger),
 			}
 
@@ -84,7 +105,7 @@ func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 			}
 			if tt.reused {
 				require.Contains(t, next.Processes, "4001")
-				assert.Equal(t, 30.0, next.Processes["4001"].GPUPower)
+				assert.Equal(t, tt.wantRunningWatt, next.Processes["4001"].GPUPower)
 			}
 			assert.Equal(t, 100*Joule, previous.Processes["4001"].GPUEnergyTotal, "the previous snapshot is immutable")
 		})
@@ -137,7 +158,7 @@ func TestGPUTailReachesContainersAndPods(t *testing.T) {
 	monitor := &PowerMonitor{
 		logger:                      logger,
 		resources:                   informer,
-		gpuMeters:                   []gpu.GPUPowerMeter{meter},
+		gpuMeters:                   []gpu.GPUPowerMeter{tailMeter{meter, map[uint32]float64{4001: 10, 4002: 10, 4003: 10}}},
 		terminatedProcessesTracker:  NewTerminatedResourceTracker[*Process](zone, 10, 0, logger),
 		terminatedContainersTracker: NewTerminatedResourceTracker[*Container](zone, 10, 0, logger),
 		terminatedPodsTracker:       NewTerminatedResourceTracker[*Pod](zone, 10, 0, logger),

@@ -71,12 +71,30 @@ func (c *GPUPowerCollector) applyTailShares(key tailKey, activePower float64, re
 	if activePower <= 0 {
 		return
 	}
+	if c.tailPower == nil {
+		c.tailPower = make(map[uint32]float64)
+	}
 	for pid, share := range entry.shares {
-		result[pid] += activePower * share
+		watts := activePower * share
+		result[pid] += watts
+		c.tailPower[pid] += watts
 	}
 	c.logger.Debug("attributed GPU power after process exit to the exited processes",
 		"device", key.device, "mig", key.mig, "gpuInstanceID", key.instance,
 		"activePower", activePower, "processes", len(entry.shares))
+}
+
+// GetProcessTailPower returns the power in the last GetProcessPower result that was read after
+// the processes exited, by PID. It implements gpu.TailPowerReporter.
+func (c *GPUPowerCollector) GetProcessTailPower() map[uint32]float64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	tail := make(map[uint32]float64, len(c.tailPower))
+	for pid, watts := range c.tailPower {
+		tail[pid] = watts
+	}
+	return tail
 }
 
 // dropUsedTailShares removes the shares that were applied on the previous collection.

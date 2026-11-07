@@ -200,8 +200,9 @@ mode:
 - Shares cached by the DCGM path are dropped when the device falls back to equal
   distribution, and the other way around.
 
-The monitor adds this power to the terminated record of the exited process
-before the record is frozen, unless the PID is already running again. The
+The collector reports this power apart from live power (`GetProcessTailPower`),
+and the monitor adds it to the terminated record of the exited process before
+the record is frozen, even if the PID is already running again. The
 owning container and pod get it too, whether they are still running or
 terminated on the same collection.
 

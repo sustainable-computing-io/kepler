@@ -54,6 +54,8 @@ type GPUPowerCollector struct {
 	// tailShares caches each process's share of active power per device (per MIG instance in
 	// partitioned mode), to attribute the power read just after the processes exit. See tail.go.
 	tailShares map[tailKey]*tailShares
+	// tailPower is the part of the last GetProcessPower result given with tailShares.
+	tailPower map[uint32]float64
 
 	mu sync.RWMutex
 
@@ -343,6 +345,7 @@ func (c *GPUPowerCollector) collectProcessPower() processPowerResult {
 
 	// Shares applied on the previous collection covered the only collection that saw the tail.
 	c.dropUsedTailShares()
+	c.tailPower = make(map[uint32]float64)
 
 	for _, dev := range c.devices {
 		mode := c.sharingModes[dev.Index]
@@ -833,3 +836,4 @@ func (c *GPUPowerCollector) GetProcessInfo() ([]gpu.ProcessGPUInfo, error) {
 
 // Ensure GPUPowerCollector implements gpu.GPUPowerMeter
 var _ gpu.GPUPowerMeter = (*GPUPowerCollector)(nil)
+var _ gpu.TailPowerReporter = (*GPUPowerCollector)(nil)
