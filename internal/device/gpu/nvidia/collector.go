@@ -598,18 +598,23 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		return err
 	}
 
+	// Use cached MIG hierarchy from NVML
+	instances := c.migInstancesByDevice[deviceIndex]
+	useDCGM := c.dcgm != nil && c.dcgm.IsInitialized() && len(instances) > 0
+
+	// Shares cached by the other attribution path would never be used, and would keep
+	// hasTailShares from letting idle detection run, so drop them before reading the stats.
+	c.dropTailSharesOfOtherPath(deviceIndex, useDCGM)
+
 	// Get active power (reuses idle detection logic)
 	stats, err := c.getDevicePowerStatsLocked(deviceIndex)
 	if err != nil {
 		return err
 	}
 
-	// Use cached MIG hierarchy from NVML
-	instances := c.migInstancesByDevice[deviceIndex]
-
 	// Fallback to equal distribution among running processes when DCGM is
 	// unavailable (not deployed, unreachable, or initialization failed).
-	if c.dcgm == nil || !c.dcgm.IsInitialized() || len(instances) == 0 {
+	if !useDCGM {
 		c.logger.Warn("DCGM not available, using fallback attribution",
 			"dcgm_nil", c.dcgm == nil,
 			"dcgm_initialized", c.dcgm != nil && c.dcgm.IsInitialized(),
@@ -629,6 +634,10 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// Instances that showed no processes on this collection. Their cached shares cover the
 	// tail of processes that just exited (see tail.go).
 	var emptyInstances []uint
+	// Instances whose cached shares stay for a later collection.
+	keepShares := make(map[uint]bool)
+	// Set when an instance could not be read, so it may still have running processes.
+	readFailed := false
 
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
@@ -637,14 +646,30 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 				"device", deviceIndex,
 				"gpuInstanceID", gi.GPUInstanceID,
 				"error", err)
+			readFailed = true
 			continue
 		}
 
 		// Skip NVML calls for idle MIG instances (major optimization).
 		// Activity from dcgm-exporter is cached and cheap to query.
 		// NVML calls (GetMIGDeviceByInstanceID, GetProcessUtilization) are slow.
+		// An instance with cached shares is still checked, since a process between kernels
+		// also shows zero activity and must not be taken for an exited one.
 		if activity == 0 {
-			emptyInstances = append(emptyInstances, gi.GPUInstanceID)
+			key := migTailKey(deviceIndex, gi.GPUInstanceID)
+			if _, cached := c.tailShares[key]; !cached {
+				continue
+			}
+			running, ok := c.migInstanceProcesses(nvmlDev, gi.GPUInstanceID)
+			switch {
+			case !ok:
+				readFailed = true
+			case len(running) == 0:
+				emptyInstances = append(emptyInstances, gi.GPUInstanceID)
+			default:
+				// Still running: keep the shares only if they belong to these processes.
+				keepShares[gi.GPUInstanceID] = c.tailSharesCover(key, running)
+			}
 			continue
 		}
 
@@ -654,6 +679,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 				"device", deviceIndex,
 				"gpuInstanceID", gi.GPUInstanceID,
 				"error", err)
+			readFailed = true
 			continue
 		}
 
@@ -667,6 +693,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 			// Fallback: get PIDs from GetComputeRunningProcesses (equal distribution)
 			procs, err := migDevice.GetComputeRunningProcesses()
 			if err != nil {
+				readFailed = true
 				continue
 			}
 			if len(procs) == 0 {
@@ -686,22 +713,22 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		totalActivity += activity
 	}
 
-	// The cached shares of an instance without processes are used only when no instance has
-	// processes, so the whole active power is the tail. Otherwise the running instances get it
-	// by activity, as before. Either way, an instance's shares cover one empty collection only.
-	// Shares of an instance that could not be read are dropped, so they cannot be used later.
-	withProcesses := make(map[uint]bool, len(data))
+	// The cached shares of an instance without processes are used only when every instance
+	// was read and none has processes, so the whole active power is the tail. Otherwise the
+	// running instances get it by activity, as before. Either way, an instance's shares cover
+	// one empty collection only. Shares of an instance that could not be read are dropped, so
+	// they cannot be used later.
 	for _, d := range data {
-		withProcesses[d.gpuInstanceID] = true
+		keepShares[d.gpuInstanceID] = true
 	}
-	for _, id := range emptyInstances {
-		if len(data) == 0 {
+	if len(data) == 0 && !readFailed {
+		for _, id := range emptyInstances {
 			c.applyTailShares(migTailKey(deviceIndex, id), stats.ActivePower, result)
-			withProcesses[id] = true // keep the used shares until the next collection
+			keepShares[id] = true // keep the used shares until the next collection
 		}
 	}
 	for key := range c.tailShares {
-		if key.mig && key.device == deviceIndex && !withProcesses[key.instance] {
+		if key.mig && key.device == deviceIndex && !keepShares[key.instance] {
 			delete(c.tailShares, key)
 		}
 	}

@@ -3,6 +3,8 @@
 
 package nvidia
 
+import "github.com/sustainable-computing-io/kepler/internal/device/gpu"
+
 // After a GPU process exits, the GPU can stay clocked up for a few seconds. NVML no longer lists
 // the process, so the active power read on the first collection after the exit would go to no
 // process at all. To keep it with the workload that caused it, the collector remembers each
@@ -97,6 +99,48 @@ func (c *GPUPowerCollector) hasTailShares(deviceIndex int) bool {
 		}
 	}
 	return false
+}
+
+// dropTailSharesOfOtherPath removes the device's shares cached by the attribution path that
+// is not used on this collection: per MIG instance when DCGM is used, per device otherwise.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) dropTailSharesOfOtherPath(deviceIndex int, perInstance bool) {
+	for key := range c.tailShares {
+		if key.device == deviceIndex && key.mig != perInstance {
+			delete(c.tailShares, key)
+		}
+	}
+}
+
+// tailSharesCover reports whether every running PID has a cached share for key, so the shares
+// still describe the processes that are running.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) tailSharesCover(key tailKey, running []gpu.ProcessGPUInfo) bool {
+	entry, ok := c.tailShares[key]
+	if !ok {
+		return false
+	}
+	for _, p := range running {
+		if _, ok := entry.shares[p.PID]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// migInstanceProcesses lists the processes running on a MIG instance. ok is false when the
+// instance could not be read.
+func (c *GPUPowerCollector) migInstanceProcesses(nvmlDev NVMLDevice, gpuInstanceID uint) ([]gpu.ProcessGPUInfo, bool) {
+	migDevice, err := nvmlDev.GetMIGDeviceByInstanceID(gpuInstanceID)
+	if err != nil {
+		c.logger.Warn("failed to get MIG device handle", "gpuInstanceID", gpuInstanceID, "error", err)
+		return nil, false
+	}
+	procs, err := migDevice.GetComputeRunningProcesses()
+	if err != nil {
+		return nil, false
+	}
+	return procs, true
 }
 
 func mergePower(dst, src map[uint32]float64) {

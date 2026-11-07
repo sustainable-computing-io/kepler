@@ -72,9 +72,16 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 			continue
 		}
 
+		// Add GPU power read after the pod's processes exited (see calculateContainerPower).
+		terminated := prevPod.Clone()
+		if tail, ok := newSnapshot.gpuTailByPod[id]; ok {
+			terminated.GPUPower = tail.power
+			terminated.GPUEnergyTotal += tail.energy
+		}
+
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated pod is only added once since a pod cannot be terminated twice
-		pm.terminatedPodsTracker.Add(prevPod.Clone())
+		pm.terminatedPodsTracker.Add(terminated)
 	}
 
 	// Skip if no running pods
@@ -144,6 +151,15 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 				energy -= min(energy, prevContainer.GPUEnergyTotal)
 			}
 			pod.GPUEnergyTotal += energy
+		}
+	}
+
+	// Containers that terminated on this collection are gone from the running ones, so their
+	// GPU power read after exit is added here.
+	for id, tail := range newSnapshot.gpuTailByPod {
+		if pod, ok := podMap[id]; ok {
+			pod.GPUPower += tail.power
+			pod.GPUEnergyTotal += tail.energy
 		}
 	}
 

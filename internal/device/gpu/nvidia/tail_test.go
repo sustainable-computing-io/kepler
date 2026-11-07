@@ -151,6 +151,11 @@ func TestGPUPowerCollector_tailAfterProcessExit_partitioned(t *testing.T) {
 			dev.On("GetMIGDeviceByInstanceID", id).Return(migs[i], nil)
 			migs[i].ExpectedCalls = nil
 			migs[i].On("GetProcessUtilization", uint64(0)).Return([]gpu.ProcessUtilization{{PID: pids[i], ComputeUtil: 50}}, nil)
+			var running []gpu.ProcessGPUInfo
+			if act > 0 {
+				running = []gpu.ProcessGPUInfo{{PID: pids[i]}}
+			}
+			migs[i].On("GetComputeRunningProcesses").Return(running, nil)
 		}
 	}
 
@@ -193,5 +198,68 @@ func TestGPUPowerCollector_tailAfterProcessExit_partitioned(t *testing.T) {
 		result, err = collector.GetProcessPower()
 		require.NoError(t, err)
 		assert.Equal(t, map[uint32]float64{2001: 30}, result)
+	})
+
+	t.Run("a process between kernels keeps its shares", func(t *testing.T) {
+		collector, dev, dcgm, mig1, mig2 := setup(t)
+		migs := []*MockNVMLDevice{mig1, mig2}
+
+		reading(dev, dcgm, migs, 100, []float64{0.5, 0}, []uint32{1001, 2001})
+		_, err := collector.GetProcessPower()
+		require.NoError(t, err)
+
+		// No activity, but the process is still on the instance: nothing is attributed yet.
+		reading(dev, dcgm, migs, 70, []float64{0, 0}, []uint32{1001, 2001})
+		mig1.On("GetComputeRunningProcesses").Unset()
+		mig1.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 1001}}, nil)
+		result, err := collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.Empty(t, result)
+		assert.Contains(t, collector.tailShares, migTailKey(0, 1))
+
+		// A new process on the instance replaces the old one: its shares are dropped.
+		mig1.On("GetComputeRunningProcesses").Unset()
+		mig1.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 3001}}, nil)
+		result, err = collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.Empty(t, result)
+		assert.Empty(t, collector.tailShares)
+	})
+
+	t.Run("no tail when an instance cannot be read", func(t *testing.T) {
+		collector, dev, dcgm, mig1, mig2 := setup(t)
+		migs := []*MockNVMLDevice{mig1, mig2}
+
+		reading(dev, dcgm, migs, 100, []float64{0.5, 0.5}, []uint32{1001, 2001})
+		_, err := collector.GetProcessPower()
+		require.NoError(t, err)
+
+		reading(dev, dcgm, migs, 70, []float64{0, 0}, []uint32{1001, 2001})
+		dcgm.On("GetMIGInstanceActivity", 0, uint(2)).Unset()
+		dcgm.On("GetMIGInstanceActivity", 0, uint(2)).Return(0.0, assert.AnError)
+		result, err := collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.Empty(t, result)
+		assert.Empty(t, collector.tailShares)
+	})
+
+	t.Run("switching to the fallback drops the instance shares", func(t *testing.T) {
+		collector, dev, dcgm, mig1, mig2 := setup(t)
+		migs := []*MockNVMLDevice{mig1, mig2}
+
+		reading(dev, dcgm, migs, 100, []float64{0.5, 0.5}, []uint32{1001, 2001})
+		_, err := collector.GetProcessPower()
+		require.NoError(t, err)
+
+		// DCGM goes away and the processes exit: the instance shares can't be used, so the
+		// reading is used for idle detection.
+		dcgm.ExpectedCalls = nil
+		dcgm.On("IsInitialized").Return(false)
+		setDeviceReading(dev, 30, []gpu.ProcessGPUInfo{}, nil)
+		result, err := collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.Empty(t, result)
+		assert.Empty(t, collector.tailShares)
+		assert.Equal(t, 30.0, collector.minObservedPower["GPU-123"])
 	})
 }
