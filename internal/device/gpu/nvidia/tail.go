@@ -14,7 +14,7 @@ package nvidia
 // partitioned mode.
 type tailKey struct {
 	device   int
-	instance uint32
+	instance uint
 	mig      bool
 }
 
@@ -22,7 +22,7 @@ func deviceTailKey(deviceIndex int) tailKey {
 	return tailKey{device: deviceIndex}
 }
 
-func migTailKey(deviceIndex int, gpuInstanceID uint32) tailKey {
+func migTailKey(deviceIndex int, gpuInstanceID uint) tailKey {
 	return tailKey{device: deviceIndex, instance: gpuInstanceID, mig: true}
 }
 
