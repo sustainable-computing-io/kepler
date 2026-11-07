@@ -600,11 +600,15 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 
 	// Use cached MIG hierarchy from NVML
 	instances := c.migInstancesByDevice[deviceIndex]
-	useDCGM := c.dcgm != nil && c.dcgm.IsInitialized() && len(instances) > 0
+	useDCGM := func() bool {
+		return c.dcgm != nil && c.dcgm.IsInitialized() && len(instances) > 0
+	}
 
 	// Shares cached by the other attribution path would never be used, and would keep
 	// hasTailShares from letting idle detection run, so drop them before reading the stats.
-	c.dropTailSharesOfOtherPath(deviceIndex, useDCGM)
+	if c.hasTailShares(deviceIndex) {
+		c.dropTailSharesOfOtherPath(deviceIndex, useDCGM())
+	}
 
 	// Get active power (reuses idle detection logic)
 	stats, err := c.getDevicePowerStatsLocked(deviceIndex)
@@ -614,7 +618,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 
 	// Fallback to equal distribution among running processes when DCGM is
 	// unavailable (not deployed, unreachable, or initialization failed).
-	if !useDCGM {
+	if !useDCGM() {
 		c.logger.Warn("DCGM not available, using fallback attribution",
 			"dcgm_nil", c.dcgm == nil,
 			"dcgm_initialized", c.dcgm != nil && c.dcgm.IsInitialized(),
