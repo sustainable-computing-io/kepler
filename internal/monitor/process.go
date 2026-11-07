@@ -177,9 +177,24 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			continue
 		}
 
+		terminated := prevProcess.Clone()
+
+		// GPU meters attribute the power read on the first collection after a GPU process
+		// exits to that process, since the GPU stays clocked up for a few seconds after it
+		// ends. Add it here, before the tracker freezes the record. If the PID is already
+		// running again, the power belongs to the new process.
+		_, reused := procs.Running[pid]
+		if gpuPower, hasGPU := gpuPowerByPID[uint32(pid)]; hasGPU && !reused {
+			terminated.GPUPower = gpuPower
+			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
+			if gpuPower > 0 && timeDelta > 0 {
+				terminated.GPUEnergyTotal += Energy(gpuPower * timeDelta * float64(Joule))
+			}
+		}
+
 		// Add to internal tracker (which will handle priority-based retention)
 		// Each lifetime is retained separately, even when the PID is reused before export.
-		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
+		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), terminated)
 	}
 
 	running := procs.Running

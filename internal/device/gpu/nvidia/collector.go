@@ -51,6 +51,10 @@ type GPUPowerCollector struct {
 
 	initialized bool
 
+	// tailShares caches each process's share of active power per device (per MIG instance in
+	// partitioned mode), to attribute the power read just after the processes exit. See tail.go.
+	tailShares map[tailKey]*tailShares
+
 	mu sync.RWMutex
 
 	// Singleflight to coalesce concurrent GetProcessPower calls.
@@ -83,6 +87,7 @@ func NewGPUPowerCollector(logger *slog.Logger, opts ...CollectorOption) (*GPUPow
 		minObservedPower: make(map[string]float64),
 		idleObserved:     make(map[string]bool),
 		sharingModes:     make(map[int]gpu.SharingMode),
+		tailShares:       make(map[tailKey]*tailShares),
 	}
 
 	for _, opt := range opts {
@@ -258,6 +263,11 @@ func (c *GPUPowerCollector) getDevicePowerStatsLocked(deviceIndex int) (gpu.GPUP
 		// Non-fatal: log and skip idle detection for this reading
 		c.logger.Debug("GetComputeRunningProcesses failed, skipping idle detection",
 			"device", deviceIndex, "error", err)
+	} else if len(procs) == 0 && c.hasTailShares(deviceIndex) {
+		// The processes have just exited and the GPU may still be clocked up. This reading
+		// goes to the exited processes (see tail.go), so it must not become the idle baseline.
+		c.logger.Debug("skipping idle detection on the first collection after process exit",
+			"device", deviceIndex, "uuid", uuid, "power", totalPower)
 	} else if len(procs) == 0 {
 		// GPU is truly idle — update minimum observed power
 		if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
@@ -331,6 +341,9 @@ func (c *GPUPowerCollector) collectProcessPower() processPowerResult {
 
 	result := make(map[uint32]float64)
 
+	// Shares applied on the previous collection covered the only collection that saw the tail.
+	c.dropUsedTailShares()
+
 	for _, dev := range c.devices {
 		mode := c.sharingModes[dev.Index]
 
@@ -378,16 +391,21 @@ func (c *GPUPowerCollector) attributeExclusive(deviceIndex int, result map[uint3
 		return err
 	}
 
+	key := deviceTailKey(deviceIndex)
 	if len(procs) == 0 {
+		c.applyTailShares(key, stats.ActivePower, result)
 		return nil
 	}
 
 	// In exclusive mode, attribute all active power to the single process
 	// (or split equally if somehow multiple processes exist)
+	devResult := make(map[uint32]float64, len(procs))
 	powerPerProc := stats.ActivePower / float64(len(procs))
 	for _, p := range procs {
-		result[p.PID] += powerPerProc
+		devResult[p.PID] += powerPerProc
 	}
+	c.recordTailShares(key, devResult, stats.ActivePower)
+	mergePower(result, devResult)
 
 	return nil
 }
@@ -413,9 +431,18 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 		return err
 	}
 
+	key := deviceTailKey(deviceIndex)
 	if len(runningProcs) == 0 {
+		c.applyTailShares(key, stats.ActivePower, result)
 		return nil
 	}
+
+	// Attribute this device's power separately, so its shares can be cached for the tail.
+	devResult := make(map[uint32]float64, len(runningProcs))
+	defer func() {
+		c.recordTailShares(key, devResult, stats.ActivePower)
+		mergePower(result, devResult)
+	}()
 
 	// Step 2: Get process utilization samples (always pass 0 to get latest samples)
 	utils, err := nvmlDev.GetProcessUtilization(0)
@@ -425,7 +452,7 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 			"device", deviceIndex, "error", err)
 		powerPerProc := stats.ActivePower / float64(len(runningProcs))
 		for _, p := range runningProcs {
-			result[p.PID] += powerPerProc
+			devResult[p.PID] += powerPerProc
 		}
 		return nil
 	}
@@ -460,7 +487,7 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 	if totalSmUtil == 0 {
 		powerPerProc := stats.ActivePower / float64(len(runningProcs))
 		for _, proc := range runningProcs {
-			result[proc.PID] += powerPerProc
+			devResult[proc.PID] += powerPerProc
 		}
 		c.logger.Debug("no utilization data, using equal distribution",
 			"device", deviceIndex,
@@ -473,7 +500,7 @@ func (c *GPUPowerCollector) attributeTimeSlicing(deviceIndex int, result map[uin
 	for _, proc := range runningProcs {
 		smUtil := utilMap[proc.PID] // 0 if not in map
 		fraction := float64(smUtil) / float64(totalSmUtil)
-		result[proc.PID] += stats.ActivePower * fraction
+		devResult[proc.PID] += stats.ActivePower * fraction
 	}
 
 	return nil
@@ -588,16 +615,20 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 			"dcgm_initialized", c.dcgm != nil && c.dcgm.IsInitialized(),
 			"instances", len(instances),
 			"device", deviceIndex)
-		return c.attributePartitionedFallback(nvmlDev, stats.ActivePower, result)
+		return c.attributePartitionedFallback(deviceIndex, nvmlDev, stats.ActivePower, result)
 	}
 
 	// Collect activity and process data for each MIG instance
 	type instanceData struct {
-		activity    float64
-		processUtil map[uint32]uint32 // PID -> SmUtil (0 if unavailable)
+		gpuInstanceID uint32
+		activity      float64
+		processUtil   map[uint32]uint32 // PID -> SmUtil (0 if unavailable)
 	}
 	var data []instanceData
 	var totalActivity float64
+	// Instances that showed no processes on this collection. Their cached shares cover the
+	// tail of processes that just exited (see tail.go).
+	var emptyInstances []uint32
 
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
@@ -613,6 +644,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		// Activity from dcgm-exporter is cached and cheap to query.
 		// NVML calls (GetMIGDeviceByInstanceID, GetProcessUtilization) are slow.
 		if activity == 0 {
+			emptyInstances = append(emptyInstances, gi.GPUInstanceID)
 			continue
 		}
 
@@ -634,7 +666,11 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		} else {
 			// Fallback: get PIDs from GetComputeRunningProcesses (equal distribution)
 			procs, err := migDevice.GetComputeRunningProcesses()
-			if err != nil || len(procs) == 0 {
+			if err != nil {
+				continue
+			}
+			if len(procs) == 0 {
+				emptyInstances = append(emptyInstances, gi.GPUInstanceID)
 				continue
 			}
 			for _, p := range procs {
@@ -646,8 +682,28 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 			continue
 		}
 
-		data = append(data, instanceData{activity: activity, processUtil: processUtil})
+		data = append(data, instanceData{gpuInstanceID: gi.GPUInstanceID, activity: activity, processUtil: processUtil})
 		totalActivity += activity
+	}
+
+	// The cached shares of an instance without processes are used only when no instance has
+	// processes, so the whole active power is the tail. Otherwise the running instances get it
+	// by activity, as before. Either way, an instance's shares cover one empty collection only.
+	// Shares of an instance that could not be read are dropped, so they cannot be used later.
+	withProcesses := make(map[uint32]bool, len(data))
+	for _, d := range data {
+		withProcesses[d.gpuInstanceID] = true
+	}
+	for _, id := range emptyInstances {
+		if len(data) == 0 {
+			c.applyTailShares(migTailKey(deviceIndex, id), stats.ActivePower, result)
+			withProcesses[id] = true // keep the used shares until the next collection
+		}
+	}
+	for key := range c.tailShares {
+		if key.mig && key.device == deviceIndex && !withProcesses[key.instance] {
+			delete(c.tailShares, key)
+		}
 	}
 
 	if len(data) == 0 || totalActivity == 0 {
@@ -663,7 +719,11 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// then within each instance by process utilization
 	for _, d := range data {
 		migPower := stats.ActivePower * (d.activity / totalActivity)
-		distributeByUtilization(result, d.processUtil, migPower)
+		instResult := make(map[uint32]float64, len(d.processUtil))
+		distributeByUtilization(instResult, d.processUtil, migPower)
+		// Shares are of the whole device's active power, so the tail is split like this collection.
+		c.recordTailShares(migTailKey(deviceIndex, d.gpuInstanceID), instResult, stats.ActivePower)
+		mergePower(result, instResult)
 	}
 
 	return nil
@@ -672,21 +732,26 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 // attributePartitionedFallback distributes power equally among all running processes
 // across all MIG instances when DCGM is not available.
 // NOTE: caller must hold c.mu lock
-func (c *GPUPowerCollector) attributePartitionedFallback(nvmlDev NVMLDevice, activePower float64, result map[uint32]float64) error {
+func (c *GPUPowerCollector) attributePartitionedFallback(deviceIndex int, nvmlDev NVMLDevice, activePower float64, result map[uint32]float64) error {
 	// Get all running processes from the parent device
 	procs, err := nvmlDev.GetComputeRunningProcesses()
 	if err != nil {
 		return err
 	}
 
+	key := deviceTailKey(deviceIndex)
 	if len(procs) == 0 {
+		c.applyTailShares(key, activePower, result)
 		return nil
 	}
 
+	devResult := make(map[uint32]float64, len(procs))
 	powerPerProc := activePower / float64(len(procs))
 	for _, p := range procs {
-		result[p.PID] += powerPerProc
+		devResult[p.PID] += powerPerProc
 	}
+	c.recordTailShares(key, devResult, activePower)
+	mergePower(result, devResult)
 
 	return nil
 }
