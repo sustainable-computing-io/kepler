@@ -620,7 +620,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 
 	// Collect activity and process data for each MIG instance
 	type instanceData struct {
-		gpuInstanceID uint32
+		gpuInstanceID uint
 		activity      float64
 		processUtil   map[uint32]uint32 // PID -> SmUtil (0 if unavailable)
 	}
@@ -628,7 +628,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	var totalActivity float64
 	// Instances that showed no processes on this collection. Their cached shares cover the
 	// tail of processes that just exited (see tail.go).
-	var emptyInstances []uint32
+	var emptyInstances []uint
 
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
@@ -690,7 +690,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// processes, so the whole active power is the tail. Otherwise the running instances get it
 	// by activity, as before. Either way, an instance's shares cover one empty collection only.
 	// Shares of an instance that could not be read are dropped, so they cannot be used later.
-	withProcesses := make(map[uint32]bool, len(data))
+	withProcesses := make(map[uint]bool, len(data))
 	for _, d := range data {
 		withProcesses[d.gpuInstanceID] = true
 	}
