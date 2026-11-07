@@ -113,7 +113,8 @@ still report data.
 When DCGM is initialized and instances are cached but every instance is idle,
 fails to report, or has no processes, `attributePartitioned` logs a warning and
 returns without attributing anything for that device. There is no fallback in
-that case.
+that case, except for the first collection after the processes exit (see
+[Power After a Process Exits](#power-after-a-process-exits)).
 
 ## Idle Power Detection
 
@@ -134,6 +135,9 @@ if err != nil {
     // Non-fatal: log and skip idle detection for this reading
     c.logger.Debug("GetComputeRunningProcesses failed, skipping idle detection",
         "device", deviceIndex, "error", err)
+} else if len(procs) == 0 && c.hasTailShares(deviceIndex) {
+    // The processes have just exited and the GPU may still be clocked up,
+    // so this reading must not become the idle baseline
 } else if len(procs) == 0 {
     // GPU is truly idle — update minimum observed power
     if min, exists := c.minObservedPower[uuid]; !exists || totalPower < min {
@@ -173,6 +177,39 @@ if activePower < 0 {
 ```
 
 **Active power** = Total power - Idle power (clamped at 0)
+
+## Power After a Process Exits
+
+A GPU stays clocked up for a few seconds after its last process exits. NVML no
+longer lists the process, so the active power read then would go to no process
+at all. To keep it with the workload that caused it, the collector caches each
+process's share of active power from the last attribution that found processes
+([`tail.go`][collector-tail]), per device, or per MIG instance in partitioned
+mode:
+
+- On the **first** collection that finds the process list empty, the active
+  power is split with the cached shares, and idle detection is skipped for that
+  reading, so the tail does not become the idle baseline.
+- Any non-empty process list replaces the cached shares, so a reused PID never
+  receives power from an earlier process.
+- In partitioned mode, the cached shares of an empty instance are used only when
+  every instance was read and none has processes. While other instances run, they
+  receive the active power as before, and the empty instance's shares are
+  dropped. An instance with zero DCGM activity counts as empty only if NVML lists
+  no process on it, since a process between kernels also shows no activity.
+- Shares cached by the DCGM path are dropped when the device falls back to equal
+  distribution, and the other way around.
+
+The collector reports this power apart from live power (`GetProcessTailPower`),
+and the monitor adds it to the terminated record of the exited process before
+the record is frozen, even if the PID is already running again. The
+owning container and pod get it too, whether they are still running or
+terminated on the same collection.
+
+Power read on **later** collections after the exit is still not attributed to
+any process: until the GPU drops back to idle, the sum of process GPU power can
+fall short of `kepler_node_gpu_active_watts` for a few seconds after a GPU job
+ends.
 
 ## Key NVML APIs Used
 
@@ -262,3 +299,4 @@ The implementation assumes homogeneous GPU nodes (single vendor). While the code
 3. **Intel GPU Support**: Implement for Intel discrete GPUs
 
 [collector-idle]: https://github.com/sustainable-computing-io/kepler/blob/fc8f8a39931cc7bcefb42a2275c8bc7e2ac49752/internal/device/gpu/nvidia/collector.go#L220-L274
+[collector-tail]: https://github.com/sustainable-computing-io/kepler/blob/main/internal/device/gpu/nvidia/tail.go
