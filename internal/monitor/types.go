@@ -277,6 +277,32 @@ type Snapshot struct {
 
 	// GPU power statistics for debugging/monitoring (optional, nil if no GPU)
 	GPUStats []GPUDeviceStats
+
+	// GPU power and energy given to processes that exited on this collection, by container
+	// ID and by pod ID, so the owners of the exited processes include it too. Only used
+	// while the snapshot is calculated.
+	gpuTailByContainer map[string]gpuTail
+	gpuTailByPod       map[string]gpuTail
+}
+
+// gpuTail is GPU power read after a process exited, and its energy over the interval.
+type gpuTail struct {
+	power  float64
+	energy Energy
+}
+
+// addGPUTail adds power and energy to the tail of id in tails. Empty IDs are ignored.
+func addGPUTail(tails *map[string]gpuTail, id string, power float64, energy Energy) {
+	if id == "" || (power == 0 && energy == 0) {
+		return
+	}
+	if *tails == nil {
+		*tails = make(map[string]gpuTail)
+	}
+	t := (*tails)[id]
+	t.power += power
+	t.energy += energy
+	(*tails)[id] = t
 }
 
 // NewSnapshot creates a new Snapshot instance

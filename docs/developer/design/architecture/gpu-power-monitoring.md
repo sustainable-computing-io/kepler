@@ -193,11 +193,17 @@ mode:
 - Any non-empty process list replaces the cached shares, so a reused PID never
   receives power from an earlier process.
 - In partitioned mode, the cached shares of an empty instance are used only when
-  no instance has processes. While other instances run, they receive the active
-  power as before, and the empty instance's shares are dropped.
+  every instance was read and none has processes. While other instances run, they
+  receive the active power as before, and the empty instance's shares are
+  dropped. An instance with zero DCGM activity counts as empty only if NVML lists
+  no process on it, since a process between kernels also shows no activity.
+- Shares cached by the DCGM path are dropped when the device falls back to equal
+  distribution, and the other way around.
 
 The monitor adds this power to the terminated record of the exited process
-before the record is frozen, unless the PID is already running again.
+before the record is frozen, unless the PID is already running again. The
+owning container and pod get it too, whether they are still running or
+terminated on the same collection.
 
 Power read on **later** collections after the exit is still not attributed to
 any process: until the GPU drops back to idle, the sum of process GPU power can

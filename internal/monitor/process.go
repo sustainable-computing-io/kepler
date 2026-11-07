@@ -186,10 +186,14 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		_, reused := procs.Running[pid]
 		if gpuPower, hasGPU := gpuPowerByPID[uint32(pid)]; hasGPU && !reused {
 			terminated.GPUPower = gpuPower
+			var energy Energy
 			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
 			if gpuPower > 0 && timeDelta > 0 {
-				terminated.GPUEnergyTotal += Energy(gpuPower * timeDelta * float64(Joule))
+				energy = Energy(gpuPower * timeDelta * float64(Joule))
+				terminated.GPUEnergyTotal += energy
 			}
+			// The owning container, and its pod, get the same power and energy.
+			addGPUTail(&newSnapshot.gpuTailByContainer, terminated.ContainerID, gpuPower, energy)
 		}
 
 		// Add to internal tracker (which will handle priority-based retention)
