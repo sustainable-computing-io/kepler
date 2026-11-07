@@ -674,8 +674,9 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 			case len(running) == 0:
 				emptyInstances = append(emptyInstances, gi.GPUInstanceID)
 			default:
-				// Still running: keep the shares only if they belong to these processes.
-				keepShares[gi.GPUInstanceID] = c.tailSharesCover(key, running)
+				// Still running: keep the shares only if they belong to these processes, trimmed
+				// to the ones still running.
+				keepShares[gi.GPUInstanceID] = c.keepTailSharesOf(key, running)
 			}
 			continue
 		}
@@ -729,8 +730,18 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		keepShares[d.gpuInstanceID] = true
 	}
 	if len(data) == 0 && !readFailed {
+		// The shares of different instances may come from different collections, so together
+		// they can add up to more than 1. Scale them down so the tail is at most the active power.
+		tailPower := stats.ActivePower
+		var total float64
 		for _, id := range emptyInstances {
-			c.applyTailShares(migTailKey(deviceIndex, id), stats.ActivePower, result)
+			total += c.unusedTailShareTotal(migTailKey(deviceIndex, id))
+		}
+		if total > 1 {
+			tailPower /= total
+		}
+		for _, id := range emptyInstances {
+			c.applyTailShares(migTailKey(deviceIndex, id), tailPower, result)
 			keepShares[id] = true // keep the used shares until the next collection
 		}
 	}

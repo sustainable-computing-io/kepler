@@ -130,20 +130,52 @@ func (c *GPUPowerCollector) dropTailSharesOfOtherPath(deviceIndex int, perInstan
 	}
 }
 
-// tailSharesCover reports whether every running PID has a cached share for key, so the shares
-// still describe the processes that are running.
+// keepTailSharesOf trims the cached shares for key to the running PIDs and reports whether
+// they can be kept. They can when every running PID has a share, so the shares still describe
+// the processes that are running. The shares of PIDs that left go to the ones still running,
+// so the instance keeps the same total share.
 // NOTE: caller must hold c.mu lock
-func (c *GPUPowerCollector) tailSharesCover(key tailKey, running []gpu.ProcessGPUInfo) bool {
+func (c *GPUPowerCollector) keepTailSharesOf(key tailKey, running []gpu.ProcessGPUInfo) bool {
 	entry, ok := c.tailShares[key]
 	if !ok {
 		return false
 	}
+	var total, kept float64
+	for _, share := range entry.shares {
+		total += share
+	}
+	trimmed := make(map[uint32]float64, len(running))
 	for _, p := range running {
-		if _, ok := entry.shares[p.PID]; !ok {
+		share, ok := entry.shares[p.PID]
+		if !ok {
 			return false
 		}
+		trimmed[p.PID] = share
+		kept += share
 	}
+	if kept <= 0 {
+		return false
+	}
+	for pid, share := range trimmed {
+		trimmed[pid] = share * total / kept
+	}
+	entry.shares = trimmed
 	return true
+}
+
+// unusedTailShareTotal returns the sum of the cached shares for key, or 0 if there are none or
+// they were used already.
+// NOTE: caller must hold c.mu lock
+func (c *GPUPowerCollector) unusedTailShareTotal(key tailKey) float64 {
+	entry, ok := c.tailShares[key]
+	if !ok || entry.used {
+		return 0
+	}
+	var total float64
+	for _, share := range entry.shares {
+		total += share
+	}
+	return total
 }
 
 // migInstanceProcesses lists the processes running on a MIG instance. ok is false when the
