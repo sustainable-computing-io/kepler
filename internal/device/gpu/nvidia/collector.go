@@ -645,6 +645,8 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	keepShares := make(map[uint]bool)
 	// Set when an instance could not be read, so it may still have running processes.
 	readFailed := false
+	// Set when an instance without activity still has processes, between kernels.
+	idleRunning := false
 
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
@@ -676,6 +678,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 			default:
 				// Still running: keep the shares only if they belong to these processes, trimmed
 				// to the ones still running.
+				idleRunning = true
 				keepShares[gi.GPUInstanceID] = c.keepTailSharesOf(key, running)
 			}
 			continue
@@ -729,7 +732,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	for _, d := range data {
 		keepShares[d.gpuInstanceID] = true
 	}
-	if len(data) == 0 && !readFailed {
+	if len(data) == 0 && !readFailed && !idleRunning {
 		// The shares of different instances may come from different collections, so together
 		// they can add up to more than 1. Scale them down so the tail is at most the active power.
 		tailPower := stats.ActivePower
