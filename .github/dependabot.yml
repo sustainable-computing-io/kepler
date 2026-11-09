@@ -36,10 +36,8 @@ updates:
     schedule:
       day: monday
       interval: weekly
-    groups:
-      pre-commit:
-        patterns:
-          - "*"
+    allow:
+      - dependency-name: https://github.com/golangci/golangci-lint
     open-pull-requests-limit: 5
     labels:
       - dependencies
