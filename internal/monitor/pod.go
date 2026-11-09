@@ -77,12 +77,6 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		pm.terminatedPodsTracker.Add(prevPod.Clone())
 	}
 
-	// With no running pods there is no power to split, but the terminated pods must
-	// still reach the snapshot below.
-	if len(pods.Running) == 0 {
-		pm.logger.Debug("No running pods found")
-	}
-
 	node := pm.resources.Node()
 	nodeCPUTimeDelta := node.ProcessTotalCPUTimeDelta
 

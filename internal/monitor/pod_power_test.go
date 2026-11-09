@@ -406,21 +406,24 @@ func TestTerminatedPodTracking(t *testing.T) {
 
 		prevSnapshot := NewSnapshot()
 		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
-		prevSnapshot.Pods["pod-1"] = &Pod{
-			ID:        "pod-1",
-			Name:      "test-pod-1",
-			Namespace: "default",
-			Zones:     make(ZoneUsageMap, len(zones)),
-		}
-		for _, zone := range zones {
-			prevSnapshot.Pods["pod-1"].Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 15}
+		for _, id := range []string{"pod-1", "pod-2"} {
+			prevSnapshot.Pods[id] = &Pod{
+				ID:        id,
+				Name:      "test-" + id,
+				Namespace: "default",
+				Zones:     make(ZoneUsageMap, len(zones)),
+			}
+			for _, zone := range zones {
+				prevSnapshot.Pods[id].Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 15}
+			}
 		}
 
-		// The only pod on the node terminates, so no pod is running.
+		// Both pods on the node terminate in the same interval, so no pod is running.
 		pods := &resource.Pods{
 			Running: map[string]*resource.Pod{},
 			Terminated: map[string]*resource.Pod{
 				"pod-1": {ID: "pod-1", Name: "test-pod-1", Namespace: "default"},
+				"pod-2": {ID: "pod-2", Name: "test-pod-2", Namespace: "default"},
 			},
 		}
 		tr := CreateTestResources(createOnly(testNode))
@@ -435,10 +438,23 @@ func TestTerminatedPodTracking(t *testing.T) {
 
 		// TerminatedPods is not filled in by hand here: calculatePodPower must do it.
 		assert.Empty(t, newSnapshot.Pods)
-		require.Contains(t, newSnapshot.TerminatedPods, "pod-1")
-		for zone, usage := range newSnapshot.TerminatedPods["pod-1"].Zones {
-			assert.Equal(t, 25*Joule, usage.EnergyTotal, "zone %s", zone.Name())
+		require.Len(t, newSnapshot.TerminatedPods, 2)
+		for _, id := range []string{"pod-1", "pod-2"} {
+			require.Contains(t, newSnapshot.TerminatedPods, id)
+			for zone, usage := range newSnapshot.TerminatedPods[id].Zones {
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "%s zone %s", id, zone.Name())
+			}
 		}
+
+		// Once exported, the next collection clears the tracker and does not export them again.
+		monitor.exported.Store(true)
+		pods.Terminated = map[string]*resource.Pod{}
+		fakeClock.Step(time.Second * 2)
+		nextSnapshot := NewSnapshot()
+		nextSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+
+		require.NoError(t, monitor.calculatePodPower(newSnapshot, nextSnapshot))
+		assert.Empty(t, nextSnapshot.TerminatedPods)
 	})
 
 	t.Run("terminated_pod_energy_accumulation", func(t *testing.T) {
