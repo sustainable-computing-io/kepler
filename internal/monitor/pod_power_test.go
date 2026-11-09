@@ -389,6 +389,58 @@ func TestTerminatedPodTracking(t *testing.T) {
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	zones := CreateTestZones()
 
+	t.Run("last_pod_terminated_reaches_snapshot", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
+		}
+		require.NoError(t, monitor.Init())
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+		prevSnapshot.Pods["pod-1"] = &Pod{
+			ID:        "pod-1",
+			Name:      "test-pod-1",
+			Namespace: "default",
+			Zones:     make(ZoneUsageMap, len(zones)),
+		}
+		for _, zone := range zones {
+			prevSnapshot.Pods["pod-1"].Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 15}
+		}
+
+		// The only pod on the node terminates, so no pod is running.
+		pods := &resource.Pods{
+			Running: map[string]*resource.Pod{},
+			Terminated: map[string]*resource.Pod{
+				"pod-1": {ID: "pod-1", Name: "test-pod-1", Namespace: "default"},
+			},
+		}
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Pods").Return(pods)
+
+		fakeClock.Step(time.Second * 2)
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+
+		require.NoError(t, monitor.calculatePodPower(prevSnapshot, newSnapshot))
+
+		// TerminatedPods is not filled in by hand here: calculatePodPower must do it.
+		assert.Empty(t, newSnapshot.Pods)
+		require.Contains(t, newSnapshot.TerminatedPods, "pod-1")
+		for zone, usage := range newSnapshot.TerminatedPods["pod-1"].Zones {
+			assert.Equal(t, 25*Joule, usage.EnergyTotal, "zone %s", zone.Name())
+		}
+	})
+
 	t.Run("terminated_pod_energy_accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}
 		mockMeter.On("Zones").Return(zones, nil)
