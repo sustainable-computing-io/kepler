@@ -434,7 +434,22 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		},
 		expectedZones: nil,
 	}, {
-		name: "all experimental features disabled - should set experimental to nil",
+		name: "no experimental config present - set to nil",
+		config: &Config{
+			Experimental: &Experimental{
+				Hwmon: Hwmon{
+					ForceEnabled: ptr.To(false),
+				},
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		experimentalNil: true,
+	}, {
+		name: "hwmon zones retained without force-enabled",
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
@@ -448,7 +463,7 @@ func TestSanitize_HwmonFields(t *testing.T) {
 				},
 			},
 		},
-		experimentalNil: true,
+		expectedZones: []string{"zone1"},
 	}}
 
 	for _, tc := range tests {
@@ -537,6 +552,22 @@ experimental:
 			assert.Equal(t, ptr.To(true), cfg.Experimental.Hwmon.ForceEnabled)
 			assert.Equal(t, []string{"package"}, cfg.Experimental.Hwmon.Zones)
 			assert.Equal(t, ptr.To(false), cfg.Experimental.Platform.Redfish.Enabled)
+		},
+	}, {
+		name: "hwmon zones without force-enabled are retained",
+		yamlContent: `
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones:
+      - power1
+      - power2
+`,
+		expectError: false,
+		validateFunc: func(t *testing.T, cfg *Config) {
+			assert.NotNil(t, cfg.Experimental)
+			assert.Equal(t, []string{"power1", "power2"}, cfg.Experimental.Hwmon.Zones)
 		},
 	}}
 
