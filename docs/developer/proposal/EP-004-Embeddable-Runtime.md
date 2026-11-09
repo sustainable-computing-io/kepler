@@ -5,7 +5,7 @@
 **Reviewers**: TBD
 **Approvers**: TBD
 **Created**: 2026-10-29
-**Last Updated**: 2026-11-04
+**Last Updated**: 2026-11-09
 
 ## Summary
 
@@ -200,6 +200,44 @@ components. This is an enabled ecosystem capability, dependent on the chosen
 Collector and management setup; embedding does not provide remote management by
 itself.
 
+## Security Considerations
+
+Embedding moves Kepler's host access into the hosting Collector. For host sensor
+collection and workload attribution, that Collector must run as an agent on each
+monitored node, typically in a DaemonSet. A central gateway cannot collect other
+nodes' host data directly; it can receive metrics from those node-local agents.
+
+To match the [plain Kubernetes deployment](../../../manifests/k8s/daemonset.yaml),
+the Collector pod would use `hostPID: true`, and its container would run with
+`privileged: true` and read-only mounts of host `/proc` and `/sys` at `/host/proc`
+and `/host/sys`. Kepler's configuration must point to those mounted paths.
+Privileged mode is not a universal requirement: the [Helm deployment supports
+an unprivileged mode](../../user/installation.md#troubleshooting) with documented
+limitations, while GPU collection currently requires privileged mode in the
+chart. Operators must choose permissions and device access appropriate to the
+enabled features; embedding does not remove those requirements.
+
+When Kubernetes discovery is enabled, the Collector's service account needs the
+[Kepler RBAC permissions](../../../manifests/k8s/rbac.yaml): `get`, `list`, and
+`watch` on pods and nodes. Kubelet-based discovery additionally needs `get` on
+`nodes/proxy`. These permissions become part of the hosting Collector's identity.
+
+Collector components share a process, so host access is not isolated to the
+Kepler receiver. The same process may hold backend export credentials and accept
+incoming telemetry. A compromise could therefore expose both credentials and
+host resources. Operators should restrict receiver access and credentials and
+can keep the node agent focused on collection, forwarding to a separate gateway
+for broader processing and backend export. Existing standalone deployment remains
+an option when separate process boundaries are required.
+
+If [OpAMP remote configuration][opamp] is enabled, control over that configuration
+also affects a Collector with host access and export credentials. Operators must
+authenticate and protect the management connection and restrict who can change
+the agent's configuration, following [Collector security guidance][collector-security].
+Remote configuration can change collection and export behavior within the
+permissions already granted to the agent; it does not itself grant Kubernetes
+RBAC, host mounts, or container privileges.
+
 ## Alternatives Considered
 
 - **Continue scraping standalone Kepler.** This remains a valid, supported choice
@@ -226,6 +264,7 @@ itself.
 [distribution]: https://github.com/open-telemetry/opentelemetry-collector-releases/tree/main/distributions/otelcol-prometheus
 [manifest]: https://github.com/open-telemetry/opentelemetry-collector-releases/blob/main/distributions/otelcol-prometheus/manifest.yaml
 [collector]: https://opentelemetry.io/docs/collector/
+[collector-security]: https://opentelemetry.io/docs/security/config-best-practices/
 [opamp]: https://opentelemetry.io/docs/collector/management/
 [promcon-talk]: https://promcon.io/2026-munich/talks/unlocking-prometheus-exporters-in-the-opentelemetry-ecosystem/
 [promcon-slides]: https://docs.google.com/presentation/d/15kXLkRqCc_JN6fEaTUGyOwECDUE6BED02aLirYfUKtw/edit
