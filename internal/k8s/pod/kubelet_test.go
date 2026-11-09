@@ -828,3 +828,27 @@ func writeTokenFile(t *testing.T, token string) string {
 	require.NoError(t, f.Close())
 	return f.Name()
 }
+
+func TestKubeletPodInformer_LookupContainerID(t *testing.T) {
+	informer := &kubeletPodInformer{
+		logger:       testLogger(),
+		nodeName:     "test-node",
+		kubeletHost:  "localhost",
+		kubeletPort:  10250,
+		pollInterval: 1 * time.Second,
+		cache: map[string]*ContainerInfo{
+			"kepler-id":  {PodName: "kepler-abcde", Namespace: "kepler-system", ContainerName: "kepler"},
+			"sidecar-id": {PodName: "kepler-abcde", Namespace: "kepler-system", ContainerName: "sidecar"},
+		},
+	}
+
+	id, found, err := informer.LookupContainerID("kepler-system", "kepler-abcde", "kepler")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "kepler-id", id)
+
+	id, found, err = informer.LookupContainerID("kepler-system", "kepler-abcde", "sidecar")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "sidecar-id", id)
+}

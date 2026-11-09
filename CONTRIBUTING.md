@@ -96,7 +96,7 @@ For smaller improvements to existing functionality:
 
 ### Set up your dev environment
 
-1. Install Go 1.27.0+
+1. Install the Go version specified in the repository's [`go.mod`](go.mod) file
 2. Install pre-commit hooks:
 
 ```bash

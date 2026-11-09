@@ -110,6 +110,11 @@ func (m *mockPodInformer) LookupByContainerID(containerID string) (*pod.Containe
 	return nil, args.Bool(1), args.Error(2)
 }
 
+func (m *mockPodInformer) LookupContainerID(namespace, podName, containerName string) (string, bool, error) {
+	args := m.Called(namespace, podName, containerName)
+	return args.String(0), args.Bool(1), args.Error(2)
+}
+
 func (m *mockPodInformer) Name() string {
 	args := m.Called()
 	return args.String(0)

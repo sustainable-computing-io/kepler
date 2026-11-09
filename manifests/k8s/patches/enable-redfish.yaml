@@ -25,6 +25,8 @@ spec:
             - --config.file=/etc/kepler/config.yaml
             - --kube.enable
             - --kube.node-name=$(NODE_NAME)
+            - --kube.pod-name=$(POD_NAME)
+            - --kube.pod-namespace=$(POD_NAMESPACE)
             - --experimental.platform.redfish.enabled
             - --experimental.platform.redfish.node-name=$(NODE_NAME)
             - --experimental.platform.redfish.config-file=/etc/kepler/redfish.yaml

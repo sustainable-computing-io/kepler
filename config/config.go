@@ -162,6 +162,13 @@ type (
 		Config      string      `yaml:"config"`
 		Node        string      `yaml:"nodeName"`
 		PodInformer PodInformer `yaml:"podInformer"`
+
+		// Identity of the pod and container kepler runs in. Set together, they
+		// let kepler attribute its own processes to its own container when it
+		// runs in a private cgroup namespace (the unprivileged default).
+		PodName       string `yaml:"podName"`
+		PodNamespace  string `yaml:"podNamespace"`
+		ContainerName string `yaml:"containerName"`
 	}
 
 	// Platform contains settings for platform power monitoring
@@ -192,6 +199,10 @@ type (
 		// Required for MIG power attribution. If empty, auto-discovered via K8s API.
 		// Example: "http://10.131.2.22:9400/metrics"
 		DCGMEndpoint string `yaml:"dcgmEndpoint"`
+
+		// MetricsCacheTTL controls how long dcgm-exporter metrics are cached for MIG
+		// power attribution. If nil, the NVIDIA backend default is used. 0 disables caching.
+		MetricsCacheTTL *time.Duration `yaml:"metricsCacheTTL,omitempty"`
 	}
 
 	// Experimental contains experimental features (no stability guarantees)
@@ -307,6 +318,10 @@ const (
 	KubeConfigFlag   = "kube.config"
 	KubeNodeNameFlag = "kube.node-name"
 
+	KubePodNameFlag       = "kube.pod-name"
+	KubePodNamespaceFlag  = "kube.pod-namespace"
+	KubeContainerNameFlag = "kube.container-name"
+
 	// Experimental Platform flags
 	ExperimentalPlatformRedfishEnabledFlag  = "experimental.platform.redfish.enabled"
 	ExperimentalPlatformRedfishNodeNameFlag = "experimental.platform.redfish.node-name"
@@ -317,9 +332,12 @@ const (
 	ExperimentalHwmonZonesFlag        = "experimental.hwmon.zones"
 
 	// Experimental GPU flags
-	ExperimentalGPUEnabledFlag      = "experimental.gpu.enabled"
-	ExperimentalGPUIdlePowerFlag    = "experimental.gpu.idle-power"
-	ExperimentalGPUDCGMEndpointFlag = "experimental.gpu.dcgm-endpoint"
+	ExperimentalGPUEnabledFlag         = "experimental.gpu.enabled"
+	ExperimentalGPUIdlePowerFlag       = "experimental.gpu.idle-power"
+	ExperimentalGPUDCGMEndpointFlag    = "experimental.gpu.dcgm-endpoint"
+	ExperimentalGPUMetricsCacheTTLFlag = "experimental.gpu.metrics-cache-ttl"
+
+	defaultGPUMetricsCacheTTL = 2 * time.Second
 
 // WARN:  dev settings shouldn't be exposed as flags as flags are intended for end users
 )
@@ -372,6 +390,7 @@ func DefaultConfig() *Config {
 				Mode:         "kubelet",
 				PollInterval: 15 * time.Second,
 			},
+			ContainerName: "kepler",
 		},
 
 		// NOTE: Experimental config will be nil by default and only allocated when needed
@@ -499,6 +518,9 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	kubernetes := app.Flag(KubernetesFlag, "Monitor kubernetes").Default("false").Bool()
 	kubeconfig := app.Flag(KubeConfigFlag, "Path to a kubeconfig. Only required if out-of-cluster.").ExistingFile()
 	nodeName := app.Flag(KubeNodeNameFlag, "Name of kubernetes node on which kepler is running.").String()
+	podName := app.Flag(KubePodNameFlag, "Name of the pod kepler is running in. Needed with the pod namespace to attribute kepler's own processes when it runs in a private cgroup namespace.").String()
+	podNamespace := app.Flag(KubePodNamespaceFlag, "Namespace of the pod kepler is running in.").String()
+	containerName := app.Flag(KubeContainerNameFlag, "Name of kepler's container in its pod.").String()
 
 	// experimental platform
 	redfishEnabled := app.Flag(ExperimentalPlatformRedfishEnabledFlag, "Enable experimental Redfish BMC power monitoring").Default("false").Bool()
@@ -513,6 +535,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 	gpuEnabled := app.Flag(ExperimentalGPUEnabledFlag, "Enable experimental GPU power monitoring").Default("false").Bool()
 	gpuIdlePower := app.Flag(ExperimentalGPUIdlePowerFlag, "GPU idle power in Watts (0 = auto-detect from idle observations)").Default("0").Float64()
 	gpuDCGMEndpoint := app.Flag(ExperimentalGPUDCGMEndpointFlag, "dcgm-exporter metrics endpoint URL for MIG power attribution (auto-discovered if empty)").Default("").String()
+	gpuMetricsCacheTTL := app.Flag(ExperimentalGPUMetricsCacheTTLFlag, "dcgm-exporter metrics cache TTL for MIG power attribution (0s to disable cache)").Default(defaultGPUMetricsCacheTTL.String()).Duration()
 
 	return func(cfg *Config) error {
 		// Logging settings
@@ -576,6 +599,18 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 			cfg.Kube.Node = *nodeName
 		}
 
+		if flagsSet[KubePodNameFlag] {
+			cfg.Kube.PodName = *podName
+		}
+
+		if flagsSet[KubePodNamespaceFlag] {
+			cfg.Kube.PodNamespace = *podNamespace
+		}
+
+		if flagsSet[KubeContainerNameFlag] {
+			cfg.Kube.ContainerName = *containerName
+		}
+
 		// Apply experimental platform settings
 		if err := applyRedfishConfig(cfg, flagsSet, redfishEnabled, redfishNodeName, redfishConfig); err != nil {
 			return err
@@ -587,7 +622,7 @@ func RegisterFlags(app *kingpin.Application) ConfigUpdaterFn {
 		}
 
 		// Apply experimental GPU settings
-		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint)
+		applyGPUConfig(cfg, flagsSet, gpuEnabled, gpuIdlePower, gpuDCGMEndpoint, gpuMetricsCacheTTL)
 
 		// Resolve Kube.Node fallback to hostname when Kubernetes is not enabled
 		// and no node name was set by flags or YAML
@@ -724,7 +759,7 @@ func applyHwmonFlags(hwmon *Hwmon, flagsSet map[string]bool, forceEnabled *bool,
 }
 
 // applyGPUConfig applies GPU configuration from flags
-func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64, dcgmEndpoint *string) {
+func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePower *float64, dcgmEndpoint *string, metricsCacheTTL *time.Duration) {
 	// Early exit if GPU enabled flag is not set and config file does not have experimental section
 	if !flagsSet[ExperimentalGPUEnabledFlag] && cfg.Experimental == nil {
 		return
@@ -746,6 +781,11 @@ func applyGPUConfig(cfg *Config, flagsSet map[string]bool, enabled *bool, idlePo
 		}
 		if flagsSet[ExperimentalGPUDCGMEndpointFlag] {
 			cfg.Experimental.GPU.DCGMEndpoint = *dcgmEndpoint
+		}
+		if flagsSet[ExperimentalGPUMetricsCacheTTLFlag] {
+			cfg.Experimental.GPU.MetricsCacheTTL = metricsCacheTTL
+		} else if cfg.Experimental.GPU.MetricsCacheTTL == nil {
+			cfg.Experimental.GPU.MetricsCacheTTL = ptr.To(defaultGPUMetricsCacheTTL)
 		}
 	}
 }
@@ -980,6 +1020,9 @@ func (c *Config) Validate(skips ...SkipValidation) error {
 			if c.Kube.Node == "" {
 				errs = append(errs, fmt.Sprintf("%s not supplied but %s set to true", KubeNodeNameFlag, KubernetesFlag))
 			}
+			if (c.Kube.PodName == "") != (c.Kube.PodNamespace == "") {
+				errs = append(errs, fmt.Sprintf("%s and %s must be supplied together", KubePodNameFlag, KubePodNamespaceFlag))
+			}
 
 			// Validate PodInformer mode
 			switch c.Kube.PodInformer.Mode {
@@ -1022,6 +1065,9 @@ func (c *Config) validateExperimentalConfig(validationSkipped map[SkipValidation
 		}
 
 		errs = append(errs, validateDCGMEndpoint(c.Experimental.GPU.DCGMEndpoint)...)
+		if c.Experimental.GPU.MetricsCacheTTL != nil && *c.Experimental.GPU.MetricsCacheTTL < 0 {
+			errs = append(errs, fmt.Sprintf("invalid gpu metrics cache TTL: %s can't be negative", *c.Experimental.GPU.MetricsCacheTTL))
+		}
 	}
 
 	return errs

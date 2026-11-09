@@ -12,6 +12,7 @@ jobs:
     outputs:
       changes: ${{ steps.filter.outputs.changes }}
       gpu-e2e: ${{ steps.filter.outputs.gpu-e2e }}
+      pre-commit-config: ${{ steps.filter.outputs.pre-commit-config }}
     steps:
       - name: checkout source
         uses: actions/checkout@v7
@@ -29,6 +30,8 @@ jobs:
             gpu-e2e:
               - 'hack/gpu-e2e/**'
               - '.github/workflows/gpu-e2e.yaml'
+            pre-commit-config:
+              - '.pre-commit-config.yaml'
   # The GPU e2e workflow only runs on the CNCF GPU runner, so its scripts are
   # checked here, without a GPU, whenever they change.
   gpu-e2e-scripts:
@@ -61,7 +64,7 @@ jobs:
 
   lint:
     needs: check-changes
-    if: needs.check-changes.outputs.changes == 'true'
+    if: needs.check-changes.outputs.changes == 'true' || needs.check-changes.outputs.pre-commit-config == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: checkout source
@@ -73,12 +76,19 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: read golangci-lint version
+        id: golangci-lint-version
+        run: |
+          version=$(yq '.repos[] | select(.repo == "https://github.com/golangci/golangci-lint") | .rev' .pre-commit-config.yaml)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.13.2
-          args: --timeout=3m --issues-exit-code=0 ./...
-          only-new-issues: true
+          version: ${{ steps.golangci-lint-version.outputs.version }}
+          # Linter bumps lint all code and fail on findings
+          args: --timeout=3m --issues-exit-code=${{ needs.check-changes.outputs.pre-commit-config == 'true' && '1' || '0' }} ./...
+          only-new-issues: ${{ needs.check-changes.outputs.pre-commit-config != 'true' }}
 
   vet:
     needs: check-changes
