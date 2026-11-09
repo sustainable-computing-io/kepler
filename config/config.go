@@ -903,8 +903,11 @@ func (c *Config) sanitize() {
 		c.Experimental.Hwmon.Zones[i] = strings.TrimSpace(c.Experimental.Hwmon.Zones[i])
 	}
 
-	// If all experimental features are disabled, set experimental to nil to hide it
-	if !c.experimentalFeatureEnabled() {
+	// hwmon zones and chip rules are selected through cpu.preferredMeters
+	// rather than an experimental feature flag, so the section must survive
+	// sanitization even when no experimental feature is toggled on.
+	hwmonConfigured := len(c.Experimental.Hwmon.Zones) > 0 || len(c.Experimental.Hwmon.ChipRules) > 0
+	if !c.experimentalFeatureEnabled() && !hwmonConfigured {
 		c.Experimental = nil
 	}
 }
