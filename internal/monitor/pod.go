@@ -77,12 +77,6 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 		pm.terminatedPodsTracker.Add(prevPod.Clone())
 	}
 
-	// Skip if no running pods
-	if len(pods.Running) == 0 {
-		pm.logger.Debug("No running pods found, skipping pod power calculation")
-		return nil
-	}
-
 	node := pm.resources.Node()
 	nodeCPUTimeDelta := node.ProcessTotalCPUTimeDelta
 
