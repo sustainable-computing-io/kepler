@@ -31,3 +31,14 @@ updates:
     labels:
       - dependencies
       - github-actions
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      day: monday
+      interval: weekly
+    allow:
+      - dependency-name: https://github.com/golangci/golangci-lint
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - pre-commit
