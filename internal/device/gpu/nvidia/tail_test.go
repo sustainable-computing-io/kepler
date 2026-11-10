@@ -301,6 +301,25 @@ func TestGPUPowerCollector_tailAfterProcessExit_partitioned(t *testing.T) {
 		assert.NotContains(t, collector.tailShares, migTailKey(0, 2))
 	})
 
+	t.Run("no tail while an instance without shares has a process between kernels", func(t *testing.T) {
+		collector, dev, dcgm, mig1, mig2 := setup(t)
+		migs := []*MockNVMLDevice{mig1, mig2}
+
+		// Only instance 1 is active, so instance 2 has no cached shares.
+		reading(dev, dcgm, migs, 100, []float64{0.5, 0}, []uint32{1001, 2001})
+		_, err := collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.NotContains(t, collector.tailShares, migTailKey(0, 2))
+
+		// 1001 exits while 2001 sits on instance 2 between kernels: 1001 must not get the tail.
+		reading(dev, dcgm, migs, 70, []float64{0, 0}, []uint32{1001, 2001})
+		mig2.On("GetComputeRunningProcesses").Unset()
+		mig2.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{{PID: 2001}}, nil)
+		result, err := collector.GetProcessPower()
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
 	t.Run("no tail when an instance cannot be read", func(t *testing.T) {
 		collector, dev, dcgm, mig1, mig2 := setup(t)
 		migs := []*MockNVMLDevice{mig1, mig2}

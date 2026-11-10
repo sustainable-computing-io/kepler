@@ -647,6 +647,8 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	readFailed := false
 	// Set when an instance without activity still has processes, between kernels.
 	idleRunning := false
+	// Idle instances without cached shares, not checked for processes yet.
+	var uncheckedIdle []uint
 
 	for _, gi := range instances {
 		activity, err := c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, gi.GPUInstanceID)
@@ -667,6 +669,7 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 		if activity == 0 {
 			key := migTailKey(deviceIndex, gi.GPUInstanceID)
 			if _, cached := c.tailShares[key]; !cached {
+				uncheckedIdle = append(uncheckedIdle, gi.GPUInstanceID)
 				continue
 			}
 			running, ok := c.migInstanceProcesses(nvmlDev, gi.GPUInstanceID)
@@ -731,6 +734,21 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// they cannot be used later.
 	for _, d := range data {
 		keepShares[d.gpuInstanceID] = true
+	}
+	// Before the tail is used, check the idle instances skipped above: one of them may
+	// still have a process between kernels, which then gets the power instead.
+	if len(data) == 0 && !readFailed && !idleRunning && len(emptyInstances) > 0 {
+		for _, id := range uncheckedIdle {
+			running, ok := c.migInstanceProcesses(nvmlDev, id)
+			if !ok {
+				readFailed = true
+				break
+			}
+			if len(running) > 0 {
+				idleRunning = true
+				break
+			}
+		}
 	}
 	if len(data) == 0 && !readFailed && !idleRunning {
 		// The shares of different instances may come from different collections, so together

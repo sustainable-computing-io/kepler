@@ -181,22 +181,16 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 	// does not get it too.
 	tailGiven := make(map[uint32]bool)
 
-	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
-	for pid := range procs.Terminated {
-		pidStr := fmt.Sprintf("%d", pid)
-		prevProcess, exists := prev.Processes[pidStr]
-		if !exists {
-			continue
-		}
-
+	// freeze adds a process that ended to the terminated tracker.
+	freeze := func(prevProcess *Process, pid uint32) {
 		terminated := prevProcess.Clone()
 
 		// GPU meters attribute the power read on the first collection after a GPU process
 		// exits to that process, since the GPU stays clocked up for a few seconds after it
 		// ends. Add it here, before the tracker freezes the record, even if the PID is
 		// already running again: the meter reports it apart from the new process's power.
-		if gpuPower, hasTail := gpuTailByPID[uint32(pid)]; hasTail {
-			tailGiven[uint32(pid)] = true
+		if gpuPower, hasTail := gpuTailByPID[pid]; hasTail && !tailGiven[pid] {
+			tailGiven[pid] = true
 			terminated.GPUPower = gpuPower
 			var energy Energy
 			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
@@ -211,6 +205,16 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		// Add to internal tracker (which will handle priority-based retention)
 		// Each lifetime is retained separately, even when the PID is reused before export.
 		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), terminated)
+	}
+
+	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
+	for pid := range procs.Terminated {
+		pidStr := fmt.Sprintf("%d", pid)
+		prevProcess, exists := prev.Processes[pidStr]
+		if !exists {
+			continue
+		}
+		freeze(prevProcess, uint32(pid))
 	}
 
 	running := procs.Running
@@ -237,7 +241,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		// A failed collection can consume the informer's PID-reuse notification.
 		if prevProcess := prev.Processes[pid]; prevProcess != nil && prevProcess.StartTime != process.StartTime {
 			if _, terminated := procs.Terminated[proc.PID]; !terminated {
-				pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
+				freeze(prevProcess, uint32(proc.PID))
 			}
 		}
 

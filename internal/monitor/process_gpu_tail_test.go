@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -30,6 +31,7 @@ func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 	for _, tt := range []struct {
 		name               string
 		reused             bool
+		missed             bool // the termination notification was lost with a failed collection
 		tail               map[uint32]float64
 		wantTerminatedGPU  Energy
 		wantTerminatedWatt float64
@@ -44,6 +46,15 @@ func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 		{
 			name:               "exited process gets the tail when the PID is reused off the GPU",
 			reused:             true,
+			tail:               map[uint32]float64{4001: 30},
+			wantTerminatedGPU:  100*Joule + 30*5*Joule,
+			wantTerminatedWatt: 30,
+			wantRunningWatt:    0,
+		},
+		{
+			name:               "exited process gets the tail when its termination was missed",
+			reused:             true,
+			missed:             true,
 			tail:               map[uint32]float64{4001: 30},
 			wantTerminatedGPU:  100*Joule + 30*5*Joule,
 			wantTerminatedWatt: 30,
@@ -76,6 +87,9 @@ func TestProcessPowerGPUTailOnTerminatedProcess(t *testing.T) {
 			procs := &resource.Processes{
 				Running:    map[int]*resource.Process{},
 				Terminated: map[int]*resource.Process{4001: {PID: 4001, StartTime: 100}},
+			}
+			if tt.missed {
+				procs.Terminated = map[int]*resource.Process{}
 			}
 			if tt.reused {
 				procs.Running[4001] = &resource.Process{PID: 4001, StartTime: 900, Comm: "other", Exe: "/usr/bin/other"}
@@ -122,8 +136,8 @@ func TestGPUTailReachesContainersAndPods(t *testing.T) {
 	// c1 keeps running in p1, c2 ends but p1 keeps running, c3 ends with p2.
 	previous := NewSnapshot()
 	previous.Node.Timestamp = time.Unix(1_000, 0)
-	for pid, cntr := range map[string]string{"4001": "c1", "4002": "c2", "4003": "c3"} {
-		previous.Processes[pid] = &Process{PID: 0, StartTime: 100, ContainerID: cntr, GPUPower: 20, Zones: zones()}
+	for pid, cntr := range map[int]string{4001: "c1", 4002: "c2", 4003: "c3"} {
+		previous.Processes[fmt.Sprintf("%d", pid)] = &Process{PID: pid, StartTime: 100, ContainerID: cntr, GPUPower: 20, Zones: zones()}
 	}
 	previous.Containers["c1"] = &Container{ID: "c1", PodID: "p1", Zones: zones()}
 	previous.Containers["c2"] = &Container{ID: "c2", PodID: "p1", Zones: zones()}
@@ -167,6 +181,12 @@ func TestGPUTailReachesContainersAndPods(t *testing.T) {
 	require.NoError(t, monitor.calculateProcessPower(previous, next))
 	require.NoError(t, monitor.calculateContainerPower(previous, next))
 	require.NoError(t, monitor.calculatePodPower(previous, next))
+
+	terminatedProcs := next.TerminatedProcesses
+	require.Len(t, terminatedProcs, 3)
+	for _, proc := range terminatedProcs {
+		assert.Equal(t, 10.0, proc.GPUPower, proc.PID)
+	}
 
 	require.Contains(t, next.Containers, "c1")
 	assert.Equal(t, 10.0, next.Containers["c1"].GPUPower)
