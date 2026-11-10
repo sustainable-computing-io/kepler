@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 )
 
@@ -475,7 +477,7 @@ func TestSanitize_HwmonFields(t *testing.T) {
 				return
 			}
 
-			assert.NotNil(t, tc.config.Experimental)
+			require.NotNil(t, tc.config.Experimental)
 			assert.Equal(t, tc.expectedZones, tc.config.Experimental.Hwmon.Zones)
 		})
 	}
@@ -566,8 +568,33 @@ experimental:
 `,
 		expectError: false,
 		validateFunc: func(t *testing.T, cfg *Config) {
-			assert.NotNil(t, cfg.Experimental)
+			require.NotNil(t, cfg.Experimental)
 			assert.Equal(t, []string{"power1", "power2"}, cfg.Experimental.Hwmon.Zones)
+		},
+	}, {
+		name: "hwmon chipRules without zones are retained",
+		yamlContent: `
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones: []
+    chipRules:
+      - name: "ina3221"
+        useSameIndex: true
+        skipVoltages: [4, 5, 6, 7]
+      - name: "my_custom_sensor"
+        pairings:
+          1: 1
+          2: 2
+        skipVoltages: [0]
+`,
+		expectError: false,
+		validateFunc: func(t *testing.T, cfg *Config) {
+			require.NotNil(t, cfg.Experimental)
+			require.Len(t, cfg.Experimental.Hwmon.ChipRules, 2)
+			assert.Equal(t, "ina3221", cfg.Experimental.Hwmon.ChipRules[0].Name)
+			assert.Equal(t, map[int]int{1: 1, 2: 2}, cfg.Experimental.Hwmon.ChipRules[1].Pairings)
 		},
 	}}
 
@@ -587,4 +614,16 @@ experimental:
 			}
 		})
 	}
+}
+
+func TestHwmonZonesFlagWithoutForceEnabled(t *testing.T) {
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err := app.Parse([]string{"--" + ExperimentalHwmonZonesFlag + "=power1"})
+	require.NoError(t, err)
+
+	cfg := DefaultConfig()
+	require.NoError(t, updateConfig(cfg))
+	require.NotNil(t, cfg.Experimental)
+	assert.Equal(t, []string{"power1"}, cfg.Experimental.Hwmon.Zones)
 }
