@@ -17,8 +17,8 @@ require (
 	github.com/stmcginnis/gofish v0.27.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
-	golang.org/x/sync v0.24.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sync v0.25.0
+	golang.org/x/sys v0.50.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
