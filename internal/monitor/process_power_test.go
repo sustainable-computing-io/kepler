@@ -213,6 +213,43 @@ func TestProcessPowerCalculation(t *testing.T) {
 		resInformer.AssertExpectations(t)
 	})
 
+	t.Run("calculateProcessPower keeps energy total on an idle interval", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testNode, testProcesses))
+		procs := tr.Processes
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for _, proc := range procs.Running {
+			prevProc := newProcess(proc, prevSnapshot.Node.Zones)
+			for _, zone := range zones {
+				prevProc.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.Processes[prevProc.StringID()] = prevProc
+		}
+
+		// No active energy on the node this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.Processes, len(procs.Running))
+		for id, proc := range newSnapshot.Processes {
+			for _, zone := range zones {
+				usage := proc.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "process %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "process %s zone %s", id, zone.Name())
+			}
+		}
+
+		resInformer.AssertExpectations(t)
+	})
+
 	t.Run("calculateProcessPower with no processes", func(t *testing.T) {
 		resInformer.ClearExpectations()
 

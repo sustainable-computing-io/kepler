@@ -212,7 +212,18 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
+			// Accumulate CPU energy only for the same process identity.
+			var prevEnergy Energy
+			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Nothing to attribute this interval, but keep the running total
+			// so the exported counter does not reset.
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				process.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
@@ -220,18 +231,10 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// Calculate energy  for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Accumulate CPU energy only for the same process identity.
-			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
-
 			// Calculate process's share of this zone's power and energy
 			process.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 			}
 		}
 

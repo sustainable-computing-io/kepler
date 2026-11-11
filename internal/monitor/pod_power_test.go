@@ -172,6 +172,40 @@ func TestPodPowerCalculation(t *testing.T) {
 		}
 	})
 
+	t.Run("calculatePodPower_keeps_energy_total_on_idle_interval", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testPods, testNode))
+		require.NotNil(t, tr.Pods)
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for id, p := range tr.Pods.Running {
+			prevPod := newPod(p, prevSnapshot.Node.Zones)
+			for _, zone := range zones {
+				prevPod.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.Pods[id] = prevPod
+		}
+
+		// Node power is non-zero, but none of it is active this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculatePodPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.Pods, len(tr.Pods.Running))
+		for id, pod := range newSnapshot.Pods {
+			for _, zone := range zones {
+				usage := pod.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "pod %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "pod %s zone %s", id, zone.Name())
+			}
+		}
+	})
+
 	t.Run("calculatePodPower_without_pods", func(t *testing.T) {
 		resInformer.ClearExpectations()
 
