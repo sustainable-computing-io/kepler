@@ -897,6 +897,12 @@ func (c *Config) sanitize() {
 
 	c.Experimental.Platform.Redfish.NodeName = strings.TrimSpace(c.Experimental.Platform.Redfish.NodeName)
 	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
+	// The experimental section can come from YAML or from another feature's flags, in which
+	// case the Redfish defaults were never applied. A zero timeout means no deadline at all,
+	// so fall back to the default when it was left out.
+	if c.Experimental.Platform.Redfish.HTTPTimeout == 0 {
+		c.Experimental.Platform.Redfish.HTTPTimeout = defaultRedfishConfig().HTTPTimeout
+	}
 
 	// Sanitize Hwmon fields
 	for i := range c.Experimental.Hwmon.Zones {
@@ -1061,6 +1067,9 @@ func (c *Config) validateExperimentalConfig(validationSkipped map[SkipValidation
 				if err := canReadFile(c.Experimental.Platform.Redfish.ConfigFile); err != nil {
 					errs = append(errs, fmt.Sprintf("unreadable Redfish config file: %s: %s", c.Experimental.Platform.Redfish.ConfigFile, err.Error()))
 				}
+			}
+			if c.Experimental.Platform.Redfish.HTTPTimeout < 0 {
+				errs = append(errs, fmt.Sprintf("invalid Redfish httpTimeout: %s can't be negative", c.Experimental.Platform.Redfish.HTTPTimeout))
 			}
 		}
 

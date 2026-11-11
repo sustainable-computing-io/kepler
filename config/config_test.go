@@ -2699,3 +2699,72 @@ func TestKubeSelfContainerFlags(t *testing.T) {
 	assert.Equal(t, "kepler-system", cfg.Kube.PodNamespace)
 	assert.Equal(t, "agent", cfg.Kube.ContainerName)
 }
+
+func TestRedfishHTTPTimeoutDefault(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "redfish-config-*.yaml")
+	assert.NoError(t, err)
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, err = tmpFile.WriteString("# dummy redfish config\n")
+	assert.NoError(t, err)
+	assert.NoError(t, tmpFile.Close())
+
+	t.Run("yaml without httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(fmt.Sprintf(`
+experimental:
+  platform:
+    redfish:
+      enabled: true
+      configFile: %s
+      nodeName: n1
+`, tmpFile.Name())))
+		assert.NoError(t, err)
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("yaml with httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(fmt.Sprintf(`
+experimental:
+  platform:
+    redfish:
+      enabled: true
+      configFile: %s
+      nodeName: n1
+      httpTimeout: 10s
+`, tmpFile.Name())))
+		assert.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("negative httpTimeout is rejected", func(t *testing.T) {
+		_, err := Load(strings.NewReader(fmt.Sprintf(`
+experimental:
+  platform:
+    redfish:
+      enabled: true
+      configFile: %s
+      nodeName: n1
+      httpTimeout: -1s
+`, tmpFile.Name())))
+		assert.ErrorContains(t, err, "httpTimeout")
+	})
+
+	t.Run("redfish flags after another experimental feature in yaml", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(`
+experimental:
+  gpu:
+    enabled: true
+`))
+		assert.NoError(t, err)
+
+		app := kingpin.New("test", "Test application")
+		updateConfig := RegisterFlags(app)
+		_, err = app.Parse([]string{
+			"--experimental.platform.redfish.enabled",
+			"--experimental.platform.redfish.config-file=" + tmpFile.Name(),
+			"--experimental.platform.redfish.node-name=n1",
+		})
+		assert.NoError(t, err)
+		assert.NoError(t, updateConfig(cfg))
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+}
