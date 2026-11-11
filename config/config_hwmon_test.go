@@ -4,6 +4,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -626,4 +628,33 @@ func TestHwmonZonesFlagWithoutForceEnabled(t *testing.T) {
 	require.NoError(t, updateConfig(cfg))
 	require.NotNil(t, cfg.Experimental)
 	assert.Equal(t, []string{"power1"}, cfg.Experimental.Hwmon.Zones)
+}
+
+func TestHwmonZonesYAMLKeepsRedfishTimeoutDefault(t *testing.T) {
+	cfg, err := Load(strings.NewReader(`
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones:
+      - power1
+`))
+	require.NoError(t, err)
+
+	redfishConfig := filepath.Join(t.TempDir(), "redfish.yaml")
+	require.NoError(t, os.WriteFile(redfishConfig, []byte("# dummy redfish config\nendpoint: https://redfish.example.com\n"), 0o600))
+
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err = app.Parse([]string{
+		"--" + ExperimentalPlatformRedfishEnabledFlag,
+		"--" + ExperimentalPlatformRedfishConfigFlag + "=" + redfishConfig,
+		"--" + ExperimentalPlatformRedfishNodeNameFlag + "=test-node",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, updateConfig(cfg))
+	require.NotNil(t, cfg.Experimental)
+	assert.Equal(t, []string{"power1"}, cfg.Experimental.Hwmon.Zones)
+	assert.Equal(t, defaultRedfishConfig().HTTPTimeout, cfg.Experimental.Platform.Redfish.HTTPTimeout)
 }

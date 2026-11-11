@@ -909,6 +909,15 @@ func (c *Config) sanitize() {
 	hwmonConfigured := len(c.Experimental.Hwmon.Zones) > 0 || len(c.Experimental.Hwmon.ChipRules) > 0
 	if !c.experimentalFeatureEnabled() && !hwmonConfigured {
 		c.Experimental = nil
+		return
+	}
+
+	// A section kept only for hwmon skips the Redfish defaults, which
+	// applyRedfishConfig seeds only for a nil section. Restore the default
+	// timeout so enabling Redfish later through flags does not leave the BMC
+	// client without one.
+	if !c.experimentalFeatureEnabled() && c.Experimental.Platform.Redfish.HTTPTimeout == 0 {
+		c.Experimental.Platform.Redfish.HTTPTimeout = defaultRedfishConfig().HTTPTimeout
 	}
 }
 
