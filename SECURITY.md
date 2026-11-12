@@ -9,8 +9,8 @@ using GitHub's [Private Vulnerability Reporting]. Use this link for any
 repository in the sustainable-computing-io organization, and say which one is
 affected.
 
-If you can't use GitHub, email at least two people from the
-[security response team](#security-response-team).
+If you can't use GitHub, email the maintainers at
+<cncf-kepler-maintainers@lists.cncf.io>.
 
 Please include:
 
@@ -25,6 +25,8 @@ This policy covers the actively maintained projects:
 - [Kepler](https://github.com/sustainable-computing-io/kepler), including its
   Helm chart and Kubernetes manifests
 - [Kepler Operator](https://github.com/sustainable-computing-io/kepler-operator)
+- [Kepler documentation](https://sustainable-computing.io/)
+  ([kepler-doc](https://github.com/sustainable-computing-io/kepler-doc))
 
 Reports for other repositories in the organization are handled on a best-effort
 basis.
@@ -39,24 +41,14 @@ shouldn't have it, or can be used to escalate privileges, is in scope.
 
 The maintainers with the Repository Oversight role triage reports, as set out
 in [GOVERNANCE.md](GOVERNANCE.md#4-repository-oversight). The Project Lead is
-the escalation contact. Changes to this team go through a pull request that
-updates this file and [MAINTAINERS.md](MAINTAINERS.md).
-
-| Name                           | GitHub                                               | Company         | Email                          |
-|--------------------------------|------------------------------------------------------|-----------------|--------------------------------|
-| Niki Manoledaki (Project Lead) | [@nikimanoledaki](https://github.com/nikimanoledaki) | Grafana Labs    | <niki.manoledaki@gmail.com>    |
-| Vibhu Prashar                  | [@vprashar2929](https://github.com/vprashar2929)     | Red Hat         | <vibhu.sharma2929@gmail.com>   |
-| Erwan Billard                  | [@iacker](https://github.com/iacker)                 | SNCF            | <erwan.billard@protonmail.com> |
-| Julian Legler                  | [@JulianLegler](https://github.com/JulianLegler)     | TU Berlin       | <julian.legler@tu-berlin.de>   |
-| Diana Todea                    | [@didiViking](https://github.com/didiViking)         | VictoriaMetrics | <diane.todea@gmail.com>        |
-| Leonor Oliveira                | [@leonorfmartins](https://github.com/leonorfmartins) | Grafana Labs    | <leonorfmartins@gmail.com>     |
+the escalation contact.
 
 ## What to Expect
 
 The team is made up of volunteers, so these are targets, not guarantees.
 
 1. **Acknowledgement:** within 3 business days. If you hear nothing after a
-   week, email the Project Lead.
+   week, email the maintainers list above.
 2. **Triage:** within 14 days we confirm the issue and rate its severity with
    [CVSS](https://www.first.org/cvss/). We may ask for more details or invite
    you to a temporary private fork to work on the fix. Low-severity reports
@@ -94,6 +86,7 @@ What the Kepler repository does today to catch problems early:
 - `govulncheck` scans Go dependencies in the required pre-commit check on
   every pull request, and again before every release
 - Dependabot opens weekly updates for Go modules and GitHub Actions
+- [Snyk](https://snyk.io/) static code scanning to find vulnerabilities
 - A CI check flags pull requests that add new `golang.org/x/crypto`
   dependencies
 - GitHub Actions workflows default to a read-only token, and jobs that need
