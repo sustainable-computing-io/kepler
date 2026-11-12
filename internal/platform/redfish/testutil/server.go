@@ -27,6 +27,9 @@ type ServerConfig struct {
 	ForceError           ErrorType
 	SessionTimeout       time.Duration
 	ForceFallback        bool // Force fallback to Power API (disable PowerSubsystem)
+	// RequireSessionToken makes resource requests fail with 401 unless they
+	// carry the X-Auth-Token of an active session. Needs EnableAuth.
+	RequireSessionToken bool
 }
 
 // ErrorType represents different error scenarios
@@ -54,6 +57,8 @@ type Server struct {
 	sessions      map[string]time.Time // Track active sessions
 	calledAPIs    []string             // Track which API endpoints were called
 	apiCallCounts map[string]int       // Count calls to each API endpoint
+	sessionSeq    int                  // Makes session IDs unique
+	loginCount    int                  // Number of sessions created
 }
 
 // NewServer creates a new mock Redfish server
@@ -137,6 +142,34 @@ func (s *Server) ResetAPITracking() {
 	s.apiCallCounts = make(map[string]int)
 }
 
+// ExpireSessions drops every active session, like a BMC reset or a session
+// timeout on the BMC side would
+func (s *Server) ExpireSessions() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.sessions = make(map[string]time.Time)
+}
+
+// LoginCount returns how many sessions were created with valid credentials
+func (s *Server) LoginCount() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.loginCount
+}
+
+// hasValidSession reports whether the request carries the token of an active session
+func (s *Server) hasValidSession(r *http.Request) bool {
+	token, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Auth-Token"))
+	if err != nil {
+		return false
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	expiry, ok := s.sessions[string(token)]
+	return ok && time.Now().Before(expiry)
+}
+
 // trackAPICall records that an API endpoint was called
 func (s *Server) trackAPICall(endpoint string) {
 	s.mutex.Lock()
@@ -187,6 +220,18 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		}
 	case ErrorInternalServer:
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Reject resource requests without a live session. The service root and
+	// session login stay open, like on a real BMC.
+	s.mutex.RLock()
+	requireToken := s.config.EnableAuth && s.config.RequireSessionToken
+	s.mutex.RUnlock()
+	isOpenPath := r.URL.Path == "/redfish/v1/" || r.URL.Path == "/redfish/v1" ||
+		(r.URL.Path == "/redfish/v1/SessionService/Sessions" && r.Method == http.MethodPost)
+	if requireToken && !isOpenPath && !s.hasValidSession(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -404,8 +449,10 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create session
-	sessionID := fmt.Sprintf("session_%d", time.Now().Unix())
 	s.mutex.Lock()
+	s.sessionSeq++
+	s.loginCount++
+	sessionID := fmt.Sprintf("session_%d_%d", time.Now().Unix(), s.sessionSeq)
 	s.sessions[sessionID] = time.Now().Add(s.config.SessionTimeout)
 	s.mutex.Unlock()
 

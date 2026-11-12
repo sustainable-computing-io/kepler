@@ -5,6 +5,7 @@ package redfish
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -27,7 +28,8 @@ type PowerReader struct {
 	endpoint string           // Store endpoint for logging
 	strategy PowerAPIStrategy // Determined power reading strategy
 
-	once sync.Once
+	// mu serializes BMC access so a re-login can safely swap the client
+	mu sync.Mutex
 }
 
 // NewPowerReader creates a new PowerReader with the given client
@@ -59,6 +61,9 @@ func NewPowerReader(bmc *redfishcfg.BMCDetail, httpTimeout time.Duration, logger
 
 // Init determines the power reading strategy by testing API availability with retry logic
 func (pr *PowerReader) Init() error {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
 	// NOTE: Use Background() for client connection since gofish stores this context
 	// and uses it for all subsequent HTTP requests. A timeout context causes
 	// "context canceled" errors on later requests when the timeout expires.
@@ -114,6 +119,9 @@ func (pr *PowerReader) Init() error {
 
 // Close cleans up the PowerReader resources, including logging out from the BMC
 func (pr *PowerReader) Close() {
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
 	if pr.client == nil {
 		return
 	}
@@ -146,34 +154,35 @@ func (pr *PowerReader) determineStrategy(chassis []*schemas.Chassis) (PowerAPISt
 		len(chassis))
 }
 
-// ReadAll reads power consumption from all chassis via PowerSubsystem with fallback to deprecated Power API
+// ReadAll reads power consumption from all chassis via PowerSubsystem with fallback to deprecated Power API.
+// If the BMC rejects the session (HTTP 401), for example after the session
+// timed out or the BMC was reset, it logs in again and retries once.
 func (pr *PowerReader) ReadAll() ([]Chassis, error) {
-	var initErr error
-	// Ensure for the first time that client is initialized by
-	// validating the client and that the strategy has been determined
-	pr.once.Do(func() {
-		if pr.client == nil {
-			initErr = fmt.Errorf("BMC client is not initialized")
-			return
-		}
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
 
-		service := pr.client.Service
-		if service == nil {
-			initErr = fmt.Errorf("BMC service is not available")
-		}
-
-		// Check if strategy has been determined
-		if pr.strategy == UnknownStrategy {
-			initErr = fmt.Errorf("power reading strategy not determined; call Init() first")
-		}
-	})
-
-	if initErr != nil {
-		return nil, initErr
+	if pr.client == nil {
+		return nil, fmt.Errorf("BMC client is not initialized")
 	}
 
-	// Get chassis collection
+	if pr.client.Service == nil {
+		return nil, fmt.Errorf("BMC service is not available")
+	}
+
+	if pr.strategy == UnknownStrategy {
+		return nil, fmt.Errorf("power reading strategy not determined; call Init() first")
+	}
+
 	chassis, err := pr.client.Service.Chassis()
+	if err != nil && isUnauthorized(err) {
+		pr.logger.Info("BMC session is no longer valid, logging in again",
+			"endpoint", pr.cfg.Endpoint, "error", err)
+
+		if reconnErr := pr.reconnect(); reconnErr != nil {
+			return nil, fmt.Errorf("failed to log in to BMC again after session was rejected: %w", reconnErr)
+		}
+		chassis, err = pr.client.Service.Chassis()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chassis collection: %w", err)
 	}
@@ -228,6 +237,49 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 		"chassis_count", len(chassisList), "total_readings", totalReadings)
 
 	return chassisList, nil
+}
+
+// reconnect logs in to the BMC again and swaps in the new client, keeping the
+// strategy found by Init. On failure the old client is kept, so the next read
+// gets rejected again and retries the login. The caller must hold pr.mu.
+func (pr *PowerReader) reconnect() error {
+	client, err := gofish.Connect(pr.cfg)
+	if err != nil {
+		return fmt.Errorf("failed to connect to BMC at %s: %w", pr.cfg.Endpoint, err)
+	}
+
+	if client.Service == nil {
+		client.Logout()
+		return fmt.Errorf("BMC service is not available")
+	}
+
+	// The old session is most likely gone already, so this is best effort
+	pr.client.Logout()
+
+	pr.client = client
+	pr.endpoint = client.Service.ODataID
+	return nil
+}
+
+// isUnauthorized reports whether err carries an HTTP 401 from the BMC.
+// gofish returns collection failures as a *schemas.CollectionError, which
+// doesn't unwrap, so its failures are checked one by one.
+func isUnauthorized(err error) bool {
+	var rfErr *schemas.Error
+	if errors.As(err, &rfErr) && rfErr.HTTPReturnedStatusCode == http.StatusUnauthorized {
+		return true
+	}
+
+	var collErr *schemas.CollectionError
+	if errors.As(err, &collErr) {
+		for _, failure := range collErr.Failures {
+			if isUnauthorized(failure) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // readPowerSubsystem attempts to read power data via PowerSubsystem API (modern approach)
