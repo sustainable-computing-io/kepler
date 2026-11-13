@@ -91,22 +91,14 @@ jobs:
     env:
       DCGM_IMAGE: nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04
     steps:
+      # This job runs the code under test with sudo, so it also takes the
+      # sampler and summary scripts from that checkout: a second copy from the
+      # workflow's commit would not keep anything from that code.
       - name: Checkout the code under test
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.check.outputs.sha }}
           persist-credentials: false
-
-      # The helper scripts come from the workflow's own commit, never from
-      # the code under test.
-      - name: Checkout the workflow scripts
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: workflow-src
-          persist-credentials: false
-          sparse-checkout: hack/gpu-e2e
-          sparse-checkout-cone-mode: false
 
       # nvidia-smi can hang on a broken driver, so every call has a time limit
       # instead of holding the shared GPU runner until the job times out.
@@ -136,7 +128,7 @@ jobs:
       # The log and the samples live in RUNNER_TEMP, which the runner empties
       # for every job, so no older run can leak into them.
       - name: Start sampling GPU power and Kepler's GPU metrics
-        run: bash workflow-src/hack/gpu-e2e/sample.sh start "$RUNNER_TEMP"
+        run: bash hack/gpu-e2e/sample.sh start "$RUNNER_TEMP"
 
       - name: Run the GPU e2e tests
         id: tests
@@ -166,9 +158,9 @@ jobs:
           GPU_E2E_RUNNER: oracle-vm-gpu-a10-1
           GPU_E2E_ARTIFACT: gpu-e2e-logs
         run: |
-          bash workflow-src/hack/gpu-e2e/sample.sh stop "$RUNNER_TEMP"
+          bash hack/gpu-e2e/sample.sh stop "$RUNNER_TEMP"
           # The weekly issue reuses this summary, so it also goes in the artifact.
-          bash workflow-src/hack/gpu-e2e/summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" > "$RUNNER_TEMP/gpu-e2e-summary.md"
+          bash hack/gpu-e2e/summary.sh "$RUNNER_TEMP/gpu-e2e.log" "$RUNNER_TEMP/gpu-power.csv" > "$RUNNER_TEMP/gpu-e2e-summary.md"
           cat "$RUNNER_TEMP/gpu-e2e-summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs
