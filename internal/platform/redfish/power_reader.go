@@ -18,6 +18,10 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/device"
 )
 
+// defaultReloginBackoff is how long ReadAll waits after a failed re-login
+// before it opens another BMC session
+const defaultReloginBackoff = 30 * time.Second
+
 // PowerReader handles reading power data from Redfish BMC via PowerSubsystem with fallback to deprecated Power API
 type PowerReader struct {
 	logger *slog.Logger
@@ -27,6 +31,12 @@ type PowerReader struct {
 
 	endpoint string           // Store endpoint for logging
 	strategy PowerAPIStrategy // Determined power reading strategy
+
+	// reloginBackoff is how long to wait after a failed re-login before
+	// trying again, so a BMC that keeps answering 401 doesn't get a new
+	// login on every scrape
+	reloginBackoff     time.Duration
+	lastReloginFailure time.Time
 
 	// mu serializes BMC access so a re-login can safely swap the client
 	mu sync.Mutex
@@ -54,8 +64,9 @@ func NewPowerReader(bmc *redfishcfg.BMCDetail, httpTimeout time.Duration, logger
 	}
 
 	return &PowerReader{
-		logger: logger,
-		cfg:    cfg,
+		logger:         logger,
+		cfg:            cfg,
+		reloginBackoff: defaultReloginBackoff,
 	}
 }
 
@@ -156,7 +167,8 @@ func (pr *PowerReader) determineStrategy(chassis []*schemas.Chassis) (PowerAPISt
 
 // ReadAll reads power consumption from all chassis via PowerSubsystem with fallback to deprecated Power API.
 // If the BMC rejects the session (HTTP 401), for example after the session
-// timed out or the BMC was reset, it logs in again and retries once.
+// timed out or the BMC was reset, it logs in again and retries the read once.
+// After a failed re-login, further attempts wait for reloginBackoff.
 func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
@@ -165,33 +177,46 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 		return nil, fmt.Errorf("BMC client is not initialized")
 	}
 
-	if pr.client.Service == nil {
-		return nil, fmt.Errorf("BMC service is not available")
-	}
-
 	if pr.strategy == UnknownStrategy {
 		return nil, fmt.Errorf("power reading strategy not determined; call Init() first")
 	}
 
-	chassis, err := pr.client.Service.Chassis()
-	if err != nil && isUnauthorized(err) {
-		pr.logger.Info("BMC session is no longer valid, logging in again",
-			"endpoint", pr.cfg.Endpoint, "error", err)
-
-		if reconnErr := pr.reconnect(); reconnErr != nil {
-			return nil, fmt.Errorf("failed to log in to BMC again after session was rejected: %w", reconnErr)
+	chassisList, unauthorized, err := pr.readAll()
+	if unauthorized {
+		if reloginErr := pr.relogin(err); reloginErr != nil {
+			return nil, reloginErr
 		}
-		chassis, err = pr.client.Service.Chassis()
+
+		chassisList, unauthorized, err = pr.readAll()
+		if unauthorized {
+			// The BMC rejects even a fresh session, so back off before
+			// opening another one
+			pr.lastReloginFailure = time.Now()
+		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chassis collection: %w", err)
+		return nil, err
+	}
+
+	return chassisList, nil
+}
+
+// readAll does one pass over all chassis. unauthorized is true when the BMC
+// answered 401 to the chassis list or to any chassis read.
+func (pr *PowerReader) readAll() (chassisList []Chassis, unauthorized bool, err error) {
+	if pr.client.Service == nil {
+		return nil, false, fmt.Errorf("BMC service is not available")
+	}
+
+	chassis, err := pr.client.Service.Chassis()
+	if err != nil {
+		return nil, isUnauthorized(err), fmt.Errorf("failed to get chassis collection: %w", err)
 	}
 
 	if len(chassis) == 0 {
-		return nil, fmt.Errorf("no chassis found in BMC")
+		return nil, false, fmt.Errorf("no chassis found in BMC")
 	}
 
-	var chassisList []Chassis
 	totalReadings := 0
 
 	// Iterate through all chassis using pre-determined strategy
@@ -209,10 +234,13 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 		case PowerStrategy:
 			readings, err = pr.readPower(ch)
 		default:
-			return nil, fmt.Errorf("unknown power reading strategy: %s", pr.strategy)
+			return nil, false, fmt.Errorf("unknown power reading strategy: %s", pr.strategy)
 		}
 
 		if err != nil {
+			if isUnauthorized(err) {
+				unauthorized = true
+			}
 			pr.logger.Warn("Failed to read power data from chassis",
 				"chassis_id", ch.ID, "strategy", pr.strategy, "error", err)
 			continue
@@ -229,35 +257,55 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 	}
 
 	if len(chassisList) == 0 {
-		return nil, fmt.Errorf("no chassis with valid power readings found")
+		return nil, unauthorized, fmt.Errorf("no chassis with valid power readings found")
 	}
 
 	pr.logger.Info("Successfully collected power readings",
 		"endpoint", pr.endpoint, "strategy", pr.strategy,
 		"chassis_count", len(chassisList), "total_readings", totalReadings)
 
-	return chassisList, nil
+	return chassisList, unauthorized, nil
 }
 
-// reconnect logs in to the BMC again and swaps in the new client, keeping the
-// strategy found by Init. On failure the old client is kept, so the next read
-// gets rejected again and retries the login. The caller must hold pr.mu.
+// relogin opens a new BMC session after the current one was rejected, unless
+// the last attempt failed less than reloginBackoff ago. The caller must hold pr.mu.
+func (pr *PowerReader) relogin(cause error) error {
+	if !pr.lastReloginFailure.IsZero() {
+		if wait := pr.reloginBackoff - time.Since(pr.lastReloginFailure); wait > 0 {
+			return fmt.Errorf("BMC session was rejected, next login attempt in %s: %w",
+				wait.Round(time.Second), cause)
+		}
+	}
+
+	pr.logger.Info("BMC session is no longer valid, logging in again",
+		"endpoint", pr.cfg.Endpoint, "error", cause)
+
+	if err := pr.reconnect(); err != nil {
+		pr.lastReloginFailure = time.Now()
+		return fmt.Errorf("failed to log in to BMC again after session was rejected: %w", err)
+	}
+
+	pr.lastReloginFailure = time.Time{}
+	return nil
+}
+
+// reconnect logs out the current session and logs in again, keeping the
+// strategy found by Init. The old session is logged out first so it doesn't
+// hold one of the BMC's few session slots. If the login fails, the old client
+// is kept so a later read gets rejected again and retries. The caller must hold pr.mu.
 func (pr *PowerReader) reconnect() error {
+	// Best effort, the session is most likely gone already
+	pr.client.Logout()
+
 	client, err := gofish.Connect(pr.cfg)
 	if err != nil {
 		return fmt.Errorf("failed to connect to BMC at %s: %w", pr.cfg.Endpoint, err)
 	}
 
-	if client.Service == nil {
-		client.Logout()
-		return fmt.Errorf("BMC service is not available")
-	}
-
-	// The old session is most likely gone already, so this is best effort
-	pr.client.Logout()
-
 	pr.client = client
-	pr.endpoint = client.Service.ODataID
+	if client.Service != nil {
+		pr.endpoint = client.Service.ODataID
+	}
 	return nil
 }
 

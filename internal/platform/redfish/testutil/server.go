@@ -59,6 +59,9 @@ type Server struct {
 	apiCallCounts map[string]int       // Count calls to each API endpoint
 	sessionSeq    int                  // Makes session IDs unique
 	loginCount    int                  // Number of sessions created
+	loginAttempts int                  // Number of login requests, failed ones included
+	expireAfter   string               // Drop all sessions once this path was served
+	sessionEvents []string             // "login" and "logout" requests in order
 }
 
 // NewServer creates a new mock Redfish server
@@ -157,6 +160,30 @@ func (s *Server) LoginCount() int {
 	return s.loginCount
 }
 
+// LoginAttempts returns how many login requests were made, failed ones included
+func (s *Server) LoginAttempts() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.loginAttempts
+}
+
+// SessionEvents returns the login and logout requests in the order they came in
+func (s *Server) SessionEvents() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	events := make([]string, len(s.sessionEvents))
+	copy(events, s.sessionEvents)
+	return events
+}
+
+// ExpireSessionsAfter drops every active session right after the next request
+// to path is served, to simulate a session that dies in the middle of a read
+func (s *Server) ExpireSessionsAfter(path string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.expireAfter = path
+}
+
 // hasValidSession reports whether the request carries the token of an active session
 func (s *Server) hasValidSession(r *http.Request) bool {
 	token, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Auth-Token"))
@@ -223,6 +250,14 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Record logouts before the token check, since a logout of an expired
+	// session is rejected but still sent
+	if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/redfish/v1/SessionService/Sessions/") {
+		s.mutex.Lock()
+		s.sessionEvents = append(s.sessionEvents, "logout")
+		s.mutex.Unlock()
+	}
+
 	// Reject resource requests without a live session. The service root and
 	// session login stay open, like on a real BMC.
 	s.mutex.RLock()
@@ -234,6 +269,8 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	defer s.expireSessionsIfServed(r.URL.Path)
 
 	// Set common headers
 	w.Header().Set("Content-Type", "application/json")
@@ -266,6 +303,17 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			http.NotFound(w, r)
 		}
+	}
+}
+
+// expireSessionsIfServed drops all sessions once the path set with
+// ExpireSessionsAfter was served
+func (s *Server) expireSessionsIfServed(path string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.expireAfter != "" && s.expireAfter == path {
+		s.expireAfter = ""
+		s.sessions = make(map[string]time.Time)
 	}
 }
 
@@ -397,6 +445,10 @@ func (s *Server) handlePower(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionService(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
+		s.mutex.Lock()
+		s.loginAttempts++
+		s.sessionEvents = append(s.sessionEvents, "login")
+		s.mutex.Unlock()
 		s.createSession(w, r)
 	case http.MethodGet:
 		s.listSessions(w, r)

@@ -79,7 +79,7 @@ func TestPowerReaderReadAllLogsInAgainAfterSessionExpires(t *testing.T) {
 	assert.Equal(t, 2, server.LoginCount())
 }
 
-func TestPowerReaderReadAllRetriesLoginOnNextRead(t *testing.T) {
+func TestPowerReaderReadAllBacksOffAfterFailedLogin(t *testing.T) {
 	server, reader := newSessionServer(t, 200)
 
 	server.ExpireSessions()
@@ -88,14 +88,66 @@ func TestPowerReaderReadAllRetriesLoginOnNextRead(t *testing.T) {
 	_, err := reader.ReadAll()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "log in to BMC again")
-	assert.NotNil(t, reader.client, "old client should be kept so the next read retries")
+	assert.NotNil(t, reader.client, "old client should be kept so a later read retries")
+	assert.Equal(t, 2, server.LoginAttempts())
 
 	server.SetError(testutil.ErrorNone)
+
+	// Still inside the backoff, so no new login
+	_, err = reader.ReadAll()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "next login attempt in")
+	assert.Equal(t, 2, server.LoginAttempts(), "no login should be tried during the backoff")
+
+	// Once the backoff is over the next read logs in and recovers
+	reader.lastReloginFailure = time.Now().Add(-defaultReloginBackoff)
 
 	chassis, err := reader.ReadAll()
 	require.NoError(t, err, "ReadAll should recover once the BMC accepts logins again")
 	require.NotEmpty(t, chassis)
+	assert.Equal(t, 3, server.LoginAttempts())
+	assert.True(t, reader.lastReloginFailure.IsZero(), "a good login should clear the backoff")
+}
+
+func TestPowerReaderReadAllBacksOffWhenFreshSessionIsRejected(t *testing.T) {
+	server, reader := newSessionServer(t, 200)
+
+	// The login works, but the new session is dropped right away
+	server.ExpireSessions()
+	server.ExpireSessionsAfter("/redfish/v1/SessionService/Sessions")
+
+	_, err := reader.ReadAll()
+	require.Error(t, err)
+	assert.Equal(t, 2, server.LoginAttempts())
+	assert.False(t, reader.lastReloginFailure.IsZero(), "a rejected fresh session should start the backoff")
+
+	_, err = reader.ReadAll()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "next login attempt in")
+	assert.Equal(t, 2, server.LoginAttempts(), "no login should be tried during the backoff")
+}
+
+func TestPowerReaderReadAllLogsInAgainWhenChassisReadIsRejected(t *testing.T) {
+	server, reader := newSessionServer(t, 200)
+
+	// The chassis list works, then the session dies before the power read
+	server.ExpireSessionsAfter("/redfish/v1/Chassis/1")
+
+	chassis, err := reader.ReadAll()
+	require.NoError(t, err, "a 401 on a chassis read should also trigger a re-login")
+	require.NotEmpty(t, chassis)
 	assert.Equal(t, 2, server.LoginCount())
+}
+
+func TestPowerReaderReloginLogsOutOldSessionFirst(t *testing.T) {
+	server, reader := newSessionServer(t, 200)
+
+	server.ExpireSessions()
+
+	_, err := reader.ReadAll()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"login", "logout", "login"}, server.SessionEvents(),
+		"the old session should be logged out before the new login")
 }
 
 func TestPowerReaderReadAllDoesNotLogInOnOtherErrors(t *testing.T) {
@@ -150,6 +202,30 @@ func TestPowerReaderReadAllAfterClose(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not initialized")
 	})
+}
+
+func TestPowerReaderCloseDuringReadAll(t *testing.T) {
+	server, reader := newSessionServer(t, 200)
+	server.ExpireSessions()
+
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = reader.ReadAll()
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reader.Close()
+	}()
+	wg.Wait()
+
+	_, err := reader.ReadAll()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not initialized")
 }
 
 func TestIsUnauthorized(t *testing.T) {
