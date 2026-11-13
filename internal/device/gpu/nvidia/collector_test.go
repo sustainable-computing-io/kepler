@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1852,6 +1853,82 @@ func TestGPUPowerCollector_attributePartitioned_reinitAfterCircuitBreaker(t *tes
 	mockDevice.AssertExpectations(t)
 	mockMIGDev1.AssertExpectations(t)
 	mockMIGDev2.AssertExpectations(t)
+}
+
+func TestGPUPowerCollector_attributePartitioned_reinitFetchFails(t *testing.T) {
+	// dcgm-exporter answers the re-init probe, then every metrics request
+	// hangs until it is cancelled
+	var requests atomic.Int32
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+			return
+		}
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+
+	dcgm := NewDCGMExporterBackend(slog.Default())
+	dcgm.reInitTimeout = 200 * time.Millisecond
+	dcgm.endpoint = server.URL + "/metrics"
+	dcgm.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+	mockBackend := new(MockNVMLBackend)
+	mockDevice := new(MockNVMLDevice)
+
+	collector := &GPUPowerCollector{
+		logger: slog.Default(),
+		nvml:   mockBackend,
+		devices: []gpu.GPUDevice{
+			{Index: 0, UUID: "GPU-123"},
+		},
+		sharingModes: map[int]gpu.SharingMode{
+			0: gpu.SharingModePartitioned,
+		},
+		minObservedPower: map[string]float64{
+			"GPU-123": 40.0,
+		},
+		idleObserved: map[string]bool{
+			"GPU-123": true,
+		},
+		dcgm: dcgm,
+		migInstancesByDevice: map[int][]MIGGPUInstance{
+			0: {
+				{ParentGPUIndex: 0, GPUInstanceID: 1},
+				{ParentGPUIndex: 0, GPUInstanceID: 2},
+			},
+		},
+	}
+
+	mockBackend.On("GetDevice", 0).Return(mockDevice, nil)
+	mockDevice.On("GetPowerUsage").Return(device.Power(100*device.Watt), nil)
+	mockDevice.On("UUID").Return("GPU-123")
+	mockDevice.On("GetComputeRunningProcesses").Return([]gpu.ProcessGPUInfo{
+		{PID: 1001},
+		{PID: 1002},
+	}, nil)
+
+	start := time.Now()
+	result, err := collector.GetProcessPower()
+
+	assert.NoError(t, err)
+	// Without the shared deadline, the recovery fetch and one fetch per MIG
+	// instance each wait for the 5s client timeout
+	assert.Less(t, time.Since(start), 2*time.Second)
+	assert.False(t, dcgm.IsInitialized())
+	assert.Equal(t, int32(2), requests.Load(), "no metrics requests after the failed recovery fetch")
+	// Active power = 60W, split equally by the fallback
+	assert.InDelta(t, 30.0, result[1001], 1e-9)
+	assert.InDelta(t, 30.0, result[1002], 1e-9)
+
+	mockBackend.AssertExpectations(t)
+	mockDevice.AssertExpectations(t)
+	mockDevice.AssertNotCalled(t, "GetMIGDeviceByInstanceID", mock.Anything)
 }
 
 func TestGPUPowerCollector_attributePartitioned_multiGPU(t *testing.T) {

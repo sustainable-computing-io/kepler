@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -367,7 +368,14 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.initialized {
+	var metrics *dcgmMetrics
+	var err error
+	if d.initialized {
+		metrics, err = d.fetchMetrics(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch metrics: %w", err)
+		}
+	} else {
 		// If circuit breaker hasn't tripped (never initialized), return error
 		if d.circuitOpenTime.IsZero() {
 			return 0, fmt.Errorf("DCGM exporter backend not initialized")
@@ -377,25 +385,10 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 			return 0, fmt.Errorf("DCGM circuit breaker open, retry in %v",
 				reInitInterval-time.Since(d.circuitOpenTime))
 		}
-		// Attempt re-initialization
-		d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
-		if d.endpointDiscovered {
-			d.endpoint = ""
-		}
-		reInitCtx, cancel := context.WithTimeout(ctx, d.reInitTimeout)
-		err := d.initLocked(reInitCtx)
-		cancel()
+		metrics, err = d.reInitLocked(ctx)
 		if err != nil {
-			d.circuitOpenTime = time.Now()
-			d.logger.Warn("DCGM re-initialization failed", "error", err)
-			return 0, fmt.Errorf("DCGM re-init failed: %w", err)
+			return 0, err
 		}
-		d.logger.Info("DCGM backend re-initialized successfully", "endpoint", d.endpoint)
-	}
-
-	metrics, err := d.fetchMetrics(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to fetch metrics: %w", err)
 	}
 
 	key := migKey{gpuIndex: gpuIndex, gpuInstanceID: gpuInstanceID}
@@ -404,6 +397,51 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 	}
 
 	return 0, fmt.Errorf("no metrics found for GPU %d, MIG instance %d", gpuIndex, gpuInstanceID)
+}
+
+// reInitLocked re-initializes the backend after the circuit breaker tripped,
+// then fetches the metrics. Discovery, the endpoint probes and that first
+// fetch share one reInitTimeout deadline, since this runs during snapshot
+// collection. If any of them fails, the circuit opens again, so the caller
+// falls back instead of sending more requests.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) reInitLocked(ctx context.Context) (*dcgmMetrics, error) {
+	d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
+	ctx, cancel := context.WithTimeout(ctx, d.reInitTimeout)
+	defer cancel()
+
+	err := d.reconnectLocked(ctx)
+	var metrics *dcgmMetrics
+	if err == nil {
+		// The exporter can answer the probe and still stall on the metrics.
+		metrics, err = d.fetchMetrics(ctx)
+	}
+	if err != nil {
+		d.initialized = false
+		d.circuitOpenTime = time.Now()
+		d.cachedMetrics = nil
+		d.logger.Warn("DCGM re-initialization failed", "error", err)
+		return nil, fmt.Errorf("DCGM re-init failed: %w", err)
+	}
+	d.logger.Info("DCGM backend re-initialized successfully", "endpoint", d.endpoint)
+	return metrics, nil
+}
+
+// reconnectLocked finds a reachable endpoint again. A configured endpoint is
+// probed as is. A static fallback keeps its address, so the one that worked
+// is probed before discovery runs again: a slow Kubernetes API could use up
+// the whole re-init deadline. A discovered pod is looked up again, since a
+// recreated dcgm-exporter pod gets a new IP.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) reconnectLocked(ctx context.Context) error {
+	if d.endpointDiscovered {
+		if slices.Contains(d.fallbackEndpoints, d.endpoint) && d.testEndpoint(ctx, d.endpoint) == nil {
+			d.markInitialized()
+			return nil
+		}
+		d.endpoint = ""
+	}
+	return d.initLocked(ctx)
 }
 
 // fetchMetrics returns cached metrics if still valid, otherwise fetches fresh data.

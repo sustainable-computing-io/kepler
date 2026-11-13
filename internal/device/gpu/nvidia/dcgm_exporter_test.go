@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -1058,6 +1059,104 @@ func TestDCGMExporterBackend_CircuitBreaker(t *testing.T) {
 		// client timeout
 		assert.Less(t, time.Since(start), 2*time.Second)
 		assert.False(t, backend.IsInitialized())
+	})
+
+	t.Run("re-init fetch shares the deadline", func(t *testing.T) {
+		// The probe is answered, then every metrics request hangs until it
+		// is cancelled
+		var requests atomic.Int32
+		release := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if requests.Add(1) == 1 {
+				_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+				return
+			}
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+		}))
+		defer server.Close()
+		defer close(release)
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.reInitTimeout = 200 * time.Millisecond
+		backend.SetEndpoint(server.URL)
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		start := time.Now()
+		_, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "re-init failed")
+		// Without the shared deadline the fetch waits for the 5s client timeout
+		assert.Less(t, time.Since(start), 2*time.Second)
+		// The circuit opens again, so callers fall back instead of sending
+		// more requests
+		assert.False(t, backend.IsInitialized())
+		assert.Less(t, time.Since(backend.circuitOpenTime), time.Second)
+
+		_, err = backend.GetMIGInstanceActivity(ctx, 0, 1)
+		assert.ErrorContains(t, err, "circuit breaker open")
+		assert.Equal(t, int32(2), requests.Load())
+	})
+
+	t.Run("re-init probes the static fallback before discovery", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.reInitTimeout = 200 * time.Millisecond
+		backend.discoverEndpoint = func(context.Context) string { return "" }
+		backend.fallbackEndpoints = []string{server.URL + "/metrics"}
+		require.NoError(t, backend.Init(ctx))
+
+		// The Kubernetes API now hangs until the deadline, and the breaker trips
+		var discoveries atomic.Int32
+		backend.discoverEndpoint = func(ctx context.Context) string {
+			discoveries.Add(1)
+			<-ctx.Done()
+			return ""
+		}
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		activity, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 0.75, activity)
+		assert.True(t, backend.IsInitialized())
+		assert.Equal(t, server.URL+"/metrics", backend.endpoint)
+		assert.Zero(t, discoveries.Load(), "a working static fallback needs no discovery")
+	})
+
+	t.Run("re-init discovers again when the static fallback is down", func(t *testing.T) {
+		fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		pod := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = fmt.Fprint(w, sampleDCGMMetrics)
+		}))
+		defer pod.Close()
+
+		ctx := context.Background()
+		backend := NewDCGMExporterBackend(slog.Default())
+		backend.discoverEndpoint = func(context.Context) string { return "" }
+		backend.fallbackEndpoints = []string{fallback.URL + "/metrics"}
+		require.NoError(t, backend.Init(ctx))
+
+		fallback.Close()
+		backend.discoverEndpoint = func(context.Context) string { return pod.URL + "/metrics" }
+		backend.initialized = false
+		backend.circuitOpenTime = time.Now().Add(-reInitInterval - time.Second)
+
+		activity, err := backend.GetMIGInstanceActivity(ctx, 0, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 0.75, activity)
+		assert.Equal(t, pod.URL+"/metrics", backend.endpoint)
 	})
 
 	t.Run("no re-init before interval", func(t *testing.T) {
