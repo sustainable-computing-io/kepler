@@ -185,7 +185,12 @@ for commits and history changes still apply.
 2. **Description**: Reference related issues (`Closes #123`)
 3. **Scope**: One feature/fix per PR (keep focused)
 4. **Tests**: Include tests for new features and bug fixes
-5. **Documentation**: Update docs if behavior changes
+5. **Documentation**: User-visible feature, configuration, metric or deployment
+   changes must ship with matching docs. Update `docs/` in the same PR; link a
+   paired [kepler-doc](https://github.com/sustainable-computing-io/kepler-doc)
+   PR when website docs are affected and coordinate both merges. A follow-up
+   issue alone does not satisfy this rule. Internal-only changes can use
+   `Doc - No Need` in the PR template's Documentation Status section
 6. **No Breaking Changes**: Without proper deprecation and migration guide
 
 ### CI Checks
