@@ -7,7 +7,9 @@
 # Without a PR number, the run tests the branch the workflow runs on. With
 # one, it needs the commit of the PR that was reviewed, and stops if the PR is
 # not open or has new commits since, so only reviewed code reaches the GPU
-# runner, where the tests run with sudo.
+# runner, where the tests run with sudo. The GPU job runs the scripts in
+# hack/gpu-e2e/ from the PR's own tree, so the run also stops, before any GPU
+# is used, when the PR does not have them yet.
 #
 # Environment:
 #   PR                 PR number, or empty
@@ -15,7 +17,7 @@
 #   GITHUB_REPOSITORY  owner/name, set by GitHub Actions
 #   GITHUB_REF_NAME    branch tested without a PR, set by GitHub Actions
 #   GITHUB_SHA         commit tested without a PR, set by GitHub Actions
-#   GH_TOKEN           token for gh with pull-requests: read
+#   GH_TOKEN           token for gh with contents: read and pull-requests: read
 #
 # Writes sha=, target= and pr= lines to $GITHUB_OUTPUT, or to stdout.
 set -euo pipefail
@@ -47,6 +49,10 @@ if [ "$state" != open ]; then
 fi
 if [[ "$head" != "$reviewed"* ]]; then
 	echo "::error::PR #${pr} moved from ${reviewed} to ${head:0:12}. Review the new commits and run again."
+	exit 1
+fi
+if ! gh api "repos/${GITHUB_REPOSITORY}/contents/hack/gpu-e2e/summary.sh?ref=${head}" --silent 2>/dev/null; then
+	echo "::error::PR #${pr} does not have hack/gpu-e2e/ yet, which the GPU job runs from the PR. Ask the author to update the PR from main, then run again."
 	exit 1
 fi
 

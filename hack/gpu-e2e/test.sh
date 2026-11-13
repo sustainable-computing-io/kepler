@@ -41,6 +41,7 @@ cat >"${bin}/gh" <<'EOF'
 echo "gh $*" >>"$FAKE_GH_LOG"
 case "$*" in
 "api repos/"*"/pulls/"*) echo "${FAKE_PR_STATE} ${FAKE_PR_HEAD}" ;;
+"api repos/"*"/contents/hack/gpu-e2e/"*) [ "${FAKE_PR_HAS_SCRIPTS:-yes}" = yes ] ;;
 "api repos/"*"/commits/"*"/statuses"*) echo "${FAKE_LATEST_STATUS_URL:-}" ;;
 "api repos/"*"/statuses/"*) ;;
 "api repos/"*"/actions/runs/"*"/jobs")
@@ -127,6 +128,7 @@ PR=12 REVIEWED_SHA=xyz1234 expect_target "rejects a bad commit" 1 "Give the comm
 PR=12 REVIEWED_SHA=ABCDEF0 expect_target "accepts the reviewed head" 0 "sha=abcdef0123456789abcdef0123456789abcdef01"
 PR=12 REVIEWED_SHA=1234567 expect_target "stops when the PR moved" 1 "moved from 1234567"
 FAKE_PR_STATE=closed PR=12 REVIEWED_SHA=abcdef0 expect_target "stops when the PR is closed" 1 "is closed, not open"
+FAKE_PR_HAS_SCRIPTS=no PR=12 REVIEWED_SHA=abcdef0 expect_target "stops when the PR lacks the scripts" 1 "does not have hack/gpu-e2e/ yet"
 
 # --- status.sh
 expect_status() {
