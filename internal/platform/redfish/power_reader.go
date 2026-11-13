@@ -182,23 +182,42 @@ func (pr *PowerReader) ReadAll() ([]Chassis, error) {
 	}
 
 	chassisList, unauthorized, err := pr.readAll()
-	if unauthorized {
-		if reloginErr := pr.relogin(err); reloginErr != nil {
-			return nil, reloginErr
+	if !unauthorized {
+		if err != nil {
+			return nil, err
 		}
+		return chassisList, nil
+	}
 
-		chassisList, unauthorized, err = pr.readAll()
-		if unauthorized {
-			// The BMC rejects even a fresh session, so back off before
-			// opening another one
-			pr.lastReloginFailure = time.Now()
+	// When only some chassis were rejected, the readings of the others are
+	// still good and are returned if the re-login doesn't help
+	partial := err == nil
+
+	cause := err
+	if partial {
+		cause = errors.New("BMC rejected the session on a chassis power read")
+	}
+	if reloginErr := pr.relogin(cause); reloginErr != nil {
+		if partial {
+			return chassisList, nil
 		}
+		return nil, reloginErr
+	}
+
+	retryList, unauthorized, err := pr.readAll()
+	if unauthorized {
+		// The BMC rejects even a fresh session, so back off before
+		// opening another one
+		pr.lastReloginFailure = time.Now()
 	}
 	if err != nil {
+		if partial {
+			return chassisList, nil
+		}
 		return nil, err
 	}
 
-	return chassisList, nil
+	return retryList, nil
 }
 
 // readAll does one pass over all chassis. unauthorized is true when the BMC

@@ -23,20 +23,26 @@ import (
 func newSessionServer(t *testing.T, watts float64) (*testutil.Server, *PowerReader) {
 	t.Helper()
 
-	server := testutil.NewServer(testutil.ServerConfig{
+	return newSessionServerWithConfig(t, testutil.ServerConfig{
 		Username:            "admin",
 		Password:            "password",
 		PowerWatts:          watts,
 		EnableAuth:          true,
 		RequireSessionToken: true,
 	})
+}
+
+func newSessionServerWithConfig(t *testing.T, cfg testutil.ServerConfig) (*testutil.Server, *PowerReader) {
+	t.Helper()
+
+	server := testutil.NewServer(cfg)
 	t.Cleanup(server.Close)
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	bmc := &redfishcfg.BMCDetail{
 		Endpoint: server.URL(),
-		Username: "admin",
-		Password: "password",
+		Username: cfg.Username,
+		Password: cfg.Password,
 		Insecure: true,
 	}
 	reader := NewPowerReader(bmc, 5*time.Second, logger)
@@ -137,6 +143,41 @@ func TestPowerReaderReadAllLogsInAgainWhenChassisReadIsRejected(t *testing.T) {
 	require.NoError(t, err, "a 401 on a chassis read should also trigger a re-login")
 	require.NotEmpty(t, chassis)
 	assert.Equal(t, 2, server.LoginCount())
+}
+
+func TestPowerReaderReadAllKeepsReadingsWhenOneChassisIsRejected(t *testing.T) {
+	server, reader := newSessionServerWithConfig(t, testutil.ServerConfig{
+		Username:            "admin",
+		Password:            "password",
+		PowerWatts:          200,
+		EnableAuth:          true,
+		RequireSessionToken: true,
+		RejectedChassis:     true,
+	})
+
+	// Chassis 2 is rejected even with a fresh session, which starts the backoff
+	chassis, err := reader.ReadAll()
+	require.NoError(t, err)
+	require.Len(t, chassis, 1)
+	assert.Equal(t, "1", chassis[0].ID)
+	assert.Equal(t, 2, server.LoginAttempts())
+	assert.False(t, reader.lastReloginFailure.IsZero())
+
+	// During the backoff chassis 1 is still reported
+	chassis, err = reader.ReadAll()
+	require.NoError(t, err, "a re-login in backoff should not drop the readings of a healthy chassis")
+	require.Len(t, chassis, 1)
+	assert.Equal(t, "1", chassis[0].ID)
+	assert.Equal(t, 2, server.LoginAttempts(), "no login should be tried during the backoff")
+
+	// Same when the re-login itself fails
+	reader.lastReloginFailure = time.Now().Add(-defaultReloginBackoff)
+	server.SetError(testutil.ErrorAuth)
+	chassis, err = reader.ReadAll()
+	require.NoError(t, err, "a failed re-login should not drop the readings of a healthy chassis")
+	require.Len(t, chassis, 1)
+	assert.Equal(t, "1", chassis[0].ID)
+	assert.Equal(t, 3, server.LoginAttempts())
 }
 
 func TestPowerReaderReloginLogsOutOldSessionFirst(t *testing.T) {

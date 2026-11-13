@@ -30,6 +30,9 @@ type ServerConfig struct {
 	// RequireSessionToken makes resource requests fail with 401 unless they
 	// carry the X-Auth-Token of an active session. Needs EnableAuth.
 	RequireSessionToken bool
+	// RejectedChassis adds a second chassis "2" whose power reads always
+	// fail with 401, like a chassis the BMC account can't read
+	RejectedChassis bool
 }
 
 // ErrorType represents different error scenarios
@@ -285,7 +288,7 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	case "/redfish/v1/Chassis":
 		s.handleChassisCollection(w, r)
 	case "/redfish/v1/Chassis/1":
-		s.handleChassis(w, r)
+		s.handleChassis(w, r, "1")
 	case "/redfish/v1/Chassis/1/Power":
 		s.handlePower(w, r)
 	case "/redfish/v1/Chassis/1/PowerSubsystem":
@@ -297,6 +300,17 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	case "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS2":
 		s.handleIndividualPowerSupply(w, r, "PS2")
 	default:
+		s.mutex.RLock()
+		rejectedChassis := s.config.RejectedChassis
+		s.mutex.RUnlock()
+		switch {
+		case rejectedChassis && r.URL.Path == "/redfish/v1/Chassis/2":
+			s.handleChassis(w, r, "2")
+			return
+		case rejectedChassis && strings.HasPrefix(r.URL.Path, "/redfish/v1/Chassis/2/"):
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/redfish/v1/SessionService/Sessions/") {
 			// Handle individual session endpoints
 			s.handleSession(w, r)
@@ -365,24 +379,29 @@ func (s *Server) handleChassisCollection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	members := []map[string]any{
+		{"@odata.id": "/redfish/v1/Chassis/1"},
+	}
+	s.mutex.RLock()
+	if s.config.RejectedChassis {
+		members = append(members, map[string]any{"@odata.id": "/redfish/v1/Chassis/2"})
+	}
+	s.mutex.RUnlock()
+
 	response := map[string]any{
 		"@odata.context":      "/redfish/v1/$metadata#ChassisCollection.ChassisCollection",
 		"@odata.type":         "#ChassisCollection.ChassisCollection",
 		"@odata.id":           "/redfish/v1/Chassis",
 		"Name":                "Chassis Collection",
-		"Members@odata.count": 1,
-		"Members": []map[string]any{
-			{
-				"@odata.id": "/redfish/v1/Chassis/1",
-			},
-		},
+		"Members@odata.count": len(members),
+		"Members":             members,
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleChassis handles individual chassis endpoint
-func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request, id string) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -391,8 +410,8 @@ func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"@odata.context": "/redfish/v1/$metadata#Chassis.Chassis",
 		"@odata.type":    "#Chassis.v1_10_0.Chassis",
-		"@odata.id":      "/redfish/v1/Chassis/1",
-		"Id":             "1",
+		"@odata.id":      "/redfish/v1/Chassis/" + id,
+		"Id":             id,
 		"Name":           "Computer System Chassis",
 		"ChassisType":    "RackMount",
 		"Manufacturer":   "generic",
@@ -402,10 +421,10 @@ func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
 			"Health": "OK",
 		},
 		"Power": map[string]any{
-			"@odata.id": "/redfish/v1/Chassis/1/Power",
+			"@odata.id": "/redfish/v1/Chassis/" + id + "/Power",
 		},
 		"PowerSubsystem": map[string]any{
-			"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem",
+			"@odata.id": "/redfish/v1/Chassis/" + id + "/PowerSubsystem",
 		},
 	}
 
