@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
@@ -2698,4 +2699,76 @@ func TestKubeSelfContainerFlags(t *testing.T) {
 	assert.Equal(t, "kepler-abcde", cfg.Kube.PodName)
 	assert.Equal(t, "kepler-system", cfg.Kube.PodNamespace)
 	assert.Equal(t, "agent", cfg.Kube.ContainerName)
+}
+
+func TestRedfishHTTPTimeoutDefault(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "redfish-config-*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, err = tmpFile.WriteString("# dummy redfish config\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	redfishYAML := func(extra string) string {
+		return fmt.Sprintf(`
+experimental:
+  platform:
+    redfish:
+      enabled: true
+      configFile: %s
+      nodeName: n1
+%s`, tmpFile.Name(), extra)
+	}
+
+	t.Run("yaml without httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("")))
+		require.NoError(t, err)
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("yaml with httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("      httpTimeout: 10s\n")))
+		require.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("explicit zero httpTimeout falls back to default", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("      httpTimeout: 0s\n")))
+		require.NoError(t, err)
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("negative httpTimeout is rejected", func(t *testing.T) {
+		_, err := Load(strings.NewReader(redfishYAML("      httpTimeout: -1s\n")))
+		assert.ErrorContains(t, err, "httpTimeout")
+	})
+
+	for name, yaml := range map[string]string{
+		"gpu enabled": `
+experimental:
+  gpu:
+    enabled: true
+`,
+		"hwmon forceEnabled": `
+experimental:
+  hwmon:
+    forceEnabled: true
+`,
+	} {
+		t.Run("redfish flags after "+name+" in yaml", func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(yaml))
+			require.NoError(t, err)
+
+			app := kingpin.New("test", "Test application")
+			updateConfig := RegisterFlags(app)
+			_, err = app.Parse([]string{
+				"--experimental.platform.redfish.enabled",
+				"--experimental.platform.redfish.config-file=" + tmpFile.Name(),
+				"--experimental.platform.redfish.node-name=n1",
+			})
+			require.NoError(t, err)
+			require.NoError(t, updateConfig(cfg))
+			assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+		})
+	}
 }
