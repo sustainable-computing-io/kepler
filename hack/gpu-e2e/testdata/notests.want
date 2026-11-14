@@ -1,0 +1,9 @@
+## ⚠️ GPU e2e ran no tests
+
+No test matched the `TestGPU` filter on `PR #1234` at [`0123456`](https://github.com/sustainable-computing-io/kepler/commit/0123456789abcdef0123456789abcdef01234567), so the test binary finished without running anything and the run counts as failed. Check whether the GPU tests in `test/e2e/gpu_test.go` were renamed or removed.
+
+| GPU | Driver | CUDA | Memory | Runner |
+| --- | --- | --- | --- | --- |
+| unknown | `unknown` | `unknown` | unknown | `oracle-vm-gpu-a10-1` |
+
+⬇️ The full test output with Kepler's logs, Kepler's GPU metrics during the run and the power samples are in the [`gpu-e2e-logs`](https://github.com/sustainable-computing-io/kepler/actions/runs/1000#artifacts) artifact.
