@@ -80,8 +80,18 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 
 		// For each zone in the node, calculate VM's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
-			// Skip zones with zero power to avoid division by zero
+			// Calculate absolute energy based on previous data
+			var prevEnergy Energy
+			if prev, exists := prev.VirtualMachines[id]; exists {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Skip zones with zero power to avoid division by zero, but keep
+			// the running total so the exported counter does not reset.
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				newVMInstance.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
@@ -91,17 +101,9 @@ func (pm *PowerMonitor) calculateVMPower(prev, newSnapshot *Snapshot) error {
 			// Calculate energy delta for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Calculate absolute energy based on previous data
-			absoluteEnergy := activeEnergy
-			if prev, exists := prev.VirtualMachines[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
-
 			newVMInstance.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 			}
 		}
 
