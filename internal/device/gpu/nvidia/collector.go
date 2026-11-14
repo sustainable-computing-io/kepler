@@ -580,6 +580,15 @@ func (c *GPUPowerCollector) attributePartitioned(deviceIndex int, result map[uin
 	// Use cached MIG hierarchy from NVML
 	instances := c.migInstancesByDevice[deviceIndex]
 
+	// Once its circuit breaker trips, the DCGM backend re-initializes only
+	// from GetMIGInstanceActivity, after reInitInterval. Give it that chance
+	// here, otherwise the check below keeps using the fallback forever.
+	// The returned error isn't needed: if the re-init or its first fetch
+	// fails, the backend stays uninitialized and the check below falls back.
+	if c.dcgm != nil && !c.dcgm.IsInitialized() && len(instances) > 0 {
+		_, _ = c.dcgm.GetMIGInstanceActivity(context.Background(), deviceIndex, instances[0].GPUInstanceID)
+	}
+
 	// Fallback to equal distribution among running processes when DCGM is
 	// unavailable (not deployed, unreachable, or initialization failed).
 	if c.dcgm == nil || !c.dcgm.IsInitialized() || len(instances) == 0 {
