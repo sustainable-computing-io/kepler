@@ -44,6 +44,7 @@ rapl:
 exporter:
   stdout: # stdout exporter related config
     enabled: false # disabled by default
+    interval: 2s # Power table refresh interval; must be greater than zero
 
   prometheus: # prometheus exporter related config
     enabled: true

@@ -188,6 +188,8 @@ config:
     stdout:
       # -- Print metrics to stdout
       enabled: false
+      # -- Power table refresh interval; must be greater than zero
+      interval: 2s
     prometheus:
       # -- Expose Prometheus metrics
       enabled: true

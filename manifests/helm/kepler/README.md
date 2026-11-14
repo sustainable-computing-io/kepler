@@ -65,6 +65,7 @@ dashboards:
 | config.exporter.prometheus.enabled | bool | `true` | Expose Prometheus metrics |
 | config.exporter.prometheus.metricsLevel | list | `["node","process","container","vm","pod"]` | Metric levels to export |
 | config.exporter.stdout.enabled | bool | `false` | Print metrics to stdout |
+| config.exporter.stdout.interval | string | `"2s"` | Power table refresh interval; must be greater than zero |
 | config.host.procfs | string | `"/host/proc"` | Path to the host procfs inside the container |
 | config.host.sysfs | string | `"/host/sys"` | Path to the host sysfs inside the container |
 | config.kube.config | string | `""` | Path to a kubeconfig. Empty uses the in-cluster config. |
