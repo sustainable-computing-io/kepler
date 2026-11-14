@@ -369,25 +369,27 @@ func TestCollectionErrorHandling(t *testing.T) {
 	assertDataUpdated(t, dataCh, 1*time.Millisecond, "expected data to be updated immediately after init")
 
 	go monitor.collectionLoop()
-	time.Sleep(3 * time.Millisecond) // wait for collectionLoop to start
 
-	assertDataUpdated(t, dataCh, 20*time.Millisecond, "expected data to be updated immediately after collection")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	snapshot1, err := monitor.Snapshot()
 	require.NoError(t, err)
 	require.NotNil(t, snapshot1)
 
-	// Second collection should error and
-	fakeClock.Step(20 * time.Millisecond)
+	// Make the data stale without reaching the interval, so the collection
+	// timer cannot fire and Snapshot is the one doing the failing read.
+	fakeClock.Step(2 * time.Millisecond)
 	_, err = monitor.Snapshot()
 
 	assert.Error(t, err, "Snapshot should return error after collection failure")
 
-	fakeClock.Step(20 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond)
+	// Reaching the interval fires the collection loop, which must recover.
+	fakeClock.Step(interval - 2*time.Millisecond)
+	assertDataUpdated(t, dataCh, 5*time.Second, "collection loop should recover after a failed read")
 
 	snapshot3, err := monitor.Snapshot()
-	assert.NoError(t, err)
-	assert.NotNil(t, snapshot3)
+	require.NoError(t, err)
+	require.NotNil(t, snapshot3)
 
 	assert.True(t, snapshot3.Timestamp.After(snapshot1.Timestamp))
 
