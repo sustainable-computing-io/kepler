@@ -148,6 +148,9 @@ func NewPowerCollector(monitor PowerDataProvider, nodeName string, logger *slog.
 
 		containerCPUJoulesDescriptor: joulesDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
 		containerCPUWattsDescriptor:  wattsDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", zone, podID}),
+		// Note: Unlike processCPUTimeDescriptor, containerCPUTimeDescriptor includes the "state" label.
+		// This exports distinct time series for running vs terminated containers, preserving a final
+		// sample for terminated containers to support correct power attribution.
 		containerCPUTimeDescriptor:   timeDesc("container", "cpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUJoulesDescriptor: joulesDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
 		containerGPUWattsDescriptor:  wattsDesc("container", "gpu", nodeName, []string{cntrID, "container_name", "runtime", "state", podID}),
