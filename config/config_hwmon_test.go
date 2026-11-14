@@ -4,10 +4,14 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 )
 
@@ -434,7 +438,22 @@ func TestSanitize_HwmonFields(t *testing.T) {
 		},
 		expectedZones: nil,
 	}, {
-		name: "all experimental features disabled - should set experimental to nil",
+		name: "no experimental config present - set to nil",
+		config: &Config{
+			Experimental: &Experimental{
+				Hwmon: Hwmon{
+					ForceEnabled: ptr.To(false),
+				},
+				Platform: Platform{
+					Redfish: Redfish{
+						Enabled: ptr.To(false),
+					},
+				},
+			},
+		},
+		experimentalNil: true,
+	}, {
+		name: "hwmon zones retained without force-enabled",
 		config: &Config{
 			Experimental: &Experimental{
 				Hwmon: Hwmon{
@@ -448,7 +467,7 @@ func TestSanitize_HwmonFields(t *testing.T) {
 				},
 			},
 		},
-		experimentalNil: true,
+		expectedZones: []string{"zone1"},
 	}}
 
 	for _, tc := range tests {
@@ -460,7 +479,7 @@ func TestSanitize_HwmonFields(t *testing.T) {
 				return
 			}
 
-			assert.NotNil(t, tc.config.Experimental)
+			require.NotNil(t, tc.config.Experimental)
 			assert.Equal(t, tc.expectedZones, tc.config.Experimental.Hwmon.Zones)
 		})
 	}
@@ -538,6 +557,47 @@ experimental:
 			assert.Equal(t, []string{"package"}, cfg.Experimental.Hwmon.Zones)
 			assert.Equal(t, ptr.To(false), cfg.Experimental.Platform.Redfish.Enabled)
 		},
+	}, {
+		name: "hwmon zones without force-enabled are retained",
+		yamlContent: `
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones:
+      - power1
+      - power2
+`,
+		expectError: false,
+		validateFunc: func(t *testing.T, cfg *Config) {
+			require.NotNil(t, cfg.Experimental)
+			assert.Equal(t, []string{"power1", "power2"}, cfg.Experimental.Hwmon.Zones)
+		},
+	}, {
+		name: "hwmon chipRules without zones are retained",
+		yamlContent: `
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones: []
+    chipRules:
+      - name: "ina3221"
+        useSameIndex: true
+        skipVoltages: [4, 5, 6, 7]
+      - name: "my_custom_sensor"
+        pairings:
+          1: 1
+          2: 2
+        skipVoltages: [0]
+`,
+		expectError: false,
+		validateFunc: func(t *testing.T, cfg *Config) {
+			require.NotNil(t, cfg.Experimental)
+			require.Len(t, cfg.Experimental.Hwmon.ChipRules, 2)
+			assert.Equal(t, "ina3221", cfg.Experimental.Hwmon.ChipRules[0].Name)
+			assert.Equal(t, map[int]int{1: 1, 2: 2}, cfg.Experimental.Hwmon.ChipRules[1].Pairings)
+		},
 	}}
 
 	for _, tc := range tests {
@@ -556,4 +616,45 @@ experimental:
 			}
 		})
 	}
+}
+
+func TestHwmonZonesFlagWithoutForceEnabled(t *testing.T) {
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err := app.Parse([]string{"--" + ExperimentalHwmonZonesFlag + "=power1"})
+	require.NoError(t, err)
+
+	cfg := DefaultConfig()
+	require.NoError(t, updateConfig(cfg))
+	require.NotNil(t, cfg.Experimental)
+	assert.Equal(t, []string{"power1"}, cfg.Experimental.Hwmon.Zones)
+}
+
+func TestHwmonZonesYAMLKeepsRedfishTimeoutDefault(t *testing.T) {
+	cfg, err := Load(strings.NewReader(`
+cpu:
+  preferredMeters: ["hwmon"]
+experimental:
+  hwmon:
+    zones:
+      - power1
+`))
+	require.NoError(t, err)
+
+	redfishConfig := filepath.Join(t.TempDir(), "redfish.yaml")
+	require.NoError(t, os.WriteFile(redfishConfig, []byte("# dummy redfish config\nendpoint: https://redfish.example.com\n"), 0o600))
+
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err = app.Parse([]string{
+		"--" + ExperimentalPlatformRedfishEnabledFlag,
+		"--" + ExperimentalPlatformRedfishConfigFlag + "=" + redfishConfig,
+		"--" + ExperimentalPlatformRedfishNodeNameFlag + "=test-node",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, updateConfig(cfg))
+	require.NotNil(t, cfg.Experimental)
+	assert.Equal(t, []string{"power1"}, cfg.Experimental.Hwmon.Zones)
+	assert.Equal(t, defaultRedfishConfig().HTTPTimeout, cfg.Experimental.Platform.Redfish.HTTPTimeout)
 }
