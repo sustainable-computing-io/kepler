@@ -899,7 +899,7 @@ func (c *Config) sanitize() {
 	c.Experimental.Platform.Redfish.ConfigFile = strings.TrimSpace(c.Experimental.Platform.Redfish.ConfigFile)
 	// The experimental section can come from YAML or from another feature's flags, in which
 	// case the Redfish defaults were never applied. A zero timeout means no deadline at all,
-	// so fall back to the default when it was left out.
+	// so fall back to the default when it was left out or set to 0s explicitly.
 	if c.Experimental.Platform.Redfish.HTTPTimeout == 0 {
 		c.Experimental.Platform.Redfish.HTTPTimeout = defaultRedfishConfig().HTTPTimeout
 	}
