@@ -96,9 +96,18 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			continue
 		}
 
+		// Add GPU power read after the container's processes exited (see calculateProcessPower)
+		// before the tracker freezes the record. Its pod gets it from gpuTailByPod.
+		terminated := prevContainer.Clone()
+		if tail, ok := newSnapshot.gpuTailByContainer[id]; ok {
+			terminated.GPUPower = tail.power
+			terminated.GPUEnergyTotal += tail.energy
+			addGPUTail(&newSnapshot.gpuTailByPod, terminated.PodID, tail.power, tail.energy)
+		}
+
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated container is only added once since a container cannot be terminated twice
-		pm.terminatedContainersTracker.Add(prevContainer.Clone())
+		pm.terminatedContainersTracker.Add(terminated)
 	}
 
 	// process running containers
@@ -165,6 +174,15 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 				energy -= min(energy, prevProcess.GPUEnergyTotal)
 			}
 			container.GPUEnergyTotal += energy
+		}
+	}
+
+	// Running containers also get the power read after one of their processes exited. Their
+	// pods pick it up with the rest of the container's energy.
+	for id, tail := range newSnapshot.gpuTailByContainer {
+		if container, ok := containerMap[id]; ok {
+			container.GPUPower += tail.power
+			container.GPUEnergyTotal += tail.energy
 		}
 	}
 

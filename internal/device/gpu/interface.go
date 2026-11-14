@@ -78,6 +78,14 @@ type IdlePowerConfigurable interface {
 	SetIdlePower(watts float64)
 }
 
+// TailPowerReporter is an optional interface for GPU meters that attribute the power read just
+// after a process exited to that process. GetProcessTailPower returns the part of the last
+// GetProcessPower result that is such power, by PID, so it can go to the exited process even
+// when its PID is already reused.
+type TailPowerReporter interface {
+	GetProcessTailPower() map[uint32]float64
+}
+
 // DCGMEndpointConfigurable is an optional interface for GPU meters that support
 // configuring a dcgm-exporter endpoint for MIG power attribution.
 type DCGMEndpointConfigurable interface {
