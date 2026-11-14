@@ -311,6 +311,42 @@ make test-e2e-k8s
 make undeploy cluster-down
 ```
 
+### Helm Validation
+
+`hack/test-helm.sh` is used locally and by the Kubernetes CI action. It provides
+chart linting, a fresh installation of the checked-out chart and candidate image,
+and upgrades from the released v0.12.0 chart and image with both default behavior
+and `--reuse-values`. Each deployment case uses its own namespace and shares
+rollout validation, container/pod metrics checks, and `/proc` permission checks.
+The fake CPU meter allows these tests to run without RAPL hardware.
+
+The `lint` command needs no cluster. With no command, the script runs all checks.
+
+```bash
+./hack/test-helm.sh lint
+./hack/test-helm.sh install
+./hack/test-helm.sh upgrade
+./hack/test-helm.sh all
+```
+
+With Docker, Kind, Helm, kubectl, and curl installed, run from the project root:
+
+```bash
+make cluster-up
+make image push IMG_BASE=localhost:5001 VERSION=dev
+./hack/test-helm.sh all
+make cluster-down
+```
+
+The script uses the current kubectl context and honors `KUBECONFIG`. For an
+existing cluster, make the candidate image available to its nodes and set
+`IMG_BASE` and `VERSION` to match. Run `./hack/test-helm.sh --help` for all
+options, including the baseline version and local metrics port.
+
+On exit, the script collects diagnostics and removes its releases, namespaces,
+port-forward process, and temporary files. It refuses to reuse an existing test
+namespace and leaves the cluster running.
+
 ## Troubleshooting
 
 ### RAPL Not Available
