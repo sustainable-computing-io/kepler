@@ -155,29 +155,26 @@ func TestPowerReaderReadAllKeepsReadingsWhenOneChassisIsRejected(t *testing.T) {
 		RejectedChassis:     true,
 	})
 
-	// Chassis 2 is rejected even with a fresh session, which starts the backoff
+	// Chassis 2 is always rejected, chassis 1 works. The session is still
+	// good, so it's kept and chassis 1 is reported on every read.
+	for i := range 3 {
+		chassis, err := reader.ReadAll()
+		require.NoError(t, err, "read %d", i)
+		require.Len(t, chassis, 1, "read %d", i)
+		assert.Equal(t, "1", chassis[0].ID, "read %d", i)
+	}
+	assert.Equal(t, 1, server.LoginAttempts(), "a 401 on one chassis should not log in again")
+	assert.Equal(t, []string{"login"}, server.SessionEvents(), "the working session should not be logged out")
+	assert.True(t, reader.lastReloginFailure.IsZero())
+
+	// If the session really expires, the chassis list is rejected and the
+	// re-login still happens
+	server.ExpireSessions()
 	chassis, err := reader.ReadAll()
 	require.NoError(t, err)
 	require.Len(t, chassis, 1)
 	assert.Equal(t, "1", chassis[0].ID)
 	assert.Equal(t, 2, server.LoginAttempts())
-	assert.False(t, reader.lastReloginFailure.IsZero())
-
-	// During the backoff chassis 1 is still reported
-	chassis, err = reader.ReadAll()
-	require.NoError(t, err, "a re-login in backoff should not drop the readings of a healthy chassis")
-	require.Len(t, chassis, 1)
-	assert.Equal(t, "1", chassis[0].ID)
-	assert.Equal(t, 2, server.LoginAttempts(), "no login should be tried during the backoff")
-
-	// Same when the re-login itself fails
-	reader.lastReloginFailure = time.Now().Add(-defaultReloginBackoff)
-	server.SetError(testutil.ErrorAuth)
-	chassis, err = reader.ReadAll()
-	require.NoError(t, err, "a failed re-login should not drop the readings of a healthy chassis")
-	require.Len(t, chassis, 1)
-	assert.Equal(t, "1", chassis[0].ID)
-	assert.Equal(t, 3, server.LoginAttempts())
 }
 
 func TestPowerReaderReloginLogsOutOldSessionFirst(t *testing.T) {
