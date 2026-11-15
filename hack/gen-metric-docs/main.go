@@ -216,6 +216,25 @@ func generateMarkdown(metrics []MetricInfo) string {
 	md.WriteString("Some zones overlap and therefore zones should not be summed. `package` already contains `core`, `uncore`, and part of what `psys` covers. ")
 	md.WriteString("It is advised to filter on a single zone in queries, for example `kepler_node_cpu_watts{zone=\"package\"}`.\n\n")
 
+	md.WriteString("### DRAM Energy\n\n")
+	md.WriteString("Kepler 0.10.0 and later has no separate DRAM metric. DRAM energy is the `dram` zone of the CPU metrics, at every level:\n\n")
+	md.WriteString("```promql\n")
+	md.WriteString("kepler_node_cpu_watts{zone=\"dram\"}\n")
+	md.WriteString("kepler_container_cpu_joules_total{zone=\"dram\"}\n")
+	md.WriteString("kepler_pod_cpu_watts{zone=\"dram\"}\n")
+	md.WriteString("```\n\n")
+	md.WriteString("Kepler only reports energy that a hardware meter measures. ")
+	md.WriteString("It does not estimate DRAM energy when the machine does not report it, so on such machines there is no `zone=\"dram\"` series at all. ")
+	md.WriteString("This is common: many client CPUs and AMD processors do not expose a DRAM domain, and virtual machines usually expose no RAPL domains.\n\n")
+	md.WriteString("To check what a node reports, list the RAPL domain names on the host:\n\n")
+	md.WriteString("```bash\n")
+	md.WriteString("cat /sys/class/powercap/intel-rapl:*/name\n")
+	md.WriteString("```\n\n")
+	md.WriteString("If no line reads `dram`, Kepler cannot report DRAM energy on that node. ")
+	md.WriteString("If it does and the metrics still have no `dram` zone, check that `rapl.zones` in the [configuration](configuration.md) is empty or includes `dram`.\n\n")
+	md.WriteString("Users upgrading from 0.9.x, where `kepler_container_joules_total` had a component per resource, ")
+	md.WriteString("can find what changed in [Upgrading from 0.9.x](https://sustainable-computing.io/blog/kepler-0-10-rewrite/).\n\n")
+
 	md.WriteString("## Metrics Reference\n\n")
 
 	nodeMetrics := []MetricInfo{}

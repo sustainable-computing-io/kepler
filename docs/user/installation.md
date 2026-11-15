@@ -5,7 +5,7 @@ This guide covers different methods to install and run Kepler (Kubernetes-based 
 ## Prerequisites
 
 - **For Local Installation**: Use the Go version specified in the repository's [`go.mod`](../../go.mod) file. Root access is required to read RAPL energy counters.
-- **For Kubernetes**: Kubernetes cluster (v1.20+) with kubectl configured
+- **For Kubernetes**: Kubernetes cluster (v1.30+) with kubectl configured
 - **For Helm**: Helm 3.0+ installed
 
 ## Installation Methods
@@ -273,6 +273,8 @@ make cluster-down
 
 #### Manual Kubernetes Deployment
 
+The DaemonSet runs unprivileged with only `SYS_PTRACE`, the same as the Helm chart. To get `container_name` for Docker, Podman and nerdctl containers that do not run as root, set `privileged: true` and `allowPrivilegeEscalation: true` on the `kepler` container in `manifests/k8s/daemonset.yaml`. GPU monitoring needs the same change plus `enabled: true` under `config.experimental.gpu` in `manifests/k8s/configmap.yaml`.
+
 ```bash
 # Deploy using kustomize
 kubectl kustomize manifests/k8s | \
@@ -364,6 +366,8 @@ Look for key metrics like:
 
 Key configuration options in `values.yaml` are below. See the [chart README](../../manifests/helm/kepler/README.md) for all of them.
 
+The container runs unprivileged by default with only the `SYS_PTRACE` capability. The defaults live in `daemonset.securityContext` and are listed in the chart README, so they are not repeated here. The Kustomize manifests (`manifests/k8s/daemonset.yaml`) use the same defaults.
+
 ```yaml
 # Image configuration
 image:
@@ -374,19 +378,6 @@ image:
 # DaemonSet configuration
 daemonset:
   hostPID: true
-  securityContext:
-    privileged: false
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop: [ALL]
-      add: [SYS_PTRACE]
-    seccompProfile:
-      type: RuntimeDefault
-    appArmorProfile:
-      type: Unconfined
-    seLinuxOptions:
-      type: spc_t
 
   # Resource limits
   resources:
@@ -420,8 +411,8 @@ serviceMonitor:
 
 ### Common Issues
 
-1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true`
-2. **Missing Series After Upgrade**: The unprivileged default changes one output. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Set `daemonset.securityContext.privileged=true` to get it back
+1. **Permission Denied**: The chart runs Kepler unprivileged with only `SYS_PTRACE`; if your cluster policy strips it, or you see `permission denied` reading `/host/proc`, set `daemonset.securityContext.privileged=true` (Kustomize: `privileged: true` and `allowPrivilegeEscalation: true` in `manifests/k8s/daemonset.yaml`)
+2. **Missing Series After Upgrade**: The unprivileged default changes one output. `container_name` is empty for containers outside Kubernetes (Docker, Podman, nerdctl) whose process does not run as root, because Kepler cannot read `/proc/<pid>/environ` of another uid without `CAP_DAC_READ_SEARCH`. Set `daemonset.securityContext.privileged=true` to get it back (Kustomize: same change in `manifests/k8s/daemonset.yaml`)
 3. **No Metrics**: Check whether nodes expose supported RAPL or hwmon sensors
 4. **Pod Crashes**: Review logs for hardware access issues
 5. **ServiceMonitor Not Found**: Ensure Prometheus Operator is installed,

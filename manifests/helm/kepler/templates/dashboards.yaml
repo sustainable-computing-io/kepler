@@ -1,4 +1,4 @@
-{{- if .Values.dashboards.enabled }}
+{{- if dig "enabled" false (.Values.dashboards | default dict) }}
 {{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
 {{- $name := base $path | trimSuffix ".json" | trimPrefix "kepler-" }}
 ---

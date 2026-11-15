@@ -22,8 +22,8 @@
 
 An off-cycle maintainer is a contributor granted project write/merge access exceptionally outside the standard governance or scheduled nomination cycle.
 
-| Name           | Company | Github ID  | Email                    | Role                | Date         |
-|----------------|---------|------------|--------------------------|---------------------|--------------|
+| Name | Company | Github ID | Email | Role | Date |
+|------|---------|-----------|-------|------|------|
 
 This list must be kept in sync with the
 [CNCF Project Maintainers list](https://github.com/cncf/foundation/blob/master/project-maintainers.csv).

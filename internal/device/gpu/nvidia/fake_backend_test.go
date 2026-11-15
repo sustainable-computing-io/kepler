@@ -6,6 +6,8 @@ package nvidia
 import (
 	"errors"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,6 +16,26 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/device"
 	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 )
+
+// stubPIDSource is a test PIDSource that tests can flip between idle and load.
+type stubPIDSource struct {
+	mu   sync.Mutex
+	pids []uint32
+}
+
+func (s *stubPIDSource) PIDs() []uint32 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]uint32, len(s.pids))
+	copy(out, s.pids)
+	return out
+}
+
+func (s *stubPIDSource) set(pids ...uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pids = append([]uint32(nil), pids...)
+}
 
 func TestFakeNVMLBackend_DiscoverDevices(t *testing.T) {
 	backend := NewFakeNVMLBackend(
@@ -134,38 +156,241 @@ func TestFakeNVMLDeviceProcessUtilization(t *testing.T) {
 	assert.ErrorIs(t, err, utilErr)
 }
 
+func TestFakeNVMLDevice_PIDSourceIdleThenLoad(t *testing.T) {
+	src := &stubPIDSource{}
+	dev := &FakeNVMLDevice{
+		Idx:        1,
+		DeviceUUID: "FAKE-GPU-0001",
+		IdlePower:  40 * device.Watt,
+		LoadPower:  225 * device.Watt,
+		PIDSource:  src,
+		UtilizationTemplate: []gpu.ProcessUtilization{
+			{ComputeUtil: 80},
+			{ComputeUtil: 20},
+		},
+	}
+
+	power, err := dev.GetPowerUsage()
+	require.NoError(t, err)
+	assert.Equal(t, 40*device.Watt, power)
+
+	procs, err := dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	assert.Empty(t, procs)
+	utils, err := dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+	assert.Empty(t, utils)
+
+	src.set(1001, 1002)
+
+	power, err = dev.GetPowerUsage()
+	require.NoError(t, err)
+	assert.Equal(t, 225*device.Watt, power)
+
+	procs, err = dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	require.Len(t, procs, 2)
+	assert.Equal(t, uint32(1001), procs[0].PID)
+	assert.Equal(t, uint32(1002), procs[1].PID)
+	assert.Equal(t, 1, procs[0].DeviceIndex)
+	assert.Equal(t, "FAKE-GPU-0001", procs[0].DeviceUUID)
+	procs[0].PID = 9999
+	procs[1].PID = 8888
+
+	again, err := dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	assert.Equal(t, uint32(1001), again[0].PID, "returned processes must be a copy")
+	assert.Equal(t, uint32(1002), again[1].PID)
+
+	utils, err = dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+	require.Len(t, utils, 2)
+	assert.Equal(t, uint32(80), utils[0].ComputeUtil)
+	assert.Equal(t, uint32(20), utils[1].ComputeUtil)
+	utils[0].PID = 9999
+	utils[0].ComputeUtil = 1
+
+	utilsAgain, err := dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(1001), utilsAgain[0].PID, "returned utilization must be a copy")
+	assert.Equal(t, uint32(80), utilsAgain[0].ComputeUtil)
+}
+
+func TestFakeNVMLDevice_EnergyAcrossIdleToLoad(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	src := &stubPIDSource{}
+	dev := &FakeNVMLDevice{
+		IdlePower: 40 * device.Watt,
+		LoadPower: 225 * device.Watt,
+		PIDSource: src,
+		now:       func() time.Time { return now },
+	}
+
+	baseline, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, device.Energy(0), baseline, "first read establishes the energy baseline")
+
+	now = now.Add(2 * time.Second)
+	src.set(1001, 1002)
+
+	afterIdle, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 80*device.Joule, afterIdle-baseline, "idle interval must be integrated at 40 W")
+	assert.Equal(t, 225*device.Watt, dev.DevicePower, "refresh after integrate must switch to load")
+
+	now = now.Add(3 * time.Second)
+	afterLoad, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 675*device.Joule, afterLoad-afterIdle, "load interval must be integrated at 225 W")
+}
+
+func TestFakeNVMLDevice_EnergyMonitorOrder(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	src := &stubPIDSource{}
+	dev := &FakeNVMLDevice{
+		IdlePower: 40 * device.Watt,
+		LoadPower: 225 * device.Watt,
+		PIDSource: src,
+		now:       func() time.Time { return now },
+	}
+
+	baseline, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, device.Energy(0), baseline, "first read establishes the energy baseline")
+
+	now = now.Add(2 * time.Second)
+	src.set(1001, 1002)
+
+	_, err = dev.GetPowerUsage()
+	require.NoError(t, err)
+	_, err = dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	_, err = dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+
+	afterIdle, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 80*device.Joule, afterIdle-baseline, "idle interval must be integrated at 40 W")
+	assert.Equal(t, 225*device.Watt, dev.DevicePower, "refresh after integrate must switch to load")
+
+	now = now.Add(3 * time.Second)
+	afterLoad, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 675*device.Joule, afterLoad-afterIdle, "load interval must be integrated at 225 W")
+}
+
+func fakeCollectorDevice(mode ComputeMode, src PIDSource) *FakeNVMLDevice {
+	return &FakeNVMLDevice{
+		Idx:        0,
+		DeviceUUID: "FAKE-GPU-0000",
+		DeviceName: "Fake NVIDIA GPU",
+		IdlePower:  40 * device.Watt,
+		LoadPower:  225 * device.Watt,
+		Mode:       mode,
+		PIDSource:  src,
+		UtilizationTemplate: []gpu.ProcessUtilization{
+			{ComputeUtil: 80},
+			{ComputeUtil: 20},
+		},
+	}
+}
+
+func observeIdleThenLoad(t *testing.T, collector *GPUPowerCollector, src *stubPIDSource) map[uint32]float64 {
+	t.Helper()
+
+	stats, err := collector.GetDevicePowerStats(0)
+	require.NoError(t, err)
+	assert.Equal(t, 40.0, stats.TotalPower)
+	assert.Equal(t, 40.0, stats.IdlePower)
+	assert.Equal(t, 0.0, stats.ActivePower)
+
+	src.set(1001, 1002)
+
+	power, err := collector.GetProcessPower()
+	require.NoError(t, err)
+	return power
+}
+
 // TestFakeNVMLBackend_ThroughRealCollector verifies the fake backend wires
 // correctly through the real GPUPowerCollector (Init + Devices + GetProcessPower).
 func TestFakeNVMLBackend_ThroughRealCollector(t *testing.T) {
-	backend := NewFakeNVMLBackend(&FakeNVMLDevice{
-		Idx:         0,
-		DeviceUUID:  "FAKE-GPU-0000",
-		DeviceName:  "Fake NVIDIA GPU",
-		DevicePower: 225 * device.Watt,
-		Mode:        ComputeModeDefault,
-		Processes: []gpu.ProcessGPUInfo{
-			{PID: 1001},
-		},
-		Utilization: []gpu.ProcessUtilization{
-			{PID: 1001, ComputeUtil: 80},
-		},
+	t.Run("time-slicing unequal utilization", func(t *testing.T) {
+		src := &stubPIDSource{}
+		collector, err := NewGPUPowerCollector(slog.Default(), WithNVMLBackend(
+			NewFakeNVMLBackend(fakeCollectorDevice(ComputeModeDefault, src)),
+		))
+		require.NoError(t, err)
+		require.NoError(t, collector.Init())
+		t.Cleanup(func() { assert.NoError(t, collector.Shutdown()) })
+
+		assert.Len(t, collector.Devices(), 1)
+		assert.Equal(t, "FAKE-GPU-0000", collector.Devices()[0].UUID)
+
+		power := observeIdleThenLoad(t, collector, src)
+		require.Len(t, power, 2)
+		assert.InDelta(t, 148.0, power[1001], 0.01) // 80% of 185 W active
+		assert.InDelta(t, 37.0, power[1002], 0.01)  // 20% of 185 W active
+
+		stats, err := collector.GetDevicePowerStats(0)
+		require.NoError(t, err)
+		assert.InDelta(t, stats.ActivePower, power[1001]+power[1002], 0.01)
 	})
 
-	collector, err := NewGPUPowerCollector(slog.Default(), WithNVMLBackend(backend))
-	require.NoError(t, err)
+	t.Run("exclusive equal split", func(t *testing.T) {
+		src := &stubPIDSource{}
+		collector, err := NewGPUPowerCollector(slog.Default(), WithNVMLBackend(
+			NewFakeNVMLBackend(fakeCollectorDevice(ComputeModeExclusiveProcess, src)),
+		))
+		require.NoError(t, err)
+		require.NoError(t, collector.Init())
+		t.Cleanup(func() { assert.NoError(t, collector.Shutdown()) })
 
-	err = collector.Init()
-	require.NoError(t, err)
+		power := observeIdleThenLoad(t, collector, src)
+		require.Len(t, power, 2)
+		assert.InDelta(t, 92.5, power[1001], 0.01) // half of 185 W active
+		assert.InDelta(t, 92.5, power[1002], 0.01)
 
-	// Verify devices discovered
-	assert.Len(t, collector.Devices(), 1)
-	assert.Equal(t, "FAKE-GPU-0000", collector.Devices()[0].UUID)
+		stats, err := collector.GetDevicePowerStats(0)
+		require.NoError(t, err)
+		assert.InDelta(t, stats.ActivePower, power[1001]+power[1002], 0.01)
+	})
+}
 
-	// Verify GetProcessPower returns data through the real collector logic
-	power, err := collector.GetProcessPower()
-	require.NoError(t, err)
-	assert.NotEmpty(t, power, "GetProcessPower should return data for fake process")
-	assert.Contains(t, power, uint32(1001))
+func TestFakeNVMLDevice_ConcurrentPIDSourceFlip(t *testing.T) {
+	src := &stubPIDSource{}
+	dev := &FakeNVMLDevice{
+		IdlePower: 40 * device.Watt,
+		LoadPower: 225 * device.Watt,
+		PIDSource: src,
+		UtilizationTemplate: []gpu.ProcessUtilization{
+			{ComputeUtil: 80},
+			{ComputeUtil: 20},
+		},
+		now: func() time.Time { return time.Now() },
+	}
 
-	assert.NoError(t, collector.Shutdown())
+	var stop atomic.Bool
+	var wg sync.WaitGroup
+	run := func(fn func()) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for !stop.Load() {
+				fn()
+			}
+		}()
+	}
+
+	run(func() { _, _ = dev.GetPowerUsage() })
+	run(func() { _, _ = dev.GetTotalEnergy() })
+	run(func() { _, _ = dev.GetComputeRunningProcesses() })
+	run(func() { _, _ = dev.GetProcessUtilization(0) })
+	run(func() {
+		src.set(1001, 1002)
+		src.set()
+	})
+
+	time.Sleep(100 * time.Millisecond)
+	stop.Store(true)
+	wg.Wait()
 }
