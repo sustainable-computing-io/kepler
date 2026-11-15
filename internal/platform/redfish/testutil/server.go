@@ -27,6 +27,12 @@ type ServerConfig struct {
 	ForceError           ErrorType
 	SessionTimeout       time.Duration
 	ForceFallback        bool // Force fallback to Power API (disable PowerSubsystem)
+	// RequireSessionToken makes resource requests fail with 401 unless they
+	// carry the X-Auth-Token of an active session. Needs EnableAuth.
+	RequireSessionToken bool
+	// RejectedChassis adds a second chassis "2" whose power reads always
+	// fail with 401, like a chassis the BMC account can't read
+	RejectedChassis bool
 }
 
 // ErrorType represents different error scenarios
@@ -54,6 +60,11 @@ type Server struct {
 	sessions      map[string]time.Time // Track active sessions
 	calledAPIs    []string             // Track which API endpoints were called
 	apiCallCounts map[string]int       // Count calls to each API endpoint
+	sessionSeq    int                  // Makes session IDs unique
+	loginCount    int                  // Number of sessions created
+	loginAttempts int                  // Number of login requests, failed ones included
+	expireAfter   string               // Drop all sessions once this path was served
+	sessionEvents []string             // "login" and "logout" requests in order
 }
 
 // NewServer creates a new mock Redfish server
@@ -137,6 +148,58 @@ func (s *Server) ResetAPITracking() {
 	s.apiCallCounts = make(map[string]int)
 }
 
+// ExpireSessions drops every active session, like a BMC reset or a session
+// timeout on the BMC side would
+func (s *Server) ExpireSessions() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.sessions = make(map[string]time.Time)
+}
+
+// LoginCount returns how many sessions were created with valid credentials
+func (s *Server) LoginCount() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.loginCount
+}
+
+// LoginAttempts returns how many login requests were made, failed ones included
+func (s *Server) LoginAttempts() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.loginAttempts
+}
+
+// SessionEvents returns the login and logout requests in the order they came in
+func (s *Server) SessionEvents() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	events := make([]string, len(s.sessionEvents))
+	copy(events, s.sessionEvents)
+	return events
+}
+
+// ExpireSessionsAfter drops every active session right after the next request
+// to path is served, to simulate a session that dies in the middle of a read
+func (s *Server) ExpireSessionsAfter(path string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.expireAfter = path
+}
+
+// hasValidSession reports whether the request carries the token of an active session
+func (s *Server) hasValidSession(r *http.Request) bool {
+	token, err := base64.StdEncoding.DecodeString(r.Header.Get("X-Auth-Token"))
+	if err != nil {
+		return false
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	expiry, ok := s.sessions[string(token)]
+	return ok && time.Now().Before(expiry)
+}
+
 // trackAPICall records that an API endpoint was called
 func (s *Server) trackAPICall(endpoint string) {
 	s.mutex.Lock()
@@ -190,6 +253,28 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Record logouts before the token check, since a logout of an expired
+	// session is rejected but still sent
+	if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/redfish/v1/SessionService/Sessions/") {
+		s.mutex.Lock()
+		s.sessionEvents = append(s.sessionEvents, "logout")
+		s.mutex.Unlock()
+	}
+
+	// Reject resource requests without a live session. The service root and
+	// session login stay open, like on a real BMC.
+	s.mutex.RLock()
+	requireToken := s.config.EnableAuth && s.config.RequireSessionToken
+	s.mutex.RUnlock()
+	isOpenPath := r.URL.Path == "/redfish/v1/" || r.URL.Path == "/redfish/v1" ||
+		(r.URL.Path == "/redfish/v1/SessionService/Sessions" && r.Method == http.MethodPost)
+	if requireToken && !isOpenPath && !s.hasValidSession(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	defer s.expireSessionsIfServed(r.URL.Path)
+
 	// Set common headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("OData-Version", "4.0")
@@ -203,7 +288,7 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	case "/redfish/v1/Chassis":
 		s.handleChassisCollection(w, r)
 	case "/redfish/v1/Chassis/1":
-		s.handleChassis(w, r)
+		s.handleChassis(w, r, "1")
 	case "/redfish/v1/Chassis/1/Power":
 		s.handlePower(w, r)
 	case "/redfish/v1/Chassis/1/PowerSubsystem":
@@ -215,12 +300,34 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	case "/redfish/v1/Chassis/1/PowerSubsystem/PowerSupplies/PS2":
 		s.handleIndividualPowerSupply(w, r, "PS2")
 	default:
+		s.mutex.RLock()
+		rejectedChassis := s.config.RejectedChassis
+		s.mutex.RUnlock()
+		switch {
+		case rejectedChassis && r.URL.Path == "/redfish/v1/Chassis/2":
+			s.handleChassis(w, r, "2")
+			return
+		case rejectedChassis && strings.HasPrefix(r.URL.Path, "/redfish/v1/Chassis/2/"):
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/redfish/v1/SessionService/Sessions/") {
 			// Handle individual session endpoints
 			s.handleSession(w, r)
 		} else {
 			http.NotFound(w, r)
 		}
+	}
+}
+
+// expireSessionsIfServed drops all sessions once the path set with
+// ExpireSessionsAfter was served
+func (s *Server) expireSessionsIfServed(path string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.expireAfter != "" && s.expireAfter == path {
+		s.expireAfter = ""
+		s.sessions = make(map[string]time.Time)
 	}
 }
 
@@ -272,24 +379,29 @@ func (s *Server) handleChassisCollection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	members := []map[string]any{
+		{"@odata.id": "/redfish/v1/Chassis/1"},
+	}
+	s.mutex.RLock()
+	if s.config.RejectedChassis {
+		members = append(members, map[string]any{"@odata.id": "/redfish/v1/Chassis/2"})
+	}
+	s.mutex.RUnlock()
+
 	response := map[string]any{
 		"@odata.context":      "/redfish/v1/$metadata#ChassisCollection.ChassisCollection",
 		"@odata.type":         "#ChassisCollection.ChassisCollection",
 		"@odata.id":           "/redfish/v1/Chassis",
 		"Name":                "Chassis Collection",
-		"Members@odata.count": 1,
-		"Members": []map[string]any{
-			{
-				"@odata.id": "/redfish/v1/Chassis/1",
-			},
-		},
+		"Members@odata.count": len(members),
+		"Members":             members,
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleChassis handles individual chassis endpoint
-func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request, id string) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -298,8 +410,8 @@ func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"@odata.context": "/redfish/v1/$metadata#Chassis.Chassis",
 		"@odata.type":    "#Chassis.v1_10_0.Chassis",
-		"@odata.id":      "/redfish/v1/Chassis/1",
-		"Id":             "1",
+		"@odata.id":      "/redfish/v1/Chassis/" + id,
+		"Id":             id,
 		"Name":           "Computer System Chassis",
 		"ChassisType":    "RackMount",
 		"Manufacturer":   "generic",
@@ -309,10 +421,10 @@ func (s *Server) handleChassis(w http.ResponseWriter, r *http.Request) {
 			"Health": "OK",
 		},
 		"Power": map[string]any{
-			"@odata.id": "/redfish/v1/Chassis/1/Power",
+			"@odata.id": "/redfish/v1/Chassis/" + id + "/Power",
 		},
 		"PowerSubsystem": map[string]any{
-			"@odata.id": "/redfish/v1/Chassis/1/PowerSubsystem",
+			"@odata.id": "/redfish/v1/Chassis/" + id + "/PowerSubsystem",
 		},
 	}
 
@@ -352,6 +464,10 @@ func (s *Server) handlePower(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionService(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
+		s.mutex.Lock()
+		s.loginAttempts++
+		s.sessionEvents = append(s.sessionEvents, "login")
+		s.mutex.Unlock()
 		s.createSession(w, r)
 	case http.MethodGet:
 		s.listSessions(w, r)
@@ -404,8 +520,10 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create session
-	sessionID := fmt.Sprintf("session_%d", time.Now().Unix())
 	s.mutex.Lock()
+	s.sessionSeq++
+	s.loginCount++
+	sessionID := fmt.Sprintf("session_%d_%d", time.Now().Unix(), s.sessionSeq)
 	s.sessions[sessionID] = time.Now().Add(s.config.SessionTimeout)
 	s.mutex.Unlock()
 

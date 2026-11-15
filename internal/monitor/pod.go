@@ -100,24 +100,26 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 
 		// For each zone in the node, calculate pod's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
-			// Skip zones with zero power to avoid division by zero
+			// If we have previous data for this pod and zone, add to absolute energy
+			var prevEnergy Energy
+			if prev, exists := prev.Pods[id]; exists {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Skip zones with zero power to avoid division by zero, but keep
+			// the running total so the exported counter does not reset.
 			if nodeZoneUsage.Power == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				pod.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
 			cpuTimeRatio := p.CPUTimeDelta / nodeCPUTimeDelta
 			// Calculate pod's share of this zone's power and energy
 			activeEnergy := Energy(float64(nodeZoneUsage.activeEnergy) * cpuTimeRatio)
-			absoluteEnergy := activeEnergy
-
-			// If we have previous data for this pod and zone, add to absolute energy
-			if prev, exists := prev.Pods[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
 			pod.Zones[zone] = Usage{
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 				Power:       Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower)),
 			}
 		}
