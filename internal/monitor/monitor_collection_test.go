@@ -104,29 +104,40 @@ func TestPeriodicCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	runErr := make(chan error, 1)
 	go func() {
-		t.Log("Running collection")
-		// ensure that the data channel is drained before we start
-		assertDataChannelEmpty(t, dataCh, 1*time.Millisecond)
-		err := monitor.Run(ctx)
-		assert.NoError(t, err)
+		runErr <- monitor.Run(ctx)
 	}()
 
 	t.Log("Waiting for first collection")
-	assertDataUpdated(t, dataCh, 5*time.Millisecond, "expected first collection as soon as run is invoked")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected first collection as soon as run is invoked")
 	assert.GreaterOrEqual(t, energyCalls.Load(), int32(1), "Should have made at least one energy call")
 	assertDataChannelEmpty(t, dataCh, 3*time.Millisecond)
 
 	t.Log("Waiting for second collection")
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
-	assertDataUpdated(t, dataCh, 10*time.Millisecond, "expected second collection after interval")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected second collection after interval")
 	assert.GreaterOrEqual(t, energyCalls.Load(), int32(2), "Should have made at least 2 energy call")
 	assertDataChannelEmpty(t, dataCh, 3*time.Millisecond)
 
 	t.Log("Waiting for third collection")
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
-	assertDataUpdated(t, dataCh, 10*time.Millisecond, "expected second collection after interval")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected third collection after interval")
 	assert.GreaterOrEqual(t, energyCalls.Load(), int32(3), "Should have made at least 3 energy call")
+
+	cancel()
+	select {
+	case err := <-runErr:
+		assert.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run didn't exit after context cancellation")
+	}
 
 	mockMeter.AssertExpectations(t)
 	pkg.AssertExpectations(t)
@@ -229,7 +240,7 @@ func TestScheduleNextCollection(t *testing.T) {
 	var collectionCount atomic.Int32
 	pkg.On("Energy").Run(func(args mock.Arguments) {
 		collectionCount.Add(1)
-	}).Return(Energy(100*Joule), nil).Maybe()
+	}).Return(Energy(100*Joule), nil).Times(2)
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 	pkg.On("Power").Return(Power(0), assert.AnError)
 
@@ -259,13 +270,19 @@ func TestScheduleNextCollection(t *testing.T) {
 
 	monitor.scheduleNextCollection()
 	assert.Equal(t, int32(0), collectionCount.Load())
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 
-	time.Sleep(20 * time.Millisecond)
+	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Collection should happen after interval")
 	assert.Equal(t, int32(1), collectionCount.Load(), "Collection should happen after interval")
 
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
-	time.Sleep(20 * time.Millisecond)
+	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Second collection should happen")
 
 	assert.Equal(t, int32(2), collectionCount.Load(), "Second collection should happen")
 
@@ -273,7 +290,7 @@ func TestScheduleNextCollection(t *testing.T) {
 	monitor.collectionWg.Wait()
 
 	fakeClock.Step(collectionInterval)
-	time.Sleep(20 * time.Millisecond)
+	assertDataChannelEmpty(t, monitor.DataChannel(), 500*time.Millisecond)
 
 	finalCount := collectionCount.Load()
 	assert.Equal(t, int32(2), finalCount, "No more collections after cancellation")
@@ -286,7 +303,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	mockMeter := &MockCPUPowerMeter{}
 	pkg := &MockEnergyZone{}
 	pkg.On("Name").Return("package")
-	pkg.On("Energy").Return(Energy(100*Joule), nil).Twice()
+	pkg.On("Energy").Return(Energy(100*Joule), nil).Times(3)
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 	pkg.On("Power").Return(Power(0), assert.AnError)
 
@@ -314,13 +331,19 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	assertDataUpdated(t, monitor.DataChannel(), 1*time.Millisecond, "expected data to be updated immediately after init")
 
 	go monitor.collectionLoop()
-	time.Sleep(3 * time.Millisecond) // wait for collectionLoop to start
 
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(interval)
-	assertDataUpdated(t, dataCh, interval, "expected data to be updated immediately after collection")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
 
+	// First collection signals before scheduleNextCollection registers the timer.
+	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(interval)
-	assertDataUpdated(t, dataCh, interval, "expected data to be updated immediately after collection")
+	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
 
 	monitor.collectionCancel()
 	monitor.collectionWg.Wait()
