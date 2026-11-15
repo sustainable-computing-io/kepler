@@ -124,8 +124,18 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 
 		// For each zone in the node, calculate container's share
 		for zone, nodeZoneUsage := range zones {
-			// Skip zones with zero power to avoid division by zero
+			// Previous total for this zone; a new container starts from zero
+			var prevEnergy Energy
+			if prev, exists := prev.Containers[id]; exists {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Skip zones with zero power to avoid division by zero, but keep
+			// the running total so the exported counter does not reset.
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				container.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
@@ -134,19 +144,10 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			// Calculate energy delta for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Calculate absolute energy based on previous data
-			// New container, starts with delta
-			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Containers[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
-
 			// Calculate container's share of this zone's power and energy
 			container.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 			}
 		}
 
