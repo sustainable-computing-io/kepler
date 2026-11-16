@@ -209,7 +209,14 @@ log's `type` field uses `zone.Kind().String()`.
 
 ## Configuration
 
-None. The kind comes from the hardware interface the meter already selects.
+No new options. The kind comes from the hardware interface the meter already
+selects.
+
+`experimental.hwmon.zones` keeps matching the raw hwmon label, since `filterZones`
+runs before `groupZonesByName`. So `core` selects both the energy zone and the
+suffixed `core_power` zone built from the same label, and a filter copied from the
+exported `zone` label, such as `core_power`, matches nothing. The config docs and
+the release note will say the filter takes the hwmon label, not the exported name.
 
 ### Main Configuration Changes
 
