@@ -124,8 +124,7 @@ func TestPeriodicCollection(t *testing.T) {
 	assertDataChannelEmpty(t, dataCh, 3*time.Millisecond)
 
 	t.Log("Waiting for third collection")
-	// First collection signals before scheduleNextCollection registers the timer.
-	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected third collection after interval")
@@ -270,16 +269,14 @@ func TestScheduleNextCollection(t *testing.T) {
 
 	monitor.scheduleNextCollection()
 	assert.Equal(t, int32(0), collectionCount.Load())
-	// First collection signals before scheduleNextCollection registers the timer.
-	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	// scheduleNextCollection registers the timer synchronously; wait to be safe before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 
 	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Collection should happen after interval")
 	assert.Equal(t, int32(1), collectionCount.Load(), "Collection should happen after interval")
 
-	// First collection signals before scheduleNextCollection registers the timer.
-	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Second collection should happen")
@@ -339,8 +336,7 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	fakeClock.Step(interval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
 
-	// First collection signals before scheduleNextCollection registers the timer.
-	// HasWaiters means clock.After ran; Add(1) is the next statement in that function.
+	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(interval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
