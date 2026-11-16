@@ -45,8 +45,9 @@ kind depends on the value just read.
 2. **A failed energy read is reported as a failed power read.** When `Energy()` fails
    on an hwmon energy zone, the reading is 0, the zone is classified as a power
    sensor, and the warning names the power read. The real error is lost.
-3. **Every zone is read twice per cycle.** One read always fails, which costs an
-   extra sysfs access per zone and builds an error that is thrown away.
+3. **Every zone is read twice per cycle.** One read always fails, which builds an
+   error that is thrown away. The unsupported method returns a constant error and
+   doesn't touch sysfs, so the cost is the discarded error, not an extra read.
 4. **The extra read is not side-effect free.** `AggregatedZone.Energy()` advances its
    per-member `lastReadings` and its aggregated counter on every call. It's only
    correct as long as the monitor calls it exactly once per cycle, which is true
@@ -70,7 +71,8 @@ kind depends on the value just read.
 - Changing how power is attributed to processes, containers, pods or VMs.
 - Changing the GPU or Redfish paths, which don't use `EnergyZone`.
 - Discovering a wrap point for hwmon energy counters.
-- Changing exported metrics or configuration.
+- Changing exported metrics or configuration, except for the zone names on hosts
+  that have same-named zones of different kinds (see Operational Risks).
 
 ## Requirements
 
@@ -89,7 +91,7 @@ kind depends on the value just read.
 
 ### Non-Functional Requirements
 
-- **Performance**: One sysfs read per zone per cycle instead of two.
+- **Performance**: No call that is known to fail is made per zone per cycle.
 - **Reliability**: A zone's kind can't change between cycles.
 - **Maintainability**: The kind is visible in the type that produces the reading,
   not reconstructed from the reading.
@@ -219,7 +221,7 @@ None.
 
 ### Security Considerations
 
-None. No new files are read, and the change removes one sysfs read per zone.
+None. No new files are read.
 
 ## Deployment Examples
 
@@ -325,10 +327,17 @@ No new or changed metrics.
 ### Operational Risks
 
 - **Risk**: hwmon hosts that today aggregate same-named zones of different kinds
-  would now see two zones instead of one.
-  - **Mitigation**: That aggregation produces a zone whose `Energy()` and `Power()`
-    both fail for at least one member, so it can't report correctly today. The
-    release note calls it out.
+  would now see two zones instead of one. Process, container, VM and pod CPU metrics
+  carry only the `zone` label, so two zones with the same `Name()` would emit
+  identical series and the registry would fail the whole `/metrics` scrape with
+  "collected before with the same name and label values".
+  - **Mitigation**: Zones split by kind get distinct names. When a label is shared
+    by an energy and a power sensor, the zone built from the power sensor gets a
+    kind suffix, for example `core_power`, and the energy zone keeps the bare label.
+    A test builds both kinds from one label and checks that the names differ. The
+    old aggregation produces a zone whose `Energy()` and `Power()` both fail for at
+    least one member, so it can't report correctly today. The release note calls
+    out the new zone names.
 
 ## Alternatives Considered
 
@@ -362,7 +371,7 @@ No new or changed metrics.
 
 - **Functional Metric**: hwmon energy zones are processed on every cycle, including
   when they read 0, and read errors name the method that failed.
-- **Performance Metric**: One sysfs read per zone per cycle.
+- **Performance Metric**: No zone makes a call that is known to fail each cycle.
 - **Adoption Metric**: New meters (#2438, EP-002) implement `Kind()` instead of
   relying on the heuristic.
 
