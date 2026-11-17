@@ -14,6 +14,7 @@ import (
 	"github.com/sustainable-computing-io/kepler/internal/service"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -34,6 +35,8 @@ type (
 		service.Initializer
 		service.Runner
 		LookupByContainerID(containerID string) (*ContainerInfo, bool, error)
+		// LookupContainerID returns the ID of the named container of a pod
+		LookupContainerID(namespace, podName, containerName string) (string, bool, error)
 	}
 
 	ContainerInfo struct {
@@ -245,6 +248,31 @@ func (pi *podInformer) LookupByContainerID(containerID string) (*ContainerInfo, 
 			ContainerName: containerName,
 		}, true, nil
 	}
+}
+
+// LookupContainerID retrieves the ID of the named container of a pod
+func (pi *podInformer) LookupContainerID(namespace, podName, containerName string) (string, bool, error) {
+	var pod corev1.Pod
+	key := client.ObjectKey{Namespace: namespace, Name: podName}
+	if err := pi.manager.GetCache().Get(context.Background(), key, &pod); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("error retrieving pod %s/%s from cache: %w", namespace, podName, err)
+	}
+
+	id := containerIDByName(&pod, containerName)
+	return id, id != "", nil
+}
+
+// containerIDByName returns the ID of the named regular container of the pod
+func containerIDByName(pod *corev1.Pod, containerName string) string {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name == containerName && status.ContainerID != "" {
+			return extractContainerID(status.ContainerID)
+		}
+	}
+	return ""
 }
 
 func getConfig(kubeConfigPath string) (*rest.Config, error) {

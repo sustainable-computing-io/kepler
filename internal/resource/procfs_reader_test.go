@@ -34,7 +34,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Environ").Return([]string{}, nil).Maybe()
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
 
-		process, err := newProcess(mockProc, cpuStat)
+		process, err := newProcess(mockProc, cpuStat, "")
 		require.NoError(t, err)
 		assert.NotNil(t, process)
 		assert.Equal(t, 12345, process.PID)
@@ -55,7 +55,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("CmdLine").Return([]string{"/bin/bash"}, nil).Maybe()
 		mockProc.On("Comm").Return("", assert.AnError)
 
-		process, err := newProcess(mockProc, cpuStat)
+		process, err := newProcess(mockProc, cpuStat, "")
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process comm")
@@ -69,7 +69,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Comm").Return("test-process", nil)
 		mockProc.On("Executable").Return("", errors.New("executable error"))
 
-		process, err := newProcess(mockProc, cpuStat)
+		process, err := newProcess(mockProc, cpuStat, "")
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process executable")
@@ -85,7 +85,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("CmdLine").Return([]string{"/usr/bin/test", "this", "out"}, nil).Maybe()
 		mockProc.On("Cgroups").Return([]cGroup{}, errors.New("cgroups error"))
 
-		process, err := newProcess(mockProc, cpuStat)
+		process, err := newProcess(mockProc, cpuStat, "")
 		assert.Error(t, err)
 		assert.Nil(t, process)
 		assert.ErrorContains(t, err, "failed to get process cgroups")
@@ -104,7 +104,7 @@ func TestNewProcess(t *testing.T) {
 		mockProc.On("Cgroups").Return([]cGroup{{Path: fmt.Sprintf("/sys/fs/cgroup/system.slice/docker-%s.scope", ctrID)}}, nil)
 		mockProc.On("Environ").Return([]string{"CONTAINER_NAME=test-container"}, nil)
 
-		process, err := newProcess(mockProc, cpuStat)
+		process, err := newProcess(mockProc, cpuStat, "")
 		require.NoError(t, err)
 		require.NotNil(t, process)
 		assert.Equal(t, 12345, process.PID)

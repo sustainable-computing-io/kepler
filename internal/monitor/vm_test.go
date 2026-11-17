@@ -194,6 +194,40 @@ func TestVMPowerCalculation(t *testing.T) {
 		resourceInformer.AssertExpectations(t)
 	})
 
+	t.Run("calculateVMPower keeps energy total on an idle interval", func(t *testing.T) {
+		testData := CreateTestVMs()
+		resourceInformer.On("Node").Return(testData.Node, nil).Maybe()
+		resourceInformer.On("VirtualMachines").Return(testData.VMs).Once()
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for id, vm := range testData.VMs.Running {
+			prevVM := newVM(vm, prevSnapshot.Node.Zones)
+			for _, zone := range zones {
+				prevVM.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.VirtualMachines[id] = prevVM
+		}
+
+		// No active energy on the node this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculateVMPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.VirtualMachines, len(testData.VMs.Running))
+		for id, vm := range newSnapshot.VirtualMachines {
+			for _, zone := range zones {
+				usage := vm.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "vm %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "vm %s zone %s", id, zone.Name())
+			}
+		}
+
+		resourceInformer.AssertExpectations(t)
+	})
+
 	t.Run("calculateVMPower without VMs", func(t *testing.T) {
 		prevSnapshot := NewSnapshot()
 		newSnapshot := NewSnapshot()

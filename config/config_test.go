@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 )
@@ -314,6 +315,16 @@ func TestInvalidConfigurationValues(t *testing.T) {
 			},
 		},
 		error: "kube.node-name not supplied but kube.enable set to true",
+	}, {
+		name: "kube enabled, pod name without namespace",
+		config: &Config{
+			Kube: Kube{
+				Enabled: ptr.To(true),
+				Node:    "node",
+				PodName: "kepler-abcde",
+			},
+		},
+		error: "kube.pod-name and kube.pod-namespace must be supplied together",
 	}, {
 		name: "invalid podInformer mode",
 		config: &Config{
@@ -2535,6 +2546,37 @@ experimental:
 		assert.NotNil(t, cfg.Experimental)
 		assert.Equal(t, 45.5, cfg.Experimental.GPU.IdlePower)
 	})
+
+	t.Run("gpu metrics cache TTL via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+    metricsCacheTTL: 500ms
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.True(t, cfg.IsFeatureEnabled(ExperimentalGPUFeature))
+		assert.NotNil(t, cfg.Experimental)
+		assert.NotNil(t, cfg.Experimental.GPU.MetricsCacheTTL)
+		assert.Equal(t, 500*time.Millisecond, *cfg.Experimental.GPU.MetricsCacheTTL)
+	})
+
+	t.Run("gpu metrics cache disabled via yaml", func(t *testing.T) {
+		yamlData := `
+experimental:
+  gpu:
+    enabled: true
+    metricsCacheTTL: 0s
+`
+		reader := strings.NewReader(yamlData)
+		cfg, err := Load(reader)
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.Experimental)
+		assert.NotNil(t, cfg.Experimental.GPU.MetricsCacheTTL)
+		assert.Equal(t, time.Duration(0), *cfg.Experimental.GPU.MetricsCacheTTL)
+	})
 }
 
 func TestValidateExperimentalConfig(t *testing.T) {
@@ -2609,6 +2651,17 @@ func TestValidateExperimentalConfig(t *testing.T) {
 			},
 		},
 		expectedErrors: []string{"unreadable Redfish config file"},
+	}, {
+		name: "gpu metrics cache TTL negative",
+		config: &Config{
+			Experimental: &Experimental{
+				GPU: ExperimentalGPU{
+					Enabled:         ptr.To(true),
+					MetricsCacheTTL: ptr.To(-time.Second),
+				},
+			},
+		},
+		expectedErrors: []string{"invalid gpu metrics cache TTL"},
 	}}
 
 	for _, tc := range tests {
@@ -2630,6 +2683,92 @@ func TestValidateExperimentalConfig(t *testing.T) {
 				}
 				assert.True(t, found, "Expected error containing '%s' not found in: %v", expectedErr, errors)
 			}
+		})
+	}
+}
+
+func TestKubeSelfContainerFlags(t *testing.T) {
+	app := kingpin.New("test", "Test application")
+	updateConfig := RegisterFlags(app)
+	_, err := app.Parse([]string{"--kube.pod-name", "kepler-abcde", "--kube.pod-namespace", "kepler-system", "--kube.container-name", "agent"})
+	assert.NoError(t, err)
+
+	cfg := DefaultConfig()
+	assert.Equal(t, "kepler", cfg.Kube.ContainerName)
+	assert.NoError(t, updateConfig(cfg))
+	assert.Equal(t, "kepler-abcde", cfg.Kube.PodName)
+	assert.Equal(t, "kepler-system", cfg.Kube.PodNamespace)
+	assert.Equal(t, "agent", cfg.Kube.ContainerName)
+}
+
+func TestRedfishHTTPTimeoutDefault(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "redfish-config-*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_, err = tmpFile.WriteString("# dummy redfish config\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	redfishYAML := func(extra string) string {
+		return fmt.Sprintf(`
+experimental:
+  platform:
+    redfish:
+      enabled: true
+      configFile: %s
+      nodeName: n1
+%s`, tmpFile.Name(), extra)
+	}
+
+	t.Run("yaml without httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("")))
+		require.NoError(t, err)
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("yaml with httpTimeout", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("      httpTimeout: 10s\n")))
+		require.NoError(t, err)
+		assert.Equal(t, 10*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("explicit zero httpTimeout falls back to default", func(t *testing.T) {
+		cfg, err := Load(strings.NewReader(redfishYAML("      httpTimeout: 0s\n")))
+		require.NoError(t, err)
+		assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
+	})
+
+	t.Run("negative httpTimeout is rejected", func(t *testing.T) {
+		_, err := Load(strings.NewReader(redfishYAML("      httpTimeout: -1s\n")))
+		assert.ErrorContains(t, err, "httpTimeout")
+	})
+
+	for name, yaml := range map[string]string{
+		"gpu enabled": `
+experimental:
+  gpu:
+    enabled: true
+`,
+		"hwmon forceEnabled": `
+experimental:
+  hwmon:
+    forceEnabled: true
+`,
+	} {
+		t.Run("redfish flags after "+name+" in yaml", func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(yaml))
+			require.NoError(t, err)
+
+			app := kingpin.New("test", "Test application")
+			updateConfig := RegisterFlags(app)
+			_, err = app.Parse([]string{
+				"--experimental.platform.redfish.enabled",
+				"--experimental.platform.redfish.config-file=" + tmpFile.Name(),
+				"--experimental.platform.redfish.node-name=n1",
+			})
+			require.NoError(t, err)
+			require.NoError(t, updateConfig(cfg))
+			assert.Equal(t, 5*time.Second, cfg.Experimental.Platform.Redfish.HTTPTimeout)
 		})
 	}
 }

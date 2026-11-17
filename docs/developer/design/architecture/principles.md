@@ -225,11 +225,11 @@ exporter:
 
 | Level         | Status | Metrics                                   | Benefits                       |
 |---------------|--------|-------------------------------------------|--------------------------------|
-| **Node**      | ✅      | `kepler_node_cpu_watts{zone="package"}`   | System-level monitoring        |
+| **Node**      | ✅     | `kepler_node_cpu_watts{zone="package"}`   | System-level monitoring        |
 | **Process**   | 🔄     | `kepler_process_cpu_watts{pid="1234"}`    | Fine-grained analysis          |
 | **Container** | 🔄     | `kepler_container_cpu_watts{id="abc123"}` | Container-level billing        |
 | **VM**        | 🔄     | `kepler_vm_cpu_watts{id="vm-123"}`        | Virtualization monitoring      |
-| **Pod**       | ✅      | `kepler_pod_cpu_watts{pod="webapp"}`      | Kubernetes workload monitoring |
+| **Pod**       | ✅     | `kepler_pod_cpu_watts{pod="webapp"}`      | Kubernetes workload monitoring |
 
 ### Configuration Benefits
 

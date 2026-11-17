@@ -162,7 +162,7 @@ monitor:
 - `kepler_node_cpu_usage_ratio` - CPU utilization (0.0 to 1.0)
 - `kepler_node_cpu_info` - CPU hardware information
 - `kepler_node_gpu_watts` - Total GPU power (a real GPU, or the fake GPU with `-gpu.fake`)
-- `kepler_node_gpu_active_watts` / `kepler_node_gpu_idle_watts` - Active and idle GPU power (under load on a real GPU, idle with the fake GPU)
+- `kepler_node_gpu_active_watts` / `kepler_node_gpu_idle_watts` - Active and idle GPU power (under load on a real GPU; with `-gpu.fake`, idle until a stress-ng workload whose cwd matches `KEPLER_FAKE_GPU_WORKLOAD_DIR` is running)
 - `kepler_node_gpu_info` - GPU device information
 
 GPU tests require GPU metrics to be enabled, as in both e2e configurations.
@@ -173,7 +173,7 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 - `kepler_process_cpu_joules_total` - Per-process energy
 - `kepler_process_cpu_watts` - Per-process power
 - `kepler_process_cpu_seconds_total` - Per-process CPU time
-- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (real GPU only)
+- `kepler_process_gpu_watts` / `kepler_container_gpu_watts` - GPU power of a GPU load's process and container (real GPU, or process series on the fake GPU once a stress-ng workload in `KEPLER_FAKE_GPU_WORKLOAD_DIR` is running)
 
 ### Energy Conservation Invariants
 
@@ -192,13 +192,13 @@ Custom configurations passed through `-kepler.config` must also enable GPU metri
 
 ## What Is NOT Covered (and Why)
 
-| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                            |
-|----------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------|
-| GPU pod metrics            | Needs Kubernetes; GPU process and container metrics need a real GPU      | Unit tests in `internal/monitor/`; Phase 2: fake-gpu K8s e2e |
-| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`                  |
-| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                   |
-| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                      |
-| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`                |
+| Feature                    | Reason Not Tested in Bare-Metal E2E                                      | Where It's Tested                                         |
+|----------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------|
+| GPU pod metrics            | Needs Kubernetes; fake-GPU container/pod GPU series are a follow-up      | Unit tests in `internal/monitor/`; later fake-gpu K8s e2e |
+| VM metrics (`kepler_vm_*`) | Requires libvirt/hypervisor not available in test environment            | Unit tests in `internal/monitor/vm_test.go`               |
+| Redfish platform metrics   | Requires BMC hardware access not available in CI/dev environments        | Unit tests in `internal/platform/redfish/`                |
+| Metrics level filtering    | Low priority; config parsing is unit tested; e2e uses full metrics level | Unit tests in `config/`                                   |
+| pprof debug endpoints      | Debug feature with low e2e value                                         | Unit tests in `internal/server/pprof_test.go`             |
 
 > **Note**: Container and Pod metrics are tested in the [Kubernetes E2E tests](#kubernetes-e2e-tests) which run against a real cluster.
 
@@ -310,6 +310,42 @@ make test-e2e-k8s
 # Cleanup
 make undeploy cluster-down
 ```
+
+### Helm Validation
+
+`hack/test-helm.sh` is used locally and by the Kubernetes CI action. It provides
+chart linting, a fresh installation of the checked-out chart and candidate image,
+and upgrades from the released v0.12.0 chart and image with both default behavior
+and `--reuse-values`. Each deployment case uses its own namespace and shares
+rollout validation, container/pod metrics checks, and `/proc` permission checks.
+The fake CPU meter allows these tests to run without RAPL hardware.
+
+The `lint` command needs no cluster. With no command, the script runs all checks.
+
+```bash
+./hack/test-helm.sh lint
+./hack/test-helm.sh install
+./hack/test-helm.sh upgrade
+./hack/test-helm.sh all
+```
+
+With Docker, Kind, Helm, kubectl, and curl installed, run from the project root:
+
+```bash
+make cluster-up
+make image push IMG_BASE=localhost:5001 VERSION=dev
+./hack/test-helm.sh all
+make cluster-down
+```
+
+The script uses the current kubectl context and honors `KUBECONFIG`. For an
+existing cluster, make the candidate image available to its nodes and set
+`IMG_BASE` and `VERSION` to match. Run `./hack/test-helm.sh --help` for all
+options, including the baseline version and local metrics port.
+
+On exit, the script collects diagnostics and removes its releases, namespaces,
+port-forward process, and temporary files. It refuses to reuse an existing test
+namespace and leaves the cluster running.
 
 ## Troubleshooting
 

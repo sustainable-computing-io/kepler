@@ -193,6 +193,41 @@ func TestContainerPowerCalculation(t *testing.T) {
 		resInformer.AssertExpectations(t)
 	})
 
+	t.Run("calculateContainerPower keeps energy total on an idle interval", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testNode, testContainers))
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for id, c := range tr.Containers.Running {
+			prevCntr := newContainer(c, prevSnapshot.Node.Zones)
+			for _, zone := range zones {
+				prevCntr.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.Containers[id] = prevCntr
+		}
+
+		// No active energy on the node this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.Containers, len(tr.Containers.Running))
+		for id, cntr := range newSnapshot.Containers {
+			for _, zone := range zones {
+				usage := cntr.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "container %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "container %s zone %s", id, zone.Name())
+			}
+		}
+
+		resInformer.AssertExpectations(t)
+	})
+
 	t.Run("calculateContainerPower without containers", func(t *testing.T) {
 		resInformer.ClearExpectations()
 

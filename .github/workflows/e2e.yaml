@@ -6,6 +6,11 @@ on: # yamllint disable-line rule:truthy
 # default permissions as read only
 permissions: read-all
 
+# cancel superseded runs so they don't hold the self-hosted runner
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-changes:
     runs-on: ubuntu-latest
@@ -16,7 +21,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: filter changes
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -52,6 +57,12 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 make test-e2e
+
+      - name: Install e2e dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y stress-ng
 
       - name: Run e2e tests
         shell: bash

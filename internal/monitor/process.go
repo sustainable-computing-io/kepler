@@ -6,6 +6,7 @@ package monitor
 import (
 	"fmt"
 
+	"github.com/sustainable-computing-io/kepler/internal/device/gpu"
 	"github.com/sustainable-computing-io/kepler/internal/resource"
 )
 
@@ -123,6 +124,8 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	// Get GPU power attribution from all GPU meters
 	gpuPowerByPID := make(map[uint32]float64)
+	// Part of gpuPowerByPID read after the process exited, which goes to the exited process.
+	gpuTailByPID := make(map[uint32]float64)
 	if len(pm.gpuMeters) > 0 {
 		var gpuStats []GPUDeviceStats
 		for _, meter := range pm.gpuMeters {
@@ -137,6 +140,11 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// so there's no PID overlap between meters.
 			for pid, watts := range power {
 				gpuPowerByPID[pid] = watts
+			}
+			if reporter, ok := meter.(gpu.TailPowerReporter); ok {
+				for pid, watts := range reporter.GetProcessTailPower() {
+					gpuTailByPID[pid] = watts
+				}
 			}
 
 			// Collect GPU device stats for debugging/monitoring
@@ -173,6 +181,36 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 	procs := pm.resources.Processes()
 
+	// PIDs whose tail went to their terminated record, so a running process that reuses the PID
+	// does not get it too.
+	tailGiven := make(map[uint32]bool)
+
+	// freeze adds a process that ended to the terminated tracker.
+	freeze := func(prevProcess *Process, pid uint32) {
+		terminated := prevProcess.Clone()
+
+		// GPU meters attribute the power read on the first collection after a GPU process
+		// exits to that process, since the GPU stays clocked up for a few seconds after it
+		// ends. Add it here, before the tracker freezes the record, even if the PID is
+		// already running again: the meter reports it apart from the new process's power.
+		if gpuPower, hasTail := gpuTailByPID[pid]; hasTail && !tailGiven[pid] {
+			tailGiven[pid] = true
+			terminated.GPUPower = gpuPower
+			var energy Energy
+			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
+			if gpuPower > 0 && timeDelta > 0 {
+				energy = Energy(gpuPower * timeDelta * float64(Joule))
+				terminated.GPUEnergyTotal += energy
+			}
+			// The owning container, and its pod, get the same power and energy.
+			addGPUTail(&newSnapshot.gpuTailByContainer, terminated.ContainerID, gpuPower, energy)
+		}
+
+		// Add to internal tracker (which will handle priority-based retention)
+		// Each lifetime is retained separately, even when the PID is reused before export.
+		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), terminated)
+	}
+
 	pm.logger.Debug("Processing terminated processes", "terminated", len(procs.Terminated))
 	for pid := range procs.Terminated {
 		pidStr := fmt.Sprintf("%d", pid)
@@ -180,10 +218,7 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		if !exists {
 			continue
 		}
-
-		// Add to internal tracker (which will handle priority-based retention)
-		// Each lifetime is retained separately, even when the PID is reused before export.
-		pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
+		freeze(prevProcess, uint32(pid))
 	}
 
 	running := procs.Running
@@ -210,13 +245,24 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 		// A failed collection can consume the informer's PID-reuse notification.
 		if prevProcess := prev.Processes[pid]; prevProcess != nil && prevProcess.StartTime != process.StartTime {
 			if _, terminated := procs.Terminated[proc.PID]; !terminated {
-				pm.terminatedProcessesTracker.addWithID(prevProcess.lifetimeID(), prevProcess.Clone())
+				freeze(prevProcess, uint32(proc.PID))
 			}
 		}
 
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
+			// Accumulate CPU energy only for the same process identity.
+			var prevEnergy Energy
+			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Nothing to attribute this interval, but keep the running total
+			// so the exported counter does not reset.
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				process.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
@@ -224,23 +270,18 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			// Calculate energy  for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Accumulate CPU energy only for the same process identity.
-			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
-
 			// Calculate process's share of this zone's power and energy
 			process.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 			}
 		}
 
 		// Add GPU power attribution if available
 		if gpuPower, hasGPU := gpuPowerByPID[uint32(proc.PID)]; hasGPU {
+			if tailGiven[uint32(proc.PID)] {
+				gpuPower = max(gpuPower-gpuTailByPID[uint32(proc.PID)], 0)
+			}
 			process.GPUPower = gpuPower
 		}
 

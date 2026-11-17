@@ -29,6 +29,7 @@ data:
     exporter:
       stdout:
         enabled: false
+        interval: 2s # Power table refresh interval; must be greater than zero
       prometheus:
         enabled: true
         debugCollectors:
@@ -50,6 +51,9 @@ data:
       enabled: false
       config: ""
       nodeName: ""
+      podName: ""
+      podNamespace: ""
+      containerName: kepler
       podInformer:
         mode: kubelet          # "kubelet" (default) or "apiserver"
         pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
@@ -78,3 +82,4 @@ data:
         enabled: false
         idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
         dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+        metricsCacheTTL: 2s # dcgm-exporter metrics cache TTL for MIG (0s disables cache)

@@ -25,6 +25,28 @@ Which zones are exported depends entirely on what the hardware and the kernel ex
 
 Some zones overlap and therefore zones should not be summed. `package` already contains `core`, `uncore`, and part of what `psys` covers. It is advised to filter on a single zone in queries, for example `kepler_node_cpu_watts{zone="package"}`.
 
+### DRAM Energy
+
+Kepler 0.10.0 and later has no separate DRAM metric. DRAM energy is the `dram` zone of the CPU metrics, at every level:
+
+```promql
+kepler_node_cpu_watts{zone="dram"}
+kepler_container_cpu_joules_total{zone="dram"}
+kepler_pod_cpu_watts{zone="dram"}
+```
+
+Kepler only reports energy that a hardware meter measures. It does not estimate DRAM energy when the machine does not report it, so on such machines there is no `zone="dram"` series at all. This is common: many client CPUs and AMD processors do not expose a DRAM domain, and virtual machines usually expose no RAPL domains.
+
+To check what a node reports, list the RAPL domain names on the host:
+
+```bash
+cat /sys/class/powercap/intel-rapl:*/name
+```
+
+If no line reads `dram`, Kepler cannot report DRAM energy on that node. If it does and the metrics still have no `dram` zone, check that `rapl.zones` in the [configuration](configuration.md) is empty or includes `dram`.
+
+Users upgrading from 0.9.x, where `kepler_container_joules_total` had a component per resource, can find what changed in [Upgrading from 0.9.x](https://sustainable-computing.io/blog/kepler-0-10-rewrite/).
+
 ## Metrics Reference
 
 ### Node Metrics

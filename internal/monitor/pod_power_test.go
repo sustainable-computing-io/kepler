@@ -172,6 +172,40 @@ func TestPodPowerCalculation(t *testing.T) {
 		}
 	})
 
+	t.Run("calculatePodPower_keeps_energy_total_on_idle_interval", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testPods, testNode))
+		require.NotNil(t, tr.Pods)
+		resInformer.SetExpectations(t, tr)
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for id, p := range tr.Pods.Running {
+			prevPod := newPod(p, prevSnapshot.Node.Zones)
+			for _, zone := range zones {
+				prevPod.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.Pods[id] = prevPod
+		}
+
+		// Node power is non-zero, but none of it is active this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculatePodPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.Pods, len(tr.Pods.Running))
+		for id, pod := range newSnapshot.Pods {
+			for _, zone := range zones {
+				usage := pod.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "pod %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "pod %s zone %s", id, zone.Name())
+			}
+		}
+	})
+
 	t.Run("calculatePodPower_without_pods", func(t *testing.T) {
 		resInformer.ClearExpectations()
 
@@ -388,6 +422,74 @@ func TestTerminatedPodTracking(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	fakeClock := testingclock.NewFakeClock(time.Now())
 	zones := CreateTestZones()
+
+	t.Run("last_pod_terminated_reaches_snapshot", func(t *testing.T) {
+		mockMeter := &MockCPUPowerMeter{}
+		mockMeter.On("Zones").Return(zones, nil)
+		mockMeter.On("PrimaryEnergyZone").Return(zones[0], nil)
+		resInformer := &MockResourceInformer{}
+
+		monitor := &PowerMonitor{
+			logger:        logger,
+			cpu:           mockMeter,
+			clock:         fakeClock,
+			resources:     resInformer,
+			maxTerminated: 500,
+		}
+		require.NoError(t, monitor.Init())
+
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+		for _, id := range []string{"pod-1", "pod-2"} {
+			prevSnapshot.Pods[id] = &Pod{
+				ID:        id,
+				Name:      "test-" + id,
+				Namespace: "default",
+				Zones:     make(ZoneUsageMap, len(zones)),
+			}
+			for _, zone := range zones {
+				prevSnapshot.Pods[id].Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 15}
+			}
+		}
+
+		// Both pods on the node terminate in the same interval, so no pod is running.
+		pods := &resource.Pods{
+			Running: map[string]*resource.Pod{},
+			Terminated: map[string]*resource.Pod{
+				"pod-1": {ID: "pod-1", Name: "test-pod-1", Namespace: "default"},
+				"pod-2": {ID: "pod-2", Name: "test-pod-2", Namespace: "default"},
+			},
+		}
+		tr := CreateTestResources(createOnly(testNode))
+		resInformer.On("Node").Return(tr.Node, nil)
+		resInformer.On("Pods").Return(pods)
+
+		fakeClock.Step(time.Second * 2)
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+
+		require.NoError(t, monitor.calculatePodPower(prevSnapshot, newSnapshot))
+
+		// TerminatedPods is not filled in by hand here: calculatePodPower must do it.
+		assert.Empty(t, newSnapshot.Pods)
+		require.Len(t, newSnapshot.TerminatedPods, 2)
+		for _, id := range []string{"pod-1", "pod-2"} {
+			require.Contains(t, newSnapshot.TerminatedPods, id)
+			for zone, usage := range newSnapshot.TerminatedPods[id].Zones {
+				assert.Equal(t, 25*Joule, usage.EnergyTotal, "%s zone %s", id, zone.Name())
+			}
+		}
+
+		// Once exported, the next collection clears the tracker and does not export them again.
+		monitor.exported.Store(true)
+		pods.Terminated = map[string]*resource.Pod{}
+		fakeClock.Step(time.Second * 2)
+		nextSnapshot := NewSnapshot()
+		nextSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.7)
+
+		require.NoError(t, monitor.calculatePodPower(newSnapshot, nextSnapshot))
+		assert.Empty(t, nextSnapshot.TerminatedPods)
+	})
 
 	t.Run("terminated_pod_energy_accumulation", func(t *testing.T) {
 		mockMeter := &MockCPUPowerMeter{}

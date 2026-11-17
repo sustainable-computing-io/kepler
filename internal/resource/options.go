@@ -18,6 +18,15 @@ type Options struct {
 	procFSPath  string
 	procReader  allProcReader
 	podInformer pod.Informer
+
+	selfContainer *SelfContainer
+}
+
+// SelfContainer identifies the container kepler runs in
+type SelfContainer struct {
+	Namespace     string
+	PodName       string
+	ContainerName string
 }
 
 // OptionFn is a function that configures the Options
@@ -41,6 +50,14 @@ func WithProcReader(r allProcReader) OptionFn {
 func WithPodInformer(pi pod.Informer) OptionFn {
 	return func(o *Options) {
 		o.podInformer = pi
+	}
+}
+
+// WithSelfContainer sets the container kepler runs in, so that processes in its
+// cgroup namespace root are attributed to that container
+func WithSelfContainer(sc SelfContainer) OptionFn {
+	return func(o *Options) {
+		o.selfContainer = &sc
 	}
 }
 

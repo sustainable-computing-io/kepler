@@ -54,6 +54,15 @@ func skipIfNoStressNG(t *testing.T) {
 	}
 }
 
+// requireStressNG fails the test if stress-ng is not available.
+func requireStressNG(t *testing.T) {
+	t.Helper()
+
+	if _, err := exec.LookPath(StressNGBinary); err != nil {
+		t.Fatalf("stress-ng is required when -gpu.fake is set (install: apt-get install stress-ng): %v", err)
+	}
+}
+
 // skipIfRAPLNotReadable skips the test if RAPL energy values are not readable
 func skipIfRAPLNotReadable(t *testing.T) {
 	t.Helper()
@@ -85,6 +94,7 @@ type KeplerInstance struct {
 	binaryPath string
 	port       int
 	logOutput  io.Writer
+	env        []string
 }
 
 // keplerOption configures KeplerInstance
@@ -98,6 +108,13 @@ func withLogOutput(w io.Writer) keplerOption {
 // withConfig sets the Kepler config file
 func withConfig(path string) keplerOption {
 	return func(k *KeplerInstance) { k.configPath = path }
+}
+
+// withEnv appends environment variables to the Kepler process.
+func withEnv(env ...string) keplerOption {
+	return func(k *KeplerInstance) {
+		k.env = append(k.env, env...)
+	}
 }
 
 // startKepler starts Kepler and registers cleanup
@@ -145,6 +162,9 @@ func (k *KeplerInstance) start(t *testing.T) error {
 	}
 
 	k.cmd = exec.Command(binaryPath, args...)
+	if len(k.env) > 0 {
+		k.cmd.Env = append(os.Environ(), k.env...)
+	}
 
 	stdout, _ := k.cmd.StdoutPipe()
 	stderr, _ := k.cmd.StderrPipe()
@@ -259,6 +279,7 @@ type workloadConfig struct {
 	name       string
 	cpuWorkers int
 	cpuLoad    int
+	dir        string
 }
 
 // WithWorkloadName sets workload name
@@ -274,6 +295,11 @@ func WithCPUWorkers(n int) workloadOption {
 // WithCPULoad sets CPU load percentage
 func WithCPULoad(percent int) workloadOption {
 	return func(c *workloadConfig) { c.cpuLoad = percent }
+}
+
+// WithWorkDir sets the working directory for the stress-ng process.
+func WithWorkDir(dir string) workloadOption {
+	return func(c *workloadConfig) { c.dir = dir }
 }
 
 // StartWorkload starts a stress workload
@@ -295,6 +321,7 @@ func StartWorkload(t *testing.T, opts ...workloadOption) *Workload {
 
 	cmd := exec.Command(StressNGBinary, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Dir = cfg.dir
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start stress-ng: %v", err)
@@ -424,28 +451,54 @@ func WaitForValidCPUMetrics(t *testing.T, scraper *common.MetricsScraper, timeou
 	return true
 }
 
-// WaitForProcessInMetrics waits for a process to appear in metrics
-func WaitForProcessInMetrics(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) bool {
+func waitForMatchingMetric(
+	t *testing.T,
+	scraper *common.MetricsScraper,
+	pid int,
+	metricName string,
+	interval time.Duration,
+	timeout time.Duration,
+	match func(common.Metric) bool,
+) (common.Metric, bool) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	pidStr := strconv.Itoa(pid)
+	var matchedMetric common.Metric
 
-	err := common.WaitForCondition(ctx, 1*time.Second, func() bool {
-		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_watts")
+	err := common.WaitForCondition(ctx, interval, func() bool {
+		metrics, err := scraper.ScrapeMetric(metricName)
 		if err != nil {
 			return false
 		}
 		for _, m := range metrics {
-			if m.Labels["pid"] == pidStr {
+			if m.Labels["pid"] == pidStr && match(m) {
+				matchedMetric = m
 				return true
 			}
 		}
 		return false
 	})
 	if err != nil {
+		return common.Metric{}, false
+	}
+
+	return matchedMetric, true
+}
+
+// WaitForProcessInMetrics waits for a process to appear in metrics
+func WaitForProcessInMetrics(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) bool {
+	t.Helper()
+
+	// There is no specific match condition for this function, so just return true if the metric is found
+	match := func(m common.Metric) bool {
+		return true
+	}
+
+	_, found := waitForMatchingMetric(t, scraper, pid, "kepler_process_cpu_watts", 1*time.Second, timeout, match)
+	if !found {
 		return false
 	}
 
@@ -457,42 +510,20 @@ func WaitForProcessInMetrics(t *testing.T, scraper *common.MetricsScraper, pid i
 func WaitForNonZeroProcessPower(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) (float64, bool) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	pidStr := strconv.Itoa(pid)
-	var foundPower float64
-
-	err := common.WaitForCondition(ctx, 1*time.Second, func() bool {
-		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_watts")
-		if err != nil {
-			return false
-		}
-		for _, m := range metrics {
-			if m.Labels["pid"] == pidStr && m.Value > 0 {
-				foundPower = m.Value
-				return true
-			}
-		}
-		return false
-	})
-	if err != nil {
-		return 0, false
+	// Since there was a match condition for this function, this checks if the metric value is greater than zero
+	match := func(m common.Metric) bool {
+		return m.Value > 0
 	}
 
-	return foundPower, true
+	metric, found := waitForMatchingMetric(t, scraper, pid, "kepler_process_cpu_watts", 1*time.Second, timeout, match)
+	return metric.Value, found
 }
 
 // FindWorkloadPower searches for a workload's power in a metrics snapshot.
+// It sums running kepler_process_cpu_watts over worker children only, never
+// the stress-ng parent.
 func FindWorkloadPower(snapshot *common.MetricsSnapshot, w *Workload) (power float64, found bool) {
 	processMetrics := snapshot.GetAllWithName("kepler_process_cpu_watts")
-
-	parentPIDStr := strconv.Itoa(w.ParentPID())
-	for _, m := range processMetrics {
-		if m.Labels["pid"] == parentPIDStr && m.Labels["state"] == "running" && m.Value > 0 {
-			return m.Value, true
-		}
-	}
 
 	for _, pid := range w.PIDs() {
 		pidStr := strconv.Itoa(pid)
@@ -510,29 +541,16 @@ func FindWorkloadPower(snapshot *common.MetricsSnapshot, w *Workload) (power flo
 func WaitForTerminatedProcess(t *testing.T, scraper *common.MetricsScraper, pid int, timeout time.Duration) (energy float64, found bool) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// Since there was a match condition for this function, this checks if the metric has the label state=terminated
+	match := func(m common.Metric) bool {
+		return m.Labels["state"] == "terminated"
+	}
 
-	pidStr := strconv.Itoa(pid)
-
-	err := common.WaitForCondition(ctx, 2*time.Second, func() bool {
-		metrics, err := scraper.ScrapeMetric("kepler_process_cpu_joules_total")
-		if err != nil {
-			return false
-		}
-		for _, m := range metrics {
-			if m.Labels["pid"] == pidStr && m.Labels["state"] == "terminated" {
-				energy = m.Value
-				found = true
-				return true
-			}
-		}
-		return false
-	})
-	if err != nil {
+	metric, found := waitForMatchingMetric(t, scraper, pid, "kepler_process_cpu_joules_total", 2*time.Second, timeout, match)
+	if !found {
 		return 0, false
 	}
 
-	t.Logf("Found terminated PID=%d with energy=%.4f J", pid, energy)
-	return energy, true
+	t.Logf("Found terminated PID=%d with energy=%.4f J", pid, metric.Value)
+	return metric.Value, true
 }

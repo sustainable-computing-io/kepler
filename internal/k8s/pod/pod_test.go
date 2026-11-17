@@ -14,8 +14,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -430,4 +433,60 @@ func TestSlogLevelToZapLevel(t *testing.T) {
 		result := slogLevelToZapLevel(tc.input)
 		assert.Equal(t, tc.expected, result, "Conversion failed for slog level: %v", tc.input)
 	}
+}
+
+func TestLookupContainerID(t *testing.T) {
+	newInformer := func(getErr error, pod corev1.Pod) *podInformer {
+		pi := NewInformer()
+		mockMgr := &mockManager{}
+		pi.manager = mockMgr
+		mockCache := &mockCache{}
+		mockMgr.On("GetCache").Return(mockCache)
+		mockCache.On("Get", mock.Anything, types.NamespacedName{Namespace: "kepler-system", Name: "kepler-abcde"}, mock.Anything).
+			Return(getErr).Run(func(args mock.Arguments) {
+			if getErr == nil {
+				*args.Get(2).(*corev1.Pod) = pod
+			}
+		})
+		return pi
+	}
+
+	pod := corev1.Pod{
+		Status: corev1.PodStatus{
+			ContainerStatuses: []corev1.ContainerStatus{
+				{Name: "sidecar", ContainerID: "containerd://sidecar-id"},
+				{Name: "kepler", ContainerID: "containerd://kepler-id"},
+				{Name: "pending"},
+			},
+		},
+	}
+
+	t.Run("container found", func(t *testing.T) {
+		id, found, err := newInformer(nil, pod).LookupContainerID("kepler-system", "kepler-abcde", "kepler")
+		assert.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "kepler-id", id)
+	})
+	t.Run("container without an id yet", func(t *testing.T) {
+		id, found, err := newInformer(nil, pod).LookupContainerID("kepler-system", "kepler-abcde", "pending")
+		assert.NoError(t, err)
+		assert.False(t, found)
+		assert.Empty(t, id)
+	})
+	t.Run("no such container", func(t *testing.T) {
+		_, found, err := newInformer(nil, pod).LookupContainerID("kepler-system", "kepler-abcde", "other")
+		assert.NoError(t, err)
+		assert.False(t, found)
+	})
+	t.Run("pod not found", func(t *testing.T) {
+		notFound := apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "kepler-abcde")
+		_, found, err := newInformer(notFound, corev1.Pod{}).LookupContainerID("kepler-system", "kepler-abcde", "kepler")
+		assert.NoError(t, err)
+		assert.False(t, found)
+	})
+	t.Run("cache error", func(t *testing.T) {
+		_, found, err := newInformer(fmt.Errorf("boom"), corev1.Pod{}).LookupContainerID("kepler-system", "kepler-abcde", "kepler")
+		assert.ErrorContains(t, err, "boom")
+		assert.False(t, found)
+	})
 }

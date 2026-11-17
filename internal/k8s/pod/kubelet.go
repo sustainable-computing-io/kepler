@@ -288,3 +288,29 @@ func (i *kubeletPodInformer) LookupByContainerID(containerID string) (*Container
 	}
 	return info, true, nil
 }
+
+// LookupContainerID retrieves the ID of the named container of a pod from the cache.
+// If it is not found, it triggers an immediate refresh.
+func (i *kubeletPodInformer) LookupContainerID(namespace, podName, containerName string) (string, bool, error) {
+	find := func() (string, bool) {
+		i.mu.RLock()
+		defer i.mu.RUnlock()
+		for id, info := range i.cache {
+			if info.Namespace == namespace && info.PodName == podName && info.ContainerName == containerName {
+				return id, true
+			}
+		}
+		return "", false
+	}
+
+	if id, found := find(); found {
+		return id, true, nil
+	}
+
+	if err := i.refresh(context.Background()); err != nil {
+		i.logger.Warn("on-demand refresh failed", "error", err)
+	}
+
+	id, found := find()
+	return id, found, nil
+}

@@ -96,9 +96,18 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			continue
 		}
 
+		// Add GPU power read after the container's processes exited (see calculateProcessPower)
+		// before the tracker freezes the record. Its pod gets it from gpuTailByPod.
+		terminated := prevContainer.Clone()
+		if tail, ok := newSnapshot.gpuTailByContainer[id]; ok {
+			terminated.GPUPower = tail.power
+			terminated.GPUEnergyTotal += tail.energy
+			addGPUTail(&newSnapshot.gpuTailByPod, terminated.PodID, tail.power, tail.energy)
+		}
+
 		// Add to internal tracker (which will handle priority-based retention)
 		// NOTE: Each terminated container is only added once since a container cannot be terminated twice
-		pm.terminatedContainersTracker.Add(prevContainer.Clone())
+		pm.terminatedContainersTracker.Add(terminated)
 	}
 
 	// process running containers
@@ -124,8 +133,18 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 
 		// For each zone in the node, calculate container's share
 		for zone, nodeZoneUsage := range zones {
-			// Skip zones with zero power to avoid division by zero
+			// Previous total for this zone; a new container starts from zero
+			var prevEnergy Energy
+			if prev, exists := prev.Containers[id]; exists {
+				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
+					prevEnergy = prevUsage.EnergyTotal
+				}
+			}
+
+			// Skip zones with zero power to avoid division by zero, but keep
+			// the running total so the exported counter does not reset.
 			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
+				container.Zones[zone] = Usage{EnergyTotal: prevEnergy}
 				continue
 			}
 
@@ -134,19 +153,10 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 			// Calculate energy delta for this interval
 			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
 
-			// Calculate absolute energy based on previous data
-			// New container, starts with delta
-			absoluteEnergy := activeEnergy
-			if prev, exists := prev.Containers[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					absoluteEnergy += prevUsage.EnergyTotal
-				}
-			}
-
 			// Calculate container's share of this zone's power and energy
 			container.Zones[zone] = Usage{
 				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: absoluteEnergy,
+				EnergyTotal: prevEnergy + activeEnergy,
 			}
 		}
 
@@ -165,6 +175,15 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 				energy -= min(energy, prevProcess.GPUEnergyTotal)
 			}
 			container.GPUEnergyTotal += energy
+		}
+	}
+
+	// Running containers also get the power read after one of their processes exited. Their
+	// pods pick it up with the rest of the container's energy.
+	for id, tail := range newSnapshot.gpuTailByContainer {
+		if container, ok := containerMap[id]; ok {
+			container.GPUPower += tail.power
+			container.GPUEnergyTotal += tail.energy
 		}
 	}
 

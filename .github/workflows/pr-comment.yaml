@@ -42,7 +42,7 @@ jobs:
 
       - name: Comment on PR
         if: steps.download-artifact.outcome == 'success' && steps.extract-pr.outputs.pr-number != ''
-        uses: thollander/actions-comment-pull-request@v3
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
           file-path: ${{ steps.extract-pr.outputs.message-file }}
           github-token: ${{ secrets.GITHUB_TOKEN }}

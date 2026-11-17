@@ -407,7 +407,7 @@ func TestProbeEndToEnd(t *testing.T) {
 	go func() { serverDone <- apiServer.Run(ctx) }()
 	t.Cleanup(func() {
 		cancel()
-		<-serverDone
+		assert.NoError(t, <-serverDone)
 		_ = apiServer.Shutdown()
 	})
 
