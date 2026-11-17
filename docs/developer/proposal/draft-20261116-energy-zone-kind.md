@@ -341,7 +341,12 @@ No new or changed metrics.
   - **Mitigation**: Zones split by kind get distinct names. When a label is shared
     by an energy and a power sensor, the zone built from the power sensor gets a
     kind suffix, for example `core_power`, and the energy zone keeps the bare label.
-    A test builds both kinds from one label and checks that the names differ. The
+    hwmon labels can already end in `_power`, so the suffixed name also has to be
+    unique among all zone names. If it clashes with another zone, the chip name from
+    the hwmon `name` file is added, for example `core_power_<chip>`, and the hwmon
+    index after that if two chips share a name. A test builds both kinds from one
+    label and checks that the names differ, and another adds a power sensor already
+    labelled `core_power` and checks that every zone name is unique. The
     old aggregation produces a zone whose `Energy()` and `Power()` both fail for at
     least one member, so it can't report correctly today. The release note calls
     out the new zone names.
