@@ -48,11 +48,7 @@ kind depends on the value just read.
 3. **Every zone is read twice per cycle.** One read always fails, which builds an
    error that is thrown away. The unsupported method returns a constant error and
    doesn't touch sysfs, so the cost is the discarded error, not an extra read.
-4. **The extra read is not side-effect free.** `AggregatedZone.Energy()` advances its
-   per-member `lastReadings` and its aggregated counter on every call. It's only
-   correct as long as the monitor calls it exactly once per cycle, which is true
-   today by accident of the call order rather than by contract.
-5. **New meters have no clear contract.** The IIO power meter for Jetson (#2438) and
+4. **New meters have no clear contract.** The IIO power meter for Jetson (#2438) and
    the MSR fallback (EP-002) each have to implement both methods and rely on the
    heuristic classifying them correctly.
 
