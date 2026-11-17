@@ -279,6 +279,53 @@ func TestFakeNVMLDevice_EnergyMonitorOrder(t *testing.T) {
 	assert.Equal(t, 675*device.Joule, afterLoad-afterIdle, "load interval must be integrated at 225 W")
 }
 
+func TestFakeNVMLDevice_PIDSourceLoadThenIdle(t *testing.T) {
+	now := time.Unix(1_000, 0)
+	src := &stubPIDSource{}
+	dev := &FakeNVMLDevice{
+		IdlePower: 40 * device.Watt,
+		LoadPower: 225 * device.Watt,
+		PIDSource: src,
+		UtilizationTemplate: []gpu.ProcessUtilization{
+			{ComputeUtil: 80},
+			{ComputeUtil: 20},
+		},
+		now: func() time.Time { return now },
+	}
+
+	src.set(1001, 1002)
+	baseline, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	procs, err := dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	require.Len(t, procs, 2)
+	utils, err := dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+	require.Len(t, utils, 2)
+
+	now = now.Add(3 * time.Second)
+	src.set()
+
+	power, err := dev.GetPowerUsage()
+	require.NoError(t, err)
+	assert.Equal(t, 40*device.Watt, power)
+	procs, err = dev.GetComputeRunningProcesses()
+	require.NoError(t, err)
+	assert.Empty(t, procs, "processes must be cleared once the workers exit")
+	utils, err = dev.GetProcessUtilization(0)
+	require.NoError(t, err)
+	assert.Empty(t, utils, "utilization must be cleared once the workers exit")
+
+	afterLoad, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 675*device.Joule, afterLoad-baseline, "load interval must be integrated at 225 W")
+
+	now = now.Add(2 * time.Second)
+	afterIdle, err := dev.GetTotalEnergy()
+	require.NoError(t, err)
+	assert.Equal(t, 80*device.Joule, afterIdle-afterLoad, "idle interval must be integrated at 40 W")
+}
+
 func fakeCollectorDevice(mode ComputeMode, src PIDSource) *FakeNVMLDevice {
 	return &FakeNVMLDevice{
 		Idx:        0,
