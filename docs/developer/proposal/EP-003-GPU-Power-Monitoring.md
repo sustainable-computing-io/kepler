@@ -1,6 +1,6 @@
 # EP-003: GPU Power Monitoring
 
-- **Status**: Draft (Reference Implementation Available)
+- **Status**: Implemented
 - **Maturity**: Experimental
 - **Author**: Vimal Kumar
 - **Created**: 2025-12-10
