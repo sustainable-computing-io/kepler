@@ -274,7 +274,9 @@ the heuristic.
 
 No user-visible change for zones the heuristic already classified correctly, which
 is every RAPL zone and every hwmon power or voltage/current zone. hwmon energy zones
-stop dropping out of a cycle when they read 0 or fail to read.
+stop dropping out of a cycle when they read 0. A zone whose `Energy()` read fails
+still skips that cycle as it does today, but the failure is now reported as an energy
+read failure instead of a power one.
 
 `EnergyZone` is in `internal/`, so the new method only affects code in this
 repository.
