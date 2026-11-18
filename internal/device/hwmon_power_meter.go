@@ -156,7 +156,6 @@ func (h *hwmonPowerMeter) Zones() ([]EnergyZone, error) {
 		return nil, fmt.Errorf("no hwmon zones found after filtering")
 	}
 
-	// Group zones by name for potential aggregation
 	h.cachedZones = h.groupZonesByName(zones)
 	return h.cachedZones, nil
 }
@@ -190,42 +189,134 @@ func (h *hwmonPowerMeter) filterZones(zones []EnergyZone) []EnergyZone {
 	return filtered
 }
 
-// groupZonesByName groups zones by their base name and creates AggregatedZone
-// instances when multiple zones share the same name
+// groupZonesByName leaves unique names alone and suffixes collisions
+// (<base>_<chip>, then _<index> if that splits the tie, else a Path()-ordered counter).
+// A final Path()-ordered pass appends _N until every hwmon Name() is unique.
+// Same-name hwmon zones are disambiguated, not summed. Non-hwmon EnergyZones (mocks;
+// IIO in #2438) have no chip identity and are left unchanged if they collide.
 func (h *hwmonPowerMeter) groupZonesByName(zones []EnergyZone) []EnergyZone {
-	// Group zones by base name
 	zoneGroups := make(map[string][]EnergyZone)
-
 	for _, zone := range zones {
-		name := zone.Name()
-		zoneGroups[name] = append(zoneGroups[name], zone)
+		zoneGroups[zone.Name()] = append(zoneGroups[zone.Name()], zone)
 	}
 
-	// Create aggregated zones for duplicates, keep single zones as-is
 	var result []EnergyZone
-	for name, zones := range zoneGroups {
-		if len(zones) == 1 {
-			result = append(result, zones[0])
-			continue
+	for _, group := range zoneGroups {
+		if len(group) > 1 {
+			disambiguateHwmonNames(group)
 		}
-
-		// Multiple zones with same name - create AggregatedZone
-		// LIMITATION: aggregation occurs when the devices are different with coincidentally
-		// the same labels. This should not happen. Ideally, Kepler identifies whether the zones with same
-		// name occur due to multi-socket CPU or independent devices.
-		aggregated, _ := NewAggregatedZone(zones)
-		result = append(result, aggregated)
-		h.logger.Debug("Created aggregated zone",
-			"name", name,
-			"zone_count", len(zones))
+		result = append(result, group...)
 	}
 
-	// Sort by name for deterministic ordering
+	ensureUniqueHwmonNames(result)
+
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Name() < result[j].Name()
 	})
-
 	return result
+}
+
+func disambiguateHwmonNames(zones []EnergyZone) {
+	type named struct {
+		base, chip, path string
+		idx              int
+	}
+	items := make([]named, len(zones))
+	for i, zone := range zones {
+		base, chip := zone.Name(), ""
+		if n, ok := zone.(hwmonNamedZone); ok {
+			base, chip = n.hwmonBaseName(), n.hwmonChipName()
+		}
+		items[i] = named{base: base, chip: chip, path: zone.Path(), idx: zone.Index()}
+	}
+
+	byName := make(map[string][]int, len(items))
+	for i, item := range items {
+		name := item.base
+		if item.chip != "" {
+			name = item.base + "_" + item.chip
+		}
+		byName[name] = append(byName[name], i)
+	}
+
+	for name, idxs := range byName {
+		if len(idxs) == 1 {
+			renameHwmonZone(zones[idxs[0]], name)
+			continue
+		}
+		seen := make(map[int]struct{}, len(idxs))
+		uniqueIdx := true
+		for _, i := range idxs {
+			if _, dup := seen[items[i].idx]; dup {
+				uniqueIdx = false
+				break
+			}
+			seen[items[i].idx] = struct{}{}
+		}
+		if uniqueIdx {
+			for _, i := range idxs {
+				renameHwmonZone(zones[i], fmt.Sprintf("%s_%d", name, items[i].idx))
+			}
+			continue
+		}
+		sort.Slice(idxs, func(a, b int) bool {
+			if items[idxs[a]].path != items[idxs[b]].path {
+				return items[idxs[a]].path < items[idxs[b]].path
+			}
+			return idxs[a] < idxs[b]
+		})
+		// Path() includes hwmonN when there is no device symlink, so this order is not reboot-stable.
+		for n, i := range idxs {
+			renameHwmonZone(zones[i], fmt.Sprintf("%s_%d", name, n))
+		}
+	}
+}
+
+// ensureUniqueHwmonNames appends _N (Path() order, first keepers) until every hwmon Name() is unique.
+func ensureUniqueHwmonNames(zones []EnergyZone) {
+	order := make([]int, len(zones))
+	for i := range zones {
+		order[i] = i
+	}
+	sort.Slice(order, func(a, b int) bool {
+		if zones[order[a]].Path() != zones[order[b]].Path() {
+			return zones[order[a]].Path() < zones[order[b]].Path()
+		}
+		return order[a] < order[b]
+	})
+
+	used := make(map[string]struct{}, len(zones))
+	for _, i := range order {
+		name := zones[i].Name()
+		if _, taken := used[name]; !taken {
+			used[name] = struct{}{}
+			continue
+		}
+		n := 0
+		candidate := fmt.Sprintf("%s_%d", name, n)
+		for {
+			if _, exists := used[candidate]; !exists {
+				break
+			}
+			n++
+			candidate = fmt.Sprintf("%s_%d", name, n)
+		}
+		renameHwmonZone(zones[i], candidate)
+		used[zones[i].Name()] = struct{}{}
+	}
+}
+
+func renameHwmonZone(zone EnergyZone, name string) {
+	if z, ok := zone.(hwmonNamedZone); ok {
+		z.setName(name)
+	}
+}
+
+func hwmonZoneBaseName(zone EnergyZone) string {
+	if n, ok := zone.(hwmonNamedZone); ok {
+		return n.hwmonBaseName()
+	}
+	return zone.Name()
 }
 
 // PrimaryEnergyZone returns the zone with the highest energy coverage/priority
@@ -244,27 +335,28 @@ func (h *hwmonPowerMeter) PrimaryEnergyZone() (EnergyZone, error) {
 		return nil, fmt.Errorf("no energy zones available")
 	}
 
-	zoneMap := map[string]EnergyZone{}
-	for _, zone := range zones {
-		zoneMap[strings.ToLower(zone.Name())] = zone
-	}
-
-	// Priority hierarchy for common hwmon zones (highest to lowest priority)
-	// This may need adjustment based on actual hwmon device naming
-	// Needs to be modified to include CPU_Power and IO power
+	// Match original labels so a renamed package_* zone still wins over core.
 	priorityOrder := []string{
 		"package", "socket", "cpu", "core",
 		"ppt", "ppt0", "ppt1", // AMD PPT (Package Power Tracking)
 		"core_power", "io_power",
 		"soc", "platform",
 		"gpu", "vddgfx",
-	} // likely needs to be modified
+	}
 
-	// Find highest priority zone available
 	for _, p := range priorityOrder {
-		if zone, exists := zoneMap[p]; exists {
-			h.topZone = zone
-			return zone, nil
+		var match EnergyZone
+		for _, zone := range zones {
+			if strings.ToLower(hwmonZoneBaseName(zone)) != p {
+				continue
+			}
+			if match == nil || zone.Path() < match.Path() {
+				match = zone
+			}
+		}
+		if match != nil {
+			h.topZone = match
+			return match, nil
 		}
 	}
 
@@ -449,6 +541,7 @@ func (r *sysfsHwmonReader) createPowerZone(
 
 	return &hwmonPowerZone{
 		name:      zoneName,
+		baseName:  zoneName,
 		index:     sensorNum,
 		path:      inputPath,
 		chipName:  chipName,
@@ -486,6 +579,7 @@ func (r *sysfsHwmonReader) createEnergyZone(
 
 	return &hwmonEnergyZone{
 		name:      zoneName,
+		baseName:  zoneName,
 		index:     sensorNum,
 		path:      inputPath,
 		chipName:  chipName,
@@ -788,6 +882,7 @@ func (r *sysfsHwmonReader) createCalculatedZone(
 
 	return &hwmonVoltageCurrentZone{
 		name:        zoneName,
+		baseName:    zoneName,
 		index:       index,
 		voltagePath: voltagePath,
 		currentPath: currentPath,
@@ -946,10 +1041,18 @@ func sysReadFile(file string) ([]byte, error) {
 	return b[:n], nil
 }
 
+// hwmonNamedZone lets grouping rename hwmon zones without widening EnergyZone.
+type hwmonNamedZone interface {
+	hwmonBaseName() string
+	hwmonChipName() string
+	setName(string)
+}
+
 // hwmonPowerZone implements EnergyZone for hwmon power sensors
 // It provides direct power readings without time integration
 type hwmonPowerZone struct {
 	name      string
+	baseName  string
 	index     int
 	path      string
 	chipName  string
@@ -961,6 +1064,7 @@ type hwmonPowerZone struct {
 // Power is calculated as: voltage (mV) × current (mA) = power (µW)
 type hwmonVoltageCurrentZone struct {
 	name        string
+	baseName    string
 	index       int
 	voltagePath string // Path to in*_input file (millivolts)
 	currentPath string // Path to curr*_input file (milliamperes)
@@ -970,6 +1074,22 @@ type hwmonVoltageCurrentZone struct {
 
 func (z *hwmonPowerZone) Name() string {
 	return z.name
+}
+
+func (z *hwmonPowerZone) hwmonBaseName() string {
+	if z.baseName != "" {
+		return z.baseName
+	}
+	return z.name
+}
+
+func (z *hwmonPowerZone) hwmonChipName() string { return z.chipName }
+
+func (z *hwmonPowerZone) setName(name string) {
+	if z.baseName == "" {
+		z.baseName = z.name
+	}
+	z.name = name
 }
 
 func (z *hwmonPowerZone) Index() int {
@@ -1012,6 +1132,22 @@ func (z *hwmonVoltageCurrentZone) Name() string {
 	return z.name
 }
 
+func (z *hwmonVoltageCurrentZone) hwmonBaseName() string {
+	if z.baseName != "" {
+		return z.baseName
+	}
+	return z.name
+}
+
+func (z *hwmonVoltageCurrentZone) hwmonChipName() string { return z.chipName }
+
+func (z *hwmonVoltageCurrentZone) setName(name string) {
+	if z.baseName == "" {
+		z.baseName = z.name
+	}
+	z.name = name
+}
+
 func (z *hwmonVoltageCurrentZone) Index() int {
 	return z.index
 }
@@ -1036,6 +1172,7 @@ func (z *hwmonVoltageCurrentZone) MaxEnergy() Energy {
 // functionally identical to RAPL energy counters.
 type hwmonEnergyZone struct {
 	name      string
+	baseName  string
 	index     int
 	path      string // energy*_input file path
 	chipName  string
@@ -1044,6 +1181,22 @@ type hwmonEnergyZone struct {
 
 func (z *hwmonEnergyZone) Name() string {
 	return z.name
+}
+
+func (z *hwmonEnergyZone) hwmonBaseName() string {
+	if z.baseName != "" {
+		return z.baseName
+	}
+	return z.name
+}
+
+func (z *hwmonEnergyZone) hwmonChipName() string { return z.chipName }
+
+func (z *hwmonEnergyZone) setName(name string) {
+	if z.baseName == "" {
+		z.baseName = z.name
+	}
+	z.name = name
 }
 
 func (z *hwmonEnergyZone) Index() int {
