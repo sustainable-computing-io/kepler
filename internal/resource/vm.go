@@ -208,23 +208,83 @@ func vmwareVMNameFromCmdLine(cmdline []string) string {
 func qemuVMNameFromCmdLine(cmdline []string) string {
 	for i, arg := range cmdline {
 		if arg == "-name" && i+1 < len(cmdline) {
-			value := cmdline[i+1]
-			// QEMU -name can have format "guest=name,debug-threads=on"
-			if strings.Contains(value, "guest=") {
-				parts := strings.Split(value, ",")
-
-				for _, part := range parts {
-					if strings.HasPrefix(part, "guest=") {
-						return strings.TrimPrefix(part, "guest=")
-					}
-				}
-			}
-			return value
+			return qemuNameFromValue(cmdline[i+1])
 		}
 
 		if strings.HasPrefix(arg, "-name=") {
-			return strings.TrimPrefix(arg, "-name=")
+			return qemuNameFromValue(strings.TrimPrefix(arg, "-name="))
 		}
 	}
 	return ""
+}
+
+// qemuNameFromValue extracts the guest name from a QEMU -name value, whose
+// syntax is "[guest=]name[,process=name][,debug-threads=on|off]": libvirt
+// passes the name as guest=name, while Proxmox and plain QEMU pass it as the
+// first, positional element (e.g. "vm-name,debug-threads=on").
+//
+// It follows QEMU's option parser (get_opt_name_value in util/qemu-option.c):
+// the first element is the name unless an '=' comes before the first raw
+// comma, ",," stands for a literal comma, and a later guest= overrides an
+// earlier one. A value with options only (e.g. "debug-threads=on") sets no
+// name and returns "".
+func qemuNameFromValue(value string) string {
+	name := ""
+
+	for first := true; value != ""; first = false {
+		i := strings.IndexAny(value, "=,")
+
+		if i >= 0 && value[i] == '=' {
+			key := value[:i]
+
+			var val string
+			val, value = qemuOptValue(value[i+1:])
+			if key == "guest" {
+				name = val
+			}
+
+			continue
+		}
+
+		if first {
+			name, value = qemuOptValue(value)
+
+			continue
+		}
+
+		// A flag without a value, such as "debug-threads": it carries no name
+		if i < 0 {
+			return name
+		}
+		value = value[i+1:]
+	}
+
+	return name
+}
+
+// qemuOptValue reads a QEMU option value up to the next single comma, turning
+// each ",," into a literal comma, and returns the value and the rest after
+// that comma (like get_opt_value in util/qemu-option.c).
+func qemuOptValue(s string) (value, rest string) {
+	var b strings.Builder
+
+	for {
+		i := strings.IndexByte(s, ',')
+		if i < 0 {
+			b.WriteString(s)
+
+			return b.String(), ""
+		}
+
+		if i+1 < len(s) && s[i+1] == ',' {
+			b.WriteString(s[:i+1])
+			s = s[i+2:]
+
+			continue
+		}
+
+		b.WriteString(s[:i])
+
+		return b.String(), s[i+1:]
+	}
 }
