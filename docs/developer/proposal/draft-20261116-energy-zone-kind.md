@@ -283,7 +283,7 @@ repository.
    monitor still uses the heuristic, and a test checks that `Kind()` agrees with it
    for every zone type the heuristic handles correctly.
 2. **Phase 2**: Switch the monitor to dispatch on `Kind()`, add the mixed-kind check
-   and the hwmon grouping by kind, and remove the heuristic.
+   and the hwmon grouping by kind with unique zone names, and remove the heuristic.
 
 ### Rollback Strategy
 
@@ -307,6 +307,8 @@ No new or changed metrics.
 
 - Dispatch on `Kind()` in `firstNodeRead` and the update, and remove the heuristic.
 - `NewAggregatedZone` rejects mixed kinds. hwmon groups by name and kind.
+- hwmon gives zones split by kind unique names (kind suffix, then chip name, then
+  hwmon index), so `/metrics` never sees two zones with the same `zone` label.
 - Monitor tests for the zero reading, the error attribution and the single read.
 
 ### Phase 3: Testing and Documentation
