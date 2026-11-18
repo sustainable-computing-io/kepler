@@ -233,7 +233,7 @@ image: ## Docker image build
 # Build multi-architecture Docker images (local, no push)
 .PHONY: image-multi
 image-multi: ## Docker multi-arch image build (local)
-	@for arch in $(IMAGE_ARCHES); do \
+	@set -e; for arch in $(IMAGE_ARCHES); do \
 		$(MAKE) image GOARCH=$$arch KEPLER_IMAGE=$(KEPLER_IMAGE)-$$arch ADDITIONAL_TAGS=; \
 	done
 
@@ -245,7 +245,7 @@ push: ## Docker image push to registry
 # Push multi-architecture Docker images and create manifest
 .PHONY: push-multi
 push-multi: ## Docker multi-arch manifest push
-	@for arch in $(IMAGE_ARCHES); do \
+	@set -e; for arch in $(IMAGE_ARCHES); do \
 		docker push $(KEPLER_IMAGE)-$$arch; \
 	done
 	$(call docker_manifest_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS),$(IMAGE_ARCHES))
@@ -330,18 +330,12 @@ define docker_manifest_push
 	img="$(1)" ;\
 	tags="$(2)" ;\
 	img_path=$${img%:*} ;\
-	targets="$$img" ;\
+	tag_args="-t $$img" ;\
 	for tag in $$(echo $$tags | tr -s , ' ' ); do \
-		targets="$$targets $$img_path:$$tag" ;\
+		tag_args="$$tag_args -t $$img_path:$$tag" ;\
 	done ;\
-	for target in $$targets; do \
-		echo "creating manifest $$target" ;\
-		images="" ;\
-		for arch in $(3); do \
-			images="$$images $$img-$$arch" ;\
-		done ;\
-		docker buildx imagetools create -t $$target $$images ;\
-	done \
+	echo "creating manifest list $$tag_args" ;\
+	docker buildx imagetools create $$tag_args $(foreach arch,$(3),$$img-$(arch)) ;\
 }
 endef
 
