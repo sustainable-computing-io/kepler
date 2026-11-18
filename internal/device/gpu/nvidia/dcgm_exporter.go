@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,11 @@ const (
 	// reInitInterval is how long to wait before re-attempting initialization
 	// after the circuit breaker has tripped.
 	reInitInterval = 30 * time.Second
+
+	// reInitTimeout bounds one whole re-initialization attempt, including pod
+	// discovery and every endpoint probe. Re-initialization runs during
+	// snapshot collection, so it must not hold up the rest of the scrape.
+	reInitTimeout = 5 * time.Second
 )
 
 // DCGMExporterBackend provides MIG metrics by querying dcgm-exporter's Prometheus endpoint.
@@ -48,6 +54,11 @@ type DCGMExporterBackend struct {
 	initialized bool
 	mu          sync.Mutex
 
+	// endpointDiscovered is true when endpoint came from discovery rather than
+	// SetEndpoint. A discovered endpoint is looked up again on re-initialization,
+	// since a recreated dcgm-exporter pod gets a new IP.
+	endpointDiscovered bool
+
 	// Cached metrics with TTL to avoid HTTP request storms
 	cachedMetrics   *dcgmMetrics
 	metricsCacheTTL time.Duration
@@ -59,7 +70,11 @@ type DCGMExporterBackend struct {
 
 	// discoverEndpoint discovers the local dcgm-exporter endpoint.
 	// Defaults to discoverLocalDCGMExporter. Overridable for testing.
-	discoverEndpoint func() string
+	discoverEndpoint func(ctx context.Context) string
+
+	// reInitTimeout bounds a re-initialization attempt. Defaults to 5s.
+	// Overridable for testing.
+	reInitTimeout time.Duration
 
 	// fallbackEndpoints is the list of static endpoints to try if discovery fails.
 	fallbackEndpoints []string
@@ -117,6 +132,7 @@ func NewDCGMExporterBackend(logger *slog.Logger) *DCGMExporterBackend {
 		},
 	}
 	d.discoverEndpoint = d.discoverLocalDCGMExporter
+	d.reInitTimeout = reInitTimeout
 	return d
 }
 
@@ -142,6 +158,7 @@ func (d *DCGMExporterBackend) SetEndpoint(endpoint string) {
 		endpoint += "/metrics"
 	}
 	d.endpoint = endpoint
+	d.endpointDiscovered = false
 }
 
 // Init initializes the backend by discovering the dcgm-exporter endpoint.
@@ -177,9 +194,10 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 	// 3. ClusterIP service (may route to wrong node — last resort, but with
 	//    DaemonSet deployment the service routes to the local pod)
 
-	if localEndpoint := d.discoverEndpoint(); localEndpoint != "" {
+	if localEndpoint := d.discoverEndpoint(ctx); localEndpoint != "" {
 		if err := d.testEndpoint(ctx, localEndpoint); err == nil {
 			d.endpoint = localEndpoint
+			d.endpointDiscovered = true
 			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", localEndpoint, "discovery", "local-pod")
 			return nil
@@ -195,6 +213,7 @@ func (d *DCGMExporterBackend) initLocked(ctx context.Context) error {
 		err := d.testEndpoint(ctx, ep)
 		if err == nil {
 			d.endpoint = ep
+			d.endpointDiscovered = true
 			d.markInitialized()
 			d.logger.Info("DCGM exporter backend initialized", "endpoint", ep, "discovery", "fallback")
 			return nil
@@ -222,7 +241,7 @@ func (d *DCGMExporterBackend) markInitialized() {
 }
 
 // discoverLocalDCGMExporter finds the dcgm-exporter pod IP on the same node
-func (d *DCGMExporterBackend) discoverLocalDCGMExporter() string {
+func (d *DCGMExporterBackend) discoverLocalDCGMExporter(ctx context.Context) string {
 	// Get current node name from environment (set by downward API)
 	nodeName := os.Getenv("NODE_NAME")
 	if nodeName == "" {
@@ -248,7 +267,7 @@ func (d *DCGMExporterBackend) discoverLocalDCGMExporter() string {
 
 	// Search all namespaces for dcgm-exporter pods on the same node.
 	// Try multiple label selectors to support different deployment methods.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	nodeSelector := fmt.Sprintf("spec.nodeName=%s", nodeName)
@@ -349,7 +368,14 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.initialized {
+	var metrics *dcgmMetrics
+	var err error
+	if d.initialized {
+		metrics, err = d.fetchMetrics(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch metrics: %w", err)
+		}
+	} else {
 		// If circuit breaker hasn't tripped (never initialized), return error
 		if d.circuitOpenTime.IsZero() {
 			return 0, fmt.Errorf("DCGM exporter backend not initialized")
@@ -359,19 +385,10 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 			return 0, fmt.Errorf("DCGM circuit breaker open, retry in %v",
 				reInitInterval-time.Since(d.circuitOpenTime))
 		}
-		// Attempt re-initialization
-		d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
-		if err := d.initLocked(ctx); err != nil {
-			d.circuitOpenTime = time.Now()
-			d.logger.Warn("DCGM re-initialization failed", "error", err)
-			return 0, fmt.Errorf("DCGM re-init failed: %w", err)
+		metrics, err = d.reInitLocked(ctx)
+		if err != nil {
+			return 0, err
 		}
-		d.logger.Info("DCGM backend re-initialized successfully", "endpoint", d.endpoint)
-	}
-
-	metrics, err := d.fetchMetrics(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to fetch metrics: %w", err)
 	}
 
 	key := migKey{gpuIndex: gpuIndex, gpuInstanceID: gpuInstanceID}
@@ -380,6 +397,51 @@ func (d *DCGMExporterBackend) GetMIGInstanceActivity(ctx context.Context, gpuInd
 	}
 
 	return 0, fmt.Errorf("no metrics found for GPU %d, MIG instance %d", gpuIndex, gpuInstanceID)
+}
+
+// reInitLocked re-initializes the backend after the circuit breaker tripped,
+// then fetches the metrics. Discovery, the endpoint probes and that first
+// fetch share one reInitTimeout deadline, since this runs during snapshot
+// collection. If any of them fails, the circuit opens again, so the caller
+// falls back instead of sending more requests.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) reInitLocked(ctx context.Context) (*dcgmMetrics, error) {
+	d.logger.Info("attempting DCGM backend re-initialization", "endpoint", d.endpoint)
+	ctx, cancel := context.WithTimeout(ctx, d.reInitTimeout)
+	defer cancel()
+
+	err := d.reconnectLocked(ctx)
+	var metrics *dcgmMetrics
+	if err == nil {
+		// The exporter can answer the probe and still stall on the metrics.
+		metrics, err = d.fetchMetrics(ctx)
+	}
+	if err != nil {
+		d.initialized = false
+		d.circuitOpenTime = time.Now()
+		d.cachedMetrics = nil
+		d.logger.Warn("DCGM re-initialization failed", "error", err)
+		return nil, fmt.Errorf("DCGM re-init failed: %w", err)
+	}
+	d.logger.Info("DCGM backend re-initialized successfully", "endpoint", d.endpoint)
+	return metrics, nil
+}
+
+// reconnectLocked finds a reachable endpoint again. A configured endpoint is
+// probed as is. A static fallback keeps its address, so the one that worked
+// is probed before discovery runs again: a slow Kubernetes API could use up
+// the whole re-init deadline. A discovered pod is looked up again, since a
+// recreated dcgm-exporter pod gets a new IP.
+// Caller must hold d.mu.
+func (d *DCGMExporterBackend) reconnectLocked(ctx context.Context) error {
+	if d.endpointDiscovered {
+		if slices.Contains(d.fallbackEndpoints, d.endpoint) && d.testEndpoint(ctx, d.endpoint) == nil {
+			d.markInitialized()
+			return nil
+		}
+		d.endpoint = ""
+	}
+	return d.initLocked(ctx)
 }
 
 // fetchMetrics returns cached metrics if still valid, otherwise fetches fresh data.
