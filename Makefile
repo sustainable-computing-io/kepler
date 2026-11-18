@@ -234,7 +234,7 @@ image: ## Docker image build
 .PHONY: image-multi
 image-multi: ## Docker multi-arch image build (local)
 	@for arch in $(IMAGE_ARCHES); do \
-		$(MAKE) image GOARCH=$$arch KEPLER_IMAGE=$(KEPLER_IMAGE)-$$arch; \
+		$(MAKE) image GOARCH=$$arch KEPLER_IMAGE=$(KEPLER_IMAGE)-$$arch ADDITIONAL_TAGS=; \
 	done
 
 # Push Docker image
@@ -248,9 +248,7 @@ push-multi: ## Docker multi-arch manifest push
 	@for arch in $(IMAGE_ARCHES); do \
 		docker push $(KEPLER_IMAGE)-$$arch; \
 	done
-	docker manifest create --amend $(KEPLER_IMAGE) \
-		$(foreach arch,$(IMAGE_ARCHES),$(KEPLER_IMAGE)-$(arch))
-	docker manifest push $(KEPLER_IMAGE)
+	$(call docker_manifest_push,$(KEPLER_IMAGE),$(ADDITIONAL_TAGS),$(IMAGE_ARCHES))
 
 # Run the application
 .PHONY: run
@@ -316,6 +314,33 @@ define docker_tag
 	img_path=$${img%:*} ;\
 	for tag in $$(echo $$tags | tr -s , ' ' ); do \
 		docker tag $$img $$img_path:$$tag ;\
+	done \
+}
+endef
+
+# docker_manifest_push accepts an image:tag, a list of additional tags
+# comma-separated and a list of architectures space-separated. The per-arch
+# images foo:bar-<arch> must already be pushed. It creates and pushes a manifest
+# list for foo:bar and for each additional tag, e.g. foo:a, foo:b
+# It uses buildx imagetools because buildx pushes each per-arch image as an
+# index with an attestation manifest, which docker manifest create rejects.
+define docker_manifest_push
+@{ \
+	set -eu ;\
+	img="$(1)" ;\
+	tags="$(2)" ;\
+	img_path=$${img%:*} ;\
+	targets="$$img" ;\
+	for tag in $$(echo $$tags | tr -s , ' ' ); do \
+		targets="$$targets $$img_path:$$tag" ;\
+	done ;\
+	for target in $$targets; do \
+		echo "creating manifest $$target" ;\
+		images="" ;\
+		for arch in $(3); do \
+			images="$$images $$img-$$arch" ;\
+		done ;\
+		docker buildx imagetools create -t $$target $$images ;\
 	done \
 }
 endef
