@@ -257,7 +257,9 @@ Unchanged.
     reported as a power read failure.
   - Monitor: `Power()` is never called on an energy zone, and `Energy()` is never
     called on a power zone (mocks that fail the test if called).
-  - Existing RAPL and hwmon power tests pass unchanged.
+  - Existing RAPL and hwmon power tests pass unchanged. The monitor tests that register
+    `On("Power")` on energy `MockEnergyZone`s are updated in phase 2: they drop those
+    expectations and set the mock's kind.
 - **Integration Tests**: The existing monitor collection tests with the fake meter.
 - **End-to-End Tests**: No change. Node and workload metrics stay the same on RAPL
   and hwmon power hosts.
@@ -314,6 +316,8 @@ No new or changed metrics.
 - hwmon gives zones split by kind unique names (kind suffix, then chip name, then
   hwmon index), so `/metrics` never sees two zones with the same `zone` label.
 - Monitor tests for the zero reading, the error attribution and the single read.
+- Update the existing monitor tests: energy `MockEnergyZone`s no longer expect `Power()`
+  and set their kind, since `AssertExpectations` would fail otherwise.
 
 ### Phase 3: Testing and Documentation
 
