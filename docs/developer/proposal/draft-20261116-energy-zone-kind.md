@@ -84,6 +84,8 @@ kind depends on the value just read.
 - `NewAggregatedZone` rejects members of different kinds.
 - hwmon groups zones for aggregation by name and kind, so an `energy*_input` and a
   `power*_input` zone that share a label are never aggregated together.
+- hwmon zone names stay unique across all zones, so `/metrics` never sees two zones
+  with the same `zone` label.
 
 ### Non-Functional Requirements
 
@@ -247,6 +249,8 @@ Unchanged.
   - Each zone type returns the expected kind.
   - `NewAggregatedZone` rejects mixed kinds and reports the kind of uniform members.
   - hwmon grouping keeps an energy and a power zone with the same label apart.
+  - hwmon names a power zone that shares a label with an energy zone differently, and
+    a power sensor already labelled `core_power` still gives unique zone names.
   - Monitor, energy zone reading 0: processed as energy, no power read, no warning.
     This fails today.
   - Monitor, energy zone read error: reported as an energy read failure. Today it is
