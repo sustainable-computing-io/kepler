@@ -4,6 +4,7 @@
 package nvidia
 
 import (
+	"errors"
 	"log/slog"
 	"testing"
 
@@ -349,6 +350,8 @@ func TestGPUPowerCollector_tailAfterProcessExit_partitioned(t *testing.T) {
 		// reading is used for idle detection.
 		dcgm.ExpectedCalls = nil
 		dcgm.On("IsInitialized").Return(false)
+		// The collector asks the down backend to re-initialize, which fails here.
+		dcgm.On("GetMIGInstanceActivity", 0, uint(1)).Return(0.0, errors.New("DCGM circuit breaker open"))
 		setDeviceReading(dev, 30, []gpu.ProcessGPUInfo{}, nil)
 		result, err := collector.GetProcessPower()
 		require.NoError(t, err)
