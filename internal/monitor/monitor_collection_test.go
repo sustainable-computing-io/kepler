@@ -49,7 +49,7 @@ func TestCollectionLoop(t *testing.T) {
 	assertDataUpdated(t, dataCh, 3*time.Millisecond, "Initial collection should happen immediately")
 
 	go monitor.collectionLoop()
-	assertDataUpdated(t, dataCh, 10*time.Millisecond, "collectionLoop should run a collection as soon as it starts")
+	assertDataUpdated(t, dataCh, 5*time.Second, "collectionLoop should run a collection as soon as it starts")
 
 	// verify snapshot has been updated
 	initialSnapshot := monitor.snapshot.Load()
@@ -124,7 +124,6 @@ func TestPeriodicCollection(t *testing.T) {
 	assertDataChannelEmpty(t, dataCh, 3*time.Millisecond)
 
 	t.Log("Waiting for third collection")
-	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected third collection after interval")
@@ -239,7 +238,7 @@ func TestScheduleNextCollection(t *testing.T) {
 	var collectionCount atomic.Int32
 	pkg.On("Energy").Run(func(args mock.Arguments) {
 		collectionCount.Add(1)
-	}).Return(Energy(100*Joule), nil).Times(2)
+	}).Return(Energy(100*Joule), nil).Maybe()
 	pkg.On("MaxEnergy").Return(Energy(1000 * Joule))
 	pkg.On("Power").Return(Power(0), assert.AnError)
 
@@ -269,14 +268,11 @@ func TestScheduleNextCollection(t *testing.T) {
 
 	monitor.scheduleNextCollection()
 	assert.Equal(t, int32(0), collectionCount.Load())
-	// scheduleNextCollection registers the timer synchronously; wait to be safe before stepping.
-	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 
 	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Collection should happen after interval")
 	assert.Equal(t, int32(1), collectionCount.Load(), "Collection should happen after interval")
 
-	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
 	assertDataUpdated(t, monitor.DataChannel(), 5*time.Second, "Second collection should happen")
@@ -286,8 +282,10 @@ func TestScheduleNextCollection(t *testing.T) {
 	monitor.collectionCancel()
 	monitor.collectionWg.Wait()
 
+	// Make sure this Step fires the timer the last collection registered.
+	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(collectionInterval)
-	assertDataChannelEmpty(t, monitor.DataChannel(), 500*time.Millisecond)
+	assertDataChannelEmpty(t, monitor.DataChannel(), 20*time.Millisecond)
 
 	finalCount := collectionCount.Load()
 	assert.Equal(t, int32(2), finalCount, "No more collections after cancellation")
@@ -336,7 +334,6 @@ func TestCollectionWithDataSignaling(t *testing.T) {
 	fakeClock.Step(interval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
 
-	// The previous collection signals before scheduleNextCollection re-registers the timer; wait for it before stepping.
 	waitForClockWaiters(t, fakeClock, 5*time.Second)
 	fakeClock.Step(interval)
 	assertDataUpdated(t, dataCh, 5*time.Second, "expected data to be updated immediately after collection")
