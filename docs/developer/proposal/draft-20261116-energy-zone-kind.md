@@ -5,7 +5,7 @@
 **Reviewers**: @bitflicker64, @vimalk78
 **Approvers**: @sthaha, @vprashar2929
 **Created**: 2026-11-16
-**Last Updated**: 2026-11-16
+**Last Updated**: 2026-11-19
 
 ## Summary
 
@@ -129,6 +129,10 @@ power meter (rapl / hwmon / fake / future IIO, MSR)
   that doesn't match their kind. The monitor no longer calls it, but keeping it
   avoids splitting the interface in this step and keeps out-of-tree implementations
   compiling once they add `Kind()`.
+- **`MaxEnergy()` stays on `EnergyZone`.** Every meter and `AggregatedZone` already
+  implement it, so moving it behind the energy kind would touch all of them in
+  phase 1. Once `Kind()` replaces the heuristic in `node.go`, it's only used for
+  wraparound.
 
 ## Detailed Design
 
@@ -293,8 +297,8 @@ repository.
 
 ### Rollback Strategy
 
-Each phase is a single PR and can be reverted on its own. Reverting phase 2 brings
-back the heuristic, which phase 1 leaves in place.
+This EP covers both phases, and each phase is a single PR that can be reverted on
+its own. Reverting phase 2 brings back the heuristic, which phase 1 leaves in place.
 
 ## Metrics Output
 
@@ -322,7 +326,8 @@ No new or changed metrics.
 ### Phase 3: Testing and Documentation
 
 - Update `docs/developer/` where it describes how zones are read, and mention
-  `Kind()` in the guidance for new power meters, for #2438 and EP-002.
+  `Kind()` in the guidance for new power meters, for #2438 and EP-002. This ships
+  in the phase 2 PR.
 
 ## Risks and Mitigations
 
@@ -397,11 +402,13 @@ No new or changed metrics.
 
 ## Open Questions
 
-1. Should `MaxEnergy()` move behind the energy kind, for example into a small
+1. ~~Should `MaxEnergy()` move behind the energy kind, for example into a small
    `EnergyCounter` interface, or stay on `EnergyZone` with "only meaningful for
-   energy zones" in its doc comment?
-2. Is it worth a third kind for zones that can provide both, such as a future meter
-   that reads an energy counter and also exposes a power average? The proposal
-   assumes not: such a meter picks the kind it trusts more.
-3. Is one EP for both phases right, or would maintainers rather review phase 1 as a
-   plain PR without the EP?
+   energy zones" in its doc comment?~~ **Addressed**: it stays on `EnergyZone`. See
+   "Key Design Choices".
+2. ~~Is it worth a third kind for zones that can provide both, such as a future meter
+   that reads an energy counter and also exposes a power average?~~ **Addressed**: no
+   third kind for now. Such a meter picks the kind it trusts more.
+3. ~~Is one EP for both phases right, or would maintainers rather review phase 1 as a
+   plain PR without the EP?~~ **Addressed**: one EP for both phases, then one PR per
+   phase.
