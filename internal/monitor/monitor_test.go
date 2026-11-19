@@ -534,6 +534,10 @@ func TestPowerMonitor_Shutdown(t *testing.T) {
 	pkg.AssertExpectations(t)
 }
 
+// waitForClockWaiters blocks until the fake clock has a registered timer.
+// Collections signal DataChannel before scheduleNextCollection registers the
+// next timer, and FakeClock.Step only fires timers that already exist, so call
+// this before a Step that is meant to fire that timer.
 func waitForClockWaiters(t *testing.T, c *testingclock.FakeClock, timeout time.Duration) {
 	t.Helper()
 	deadline := time.NewTimer(timeout)
