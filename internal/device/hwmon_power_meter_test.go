@@ -15,9 +15,68 @@ import (
 )
 
 const (
-	validHwmonPath = "testdata/sys"
-	badHwmonPath   = "testdata/bad_sysfs"
+	validHwmonPath    = "testdata/sys"
+	badHwmonPath      = "testdata/bad_sysfs"
+	socketHwmonPath   = "testdata/sys_hwmon_sockets"
+	twinChipHwmonPath = "testdata/sys_hwmon_twins"
 )
+
+// expected shared-testdata names after collision rename (chipName from name file / device path).
+const (
+	pkgK10temp      = "package_k10temp"
+	pkgMultiSensor1 = "package_multi_sensor_1"
+	pkgMultiSensor2 = "package_multi_sensor_2"
+	pkgSock0        = "package_pci0000:00_0000:00:03_0"
+	pkgSock1        = "package_pci0000:00_0000:00:04_0"
+	twinChipName0   = "vdd_gpu_ina3221_0"
+	twinChipName1   = "vdd_gpu_ina3221_1"
+)
+
+func assertNoAggregatedZone(t *testing.T, zones []EnergyZone) {
+	t.Helper()
+	for _, zone := range zones {
+		_, isAgg := zone.(*AggregatedZone)
+		assert.False(t, isAgg, "hwmon grouping must not wrap zone %q in AggregatedZone", zone.Name())
+	}
+}
+
+func assertUniqueZoneNames(t *testing.T, zones []EnergyZone) {
+	t.Helper()
+	seen := make(map[string]string, len(zones))
+	for _, zone := range zones {
+		name := zone.Name()
+		if prev, dup := seen[name]; dup {
+			t.Fatalf("duplicate zone Name() %q (paths %s and %s)", name, prev, zone.Path())
+		}
+		seen[name] = zone.Path()
+	}
+}
+
+func zoneByName(t *testing.T, zones []EnergyZone, name string) EnergyZone {
+	t.Helper()
+	for _, zone := range zones {
+		if zone.Name() == name {
+			return zone
+		}
+	}
+	t.Fatalf("zone %q not found in %v", name, zoneNames(zones))
+	return nil
+}
+
+func zoneNames(zones []EnergyZone) []string {
+	names := make([]string, len(zones))
+	for i, zone := range zones {
+		names[i] = zone.Name()
+	}
+	return names
+}
+
+func zonePowerWatts(t *testing.T, zone EnergyZone) float64 {
+	t.Helper()
+	power, err := zone.Power()
+	require.NoError(t, err)
+	return power.Watts()
+}
 
 // TestHwmonPowerMeterInterface ensures that hwmonPowerMeter properly implements the CPUPowerMeter interface
 func TestHwmonPowerMeterInterface(t *testing.T) {
@@ -234,9 +293,10 @@ func TestHwmonPowerMeter_Zones(t *testing.T) {
 	}
 
 	t.Logf("\nZone names: %v", zoneNames)
-	assert.Contains(t, zoneNames, "package", "Should find 'package' zone")
+	assert.Contains(t, zoneNames, pkgK10temp, "colliding package labels are suffixed with chipName, not merged")
 	assert.Contains(t, zoneNames, "core", "Should find 'core' zone")
 	assert.Contains(t, zoneNames, "gpu", "Should find 'gpu' zone")
+	assertNoAggregatedZone(t, zones)
 }
 
 // TestHwmonPowerMeter_ZoneDetails provides detailed zone information
@@ -249,19 +309,6 @@ func TestHwmonPowerMeter_ZoneDetails(t *testing.T) {
 
 	t.Logf("\n=== Detailed Zone Information ===")
 	for _, zone := range zones {
-		// Check if this is an aggregated zone or regular zone
-		if aggZone, ok := zone.(*AggregatedZone); ok {
-			t.Logf("\nAggregated Zone: %s", zone.Name())
-			t.Logf("  Contains: %d individual zones", len(aggZone.zones))
-			t.Logf("  Index: %d (aggregated)", zone.Index())
-
-			power, err := zone.Power()
-			require.NoError(t, err)
-			t.Logf("  Current Power: %.3f W (%.0f µW)", power.Watts(), power.MicroWatts())
-			continue
-		}
-
-		// Handle both direct power zones and calculated power zones
 		if hwmonZone, ok := zone.(*hwmonPowerZone); ok {
 			t.Logf("\nChip: %s", hwmonZone.chipName)
 			t.Logf("  Human Name: %s", hwmonZone.humanName)
@@ -323,14 +370,16 @@ func TestHwmonPowerMeter_PowerReadings(t *testing.T) {
 
 	t.Logf("\n=== Verifying Power Readings ===")
 
-	// Map of expected power values (zone name -> watts)
-	// Note: package is now aggregated from multiple sources: 45W + 50W + 30W = 125W
+	// Per-sensor watts: colliding package labels stay separate (no 125 W sum).
 	expectedPower := map[string]float64{
-		"package": 125.0, // Aggregated: 45W + 50W + 30W
-		"core":    15.0,  // 15,000,000 µW
-		"gpu":     118.0, // 118,000,000 µW (should prefer power1_average)
+		pkgK10temp:      45.0,  // hwmon0 power1
+		pkgMultiSensor1: 50.0,  // hwmon_aggregate power1
+		pkgMultiSensor2: 30.0,  // hwmon_aggregate power2
+		"core":          15.0,  // 15,000,000 µW
+		"gpu":           118.0, // 118,000,000 µW (should prefer power1_average)
 	}
 
+	gotPower := map[string]float64{}
 	for _, zone := range zones {
 		// Skip energy-only zones (they don't provide Power())
 		if _, ok := zone.(*hwmonEnergyZone); ok {
@@ -342,15 +391,15 @@ func TestHwmonPowerMeter_PowerReadings(t *testing.T) {
 
 		power, err := zone.Power()
 		require.NoError(t, err, "Failed to read power for zone %s", zone.Name())
+		gotPower[zone.Name()] = power.Watts()
+		t.Logf("  Zone '%s': %.2f W", zone.Name(), power.Watts())
+	}
 
-		expected, ok := expectedPower[zone.Name()]
-		if ok {
-			assert.InDelta(t, expected, power.Watts(), 0.01,
-				"Zone %s: expected %.2f W, got %.2f W", zone.Name(), expected, power.Watts())
-			t.Logf("✓ Zone '%s': %.2f W (matches expected)", zone.Name(), power.Watts())
-		} else {
-			t.Logf("  Zone '%s': %.2f W", zone.Name(), power.Watts())
-		}
+	for name, expected := range expectedPower {
+		actual, ok := gotPower[name]
+		require.True(t, ok, "expected zone %q to be present, have %v", name, zoneNames(zones))
+		assert.InDelta(t, expected, actual, 0.01,
+			"Zone %s: expected %.2f W, got %.2f W", name, expected, actual)
 	}
 }
 
@@ -371,9 +420,15 @@ func TestHwmonPowerMeter_PrimaryEnergyZone(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("  Power: %.2f W", power.Watts())
 
-	// Primary zone should be 'package' based on priority order
-	assert.Equal(t, "package", primaryZone.Name(),
-		"Primary zone should be 'package' based on priority hierarchy")
+	zones, err := meter.Zones()
+	require.NoError(t, err)
+	// Priority list still matches baseName "package"; first Path() is hwmon0/power1_input.
+	want := zoneByName(t, zones, pkgK10temp)
+	assert.Same(t, want, primaryZone, "PrimaryEnergyZone must return the Zones() object, not a wrapper")
+	assert.Equal(t, pkgK10temp, primaryZone.Name(),
+		"primary Name() is the collision suffix; selection is by original label package")
+	_, isAgg := primaryZone.(*AggregatedZone)
+	assert.False(t, isAgg, "primary zone must not be an AggregatedZone")
 }
 
 // TestHwmonPowerMeter_ZoneFilter tests zone filtering
@@ -389,12 +444,23 @@ func TestHwmonPowerMeter_ZoneFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("With zone filter 'package', found %d zones:", len(zones))
-	assert.Equal(t, 1, len(zones), "Should only find 1 zone with filter")
+	// filterZones runs before rename, so the original label selects every package sensor.
+	assert.ElementsMatch(t, []string{pkgK10temp, pkgMultiSensor1, pkgMultiSensor2}, zoneNames(zones),
+		"zones:[package] keeps all package sensors, then each colliding name is suffixed")
+	assertNoAggregatedZone(t, zones)
+	assert.InDelta(t, 45.0, zonePowerWatts(t, zoneByName(t, zones, pkgK10temp)), 0.01)
+	assert.InDelta(t, 50.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor1)), 0.01)
+	assert.InDelta(t, 30.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor2)), 0.01)
 
-	for _, zone := range zones {
-		t.Logf("  - %s", zone.Name())
-		assert.Equal(t, "package", zone.Name(), "Zone should be 'package'")
-	}
+	t.Run("renamed_name_does_not_match_filter", func(t *testing.T) {
+		meter, err := NewHwmonPowerMeter(validHwmonPath,
+			WithHwmonZoneFilter([]string{pkgK10temp}))
+		require.NoError(t, err)
+		zones, err := meter.Zones()
+		assert.ErrorContains(t, err, "after filtering",
+			"filter uses the original label, not the collision suffix")
+		assert.Nil(t, zones)
+	})
 }
 
 // TestHwmonPowerMeter_MultipleReadings tests reading power multiple times
@@ -941,66 +1007,24 @@ func TestIsSymlink(t *testing.T) {
 	})
 }
 
-// TestHwmonPowerMeter_AggregatedZones tests zone aggregation when multiple zones have the same name
-func TestHwmonPowerMeter_AggregatedZones(t *testing.T) {
-	t.Logf("\n=== Testing Aggregated Zones ===")
+// TestHwmonPowerMeter_CollidingLabelsStaySeparate tests that same-label hwmon zones stay separate.
+func TestHwmonPowerMeter_CollidingLabelsStaySeparate(t *testing.T) {
+	t.Logf("\n=== Testing colliding hwmon labels are not summed ===")
 
-	// Create a meter that will discover zones with duplicate names
 	meter, err := NewHwmonPowerMeter("testdata/sys")
 	require.NoError(t, err)
 
-	// Discover zones - this should trigger aggregation
 	zones, err := meter.Zones()
 	require.NoError(t, err)
+	assertNoAggregatedZone(t, zones)
+	assertUniqueZoneNames(t, zones)
 
-	t.Logf("Found %d zones after aggregation", len(zones))
-
-	// Look for the aggregated "package" zone
-	var aggregatedZone EnergyZone
-	for _, zone := range zones {
-		if zone.Name() == "package" {
-			aggregatedZone = zone
-			break
-		}
-	}
-
-	require.NotNil(t, aggregatedZone, "Should find 'package' zone")
-
-	// Check if it's an AggregatedZone by checking the index
-	// AggregatedZone has index = -1
-	if aggregatedZone.Index() == -1 {
-		t.Logf("✓ Zone 'package' is an AggregatedZone (index=-1)")
-
-		// Verify it's actually an AggregatedZone type
-		aggZone, ok := aggregatedZone.(*AggregatedZone)
-		require.True(t, ok, "Zone should be *AggregatedZone type")
-
-		t.Logf("  Aggregated zone contains %d individual zones", len(aggZone.zones))
-		assert.Equal(t, "package", aggZone.Name())
-		assert.Equal(t, -1, aggZone.Index())
-
-		// Test Power() - should sum power from all package zones
-		totalPower, err := aggZone.Power()
-		require.NoError(t, err)
-
-		// The testdata contains multiple package zones:
-		// - hwmon0: package zone (45W)
-		// - hwmon_aggregate: two package zones (50W + 30W)
-		// Total should be sum of all package zones found
-		assert.Greater(t, totalPower.Watts(), 0.0,
-			"Aggregated power should be positive")
-		assert.Equal(t, len(aggZone.zones), 3,
-			"Should aggregate all package zones from test data")
-
-		// Expected: 45W + 50W + 30W = 125W
-		assert.InDelta(t, 125.0, totalPower.Watts(), 0.01,
-			"Aggregated power should be sum of all package zones (45W + 50W + 30W = 125W)")
-		t.Logf("  Total aggregated power: %.2f W from %d zones",
-			totalPower.Watts(), len(aggZone.zones))
-
-	} else {
-		t.Logf("Zone 'package' is a single zone (index=%d)", aggregatedZone.Index())
-	}
+	// hwmon0 Package + hwmon_aggregate two package rails must not become one 125 W zone.
+	assert.InDelta(t, 45.0, zonePowerWatts(t, zoneByName(t, zones, pkgK10temp)), 0.01)
+	assert.InDelta(t, 50.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor1)), 0.01)
+	assert.InDelta(t, 30.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor2)), 0.01)
+	assert.NotContains(t, zoneNames(zones), "package",
+		"bare package remains only when the label is unique")
 }
 
 // TestGroupZonesByName tests the grouping logic
@@ -1011,93 +1035,103 @@ func TestGroupZonesByName(t *testing.T) {
 
 	t.Run("single_zone_per_name", func(t *testing.T) {
 		zones := []EnergyZone{
-			&hwmonPowerZone{name: "package", index: 0},
-			&hwmonPowerZone{name: "core", index: 1},
-			&hwmonPowerZone{name: "gpu", index: 2},
+			&hwmonPowerZone{name: "package", index: 0, chipName: "k10temp", path: "/a"},
+			&hwmonPowerZone{name: "core", index: 1, chipName: "k10temp", path: "/b"},
+			&hwmonPowerZone{name: "gpu", index: 2, chipName: "amdgpu", path: "/c"},
 		}
 
 		result := meter.groupZonesByName(zones)
-
-		assert.Equal(t, 3, len(result), "Should have 3 zones (no aggregation)")
-
-		// Verify none are aggregated (all have index >= 0)
-		for _, zone := range result {
-			assert.GreaterOrEqual(t, zone.Index(), 0,
-				"Single zones should have non-negative index")
-		}
-		t.Logf("✓ No aggregation when each zone has unique name")
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.ElementsMatch(t, []string{"package", "core", "gpu"}, zoneNames(result),
+			"unique labels keep the bare name")
 	})
 
 	t.Run("multiple_zones_same_name", func(t *testing.T) {
 		zones := []EnergyZone{
-			&hwmonPowerZone{name: "package", index: 0, path: "/path1"},
-			&hwmonPowerZone{name: "package", index: 1, path: "/path2"},
-			&hwmonPowerZone{name: "core", index: 2, path: "/path3"},
+			&hwmonPowerZone{name: "package", index: 0, chipName: "sock0", path: "/path1"},
+			&hwmonPowerZone{name: "package", index: 1, chipName: "sock1", path: "/path2"},
+			&hwmonPowerZone{name: "core", index: 2, chipName: "k10temp", path: "/path3"},
 		}
 
 		result := meter.groupZonesByName(zones)
-
-		assert.Equal(t, 2, len(result),
-			"Should have 2 zones (package aggregated, core single)")
-
-		// Find the package zone
-		var packageZone EnergyZone
-		var coreZone EnergyZone
-		for _, zone := range result {
-			if zone.Name() == "package" {
-				packageZone = zone
-			} else if zone.Name() == "core" {
-				coreZone = zone
-			}
-		}
-
-		require.NotNil(t, packageZone, "Should have package zone")
-		require.NotNil(t, coreZone, "Should have core zone")
-
-		// Package should be aggregated (index = -1)
-		assert.Equal(t, -1, packageZone.Index(),
-			"Package zone should be aggregated (index=-1)")
-
-		// Core should be single zone (index >= 0)
-		assert.Equal(t, 2, coreZone.Index(),
-			"Core zone should not be aggregated")
-
-		t.Logf("✓ Zones with same name are aggregated")
-		t.Logf("  Package: aggregated (%d zones)", 2)
-		t.Logf("  Core: single zone")
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.ElementsMatch(t, []string{"package_sock0", "package_sock1", "core"}, zoneNames(result),
+			"same label on different chips is suffixed with chipName, not summed")
+		assert.Equal(t, 2, zoneByName(t, result, "core").Index())
 	})
 
 	t.Run("all_zones_same_name", func(t *testing.T) {
 		zones := []EnergyZone{
-			&hwmonPowerZone{name: "package", index: 0},
-			&hwmonPowerZone{name: "package", index: 1},
-			&hwmonPowerZone{name: "package", index: 2},
+			&hwmonPowerZone{name: "package", index: 0, path: "/z0"},
+			&hwmonPowerZone{name: "package", index: 1, path: "/z1"},
+			&hwmonPowerZone{name: "package", index: 2, path: "/z2"},
 		}
 
 		result := meter.groupZonesByName(zones)
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.ElementsMatch(t, []string{"package_0", "package_1", "package_2"}, zoneNames(result),
+			"empty chipName is skipped; differing Index() disambiguates")
+	})
 
-		assert.Equal(t, 1, len(result),
-			"Should have 1 aggregated zone")
-		assert.Equal(t, "package", result[0].Name())
-		assert.Equal(t, -1, result[0].Index(),
-			"Should be aggregated zone with index=-1")
+	t.Run("empty_chip_same_index_uses_path_counter", func(t *testing.T) {
+		zones := []EnergyZone{
+			&hwmonPowerZone{name: "package", index: 1, path: "/b"},
+			&hwmonPowerZone{name: "package", index: 1, path: "/a"},
+		}
 
-		aggZone, ok := result[0].(*AggregatedZone)
-		require.True(t, ok, "Should be AggregatedZone type")
-		assert.Equal(t, 3, len(aggZone.zones),
-			"Should aggregate all 3 zones")
+		result := meter.groupZonesByName(zones)
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.Equal(t, "/a", zoneByName(t, result, "package_0").Path(),
+			"counter _0,_1 is assigned in Path() order when chipName and Index() still tie")
+		assert.Equal(t, "/b", zoneByName(t, result, "package_1").Path())
+	})
 
-		t.Logf("✓ All zones with same name are aggregated into one")
+	t.Run("unique_label_looks_like_chip_suffix", func(t *testing.T) {
+		zones := []EnergyZone{
+			&hwmonPowerZone{name: "package_k10temp", chipName: "other", path: "/a"},
+			&hwmonPowerZone{name: "package", chipName: "k10temp", path: "/b"},
+			&hwmonPowerZone{name: "package", chipName: "sock1", path: "/c"},
+		}
+
+		result := meter.groupZonesByName(zones)
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.Equal(t, "/a", zoneByName(t, result, "package_k10temp").Path(),
+			"unique raw label keeps the name when it sorts first by Path()")
+		assert.Equal(t, "/b", zoneByName(t, result, "package_k10temp_0").Path(),
+			"later Path() colliding suffix gets a further counter")
+		assert.Equal(t, "/c", zoneByName(t, result, "package_sock1").Path())
+	})
+
+	t.Run("cross_bucket_package_0_clash", func(t *testing.T) {
+		zones := []EnergyZone{
+			&hwmonPowerZone{name: "package", index: 0, path: "/z0"},
+			&hwmonPowerZone{name: "package", index: 1, path: "/z1"},
+			&hwmonPowerZone{name: "package", index: 2, chipName: "0", path: "/z2"},
+		}
+
+		result := meter.groupZonesByName(zones)
+		assertNoAggregatedZone(t, result)
+		assertUniqueZoneNames(t, result)
+		assert.Equal(t, "/z0", zoneByName(t, result, "package_0").Path(),
+			"empty-chip Index() 0 keeps package_0 (earlier Path())")
+		assert.Equal(t, "/z1", zoneByName(t, result, "package_1").Path())
+		assert.Equal(t, "/z2", zoneByName(t, result, "package_0_0").Path(),
+			"chipName 0 singleton that also maps to package_0 gets a further counter")
 	})
 }
 
-// TestSysfsHwmonReader_DiscoverZones_Aggregation tests zone discovery with aggregation
-func TestSysfsHwmonReader_DiscoverZones_Aggregation(t *testing.T) {
+// TestSysfsHwmonReader_DiscoverZones_SameLabel tests that discoverZones keeps raw duplicate labels.
+func TestSysfsHwmonReader_DiscoverZones_SameLabel(t *testing.T) {
 	reader := &sysfsHwmonReader{
 		basePath: "testdata/sys/class/hwmon",
 	}
 
-	t.Logf("\n=== Testing Zone Discovery with Aggregation ===")
+	t.Logf("\n=== Testing Zone Discovery with Same Label ===")
 
 	// hwmon_aggregate has two power sensors with the same label "package"
 	zones, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_aggregate")
@@ -1130,7 +1164,77 @@ func TestSysfsHwmonReader_DiscoverZones_Aggregation(t *testing.T) {
 	assert.Contains(t, powers, 50.0)
 	assert.Contains(t, powers, 30.0)
 
-	t.Logf("✓ Discovered multiple zones with same name ready for aggregation")
+	t.Logf("✓ discoverZones still reports the raw labels; grouping/rename happens in Zones()")
+}
+
+// TestHwmonPowerMeter_CollisionCases covers the #2639 rename rules on isolated fixtures.
+func TestHwmonPowerMeter_CollisionCases(t *testing.T) {
+	t.Run("two_sockets_same_label_distinct_device_paths", func(t *testing.T) {
+		meter, err := NewHwmonPowerMeter(socketHwmonPath)
+		require.NoError(t, err)
+		zones, err := meter.Zones()
+		require.NoError(t, err)
+		assertNoAggregatedZone(t, zones)
+		assertUniqueZoneNames(t, zones)
+		assert.ElementsMatch(t, []string{pkgSock0, pkgSock1}, zoneNames(zones),
+			"device symlink chipName distinguishes sockets that share a label")
+		assert.InDelta(t, 40.0, zonePowerWatts(t, zoneByName(t, zones, pkgSock0)), 0.01)
+		assert.InDelta(t, 60.0, zonePowerWatts(t, zoneByName(t, zones, pkgSock1)), 0.01)
+
+		primary, err := meter.PrimaryEnergyZone()
+		require.NoError(t, err)
+		assert.Same(t, zoneByName(t, zones, pkgSock0), primary,
+			"several baseName package zones: socket-0 has the lower Path()")
+	})
+
+	t.Run("two_rails_same_label_one_device", func(t *testing.T) {
+		reader := &sysfsHwmonReader{basePath: "testdata/sys/class/hwmon"}
+		discovered, err := reader.discoverZones("testdata/sys/class/hwmon/hwmon_aggregate")
+		require.NoError(t, err)
+		meter := &hwmonPowerMeter{logger: slog.Default()}
+		zones := meter.groupZonesByName(discovered)
+		assertNoAggregatedZone(t, zones)
+		assertUniqueZoneNames(t, zones)
+		assert.ElementsMatch(t, []string{pkgMultiSensor1, pkgMultiSensor2}, zoneNames(zones),
+			"hwmon_aggregate rails share chipName so Index() is appended")
+		assert.InDelta(t, 50.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor1)), 0.01)
+		assert.InDelta(t, 30.0, zonePowerWatts(t, zoneByName(t, zones, pkgMultiSensor2)), 0.01)
+	})
+
+	t.Run("identical_chips_no_device_symlink", func(t *testing.T) {
+		meter, err := NewHwmonPowerMeter(twinChipHwmonPath)
+		require.NoError(t, err)
+		zones, err := meter.Zones()
+		require.NoError(t, err)
+		assertNoAggregatedZone(t, zones)
+		assertUniqueZoneNames(t, zones)
+		assert.ElementsMatch(t, []string{twinChipName0, twinChipName1}, zoneNames(zones),
+			"same name file and index fall back to a Path()-ordered counter")
+		assert.Equal(t, "testdata/sys_hwmon_twins/class/hwmon/hwmon_twin_a/power1_input",
+			zoneByName(t, zones, twinChipName0).Path())
+		assert.Equal(t, "testdata/sys_hwmon_twins/class/hwmon/hwmon_twin_b/power1_input",
+			zoneByName(t, zones, twinChipName1).Path())
+		assert.InDelta(t, 10.0, zonePowerWatts(t, zoneByName(t, zones, twinChipName0)), 0.01)
+		assert.InDelta(t, 20.0, zonePowerWatts(t, zoneByName(t, zones, twinChipName1)), 0.01)
+	})
+
+	t.Run("unique_labels_and_no_label_fallback_unchanged", func(t *testing.T) {
+		meter, err := NewHwmonPowerMeter(validHwmonPath)
+		require.NoError(t, err)
+		zones, err := meter.Zones()
+		require.NoError(t, err)
+		assertUniqueZoneNames(t, zones)
+		names := zoneNames(zones)
+		assert.Contains(t, names, "core", "unique Core label stays bare")
+		assert.Contains(t, names, "gpu", "unique GPU label stays bare")
+		assert.Contains(t, names, "device_path_test", "unique labelled device-path zone stays bare")
+		assert.Contains(t, names, "dir_fallback_test", "unique labelled fallback zone stays bare")
+		assert.Contains(t, names, "platform_sensor_power1", "no-label fallback is still chipName_powerN")
+		assert.InDelta(t, 15.0, zonePowerWatts(t, zoneByName(t, zones, "core")), 0.01)
+		assert.InDelta(t, 118.0, zonePowerWatts(t, zoneByName(t, zones, "gpu")), 0.01)
+		assert.InDelta(t, 25.0, zonePowerWatts(t, zoneByName(t, zones, "device_path_test")), 0.01)
+		assert.InDelta(t, 30.0, zonePowerWatts(t, zoneByName(t, zones, "platform_sensor_power1")), 0.01)
+	})
 }
 
 // TestCleanMetricName tests the metric name cleaning function
