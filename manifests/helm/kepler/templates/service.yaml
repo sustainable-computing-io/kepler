@@ -12,9 +12,9 @@ metadata:
 spec:
   type: {{.Values.service.type}}
   ports:
-  - name: http
+  - name: {{include "kepler.portName" .}}
     port: {{.Values.service.port}}
-    targetPort: {{.Values.service.targetPort}}
+    targetPort: {{default (include "kepler.portName" .) .Values.service.targetPort}}
     protocol: {{.Values.service.protocol}}
   selector:
     {{- include "kepler.selectorLabels" . | nindent 4}}

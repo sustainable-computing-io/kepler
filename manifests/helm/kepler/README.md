@@ -88,13 +88,14 @@ dashboards:
 | daemonset.extraVolumes | list | `[]` | Extra volumes to add to the Kepler DaemonSet pod |
 | daemonset.hostPID | bool | `true` | Use the host PID namespace so Kepler can see all processes |
 | daemonset.hostUsers | bool | `true` | Use the host user namespace |
-| daemonset.livenessProbe | object | `{"httpGet":{"path":"/probe/livez","port":"http"},"initialDelaySeconds":10,"periodSeconds":60}` | Liveness probe |
+| daemonset.livenessProbe | object | `{"httpGet":{"path":"/probe/livez"},"initialDelaySeconds":10,"periodSeconds":60}` | Liveness probe. httpGet.port defaults to `daemonset.port.name`. |
 | daemonset.nodeSelector | object | `{}` | Node selector |
 | daemonset.nvidia.driverPath | string | `"/run/nvidia/driver"` | Path on the host where the NVIDIA GPU Operator exposes the driver container root FS. Override if your GPU Operator uses a non-default path. |
 | daemonset.nvidia.nvmlInitImage.repository | string | `"busybox"` | NVML init container image |
 | daemonset.nvidia.nvmlInitImage.tag | string | `"1.36.1"` | NVML init container image tag |
+| daemonset.port.name | string | `"http"` | Name of the container port that serves metrics. The Service, the ServiceMonitor and the default probes use it. |
 | daemonset.priorityClassName | string | `""` | Priority class for the pods, e.g. `system-node-critical`. Empty uses the cluster default. |
-| daemonset.readinessProbe | object | `{"httpGet":{"path":"/probe/readyz","port":"http"},"initialDelaySeconds":5,"periodSeconds":10}` | Readiness probe |
+| daemonset.readinessProbe | object | `{"httpGet":{"path":"/probe/readyz"},"initialDelaySeconds":5,"periodSeconds":10}` | Readiness probe. httpGet.port defaults to `daemonset.port.name`. |
 | daemonset.resources | object | `{}` | CPU and memory requests and limits |
 | daemonset.securityContext.allowPrivilegeEscalation | bool | `false` | Allow privilege escalation. Forced on when `privileged` is true. |
 | daemonset.securityContext.appArmorProfile | object | `{"type":"Unconfined"}` | AppArmor profile |
@@ -126,7 +127,7 @@ dashboards:
 | rbac.create | bool | `true` | Create the ClusterRole and ClusterRoleBinding |
 | service.port | int | `28282` | Service port |
 | service.protocol | string | `"TCP"` | Service protocol |
-| service.targetPort | string | `"http"` | Target port on the pod |
+| service.targetPort | string | `""` | Target port on the pod. Defaults to `daemonset.port.name` when empty. |
 | service.type | string | `"ClusterIP"` | Service type |
 | serviceAccount.create | bool | `true` | Create a service account |
 | serviceAccount.name | string | `"kepler"` | Service account name |

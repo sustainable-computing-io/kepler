@@ -18,7 +18,7 @@ spec:
     matchLabels:
       {{- include "kepler.selectorLabels" . | nindent 6}}
   endpoints:
-    - port: http
+    - port: {{include "kepler.portName" .}}
       interval: {{.Values.serviceMonitor.interval}}
       path: {{.Values.serviceMonitor.path}}
 {{- end}}

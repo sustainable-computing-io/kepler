@@ -39,12 +39,15 @@ service:
   type: ClusterIP
   # -- Service port
   port: 28282
-  # -- Target port on the pod
-  targetPort: http
+  # -- Target port on the pod. Defaults to `daemonset.port.name` when empty.
+  targetPort: ""
   # -- Service protocol
   protocol: TCP
 
 daemonset:
+  port:
+    # -- Name of the container port that serves metrics. The Service, the ServiceMonitor and the default probes use it.
+    name: http
   # -- Use the host PID namespace so Kepler can see all processes
   hostPID: true
   # -- Tolerations. The defaults let Kepler run on control plane nodes.
@@ -114,22 +117,20 @@ daemonset:
 
   # Probes use the dedicated /probe/* endpoints, which are cheap to serve.
   # Avoid pointing them at /metrics: every scrape triggers a power computation.
-  # -- Liveness probe
+  # -- Liveness probe. httpGet.port defaults to `daemonset.port.name`.
   livenessProbe:
     httpGet:
       path: /probe/livez
-      port: http
     initialDelaySeconds: 10
     periodSeconds: 60
 
   # -- Startup probe. Off when empty.
   startupProbe: {}
 
-  # -- Readiness probe
+  # -- Readiness probe. httpGet.port defaults to `daemonset.port.name`.
   readinessProbe:
     httpGet:
       path: /probe/readyz
-      port: http
     initialDelaySeconds: 5
     periodSeconds: 10
 
