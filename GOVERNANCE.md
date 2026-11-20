@@ -119,6 +119,7 @@ Their roles and responsibilities are organized into functional areas:
 - Participate in design and technical discussions
 - Review and approve pull requests involving significant technical changes,
   core architecture decisions, and breaking changes
+- Triage security reports and guide the project's security hardening
 
 #### Becoming a Technical Committee Member
 
