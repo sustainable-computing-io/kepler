@@ -43,7 +43,7 @@ dashboards:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | annotations | object | `{}` | Additional annotations to add to all resources |
-| config.cpu.preferredMeters | list | `["rapl","hwmon"]` | Ordered preference list of CPU power-meter backends. The first backend that initializes successfully and reports zones is used. Built-in backends: rapl, hwmon, fake. |
+| config.cpu.preferredMeters | list | `["rapl","hwmon"]` | Ordered preference list of CPU power-meter backends. The first backend that initializes successfully and reports zones is used. Built-in backends: rapl, hwmon, fake, prometheus. |
 | config.debug.pprof.enabled | bool | `false` | Turn on pprof endpoints |
 | config.dev.fake-cpu-meter.enabled | bool | `false` | DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true. |
 | config.dev.fake-cpu-meter.zones | list | `[]` | Fake CPU meter zones |
@@ -61,6 +61,8 @@ dashboards:
 | config.experimental.platform.redfish.enabled | bool | `false` | Enable experimental Redfish BMC power monitoring |
 | config.experimental.platform.redfish.httpTimeout | string | `"5s"` | HTTP client timeout for BMC requests |
 | config.experimental.platform.redfish.nodeName | string | `""` | Node name to use (overrides Kubernetes node name and hostname fallback) |
+| config.experimental.prometheus-power.baseURL | string | `""` | Prometheus-compatible API base URL (userinfo is redacted in logs) |
+| config.experimental.prometheus-power.query | string | `""` | PromQL query returning node power in watts as exactly one series |
 | config.exporter.prometheus.debugCollectors | list | `["go"]` | Extra Go runtime collectors to expose |
 | config.exporter.prometheus.enabled | bool | `true` | Expose Prometheus metrics |
 | config.exporter.prometheus.metricsLevel | list | `["node","process","container","vm","pod"]` | Metric levels to export |
