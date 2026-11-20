@@ -66,10 +66,11 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Name of the metrics port, shared by the container, the Service and the ServiceMonitor
+Name of the metrics port, shared by the container, the Service and the ServiceMonitor.
+Falls back to http when the value is missing, as it is when upgrading with --reuse-values from a chart that predates it.
 */}}
 {{- define "kepler.portName" -}}
-{{- .Values.daemonset.port.name -}}
+{{- default "http" (dig "port" "name" "" .Values.daemonset) -}}
 {{- end }}
 
 {{/*
