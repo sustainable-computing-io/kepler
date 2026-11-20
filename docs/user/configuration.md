@@ -559,6 +559,8 @@ bmcs:
   - Useful when Kepler doesn't recognize your power monitoring chip or when default pairings are incorrect
   - Config rules take precedence over hardcoded defaults
 
+`zones` and `chipRules` apply whenever hwmon is the selected meter, through `cpu.preferredMeters` or the fallback when RAPL is unavailable. They don't need `forceEnabled`.
+
 **Chip Rule Fields:**
 
 | Field          | Description                                                               |
