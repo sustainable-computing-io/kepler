@@ -287,16 +287,15 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 
 		// Copy GPU energy only when the start time matches. The previous total
 		// stays on the terminated record. This interval belongs to the process
-		// sampled now.
-		if prevProc, exists := prev.Processes[pid]; exists {
-			if prevProc.StartTime == process.StartTime {
-				process.GPUEnergyTotal = prevProc.GPUEnergyTotal
-			}
-			if process.GPUPower > 0 {
-				timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
-				if timeDelta > 0 {
-					process.GPUEnergyTotal += Energy(process.GPUPower * timeDelta * float64(Joule))
-				}
+		// sampled now, including a process seen for the first time, the same as
+		// CPU energy.
+		if prevProc, exists := prev.Processes[pid]; exists && prevProc.StartTime == process.StartTime {
+			process.GPUEnergyTotal = prevProc.GPUEnergyTotal
+		}
+		if process.GPUPower > 0 {
+			timeDelta := newSnapshot.Node.Timestamp.Sub(prev.Node.Timestamp).Seconds()
+			if timeDelta > 0 {
+				process.GPUEnergyTotal += Energy(process.GPUPower * timeDelta * float64(Joule))
 			}
 		}
 
