@@ -1,0 +1,108 @@
+# Kind e2e overlay only (manifests/overlays/e2e).
+# Turns on the fake GPU meter and gives fakeworkload.New a path that exists
+# inside the Kepler container (EvalSymlinks). Do not enable in production.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kepler
+  namespace: kepler
+spec:
+  template:
+    spec:
+      containers:
+        - name: kepler
+          env:
+            - name: KEPLER_FAKE_GPU_WORKLOAD_DIR
+              value: /fake-gpu-workload
+          volumeMounts:
+            - name: fake-gpu-workload
+              mountPath: /fake-gpu-workload
+      volumes:
+        - name: fake-gpu-workload
+          emptyDir: {}
+---
+# Kustomize strategic merge replaces the whole config.yaml string; it cannot
+# patch nested fake-gpu-meter.enabled inside that blob. Duplicate the
+# production ConfigMap and flip only that flag. make check-e2e-overlay-config
+# (run by make test-e2e-k8s) fails if anything else drifts.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler
+  namespace: kepler
+data:
+  config.yaml: |
+    log:
+      level: debug
+      format: text
+    host:
+      sysfs: /host/sys
+      procfs: /host/proc
+    monitor:
+      interval: 5s
+      staleness: 500ms
+      maxTerminated: 100
+      minTerminatedEnergyThreshold: 10
+    cpu:
+      # Ordered preference list of CPU power-meter backends. The first backend
+      # that initializes successfully and reports zones is used.
+      # Built-in backends: rapl, hwmon, fake.
+      preferredMeters: ["rapl", "hwmon"]
+    rapl:
+      zones: []
+    exporter:
+      stdout:
+        enabled: false
+      prometheus:
+        enabled: true
+        debugCollectors:
+          - go
+        metricsLevel:
+          - node
+          - process
+          - container
+          - vm
+          - pod
+    web:
+      configFile: ""
+      listenAddresses:
+        - ":28282"
+    debug:
+      pprof:
+        enabled: false
+    kube:
+      enabled: false
+      config: ""
+      nodeName: ""
+      podName: ""
+      podNamespace: ""
+      containerName: kepler
+      podInformer:
+        mode: kubelet          # "kubelet" (default) or "apiserver"
+        pollInterval: 15s      # Poll interval for kubelet mode (default: 15s)
+    dev:
+      fake-cpu-meter:
+        enabled: false # DEPRECATED: set cpu.preferredMeters: ["fake"] instead. Overrides cpu.preferredMeters and emits a deprecation warning when true.
+        zones: []
+      fake-gpu-meter:
+        enabled: true
+        deviceCount: 1
+        sharingMode: time-slicing
+    # EXPERIMENTAL FEATURES - These features are experimental and may be unstable
+    # and are disabled by default
+    experimental:
+      platform:
+        redfish:
+          enabled: false  # Enable experimental Redfish BMC power monitoring
+          configFile: "/etc/kepler/redfish.yaml"  # Path to Redfish BMC configuration file
+          nodeName: ""  # Node name to use (overrides Kubernetes node name and hostname fallback)
+          httpTimeout: 5s  # HTTP client timeout for BMC requests (default: 5s)
+      hwmon:
+        forceEnabled: false # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
+        zones: [] # List of zones to enable (default enable all)
+        chipRules: [] # User-defined chip pairing rules (override/add to hardcoded defaults)
+      gpu:
+        enabled: false
+        idlePower: 0 # GPU idle power in Watts (0 = auto-detect)
+        dcgmEndpoint: "" # dcgm-exporter metrics URL for MIG (auto-discovered if empty)
+        metricsCacheTTL: 2s # dcgm-exporter metrics cache TTL for MIG (0s disables cache)

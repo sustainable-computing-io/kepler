@@ -180,9 +180,15 @@ test-e2e: build ## Test e2e binary build (requires sudo to run)
 	@echo ""
 	@echo "Prerequisites: Intel RAPL, stress-ng (for workload tests)"
 
+# Guard the e2e overlay ConfigMap: kustomize replaces the whole config.yaml
+# string, so this diffs it against production and allows only fake-gpu-meter.enabled.
+.PHONY: check-e2e-overlay-config
+check-e2e-overlay-config: ## Confirm e2e overlay ConfigMap differs only by fake-gpu-meter.enabled
+	python3 ./hack/check-e2e-overlay-config.py
+
 # Build and run k8s e2e tests
 .PHONY: test-e2e-k8s
-test-e2e-k8s: ## Test K8s e2e (requires: make cluster-up image deploy)
+test-e2e-k8s: check-e2e-overlay-config ## Test K8s e2e (requires: make cluster-up image deploy with the e2e overlay)
 	@echo "Running K8s e2e tests..."
 	@echo "Optional flags:"
 	@echo "  -kepler.namespace=kepler"
@@ -190,7 +196,7 @@ test-e2e-k8s: ## Test K8s e2e (requires: make cluster-up image deploy)
 	@echo "  -kepler.metrics-port=8888"
 	@echo "  -kepler.local-port=28282"
 	@echo ""
-	cd test/e2e-k8s && $(GOTEST) -v -timeout=15m .
+	cd test/e2e-k8s && $(GOTEST) -v -count=1 -timeout=15m .
 
 # Generate metrics documentation
 .PHONY: gen-metrics-docs
@@ -291,10 +297,17 @@ cluster-down: ## K8s cluster teardown
 	VERSION=$(LOCAL_DEV_CLUSTER_VERSION) \
 	./hack/cluster.sh down
 
+# kustomize root for make deploy. Default is production manifests.
+# k8s-bm sets this to manifests/overlays/e2e to enable the fake GPU meter.
+KUSTOMIZE_DIR ?= manifests/k8s
+# Overlay patches live under manifests/k8s/patches/, outside the overlay
+# directory, so kustomize needs LoadRestrictionsNone for that path.
+KUSTOMIZE_FLAGS ?=
+
 # Deploy Kepler to the K8s cluster
 .PHONY: deploy
 deploy: ## Deploy Kepler to K8s cluster
-	kubectl kustomize manifests/k8s | \
+	kubectl kustomize $(KUSTOMIZE_FLAGS) $(KUSTOMIZE_DIR) | \
 	sed -e "s|<KEPLER_IMAGE>|$(KEPLER_IMAGE)|g" | \
 	kubectl apply --server-side --force-conflicts -f -
 
