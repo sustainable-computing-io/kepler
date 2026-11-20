@@ -7,6 +7,19 @@ on: # yamllint disable-line rule:truthy
 permissions: read-all
 
 jobs:
+  release-tests:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Test release signing and publication
+        run: python3 -m unittest discover -s hack -p test_release.py
+
   check-changes:
     runs-on: ubuntu-latest
     outputs:

@@ -8,6 +8,22 @@ This document describes the release workflow for Kepler.
 - Container images are stored in Quay.io
 - The workflow is fully automated through GitHub Actions
 
+## Release validation
+
+The workflow validates canonical stable tags such as `v1.2.3` before building
+or publishing. It rejects prerelease tags, leading zeroes, and malformed versions.
+Release values reach shell commands through environment variables. Publishing
+runs only in `sustainable-computing-io/kepler`, with one run per tag at a time.
+The default token has read access, checkout credentials are not persisted, and
+external release actions are pinned to commit SHAs. Artifact names and publication
+behavior are unchanged by these checks.
+
+Run the focused release checks with:
+
+```bash
+python3 -m unittest discover -s hack -p test_release.py
+```
+
 ## Release Process Overview
 
 ![Release Workflow](assets/release.png)
