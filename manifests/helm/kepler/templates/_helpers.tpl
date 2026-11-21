@@ -66,6 +66,25 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Name of the metrics port, shared by the container, the Service and the ServiceMonitor.
+Falls back to http when the value is missing, as it is when upgrading with --reuse-values from a chart that predates it.
+*/}}
+{{- define "kepler.portName" -}}
+{{- default "http" (dig "port" "name" "" .Values.daemonset) -}}
+{{- end }}
+
+{{/*
+Render a probe, defaulting httpGet.port to the metrics port name when it is not set
+*/}}
+{{- define "kepler.probe" -}}
+{{- $probe := deepCopy .probe -}}
+{{- if and $probe.httpGet (not $probe.httpGet.port) -}}
+{{- $_ := set $probe.httpGet "port" .portName -}}
+{{- end -}}
+{{- toYaml $probe -}}
+{{- end }}
+
+{{/*
 Create the namespace to use
 */}}
 {{- define "kepler.namespace" -}}

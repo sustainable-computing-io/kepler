@@ -124,7 +124,7 @@ spec:
             - --kube.pod-name=$(POD_NAME)
             - --kube.pod-namespace=$(POD_NAMESPACE)
           ports:
-            - name: http
+            - name: {{ include "kepler.portName" . }}
               containerPort: 28282
               protocol: TCP
           volumeMounts:
@@ -144,15 +144,15 @@ spec:
             {{- with .Values.daemonset.extraVolumeMounts }}{{- toYaml . | nindent 12 }}{{- end }}
           {{- with .Values.daemonset.startupProbe }}
           startupProbe:
-            {{- toYaml . | nindent 12 }}
+            {{- include "kepler.probe" (dict "probe" . "portName" (include "kepler.portName" $)) | nindent 12 }}
           {{- end }}
           {{- with .Values.daemonset.livenessProbe }}
           livenessProbe:
-            {{- toYaml . | nindent 12 }}
+            {{- include "kepler.probe" (dict "probe" . "portName" (include "kepler.portName" $)) | nindent 12 }}
           {{- end }}
           {{- with .Values.daemonset.readinessProbe }}
           readinessProbe:
-            {{- toYaml . | nindent 12 }}
+            {{- include "kepler.probe" (dict "probe" . "portName" (include "kepler.portName" $)) | nindent 12 }}
           {{- end }}
           env:
             - name: NODE_NAME
