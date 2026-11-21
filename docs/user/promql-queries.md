@@ -52,7 +52,7 @@ sum by (node_name) (rate(kepler_node_cpu_joules_total{zone="package"}[5m]))
 Identify the highest energy-consuming Kubernetes namespaces:
 
 ```promql
-sum by (pod_namespace) (kepler_pod_cpu_watts{zone="package"})
+sum by (pod_namespace) (kepler_pod_cpu_watts{zone="package", state="running"})
 ```
 
 ### Top 10 Energy Consuming Pods
@@ -60,7 +60,7 @@ sum by (pod_namespace) (kepler_pod_cpu_watts{zone="package"})
 Find the top 10 pods by power usage across the cluster:
 
 ```promql
-topk(10, sum by (pod_namespace, pod_name) (kepler_pod_cpu_watts{zone="package"}))
+topk(10, sum by (pod_namespace, pod_name) (kepler_pod_cpu_watts{zone="package", state="running"}))
 ```
 
 ### Total Energy Consumed by a Specific Namespace in the Last 1 Hour (in Joules)
@@ -78,13 +78,13 @@ sum(increase(kepler_pod_cpu_joules_total{pod_namespace="default", zone="package"
 Find the top 10 containers across the cluster by power consumption (identifying containers uniquely by `container_id` and `container_name`):
 
 ```promql
-topk(10, sum by (container_name, container_id) (kepler_container_cpu_watts{zone="package"}))
+topk(10, sum by (container_name, container_id) (kepler_container_cpu_watts{zone="package", state="running"}))
 ```
 
 ### Container Power Consumption per Node
 
 ```promql
-sum by (container_name, node_name) (kepler_container_cpu_watts{zone="package"})
+sum by (container_name, node_name) (kepler_container_cpu_watts{zone="package", state="running"})
 ```
 
 ---
@@ -94,13 +94,13 @@ sum by (container_name, node_name) (kepler_container_cpu_watts{zone="package"})
 ### Top 10 CPU Consuming Commands / Binaries
 
 ```promql
-topk(10, sum by (comm) (kepler_process_cpu_watts{zone="package"}))
+topk(10, sum by (comm) (kepler_process_cpu_watts{zone="package", state="running"}))
 ```
 
 ### Power of a Specific Process by PID
 
 ```promql
-kepler_process_cpu_watts{pid="1234", zone="package"}
+kepler_process_cpu_watts{pid="1234", zone="package", state="running"}
 ```
 
 ---
