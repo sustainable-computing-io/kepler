@@ -8,7 +8,7 @@ log:
   format: text
 monitor:
   interval: 3s
-  staleness: 10s
+  staleness: 500ms
   maxTerminated: 100
   minTerminatedEnergyThreshold: 1
 host:
