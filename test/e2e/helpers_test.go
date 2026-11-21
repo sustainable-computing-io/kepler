@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/test/common"
 )
 
@@ -372,6 +373,32 @@ func findChildPIDs(parentPID int) []int {
 	return children
 }
 
+// waitForStressNGCPUWorkerPIDs waits until parent has exactly want children
+// whose comm starts with "stress-ng-cpu", then records them on w.
+func waitForStressNGCPUWorkerPIDs(t *testing.T, w *Workload, want int, timeout time.Duration) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := common.WaitForCondition(ctx, 200*time.Millisecond, func() bool {
+		var workers []int
+		for _, pid := range findChildPIDs(w.ParentPID()) {
+			comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
+			if err != nil {
+				continue
+			}
+			if strings.HasPrefix(strings.TrimSpace(string(comm)), "stress-ng-cpu") {
+				workers = append(workers, pid)
+			}
+		}
+		w.workerPIDs = workers
+		return len(workers) == want
+	})
+	require.NoError(t, err, "stress-ng never started exactly %d CPU workers (got %v)", want, w.PIDs())
+	t.Logf("Workload %q CPU workers ready: PID=%d, workers=%v", w.name, w.ParentPID(), w.PIDs())
+}
+
 // Stop stops the workload
 func (w *Workload) Stop() error {
 	if w.cmd == nil || w.cmd.Process == nil {
@@ -523,18 +550,29 @@ func WaitForNonZeroProcessPower(t *testing.T, scraper *common.MetricsScraper, pi
 // It sums running kepler_process_cpu_watts over worker children only, never
 // the stress-ng parent.
 func FindWorkloadPower(snapshot *common.MetricsSnapshot, w *Workload) (power float64, found bool) {
-	processMetrics := snapshot.GetAllWithName("kepler_process_cpu_watts")
+	return findWorkloadRunningMetric(snapshot, w, "kepler_process_cpu_watts")
+}
+
+// FindWorkloadEnergy searches for a workload's energy in a metrics snapshot.
+// It sums running kepler_process_cpu_joules_total over worker children only,
+// never the stress-ng parent.
+func FindWorkloadEnergy(snapshot *common.MetricsSnapshot, w *Workload) (energy float64, found bool) {
+	return findWorkloadRunningMetric(snapshot, w, "kepler_process_cpu_joules_total")
+}
+
+func findWorkloadRunningMetric(snapshot *common.MetricsSnapshot, w *Workload, name string) (value float64, found bool) {
+	processMetrics := snapshot.GetAllWithName(name)
 
 	for _, pid := range w.PIDs() {
 		pidStr := strconv.Itoa(pid)
 		for _, m := range processMetrics {
 			if m.Labels["pid"] == pidStr && m.Labels["state"] == "running" {
-				power += m.Value
+				value += m.Value
 				found = true
 			}
 		}
 	}
-	return power, found
+	return value, found
 }
 
 // WaitForTerminatedProcess waits for a process to appear in metrics with state=terminated
