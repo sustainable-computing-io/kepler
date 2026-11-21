@@ -140,7 +140,7 @@ The e2e tests use a dedicated configuration file at `test/testdata/e2e-config.ya
 ```yaml
 monitor:
   interval: 3s              # Collection interval
-  staleness: 10s            # Max data staleness
+  staleness: 500ms          # Max data staleness (must be < interval)
   maxTerminated: 100        # Track up to 100 terminated processes
   minTerminatedEnergyThreshold: 1  # 1 joule minimum for terminated tracking
 ```
