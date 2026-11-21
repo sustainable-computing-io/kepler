@@ -39,9 +39,14 @@ shouldn't have it, or can be used to escalate privileges, is in scope.
 
 ## Security Response Team
 
-The maintainers with the Repository Oversight role triage reports, as set out
-in [GOVERNANCE.md](GOVERNANCE.md#4-repository-oversight). The Project Lead is
-the escalation contact.
+Maintainers with the
+[Technical Committee](GOVERNANCE.md#2-technical-committee) or
+[Repository Oversight](GOVERNANCE.md#4-repository-oversight) role triage
+reports. Their GitHub teams, `kepler-technical` and `kepler-oversight`, hold
+the organization's [security manager role], so their members receive private
+reports. The first team member to acknowledge a report owns it until the
+fix ships or they hand it to another team member. The Project Lead is the
+escalation contact.
 
 ## What to Expect
 
@@ -101,3 +106,4 @@ What the Kepler repository does today to catch problems early:
 - Pull requests are checked for [DCO](DCO) sign-off
 
 [Private Vulnerability Reporting]: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability
+[security manager role]: https://docs.github.com/en/organizations/managing-peoples-access-to-your-organization-with-roles/managing-security-managers-in-your-organization
