@@ -1,0 +1,101 @@
+# Opens a PR in kepler-doc that moves its kepler submodule to a release tag.
+# Called by the Release workflow; run it manually to retry a release.
+name: Bump kepler-doc
+
+on: # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to pin the submodule to
+        required: true
+        type: string
+    secrets:
+      KEPLER_DOC_APP_PRIVATE_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to pin the submodule to (e.g. v0.12.1)
+        required: true
+        type: string
+
+# default permissions as read only
+permissions: read-all
+
+jobs:
+  bump:
+    if: github.repository_owner == 'sustainable-computing-io'
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Check tag
+        id: check
+        shell: bash
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a release tag (vX.Y.Z)"
+            exit 1
+          fi
+
+          # The submodule follows the newest release, so a patch on an older
+          # minor (e.g. v0.11.5 after v0.12.0) must not move it back
+          latest=$(git ls-remote --tags --refs "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" |
+            sed 's|.*refs/tags/||' |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+            sort -V | tail -n 1)
+          if [[ "$TAG" != "$latest" ]]; then
+            echo "::notice::$TAG is not the latest release ($latest), skipping"
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate kepler-doc token
+        if: steps.check.outputs.skip != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.KEPLER_DOC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.KEPLER_DOC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: kepler-doc
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout kepler-doc
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/kepler-doc
+          token: ${{ steps.app-token.outputs.token }}
+          submodules: true
+
+      - name: Move submodule to ${{ inputs.tag }}
+        if: steps.check.outputs.skip != 'true'
+        shell: bash
+        run: |
+          git -C kepler fetch --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG"
+          git -C kepler checkout --quiet --detach "$TAG"
+
+          {
+            echo "Moves the \`kepler\` submodule to [$TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG)."
+            echo
+            # Always listed, since a patch release can update a still open
+            # bump PR for a new minor and replace its body
+            echo "- [ ] If \`${TAG%.*}\` is missing, add it to the \`mike\` version list"
+            echo
+            echo "Opened by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >"$RUNNER_TEMP/pr-body.md"
+
+      - name: Open PR
+        if: steps.check.outputs.skip != 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: bump-kepler
+          delete-branch: true
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          signoff: true
+          commit-message: "chore(kepler): bump submodule to ${{ inputs.tag }}"
+          title: "chore(kepler): bump submodule to ${{ inputs.tag }}"
+          body-path: ${{ runner.temp }}/pr-body.md
