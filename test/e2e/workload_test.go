@@ -25,6 +25,11 @@ const (
 
 	// waitForStable: wait for stable baseline readings
 	waitForStable = 12 * time.Second
+
+	// proportionalRatioDelta is ±10% around the expected 3.0 high/low
+	// ratio (band 2.7–3.3). 28 recent BM e2e runs sat in 2.83–2.86; a
+	// 5% band would have failed the 2.83 logs.
+	proportionalRatioDelta = 0.3
 )
 
 // TestStressWorkloadDetected verifies that a stress-ng process appears in Kepler metrics
@@ -419,6 +424,8 @@ func TestProportionalPowerAttribution(t *testing.T) {
 		WithCPULoad(75),
 	)
 	defer workloadHigh.Stop()
+	waitForStressNGCPUWorkerPIDs(t, workloadLow, 1, waitForLoad)
+	waitForStressNGCPUWorkerPIDs(t, workloadHigh, 1, waitForLoad)
 
 	// Wait for workloads to stabilize and appear in metrics
 	time.Sleep(waitForLoad)
@@ -432,17 +439,10 @@ func TestProportionalPowerAttribution(t *testing.T) {
 	t.Logf("Low load (25%%): found=%v, power=%.4f W", lowFound, lowPower)
 	t.Logf("High load (75%%): found=%v, power=%.4f W", highFound, highPower)
 
-	// Both should be found
-	if !lowFound || !highFound {
-		t.Log("One or both workloads not found - skipping proportionality check")
-		return
-	}
-
-	// Both should have positive power
-	if lowPower <= 0 || highPower <= 0 {
-		t.Log("One or both workloads have zero power - skipping proportionality check")
-		return
-	}
+	require.True(t, lowFound, "Low-load workload should be detected in metrics")
+	require.True(t, highFound, "High-load workload should be detected in metrics")
+	require.Greater(t, lowPower, 0.0, "Low-load workload should have positive power")
+	require.Greater(t, highPower, 0.0, "High-load workload should have positive power")
 
 	// The high-load workload should have more power than the low-load workload
 	assert.Greater(t, highPower, lowPower,
@@ -450,4 +450,5 @@ func TestProportionalPowerAttribution(t *testing.T) {
 
 	ratio := highPower / lowPower
 	t.Logf("Power ratio (high/low): %.2f (expected ~3.0 for 75%%/25%%)", ratio)
+	assert.InDelta(t, 3.0, ratio, proportionalRatioDelta, "Power ratio should be ~3.0 for 75%/25% CPU load")
 }
