@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/sustainable-computing-io/kepler/test/common"
 )
 
@@ -370,6 +371,32 @@ func findChildPIDs(parentPID int) []int {
 		}
 	}
 	return children
+}
+
+// waitForStressNGCPUWorkerPIDs waits until parent has exactly want children
+// whose comm starts with "stress-ng-cpu", then records them on w.
+func waitForStressNGCPUWorkerPIDs(t *testing.T, w *Workload, want int, timeout time.Duration) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := common.WaitForCondition(ctx, 200*time.Millisecond, func() bool {
+		var workers []int
+		for _, pid := range findChildPIDs(w.ParentPID()) {
+			comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
+			if err != nil {
+				continue
+			}
+			if strings.HasPrefix(strings.TrimSpace(string(comm)), "stress-ng-cpu") {
+				workers = append(workers, pid)
+			}
+		}
+		w.workerPIDs = workers
+		return len(workers) == want
+	})
+	require.NoError(t, err, "stress-ng never started exactly %d CPU workers (got %v)", want, w.PIDs())
+	t.Logf("Workload %q CPU workers ready: PID=%d, workers=%v", w.name, w.ParentPID(), w.PIDs())
 }
 
 // Stop stops the workload
