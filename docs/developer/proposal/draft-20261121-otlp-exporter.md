@@ -209,22 +209,23 @@ The metrics level comes from the existing `exporter.prometheus.metricsLevel`
 
 ### Kubernetes Environment
 
-Helm values (new, all optional):
+Helm values (all optional, `config` is rendered into the ConfigMap):
 
 ```yaml
-exporter:
-  otlp:
-    enabled: true
-    endpoint: otel-collector.observability:4317
-    protocol: grpc
-    insecure: true
+config:
+  exporter:
+    otlp:
+      enabled: true
+      endpoint: otel-collector.observability:4317
+      protocol: grpc
+      insecure: true
 ```
 
 Extra environment from a Secret, for example for a vendor endpoint:
 
 ```yaml
 daemonset:
-  env:
+  extraEnv:
     - name: OTEL_EXPORTER_OTLP_HEADERS
       valueFrom:
         secretKeyRef:
