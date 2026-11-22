@@ -63,7 +63,11 @@ the old architecture but never merged, and #659 was closed as stale in April
   default.
 - Protocols `grpc` (default) and `http/protobuf`.
 - Endpoint, push interval, insecure (plain text) and headers are configurable.
-  Settings left empty fall back to the standard OTel environment variables.
+  An empty endpoint falls back to `OTEL_EXPORTER_OTLP_ENDPOINT`, and headers
+  and certificates come from the standard variables. `protocol` and `interval`
+  are Kepler-only settings: the Go exporters don't read
+  `OTEL_EXPORTER_OTLP_PROTOCOL`, and the periodic reader's interval overrides
+  `OTEL_METRIC_EXPORT_INTERVAL`.
 - The exported metric names, labels and values match `/metrics` for the same
   metrics level.
 - The Prometheus and OTLP exporters can run at the same time, or either one
@@ -121,8 +125,9 @@ the old architecture but never merged, and #659 was closed as stale in April
   registries. A Prometheus collector can be registered in more than one
   registry.
 - **Standard SDK exporters.** `otlpmetricgrpc` and `otlpmetrichttp` already
-  read the `OTEL_EXPORTER_OTLP_*` variables, handle retries, compression and
-  TLS. Kepler only sets what the user configures explicitly.
+  read most of the `OTEL_EXPORTER_OTLP_*` variables, handle retries,
+  compression and TLS. Kepler sets the protocol and interval itself and
+  otherwise only what the user configures explicitly.
 - **Resource attributes.** `service.name=kepler`, `service.version`, and, when
   the node name is known, `host.name` and `k8s.node.name`. Values from
   `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_SERVICE_NAME` take precedence.
