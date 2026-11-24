@@ -38,6 +38,8 @@ If you are affiliated with a company, university, or research institution, add o
 
 Our project uses GitHub Actions for CI. Each PR will trigger automated builds and tests. Check the `.github/workflows` directory to understand our CI pipeline. Ensure your contributions pass all CI checks before requesting a review.
 
+In workflows and composite actions, pin actions from other repositories to a full commit SHA and add the release tag in a comment on the same line (`owner/action@<full-commit-sha> # vX.Y.Z`). Dependabot proposes updates to these pins.
+
 ### Code Review 👀
 
 All submissions require review. We use GitHub pull requests for this purpose:
