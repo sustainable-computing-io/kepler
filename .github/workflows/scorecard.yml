@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -51,14 +51,14 @@ jobs:
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: scorecard-sarif-raw
           path: scorecard-results.sarif
           retention-days: 1 # Keeping the results for 1 day
 
   upload-sarif:
-    name: Filter and upload SARIF
+    name: Upload SARIF
     needs: analysis
     runs-on: ubuntu-latest
     permissions:
@@ -69,24 +69,12 @@ jobs:
 
     steps:
       - name: Download raw SARIF artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: scorecard-sarif-raw
 
-      # Filter out Pinned-Dependencies findings from SARIF.
-      # Third-party actions are pinned to commit SHAs with a version comment,
-      # which Dependabot keeps up to date. First-party actions/* stay on tags
-      # for readability, which Scorecard still reports as unpinned. The
-      # scorecard-action has no option to exclude individual checks, so we
-      # strip these results from the SARIF before uploading to code scanning.
-      - name: Filter Pinned-Dependencies from SARIF
-        run: |
-          jq '(.runs[].results) |= map(select(.ruleId != "PinnedDependenciesID"))' \
-            scorecard-results.sarif > scorecard-filtered.sarif
-          mv scorecard-filtered.sarif scorecard-results.sarif
-
       # Upload the results to GitHub's code scanning dashboard.
       - name: Upload to code-scanning
-        uses: github/codeql-action/upload-sarif@v4.39.4
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
           sarif_file: scorecard-results.sarif

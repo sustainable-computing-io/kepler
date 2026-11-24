@@ -18,7 +18,7 @@ jobs:
       changes: ${{ steps.filter.outputs.changes }}
     steps:
       - name: checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: filter changes
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -42,13 +42,13 @@ jobs:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
       # Hence, we don't need to install them as part of the job.
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v7.1.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
