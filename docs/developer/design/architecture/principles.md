@@ -29,7 +29,7 @@ terminatedPodsTracker       *TerminatedResourceTracker[*Pod]
 **Key Features:**
 
 - **Priority-Based Retention**: Keep highest energy consumers to ensure fair attribution
-- **Export-Triggered Cleanup**: Clear terminated workloads only after they've been exported to prevent data loss
+- **Cleanup after a snapshot read**: A successful snapshot request marks retained entries for cleanup during the next collection
 - **Configurable Capacity**: Control memory usage while maintaining fairness
 
 **Configuration:**
@@ -37,40 +37,30 @@ terminatedPodsTracker       *TerminatedResourceTracker[*Pod]
 ```yaml
 monitor:
   maxTerminated: 100  # Track top 100 terminated workloads by energy
-  minTerminatedEnergyThreshold: 10  # Only track workloads with >10J consumption
+  minTerminatedEnergyThreshold: 10  # At least 10 J in the primary zone
 ```
 
 ## 2. Data Consistency, Completeness & Mathematical Integrity
 
 > *"Data exported should be consistent, complete and not half complete"*
 
-### Mathematical Relationships Enforced
+### CPU power attribution
 
-Kepler enforces strict mathematical consistency across all power attribution levels:
+For each CPU energy zone, the monitor splits measured node power according to node
+CPU utilization. It then uses CPU time from the same interval to allocate active power.
 
 ```text
-Node Watts = Node Active Watts + Node Idle Watts
-Node Active Watts = Σ(Process Watts)
-Container Watts = Σ(Process Watts in Container)
-VM Watts = Σ(Process Watts associated with VM)
-Pod Watts = Σ(Container Watts in Pod)
+Zone power = active zone power + idle zone power
+Workload CPU power for the zone = active zone power × (workload CPU time delta / node process CPU time delta)
 ```
 
-### Implementation Guarantees
+Processes, containers, VMs, and pods each use their own CPU time delta. For example,
+a pod receives its share directly from each zone's active power. Its containers
+provide another view of that same power. [Power attribution guide](../../power-attribution-guide.md#independent-attribution)
 
-- **Atomic Snapshots**: All related data captured at the same instant
-- **Energy Conservation Validation**: Attribution totals must equal measured energy
-- **Hierarchical Aggregation**: Bottom-up rollup ensures mathematical consistency
-- **Immutable Data Structures**: Prevent partial updates during export
-
-### Testing Strategy
-
-```go
-// Energy conservation tests validate:
-assert.Equal(t, nodeActiveEnergy, sumOfProcessEnergies)
-assert.Equal(t, containerEnergy, sumOfContainerProcessEnergies)
-assert.Equal(t, podEnergy, sumOfPodContainerEnergies)
-```
+The node tests exercise the active/idle split. The pod tests exercise CPU-time
+attribution and the separate aggregation of GPU power from containers.
+[Node tests](../../../../internal/monitor/node_test.go) · [Pod tests](../../../../internal/monitor/pod_power_test.go)
 
 ## 3. Computation-Presentation Separation (M/V Pattern)
 
@@ -109,71 +99,22 @@ type PowerDataProvider interface {
 
 > *"Data presented should be as fresh as possible within the stale duration"*
 
-### Freshness Controls
-
-- **Configurable Staleness Threshold**: Default 10s, prevents serving outdated data
-- **Automatic Refresh**: Fresh data computed on-demand when stale
-- **Singleflight Protection**: Prevents redundant calculations during concurrent requests
-- **Data Channel Notifications**: Signal exporters when new data is available
-
-### Freshness Implementation
-
-```go
-func (pm *PowerMonitor) isFresh() bool {
-    age := pm.clock.Now().Sub(snapshot.Timestamp)
-    return age <= pm.maxStaleness
-}
-
-func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
-    if !pm.isFresh() {
-        pm.synchronizedPowerRefresh() // Automatic refresh
-    }
-    return pm.snapshot.Load(), nil
-}
-```
-
-### Configuration
-
-```yaml
-monitor:
-  staleness: 10s  # Data older than 10s triggers automatic refresh
-```
+`monitor.interval` controls periodic collection. `monitor.staleness` controls how old
+a snapshot can be when a reader requests it. Scrapes can reuse a fresh sample.
+A request for a stale sample triggers a refresh, and concurrent requests share
+that work through `singleflight`.
+[Configuration defaults](../../../../config/config.go) · [Monitor implementation](../../../../internal/monitor/monitor.go)
 
 ## 5. Deterministic Processing
 
 > *"Parallel vs Serial processing should not produce different results"*
 
-### Thread Safety Guarantees
-
-- **Atomic Snapshot Updates**: Single writer ensures consistency
-- **Immutable Snapshots**: No partial modifications possible
-- **Deterministic Attribution**: Same CPU time ratios → same power attribution
-- **Race-Free Calculations**: All concurrent access is read-only
-
-### Implementation Patterns
-
-```go
-// Single writer pattern
-func (pm *PowerMonitor) refreshSnapshot() error {
-    // Only one goroutine can update snapshots
-    newSnapshot := NewSnapshot()
-    // ... perform calculations ...
-    pm.snapshot.Store(newSnapshot) // Atomic update
-}
-
-// Multiple readers pattern
-func (pm *PowerMonitor) Snapshot() (*Snapshot, error) {
-    return pm.snapshot.Load(), nil // Lock-free read
-}
-```
-
-### Testing Requirements
-
-All concurrent code must be validated with race detection:
-
-```bash
-go test -race ./...
-```
+Only one refresh computes a new snapshot at a time. The monitor publishes it
+atomically once the calculations are complete. A reader can therefore work with
+one sample while the monitor prepares the next. When adding a snapshot field,
+preserve reader isolation in `Snapshot.Clone` and run the monitor tests with the
+race detector using `make test TEST_PKGS=./internal/monitor/...`.
+[Clone tests](../../../../internal/monitor/clone_test.go) · [Concurrency tests](../../../../internal/monitor/monitor_concurrency_test.go)
 
 ## 6. Prefer Package Reuse Over Reinvention
 
@@ -213,7 +154,8 @@ When choosing external packages:
 
 ### Metrics Level Configuration
 
-Users can configure exactly what metrics to collect and expose:
+The Prometheus power collector uses `metricsLevel` to select which workload and node
+series it emits from a monitor snapshot. The monitor still computes the snapshot.
 
 ```yaml
 exporter:
@@ -223,20 +165,19 @@ exporter:
 
 ### Current Support Matrix
 
-| Level         | Status | Metrics                                   | Benefits                       |
-|---------------|--------|-------------------------------------------|--------------------------------|
-| **Node**      | ✅     | `kepler_node_cpu_watts{zone="package"}`   | System-level monitoring        |
-| **Process**   | 🔄     | `kepler_process_cpu_watts{pid="1234"}`    | Fine-grained analysis          |
-| **Container** | 🔄     | `kepler_container_cpu_watts{id="abc123"}` | Container-level billing        |
-| **VM**        | 🔄     | `kepler_vm_cpu_watts{id="vm-123"}`        | Virtualization monitoring      |
-| **Pod**       | ✅     | `kepler_pod_cpu_watts{pod="webapp"}`      | Kubernetes workload monitoring |
+| Level         | Status | Metrics                                             | Benefits                       |
+|---------------|--------|-----------------------------------------------------|--------------------------------|
+| **Node**      | ✅     | `kepler_node_cpu_watts{zone="package"}`             | System-level monitoring        |
+| **Process**   | ✅     | `kepler_process_cpu_watts{pid="1234"}`              | Fine-grained analysis          |
+| **Container** | ✅     | `kepler_container_cpu_watts{container_id="abc123"}` | Container-level billing        |
+| **VM**        | ✅     | `kepler_vm_cpu_watts{vm_id="vm-123"}`               | Virtualization monitoring      |
+| **Pod**       | ✅     | `kepler_pod_cpu_watts{pod_name="webapp"}`           | Kubernetes workload monitoring |
 
 ### Configuration Benefits
 
 - **Reduced Cardinality**: Lower storage and query costs for large clusters
-- **Lower Resource Usage**: Collect only necessary data
+- **Smaller scrapes**: Emit fewer time series
 - **Focused Monitoring**: Target specific workload types
-- **Scalability**: Scale metrics collection based on cluster size
 
 ### Zone Filtering
 
@@ -299,16 +240,13 @@ Configuration follows a clear precedence order:
 
 - **Operational Flags**: Every YAML config option has corresponding CLI flag where operationally relevant
 - **Development Options**: `dev.*` settings intentionally not exposed as CLI flags (internal only)
-- **Consistent Naming**: `--exporter.prometheus.enabled` ↔ `exporter.prometheus.enabled`
+- The `--exporter.prometheus` flag controls the YAML setting `exporter.prometheus.enabled`.
 
 ### Examples
 
 ```bash
 # CLI override of YAML config
-kepler --config=production.yaml --log.level=debug --monitor.interval=5s
-
-# Development mode (not exposed as CLI flag - internal only)
-# Must be set in YAML: dev.fake_cpu_meter.enabled: true
+kepler --config.file=production.yaml --log.level=debug --monitor.interval=5s
 ```
 
 ### Design Philosophy
@@ -325,7 +263,7 @@ These principles directly influenced major architectural decisions:
 | Principle                  | Architectural Impact                              | Implementation                                   |
 |----------------------------|---------------------------------------------------|--------------------------------------------------|
 | Fair Allocation            | Terminated workload tracking system               | `TerminatedResourceTracker` with priority queues |
-| Mathematical Integrity     | Atomic snapshots + energy conservation            | Immutable `Snapshot` with validation             |
+| Mathematical Integrity     | Consistent per-zone CPU attribution               | Workload CPU time shares of node active power    |
 | M/V Separation             | PowerDataProvider interface + pluggable exporters | Interface-based exporter system                  |
 | Data Freshness             | Staleness control + singleflight pattern          | `isFresh()` checks + automatic refresh           |
 | Deterministic Processing   | Thread-safe design + immutable snapshots          | Single writer, multiple readers                  |
