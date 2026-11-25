@@ -5,11 +5,19 @@ on: # yamllint disable-line rule:truthy
     tags:
       - v[0-9]+.[0-9]+.[0-9]+
 
-# default permissions as read only
-permissions: read-all
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
+
 jobs:
   build:
-    if: github.repository_owner == 'sustainable-computing-io'
+    if: github.repository == 'sustainable-computing-io/kepler'
     runs-on: ubuntu-latest
     env:
       IMG_BASE: quay.io/sustainable_computing_io
@@ -21,6 +29,15 @@ jobs:
           # instead of a shallow -clone so that all tags are fetched as well.
           # This is necessary for computing the VERSION using `git describe`
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          if [[ ! ${RELEASE_TAG:-} =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf '%s\n' "RELEASE_TAG must be a stable version such as v1.2.3" >&2
+            exit 1
+          fi
 
       - name: Setup Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
@@ -48,12 +65,12 @@ jobs:
       - name: Build Image
         shell: bash
         run: |
-          make image VERSION=${{ github.ref_name }}
+          make image VERSION="$RELEASE_TAG"
 
       - name: Update Helm Chart Version
         shell: bash
         run: |
-          VERSION=${{ github.ref_name }}
+          VERSION="$RELEASE_TAG"
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           # Update Chart.yaml with the release version
@@ -64,23 +81,23 @@ jobs:
         shell: bash
         run: |
           mkdir -p helm-releases
-          VERSION=${{ github.ref_name }}
+          VERSION="$RELEASE_TAG"
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
           helm package manifests/helm/kepler -d helm-releases
           # Rename the helm chart to include 'helm' identifier
-          mv helm-releases/kepler-${CHART_VERSION}.tgz helm-releases/kepler-helm-${CHART_VERSION}.tgz
+          mv "helm-releases/kepler-${CHART_VERSION}.tgz" "helm-releases/kepler-helm-${CHART_VERSION}.tgz"
 
       - name: Build Kepler binary
         shell: bash
         run: |
-          VERSION=${{ github.ref_name }}
+          VERSION="$RELEASE_TAG"
           # Remove 'v' prefix from version
           VERSION=${VERSION#v}
           make build PRODUCTION=1
           mv bin/kepler-release bin/kepler
           # Currently the binary is built for linux-amd64 only
-          tar -czvf bin/kepler-${VERSION}.linux-amd64.tar.gz bin/kepler
+          tar -czvf "bin/kepler-${VERSION}.linux-amd64.tar.gz" bin/kepler
 
       - name: govulncheck
         shell: bash
@@ -98,21 +115,21 @@ jobs:
       - name: Push Image
         shell: bash
         run: |
-          make push VERSION=${{ github.ref_name }}
+          make push VERSION="$RELEASE_TAG"
 
       - name: Push Helm Chart to OCI registry
         shell: bash
         run: |
-          VERSION=${{ github.ref_name }}
+          VERSION="$RELEASE_TAG"
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
-          helm push helm-releases/kepler-helm-${CHART_VERSION}.tgz oci://${{ env.IMG_BASE }}/charts
+          helm push "helm-releases/kepler-helm-${CHART_VERSION}.tgz" "oci://$IMG_BASE/charts"
 
   release:
     needs: build
     permissions:
       # contents: write is required for publishing Github Releases
-      # This follows Github's recommended pattern: top-level read-all with minimal job-level permissions
+      # This follows Github's recommended pattern: read-only defaults with minimal job-level permissions
       # See: https://github.com/softprops/action-gh-release?tab=readme-ov-file#permissions
       contents: write
     runs-on: ubuntu-latest
