@@ -34,6 +34,23 @@ make push-multi KEPLER_IMAGE=quay.io/<your-registry>/kepler:latest
 
 This pushes per-arch images and creates a multi-arch manifest at the base tag.
 
+Tags listed in `ADDITIONAL_TAGS` (comma-separated, e.g. `latest`) get a manifest
+list too. They point at the same per-arch images, so only the base tag has
+`-amd64` and `-arm64` variants.
+
+### Published images
+
+The release workflow and the image publishing on push both use `make image-multi`
+and `make push-multi`, so the images on quay.io are manifest lists for
+`linux/amd64` and `linux/arm64`:
+
+- `kepler:<tag>`, `kepler:latest` and the other tags from `main`: manifest lists.
+- `kepler:<tag>-amd64` and `kepler:<tag>-arm64`: the single-arch images behind
+  the manifest, handy for debugging one architecture.
+
+The images are cross-built on a regular `ubuntu-latest` runner, which needs no
+arm64 runner or QEMU.
+
 ### Build a single arch
 
 ```bash

@@ -46,7 +46,7 @@ runs:
     - name: Build Image
       shell: bash
       run: |
-        make image
+        make image-multi
       env:
         IMG_BASE: ${{ inputs.registry }}
         ADDITIONAL_TAGS: ${{ inputs.additional_tags }}
@@ -55,7 +55,7 @@ runs:
       shell: bash
       if: "!startsWith(inputs.registry, 'localhost')"
       run: |
-        make push
+        make push-multi
       env:
         IMG_BASE: ${{ inputs.registry }}
         ADDITIONAL_TAGS: ${{ inputs.additional_tags }}
