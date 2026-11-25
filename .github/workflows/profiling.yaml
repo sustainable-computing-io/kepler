@@ -25,12 +25,12 @@ jobs:
       # NOTE: In case of self-hosted runners, tools like docker, make, kubectl etc. are installed at the time of setting up the runner.
       # Hence, we don't need to install them as part of the job.
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -91,7 +91,7 @@ jobs:
           ./hack/reports/profiling.sh compare
 
       - name: Upload profiling artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp/*
@@ -131,10 +131,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -145,7 +145,7 @@ jobs:
         run: go install github.com/google/pprof@6e76a2b096b5fa52e4bb3f7f7a357bd6e6b3b7b1
 
       - name: Download profiling artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: profile-artifacts-${{ github.event.pull_request.number }}
           path: ./tmp
@@ -168,7 +168,7 @@ jobs:
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
       # add comment on PR with the message.
       - name: Upload message
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: message
           path: /tmp/message-${{ github.event.pull_request.number }}.txt

@@ -248,6 +248,91 @@ func TestQemuVMNameFromCmdLine(t *testing.T) {
 		},
 		expected: "test-vm",
 	}, {
+		name: "Positional name with options (Proxmox)",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-id", "130",
+			"-name", "hub,debug-threads=on",
+		},
+		expected: "hub",
+	}, {
+		name: "Positional name with process and debug-threads options",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "test-vm,process=qemu-test,debug-threads=on",
+		},
+		expected: "test-vm",
+	}, {
+		name: "Name with equals format and options",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name=test-vm,debug-threads=on",
+		},
+		expected: "test-vm",
+	}, {
+		name: "Options only, without a name",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "debug-threads=on",
+		},
+		expected: "",
+	}, {
+		name: "Positional name with an escaped comma",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-name", "web,,1,debug-threads=on",
+		},
+		expected: "web,1",
+	}, {
+		name: "Guest name with an escaped comma",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "guest=web,,2,debug-threads=on",
+		},
+		expected: "web,2",
+	}, {
+		name: "Name with consecutive escaped commas",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "a,,,,b",
+		},
+		expected: "a,,b",
+	}, {
+		name: "Positional name with an escaped comma before an equals sign",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-name", "web,,x=1,debug-threads=on",
+		},
+		expected: "web,x=1",
+	}, {
+		name: "Guest option after a positional name",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "web,guest=db",
+		},
+		expected: "db",
+	}, {
+		name: "Repeated guest option, the last one wins",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "guest=a,guest=b,debug-threads=on",
+		},
+		expected: "b",
+	}, {
+		name: "Escaped guest= inside another option's value",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", "web,process=a,,guest=b",
+		},
+		expected: "web",
+	}, {
+		name: "Empty positional name",
+		cmdline: []string{
+			"/usr/bin/qemu-system-x86_64",
+			"-name", ",debug-threads=on",
+		},
+		expected: "",
+	}, {
 		name: "No name argument",
 		cmdline: []string{
 			"/usr/bin/qemu-system-x86_64",
@@ -292,6 +377,21 @@ func TestExtractQemuMachineID(t *testing.T) {
 		},
 		expected: "test-vm",
 	}, {
+		name: "No UUID, fallback to positional VM name (Proxmox)",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-id", "130",
+			"-name", "hub,debug-threads=on",
+		},
+		expected: "hub",
+	}, {
+		name: "No UUID, fallback to a name with an escaped comma",
+		cmdline: []string{
+			"/usr/bin/kvm",
+			"-name", "web,,1,debug-threads=on",
+		},
+		expected: "web,1",
+	}, {
 		name: "No UUID, no name",
 		cmdline: []string{
 			"/usr/bin/qemu-system-x86_64",
@@ -313,6 +413,23 @@ func TestExtractQemuMachineID(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestQemuEscapedCommaNamesKeepDistinctIDs(t *testing.T) {
+	// Without -uuid the VM ID falls back to the name: VMs whose names only differ after an
+	// escaped comma must not collapse onto the same ID.
+	first := extractQemuMachineID([]string{"/usr/bin/kvm", "-name", "web,,1,debug-threads=on"})
+	second := extractQemuMachineID([]string{"/usr/bin/kvm", "-name", "web,,2,debug-threads=on"})
+	assert.NotEqual(t, first, second)
+}
+
+func TestQemuOptionsOnlyNamesKeepDistinctIDs(t *testing.T) {
+	// "-name debug-threads=on" sets no guest name, so without -uuid the ID falls back to the
+	// command line hash: two such VMs must not share an ID.
+	_, first := vmInfoFromCmdLine([]string{"/usr/bin/kvm", "-name", "debug-threads=on", "-m", "1024"})
+	_, second := vmInfoFromCmdLine([]string{"/usr/bin/kvm", "-name", "debug-threads=on", "-m", "2048"})
+	assert.NotEqual(t, first, second)
+	assert.NotEqual(t, "debug-threads=on", first)
 }
 
 func TestExtractVBoxMachineID(t *testing.T) {
@@ -791,6 +908,9 @@ func FuzzVMNameFromCmdLine(f *testing.F) {
 		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "simple-vm"}, string(KVMHypervisor)},
 		{[]string{"/usr/bin/qemu-system-x86_64", "-name=test-vm"}, string(KVMHypervisor)},
 		{[]string{"/usr/bin/qemu-system-x86_64", "-name"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/qemu-system-x86_64", "-name", "0,,0"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/kvm", "-name", "guest=web,,1,debug-threads=on"}, string(KVMHypervisor)},
+		{[]string{"/usr/bin/kvm", "-name", "web,,x=1,debug-threads=on"}, string(KVMHypervisor)},
 		{[]string{"/usr/lib/virtualbox/VBoxHeadless", "--comment", "ubuntu-server"}, string(VirtualBoxHypervisor)},
 		{[]string{"/usr/lib/virtualbox/VirtualBoxVM", "-comment", "win10"}, string(VirtualBoxHypervisor)},
 		{[]string{"/usr/lib/vmware/bin/vmware-vmx", "/home/user/vmware/UbuntuVM/UbuntuVM.vmx"}, string(VMwareHypervisor)},
@@ -807,8 +927,10 @@ func FuzzVMNameFromCmdLine(f *testing.F) {
 		if name == "" {
 			return
 		}
+		// QEMU writes a literal comma as ",,", so the name can also appear in its escaped form
+		escaped := strings.ReplaceAll(name, ",", ",,")
 		for _, arg := range cmdline {
-			if strings.Contains(arg, name) {
+			if strings.Contains(arg, name) || strings.Contains(arg, escaped) {
 				return
 			}
 		}
