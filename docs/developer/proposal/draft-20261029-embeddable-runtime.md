@@ -1,11 +1,11 @@
-# EP-004: Embeddable Kepler runtime
+# Embeddable Kepler runtime
 
 **Status**: Draft
 **Authors**: @ArthurSens
 **Reviewers**: TBD
 **Approvers**: TBD
 **Created**: 2026-10-29
-**Last Updated**: 2026-11-17
+**Last Updated**: 2026-11-25
 
 ## Summary
 
@@ -161,7 +161,7 @@ occurs through the bridge.
 The following diagrams are reproduced from Arthur Sens and Kyle Eckhart's
 [PromCon EU 2026 talk][promcon-talk], presented in Munich on October 8, 2026.
 
-![An exporter library shares collection code and configuration between a standalone exporter and a Collector receiver.](images/ep-004-shared-library.png)
+![An exporter library shares collection code and configuration between a standalone exporter and a Collector receiver.](images/draft-20261029-embeddable-runtime-shared-library.png)
 
 For Kepler, the exporter library would contain its collection capabilities and
 configuration. The standalone CLI and the downstream Collector receiver would
@@ -170,7 +170,7 @@ and configuration file and expose Prometheus metrics; the receiver would obtain
 the collection settings from Collector configuration and pass them to Kepler.
 Both paths would use the same collection implementation, defaults, and validation.
 
-![Inside the Collector, the bridge gathers exporter metrics in memory and converts them for the OpenTelemetry pipeline without HTTP.](images/ep-004-collector-bridge.png)
+![Inside the Collector, the bridge gathers exporter metrics in memory and converts them for the OpenTelemetry pipeline without HTTP.](images/draft-20261029-embeddable-runtime-collector-bridge.png)
 
 The downstream adapter would provide a registry containing Kepler's collectors.
 The bridge would gather from that registry in memory, convert the metrics, and
