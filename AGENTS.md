@@ -1,59 +1,114 @@
 <!-- SPDX-FileCopyrightText: 2025 The Kepler Authors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# AGENTS.md
+# Working on Kepler
 
-> Kepler is a Kubernetes-based Efficient Power Level Exporter that measures
-> energy consumption at container, pod, VM, process, and node levels. This
-> guide provides essential context for AI agents contributing to the project.
+Kepler is a Prometheus exporter that reads hardware energy and power sensors on a Linux
+node and attributes consumption to processes, containers, virtual machines, and Kubernetes
+pods. It can run on a standalone host or as a DaemonSet. Kubernetes supplies pod metadata
+when enabled. [Installation guide](docs/user/installation.md)
 
-## Commands
+## What matters in Kepler
+
+- **Workload CPU power is attributed.** Kepler measures CPU energy or power at the hardware,
+  splits power into active and idle using node CPU utilization, then allocates active
+  power by workload CPU time. A pod and its containers account for the same work.
+  Adding their CPU watts together counts that work twice.
+  [Power attribution guide](docs/developer/power-attribution-guide.md#independent-attribution)
+- **Workloads can exit between scrapes.** The monitor retains terminated workloads within
+  configured limits so their energy can still be reported after they exit.
+  [Monitor implementation](internal/monitor/monitor.go) · [Fair allocation](docs/developer/design/architecture/principles.md#1-fair-power-allocation)
+
+## How to approach a change
+
+Start with the behavior the contributor wants and check how the code behaves today.
+Read that code before describing it. If a pod's CPU watts look wrong, trace its CPU
+time and the node's active power before changing the Prometheus collector. Choose the
+simplest change that meets the request. Add an interface or configuration flag only
+when the change needs it.
+
+Use the suggested workflows as starting points. Ask if a requirement, a referenced
+dependency, or an architectural decision is unclear. If a file, type, or dependency
+cannot be found, ask instead of adding one. The repository sets explicit
+rules for approvals, race detection, and commit sign-off. [Permissions](#permissions)
+
+## Terminology
+
+- **Energy and power.** `Energy` counts microjoules and `Power` counts microwatts.
+  `Joules()` and `Watts()` convert those values for Prometheus, which reports joules
+  and watts. GPU power on a process, container, or pod is a separate `float64` already
+  in watts. GPU energy still uses `Energy`.
+  [Energy and power types](internal/device/energy.go) · [Metric catalog](docs/user/metrics.md)
+- **Energy zone.** A hardware domain, such as a CPU package or its cores, for which
+  a meter reports a reading. Zones can overlap, so summing every zone can double-count
+  energy. [Energy zones](docs/developer/power-attribution-guide.md#energy-zones)
+- **Snapshot and scrape.** A snapshot holds the monitor's readings and attribution for
+  one collection. A scrape is a request to the metrics endpoint. Node, workload, and
+  GPU metrics from the power collector reuse a fresh snapshot, or refresh it when it
+  is stale. The platform collector asks the Redfish service for chassis watts. That
+  service caches its BMC readings separately.
+  [Monitor implementation](internal/monitor/monitor.go) ·
+  [Redfish service](internal/platform/redfish/service.go)
+
+## Where to make a change
+
+- **Attribution or workload identity.** Start with sensor readings in `internal/device`
+  or workload CPU time and identity in `internal/resource`. Kubernetes pod metadata comes
+  from `internal/k8s`. Follow those inputs into the workload-specific calculation and tests
+  in `internal/monitor`. For lifecycle changes, cover workloads that exit between scrapes
+  and processes that reuse a PID. [Resource tests](internal/resource/informer_pidreuse_test.go) ·
+  [Monitor tests](internal/monitor/process_pidreuse_test.go)
+- **GPU and chassis power.** The experimental NVIDIA meter attributes GPU power to
+  processes. The Prometheus platform collector gets chassis watts directly from the
+  Redfish service. [NVIDIA attribution](internal/device/gpu/nvidia/collector.go) ·
+  [Platform collector](internal/exporter/prometheus/collector/platform_collector.go)
+- **Prometheus workload metrics.** Trace the value from the monitor snapshot to the power
+  collector. Check its name, units, labels, and which metrics levels expose it. Update
+  the collector tests and run
+  `make gen-metrics-docs` to regenerate `docs/user/metrics.md`.
+  [Snapshot types](internal/monitor/types.go) · [Power collector and tests](internal/exporter/prometheus/collector/)
+- **Configuration.** Start in `config/config.go` for defaults, YAML fields, CLI flags,
+  and validation. Explicit flags override YAML, which overrides defaults. Keep `dev.*`
+  settings YAML-only. When a user-facing setting changes, check startup wiring, user docs,
+  and the affected deployment examples. The config-change workflow lists the paths for
+  Compose, Kustomize, Helm, and local development.
+  [Configuration](config/config.go) · [Startup wiring](cmd/kepler/main.go) ·
+  [Configuration guide](docs/user/configuration.md) · [Config-change workflow](.github/workflows/config-change.yaml)
+
+## Build and verify
+
+Build the exporter on Linux with the Go version specified in the module.
+Use a Make target whenever one exists for the operation. Run `make all` before a PR.
+It cleans build artifacts, formats, lints, vets, builds, and runs the unit tests.
+Use `make help` for the full target list. [Go module](go.mod) · [Makefile](Makefile) ·
+[Multi-architecture builds](docs/developer/multi-arch-builds.md)
 
 ```bash
-# Build and validate (run before any PR)
-make all                # clean -> fmt -> lint -> vet -> build -> test
-
-# Individual targets
-make fmt                # Format code (go fmt)
-make vet                # Static analysis (go vet)
-make lint               # Linting (golangci-lint, 5m timeout locally, 3m in CI)
-make test               # Tests with race detection
-make build              # Production binary
-make build-debug        # Debug binary with race detection
-make coverage           # HTML coverage report
-make deps               # Tidy and verify go.mod
-make clean              # Clean artifacts
-make gen-metrics-docs   # Regenerate docs/user/metrics.md (do NOT edit manually)
-
-# Test a specific package (preferred when working in one area)
-CGO_ENABLED=1 go test -v -race ./internal/monitor/...
-CGO_ENABLED=1 go test -v -race ./internal/device/...
-CGO_ENABLED=1 go test -v -race ./config/...
-
-# Cross-compilation (CGO required by go-nvml, needs C cross-compiler)
-make build GOARCH=arm64 CC=aarch64-linux-gnu-gcc  # ARM64 binary
-make image GOARCH=arm64                           # ARM64 container image
-make image-multi                                  # Multi-arch image build (amd64+arm64), local only
-make push-multi                                   # Push multi-arch images and create manifest
-
-# Local integration testing
-cd compose/dev && docker compose up --build -d   # Kepler + Prometheus + Grafana
-cd compose/dev && docker compose down --volumes   # cleanup
+make test TEST_PKGS=./internal/monitor/...  # Focused package tests with the race detector
+make test                                  # All unit tests with race detection and coverage
+make build                                 # bin/kepler
+make build PRODUCTION=1                    # bin/kepler-release
 ```
 
-**Access points** (Docker Compose):
-
-- Kepler Metrics: <http://localhost:28283/metrics>
-- Prometheus: <http://localhost:29090>
-- Grafana: <http://localhost:23000> (credentials: admin/admin)
+- For a local scrape, run `docker compose up --build -d` from `compose/dev/` and open
+  <http://localhost:28283/metrics>. On a development host without usable CPU sensors,
+  set `preferredMeters: [fake]` under `cpu` before starting. Run `docker compose down`
+  in the same directory when finished. [Compose dev config](compose/dev/kepler-dev/etc/kepler/config.yaml)
+- For bare-metal E2E, `make test-e2e` builds the race-enabled test binary. Run
+  `sudo ./bin/kepler-e2e.test -test.v` on a suitable host. For Kubernetes E2E against
+  a cluster with Kepler deployed, use `CGO_ENABLED=1 make test-e2e-k8s GOTEST='go test -race'`.
+  The Kubernetes target needs the explicit race flag. [E2E prerequisites and hardware options](docs/developer/e2e-testing.md)
+- Add tests for new features and regressions. Use `testify` for assertions and mocks,
+  maintain coverage, and investigate unexpected failures before changing expectations.
+  [Pre-commit checks](docs/developer/pre-commit.md) · [PR workflow](.github/workflows/pr-checks.yaml)
 
 ## Permissions
 
 ### Allowed (no approval needed)
 
 - Read any project files
-- Run: `make fmt`, `make vet`, `make lint`, `make test`, `make build`, `make coverage`
-- Run: `docker compose up/down` in `compose/dev/`
+- Run `make fmt`, `make vet`, `make lint`, `make test`, `make build`, `make coverage`
+- Run `docker compose up/down` in `compose/dev/`
 - Create or update test files (with SPDX headers)
 - Update code documentation and comments
 - Fix linter errors and race conditions
@@ -68,218 +123,30 @@ cd compose/dev && docker compose down --volumes   # cleanup
 - Modifying CI/CD configs (`.github/`, Makefile)
 - Modifying `AGENTS.md`, `CLAUDE.md`, or `GOVERNANCE.md`
 - Deploying to clusters (`make deploy`, `kubectl apply`)
-- Architectural changes (create Enhancement Proposal first; see `docs/developer/proposal/EP-TEMPLATE.md`)
+- Architectural changes (prepare an [Enhancement Proposal](docs/developer/proposal/EP-TEMPLATE.md) first)
 
 ### Never allowed
 
 - Force push to `main`
-- Skip hooks (`--no-verify`, `--no-gpg-sign`)
+- Bypass hooks with `--no-verify` or disable signing with `--no-gpg-sign`
 - Commit without DCO sign-off (`-s` flag)
 - Disable or skip race detection in tests
 - Manually edit `docs/user/metrics.md` (auto-generated)
 
-## Critical Rules
+## Contributions and pull requests
 
-All Go files MUST have these SPDX headers as the first two lines:
-
-```go
-// SPDX-FileCopyrightText: 2025 The Kepler Authors
-// SPDX-License-Identifier: Apache-2.0
-```
-
-All code MUST be thread-safe. Tests run with `-race` and this is non-negotiable.
-
-Always use `make` targets over raw `go` commands — only run raw commands if no `make` target exists for that operation.
-
-## Project Structure
-
-```text
-kepler/
-├── cmd/kepler/              # Main entry point
-├── config/                  # Configuration (builder, validation, CLI flags)
-├── internal/                # Core implementation
-│   ├── device/             # Hardware abstraction (RAPL, HWMon, GPU)
-│   ├── exporter/           # Prometheus, stdout exporters
-│   ├── k8s/                # Kubernetes integration
-│   ├── logger/             # Logging setup
-│   ├── monitor/            # Power monitoring and attribution
-│   ├── platform/           # Platform integrations (Redfish)
-│   ├── resource/           # Process/container tracking
-│   ├── server/             # HTTP server
-│   └── service/            # Service framework
-├── test/                    # E2E test suites
-├── docs/                   # Documentation
-│   ├── user/              # User guides
-│   └── developer/         # Architecture, proposals
-├── manifests/             # Kubernetes/Helm manifests
-└── hack/                  # Development scripts
-```
-
-## Testing
-
-### Test Requirements
-
-- **Race Detection**: All tests MUST pass with `-race` flag (enforced by `make test`)
-- **Coverage**: Maintain or improve existing coverage (tracked via Codecov)
-- **Framework**: Use `testify` for assertions and mocking
-  - Import: `github.com/stretchr/testify/assert`
-  - Import: `github.com/stretchr/testify/mock`
-
-### Test Patterns
+All code must be thread-safe. Start every Go file with these two lines.
 
 ```go
 // SPDX-FileCopyrightText: 2025 The Kepler Authors
 // SPDX-License-Identifier: Apache-2.0
-
-// Verify interface implementations
-var _ PowerDataProvider = (*MockPowerMonitor)(nil)
-
-// Use t.Helper() in test helpers
-func assertMetricValue(t *testing.T, expected, actual float64) {
-    t.Helper()
-    assert.Equal(t, expected, actual)
-}
-
-// Include cleanup logic
-func TestExample(t *testing.T) {
-    resource := setupResource()
-    t.Cleanup(func() {
-        resource.Close()
-    })
-    // test logic
-}
 ```
 
-### E2E Tests
+Target `main` unless requested otherwise. Use Conventional Commits for commit messages
+and PR titles. Keep each PR focused, reference the related issue, and update user docs
+for behavior changes. Breaking changes require deprecation and migration guidance.
+When a commit is requested, sign off with `git commit -s` (DCO).
+[Commit hygiene](CONTRIBUTING.md#commit-hygiene)
 
-```bash
-make test-e2e && sudo ./bin/kepler-e2e.test -test.v   # Bare-metal (requires RAPL)
-make test-e2e-k8s                                      # Kubernetes (requires: make cluster-up image deploy)
-```
-
-See `docs/developer/e2e-testing.md` for details.
-
-## Commits and PRs
-
-Default branch: `main`. PRs target `main` unless stated otherwise.
-
-Commit format: [Conventional Commits](https://www.conventionalcommits.org/)
-with DCO sign-off. Enforced by `commitlint` pre-commit hook.
-
-```bash
-git commit -s -m "feat(monitor): add terminated workload tracking"
-git commit -s -m "fix(exporter): resolve race condition in metrics handler"
-git commit -s -m "docs: update architecture diagram"
-# Types: feat, fix, docs, style, refactor, test, chore, ci, perf
-```
-
-### Commit Hygiene
-
-Follow the [commit hygiene guidance](CONTRIBUTING.md#commit-hygiene) when preparing
-PRs. This guidance is advisory; the existing [approval requirements](#requires-approval)
-for commits and history changes still apply.
-
-### PR Guidelines
-
-1. **Title**: Use conventional commit format (e.g., `feat: add feature X`)
-2. **Description**: Reference related issues (`Closes #123`)
-3. **Scope**: One feature/fix per PR (keep focused)
-4. **Tests**: Include tests for new features and bug fixes
-5. **Documentation**: Update docs if behavior changes
-6. **No Breaking Changes**: Without proper deprecation and migration guide
-
-### CI Checks
-
-All PRs must pass:
-
-- `make fmt` - Code formatting
-- `make vet` - Static analysis
-- `make lint` - Linting (golangci-lint with 3m timeout in CI)
-- `make test` - Tests with race detection
-- `make gen-metrics-docs` - Metrics documentation must be up-to-date
-- Pre-commit hooks (markdownlint, yamllint, commitlint, reuse-lint, shellcheck)
-- Container image builds
-- OpenSSF Scorecard
-
-### Common Gotchas
-
-- **Metrics Documentation**: Auto-generated via `make gen-metrics-docs` - don't manually edit `docs/user/metrics.md`
-- **Race Conditions**: All code must be thread-safe; tests run with `-race`
-- **Commit Sign-off**: Forgot `-s`? Amend: `git commit --amend -s --no-edit`
-- **Pre-commit Failures**: Run `pre-commit run --all-files` to check everything
-- **Company Affiliation**: DevStats attributes contributions to a company only through a [`cncf/gitdm`](https://github.com/cncf/gitdm) entry, so contributors without one count toward no company on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1). When helping a first-time contributor or new maintainer, remind them to add their affiliation there (see `CONTRIBUTING.md`)
-
-## Architecture
-
-### Key Patterns
-
-- **Service-Oriented Design**: Components implement `service.Service` interface (see `internal/service/service.go`)
-- **Dependency Injection**: Services composed at startup in `cmd/kepler/main.go`
-- **Single Writer, Multiple Readers**: Power monitor updates atomically; exporters read snapshots via `PowerDataProvider` interface
-- **Interface-Based Abstractions**: Hardware, resources, and exporters use interfaces
-- **Graceful Shutdown**: All services handle context cancellation properly
-
-### Configuration
-
-- **Hierarchical**: CLI flags override YAML files, which override defaults
-- **Dev Options**: Config keys prefixed with `dev.*` are not exposed as CLI flags
-- **Validation**: All configs validated at startup; fail fast on errors
-
-### Technology Stack
-
-- **Logging**: `log/slog` (structured logging, stdlib)
-- **Metrics**: `prometheus/client_golang`
-- **Kubernetes Client**: `k8s.io/client-go`
-- **Service Management**: `oklog/run`
-- **CLI Parsing**: `alecthomas/kingpin/v2`
-- **Testing**: `stretchr/testify`
-- **Concurrency**: `golang.org/x/sync` (singleflight)
-
-### Design Principles
-
-When making design decisions, follow these architectural principles
-(reference: `docs/developer/design/architecture/principles.md`):
-
-1. **Fair Power Allocation** - Track terminated workloads to prevent unfair attribution
-2. **Data Consistency & Mathematical Integrity** - Maintain atomic snapshots; validate energy conservation
-3. **Computation-Presentation Separation** - Separate data models (Monitor) from export formats (Exporters) via `PowerDataProvider` interface
-4. **Data Freshness Guarantee** - Configurable staleness threshold (default 10s); automatic refresh
-5. **Deterministic Processing** - Thread-safe, race-free operations with immutable snapshots
-6. **Prefer Package Reuse** - Use battle-tested libraries over custom implementations
-7. **Configurable Collection & Exposure** - Users control which metrics to collect/expose
-8. **Implementation Abstraction** - Interface-based design for flexibility
-9. **Simple Configuration** - Hierarchical config: CLI flags > YAML files > Defaults
-
-### Code Quality
-
-- **Error Handling**: Always handle errors explicitly; use structured logging for context
-- **Idiomatic Go**: Follow [Effective Go](https://go.dev/doc/effective_go)
-- **Security**: Validate inputs; avoid injection vulnerabilities (command, SQL, XSS)
-
-### Enhancement Proposals
-
-For significant changes, use the template at `docs/developer/proposal/EP-TEMPLATE.md`.
-Required sections: Problem Statement, Goals/Non-Goals, Detailed Design, Testing Plan,
-Migration Strategy.
-
-## When Stuck
-
-- Do not invent facts about the codebase — verify by reading the code before making claims or changes.
-- Do not over-engineer; implement exactly what is asked, nothing more.
-- If requirements are unclear, ask the user rather than guessing.
-- If a test fails unexpectedly, report the failure. Do not modify the test to make it pass without understanding why it failed.
-- If you cannot find a file, interface, or dependency, ask rather than creating new ones.
-- If you are unsure whether a change is architectural, treat it as requiring approval.
-- Run `make help` to see all available Makefile targets.
-
-## References
-
-- Architecture: `docs/developer/design/architecture/`
-- Contributing: `CONTRIBUTING.md`
-- Installation: `docs/user/installation.md`
-- Configuration: `docs/user/configuration.md`
-- Metrics catalog: `docs/user/metrics.md` (auto-generated)
-- Enhancement Proposals: `docs/developer/proposal/EP-TEMPLATE.md`
-- Governance: `GOVERNANCE.md`
-- Security: `SECURITY.md`
-- Issues: `github.com/sustainable-computing-io/kepler/issues`
+When helping a first-time contributor or new maintainer, remind them to record their
+affiliation in `cncf/gitdm` for Kepler DevStats. [Contributing guide](CONTRIBUTING.md)
