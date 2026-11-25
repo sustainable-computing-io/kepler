@@ -331,49 +331,33 @@ activeEnergy = Energy(float64(deltaEnergy) * nodeCPUUsageRatio)
 idleEnergy := deltaEnergy - activeEnergy
 ```
 
-#### Process Power Attribution
+#### Workload Power Attribution
 
-**File**: `internal/monitor/process.go`
-**Function**: `calculateProcessPower()`
-
-```go
-// Each process gets power proportional to its CPU usage
-cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
-process.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
-```
-
-#### Container Power Attribution
-
-**File**: `internal/monitor/container.go`
-**Function**: `calculateContainerPower()`
+**File**: `internal/monitor/attribution.go`
+**Function**: `attributeZone()`
 
 ```go
-// Container CPU time = sum of all its processes
-cpuTimeRatio := container.CPUTimeDelta / nodeCPUTimeDelta
-container.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
+// Each workload gets the share of a zone's active power and energy that
+// matches its share of the CPU time of all processes on the node
+cpuTimeRatio := cpuTimeDelta / nodeCPUTimeDelta
+return Usage{
+    Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
+    EnergyTotal: prevEnergy + Energy(cpuTimeRatio*float64(nodeZoneUsage.activeEnergy)),
+}
 ```
 
-#### VM Power Attribution
+`calculateProcessPower()` (`process.go`), `calculateContainerPower()`
+(`container.go`), `calculateVMPower()` (`vm.go`) and `calculatePodPower()`
+(`pod.go`) call it for every zone with the workload's own CPU time delta:
 
-**File**: `internal/monitor/vm.go`
-**Function**: `calculateVMPower()`
+- Process: CPU time of the process
+- Container: sum of all its processes
+- VM: CPU time of the hypervisor process
+- Pod: sum of all its containers
 
-```go
-// VM CPU time = hypervisor process CPU time
-cpuTimeRatio := vm.CPUTimeDelta / nodeCPUTimeDelta
-vm.Power = Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts())
-```
-
-#### Pod Power Attribution
-
-**File**: `internal/monitor/pod.go`
-**Function**: `calculatePodPower()`
-
-```go
-// Pod CPU time = sum of all its containers
-cpuTimeRatio := pod.CPUTimeDelta / nodeCPUTimeDelta
-pod.Power = Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower))
-```
+When a zone has no active power or no active energy in an interval, or no
+process used CPU time, `attributeZone()` returns the previous energy total
+with zero power, so the exported counters do not reset.
 
 #### CPU Time Aggregation
 

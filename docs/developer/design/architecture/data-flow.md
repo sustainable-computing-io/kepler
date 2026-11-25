@@ -137,7 +137,8 @@ The calculations live in
 [process.go](../../../../internal/monitor/process.go),
 [container.go](../../../../internal/monitor/container.go),
 [vm.go](../../../../internal/monitor/vm.go), and
-[pod.go](../../../../internal/monitor/pod.go).
+[pod.go](../../../../internal/monitor/pod.go). Each one calls `attributeZone` in
+[attribution.go](../../../../internal/monitor/attribution.go) for every zone's CPU time share.
 The [power attribution guide](../../power-attribution-guide.md#independent-attribution)
 explains the same model with examples.
 

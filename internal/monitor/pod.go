@@ -99,36 +99,17 @@ func (pm *PowerMonitor) calculatePodPower(prev, newSnapshot *Snapshot) error {
 	for id, p := range pods.Running {
 		// Create pod power entry with node zones
 		pod := newPod(p, newSnapshot.Node.Zones)
+
+		// Totals carry over from the previous snapshot. A new pod starts from zero.
+		var prevZones ZoneUsageMap
 		if prevPod := prev.Pods[id]; prevPod != nil {
 			pod.GPUEnergyTotal = prevPod.GPUEnergyTotal
+			prevZones = prevPod.Zones
 		}
-
-		// Calculate CPU time ratio for this pod
 
 		// For each zone in the node, calculate pod's share
 		for zone, nodeZoneUsage := range newSnapshot.Node.Zones {
-			// If we have previous data for this pod and zone, add to absolute energy
-			var prevEnergy Energy
-			if prev, exists := prev.Pods[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					prevEnergy = prevUsage.EnergyTotal
-				}
-			}
-
-			// Skip zones with zero power to avoid division by zero, but keep
-			// the running total so the exported counter does not reset.
-			if nodeZoneUsage.Power == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				pod.Zones[zone] = Usage{EnergyTotal: prevEnergy}
-				continue
-			}
-
-			cpuTimeRatio := p.CPUTimeDelta / nodeCPUTimeDelta
-			// Calculate pod's share of this zone's power and energy
-			activeEnergy := Energy(float64(nodeZoneUsage.activeEnergy) * cpuTimeRatio)
-			pod.Zones[zone] = Usage{
-				EnergyTotal: prevEnergy + activeEnergy,
-				Power:       Power(cpuTimeRatio * float64(nodeZoneUsage.ActivePower)),
-			}
+			pod.Zones[zone] = attributeZone(nodeZoneUsage, prevZones[zone].EnergyTotal, p.CPUTimeDelta, nodeCPUTimeDelta)
 		}
 
 		podMap[id] = pod
