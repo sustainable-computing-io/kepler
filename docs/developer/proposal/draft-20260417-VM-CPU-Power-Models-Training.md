@@ -1,4 +1,4 @@
-# EP-003: Virtual Machine CPU Power Consumption Modeling for Kepler
+# Virtual Machine CPU Power Consumption Modeling for Kepler
 
 **Status**: Draft
 **Author**: @KaiyiLiu1234, @laurall974, @nikimanoledaki, Vasilios Andrikopoulos
