@@ -326,6 +326,34 @@ make deploy IMG_BASE=your-registry.com/yourorg VERSION=v1.0.0
 
 ## Verification
 
+### Verify release archives
+
+For a signed release, download the binary archive, Helm chart archive, and
+their matching `.sigstore.json` bundles from the same GitHub Release. Replace
+the example tag with the release you downloaded. Earlier releases have no
+signature bundles.
+
+```bash
+RELEASE_TAG=v1.2.3
+VERSION=${RELEASE_TAG#v}
+IDENTITY="https://github.com/sustainable-computing-io/kepler/.github/workflows/release.yaml@refs/tags/$RELEASE_TAG"
+
+cosign verify-blob "kepler-${VERSION}.linux-amd64.tar.gz" \
+  --bundle "kepler-${VERSION}.linux-amd64.tar.gz.sigstore.json" \
+  --certificate-identity "$IDENTITY" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+cosign verify-blob "kepler-helm-${VERSION}.tgz" \
+  --bundle "kepler-helm-${VERSION}.tgz.sigstore.json" \
+  --certificate-identity "$IDENTITY" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Use the archive that passed verification. To install the verified chart archive,
+run `helm install kepler "kepler-helm-${VERSION}.tgz"` with the namespace options
+you need. These signatures do not provide Helm GPG provenance files, so
+`helm install --verify` does not check them.
+
 ### Check Deployment Status
 
 ```bash
