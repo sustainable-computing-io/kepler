@@ -67,16 +67,6 @@ jobs:
         run: |
           make image VERSION="$RELEASE_TAG"
 
-      - name: Update Helm Chart Version
-        shell: bash
-        run: |
-          VERSION="$RELEASE_TAG"
-          # Remove 'v' prefix from version
-          CHART_VERSION=${VERSION#v}
-          # Update Chart.yaml with the release version
-          sed -i "s/^version:.*/version: $CHART_VERSION/" manifests/helm/kepler/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" manifests/helm/kepler/Chart.yaml
-
       - name: Package Helm Chart
         shell: bash
         run: |
@@ -84,7 +74,9 @@ jobs:
           VERSION="$RELEASE_TAG"
           # Remove 'v' prefix from version
           CHART_VERSION=${VERSION#v}
-          helm package manifests/helm/kepler -d helm-releases
+          # Set versions here instead of editing Chart.yaml, which would make the checkout dirty
+          helm package manifests/helm/kepler -d helm-releases \
+            --version "$CHART_VERSION" --app-version "$VERSION"
           # Rename the helm chart to include 'helm' identifier
           mv "helm-releases/kepler-${CHART_VERSION}.tgz" "helm-releases/kepler-helm-${CHART_VERSION}.tgz"
 
