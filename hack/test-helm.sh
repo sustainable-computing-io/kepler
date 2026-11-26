@@ -6,7 +6,7 @@
 set -e -u -o pipefail
 
 # Keep the default baseline pinned so publishing a release does not change CI.
-declare -r BASELINE_VERSION=${BASELINE_VERSION:-0.12.0}
+declare -r BASELINE_VERSION=${BASELINE_VERSION:-0.14.0}
 declare -r IMG_BASE=${IMG_BASE:-localhost:5001}
 declare -r VERSION=${VERSION:-dev}
 declare -r METRICS_PORT=${METRICS_PORT:-28284}
@@ -37,7 +37,7 @@ print_help() {
 		clean up their releases.
 
 		Environment:
-		  BASELINE_VERSION  Released chart and image version, without v (default: 0.12.0)
+		  BASELINE_VERSION  Released chart and image version, without v (default: 0.14.0)
 		  IMG_BASE          Candidate image registry/namespace (default: localhost:5001)
 		  VERSION           Candidate image tag (default: dev)
 		  METRICS_PORT      Local port for metrics validation (default: 28284)
