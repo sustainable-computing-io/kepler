@@ -94,6 +94,60 @@ For smaller improvements to existing functionality:
 - Provide context around why this improvement matters
 - Link to any related issues or discussions
 
+#### Do I Need An Enhancement Proposal (EP) Before My PR? 📝
+
+Kepler follows the [Kubernetes Enhancement Proposal (KEP) process](https://github.com/kubernetes/enhancements/tree/master/keps/sig-architecture/0000-kep-process):
+a proposal is a design document reviewed and agreed on **before** implementation,
+so that large changes are not first discussed in a big PR.
+Not every change needs one. A KEP is reserved for changes that are significant,
+user-visible, or hard to reverse,
+and routine fixes go straight to a PR.
+
+**Open an issue first for every enhancement.** Maintainers will tell you
+in the issue whether an EP is required.
+If you are unsure, ask there before writing code or a proposal.
+
+**An EP is expected when the change:**
+
+- Adds or removes a major feature or a new component, such as a new power meter,
+hardware source, or workload type.
+- Changes the power attribution model or how energy and power are calculated, split,
+or allocated
+- Introduces breaking or hard-to-reverse changes to user-facing behavior:
+metric names, labels, or units, configuration schema or CLI flags,
+or deployment layout
+- Is cross-cutting, spanning several packages or components, or needs
+new external dependencies or elevated privileges
+- Needs a phased rollout, a migration path, or a deprecation period
+- Has several credible designs and needs maintainers to agree before work starts
+
+**An EP is not needed when the change:**
+
+- Fixes a bug, including race conditions and linter errors,
+without changing documented behavior
+- Refactors, cleans up, or optimizes internals without changing behavior
+- Adds or improves tests, documentation, examples, or CI
+- Updates dependencies or makes other routine maintenance changes
+- Is a small, self-contained, backward-compatible improvement,
+such as a minor option or additional metric that follows an existing pattern,
+and a short issue discussion is enough
+
+When in doubt, start with an issue. A maintainer can ask for an EP
+if the discussion shows the change is larger than it first looked.
+
+**Working toward the same goal as someone else?** If more than one contributor
+or organization is working on the same goal, we encourage you to communicate
+in the issue or proposal PR. On request, a maintainer can help organize a
+separate meeting with a small group to divide the tasks and align on the design.
+We encourage recording the meeting notes in a shared document on
+[CNCF Notes](https://notes.cncf.io/) and linking them in the issue or proposal
+PR, so that decisions stay visible to the rest of the community.
+
+**How to submit an EP:** copy [EP-TEMPLATE.md](docs/developer/proposal/EP-TEMPLATE.md),
+submit it as its own PR (see [Enhancement Proposals](docs/developer/proposal/index.md)
+for naming, roles, and status), and get it accepted before
+opening implementation PRs. Reference the EP in those PRs.
+
 ## Development 💻
 
 ### Set up your dev environment
