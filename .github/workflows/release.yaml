@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-artifacts
-          retention-days: 7
+          retention-days: 1 # Keep the artifacts for 1 day
           if-no-files-found: error
           path: |
             helm-releases/*.tgz
@@ -159,7 +159,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: signed-release-artifacts
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
           path: |
             helm-releases/*.tgz

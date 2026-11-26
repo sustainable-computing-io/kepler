@@ -15,12 +15,6 @@ Sigstore Cosign. Each archive has a matching `.sigstore.json` bundle. The
 signing job verifies both bundles. The release job verifies them again after
 it downloads the signed artifacts. A failed check stops release publication.
 
-The signing job has GitHub Actions OIDC access. The release job only needs
-read access to verify signatures and write access to publish the GitHub Release.
-The build and signing artifacts are retained for seven days so a failed job
-can be retried with the original archives. Registry image and OCI chart
-signatures are separate work and are not part of this change.
-
 ## Release Process Overview
 
 ![Release Workflow](assets/release.png)
