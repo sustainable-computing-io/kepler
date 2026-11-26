@@ -19,7 +19,7 @@ jobs:
       helm_changes: ${{ steps.filter.outputs.helm }}
     steps:
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Filter changes
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -85,7 +85,7 @@ jobs:
       # NOTE: Uploading the message as an artifact so that PR Comment workflow can use it to
       # add comment on PR with the message.
       - name: Upload message
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: message
           path: /tmp/message-${{ github.event.pull_request.number }}.txt
