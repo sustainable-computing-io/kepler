@@ -1,8 +1,8 @@
 # Contributing to Kepler 🌱
 
 Thanks for your interest in contributing to Kepler! This guide will help you get started with contributing to our project.
-For technical and non-technical contribution opportunities,
-community engagement, and contributor growth, visit the
+This guide focuses primarily on technical contributions to the core Kepler project.
+For general contribution guidelines, community engagement, and contributor growth, visit the
 [Kepler Community Repository](https://github.com/sustainable-computing-io/community).
 
 ## What Should I Know Before I Get Started? 🤔
