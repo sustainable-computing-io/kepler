@@ -228,6 +228,35 @@ func TestContainerPowerCalculation(t *testing.T) {
 		resInformer.AssertExpectations(t)
 	})
 
+	t.Run("calculateContainerPower adds share to previous total", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testNode, testContainers))
+		resInformer.SetExpectations(t, tr)
+
+		// The previous record has a total for the first zone only
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		prevSnapshot.Containers["container-1"] = &Container{
+			ID:    "container-1",
+			Zones: ZoneUsageMap{zones[0]: {EnergyTotal: 25 * Joule}},
+		}
+
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		err := monitor.calculateContainerPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// container-1 has 40% of the CPU time, and each zone has 50 J and 25 W active
+		cntr := newSnapshot.Containers["container-1"]
+		require.NotNil(t, cntr)
+		assert.Equal(t, Usage{EnergyTotal: 45 * Joule, Power: 10 * Watt}, cntr.Zones[zones[0]]) // 25 J + 20 J
+		assert.Equal(t, Usage{EnergyTotal: 20 * Joule, Power: 10 * Watt}, cntr.Zones[zones[1]]) // no previous total
+
+		resInformer.AssertExpectations(t)
+	})
+
 	t.Run("calculateContainerPower without containers", func(t *testing.T) {
 		resInformer.ClearExpectations()
 

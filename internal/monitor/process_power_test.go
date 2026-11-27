@@ -250,6 +250,50 @@ func TestProcessPowerCalculation(t *testing.T) {
 		resInformer.AssertExpectations(t)
 	})
 
+	t.Run("calculateProcessPower does not carry energy to a reused PID on an idle interval", func(t *testing.T) {
+		resInformer.ClearExpectations()
+		t.Cleanup(monitor.terminatedProcessesTracker.Clear)
+
+		tr := CreateTestResources(createOnly(testNode, testProcesses))
+		procs := tr.Processes
+		resInformer.On("Node").Return(tr.Node, nil).Maybe()
+		resInformer.On("Processes").Return(procs).Once()
+
+		// Each PID belonged to an earlier process in the previous snapshot
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		for _, proc := range procs.Running {
+			prevProc := newProcess(proc, prevSnapshot.Node.Zones)
+			prevProc.StartTime = proc.StartTime + 1
+			for _, zone := range zones {
+				prevProc.Zones[zone] = Usage{EnergyTotal: 25 * Joule, Power: 5 * Watt}
+			}
+			prevSnapshot.Processes[prevProc.StringID()] = prevProc
+		}
+
+		// No active energy on the node this interval
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.0)
+
+		err := monitor.calculateProcessPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		require.Len(t, newSnapshot.Processes, len(procs.Running))
+		for id, proc := range newSnapshot.Processes {
+			// The earlier process keeps its energy on its terminated record
+			earlier := newSnapshot.TerminatedProcesses[prevSnapshot.Processes[id].lifetimeID()]
+			require.NotNil(t, earlier, "process %s", id)
+			for _, zone := range zones {
+				usage := proc.Zones[zone]
+				assert.Equal(t, Power(0), usage.Power, "process %s zone %s", id, zone.Name())
+				assert.Equal(t, Energy(0), usage.EnergyTotal, "process %s zone %s", id, zone.Name())
+				assert.Equal(t, 25*Joule, earlier.Zones[zone].EnergyTotal, "process %s zone %s", id, zone.Name())
+			}
+		}
+
+		resInformer.AssertExpectations(t)
+	})
+
 	t.Run("calculateProcessPower with no processes", func(t *testing.T) {
 		resInformer.ClearExpectations()
 
