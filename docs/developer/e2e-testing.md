@@ -119,6 +119,28 @@ On a real GPU, three more tests run:
 
 Kepler's GPU readings can trail the GPU by several seconds, so these tests wait for fresh readings before checking. The load test pulls `nvcr.io/nvidia/cloud-native/dcgm:4.6.1-1-ubuntu24.04`, a few GB, the first time it runs, and picks the `dcgmproftester` build that matches the driver's CUDA version (for example `dcgmproftester13` for CUDA 13). A CUDA 13.0 driver with a GPU older than compute capability 7.5 (Maxwell, Pascal or Volta) gets `dcgmproftester12`, which DCGM requires there.
 
+### Run the GPU Tests on Your Own GPU First
+
+A run on the CNCF A10 needs a maintainer and a GPU shared by all CNCF projects (see [GPU E2E Workflow](#gpu-e2e-workflow)). If your pull request touches GPU code and you have an NVIDIA GPU, run the GPU tests on it first and post the result in the pull request. The CNCF run then confirms it on the A10.
+
+**On any NVIDIA machine**, such as a workstation or a cloud GPU VM, with the prerequisites above:
+
+```bash
+make test-e2e
+sudo nvidia-smi -pm 1
+sudo ./bin/kepler-e2e.test -test.v -test.timeout=20m -test.run TestGPU -test.skip TestGPUFake 2>&1 | tee gpu-e2e.log
+```
+
+Then paste the `--- PASS`, `--- FAIL` and `--- SKIP` lines from `gpu-e2e.log` in the pull request, with the GPU and driver from `nvidia-smi`.
+
+**In a GPU container**, for example on Modal: the GPU tests start the Kepler binary and read its metrics on `localhost`, so they need a GPU but not a VM or a Kubernetes cluster. Kepler has run this way on a Modal T4 container, with NVML working, the GPU found and `kepler_node_gpu_watts` reporting live power ([#2506](https://github.com/sustainable-computing-io/kepler/issues/2506)). Compared with a full machine:
+
+- The container needs `nvidia-smi` from the NVIDIA driver, Go, and a C compiler: `make test-e2e` builds with `CGO_ENABLED=1`
+- You usually run as root in the container, so leave out `sudo`
+- Most GPU containers cannot run Docker, so `TestGPUWorkloadAttribution` skips with "docker not found" and the other six GPU tests run. The load test needs a machine with Docker set up for GPUs, like the CNCF runner
+- Persistence mode is set on the host, and the container may not be allowed to change it. Check it with `nvidia-smi --query-gpu=persistence_mode --format=csv`; with it off, Kepler's idle baseline can start too high
+- Such a container cannot run a Kubernetes cluster, so it only covers these e2e tests, not the Kubernetes ones
+
 ## Test Organization
 
 The e2e tests are organized by concern across multiple files:
@@ -226,6 +248,21 @@ Standard GitHub-hosted runners use virtualized environments without access to ha
 1. Physical Intel CPU with RAPL support
 2. Root access to read `/sys/class/powercap/`
 3. Kernel support for powercap subsystem
+
+### GPU E2E Workflow
+
+**Workflow file**: `.github/workflows/gpu-e2e.yaml`
+
+The GPU tests run against a real NVIDIA A10 on a CNCF-hosted GPU runner (`oracle-vm-gpu-a10-1`). These GPUs are shared by all CNCF projects, so the workflow does not run on every pull request:
+
+- **On demand**: a maintainer runs it for a pull request that touches GPU code, from Actions > GPU e2e > Run workflow. Fill in the PR number and the full 40-character commit you reviewed. The run stops before using a GPU if the PR is closed or has new commits since your review, so only reviewed code runs on the GPU runner, where the tests run with `sudo`. It also stops if the PR does not contain `hack/gpu-e2e/` yet, because the GPU job runs those scripts from the PR; the author then needs to update the PR from `main`.
+- **Weekly**: every Monday it tests `main`. If that run fails, or does not finish because it hit the 30 minute limit or was cancelled (including by a newer run while it waited for the GPU, or by hand), it opens an issue named "Weekly GPU e2e run failed", or comments on the one already open, with the commit tested and a link to the run's logs.
+
+For a pull request, the `GPU e2e` status on its latest commit goes to pending as soon as the run starts, then to passed or failed, or to error if the GPU job did not finish, and links to the run. A run in which no GPU test passes counts as failed, since it did not test the GPU: for example when every GPU test skips because the runner has no usable GPU, or when no test matches the `TestGPU` filter. The run summary shows the result, the GPU and driver, each test's result and the end of the test output, with a link to the run's logs, which hold the full output.
+
+Only one GPU run happens at a time. If a run is already waiting for the GPU, a newer run replaces it. Runs for the same pull request also wait for each other from the start, so an older run never replaces the status of a newer one. The job that runs the code under test only gets read access; the PR status and the weekly issue are written by separate jobs that do not run that code.
+
+The workflow's scripts live in `hack/gpu-e2e/`: `target.sh` checks the PR and the reviewed commit, `status.sh` sets the PR status and `summary.sh` writes the run summary. The quick check and the job that sets the PR status take them from the workflow's own commit, never from the code under test; the GPU job, which runs that code with `sudo` anyway, takes `summary.sh` from the code under test. `hack/gpu-e2e/test.sh` checks the scripts without a GPU or the GitHub API, against a fake `gh`. Run it after changing any of them.
 
 ## Kubernetes E2E Tests
 
