@@ -97,7 +97,10 @@ Contributions are welcome! Please feel free to submit a Pull Request. For more d
 
 ### Community Meetings
 
-Everyone is welcome, no invitation needed. For details, see the [Community Meetings](https://github.com/sustainable-computing-io#:~:text=twice%2Dmonthly%20community%20meetings) link on the GitHub organization page.
+Everyone is welcome, no invitation needed.
+Visit the [Kepler Community Repository](https://github.com/sustainable-computing-io/community)
+for community meetings, contribution opportunities, community
+resources, and contributor growth.
 
 ### Roadmap
 
@@ -109,7 +112,7 @@ Kepler follows the [CNCF Code of Conduct](code-of-conduct.md).
 
 ### Gen AI policy
 
-Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [shared Gen AI Policy](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#gen-ai-policy).
 
 ## ⭐ Star History
 

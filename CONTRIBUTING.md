@@ -1,6 +1,10 @@
 # Contributing to Kepler 🌱
 
 Thanks for your interest in contributing to Kepler! This guide will help you get started with contributing to our project.
+This guide focuses primarily on technical contributions to the core Kepler project.
+
+For general contribution guidelines, community engagement, and contributor growth, visit the
+[Kepler Community Repository](https://github.com/sustainable-computing-io/community).
 
 ## What Should I Know Before I Get Started? 🤔
 
@@ -13,7 +17,7 @@ Kepler is a Go-based project focused on sustainable computing. Before contributi
 
 ## Gen AI policy
 
-Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [shared Gen AI Policy](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#gen-ai-policy).
 
 ## How Do I Start Contributing? 🚀
 
@@ -28,9 +32,7 @@ Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
 ### Keep Your Company Affiliation Up to Date 🏢
 
-The CNCF tracks project health on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) using affiliation data from [cncf/gitdm](https://github.com/cncf/gitdm). DevStats attributes contributions to a company only through a `cncf/gitdm` entry, so contributors without one count toward no company.
-
-If you are affiliated with a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
+See the [shared company affiliation guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#keep-your-company-affiliation-up-to-date-).
 
 ## How Can I Contribute? 💡
 
@@ -66,24 +68,24 @@ every PR into a single commit.
 
 ### Reporting Bugs 🐛
 
-Found a bug? Please report it by creating an issue with the bug template. Include:
+Before reporting a bug, review the
+[shared bug reporting guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#reporting-bugs-).
 
-- A clear and descriptive title
-- Steps to reproduce the issue
-- Expected vs actual behavior
-- Screenshots or logs if applicable
-- Your environment details (OS, Go version, etc.)
+To report a bug specific to Kepler, select the **Bug Report**
+template when [creating a new issue](https://github.com/sustainable-computing-io/kepler/issues/new/choose).
+
+Include your Go version where applicable.
 
 ### Suggesting Enhancements ✨
 
 #### How Do I Submit A (Good) Enhancement Suggestion?
 
-Enhancement suggestions are tracked as GitHub issues. Create an issue with the enhancement template and provide:
+Review the
+[shared enhancement guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#suggesting-enhancements-).
 
-- A clear and descriptive title
-- A detailed description of the proposed enhancement
-- Any potential implementation ideas you have
-- Why this enhancement would be useful to most Kepler users
+To propose a new feature or enhancement for Kepler, select the
+**Feature Request** template when
+[creating a new issue](https://github.com/sustainable-computing-io/kepler/issues/new/choose).
 
 #### How Do I Submit A (Good) Improvement Item?
 
