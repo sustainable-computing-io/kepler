@@ -62,8 +62,9 @@ request. Comment on the issue to ask for it. Opening an issue and a pull request
 together does not count as triage.
 
 Link the issue in the pull request description, for example `Closes #123` or
-`Part of #123`. Features and design changes also need an accepted
-[enhancement proposal](docs/developer/proposal/EP-TEMPLATE.md) first.
+`Part of #123`. Maintainers say in the issue whether the change also needs an
+enhancement proposal first. See
+[Do I Need An Enhancement Proposal (EP) Before My PR?](#do-i-need-an-enhancement-proposal-ep-before-my-pr-)
 
 These pull requests skip the triage requirement:
 
