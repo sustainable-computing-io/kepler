@@ -41,7 +41,7 @@ You can configure Kepler by passing flags when starting the service. The followi
 | `--experimental.platform.redfish.node-name`   | Node name for experimental Redfish platform power monitoring            | `""`                            | Any valid node name                                                |
 | `--experimental.platform.redfish.config-file` | Path to experimental Redfish BMC configuration file                     | `""`                            | Any valid file path                                                |
 | `--experimental.hwmon.force-enabled`          | Force hwmon as power meter, skipping RAPL auto-detection                | `false`                         | `true`, `false`                                                    |
-| `--experimental.hwmon.zones`                  | hwmon zones to be enabled (can be specified multiple times)             | All available zones             | Any valid hwmon zone name                                          |
+| `--experimental.hwmon.zones`                  | hwmon sensor labels to enable (can be specified multiple times)         | All available zones             | sensor label, or unlabeled `<chip>_powerN` / `<chip>_energyN`      |
 | `--experimental.gpu.enabled`                  | Enable experimental GPU power monitoring                                | `false`                         | `true`, `false`                                                    |
 | `--experimental.gpu.idle-power`               | GPU idle power in Watts (0 = auto-detect)                               | `0`                             | Any non-negative float                                             |
 | `--experimental.gpu.dcgm-endpoint`            | dcgm-exporter metrics endpoint for MIG power attribution                | `""` (auto-discover)            | URL (e.g., `http://10.0.0.1:9400/metrics`)                         |
@@ -186,7 +186,7 @@ experimental:   # experimental features (no stability guarantees)
       httpTimeout: 5s                 # HTTP timeout for BMC requests (default: 5s)
   hwmon:        # hwmon power monitoring
     forceEnabled: false               # DEPRECATED: set cpu.preferredMeters: ["hwmon"] instead. Emits a deprecation warning when true.
-    zones: []                         # hwmon zones to be enabled, empty enables all available zones
+    zones: []                         # sensor labels, or unlabeled <chip>_powerN/<chip>_energyN; empty enables all
     chipRules: []                     # User-defined chip pairing rules (override/add to hardcoded defaults)
   gpu:          # GPU power monitoring
     enabled: false                    # Enable GPU power monitoring (default: false)
@@ -550,9 +550,10 @@ bmcs:
   - The default meter order tries hwmon if RAPL is unavailable
   - Forcing hwmon requires available hwmon power sensors
 
-- **zones**: List of hwmon zones to enable (default: all available power zones)
-  - By default, Kepler enables all available hwmon power zones
-  - You can restrict to specific zones by listing them
+- **zones**: List of hwmon sensor labels to enable (default: all available power zones)
+  - Matches the cleaned sensor label from `powerN_label`, `energyN_label`, or `inN_label` (lowercased, other characters replaced by `_`) before collision renaming
+  - `package` selects every zone with that label; a suffixed name such as `package_k10temp` from the `zone` metric does not match
+  - An unlabeled sensor matches its `<chip>_powerN` / `<chip>_energyN` fallback name, which is also the exported `zone` name
 
 - **chipRules**: User-defined chip pairing rules for voltage/current sensors (default: empty)
   - Allows overriding hardcoded chip rules or adding support for new chips
