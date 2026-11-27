@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,6 +26,17 @@ const (
 
 	// waitForStable: wait for stable baseline readings
 	waitForStable = 12 * time.Second
+
+	// proportionalEnergyWindow is 4 monitor intervals (3s). A single watts
+	// scrape follows the latest refresh, which can be ~1.5s with 500ms
+	// staleness; 75/25 CPU-time ratio stddev is ~0.12 over 1.5s and
+	// ~0.01 over 12s.
+	proportionalEnergyWindow = 12 * time.Second
+
+	// proportionalRatioDelta is ±10% around the expected 3.0 high/low
+	// ratio (band 2.7–3.3) of energy accumulated over
+	// proportionalEnergyWindow.
+	proportionalRatioDelta = 0.3
 )
 
 // TestStressWorkloadDetected verifies that a stress-ng process appears in Kepler metrics
@@ -419,35 +431,54 @@ func TestProportionalPowerAttribution(t *testing.T) {
 		WithCPULoad(75),
 	)
 	defer workloadHigh.Stop()
+	waitForStressNGCPUWorkerPIDs(t, workloadLow, 1, waitForLoad)
+	waitForStressNGCPUWorkerPIDs(t, workloadHigh, 1, waitForLoad)
 
-	// Wait for workloads to stabilize and appear in metrics
-	time.Sleep(waitForLoad)
+	ctx, cancel := context.WithTimeout(context.Background(), waitForLoad)
+	defer cancel()
 
-	snapshot, err := scraper.TakeSnapshot()
-	require.NoError(t, err, "Failed to take snapshot")
+	var first *common.MetricsSnapshot
+	err := common.WaitForCondition(ctx, time.Second, func() bool {
+		s, snapErr := scraper.TakeSnapshot()
+		if snapErr != nil {
+			return false
+		}
+		_, lowFound := FindWorkloadEnergy(s, workloadLow)
+		_, highFound := FindWorkloadEnergy(s, workloadHigh)
+		if !lowFound || !highFound {
+			return false
+		}
+		first = s
+		return true
+	})
+	require.NoError(t, err, "both workloads should appear in kepler_process_cpu_joules_total")
 
-	lowPower, lowFound := FindWorkloadPower(snapshot, workloadLow)
-	highPower, highFound := FindWorkloadPower(snapshot, workloadHigh)
+	time.Sleep(proportionalEnergyWindow)
 
-	t.Logf("Low load (25%%): found=%v, power=%.4f W", lowFound, lowPower)
-	t.Logf("High load (75%%): found=%v, power=%.4f W", highFound, highPower)
+	second, err := scraper.TakeSnapshot()
+	require.NoError(t, err, "Failed to take second snapshot")
 
-	// Both should be found
-	if !lowFound || !highFound {
-		t.Log("One or both workloads not found - skipping proportionality check")
-		return
-	}
+	lowStart, _ := FindWorkloadEnergy(first, workloadLow)
+	highStart, _ := FindWorkloadEnergy(first, workloadHigh)
+	lowEnd, lowFound := FindWorkloadEnergy(second, workloadLow)
+	highEnd, highFound := FindWorkloadEnergy(second, workloadHigh)
 
-	// Both should have positive power
-	if lowPower <= 0 || highPower <= 0 {
-		t.Log("One or both workloads have zero power - skipping proportionality check")
-		return
-	}
+	lowDelta := lowEnd - lowStart
+	highDelta := highEnd - highStart
 
-	// The high-load workload should have more power than the low-load workload
-	assert.Greater(t, highPower, lowPower,
-		"Higher CPU load should result in higher power attribution")
+	t.Logf("Low load (25%%): found=%v, delta=%.4f J", lowFound, lowDelta)
+	t.Logf("High load (75%%): found=%v, delta=%.4f J", highFound, highDelta)
+	t.Logf("Energy window: %s", proportionalEnergyWindow)
 
-	ratio := highPower / lowPower
-	t.Logf("Power ratio (high/low): %.2f (expected ~3.0 for 75%%/25%%)", ratio)
+	require.True(t, lowFound, "Low-load workload should be detected in metrics")
+	require.True(t, highFound, "High-load workload should be detected in metrics")
+	require.Greater(t, lowDelta, 0.0, "Low-load workload should have positive energy delta")
+	require.Greater(t, highDelta, 0.0, "High-load workload should have positive energy delta")
+
+	assert.Greater(t, highDelta, lowDelta,
+		"Higher CPU load should result in higher energy attribution")
+
+	ratio := highDelta / lowDelta
+	t.Logf("Energy ratio (high/low): %.2f over %s (expected ~3.0 for 75%%/25%%)", ratio, proportionalEnergyWindow)
+	assert.InDelta(t, 3.0, ratio, proportionalRatioDelta, "Energy ratio should be ~3.0 for 75%/25% CPU load")
 }

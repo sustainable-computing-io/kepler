@@ -477,24 +477,7 @@ func waitForFakeGPUIdle(t *testing.T, scraper *common.MetricsScraper) {
 func waitForFakeGPUWorkerPIDs(t *testing.T, w *Workload) []string {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), gpuSettleTimeout)
-	defer cancel()
-
-	err := common.WaitForCondition(ctx, 200*time.Millisecond, func() bool {
-		var workers []int
-		for _, pid := range findChildPIDs(w.ParentPID()) {
-			comm, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
-			if err != nil {
-				continue
-			}
-			if strings.HasPrefix(strings.TrimSpace(string(comm)), "stress-ng-cpu") {
-				workers = append(workers, pid)
-			}
-		}
-		w.workerPIDs = workers
-		return len(workers) == 2
-	})
-	require.NoError(t, err, "stress-ng never started exactly 2 CPU workers (got %v)", w.PIDs())
+	waitForStressNGCPUWorkerPIDs(t, w, 2, gpuSettleTimeout)
 
 	pids := make([]string, len(w.PIDs()))
 	for i, pid := range w.PIDs() {
