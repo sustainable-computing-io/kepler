@@ -11,12 +11,16 @@ on: # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
-  analysis:
+  # Code scanning includes this job ID in the analysis key, so changing it
+  # would start a new code scanning configuration.
+  upload-sarif:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
       # Needed to checkout code.
       contents: read
+      # Needed to upload the results to the code scanning dashboard.
+      security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
@@ -53,25 +57,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: scorecard-sarif-raw
+          name: SARIF file
           path: scorecard-results.sarif
           retention-days: 1 # Keeping the results for 1 day
-
-  upload-sarif:
-    name: Upload SARIF
-    needs: analysis
-    runs-on: ubuntu-latest
-    permissions:
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
-      # Needed to download workflow artifacts.
-      actions: read
-
-    steps:
-      - name: Download raw SARIF artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: scorecard-sarif-raw
 
       # Upload the results to GitHub's code scanning dashboard.
       - name: Upload to code-scanning
