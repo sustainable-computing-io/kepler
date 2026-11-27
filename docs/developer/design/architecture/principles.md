@@ -37,7 +37,7 @@ terminatedPodsTracker       *TerminatedResourceTracker[*Pod]
 ```yaml
 monitor:
   maxTerminated: 100  # Track top 100 terminated workloads by energy
-  minTerminatedEnergyThreshold: 10  # At least 10 J in the primary zone
+  minTerminatedEnergyThreshold: 10  # At least 10 J of primary zone plus GPU energy
 ```
 
 ## 2. Data Consistency, Completeness & Mathematical Integrity

@@ -121,7 +121,6 @@ jobs:
       contents: read
       security-events: write
       id-token: write
-      actions: read
     uses: ./.github/workflows/scorecard.yml
 
   pre-commit:

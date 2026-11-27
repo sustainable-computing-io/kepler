@@ -1,6 +1,10 @@
 # Contributing to Kepler 🌱
 
 Thanks for your interest in contributing to Kepler! This guide will help you get started with contributing to our project.
+This guide focuses primarily on technical contributions to the core Kepler project.
+
+For general contribution guidelines, community engagement, and contributor growth, visit the
+[Kepler Community Repository](https://github.com/sustainable-computing-io/community).
 
 ## What Should I Know Before I Get Started? 🤔
 
@@ -13,7 +17,7 @@ Kepler is a Go-based project focused on sustainable computing. Before contributi
 
 ## Gen AI policy
 
-Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [https://www.linuxfoundation.org/legal/generative-ai](https://www.linuxfoundation.org/legal/generative-ai).
+Our project adheres to the Linux Foundation's Generative AI Policy, which can be viewed at [shared Gen AI Policy](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#gen-ai-policy).
 
 ## How Do I Start Contributing? 🚀
 
@@ -29,9 +33,7 @@ Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
 ### Keep Your Company Affiliation Up to Date 🏢
 
-The CNCF tracks project health on [Kepler DevStats](https://kepler.devstats.cncf.io/d/5/companies-table?orgId=1) using affiliation data from [cncf/gitdm](https://github.com/cncf/gitdm). DevStats attributes contributions to a company only through a `cncf/gitdm` entry, so contributors without one count toward no company.
-
-If you are affiliated with a company, university, or research institution, add or update your affiliation in [cncf/gitdm](https://github.com/cncf/gitdm) following the instructions in its README.
+See the [shared company affiliation guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#keep-your-company-affiliation-up-to-date-).
 
 ## How Can I Contribute? 💡
 
@@ -104,24 +106,24 @@ every PR into a single commit.
 
 ### Reporting Bugs 🐛
 
-Found a bug? Please report it by creating an issue with the bug template. Include:
+Before reporting a bug, review the
+[shared bug reporting guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#reporting-bugs-).
 
-- A clear and descriptive title
-- Steps to reproduce the issue
-- Expected vs actual behavior
-- Screenshots or logs if applicable
-- Your environment details (OS, Go version, etc.)
+To report a bug specific to Kepler, select the **Bug Report**
+template when [creating a new issue](https://github.com/sustainable-computing-io/kepler/issues/new/choose).
+
+Include your Go version where applicable.
 
 ### Suggesting Enhancements ✨
 
 #### How Do I Submit A (Good) Enhancement Suggestion?
 
-Enhancement suggestions are tracked as GitHub issues. Create an issue with the enhancement template and provide:
+Review the
+[shared enhancement guidelines](https://github.com/sustainable-computing-io/community/blob/main/CONTRIBUTING.md#suggesting-enhancements-).
 
-- A clear and descriptive title
-- A detailed description of the proposed enhancement
-- Any potential implementation ideas you have
-- Why this enhancement would be useful to most Kepler users
+To propose a new feature or enhancement for Kepler, select the
+**Feature Request** template when
+[creating a new issue](https://github.com/sustainable-computing-io/kepler/issues/new/choose).
 
 #### How Do I Submit A (Good) Improvement Item?
 
@@ -131,6 +133,60 @@ For smaller improvements to existing functionality:
 - Explain how your improvement makes Kepler better
 - Provide context around why this improvement matters
 - Link to any related issues or discussions
+
+#### Do I Need An Enhancement Proposal (EP) Before My PR? 📝
+
+Kepler follows the [Kubernetes Enhancement Proposal (KEP) process](https://github.com/kubernetes/enhancements/tree/master/keps/sig-architecture/0000-kep-process):
+a proposal is a design document reviewed and agreed on **before** implementation,
+so that large changes are not first discussed in a big PR.
+Not every change needs one. A KEP is reserved for changes that are significant,
+user-visible, or hard to reverse,
+and routine fixes go straight to a PR.
+
+**Open an issue first for every enhancement.** Maintainers will tell you
+in the issue whether an EP is required.
+If you are unsure, ask there before writing code or a proposal.
+
+**An EP is expected when the change:**
+
+- Adds or removes a major feature or a new component, such as a new power meter,
+hardware source, or workload type.
+- Changes the power attribution model or how energy and power are calculated, split,
+or allocated
+- Introduces breaking or hard-to-reverse changes to user-facing behavior:
+metric names, labels, or units, configuration schema or CLI flags,
+or deployment layout
+- Is cross-cutting, spanning several packages or components, or needs
+new external dependencies or elevated privileges
+- Needs a phased rollout, a migration path, or a deprecation period
+- Has several credible designs and needs maintainers to agree before work starts
+
+**An EP is not needed when the change:**
+
+- Fixes a bug, including race conditions and linter errors,
+without changing documented behavior
+- Refactors, cleans up, or optimizes internals without changing behavior
+- Adds or improves tests, documentation, examples, or CI
+- Updates dependencies or makes other routine maintenance changes
+- Is a small, self-contained, backward-compatible improvement,
+such as a minor option or additional metric that follows an existing pattern,
+and a short issue discussion is enough
+
+When in doubt, start with an issue. A maintainer can ask for an EP
+if the discussion shows the change is larger than it first looked.
+
+**Working toward the same goal as someone else?** If more than one contributor
+or organization is working on the same goal, we encourage you to communicate
+in the issue or proposal PR. On request, a maintainer can help organize a
+separate meeting with a small group to divide the tasks and align on the design.
+We encourage recording the meeting notes in a shared document on
+[CNCF Notes](https://notes.cncf.io/) and linking them in the issue or proposal
+PR, so that decisions stay visible to the rest of the community.
+
+**How to submit an EP:** copy [EP-TEMPLATE.md](docs/developer/proposal/EP-TEMPLATE.md),
+submit it as its own PR (see [Enhancement Proposals](docs/developer/proposal/index.md)
+for naming, roles, and status), and get it accepted before
+opening implementation PRs. Reference the EP in those PRs.
 
 ## Development 💻
 

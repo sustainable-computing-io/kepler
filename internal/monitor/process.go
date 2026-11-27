@@ -245,32 +245,15 @@ func (pm *PowerMonitor) calculateProcessPower(prev, newSnapshot *Snapshot) error
 			}
 		}
 
+		// Accumulate CPU energy only for the same process identity.
+		var prevZones ZoneUsageMap
+		if prevProcess := prev.Processes[pid]; prevProcess != nil && prevProcess.StartTime == process.StartTime {
+			prevZones = prevProcess.Zones
+		}
+
 		// For each zone in the node, calculate process's share
 		for zone, nodeZoneUsage := range zones {
-			// Accumulate CPU energy only for the same process identity.
-			var prevEnergy Energy
-			if prev, exists := prev.Processes[pid]; exists && prev.StartTime == process.StartTime {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					prevEnergy = prevUsage.EnergyTotal
-				}
-			}
-
-			// Nothing to attribute this interval, but keep the running total
-			// so the exported counter does not reset.
-			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				process.Zones[zone] = Usage{EnergyTotal: prevEnergy}
-				continue
-			}
-
-			cpuTimeRatio := proc.CPUTimeDelta / nodeCPUTimeDelta
-			// Calculate energy  for this interval
-			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
-
-			// Calculate process's share of this zone's power and energy
-			process.Zones[zone] = Usage{
-				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: prevEnergy + activeEnergy,
-			}
+			process.Zones[zone] = attributeZone(nodeZoneUsage, prevZones[zone].EnergyTotal, proc.CPUTimeDelta, nodeCPUTimeDelta)
 		}
 
 		// Add GPU power attribution if available
