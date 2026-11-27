@@ -24,6 +24,7 @@ An off-cycle maintainer is a contributor granted project write/merge access exce
 
 | Name | Company | Github ID | Email | Role | Date |
 |------|---------|-----------|-------|------|------|
+| Granite Tait | Independent | granman3 | <45244251+granman3@users.noreply.github.com> | Maintainer | 2026-11-27 |
 
 This list must be kept in sync with the
 [CNCF Project Maintainers list](https://github.com/cncf/foundation/blob/master/project-maintainers.csv).
