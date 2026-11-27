@@ -21,12 +21,13 @@ Our project adheres to the Linux Foundation's Generative AI Policy, which can be
 
 ## How Do I Start Contributing? 🚀
 
-1. Fork the repository on GitHub
-2. Clone your fork locally
-3. Set up your development environment (see below)
-4. Create a new branch for your work
-5. Make your changes
-6. Submit a pull request
+1. Find or open an issue, and wait for a maintainer to triage it (see [Pull Request Policy](#pull-request-policy))
+2. Fork the repository on GitHub
+3. Clone your fork locally
+4. Set up your development environment (see below)
+5. Create a new branch for your work
+6. Make your changes
+7. Submit a pull request that links the triaged issue
 
 Don't forget to sign your commits according to our [DCO](DCO) requirements!
 
@@ -41,6 +42,44 @@ See the [shared company affiliation guidelines](https://github.com/sustainable-c
 Our project uses GitHub Actions for CI. Each PR will trigger automated builds and tests. Check the `.github/workflows` directory to understand our CI pipeline. Ensure your contributions pass all CI checks before requesting a review.
 
 In workflows and composite actions, pin actions from other repositories to a full commit SHA and add the release tag in a comment on the same line (`owner/action@<full-commit-sha> # vX.Y.Z`). Dependabot proposes updates to these pins.
+
+### Pull Request Policy
+
+Agree on the direction of a change in an issue before you write the code. A large
+diff for a direction the project has not agreed on costs reviewers time and costs
+you work.
+
+Every pull request links an issue that a maintainer has triaged. New issues get
+the `needs-triage` label automatically. An issue counts as triaged when a
+maintainer gives it one of these labels:
+
+- `triage/accepted`
+- `help wanted`
+- `good first issue`
+
+A `good first issue` also needs to be assigned to you before you open a pull
+request. Comment on the issue to ask for it. Opening an issue and a pull request
+together does not count as triage.
+
+Link the issue in the pull request description, for example `Closes #123` or
+`Part of #123`. Maintainers say in the issue whether the change also needs an
+enhancement proposal first. See
+[Do I Need An Enhancement Proposal (EP) Before My PR?](#do-i-need-an-enhancement-proposal-ep-before-my-pr-)
+
+These pull requests skip the triage requirement:
+
+- Pull requests from maintainers
+- Pull requests from bots, such as Dependabot
+- Small fixes, such as typos or broken links
+
+Fill in every section of the pull request template. Write the description in
+your own words, and give your AI Influence Level (AIL) in the AI Disclosure
+section along with what you checked yourself. You are responsible for every line
+you submit, whatever tools you used.
+
+Maintainers may close a pull request that does not link a triaged issue. A close
+is not a judgment of the work: once the issue is triaged, open a new pull request
+or ask a maintainer to reopen it.
 
 ### Code Review 👀
 

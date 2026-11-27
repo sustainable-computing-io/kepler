@@ -143,8 +143,14 @@ All code must be thread-safe. Start every Go file with these two lines.
 ```
 
 Target `main` unless requested otherwise. Use Conventional Commits for commit messages
-and PR titles. Keep each PR focused, reference the related issue, and update user docs
-for behavior changes. Breaking changes require deprecation and migration guidance.
+and PR titles. Keep each PR focused, link a triaged issue, and fill in every section
+of the [PR template](.github/pull_request_template.md), including the AI Disclosure.
+[Pull request policy](CONTRIBUTING.md#pull-request-policy)
+
+User-visible feature, configuration, metric or deployment changes must ship with
+matching docs. Update `docs/` in the same PR. A follow-up issue alone does not satisfy
+this rule. Internal-only changes can use `Doc - No Need` in the PR template's
+Documentation section. Breaking changes require deprecation and migration guidance.
 When a commit is requested, sign off with `git commit -s` (DCO).
 [Commit hygiene](CONTRIBUTING.md#commit-hygiene)
 
