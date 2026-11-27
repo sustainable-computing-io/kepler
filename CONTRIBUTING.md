@@ -96,15 +96,6 @@ For smaller improvements to existing functionality:
 - Provide context around why this improvement matters
 - Link to any related issues or discussions
 
-#### How Do I Submit A (Good) Improvement Item?
-
-For smaller improvements to existing functionality:
-
-- Focus on a single, specific improvement
-- Explain how your improvement makes Kepler better
-- Provide context around why this improvement matters
-- Link to any related issues or discussions
-
 ## Development 💻
 
 ### Set up your dev environment
