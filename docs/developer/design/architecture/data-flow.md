@@ -57,8 +57,8 @@ current < previous, max = 0:  0
 
 ### Energy Zone Types
 
-These RAPL domains can overlap. The primary zone ranks terminated workloads.
-Readings for the other selected zones are still available.
+These RAPL domains can overlap. The primary zone, plus any GPU energy, ranks
+terminated workloads. Readings for the other selected zones are still available.
 
 | Zone        | Description            | Coverage                 | Priority |
 |-------------|------------------------|--------------------------|----------|
@@ -145,7 +145,8 @@ explains the same model with examples.
 
 A workload observed during collection can exit before an exporter requests
 the next snapshot. The monitor retains its recorded energy, subject to a
-minimum energy threshold in the primary zone and a capacity per workload type.
+minimum threshold on its primary zone plus GPU energy and a capacity per
+workload type.
 A process that starts and exits entirely between collections can go unobserved.
 [Terminated workload tracker](../../../../internal/monitor/terminated_resource_tracker.go)
 

@@ -116,6 +116,11 @@ func (p *Process) StringID() string {
 	return strconv.Itoa(p.PID)
 }
 
+// GPUEnergy implements the gpuEnergyReporter interface
+func (p *Process) GPUEnergy() Energy {
+	return p.GPUEnergyTotal
+}
+
 // lifetimeID distinguishes terminated processes when a PID is reused.
 func (p *Process) lifetimeID() string {
 	return p.StringID() + ":" + strconv.FormatUint(p.StartTime, 10)
@@ -161,6 +166,11 @@ func (c *Container) ZoneUsage() ZoneUsageMap {
 // StringID implements the Resource interface
 func (c *Container) StringID() string {
 	return c.ID
+}
+
+// GPUEnergy implements the gpuEnergyReporter interface
+func (c *Container) GPUEnergy() Energy {
+	return c.GPUEnergyTotal
 }
 
 type Hypervisor = resource.Hypervisor
@@ -232,6 +242,11 @@ func (p *Pod) ZoneUsage() ZoneUsageMap {
 // StringID implements the Resource interface
 func (p *Pod) StringID() string {
 	return p.ID
+}
+
+// GPUEnergy implements the gpuEnergyReporter interface
+func (p *Pod) GPUEnergy() Energy {
+	return p.GPUEnergyTotal
 }
 
 type (
