@@ -315,7 +315,7 @@ make undeploy cluster-down
 
 `hack/test-helm.sh` is used locally and by the Kubernetes CI action. It provides
 chart linting, a fresh installation of the checked-out chart and candidate image,
-and upgrades from the released v0.12.0 chart and image with both default behavior
+and upgrades from the released v0.14.0 chart and image with both default behavior
 and `--reuse-values`. Each deployment case uses its own namespace and shares
 rollout validation, container/pod metrics checks, and `/proc` permission checks.
 The fake CPU meter allows these tests to run without RAPL hardware.
