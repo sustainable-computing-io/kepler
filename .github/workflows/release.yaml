@@ -108,6 +108,7 @@ jobs:
         with:
           name: release-artifacts
           retention-days: 1 # Keep the artifacts for 1 day
+          if-no-files-found: error
           path: |
             helm-releases/*.tgz
             bin/*.tar.gz
@@ -125,8 +126,49 @@ jobs:
           CHART_VERSION=${VERSION#v}
           helm push "helm-releases/kepler-helm-${CHART_VERSION}.tgz" "oci://$IMG_BASE/charts"
 
-  release:
+  sign:
     needs: build
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-artifacts
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+
+      - name: Sign and verify release archives
+        shell: bash
+        run: |
+          version=${RELEASE_TAG#v}
+          identity="https://github.com/sustainable-computing-io/kepler/.github/workflows/release.yaml@refs/tags/$RELEASE_TAG"
+          for archive in "bin/kepler-${version}.linux-amd64.tar.gz" "helm-releases/kepler-helm-${version}.tgz"; do
+            test -s "$archive"
+            cosign sign-blob --yes --bundle "$archive.sigstore.json" "$archive"
+            test -s "$archive.sigstore.json"
+            cosign verify-blob "$archive" --bundle "$archive.sigstore.json" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
+
+      - name: Upload Signed Release Artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-release-artifacts
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            helm-releases/*.tgz
+            helm-releases/*.tgz.sigstore.json
+            bin/*.tar.gz
+            bin/*.tar.gz.sigstore.json
+
+  release:
+    needs: sign
     permissions:
       # contents: write is required for publishing Github Releases
       # This follows Github's recommended pattern: read-only defaults with minimal job-level permissions
@@ -137,7 +179,23 @@ jobs:
       - name: Download Release Artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-artifacts
+          name: signed-release-artifacts
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+
+      - name: Verify downloaded archives
+        shell: bash
+        run: |
+          version=${RELEASE_TAG#v}
+          identity="https://github.com/sustainable-computing-io/kepler/.github/workflows/release.yaml@refs/tags/$RELEASE_TAG"
+          for archive in "bin/kepler-${version}.linux-amd64.tar.gz" "helm-releases/kepler-helm-${version}.tgz"; do
+            test -s "$archive"
+            test -s "$archive.sigstore.json"
+            cosign verify-blob "$archive" --bundle "$archive.sigstore.json" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
@@ -149,6 +207,8 @@ jobs:
           make_latest: true
           files: |
             helm-releases/*.tgz
+            helm-releases/*.tgz.sigstore.json
             bin/*.tar.gz
+            bin/*.tar.gz.sigstore.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

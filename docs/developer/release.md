@@ -8,6 +8,13 @@ This document describes the release workflow for Kepler.
 - Container images are stored in Quay.io
 - The workflow is fully automated through GitHub Actions
 
+## Archive signatures
+
+The release workflow signs the final binary and Helm chart archives with
+Sigstore Cosign. Each archive has a matching `.sigstore.json` bundle. The
+signing job verifies both bundles. The release job verifies them again after
+it downloads the signed artifacts. A failed check stops release publication.
+
 ## Release Process Overview
 
 ![Release Workflow](assets/release.png)
