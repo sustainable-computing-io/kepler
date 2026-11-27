@@ -206,6 +206,34 @@ func TestPodPowerCalculation(t *testing.T) {
 		}
 	})
 
+	t.Run("calculatePodPower_adds_share_to_previous_total", func(t *testing.T) {
+		resInformer.ClearExpectations()
+
+		tr := CreateTestResources(createOnly(testPods, testNode))
+		require.NotNil(t, tr.Pods)
+		resInformer.SetExpectations(t, tr)
+
+		// The previous record has a total for the first zone only
+		prevSnapshot := NewSnapshot()
+		prevSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now(), 0.5)
+		prevSnapshot.Pods["pod-id-1"] = &Pod{
+			ID:    "pod-id-1",
+			Zones: ZoneUsageMap{zones[0]: {EnergyTotal: 25 * Joule}},
+		}
+
+		newSnapshot := NewSnapshot()
+		newSnapshot.Node = createNodeSnapshot(zones, fakeClock.Now().Add(time.Second), 0.5)
+
+		err := monitor.calculatePodPower(prevSnapshot, newSnapshot)
+		require.NoError(t, err)
+
+		// pod-id-1 has 40% of the CPU time, and each zone has 50 J and 25 W active
+		pod := newSnapshot.Pods["pod-id-1"]
+		require.NotNil(t, pod)
+		assert.Equal(t, Usage{EnergyTotal: 45 * Joule, Power: 10 * Watt}, pod.Zones[zones[0]]) // 25 J + 20 J
+		assert.Equal(t, Usage{EnergyTotal: 20 * Joule, Power: 10 * Watt}, pod.Zones[zones[1]]) // no previous total
+	})
+
 	t.Run("calculatePodPower_without_pods", func(t *testing.T) {
 		resInformer.ClearExpectations()
 

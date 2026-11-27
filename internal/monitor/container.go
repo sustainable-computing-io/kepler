@@ -125,39 +125,17 @@ func (pm *PowerMonitor) calculateContainerPower(prev, newSnapshot *Snapshot) err
 	// For each container, calculate power for each zone separately
 	for id, c := range cntrs.Running {
 		container := newContainer(c, zones)
+
+		// Totals carry over from the previous snapshot. A new container starts from zero.
+		var prevZones ZoneUsageMap
 		if prevContainer := prev.Containers[id]; prevContainer != nil {
 			container.GPUEnergyTotal = prevContainer.GPUEnergyTotal
+			prevZones = prevContainer.Zones
 		}
-
-		// Calculate CPU time ratio for this container
 
 		// For each zone in the node, calculate container's share
 		for zone, nodeZoneUsage := range zones {
-			// Previous total for this zone; a new container starts from zero
-			var prevEnergy Energy
-			if prev, exists := prev.Containers[id]; exists {
-				if prevUsage, hasZone := prev.Zones[zone]; hasZone {
-					prevEnergy = prevUsage.EnergyTotal
-				}
-			}
-
-			// Skip zones with zero power to avoid division by zero, but keep
-			// the running total so the exported counter does not reset.
-			if nodeZoneUsage.ActivePower == 0 || nodeZoneUsage.activeEnergy == 0 || nodeCPUTimeDelta == 0 {
-				container.Zones[zone] = Usage{EnergyTotal: prevEnergy}
-				continue
-			}
-
-			cpuTimeRatio := c.CPUTimeDelta / nodeCPUTimeDelta
-
-			// Calculate energy delta for this interval
-			activeEnergy := Energy(cpuTimeRatio * float64(nodeZoneUsage.activeEnergy))
-
-			// Calculate container's share of this zone's power and energy
-			container.Zones[zone] = Usage{
-				Power:       Power(cpuTimeRatio * nodeZoneUsage.ActivePower.MicroWatts()),
-				EnergyTotal: prevEnergy + activeEnergy,
-			}
+			container.Zones[zone] = attributeZone(nodeZoneUsage, prevZones[zone].EnergyTotal, c.CPUTimeDelta, nodeCPUTimeDelta)
 		}
 
 		containerMap[id] = container
