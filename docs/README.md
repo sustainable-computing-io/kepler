@@ -12,6 +12,7 @@ Documentation for users deploying and operating Kepler:
 - [Helm Updates Guide](user/helm-updates.md) - Managing Kepler updates and rolling deployments
 - [Configuration Guide](user/configuration.md) - Configuring Kepler for your environment
 - [Metrics Reference](user/metrics.md) - Available Prometheus metrics exported by Kepler
+- [Sample PromQL Queries](user/promql-queries.md) - Common and recommended PromQL queries across nodes, pods, and containers
 
 ### [Developer Documentation](developer/)
 
