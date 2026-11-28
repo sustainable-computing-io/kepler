@@ -609,6 +609,7 @@ experimental:
   - When enabled, Kepler will collect power metrics from NVIDIA GPUs using NVML
   - Requires NVIDIA drivers and NVML library to be available
   - Supports per-process power attribution based on GPU compute utilization
+  - Per-process, container and pod GPU power need Kepler in the host PID namespace (`hostPID: true`, the default in the manifests and Helm chart, or `pid: host` with Docker and Compose). Without it, NVML returns no GPU processes to Kepler, which then reports only node-level GPU metrics
 - **idlePower**: GPU idle power in Watts (default: 0 = auto-detect)
   - When set to 0, Kepler auto-detects idle power by tracking the minimum power observed when no compute processes are running
   - Set to a non-zero value to override auto-detection (useful when GPUs are always under load and true idle cannot be observed)
